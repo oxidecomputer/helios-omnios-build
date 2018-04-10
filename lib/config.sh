@@ -225,8 +225,10 @@ reset_configure_opts
 # Configure options to apply to both builds - this is the one you usually want
 # to change for things like --enable-feature
 CONFIGURE_OPTS=
-# Configure options that can contain embeeded white-space within escaped quotes
+# Configure options that can contain embedded white-space within escaped quotes
 CONFIGURE_OPTS_WS=
+CONFIGURE_OPTS_WS_32=
+CONFIGURE_OPTS_WS_64=
 
 # Vim hints
 # vim:ts=4:sw=4:et:fdm=marker

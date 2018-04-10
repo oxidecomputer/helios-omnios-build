@@ -1178,7 +1178,7 @@ make_clean() {
 
 configure32() {
     logmsg "--- configure (32-bit)"
-    eval set -- $CONFIGURE_OPTS_WS
+    eval set -- $CONFIGURE_OPTS_WS_32 $CONFIGURE_OPTS_WS
     CFLAGS="$CFLAGS $CFLAGS32" \
         CXXFLAGS="$CXXFLAGS $CXXFLAGS32" \
         CPPFLAGS="$CPPFLAGS $CPPFLAGS32" \
@@ -1191,7 +1191,7 @@ configure32() {
 
 configure64() {
     logmsg "--- configure (64-bit)"
-    eval set -- $CONFIGURE_OPTS_WS
+    eval set -- $CONFIGURE_OPTS_WS_64 $CONFIGURE_OPTS_WS
     CFLAGS="$CFLAGS $CFLAGS64" \
         CXXFLAGS="$CXXFLAGS $CXXFLAGS64" \
         CPPFLAGS="$CPPFLAGS $CPPFLAGS64" \
