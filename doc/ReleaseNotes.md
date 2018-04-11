@@ -26,9 +26,6 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
 
 ### Commands and Command Options
 
-* `netstat` supports the `-c` option to include CIDR mask length after
-  addresses. This is a less verbose alternative to adding `-v`.
-
 * `netstat` supports the `-u` option to include information on the process(es)
   to which sockets are associated. A socket may be associated by more than
   one process as shown in the example below:
