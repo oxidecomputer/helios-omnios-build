@@ -27,9 +27,9 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.56.0
+VER=2.56.1
 PKG=library/glib2
-SUMMARY="$PROG - GNOME GLib utility library"
+SUMMARY="$PROG - GNOME utility library"
 DESC="$SUMMARY"
 
 DEPENDS_IPS="
