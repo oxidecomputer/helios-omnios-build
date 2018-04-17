@@ -29,7 +29,7 @@
 . ../../lib/functions.sh
 
 PROG=fio
-VER=3.5
+VER=3.6
 VERHUMAN=$VER
 PKG=system/test/fio
 SUMMARY="Flexible IO Tester"
@@ -40,16 +40,8 @@ BUILDDIR=$PROG-$PROG-$VER
 CONFIGURE_OPTS=
 CONFIGURE_OPTS_32=
 CONFIGURE_OPTS_64="--extra-cflags=-m64"
-
-make_install32() {
-    logcmd $MAKE DESTDIR=${DESTDIR} bindir="/usr/bin/i386" install || \
-        logerr "--- Make install failed"
-}
-
-make_install64() {
-    logcmd $MAKE DESTDIR=${DESTDIR} bindir="/usr/bin/amd64" install || \
-        logerr "--- Make install failed"
-}
+MAKE_INSTALL_ARGS_32="bindir=/usr/bin/i386"
+MAKE_INSTALL_ARGS_64="bindir=/usr/bin/amd64"
 
 init
 download_source $PROG $PROG $VER

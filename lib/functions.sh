@@ -1220,17 +1220,18 @@ make_prog64() {
 }
 
 make_install() {
+    local args="$@"
     logmsg "--- make install"
-    logcmd $MAKE DESTDIR=${DESTDIR} $MAKE_INSTALL_ARGS install || \
+    logcmd $MAKE DESTDIR=${DESTDIR} $args $MAKE_INSTALL_ARGS install || \
         logerr "--- Make install failed"
 }
 
 make_install32() {
-    make_install
+    make_install $MAKE_INSTALL_ARGS_32
 }
 
 make_install64() {
-    make_install
+    make_install $MAKE_INSTALL_ARGS_64
 }
 
 make_pure_install() {

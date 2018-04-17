@@ -141,6 +141,8 @@ MJOBS="$[ $LCPUS + ($LCPUS / 2) ]"
 MAKE_JOBS="-j $MJOBS"
 MAKE_ARGS=
 MAKE_INSTALL_ARGS=
+MAKE_INSTALL_ARGS_32=
+MAKE_INSTALL_ARGS_64=
 NO_PARALLEL_MAKE=
 
 # Remove install or packaging files by default. You can set this in a build
