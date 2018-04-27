@@ -20,15 +20,14 @@
 #
 # CDDL HEADER END }}}
 #
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../../lib/functions.sh
 
 PKG=library/python-2/ipaddress-27
 PROG=ipaddress
-VER=1.0.19
+VER=1.0.22
 SUMMARY="ipaddress - IPv4/IPv6 manipulation library"
 DESC="$SUMMARY"
 
