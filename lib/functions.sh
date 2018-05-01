@@ -729,12 +729,15 @@ download_source() {
     fi
 
     # Fetch and verify the archive checksum
-    if get_resource $DLDIR/$FILENAME.sha256; then
+    logmsg "Verifying checksum of downloaded file."
+    if [ ! -f "$FILENAME.sha256" ]; then
+        get_resource $DLDIR/$FILENAME.sha256 \
+            || logerr "Unable to download SHA256 checksum file for $FILENAME"
+    fi
+    if [ -f "$FILENAME.sha256" ]; then
         sum="`digest -a sha256 $FILENAME`"
         [ "$sum" = "`cat $FILENAME.sha256`" ] \
             || logerr "Checksum of downloaded file does not match."
-    else
-        logerr "Unable to find SHA256 checksum file for $FILENAME"
     fi
 
     # Extract the archive
