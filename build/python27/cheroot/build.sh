@@ -20,15 +20,14 @@
 #
 # CDDL HEADER END }}}
 #
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-2/cheroot-27
 PROG=cheroot
-VER=6.0.0
+VER=6.2.4
 SUMMARY="cheroot - Highly-optimized, pure-python HTTP server"
 DESC="$SUMMARY"
 

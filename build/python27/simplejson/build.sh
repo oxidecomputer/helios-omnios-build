@@ -21,14 +21,14 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-2/simplejson-27
 PROG=simplejson
-VER=3.13.2
+VER=3.14.0
 SUMMARY="simplejson - Python interface to JSON for Python"
 DESC="$SUMMARY"
 

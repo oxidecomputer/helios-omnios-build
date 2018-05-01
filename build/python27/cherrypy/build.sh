@@ -28,7 +28,7 @@
 
 PKG=library/python-2/cherrypy-27
 PROG=CherryPy
-VER=14.0.1
+VER=14.2.0
 SUMMARY="cherrypy - A Minimalist Python Web Framework"
 DESC="$SUMMARY"
 
@@ -40,6 +40,7 @@ RUN_DEPENDS_IPS+="
     library/python-2/portend-27
     library/python-2/cheroot-27
     library/python-2/jaraco.classes-27
+    library/python-2/functools_lru_cache-27
 "
 
 init
