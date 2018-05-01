@@ -27,18 +27,20 @@
 . ../../lib/functions.sh
 
 PROG=sudo
-VER=1.8.22
+VER=1.8.23
 VERHUMAN=$VER
 PKG=security/sudo
 SUMMARY="$PROG - authority delegation tool"
 DESC="$SUMMARY"
 
-#LIBS="-lssp_nonshared"
-LIBS=""
-export LIBS
-CONFIGURE_OPTS_32="$CONFIGURE_OPTS_32 --bindir=/usr/bin --sbindir=/usr/sbin --libexecdir=/usr/lib/sudo"
-CONFIGURE_OPTS_64="$CONFIGURE_OPTS_64 --libexecdir=/usr/lib/sudo/amd64"
-CFLAGS="$CFLAGS -fno-stack-protector"
+CONFIGURE_OPTS_32+="
+    --bindir=/usr/bin
+    --sbindir=/usr/sbin
+    --libexecdir=/usr/lib/sudo
+"
+CONFIGURE_OPTS_64+="
+    --libexecdir=/usr/lib/sudo/amd64
+"
 CONFIGURE_OPTS="
     --with-ldap
     --with-project
@@ -53,15 +55,12 @@ CONFIGURE_OPTS="
 "
 
 make_install64() {
-    # If this file exists, install will attempt to validate it
-    # which will fail becuase we aren't running as root
+    # This file will exist from the 32-bit 'make install' and so this
+    # install will attempt to validate it and will fail because we aren't
+    # running as root. Remove the file and let the 64-bit installation
+    # re-create it.
     logcmd rm -f $DESTDIR/etc/sudoers
     make_install
-    # Now cleanup the bits we didn't want (amd64 bins/includes)
-    logcmd rm -rf $DESTDIR/usr/bin/amd64
-    logcmd rm -rf $DESTDIR/usr/sbin/amd64
-    logcmd rm -rf $DESTDIR/usr/include/amd64
-    logcmd rm -rf $DESTDIR/var/db
 }
 
 init
