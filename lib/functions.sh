@@ -667,19 +667,14 @@ get_resource() {
 #       download_source myprog myprog 1.2.3 will try:
 #       http://mirrors.omniosce.org/myprog/myprog-1.2.3.tar.gz
 download_source() {
-    local DLDIR=$1
-    local PROG=$2
-    local VER=$3
-    local TARGETDIR=$4
-    if [ -z "$VER" ]; then
-        local ARCHIVEPREFIX=$PROG
-    else
-        local ARCHIVEPREFIX=$PROG-$VER
-    fi
-    if [ -z "$TARGETDIR" ]; then
-        # Default to $TMPDIR if no output dir specified
-        TARGETDIR=$TMPDIR
-    fi
+    local DLDIR="$1"
+    local PROG="$2"
+    local VER="$3"
+    local TARGETDIR="$4"
+    local ARCHIVEPREFIX="$PROG"
+    [ -n "$VER" ] && ARCHIVEPREFIX+="-$VER"
+    [ -z "$TARGETDIR" ] && TARGETDIR="$TMPDIR"
+
     # Create TARGETDIR if it doesn't exist
     if [ ! -d "$TARGETDIR" ]; then
         logmsg "Creating target directory $TARGETDIR"
@@ -695,8 +690,7 @@ download_source() {
                 "(REMOVE_PREVIOUS=$REMOVE_PREVIOUS)"
             logcmd rm -rf $BUILDDIR || \
                 logerr "Failed to remove source directory"
-        elif check_for_patches "to see if we need to remove the source dir"
-        then
+        elif check_for_patches "to see if we need to remove the source"; then
             logmsg "--- Patches are present, removing source directory"
             logcmd rm -rf $BUILDDIR || \
                 logerr "Failed to remove source directory"
@@ -733,11 +727,20 @@ download_source() {
     else
         logmsg "--- $PROG source archive found"
     fi
+
+    # Fetch and verify the archive checksum
+    if get_resource $DLDIR/$FILENAME.sha256; then
+        sum="`digest -a sha256 $FILENAME`"
+        [ "$sum" = "`cat $FILENAME.sha256`" ] \
+            || logerr "Checksum of downloaded file does not match."
+    else
+        logerr "Unable to find SHA256 checksum file for $FILENAME"
+    fi
+
     # Extract the archive
     logmsg "Extracting archive: $FILENAME"
-    if ! logcmd extract_archive $FILENAME; then
-        logerr "--- Unable to extract archive."
-    fi
+    logcmd extract_archive $FILENAME || logerr "--- Unable to extract archive."
+
     # Make sure the archive actually extracted some source where we expect
     if [ ! -d "$BUILDDIR" ]; then
         logerr "--- Extracted source is not in the expected location" \
