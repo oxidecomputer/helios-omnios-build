@@ -61,7 +61,7 @@
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
 | runtime/perl				| 5.26.2		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.14		| https://www.python.org/downloads/source/
-| security/sudo				| 1.8.22		| https://www.sudo.ws/
+| security/sudo				| 1.8.23		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p11		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.0			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.11			| https://github.com/corecode/dma/releases
