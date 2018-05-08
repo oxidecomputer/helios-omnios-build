@@ -42,11 +42,6 @@ XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 export LD_LIBRARY_PATH=$OPT/lib
 export PATH=/usr/perl5/$PERLVER/bin:$OPT/bin:$PATH
 
-# Use a dedicated temporary directory
-# (avoids conflicts with other gcc versions during parallel builds)
-export TMPDIR=$TMPDIR/gcc-$GCCMAJOR
-export DTMPDIR=$TMPDIR
-
 RUN_DEPENDS_IPS="
     developer/library/lint
     developer/linker
@@ -73,17 +68,24 @@ CONFIGURE_OPTS="
     --with-boot-ldflags=-R$OPT/lib
     --with-gmp-include=/usr/include/gmp
     --enable-languages=c,c++,fortran,lto
+    --enable-plugins
     --enable-__cxa_atexit
     --without-gnu-ld --with-ld=/bin/ld
     --with-as=/usr/bin/gas --with-gnu-as
-    --with-build-time-tools=/usr/gnu/i386-pc-solaris2.11/bin"
+    --with-build-time-tools=/usr/gnu/i386-pc-solaris2.11/bin
+"
+CONFIGURE_OPTS_WS="
+    --with-pkgversion=\"OmniOS $RELVER\"
+    --with-bugurl=https://github.com/omniosorg/omnios-build/issues
+"
 LDFLAGS32="-R$OPT/lib"
 export LD_OPTIONS="-zignore -zcombreloc -i"
 
 # If the selected compiler is the same version as the one we're building
 # then the three-stage bootstrap is unecessary and some build time can be
 # saved.
-[ "`gcc -v 2>&1 | nawk '/^gcc version/ { print $3 }'`" = "$VER" ] \
+[ -z "$FORCE_BOOTSTRAP" ] \
+    && [ "`gcc -v 2>&1 | nawk '/^gcc version/ { print $3 }'`" = "$VER" ] \
     && CONFIGURE_OPTS+=" --disable-bootstrap" \
     && logmsg "--- disabling bootstrap"
 

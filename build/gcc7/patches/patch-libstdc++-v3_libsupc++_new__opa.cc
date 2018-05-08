@@ -2,9 +2,9 @@ $NetBSD: patch-libstdc++-v3_libsupc++_new__opa.cc,v 1.2 2017/05/12 18:10:56 jper
 
 Ensure we can find SunOS std::aligned_alloc if using it.
 
-diff -pruN '--exclude=*.orig' gcc-7.2.0~/libstdc++-v3/libsupc++/new_opa.cc gcc-7.2.0/libstdc++-v3/libsupc++/new_opa.cc
---- gcc-7.2.0~/libstdc++-v3/libsupc++/new_opa.cc	2017-01-26 14:30:45.014860000 +0000
-+++ gcc-7.2.0/libstdc++-v3/libsupc++/new_opa.cc	2017-11-14 10:34:07.005955715 +0000
+diff -prwuN '--exclude=*.orig' gcc-7.3.0~/libstdc++-v3/libsupc++/new_opa.cc gcc-7.3.0/libstdc++-v3/libsupc++/new_opa.cc
+--- gcc-7.3.0~/libstdc++-v3/libsupc++/new_opa.cc	2017-01-26 14:30:45.014860000 +0000
++++ gcc-7.3.0/libstdc++-v3/libsupc++/new_opa.cc	2018-05-08 14:43:43.829202334 +0000
 @@ -31,6 +31,10 @@
  using std::new_handler;
  using std::bad_alloc;
