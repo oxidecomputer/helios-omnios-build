@@ -166,7 +166,7 @@ CC=gcc
 CXX=g++
 
 # Specify default GCC version for building packages
-DEFAULT_GCC_VER=6
+DEFAULT_GCC_VER=7
 
 # CFLAGS applies to both builds, 32/64 only gets applied to the respective
 # build
