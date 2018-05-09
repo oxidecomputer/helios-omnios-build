@@ -33,6 +33,11 @@ export SHELL
 # Load support functions
 . ../../lib/functions.sh
 
+# XXX - with gcc7
+# ld.so.1: perl: fatal: relocation error:
+# file libperl.so: symbol __udivmoddi4: referenced symbol not found
+set_gccver 6
+
 case $DEPVER in
     "")
         DEPVER=5.26.2

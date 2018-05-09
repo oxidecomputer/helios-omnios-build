@@ -50,7 +50,6 @@ build() {
     [[ $BUILDARCH =~ ^(32|both)$ ]] && build32
 }
 
-LIBTOOL_NOSTDLIB=libtool
 TESTSUITE_FILTER="^TEST[A-Z]"
 
 init

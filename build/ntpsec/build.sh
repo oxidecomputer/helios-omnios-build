@@ -101,7 +101,8 @@ prep_build
 build
 # Force the testsuite output to be sorted by the binary being tested
 # to aid comparison; also remove binary paths from test log
-cat $TMPDIR/$BUILDDIR/build/main/test.log | perl -e '
+[ -z "$SKIP_TESTSUITE" ] && \
+    cat $TMPDIR/$BUILDDIR/build/main/test.log | perl -e '
     m|(BINARY\s+:\s).*/([^/]+)$| && push @{$t{$b = $2}}, "$1$b"
         or push @{$t{$b}}, $_ while(<>);
     print @{$t{$_}} for sort keys %t
