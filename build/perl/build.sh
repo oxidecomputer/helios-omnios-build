@@ -24,19 +24,8 @@
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# We need this for the Sun assembler
-LANG=C
-export LANG
-SHELL=/usr/bin/bash
-export SHELL
 
-# Load support functions
 . ../../lib/functions.sh
-
-# XXX - with gcc7
-# ld.so.1: perl: fatal: relocation error:
-# file libperl.so: symbol __udivmoddi4: referenced symbol not found
-set_gccver 6
 
 case $DEPVER in
     "")
@@ -47,7 +36,7 @@ esac
 
 PROG=perl
 VER=$DEPVER
-NODOTVER=$(echo $DEPVER| sed -e's/\.//g;')
+NODOTVER=${DEPVER//./}
 SVER=${VER%.*}
 PKG=runtime/perl-$NODOTVER ##IGNORE##
 SUMMARY="Perl $SVER Programming Language"
@@ -64,21 +53,97 @@ TESTSUITE_SED="
 # Perl build configuration options that are common to each
 # of the 32 and 64 bit variants.
 #
-PERL_BUILD_OPTS_COMMON="-des \
-    -Dusethreads \
-    -Duseshrplib \
-    -Dusedtrace \
-    -Dusemultiplicity \
-    -Duselargefiles \
-    -Duse64bitint \
-    -Dmyhostname=localhost \
-    -Umydomain \
-    -Umyuname \
-    -Dcf_by=omnios-builder \
-    -Dcf_email=sa@omniosce.org \
-    -Dcc=gcc \
-    -Dld=/usr/ccs/bin/ld \
-    -Doptimize=-O3"
+PERL_BUILD_OPTS_COMMON="
+    -des
+    -Dusethreads
+    -Duseshrplib
+    -Dusedtrace
+    -Dusemultiplicity
+    -Duselargefiles
+    -Duse64bitint
+    -Dmyhostname=localhost
+    -Umydomain
+    -Umyuname
+    -Dcf_by=omnios-builder
+    -Dcf_email=sa@omniosce.org
+    -Dcc=gcc
+    -Dld=/usr/ccs/bin/ld
+    -Doptimize=-O3
+"
+
+configure32() {
+    logmsg "--- configure (32-bit)"
+    logcmd $SHELL Configure ${PERL_BUILD_OPTS_COMMON} \
+        -Dccflags="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_TS_ERRNO" \
+        -Dprefix=${PREFIX} \
+        -Dvendorprefix=${PREFIX} \
+        -Dbin=${PREFIX}/bin/${ISAPART} \
+        -Dsitebin=${PREFIX}/bin/${ISAPART} \
+        -Dvendorbin=${PREFIX}/bin/${ISAPART} \
+        -Dscriptdir=${PREFIX}/bin \
+        -Dsitescript=${PREFIX}/bin \
+        -Dvendorscript=${PREFIX}/bin \
+        -Dprivlib=${PREFIX}/lib \
+        -Dsitelib=/usr/perl5/site_perl/${SVER} \
+        -Dvendorlib=/usr/perl5/vendor_perl/${SVER} \
+        -Dlibs="-lsocket -lnsl -lm -lc -lgcc_s" \
+        || logerr "--- Configure failed"
+
+    logcmd sed -i '
+        s/-fstack-protector-strong//g
+        s/mydomain="\.undef"/mydomain="undef"/g
+    ' config.sh
+}
+
+save_function make_install32 _make_install32
+make_install32() {
+    run_testsuite test
+    _make_install32
+
+    # We make the isastubs after 32bit so we can see them in the file list
+    make_isa_stub
+    # Similarly for the links to usr/bin etc...
+    links
+    # ...and generate the file-list
+    filelist perl.32.bit
+}
+
+configure64() {
+    logmsg "--- configure (64-bit)"
+    logcmd $SHELL Configure ${PERL_BUILD_OPTS_COMMON} \
+        -Dccflags="-D_LARGEFILE64_SOURCE -m64 -D_TS_ERRNO" \
+        -Dlddlflags="-G -64" \
+        -Dprefix=${PREFIX} \
+        -Dvendorprefix=${PREFIX} \
+        -Dbin=${PREFIX}/bin/${ISAPART64} \
+        -Dsitebin=${PREFIX}/bin/${ISAPART64} \
+        -Dvendorbin=${PREFIX}/bin/${ISAPART64} \
+        -Dscriptdir=${PREFIX}/bin \
+        -Dsitescript=${PREFIX}/bin \
+        -Dvendorscript=${PREFIX}/bin \
+        -Dprivlib=${PREFIX}/lib \
+        -Dsitelib=/usr/perl5/site_perl/${SVER} \
+        -Dvendorlib=/usr/perl5/vendor_perl/${SVER} \
+        -Dlibs="-lsocket -lnsl -lm -lc" \
+        || logerr "--- Configure failed"
+
+    logcmd sed -i '
+        s/-fstack-protector-strong//g
+        s/mydomain="\.undef"/mydomain="undef"/g
+        /^lddlflags/s/-G -m64//
+    ' config.sh
+}
+
+save_function make_install64 _make_install64
+make_install64() {
+    run_testsuite test "" "testsuite64.log"
+    _make_install64
+
+    pushd $DESTDIR/$PREFIX/bin > /dev/null
+    logcmd sed -i "s:usr/perl5/${SVER}/bin/amd64:usr/perl5/${SVER}/bin:g" \
+        `find . -type f | xargs file | grep script | cut -f1 -d:`
+    popd > /dev/null
+}
 
 filelist() {
     pushd $DESTDIR > /dev/null
@@ -90,7 +155,7 @@ filelist() {
 
 mkmog() {
     while read f; do
-        echo "<transform file dir link hardlink path=^$f\$ -> drop>"
+        echo "<transform file dir link hardlink path=$f\$ -> drop>"
     done
 }
 
@@ -129,106 +194,12 @@ links() {
 
     find $DESTDIR/$PREFIX/bin -maxdepth 1 -type f -perm -o+x | while read path
     do
-        file=$(basename $path)
+        file="`basename $path`"
 
         [ "$file" = "perl$VER" ] && lfile=perl$SVER || lfile=$file
-        logcmd ln -s \
-            ../perl5/${SVER}/bin/$file $DESTDIR/usr/bin/$lfile
-        logcmd ln -s \
-            ../${SVER}/bin/$file $DESTDIR/usr/perl5/bin/$lfile
+        logcmd ln -s ../perl5/${SVER}/bin/$file $DESTDIR/usr/bin/$lfile
+        logcmd ln -s ../${SVER}/bin/$file $DESTDIR/usr/perl5/bin/$lfile
     done
-}
-
-build32() {
-    pushd $TMPDIR/$BUILDDIR > /dev/null
-    logmsg "Building 32-bit"
-
-    logmsg "--- make (dist)clean"
-    logcmd make distclean || \
-        logmsg "--- *** WARNING *** make (dist)clean Failed"
-
-    logmsg "--- configure (32-bit)"
-    logcmd $SHELL Configure ${PERL_BUILD_OPTS_COMMON} \
-        -Dccflags="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_TS_ERRNO" \
-        -Dprefix=${PREFIX} \
-        -Dvendorprefix=${PREFIX} \
-        -Dbin=${PREFIX}/bin/${ISAPART} \
-        -Dsitebin=${PREFIX}/bin/${ISAPART} \
-        -Dvendorbin=${PREFIX}/bin/${ISAPART} \
-        -Dscriptdir=${PREFIX}/bin \
-        -Dsitescript=${PREFIX}/bin \
-        -Dvendorscript=${PREFIX}/bin \
-        -Dprivlib=${PREFIX}/lib \
-        -Dsitelib=/usr/perl5/site_perl/${SVER} \
-        -Dvendorlib=/usr/perl5/vendor_perl/${SVER} \
-        || logerr "--- Configure failed"
-    logcmd gsed -i 's/-fstack-protector-strong//g;' config.sh
-
-    logmsg "--- make"
-    logcmd gmake -j 8 || \
-    logcmd gmake || \
-        logerr "--- Make failed"
-
-    run_testsuite test
-
-    logmsg "--- make install"
-    logcmd gmake install DESTDIR=${DESTDIR} || \
-        logerr "--- Make install failed"
-
-    # We make the isastubs after 32bit so we can see them in the file list
-    make_isa_stub
-
-    # Similarly for the links to usr/bin etc.
-    links
-
-    filelist perl.32.bit
-    popd > /dev/null
-}
-
-build64() {
-    pushd $TMPDIR/$BUILDDIR > /dev/null
-    logmsg "Building 64-bit"
-
-    logmsg "--- make (dist)clean"
-    logcmd make distclean || \
-        logmsg "--- *** WARNING *** make (dist)clean Failed"
-
-    logmsg "--- configure (64-bit)"
-    logcmd $SHELL Configure ${PERL_BUILD_OPTS_COMMON} \
-        -Dccflags="-D_LARGEFILE64_SOURCE -m64 -D_TS_ERRNO" \
-        -Dlddlflags="-G -64" \
-        -Dprefix=${PREFIX} \
-        -Dvendorprefix=${PREFIX} \
-        -Dbin=${PREFIX}/bin/${ISAPART64} \
-        -Dsitebin=${PREFIX}/bin/${ISAPART64} \
-        -Dvendorbin=${PREFIX}/bin/${ISAPART64} \
-        -Dscriptdir=${PREFIX}/bin \
-        -Dsitescript=${PREFIX}/bin \
-        -Dvendorscript=${PREFIX}/bin \
-        -Dprivlib=${PREFIX}/lib \
-        -Dsitelib=/usr/perl5/site_perl/${SVER} \
-        -Dvendorlib=/usr/perl5/vendor_perl/${SVER} \
-        || logerr "--- Configure failed"
-    logcmd gsed -i 's/-fstack-protector-strong//g;' config.sh
-    logcmd gsed -i 's/mydomain="\.undef"/mydomain="undef"/g;' config.sh
-    logcmd gsed -i -e '/^lddlflags/{s/-G -m64//;}' config.sh
-
-    logmsg "--- make"
-    logcmd gmake -j 8 || \
-    logcmd gmake || \
-        logerr "--- Make failed"
-
-    run_testsuite test "" "testsuite64.log"
-
-    logmsg "--- make install"
-    logcmd gmake install DESTDIR=${DESTDIR} || \
-        logerr "--- Make install failed"
-
-    pushd $DESTDIR/$PREFIX/bin > /dev/null
-    logcmd gsed -i "s:usr/perl5/${SVER}/bin/amd64:usr/perl5/${SVER}/bin:g" \
-        `find . -type f | xargs file | grep script | cut -f1 -d:`
-    popd > /dev/null
-    popd > /dev/null
 }
 
 init
