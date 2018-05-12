@@ -221,8 +221,6 @@ fi
 
 if [ -z "$FLAVOR" ]; then
     merge_package
-    # Use legacy version for the package as long as it's the default mediator
-    VER=$LVER
     make_package
 fi
 
