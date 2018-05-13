@@ -18,6 +18,16 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
 * bhyve virtual machines are now fully supported and recommended in place of
   KVM - see <https://omniosce.org/info/bhyve> for more details.
 
+* The default openssl version is 1.1 and OmniOS itself is now built against
+  that version. The system openssl version can be changed back to 1.0.2 via
+  the version property of the _openssl_ mediator, i.e.
+```
+      pkg set-mediator -V 1.0 openssl
+```
+  To compile software against version 1.0 reglardless of the mediator setting,
+  use `CFLAGS=-I/usr/ssl-1.0/include LDFLAGS=-L/usr/ssl-1.0/lib/amd64`
+  (drop the trailing `/amd64` if building 32-bit software)
+
 * openssh has been upgraded to 7.7p1. This version drops support for some
   very old SSH implementations (pre-2001);
   refer to the [release notes](https://www.openssh.com/txt/release-7.7)

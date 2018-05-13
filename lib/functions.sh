@@ -369,7 +369,7 @@ fi
 #############################################################################
 
 opensslver=`pkg mediator -H openssl 2>/dev/null| awk '{print $3}'`
-if [ -n "$opensslver" -a "$opensslver" != "1.0" ]; then
+if [ -n "$opensslver" -a "$opensslver" != "1.1" ]; then
     if [ -n "$OPENSSL_TEST" ]; then
         logmsg -h "--- OpenSSL version $opensslver but OPENSSL_TEST is set"
     else
@@ -458,6 +458,12 @@ init() {
     pkgrepo get -s $PKGSRVR > /dev/null 2>&1 || \
         logerr "The PKGSRVR ($PKGSRVR) isn't available. All is doomed."
     verify_depends
+
+    if [ -n "$FORCE_OPENSSL_VERSION" ]; then
+        CFLAGS="-I/usr/ssl-$FORCE_OPENSSL_VERSION/include $CFLAGS"
+        LDFLAGS32="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib $LDFLAGS32"
+        LDFLAGS64="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib/amd64 $LDFLAGS64"
+    fi
 }
 
 #############################################################################
@@ -508,11 +514,11 @@ run_inbuild() {
     popd > /dev/null
 }
 
-run_autoheader() { run_inbuild autoheader; }
-run_autoreconf() { run_inbuild autoreconf; }
-run_autoconf() { run_inbuild autoconf; }
-run_automake() { run_inbuild automake; }
-run_aclocal() { run_inbuild aclocal; }
+run_autoheader() { run_inbuild autoheader "$@"; }
+run_autoreconf() { run_inbuild autoreconf "$@"; }
+run_autoconf() { run_inbuild autoconf "$@"; }
+run_automake() { run_inbuild automake "$@"; }
+run_aclocal() { run_inbuild aclocal "$@"; }
 
 #############################################################################
 # Stuff that needs to be done/set before we start building
@@ -1401,23 +1407,23 @@ python_build() {
     export ISALIST
     pre_python_32
     logmsg "--- setup.py (32) build"
-    logcmd $PYTHON ./setup.py build $PYBUILD32OPTS ||
-        logerr "--- build failed"
+    CFLAGS="$CFLAGS $CFLAGS32" LDFLAGS="$LDFLAGS $LDFLAGS32" \
+        logcmd $PYTHON ./setup.py build $PYBUILD32OPTS \
+        || logerr "--- build failed"
     logmsg "--- setup.py (32) install"
-    logcmd $PYTHON \
-        ./setup.py install --root=$DESTDIR $PYINST32OPTS ||
-        logerr "--- install failed"
+    logcmd $PYTHON ./setup.py install --root=$DESTDIR $PYINST32OPTS \
+        || logerr "--- install failed"
 
     ISALIST="amd64 i386"
     export ISALIST
     pre_python_64
     logmsg "--- setup.py (64) build"
-    logcmd $PYTHON ./setup.py build $PYBUILD64OPTS ||
-        logerr "--- build failed"
+    CFLAGS="$CFLAGS $CFLAGS64" LDFLAGS="$LDFLAGS $LDFLAGS64" \
+        logcmd $PYTHON ./setup.py build $PYBUILD64OPTS \
+        || logerr "--- build failed"
     logmsg "--- setup.py (64) install"
-    logcmd $PYTHON \
-        ./setup.py install --root=$DESTDIR $PYINST64OPTS ||
-        logerr "--- install failed"
+    logcmd $PYTHON ./setup.py install --root=$DESTDIR $PYINST64OPTS \
+        || logerr "--- install failed"
     popd > /dev/null
 
     python_vendor_relocate

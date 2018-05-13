@@ -192,8 +192,8 @@ if [ -z "$FLAVOR" -o "$FLAVOR" = "1.0" ]; then
     # OpenSSL 1.0 uses INSTALL_PREFIX= instead of DESTDIR=
     make_install() {
         logmsg "--- make install"
-        logcmd make INSTALL_PREFIX=$DESTDIR install ||
-            logerr "Failed to make install"
+        logcmd make INSTALL_PREFIX=$DESTDIR install \
+            || logerr "Failed to make install"
     }
 
     TESTSUITE_FILTER='[0-9] tests|TESTS'
@@ -221,8 +221,6 @@ fi
 
 if [ -z "$FLAVOR" ]; then
     merge_package
-    # Use legacy version for the package as long as it's the default mediator
-    VER=$LVER
     make_package
 fi
 

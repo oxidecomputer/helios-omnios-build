@@ -41,6 +41,8 @@ RUN_DEPENDS_IPS+="
     library/python-2/idna-27
 "
 
+FORCE_OPENSSL_VERSION=1.0
+
 init
 download_source $PROG $PROG $VER
 patch_source
