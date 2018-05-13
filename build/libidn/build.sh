@@ -24,11 +24,10 @@
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=libidn
-VER=1.34
+VER=1.35
 VERHUMAN=$VER
 PKG=library/libidn
 SUMMARY="The Internationalized Domains Library"
