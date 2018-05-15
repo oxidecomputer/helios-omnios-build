@@ -310,19 +310,38 @@ process_opts $@
 shift $((OPTIND - 1))
 
 #############################################################################
+# Set up tools area
+#############################################################################
+
+logmsg "-- Initialising tools area"
+
+[ -d $TMPDIR/tools ] || mkdir -p $TMPDIR/tools
+# Disable any commands that should not be used for the build
+for cmd in cc CC; do
+    [ -h $TMPDIR/tools/$cmd ] || logcmd ln -sf /bin/false $TMPDIR/tools/$cmd
+done
+BASEPATH=$TMPDIR/tools:$BASEPATH
+
+#############################################################################
 # Compiler version
 #############################################################################
 
 set_gccver() {
     GCCVER="$1"
+    logmsg "-- Setting GCC version to $GCCVER"
     GCCPATH="/opt/gcc-$GCCVER"
     [ -x "$GCCPATH/bin/gcc" ] || logerr "Unknown compiler version $GCCVER"
     PATH="$GCCPATH/bin:$BASEPATH"
+    for cmd in gcc g++; do
+        [ -h $TMPDIR/tools/$cmd ] && rm -f $TMPDIR/tools/$cmd
+        ln -sf $GCCPATH/bin/$cmd $TMPDIR/tools/$cmd || logerr "$cmd link"
+    done
     if [ -n "$USE_CCACHE" ]; then
         [ -x $CCACHE_PATH/ccache ] || logerr "Ccache is not installed"
         PATH="$CCACHE_PATH:$PATH"
     fi
     export GCCVER GCCPATH PATH
+    logmsg "-- New PATH=$PATH"
 }
 
 set_gccver $DEFAULT_GCC_VER
@@ -1196,7 +1215,7 @@ make_isaexec_stub_arch() {
 make_clean() {
     logmsg "--- make (dist)clean"
     logcmd $MAKE distclean || \
-    logcmd $MAKE clean || \
+        logcmd $MAKE clean || \
         logmsg "--- *** WARNING *** make (dist)clean Failed"
 }
 

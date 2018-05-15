@@ -39,11 +39,12 @@ export MAKE=/usr/bin/make
 
 BUILDARCH=32
 
-# cdrtools doesn't use configure, just make
 make_clean() {
-    :
+    logcmd ./.clean
 }
 
+# cdrtools doesn't use configure in the normal way, just make will invoke
+# configure automatically.
 configure32() {
     export CC
     MAKE_ARGS="CC=$CC"
