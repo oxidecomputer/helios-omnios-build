@@ -34,8 +34,15 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
   for more details. Several legacy SunSSH compatibility options for OpenSSH
   were deprecated in release r151026; see *Deprecated features* below.
 
+* ZFS support for mounting filesystems in parallel. This significantly
+  improves boot time for systems with many filesystems.
+
 ### Commands and Command Options
 
+* New `pptadm` command for managing PCI device pass-through to bhyve virtual
+  machines.
+
+##### BEGIN TBC
 * `netstat` supports the `-u` option to include information on the process(es)
   to which sockets are associated. A socket may be associated by more than
   one process as shown in the example below:
@@ -46,6 +53,7 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
   192.168.1.1.22       192.168.1.79.34640   root        531 sshd           134664     51  128872      0 ESTABLISHED
   192.168.1.1.22       192.168.1.79.34640   af          533 sshd           134664     51  128872      0 ESTABLISHED
   ```
+##### END TBC
 
 ### LX zones
 
