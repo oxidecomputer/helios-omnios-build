@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# {{ CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -21,28 +21,28 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=vim
-# This is the last available bundled version
-VER=8.0.586
+VER=8.1
 PKG=editor/vim
 SUMMARY="Vi IMproved"
 DESC="$SUMMARY"
 
-#BUILDDIR=${PROG}${VER/./}     # Location of extracted source
-BUILDDIR=vim80
-BUILDARCH=32
+SVER=${VER//./}
+BUILDDIR=$PROG$SVER
+BUILDARCH=64
+
+XFORM_ARGS+=" -D SVER=$SVER"
 
 # VIM 8.0 source exposes either a bug in illumos msgfmt(1), OR it contains
 # a GNU-ism we are strict about.  Either way, use GNU msgfmt for now.
 export MSGFMT=/usr/gnu/bin/msgfmt
 
-# We're only shipping 32-bit so forgo isaexec
+# We're only shipping 64-bit so forgo isaexec
 CONFIGURE_OPTS="
     --bindir=$PREFIX/bin
     --with-features=huge
@@ -51,12 +51,19 @@ CONFIGURE_OPTS="
     --disable-gtktest
 "
 
+extract_licence() {
+    sed -n < $DESTDIR/usr/share/vim/vim$SVER/doc/uganda.txt \
+           > $DESTDIR/usr/share/vim/vim$SVER/LICENCE '
+        /=== begin of license ===/,/=== end of license ===/p
+    '
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
+extract_licence
 make_package
 clean_up
 
