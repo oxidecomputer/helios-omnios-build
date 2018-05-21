@@ -644,7 +644,7 @@ rebase_patches() {
             /^diff -/q
             p
             ' < $patchfile~ > $patchfile
-        gdiff -pruN --exclude='*.orig' $BUILDDIR~ $BUILDDIR >> $patchfile
+        gdiff -wpruN --exclude='*.orig' $BUILDDIR~ $BUILDDIR >> $patchfile
         rm -f $patchfile~
     done
     rsync -a --delete $BUILDDIR.unpatched/ $BUILDDIR/
