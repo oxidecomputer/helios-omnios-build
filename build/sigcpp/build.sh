@@ -24,18 +24,21 @@
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=libsigc++
-VER=2.99.10
+VER=2.99.11
 VERHUMAN=$VER
 PKG=library/c++/sigcpp
-SUMMARY="Libsigc++ - a library that implements typesafe callback system"
+SUMMARY="libsigc++ - a library that implements typesafe callback system"
 DESC="$SUMMARY"
 
 export MAKE
 CONFIGURE_OPTS="--includedir=/usr/include"
+
+TESTSUITE_SED="
+    /CXX/d
+"
 
 init
 download_source $PROG $PROG $VER
