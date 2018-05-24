@@ -18,13 +18,13 @@
 
 PKG=system/library/gfortran-runtime
 PROG=gfortran
-VER=7
+VER=8
 VERHUMAN=$VER
 SUMMARY="GNU fortran runtime dependencies"
 DESC="$SUMMARY"
 
 OPT=/opt/gcc-$VER
-LOPT=/opt/gcc-6
+LOPT=/opt/gcc-7
 
 init
 prep_build
@@ -34,12 +34,12 @@ mkdir -p $DESTDIR/usr/lib/amd64
 
 ##################################################################
 LIB=libgfortran.so
-LIBVER=4.0.0
+LIBVER=5.0.0
 XFORM_ARGS+=" -DLIB=$LIB -DLIBVER=$LIBVER"
 
 # Copy in legacy library versions
 
-for v in 3.0.0; do
+for v in 3.0.0 4.0.0; do
     if [ -f /usr/lib/$LIB.$v ]; then
         cp /usr/lib/$LIB.$v $DESTDIR/usr/lib/$LIB.$v
     elif [ -f $LOPT/lib/$LIB.$v ]; then
