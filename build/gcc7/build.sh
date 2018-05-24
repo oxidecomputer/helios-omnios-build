@@ -40,7 +40,7 @@ XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 
 # Build gcc with itself
 export LD_LIBRARY_PATH=$OPT/lib
-export PATH=/usr/perl5/$PERLVER/bin:$OPT/bin:$PATH
+set_gccver $GCCMAJOR
 
 RUN_DEPENDS_IPS="
     developer/library/lint
@@ -55,31 +55,37 @@ PREFIX=$OPT
 reset_configure_opts
 CC=gcc
 
-LD=/bin/ld
-LD_FOR_HOST=/bin/ld
-LD_FOR_TARGET=/bin/ld
-export LD LD_FOR_HOST LD_FOR_TARGET
+export LD=/bin/ld
+export LD_FOR_HOST=$LD
+export LD_FOR_TARGET=$LD
+export LD_OPTIONS="-zignore -zcombreloc -i"
+ARCH=i386-pc-solaris2.11
+
+# Strip binaries but preserve the symbol table
+export STRIP="/bin/strip -x"
 
 CONFIGURE_OPTS_32="--prefix=$OPT"
 CONFIGURE_OPTS="
-    --host i386-pc-solaris2.11
-    --build i386-pc-solaris2.11
-    --target i386-pc-solaris2.11
+    --host $ARCH
+    --build $ARCH
+    --target $ARCH
     --with-boot-ldflags=-R$OPT/lib
     --with-gmp-include=/usr/include/gmp
+    --with-ld=$LD --without-gnu-ld
+    --with-as=/usr/bin/gas --with-gnu-as
+    --with-build-time-tools=/usr/gnu/$ARCH/bin
     --enable-languages=c,c++,fortran,lto
     --enable-plugins
     --enable-__cxa_atexit
-    --without-gnu-ld --with-ld=/bin/ld
-    --with-as=/usr/bin/gas --with-gnu-as
-    --with-build-time-tools=/usr/gnu/i386-pc-solaris2.11/bin
+    --enable-initfini-array
+    --disable-libitm
 "
 CONFIGURE_OPTS_WS="
+    --with-boot-cflags=\"-g -O2\"
     --with-pkgversion=\"OmniOS $RELVER\"
     --with-bugurl=https://github.com/omniosorg/omnios-build/issues
 "
 LDFLAGS32="-R$OPT/lib"
-export LD_OPTIONS="-zignore -zcombreloc -i"
 
 # If the selected compiler is the same version as the one we're building
 # then the three-stage bootstrap is unecessary and some build time can be
@@ -95,11 +101,15 @@ make_install() {
         logerr "--- Make install failed"
 }
 
+# gcc should be built out-of-tree
+OUT_OF_TREE_BUILD=1
+
 init
 download_source $PROG/releases/$PROG-$VER $PROG $VER
 patch_source
 prep_build
 build
+logcmd cp $TMPDIR/$SRC_BUILDDIR/COPYING* $TMPDIR/$BUILDDIR
 make_package
 clean_up
 
