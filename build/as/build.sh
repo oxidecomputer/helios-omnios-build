@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,49 +18,32 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
-#
-# this will build
-#
-#   * assorted bin-only bits: (from sub root)
-#     * as
-#     * libtdf
-#     * libxprof
-#     * libxprof_audit
 
-# Load support functions
 . ../../lib/functions.sh
 
-PROG=make
+PROG=as
 VER=0.5.11
 PKG=developer/as
 SUMMARY="OmniOS Bundled Assembler (aka DevPro)"
 DESC="$SUMMARY"
 
-DEPENDS_IPS="system/library SUNWcs system/library/math"
-
-CONFIGURE_OPTS=""
-PKGE=$(url_encode $PKG)
-DESTDIR=$DTMPDIR/as
-
-prebuild_clean() {
-    logmsg "Cleaning destdir: $DESTDIR"
-    logcmd rm -rf $DESTDIR
-    logcmd mkdir -p $DESTDIR
-}
-
 place_bins() {
     logmsg "Moving closed bins into place"
-    (cd $SRCDIR/root && tar cf - .) | (cd $DESTDIR && tar xf -) ||
-        logerr "Failed to copy closed bins"
+    pushd $SRCDIR/root >/dev/null
+    find . | cpio -pvmud $DESTDIR
+    popd >/dev/null
 }
 
 init
-prebuild_clean
+prep_build
 place_bins
 make_package
 clean_up
+
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker

@@ -43,31 +43,27 @@ export UT_NO_USAGE_TRACKING='1'
 # taken from http://hg.openjdk.java.net/jdk7u/jdk7u/tags
 HGREV=jdk7u${UPDATE}-b${BUILD}
 
-PKG=
-SUMMARY="x"
+PKG=runtime/java
+SUMMARY="Filled in later"
 DESC="$SUMMARY"
 
 BUILDARCH=32
-DESTDIR=
 DATETIME=`TZ=UTC /usr/bin/date +"%Y%m%dT%H%M%SZ"`
 
-BUILD_DEPENDS_IPS="developer/sunstudio12.1 system/header/header-audio developer/versioning/mercurial runtime/java ooce/developer/build/ant ooce/library/freetype2"
+BUILD_DEPENDS_IPS="
+    developer/sunstudio12.1
+    system/header/header-audio
+    developer/versioning/mercurial
+    runtime/java
+    ooce/developer/build/ant
+    ooce/library/freetype2
+"
 
 REPO="http://hg.openjdk.java.net/jdk7u/jdk7u"
-PATH=/opt/sunstudio12.1/bin:/opt/ooce/apache-ant/bin:${PATH}
+PATH=$SUNSTUDIO_BIN:/opt/ooce/apache-ant/bin:${PATH}
 export PATH
 
-ALT_BOOTDIR="/usr/java"
-ALT_COMPILER_PATH="/opt/sunstudio12.1/bin"
-ALT_CUPS_HEADERS_PATH="$TMPDIR/cups/include"
-ALT_OPENWIN_HOME="$TMPDIR/openwin/X11"
-
-DUPS_LIST=
-J2RE_INSTALLTMP=
-J2SDK_INSTALLTMP=
-
 download_hg() {
-    [ ! -d $TMPDIR ] && mkdir $TMPDIR
     pushd $TMPDIR > /dev/null
     if [ -d $BUILDDIR ]; then
         logmsg "Removing existing checkout"
@@ -151,14 +147,14 @@ build32() {
             PARALLEL_COMPILE_JOBS=$MJOBS \
             NO_DOCS=1 \
             ALT_CACERTS_FILE=/etc/ssl/java/cacerts \
-            ALT_BOOTDIR=$ALT_BOOTDIR \
-            ALT_COMPILER_PATH=$ALT_COMPILER_PATH \
-            ALT_CUPS_HEADERS_PATH=$ALT_CUPS_HEADERS_PATH \
+            ALT_BOOTDIR=/usr/java \
+            ALT_COMPILER_PATH=$SUNSTUDIO_BIN \
+            ALT_CUPS_HEADERS_PATH=$TMPDIR/cups/include \
             ALT_UNIXCCS_PATH=/usr/bin \
             ALT_FREETYPE_HEADERS_PATH=/opt/ooce/include \
             ALT_FREETYPE_LIB_PATH=/opt/ooce/lib \
-            ALT_OPENWIN_HOME=$ALT_OPENWIN_HOME || \
-                logerr "--- make $type failed"
+            ALT_OPENWIN_HOME=$TMPDIR/openwin/X11 \
+            || logerr "--- make $type failed"
     done
 
     popd > /dev/null
@@ -175,17 +171,10 @@ find_j2re_j2sdk_dups() {
 
     J2RE_LIST=`mktemp /tmp/openjdk-j2re-list.XXXXX`
     J2SDK_LIST=`mktemp /tmp/openjdk-j2sdk-list.XXXXX`
-    DUPS_LIST=`mktemp /tmp/openjdk-dups-list.XXXXX`
+    DUPS_LIST=$DESTDIR/dups
 
-    cd j2re-image
-    find . -type f > $J2RE_LIST
-    find . -type l >> $J2RE_LIST
-    cd ..
-
-    cd j2sdk-image
-    find . -type f > $J2SDK_LIST
-    find . -type l >> $J2SDK_LIST
-    cd ..
+    ( cd j2re-image && find . -type f -o -type l > $J2RE_LIST )
+    ( cd j2sdk-image && find . -type f -o -type l > $J2SDK_LIST )
 
     cat $J2RE_LIST $J2SDK_LIST | sort | uniq -d > $DUPS_LIST
     rm $J2RE_LIST $J2SDK_LIST
@@ -193,9 +182,8 @@ find_j2re_j2sdk_dups() {
     popd > /dev/null
 }
 
-
 make_install_j2re() {
-    J2RE_INSTALLTMP=`mktemp -d /tmp/openjdk_j2re_install_XXXXX`
+    J2RE_INSTALLTMP=$DESTDIR/jre
     JAVA_INSTALL_ROOT=$J2RE_INSTALLTMP/usr/java
 
     logmsg "Installing JRE to $J2RE_INSTALLTMP"
@@ -210,7 +198,7 @@ make_install_j2re() {
 
     # copy in our JRE files
     pushd $TMPDIR/$BUILDDIR/build/solaris-i586/j2re-image > /dev/null
-    tar cf - . | (cd $JAVA_INSTALL_ROOT && tar xf -)
+    find . | cpio -pmud $JAVA_INSTALL_ROOT
     popd > /dev/null
 
     # set up /usr/java symlink
@@ -230,7 +218,7 @@ make_install_j2re() {
 }
 
 make_install_j2sdk() {
-    J2SDK_INSTALLTMP=`mktemp -d /tmp/openjdk_j2sdk_install_XXXXX`
+    J2SDK_INSTALLTMP=$DESTDIR/jdk
     JAVA_INSTALL_ROOT=$J2SDK_INSTALLTMP/usr/java
 
     logmsg "Installing SDK to $J2SDK_INSTALLTMP"
@@ -245,7 +233,7 @@ make_install_j2sdk() {
 
     # copy in our SDK files
     pushd $TMPDIR/$BUILDDIR/build/solaris-i586/j2sdk-image > /dev/null
-    tar cf - . | (cd $JAVA_INSTALL_ROOT && tar xf -)
+    find . | cpio -pmud $JAVA_INSTALL_ROOT
     popd > /dev/null
 
     # kill off duplicate files
@@ -254,14 +242,11 @@ make_install_j2sdk() {
     pushd $JAVA_INSTALL_ROOT > /dev/null
     if [ -f $DUPS_LIST ]; then
         logmsg "Removing duplicate files from the SDK"
-        for i in `cat $DUPS_LIST`; do
-            logcmd rm -f $i
-        done
+        cat $DUPS_LIST | xargs rm -f
     else
         logerr "--- No duplicates list found. This is a problem."
     fi
 
-    rm $DUPS_LIST
     popd > /dev/null
 
     # set up java symlinks into /usr/bin
@@ -286,6 +271,7 @@ clean_up() {
 }
 
 init
+prep_build
 download_hg
 fetch_source
 patch_source
@@ -299,7 +285,6 @@ make_install_j2sdk
 # The update number doesn't appear to zero-pad, but the build does
 VER=${VER}.${UPDATE}.${BUILD#0}
 
-PKG=runtime/java
 SUMMARY="Open-source implementation of the seventh edition of the Java SE Platform"
 DESC="$SUMMARY"
 DESTDIR=$J2RE_INSTALLTMP

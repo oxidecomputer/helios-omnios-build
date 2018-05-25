@@ -17,6 +17,7 @@
 #
 . ../../lib/functions.sh
 
+PROG=entire
 PKG=entire
 VER=0.5.11
 SUMMARY="Builds the OmniOS entire meta-package"

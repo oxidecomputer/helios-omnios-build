@@ -162,6 +162,8 @@ GIT=git
 # Command for privilege escalation. Can be overridden in site.sh
 PFEXEC=sudo
 
+SUNSTUDIO_BIN=/opt/sunstudio12.1/bin
+
 # Figure out number of logical CPUs for use with parallel gmake jobs (-j)
 # Default to 1.5*nCPUs as we assume the build machine is 100% devoted to
 # compiling.

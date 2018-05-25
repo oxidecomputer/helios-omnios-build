@@ -301,6 +301,7 @@ SRCDIR=$PWD/`dirname $0`
 #############################################################################
 . $MYDIR/config.sh
 [ -f $MYDIR/site.sh ] && . $MYDIR/site.sh
+BASE_TMPDIR=$TMPDIR
 
 # Platform information, e.g. 5.11
 SUNOSVER=`uname -r`
@@ -471,6 +472,14 @@ init() {
     # built in (i.e. what the tarball extracts to). This defaults to the name
     # and version of the program, which works in most cases.
     [ -z "$BUILDDIR" ] && BUILDDIR=$PROG-$VER
+
+    # Build each package in a sub-directory of the temporary area.
+    # In addition to keeping everything related to a package together,
+    # this also prevents problems with packages which have non-unique archive
+    # names (1.2.3.tar.gz) or non-unique prog names.
+    [ -n "$PROG" ] || logerr "\$PROG is not defined for this package."
+    [ "$TMPDIR" = "$BASE_TMPDIR" ] && TMPDIR="$BASE_TMPDIR/$PROG-$VER"
+    [ "$DTMPDIR" = "$BASE_TMPDIR" ] && DTMPDIR="$TMPDIR"
 
     init_repo
     pkgrepo get -s $PKGSRVR > /dev/null 2>&1 || \
