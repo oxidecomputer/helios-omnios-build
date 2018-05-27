@@ -17,25 +17,19 @@
 . ../../lib/functions.sh
 
 PROG=cpuid
-VER=1.6.3
+VER=1.6.4
 VERHUMAN=$VER
 PKG=system/cpuid
 SUMMARY="A simple CPUID decoder/dumper for x86/x86_64"
 DESC="$SUMMARY"
 
-BUILDARCH=32
+BUILDARCH=64
 
 # No configure
-configure32() {
-    :
-}
+configure64() { :; }
 
 # cpuid uses lower case $prefix
-make_install() {
-    logmsg "--- make install"
-    logcmd $MAKE DESTDIR=${DESTDIR} prefix=${PREFIX} install || \
-        logerr "--- Make install failed"
-}
+MAKE_INSTALL_ARGS="prefix=$PREFIX"
 
 init
 download_source $PROG $VER
