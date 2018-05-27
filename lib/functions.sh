@@ -561,6 +561,15 @@ prep_build() {
         mkdir -p $DESTDIR || \
             logerr "Failed to create temporary install dir"
     fi
+
+    if [ -n "$OUT_OF_TREE_BUILD" ]; then
+        logmsg "-- Setting up for out-of-tree build"
+        CONFIGURE_CMD=$TMPDIR/$BUILDDIR/configure
+        SRC_BUILDDIR=$BUILDDIR
+        BUILDDIR+=-build
+        [ -d $TMPDIR/$BUILDDIR ] && logcmd rm -rf $TMPDIR/$BUILDDIR
+        logcmd mkdir -p $TMPDIR/$BUILDDIR
+    fi
 }
 
 #############################################################################
@@ -1213,9 +1222,7 @@ make_isaexec_stub_arch() {
 
 make_clean() {
     logmsg "--- make (dist)clean"
-    logcmd $MAKE distclean || \
-        logcmd $MAKE clean || \
-        logmsg "--- *** WARNING *** make (dist)clean Failed"
+    logcmd $MAKE distclean || logcmd $MAKE clean
 }
 
 configure32() {
