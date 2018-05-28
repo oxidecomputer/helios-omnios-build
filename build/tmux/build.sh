@@ -36,6 +36,9 @@ LIBEVENT_VER=2.1.8
 LDIR=libevent-${LIBEVENT_VER}-stable
 XFORM_ARGS+=" -DLIBEVENT=$LIBEVENT_VER"
 
+# Call init early to set up TMPDIR to use in CPPFLAGS/LDFLAGS.
+init
+
 BUILDARCH=32
 CONFIGURE_OPTS_32+=" --bindir=/usr/bin"
 CPPFLAGS="\
@@ -63,7 +66,7 @@ build_libevent() {
     popd > /dev/null
 }
 
-init
+prep_build
 download_source $PROG $PROG $VER
 
 # Download and build libevent as that is not part of core
@@ -74,7 +77,6 @@ BUILDDIR=$_BUILDDIR
 build_libevent
 
 patch_source
-prep_build
 build
 make_isa_stub
 strip_install

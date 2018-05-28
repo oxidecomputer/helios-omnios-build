@@ -19,10 +19,15 @@
 
 # We have to build as root to manipulate ZFS datasets
 export ROOT_OK=yes
+. ../../lib/functions.sh
+
+PROG=kayak-kernel
+PKG=system/install/kayak-kernel
+VER=1.1
+SUMMARY="Kayak - network installer media"
+DESC="$SUMMARY"
 
 KAYAK_CLOBBER=${KAYAK_CLOBBER:=0}
-
-. ../../lib/functions.sh
 
 if [ -n "$SKIP_KAYAK_KERNEL" ]; then
     logmsg "Skipping kayak-kernel build"
@@ -61,8 +66,6 @@ else
     PREBUILT_ILLUMOS="/dev/null"
 fi
 
-VER=1.1
-
 # NOTE: If PKGURL is specified, allow it to be different than the destination
 # PKGSRVR. PKGURL is from where kayak-kernel takes its bits. PKGSRVR is where
 # this package (with a prebuilt miniroot and unix) will be installed.
@@ -86,20 +89,13 @@ clone_source() {
     VERHUMAN="${COMMIT:0:7} from $REVDATE"
 }
 
-PKG=system/install/kayak-kernel
-SUMMARY="Kayak - network installer media"
-PKGE=$(url_encode $PKG)
-PKGD=${PKGE//%/_}
-DESTDIR=$DTMPDIR/${PKGD}_pkg
-DEPENDS_IPS=""
-
+init
+prep_build
 clone_source
 logmsg "Now building $PKG"
 $SUDO ./sudo-bits.sh $KAYAK_CLOBBER $TMPDIR/$BUILDDIR \
-    $PREBUILT_ILLUMOS $DESTDIR $PKGURL $VER $OLDUSER $BATCHMODE
-if [ $? != 0 ]; then
-    logerr "--- sudo-bits sub-script failed."
-fi
+    $PREBUILT_ILLUMOS $DESTDIR $PKGURL $VER $OLDUSER $BATCHMODE \
+    || logerr "--- sudo-bits sub-script failed."
 make_package kayak-kernel.mog
 clean_up
 

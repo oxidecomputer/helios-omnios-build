@@ -15,6 +15,7 @@
 # Load support functions
 . ../../lib/functions.sh
 
+PROG=jeos
 PKG=incorporation/jeos/omnios-userland
 VER=0.5.11
 SUMMARY="Builds the OmniOS userland incorporation"

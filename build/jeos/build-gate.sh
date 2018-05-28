@@ -15,6 +15,7 @@
 # Load support functions
 . ../../lib/functions.sh
 
+PROG=jeos
 PKG=incorporation/jeos/illumos-gate
 VER=0.5.11
 SUMMARY="Builds the OmniOS illumos-gate incorporation"

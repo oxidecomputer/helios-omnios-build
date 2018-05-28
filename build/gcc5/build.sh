@@ -42,11 +42,6 @@ XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 export LD_LIBRARY_PATH=$OPT/lib
 export PATH=/usr/perl5/$PERLVER/bin:$OPT/bin:$PATH
 
-# Use a dedicated temporary directory
-# (avoids conflicts with other gcc versions during parallel builds)
-export TMPDIR=$TMPDIR/gcc-$GCCMAJOR
-export DTMPDIR=$TMPDIR
-
 RUN_DEPENDS_IPS="
     developer/library/lint
     developer/linker
