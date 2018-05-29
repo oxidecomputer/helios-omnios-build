@@ -21,15 +21,14 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PKG=system/library/gcc-runtime
 PROG=libgcc_s
-VER=7
+VER=8
 VERHUMAN=$VER
 SUMMARY="gcc runtime"
 DESC="$SUMMARY"

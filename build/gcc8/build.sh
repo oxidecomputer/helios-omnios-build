@@ -26,9 +26,9 @@
 #
 . ../../lib/functions.sh
 
-PKG=developer/gcc7
+PKG=developer/gcc8
 PROG=gcc
-VER=7.3.0
+VER=8.1.0
 VERHUMAN=$VER
 SUMMARY="gcc ${VER}"
 DESC="$SUMMARY"

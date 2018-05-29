@@ -21,15 +21,14 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PKG=system/library/g++-runtime
 PROG=libstdc++
-VER=7
+VER=8
 VERHUMAN=$VER
 SUMMARY="g++ runtime dependencies libstc++/libssp"
 DESC="$SUMMARY"
@@ -44,12 +43,12 @@ mkdir -p $DESTDIR/usr/lib/amd64
 
 ##################################################################
 LIB=libstdc++.so
-LIBVER=6.0.24
+LIBVER=6.0.25
 XFORM_ARGS+=" -DSTDCVER=$LIBVER"
 
 # Copy in legacy library versions
 
-for v in 6.0.13 6.0.16 6.0.17 6.0.18 6.0.21 6.0.22; do
+for v in 6.0.13 6.0.16 6.0.17 6.0.18 6.0.21 6.0.22 6.0.24; do
 	if [ -f /usr/lib/$LIB.$v ]; then
 		cp /usr/lib/$LIB.$v $DESTDIR/usr/lib/$LIB.$v
 	else
