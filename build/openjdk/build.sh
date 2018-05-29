@@ -29,8 +29,8 @@
 
 PROG=openjdk
 VER=1.7.0
-UPDATE=171
-BUILD=02
+UPDATE=181
+BUILD=01
 VERHUMAN="jdk7u${UPDATE}-b${BUILD}"
 
 # Taken from illumos...
