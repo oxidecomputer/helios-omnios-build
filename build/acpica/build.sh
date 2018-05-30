@@ -38,6 +38,7 @@ extract_licence() {
 # No configure
 configure32() {
     export CC=gcc
+    export M4=gm4
 }
 
 make_prog32() {
