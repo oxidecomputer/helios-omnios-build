@@ -25,7 +25,7 @@
 | developer/nasm			| 2.13.03		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.0.5			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.17.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/git		| 2.17.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 4.6			| https://www.mercurial-scm.org/release/?M=D
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.1			| http://ftp.vim.org/pub/vim/unix
