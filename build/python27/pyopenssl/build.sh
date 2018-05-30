@@ -21,14 +21,14 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-2/pyopenssl-27
 PROG=pyOpenSSL
-VER=17.5.0
+VER=18.0.0
 SUMMARY="pyOpenSSL - Python interface to the OpenSSL library"
 DESC="$SUMMARY"
 
