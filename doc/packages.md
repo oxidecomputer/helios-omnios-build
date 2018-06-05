@@ -9,7 +9,7 @@
 | compress/xz				| 5.2.4			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | data/iso-codes			| 3.79			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3230100		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3240000		| https://www.sqlite.org/download.html
 | developer/acpi/compiler		| 20180508		| https://www.acpica.org/downloads/
 | developer/bmake			| 20180512		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
@@ -77,7 +77,7 @@
 | system/management/ipmitool		| 1.8.18		| https://sourceforge.net/projects/ipmitool/files/ipmitool
 | system/management/snmp/net-snmp	| 5.7.3			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/pciutils			| 3.5.6			| https://www.kernel.org/pub/software/utils/pciutils/
-| system/test/fio			| 3.6			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.7			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
 | terminal/tmux				| 2.7			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 4.2.1			| https://ftp.gnu.org/gnu/gawk/
