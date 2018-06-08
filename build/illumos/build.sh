@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,23 +18,22 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
 
-# Load support functions
 . ../../lib/functions.sh
 
-PROG=omnios    # App name
-VER=$RELVER    # App version
-PVER=1         # Package Version (numeric only)
+PROG=omnios
+VER=$RELVER
+PVER=1
 
-PKG=illumos-gate # Package name (without prefix)
-SUMMARY="$PROG" # A short summary of what the app is, starting with its name
-DESC="$SUMMARY -- Illumos and some special sauce." # Longer description
+PKG=illumos-gate
+SUMMARY="$PROG"
+DESC="$SUMMARY -- illumos and some special sauce."
 
 BUILD_DEPENDS_IPS="developer/illumos-tools"
 
@@ -46,10 +45,6 @@ push_pkgs() {
     logmsg "Entering $CODEMGR_WS"
     pushd $CODEMGR_WS > /dev/null
     logmsg "Pushing illumos pkgs to $PKGSRVR..."
-    if [[ -z $BATCH ]]; then
-        logmsg "Intentional pause: Last chance to sanity-check before publication!"
-        ask_to_continue
-    fi
 
     # Use pkgmerge to set pkg(5) variants for non-DEBUG and DEBUG.
     # The idea is, if someone wants to shift their illumos from
@@ -69,10 +64,14 @@ push_pkgs() {
     pkgrepo -s $ndrepo info
     echo
 
+    [ "$FLAVOR" = ctf ] && \
+        FLAVOR=`pkg search -H -o pkg.name \
+            dir:path:/kernel OR dir:path:/platform`
+
     pkgmerge -d $PKGSRVR \
-	-s debug.illumos=false,$ndrepo/ \
-	-s debug.illumos=true,$drepo/ \
-	$FLAVOR
+        -s debug.illumos=false,$ndrepo/ \
+        -s debug.illumos=true,$drepo/ \
+        $FLAVOR
 
     logmsg "Leaving $CODEMGR_WS"
     popd > /dev/null
@@ -84,3 +83,6 @@ check_for_prebuilt 'packages/i386/nightly-nd/repo.redist/'
 CODEMGR_WS=$PREBUILT_ILLUMOS
 push_pkgs
 clean_up
+
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker
