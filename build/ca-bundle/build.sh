@@ -33,8 +33,9 @@ VERHUMAN=$VER
 PKG=web/ca-bundle
 SUMMARY="$PROG - Bundle of SSL Root CA certificates"
 
-NSSVER="`grep '^VER=' $SRCDIR/../mozilla-nss-nspr/build.sh \
-    | head -1 | cut -d= -f2`"
+nsbuild=$SRCDIR/../mozilla-nss-nspr/build.sh
+NSSVER="`grep '^VER=' $nsbuild | sed 's/.*=//;q'`"
+NSPRVER="`grep '^NSPRVER=' $nsbuild | sed 's/.*=//;q'`"
 # Make-ca from https://github.com/djlucas/make-ca
 MAKECAVER=0.6
 
@@ -48,7 +49,9 @@ build_pem() {
 
     # Fetch and extract the NSS source to get certdata.txt
     NSSDIR=nss-$NSSVER
-    BUILDDIR=$NSSDIR download_source nss nss $NSSVER
+    CERTDATA=nss/lib/ckfw/builtins/certdata.txt
+    BUILDDIR=$NSSDIR download_source nss nss "$NSSVER-with-nspr-$NSPRVER" \
+        "" "$NSSDIR/$CERTDATA $NSSDIR/nss/COPYING"
 
     # Fetch and extract make-ca
     MAKECADIR=make-ca-$MAKECAVER
@@ -59,7 +62,7 @@ build_pem() {
     logmsg "-- Generating CA certificate files"
     PATH=/usr/gnu/bin:$PATH logcmd bash $TMPDIR/$MAKECADIR/make-ca \
         --destdir $DESTDIR \
-        --certdata $TMPDIR/$NSSDIR/nss/lib/ckfw/builtins/certdata.txt \
+        --certdata $TMPDIR/$NSSDIR/$CERTDATA \
         --keytool /usr/bin/keytool \
         --cafile /etc/ssl/cacert.pem \
         || logerr "Failed to generate certificates"
