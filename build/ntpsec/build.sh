@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=ntpsec
-VER=1.1.0
+VER=1.1.1
 VERHUMAN=$VER
 PKG=service/network/ntpsec
 SUMMARY="A secure, hardened and improved Network Time Protocol implementation"
