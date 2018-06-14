@@ -35,8 +35,7 @@ DESC="$SUMMARY"
 
 RUN_DEPENDS_IPS="system/prerequisite/gnu"
 
-BUILDARCH=32
-CONFIGURE_OPTS_32+=" --bindir=/usr/bin"
+set_arch 32
 CPPFLAGS+=" -I/usr/include/gmp"
 CFLAGS+=" -D_XPG6"
 
@@ -48,7 +47,6 @@ patch_source
 prep_build
 build
 run_testsuite check
-make_isa_stub
 make_package
 clean_up
 

@@ -42,8 +42,6 @@ MAKECAVER=0.6
 DESC="SSL Root CA certificates extracted from mozilla-nss $NSSVER source"
 DESC+=", plus OmniOSce CA cert."
 
-BUILDARCH=32
-
 build_pem() {
     BUILDDIR_ORIG=$BUILDDIR
 

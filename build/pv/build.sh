@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,13 +18,12 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2011-2015 OmniTI Computer Consulting, Inc.  All rights reserved.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=pv
@@ -34,18 +33,20 @@ PKG=shell/pipe-viewer
 SUMMARY="Pipe Viewer"
 DESC="pv - a terminal-based tool for monitoring the progress of data through a pipeline."
 
-BUILDARCH=64
-DO_GZIP=true
-export DO_GZIP
-CONFIGURE_OPTS_64="$CONFIGURE_OPTS_64 --bindir=/usr/bin --mandir=/usr/share/man --disable-nls"
+set_arch 64
+export DO_GZIP=true
+CONFIGURE_OPTS="
+    --mandir=/usr/share/man
+    --disable-nls
+"
+
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 
 # Vim hints
-# vim:ts=4:sw=4:et:
+# vim:ts=4:sw=4:et:fdm=marker

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,19 +18,17 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
-PROG=groff       # App name
-VER=1.22.3       # App version
-PKG=text/groff    # Package name (without prefix)
+PROG=groff
+VER=1.22.3
+PKG=text/groff
 SUMMARY="$PROG - GNU Troff typesetting package"
 DESC="$SUMMARY"
 
@@ -39,16 +37,7 @@ NO_PARALLEL_MAKE=1
 
 RUN_DEPENDS_IPS="system/prerequisite/gnu"
 
-BUILDARCH=32
-CONFIGURE_OPTS_32="
-    --prefix=$PREFIX
-    --sysconfdir=/etc
-    --includedir=$PREFIX/include
-    --bindir=$PREFIX/bin
-    --sbindir=$PREFIX/sbin
-    --libdir=$PREFIX/lib
-    --libexecdir=$PREFIX/libexec
-"
+set_arch 32
 CONFIGURE_OPTS="--without-x"
 
 init
@@ -56,10 +45,9 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 strip_install
 make_package
 clean_up
 
 # Vim hints
-# vim:ts=4:sw=4:et:
+# vim:ts=4:sw=4:et:fdm=marker

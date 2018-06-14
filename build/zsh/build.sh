@@ -33,10 +33,10 @@ PKG=shell/zsh
 SUMMARY="Z shell"
 DESC="Z shell"
 
-BUILDARCH=32
+set_arch 32
+
 CPPFLAGS32+=" -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
 CONFIGURE_OPTS_32+="
-    --bindir=/usr/bin
 	--enable-cap
 	--enable-dynamic
 	--enable-etcdir=/etc
@@ -50,13 +50,17 @@ CONFIGURE_OPTS_32+="
 	--disable-gdbm
 "
 
+HARDLINK_TARGETS=usr/bin/zsh-$VER
+
 install_zshrc() {
-  mkdir -p $DESTDIR/etc
-  cp $SRCDIR/files/system-zshrc $DESTDIR/etc/zshrc
-  chmod 644 $DESTDIR/etc/zshrc
+    mkdir -p $DESTDIR/etc
+    cp $SRCDIR/files/system-zshrc $DESTDIR/etc/zshrc
+    chmod 644 $DESTDIR/etc/zshrc
 }
+
 install_license() {
-  iconv -f 8859-1 -t utf-8 $TMPDIR/$BUILDDIR/LICENCE > $TMPDIR/$BUILDDIR/LICENSE
+    iconv -f 8859-1 -t utf-8 \
+        $TMPDIR/$BUILDDIR/LICENCE > $TMPDIR/$BUILDDIR/LICENSE
 }
 
 init
@@ -66,7 +70,6 @@ prep_build
 build
 install_zshrc
 install_license
-make_isa_stub
 sed -i 's/diff -a/g&/' $TMPDIR/$BUILDDIR/Test/ztst.zsh
 run_testsuite
 make_package

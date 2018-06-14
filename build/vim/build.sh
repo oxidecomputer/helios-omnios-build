@@ -34,7 +34,8 @@ DESC="$SUMMARY"
 
 SVER=${VER//./}
 BUILDDIR=$PROG$SVER
-BUILDARCH=64
+
+set_arch 64
 
 XFORM_ARGS+=" -D SVER=$SVER"
 
@@ -42,9 +43,7 @@ XFORM_ARGS+=" -D SVER=$SVER"
 # a GNU-ism we are strict about.  Either way, use GNU msgfmt for now.
 export MSGFMT=/usr/gnu/bin/msgfmt
 
-# We're only shipping 64-bit so forgo isaexec
 CONFIGURE_OPTS="
-    --bindir=$PREFIX/bin
     --with-features=huge
     --without-x
     --disable-gui

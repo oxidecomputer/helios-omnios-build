@@ -33,12 +33,10 @@ PKG=compress/gzip
 SUMMARY="The GNU Zip (gzip) compression utility"
 DESC="$SUMMARY $VER"
 
+set_arch 32
 CONFIGURE_OPTS="
-    --bindir=/usr/bin
     --infodir=/usr/sfw/share/info
 "
-
-BUILDARCH=32
 
 # /usr/bin/uncompress is a hardlink to gunzip but is also delivered by
 # system/extended-system-utilities. We therefore need to drop the version
@@ -64,7 +62,6 @@ rename_in_docs
 prep_build
 build
 run_testsuite check
-make_isa_stub
 make_package
 clean_up
 

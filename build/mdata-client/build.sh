@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,39 +18,33 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
-PROG=mdata-client      # App name
-VER=20170105            # App version
-VERHUMAN=$VER   # Human-readable version
-#PVER=          # Branch (set in config.sh, override here if needed)
-PKG=system/management/mdata-client           # Package name (e.g. library/foo)
-BUILDARCH=32
-SUMMARY="Cross-platform metadata client tools for use in SDC guests (both Zones and KVM)"      # One-liner, must be filled in
-DESC="Metadata retrieval and manipulation tools for use within guests of the SmartOS (and SDC) hypervisor. These guests may be either SmartOS Zones or KVM virtual machines."         # Longer description, must be filled in
+PROG=mdata-client
+VER=20170105
+VERHUMAN=$VER
+PKG=system/management/mdata-client
+SUMMARY="Cross-platform metadata client tools for use in SDC guests (both Zones and KVM)"
+DESC="Metadata retrieval and manipulation tools for use within guests of the SmartOS (and SDC) hypervisor. These guests may be either SmartOS Zones or KVM virtual machines."
 
-BUILD_DEPENDS_IPS=
-RUN_DEPENDS_IPS=
+set_arch 32
 
 # There is no configure step here
 CONFIGURE_CMD=true
-
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 
 # Vim hints
-# vim:ts=4:sw=4:et:
+# vim:ts=4:sw=4:et:fdm=marker

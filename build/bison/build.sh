@@ -33,16 +33,7 @@ PKG=developer/parser/bison
 SUMMARY="Bison is a general-purpose parser generator"
 DESC="$SUMMARY"
 
-BUILDARCH=32
-CONFIGURE_OPTS_32="
-    --prefix=$PREFIX
-    --sysconfdir=/etc
-    --includedir=$PREFIX/include
-    --bindir=$PREFIX/bin
-    --sbindir=$PREFIX/sbin
-    --libdir=$PREFIX/lib
-    --libexecdir=$PREFIX/libexec
-"
+set_arch 32
 CONFIGURE_OPTS="--disable-yacc"
 export M4=/usr/bin/gm4
 
@@ -58,7 +49,6 @@ patch_source
 prep_build
 build
 run_testsuite check
-make_isa_stub
 make_package
 clean_up
 

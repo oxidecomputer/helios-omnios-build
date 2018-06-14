@@ -21,10 +21,9 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=openssh
@@ -34,18 +33,11 @@ PKG=network/openssh
 SUMMARY="OpenSSH Client and utilities"
 DESC="OpenSSH Secure Shell protocol Client and associated Utilities"
 
-BUILDARCH=64
-# Since we're only building 64-bit, don't bother with isaexec subdirs
-CONFIGURE_OPTS_64="
-    --prefix=$PREFIX
+set_arch 64
+CONFIGURE_OPTS_64+="
     --sysconfdir=/etc/ssh
-    --includedir=$PREFIX/include
-    --bindir=$PREFIX/bin
-    --sbindir=$PREFIX/sbin
-    --libdir=$PREFIX/lib
-    --libexecdir=$PREFIX/libexec
 "
-# Feature choices
+
 CONFIGURE_OPTS="
     --with-audit=solaris
     --with-kerberos5=$PREFIX

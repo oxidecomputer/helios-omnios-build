@@ -35,8 +35,8 @@ DESC="GNU make - A utility used to build software"
 
 RUN_DEPENDS_IPS="system/prerequisite/gnu"
 
-BUILDARCH=64
-CONFIGURE_OPTS="--bindir=$PREFIX/bin --program-prefix=g"
+set_arch 64
+CONFIGURE_OPTS="--program-prefix=g"
 
 TESTSUITE_SED="
     /-srcdir/d
@@ -56,7 +56,6 @@ run_autoreconf -fi      # As Makefile.am has been modified
 prep_build
 build
 run_testsuite check
-make_isa_stub
 make_package
 clean_up
 

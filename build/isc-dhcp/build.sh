@@ -27,20 +27,16 @@ DESC="$SUMMARY $VER"
 
 DEPENDS_IPS="system/library"
 
-BUILDARCH=64
+set_arch 64
 
 # Doesn't work with parallel gmake
 NO_PARALLEL_MAKE=1
 
 # This exposes msghdr.msg_control & msghdr.msg_controllen
 CFLAGS+=" -D_XPG4_2 -fstack-check"
-
 LDFLAGS="-zaslr"
 
 CONFIGURE_OPTS="
-    --prefix=$PREFIX
-    --bindir=$PREFIX/bin
-    --sbindir=$PREFIX/sbin
     --enable-use-sockets
     --enable-ipv4-pktinfo
 "

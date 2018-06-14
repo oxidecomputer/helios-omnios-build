@@ -33,13 +33,11 @@ PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="$SUMMARY"
 
-BUILDARCH=32
+set_arch 32
 
 CONFIGURE_OPTS="
-    --bindir=$PREFIX/sbin
-    --sbindir=$PREFIX/sbin
     --libdir=$PREFIX/lib/dns
-    --sysconfdir=/etc
+    --bindir=$PREFIX/sbin
     --localstatedir=/var
     --with-libtool
     --with-openssl
@@ -65,7 +63,6 @@ prep_build
 build
 python_vendor_relocate
 run_testsuite test-force
-make_isa_stub
 VER=${VER//-P/.}
 VER=${VER//-W/.}
 make_package

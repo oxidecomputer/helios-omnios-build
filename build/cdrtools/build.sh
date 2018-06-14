@@ -37,7 +37,7 @@ DEPENDS_IPS="system/library system/library/gcc-runtime"
 
 export MAKE=/usr/bin/make
 
-BUILDARCH=32
+set_arch 32
 
 make_clean() {
     logcmd ./.clean
@@ -81,7 +81,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 

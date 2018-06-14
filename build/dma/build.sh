@@ -12,10 +12,8 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-#
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=dma
@@ -25,7 +23,7 @@ PKG=service/network/smtp/dma
 SUMMARY="The DragonFly Mail Agent"
 DESC="$SUMMARY"
 
-BUILDARCH=32
+set_arch 32
 
 # adding ASLR flags to compiler and linker since
 # dma:             gets ASLR if linker flag is set
@@ -83,7 +81,6 @@ move_manpage dma 8 1m
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 

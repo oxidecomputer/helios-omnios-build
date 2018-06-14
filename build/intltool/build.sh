@@ -12,10 +12,9 @@
 # }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=intltool
@@ -23,20 +22,17 @@ VER=0.51.0
 VERHUMAN=$VER
 PKG=text/intltool
 SUMMARY="Extracts translatable strings from specific source file types."
-DESC="$SUMMARY $VER"
+DESC="$SUMMARY"
 
 RUN_DEPENDS_IPS="system/library"
 
-BUILDARCH=32
-
-CONFIGURE_OPTS="--bindir=$PREFIX/bin"
+set_arch 32
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 

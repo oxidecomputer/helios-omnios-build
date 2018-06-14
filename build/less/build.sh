@@ -32,23 +32,13 @@ PKG=text/less
 SUMMARY="$PROG - GNU paginator"
 DESC="$SUMMARY"
 
-BUILDARCH=32
-CONFIGURE_OPTS_32="
-    --prefix=$PREFIX
-    --sysconfdir=/etc
-    --includedir=$PREFIX/include
-    --bindir=$PREFIX/bin
-    --sbindir=$PREFIX/sbin
-    --libdir=$PREFIX/lib
-    --libexecdir=$PREFIX/libexec
-"
+set_arch 32
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 strip_install
 make_package
 clean_up
