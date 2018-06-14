@@ -33,10 +33,10 @@ PKG=network/rsync
 SUMMARY="rsync - faster, flexible replacement for rcp"
 DESC="$SUMMARY"
 
+set_arch 64
+CONFIGURE_OPTS="--with-included-popt"
+# Needed so that man pages are correctly installed every time
 REMOVE_PREVIOUS=1
-BUILDARCH=32
-
-CONFIGURE_OPTS_32+=" --bindir=/usr/bin --with-included-popt"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]|^-|[0-9] (passed|failed|skipped|missing)'
 
@@ -46,7 +46,6 @@ patch_source
 prep_build
 build
 run_testsuite
-make_isa_stub
 make_package
 clean_up
 
