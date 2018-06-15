@@ -24,21 +24,15 @@ PKG=developer/nasm
 SUMMARY="The Netwide Assembler"
 DESC="$SUMMARY"
 
-BUILDARCH=32
-
-# Nasm uses INSTALLROOT instead of the more standard DESTDIR
-make_install() {
-    logmsg "--- make install"
-    logcmd $MAKE INSTALLROOT=${DESTDIR} install || \
-        logerr "--- Make install failed"
-}
+set_arch 32
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
+# Nasm uses INSTALLROOT instead of the more standard DESTDIR
+MAKE_INSTALL_ARGS="INSTALLROOT=$DESTDIR"
 build
-make_isa_stub
 make_package
 clean_up
 

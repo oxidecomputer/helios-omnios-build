@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,14 +18,12 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=m4
@@ -35,10 +33,9 @@ SUMMARY="GNU m4"
 DESC="GNU m4 - A macro processor (gm4)"
 
 PREFIX=/usr/gnu
+set_arch 32
 
-reset_configure_opts
-BUILDARCH=32
-CONFIGURE_OPTS+=" --infodir=/usr/share/info"
+CONFIGURE_OPTS="--infodir=/usr/share/info"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
@@ -48,9 +45,8 @@ patch_source
 prep_build
 build
 run_testsuite check
-make_isa_stub
 make_package
 clean_up
 
 # Vim hints
-# vim:ts=4:sw=4:et:
+# vim:ts=4:sw=4:et:fdm=marker

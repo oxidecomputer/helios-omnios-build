@@ -33,14 +33,11 @@ PKG=developer/build/automake
 SUMMARY="GNU Automake"
 DESC="GNU Automake - A Makefile generator"
 
-BUILDARCH=32
 BUILD_DEPENDS_IPS="compress/xz developer/build/autoconf"
 RUN_DEPENDS_IPS="developer/macro/gnu-m4 runtime/perl"
-
 HARDLINK_TARGETS="usr/bin/aclocal usr/bin/automake"
 
-# Since it's 32-bit only we don't worry about isaexec for bins
-CONFIGURE_OPTS="--bindir=$PREFIX/bin"
+set_arch 32
 
 init
 download_source $PROG $PROG $VER
@@ -48,7 +45,6 @@ patch_source
 prep_build
 build
 PATH=/usr/gnu/bin:$PATH run_testsuite check
-make_isa_stub
 make_package
 clean_up
 

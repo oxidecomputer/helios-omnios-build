@@ -39,8 +39,7 @@ XFORM_ARGS+=" -DLIBEVENT=$LIBEVENT_VER"
 # Call init early to set up TMPDIR to use in CPPFLAGS/LDFLAGS.
 init
 
-BUILDARCH=32
-CONFIGURE_OPTS_32+=" --bindir=/usr/bin"
+set_arch 32
 CPPFLAGS="\
     -I$TMPDIR/$PROG-$VER/$LDIR/include/event2 \
     -I$TMPDIR/$PROG-$VER/$LDIR/include -I/usr/include/ncurses \
@@ -78,7 +77,6 @@ build_libevent
 
 patch_source
 build
-make_isa_stub
 strip_install
 make_package
 clean_up

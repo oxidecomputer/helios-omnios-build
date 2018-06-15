@@ -21,9 +21,9 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=pciutils
@@ -35,8 +35,7 @@ DESC="$SUMMARY"
 
 DEPENDS_IPS="system/pciutils/pci.ids@2.2"
 
-BUILDARCH=32
-NO_PARALLEL_MAKE=1
+set_arch 32
 
 export PATH=/usr/gnu/bin:$PATH
 
@@ -45,19 +44,16 @@ configure32() {
 }
 
 make_prog() {
-    [[ -n $NO_PARALLEL_MAKE ]] && MAKE_JOBS=""
-    if [[ -n $LIBTOOL_NOSTDLIB ]]; then
-        libtool_nostdlib $LIBTOOL_NOSTDLIB $LIBTOOL_NOSTDLIB_EXTRAS
-    fi
     logmsg "--- make"
-    logcmd $MAKE $MAKE_JOBS PREFIX=$PREFIX OPT="-O2 -DBYTE_ORDER=1234 -DLITTLE_ENDIAN=1234" || \
-        logerr "--- Make failed"
+    logcmd $MAKE PREFIX=$PREFIX \
+        OPT="-O2 -DBYTE_ORDER=1234 -DLITTLE_ENDIAN=1234" \
+        || logerr "--- Make failed"
 }
 
 make_install() {
     logmsg "--- make install"
-    logcmd $MAKE DESTDIR=${DESTDIR} PREFIX=$PREFIX install || \
-        logerr "--- Make install failed"
+    logcmd $MAKE DESTDIR=${DESTDIR} PREFIX=$PREFIX install \
+        || logerr "--- Make install failed"
 }
 
 init
@@ -65,7 +61,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 

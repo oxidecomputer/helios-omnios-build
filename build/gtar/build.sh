@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
@@ -40,10 +40,12 @@ RUN_DEPENDS_IPS="
     compress/xz
 "
 
-BUILDARCH=32
+set_arch 32
 
-CONFIGURE_OPTS="--program-prefix=g --with-rmt=/usr/sbin/rmt"
-CONFIGURE_OPTS_32+=" --bindir=/usr/bin"
+CONFIGURE_OPTS="
+    --program-prefix=g
+    --with-rmt=/usr/sbin/rmt
+"
 
 init
 download_source $PROG $PROG $VER
@@ -51,7 +53,6 @@ patch_source
 prep_build
 build
 run_testsuite check
-make_isa_stub
 make_package
 clean_up
 

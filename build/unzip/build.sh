@@ -34,10 +34,10 @@ SUMMARY="The Info-Zip (unzip) compression utility"
 DESC="$SUMMARY"
 
 BUILDDIR=$PROG${VER//./}
-BUILDARCH=32
+set_arch 32
 
 HARDLINK_TARGETS="
-    usr/bin/i386/unzip
+    usr/bin/unzip
 "
 
 # Copied from upstream's pkg makefile
@@ -47,25 +47,16 @@ configure32() {
     export ISAPART
 }
 
-make_prog() {
-    [ -n "$NO_PARALLEL_MAKE" ] && MAKE_JOBS=
-    logmsg "--- make"
-    logcmd $MAKE $MAKE_JOBS -f unix/Makefile generic_gcc || \
-        logerr "--- Make failed"
-}
-
-make_install() {
-    logmsg "--- make install"
-    logcmd $MAKE -f unix/Makefile prefix=$DESTDIR$PREFIX install || \
-        logerr "--- Make install failed"
-}
+BASE_MAKE_ARGS="-f unix/Makefile"
+MAKE_ARGS="$BASE_MAKE_ARGS generic_gcc"
+MAKE_INSTALL_ARGS="$BASE_MAKE_ARGS install"
 
 init
 download_source $PROG $PROG${VER//./}
 patch_source
 prep_build
+MAKE_INSTALL_ARGS+=" prefix=$DESTDIR$PREFIX"
 build
-make_isa_stub
 make_package
 clean_up
 

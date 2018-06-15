@@ -34,18 +34,19 @@ SUMMARY="gettext - GNU gettext utility"
 DESC="GNU gettext - GNU gettext utility"
 
 NO_PARALLEL_MAKE=1
-BUILDARCH=32
+set_arch 32
 
 DEPENDS_IPS="system/prerequisite/gnu developer/macro/gnu-m4"
 
-CONFIGURE_OPTS="--infodir=$PREFIX/share/info
-	--disable-java
-	--disable-libasprintf
-	--without-emacs
-	--disable-openmp
-	--disable-static
-	--disable-shared
-	--bindir=/usr/bin"
+CONFIGURE_OPTS="
+    --infodir=$PREFIX/share/info
+    --disable-java
+    --disable-libasprintf
+    --without-emacs
+    --disable-openmp
+    --disable-static
+    --disable-shared
+"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
@@ -55,7 +56,6 @@ patch_source
 prep_build
 build
 run_testsuite check
-make_isa_stub
 make_package
 clean_up
 

@@ -34,17 +34,9 @@ DESC="$SUMMARY"
 
 RUN_DEPENDS_IPS="system/prerequisite/gnu"
 
+set_arch 32
 BUILDARCH=32
-CONFIGURE_OPTS_32="
-    --prefix=$PREFIX
-    --sysconfdir=/etc
-    --includedir=$PREFIX/include
-    --bindir=$PREFIX/bin
-    --sbindir=$PREFIX/sbin
-    --libdir=$PREFIX/lib
-    --libexecdir=$PREFIX/libexec
-    --program-prefix=g
-"
+CONFIGURE_OPTS="--program-prefix=g"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
@@ -54,7 +46,6 @@ patch_source
 prep_build
 build
 run_testsuite check
-make_isa_stub
 strip_install
 make_package
 clean_up

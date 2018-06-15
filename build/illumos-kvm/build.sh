@@ -52,7 +52,7 @@ BUILD_DEPENDS_IPS="
 BUILDARCH=64
 
 # Unset the prefix because we actually DO want things in kernel etc
-PREFIX="" 
+PREFIX=""
 
 download_source() {
     logmsg "Obtaining source files"

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,13 +18,11 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PATH=/usr/gnu/bin:/opt/gcc-4.4.4/bin:$PATH
@@ -47,7 +45,10 @@ BUILDARCH=32
 GCCVER=4.4.4
 PREFIX=/opt/gcc-${GCCVER}
 CC=gcc
-CONFIGURE_OPTS="--with-gmp=/opt/gcc-${GCCVER} --with-mpfr=/opt/gcc-${GCCVER}"
+CONFIGURE_OPTS="
+    --with-gmp=/opt/gcc-${GCCVER}
+    --with-mpfr=/opt/gcc-${GCCVER}
+"
 
 make_install32() {
     make_install
@@ -62,3 +63,6 @@ build
 make_isa_stub
 make_package libmpc.mog depends.mog
 clean_up
+
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker

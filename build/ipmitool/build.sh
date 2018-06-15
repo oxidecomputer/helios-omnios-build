@@ -35,7 +35,7 @@ DESC="$SUMMARY"
 
 BUILD_DEPENDS_IPS="driver/ipmi developer/build/libtool"
 
-BUILDARCH=32
+set_arch 32
 CONFIGURE_OPTS_32+=" --bindir=/usr/sbin --sbindir=/usr/lib"
 CONFIGURE_OPTS+="
     --mandir=/usr/share/man
@@ -55,7 +55,6 @@ prep_build
 run_autoconf
 build
 install_smf network ipmievd.xml svc-ipmievd
-make_isa_stub
 make_package
 clean_up
 

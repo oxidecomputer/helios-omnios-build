@@ -23,7 +23,7 @@ PKG=system/cpuid
 SUMMARY="A simple CPUID decoder/dumper for x86/x86_64"
 DESC="$SUMMARY"
 
-BUILDARCH=64
+set_arch 64
 
 # No configure
 configure64() { :; }
@@ -36,7 +36,6 @@ download_source $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 

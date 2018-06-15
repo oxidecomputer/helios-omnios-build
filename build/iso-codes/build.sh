@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
@@ -37,14 +37,13 @@ DESC="$SUMMARY"
 BUILD_DEPENDS_IPS="ooce/runtime/python-36"
 export PATH=/opt/ooce/bin:$PATH
 
-BUILDARCH=32
+set_arch 32
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 

@@ -37,7 +37,7 @@ DESC="$SUMMARY"
 
 RUN_DEPENDS_IPS="system/prerequisite/gnu system/library"
 
-BUILDARCH=32
+set_arch 32
 NO_PARALLEL_MAKE=1
 
 # Cribbed from upstream but modified for gcc
@@ -48,7 +48,6 @@ LDFLAGS="-Wl,-z -Wl,redlocsym"
 #   We only do 32-bit so forgo the isaexec stuff
 #   Don't bother building static
 CONFIGURE_OPTS="
-    --bindir=$PREFIX/bin
     --localstatedir=/var
     --enable-alias
     --enable-arith-for-command
@@ -90,7 +89,6 @@ CONFIGURE_OPTS="
     --with-curses
     --with-installed-readline=no
 "
-reset_configure_opts
 
 # Files taken from upstream userland-gate
 install_files() {
@@ -103,7 +101,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 install_files
 VER=${VER}.$PATCHLEVEL
 make_package

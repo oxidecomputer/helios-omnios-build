@@ -33,10 +33,9 @@ PKG=service/network/ntp
 SUMMARY="Network Time Services"
 DESC="$SUMMARY"
 
-BUILDARCH=64
+set_arch 64
 
-CONFIGURE_OPTS_64="
-    --prefix=/usr
+CONFIGURE_OPTS_64+="
     --bindir=/usr/sbin
     --with-binsubdir=sbin
     --libexecdir=/usr/lib/inet
@@ -67,7 +66,6 @@ prep_build
 build
 overlay_root
 install_smf network ntp.xml ntp
-make_isa_stub
 #NOTE: Uncomment these IFF we go back to ntp-dev versions or p-releases again.
 #VER=${VER//dev-/}
 VER=${VER//p/.}
