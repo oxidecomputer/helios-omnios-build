@@ -38,7 +38,7 @@ configure64() {
 }
 
 TESTSUITE_SED="/libtool/d"
-    
+
 init
 download_source $PROG $PROG $VER
 patch_source

@@ -8,7 +8,7 @@ repositories. For each step, the full commands are included for
 reference but many can be performed more easily using the
 [omni utility][omniutil].
 
-`omni` commands are shown prefixed with a 
+`omni` commands are shown prefixed with a
 ![#f03c15](https://placehold.it/15/1589f0/000000?text=+) symbol.
 
 ## Initial repository configuration

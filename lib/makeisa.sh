@@ -86,10 +86,10 @@ main(int argc, char *argv[], char *envp[]) {
     if (0 == access(trypath, X_OK)) {
       return execve(trypath, argv, envp);
     }
-   
+
     is = strtok(NULL, " ");
   }
-  
+
   return 1;
 }
 EOF
