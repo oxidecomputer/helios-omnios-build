@@ -153,7 +153,7 @@ prep_build
 build
 generate_archdeps
 make_isa_stub
-strip_install -x
+strip_install
 make_package
 clean_up
 
