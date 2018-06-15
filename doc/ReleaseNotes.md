@@ -37,10 +37,16 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
 * ZFS support for mounting filesystems in parallel. This significantly
   improves boot time for systems with many filesystems.
 
+* Several 32-bit only packages have been moved to 64-bit only.
+
 ### Commands and Command Options
 
 * New `pptadm` command for managing PCI device pass-through to bhyve virtual
   machines.
+
+* `smbios` can now display power-supply-unit (PSU) information.
+
+* New `cxgbetool` command for managing Chelsio T4/5/6 NICs.
 
 ##### BEGIN TBC
 * `netstat` supports the `-u` option to include information on the process(es)
@@ -63,9 +69,20 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
 
 ### Hardware Support
 
+* Support for QLogic QL41000/45000 series devices.
+
 ### Developer Features
 
+* GCC version 8 is now available - pkg install developer/gcc8 - and can be
+  found in /opt/gcc-8. Details of the changes in GCC 8 can be found on the
+  [gcc web site](https://gcc.gnu.org/gcc-8/changes.html).
+
+* Perl has been upgraded to 5.28.
+
 ### Deprecated features
+
+* GCC version 6 has been removed; however, if it is already installed on a
+  system which is upgraded, then it is left in-place.
 
 * Several legacy SunSSH compatibility options for OpenSSH were deprecated
   with release r151026 and should be removed from SSH daemon configuration
