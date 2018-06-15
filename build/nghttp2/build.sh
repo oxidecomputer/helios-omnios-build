@@ -33,7 +33,6 @@ PKG=library/nghttp2
 SUMMARY="Nghttp2: HTTP/2 C Library"
 DESC="$SUMMARY"
 
-CFLAGS="-O2"
 LDFLAGS="-lm"
 CONFIGURE_OPTS="
     --enable-lib-only

@@ -44,7 +44,7 @@ BUILD_DEPENDS_IPS='developer/pkg-config'
 # _XPG4_2 - Need cmsg from UNIX95
 # __EXTENSIONS__ - Need gethostbyname_r in _XPG4_2
 
-CFLAGS="\
+CFLAGS+="\
 	-std=gnu89 \
 	-Wno-logical-not-parentheses \
 	-Wno-bool-compare \
