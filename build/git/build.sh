@@ -28,7 +28,7 @@
 . ../../lib/functions.sh
 
 PROG=git
-VER=2.17.1
+VER=2.18.0
 PKG=developer/versioning/git
 SUMMARY="$PROG - distributed version control system"
 DESC="$SUMMARY"
@@ -48,8 +48,6 @@ HARDLINK_TARGETS="
     usr/libexec/amd64/git-core/git-cvsserver
     usr/libexec/git-core/git-shell
     usr/libexec/amd64/git-core/git-shell
-    usr/libexec/git-core/git-upload-pack
-    usr/libexec/amd64/git-core/git-upload-pack
 "
 
 # For inet_ntop which isn't detected properly in the configure script
