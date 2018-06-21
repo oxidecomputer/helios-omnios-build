@@ -37,7 +37,7 @@ DESC="$SUMMARY"
 RUN_DEPENDS_IPS+="library/python-2/cryptography-27"
 
 init
-download_source $PROG $PROG $VER
+download_source pymodules/${PROG,,} $PROG $VER
 patch_source
 prep_build
 python_build

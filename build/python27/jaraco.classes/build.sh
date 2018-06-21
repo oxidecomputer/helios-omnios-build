@@ -13,13 +13,13 @@
 #
 # }}}
 
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-2/jaraco.classes-27
 PROG=jaraco.classes
-VER=1.4.3
+VER=1.5
 SUMMARY="jaraco.classes - Utility functions for Python class constructs"
 DESC="$SUMMARY"
 

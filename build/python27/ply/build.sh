@@ -35,13 +35,13 @@ DESC="$SUMMARY"
 . $SRCDIR/../common.sh
 
 make_license() {
-    # Sigh. People. put the license in a standalone file!
+    # The licence is not provided in a stand-alone file.
     awk '/Copyright/,/DAMAGE.$/{print}' $TMPDIR/$BUILDDIR/README.md > \
         $TMPDIR/$BUILDDIR/LICENSE
 }
 
 init
-download_source $PROG $PROG $VER
+download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
