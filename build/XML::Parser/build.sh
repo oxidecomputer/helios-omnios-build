@@ -1,17 +1,27 @@
 #!/usr/bin/bash
 
-# Load support functions
+# {{{ CDDL HEADER
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
+
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 [ -z "$DEPVER" ] && DEPVER=$PERLVER
 
-AUTHORID=TODDR
-PROG=XML-Parser
-MODNAME=XML::Parser
-VER=2.44
-VERHUMAN=$VER
 PKG=library/perl-5/xml-parser
-SUMMARY="XML::Parser perl module ($VER)"
+PROG=XML-Parser
+VER=2.44
+SUMMARY="XML::Parser perl module"
 DESC="$SUMMARY"
 
 PREFIX=/usr/perl5
@@ -20,10 +30,10 @@ reset_configure_opts
 NO_PARALLEL_MAKE=1
 
 BUILD_DEPENDS_IPS="runtime/perl runtime/perl-64"
-DEPENDS_IPS="library/expat runtime/perl runtime/perl-64"
+RUN_DEPENDS_IPS="library/expat runtime/perl runtime/perl-64"
 
 init
-download_source CPAN/authors/id/${AUTHORID:0:1}/${AUTHORID:0:2}/${AUTHORID} $PROG $VER
+download_source perlmodules/$PROG $PROG $VER
 patch_source
 prep_build
 buildperl
@@ -32,4 +42,4 @@ make_package
 clean_up
 
 # Vim hints
-# vim:ts=4:sw=4:et:
+# vim:ts=4:sw=4:et:fdm=marker

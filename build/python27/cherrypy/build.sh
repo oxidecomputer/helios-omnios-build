@@ -28,7 +28,7 @@
 
 PKG=library/python-2/cherrypy-27
 PROG=CherryPy
-VER=15.0.0
+VER=16.0.2
 SUMMARY="cherrypy - A Minimalist Python Web Framework"
 DESC="$SUMMARY"
 
@@ -44,7 +44,7 @@ RUN_DEPENDS_IPS+="
 "
 
 init
-download_source $PROG $PROG $VER
+download_source pymodules/${PROG,,} $PROG $VER
 patch_source
 prep_build
 python_build

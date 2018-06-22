@@ -99,23 +99,23 @@
 | library/python-2/functools_lru_cache-27	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-2/asn1crypto-27	| 0.24.0		| https://pypi.python.org/pypi/asn1crypto
 | library/python-2/cffi-27		| 1.11.5		| https://pypi.python.org/pypi/cffi
-| library/python-2/cheroot-27		| 6.3.1			| https://pypi.python.org/pypi/cheroot
-| library/python-2/cherrypy-27		| 15.0.0		| https://pypi.python.org/pypi/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-2/cheroot-27		| 6.3.2			| https://pypi.python.org/pypi/cheroot
+| library/python-2/cherrypy-27		| 16.0.2		| https://pypi.python.org/pypi/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-2/coverage-27		| 4.5.1			| https://pypi.python.org/pypi/coverage
 | library/python-2/cryptography-27	| 2.2.2			| https://pypi.python.org/pypi/cryptography
 | library/python-2/enum-27		| 1.1.6			| https://pypi.python.org/pypi/enum34
 | library/python-2/functools32-27	| 3.2.3-2		| https://pypi.python.org/pypi/functools32
-| library/python-2/idna-27		| 2.6			| https://pypi.python.org/pypi/idna
+| library/python-2/idna-27		| 2.7			| https://pypi.python.org/pypi/idna
 | library/python-2/ipaddress-27		| 1.0.22		| https://pypi.python.org/pypi/ipaddress
-| library/python-2/jaraco.classes-27	| 1.4.3			| https://pypi.python.org/pypi/jaraco.classes
+| library/python-2/jaraco.classes-27	| 1.5			| https://pypi.python.org/pypi/jaraco.classes
 | library/python-2/jsonrpclib-27	| 0.1.7			| https://pypi.python.org/pypi/jsonrpclib
 | library/python-2/jsonschema-27	| 2.6.0			| https://pypi.python.org/pypi/jsonschema
 | library/python-2/mako-27		| 1.0.7			| https://pypi.python.org/pypi/Mako
 | library/python-2/more-itertools-27	| 4.2.0			| https://pypi.python.org/pypi/more-itertools
 | library/python-2/ply-27		| 3.11			| https://pypi.python.org/pypi/ply
-| library/python-2/portend-27		| 2.2			| https://pypi.python.org/pypi/portend
+| library/python-2/portend-27		| 2.3			| https://pypi.python.org/pypi/portend
 | library/python-2/pybonjour-27		| 1.1.1			| https://pypi.python.org/pypi/pybonjour
-| library/python-2/pycurl-27		| 7.43.0.1		| https://pypi.python.org/pypi/pycurl
+| library/python-2/pycurl-27		| 7.43.0.2		| https://pypi.python.org/pypi/pycurl
 | library/python-2/pyopenssl-27		| 18.0.0		| https://pypi.python.org/pypi/pyOpenSSL
 | library/python-2/pytz-27		| 2018.4		| https://pypi.python.org/pypi/pytz
 | library/python-2/setuptools-27	| 39.2.0		| https://pypi.python.org/pypi/setuptools
