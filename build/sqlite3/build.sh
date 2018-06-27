@@ -43,6 +43,8 @@ VERHUMAN="`echo $VER | sed '
 [ -n "$VERHUMAN" ] || logerr "-- Could not build VERHUMAN"
 logmsg "-- Building version $VERHUMAN"
 
+CFLAGS+=" -DSQLITE_ENABLE_COLUMN_METADATA"
+
 init
 download_source sqlite $PROG $VER
 patch_source
