@@ -1,0 +1,46 @@
+diff -wpruN '--exclude=*.orig' Python-3.5.5~/Programs/python.c Python-3.5.5/Programs/python.c
+--- Python-3.5.5~/Programs/python.c	2018-02-04 23:40:56.000000000 +0000
++++ Python-3.5.5/Programs/python.c	2018-06-28 15:18:31.146522042 +0000
+@@ -15,6 +15,13 @@ wmain(int argc, wchar_t **argv)
+ }
+ #else
+ 
++#if defined(sun) && defined(__SVR4) && !defined(_LP64)
++#define USE_EXTENDED_FILE_STDIO 1
++#include <stdio.h>
++#include <stdio_ext.h>
++#include <signal.h>
++#endif
++
+ int
+ main(int argc, char **argv)
+ {
+@@ -23,6 +30,9 @@ main(int argc, char **argv)
+     wchar_t **argv_copy2;
+     int i, res;
+     char *oldloc;
++#if defined(sun) && defined(__SVR4) && !defined(_LP64)
++    struct rlimit rlp;
++#endif
+ 
+     argv_copy = (wchar_t **)PyMem_RawMalloc(sizeof(wchar_t*) * (argc+1));
+     argv_copy2 = (wchar_t **)PyMem_RawMalloc(sizeof(wchar_t*) * (argc+1));
+@@ -40,6 +50,18 @@ main(int argc, char **argv)
+     fedisableexcept(FE_OVERFLOW);
+ #endif
+ 
++#ifdef USE_EXTENDED_FILE_STDIO
++    /*
++     * enable extended FILE facility on Solaris so that Python
++     * apps can keep more than 256 file descriptors open
++     */
++    (void) getrlimit(RLIMIT_NOFILE, &rlp);
++    rlp.rlim_cur = rlp.rlim_max;
++    if (setrlimit(RLIMIT_NOFILE, &rlp) != -1) {
++            enable_extended_FILE_stdio(-1, 0);
++    }
++#endif
++
+     oldloc = _PyMem_RawStrdup(setlocale(LC_ALL, NULL));
+     if (!oldloc) {
+         fprintf(stderr, "out of memory\n");
