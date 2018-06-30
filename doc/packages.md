@@ -115,6 +115,7 @@
 | library/python-2/ply-27		| 3.11			| https://pypi.python.org/pypi/ply
 | library/python-2/portend-27		| 2.3			| https://pypi.python.org/pypi/portend
 | library/python-2/pybonjour-27		| 1.1.1			| https://pypi.python.org/pypi/pybonjour
+| library/python-2/pycparser-27		| 2.18			| https://pypi.python.org/pypi/pycparser
 | library/python-2/pycurl-27		| 7.43.0.2		| https://pypi.python.org/pypi/pycurl
 | library/python-2/pyopenssl-27		| 18.0.0		| https://pypi.python.org/pypi/pyOpenSSL
 | library/python-2/pytz-27		| 2018.4		| https://pypi.python.org/pypi/pytz
