@@ -59,6 +59,7 @@ CONFIGURE_OPTS="
     --with-system-expat
     --enable-ipv6
     --without-ensurepip
+    ac_cv_func_getentropy=no
 "
 
 # We patch auto* files so need to re-generate
