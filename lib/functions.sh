@@ -369,7 +369,12 @@ reset_configure_opts() {
             --libdir=$PREFIX/lib
             --libexecdir=$PREFIX/libexec
         "
-        CONFIGURE_OPTS_64="$CONFIGURE_OPTS_32"
+        CONFIGURE_OPTS_64+="
+            --bindir=$PREFIX/bin
+            --sbindir=$PREFIX/sbin
+            --libdir=$PREFIX/lib/$ISAPART64
+            --libexecdir=$PREFIX/libexec/$ISAPART64
+        "
     else
         CONFIGURE_OPTS_32+="
             --bindir=$PREFIX/bin/$ISAPART
@@ -1243,14 +1248,25 @@ make_isa_stub() {
 
 make_isaexec_stub_arch() {
     for file in $1/*; do
-        [ -f "$file" ] || continue # Deals with empty dirs & non-files
+        [ -f "$file" ] || continue
+        if [ -z "$STUBLINKS" -a -h "$file" ]; then
+            # Symbolic link. If it's relative to within the same ARCH
+            # directory, then replicate it at the ISAEXEC level.
+            link=`readlink "$file"`
+            [[ $link = */* ]] && continue
+            base=`basename "$file"`
+            [ -h "$base" ] && continue
+            logmsg "------ Symbolic link: $file - replicating"
+            logcmd ln -s $link $base || logerr "--- Link failed"
+            continue
+        fi
         # Check to make sure we don't have a script
         read -n 4 < $file
-        file=`echo $file | sed -e "s/$1\///;"`
+        file=`basename $file`
         # Only copy non-binaries if we set NOSCRIPTSTUB
         if [[ $REPLY != $'\177'ELF && -n "$NOSCRIPTSTUB" ]]; then
             logmsg "------ Non-binary file: $file - copying instead"
-            cp $1/$file . && rm $1/$file
+            logcmd cp $1/$file . && rm $1/$file || logerr "--- Copy failed"
             chmod +x $file
             continue
         fi
@@ -1484,13 +1500,7 @@ python_compile() {
     logcmd $PYTHON -m compileall $DESTDIR
 }
 
-python_build() {
-    [ -z "$PYTHON" ] && logerr "PYTHON not set"
-    [ -z "$PYTHONPATH" ] && logerr "PYTHONPATH not set"
-    [ -z "$PYTHONLIB" ] && logerr "PYTHONLIB not set"
-    logmsg "Building using python setup.py"
-    pushd $TMPDIR/$BUILDDIR > /dev/null
-
+python_build32() {
     ISALIST=i386
     export ISALIST
     pre_python_32
@@ -1501,7 +1511,9 @@ python_build() {
     logmsg "--- setup.py (32) install"
     logcmd $PYTHON ./setup.py install --root=$DESTDIR $PYINST32OPTS \
         || logerr "--- install failed"
+}
 
+python_build64() {
     ISALIST="amd64 i386"
     export ISALIST
     pre_python_64
@@ -1512,10 +1524,23 @@ python_build() {
     logmsg "--- setup.py (64) install"
     logcmd $PYTHON ./setup.py install --root=$DESTDIR $PYINST64OPTS \
         || logerr "--- install failed"
+}
+
+python_build() {
+    [ -z "$PYTHON" ] && logerr "PYTHON not set"
+    [ -z "$PYTHONPATH" ] && logerr "PYTHONPATH not set"
+    [ -z "$PYTHONLIB" ] && logerr "PYTHONLIB not set"
+
+    logmsg "Building using python setup.py"
+
+    pushd $TMPDIR/$BUILDDIR > /dev/null
+
+    [[ $BUILDARCH =~ ^(32|both)$ ]] && python_build32
+    [[ $BUILDARCH =~ ^(64|both)$ ]] && python_build64
+
     popd > /dev/null
 
     python_vendor_relocate
-
     python_compile
 }
 

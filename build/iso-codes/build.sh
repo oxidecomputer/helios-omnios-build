@@ -33,10 +33,6 @@ PKG=data/iso-codes
 SUMMARY="ISO code lists and translations"
 DESC="$SUMMARY"
 
-# As of 3.70, iso-codes needs Python3 to build. Make sure python3 is around.
-BUILD_DEPENDS_IPS="ooce/runtime/python-36"
-export PATH=/opt/ooce/bin:$PATH
-
 set_arch 32
 
 init

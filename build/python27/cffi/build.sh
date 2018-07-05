@@ -34,6 +34,10 @@ DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 
+RUN_DEPENDS_IPS+="
+    library/python-2/pycparser-27
+"
+
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
