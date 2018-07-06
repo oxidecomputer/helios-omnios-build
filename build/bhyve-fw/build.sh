@@ -49,7 +49,7 @@ MAKE_ARGS="
 
 export OOGCC_BIN=$GCCPATH/bin/
 export IASL_PREFIX=/usr/sbin/
-export NASM_PREFIX=/usr/bin/i386/
+export NASM_PREFIX=/usr/bin/
 
 clone_source() {
     clone_github_source $PROG \
