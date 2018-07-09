@@ -24,12 +24,11 @@
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
-PROG=coreutils          # App name
-VER=8.29                # App version
-PKG=file/gnu-coreutils  # Package name (without prefix)
+PROG=coreutils
+VER=8.30
+PKG=file/gnu-coreutils
 SUMMARY="coreutils - GNU core utilities"
 DESC="GNU core utilities"
 
