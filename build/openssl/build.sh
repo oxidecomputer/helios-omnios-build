@@ -149,6 +149,10 @@ merge_package() {
     version_files $LDESTDIR `echo $LVER | cut -d. -f1-2`
 
     ( cd $LDESTDIR; find . | cpio -pmud $DESTDIR )
+
+    # This is to satisfy the dangling symlink checker. It's excluded by the
+    # local.mog
+    mkdir -p $DESTDIR/etc/ssl/certs
 }
 
 ######################################################################
