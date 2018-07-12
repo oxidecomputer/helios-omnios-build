@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=bind
-VER=9.11.3
+VER=9.11.4
 VERHUMAN=$VER
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
@@ -51,18 +51,12 @@ CONFIGURE_OPTS="
     --disable-static
 "
 
-TESTSUITE_SED="
-    /^[SE]:/d
-    /^making all in/d
-"
-
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
 python_vendor_relocate
-run_testsuite test-force
 VER=${VER//-P/.}
 VER=${VER//-W/.}
 make_package
