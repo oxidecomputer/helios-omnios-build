@@ -30,7 +30,7 @@ DESC="$SUMMARY"
 
 # Respect environmental overrides for these to ease development.
 : ${EDK2_SOURCE_REPO:=$GITHUB/$PROG}
-: ${EDK2_SOURCE_BRANCH:=bhyve/UDK2014.SP1}
+: ${EDK2_SOURCE_BRANCH:=master}
 
 # Extend VER so that the temporary build directory is branch specific.
 # Branch names can include '/' so remove them.
@@ -95,16 +95,28 @@ build() {
     [ $csm -eq 1 ] && BUILD_ARGS+=" -DCSM_ENABLE=TRUE"
     export BUILD_ARGS
 
-    if [ $csm -eq 1 ]; then
-        logmsg "-- Building compatibility support module (CSM)"
-        logcmd gmake $MAKE_ARGS -C BhyvePkg/Csm/BhyveCsm16/ \
-            || logerr "--- CSM build failed"
-    fi
-
     for mode in RELEASE DEBUG; do
         [[ "$FLAVOR" = *DEBUG* && $mode = RELEASE ]] && continue
         [[ "$FLAVOR" = *RELEASE* && $mode = DEBUG ]] && continue
         logmsg "-- Building $mode firmware"
+
+        case $mode in
+            RELEASE)    dport=0x2f8; level=CRIT ;;
+            DEBUG)      dport=0x3f8; level=INFO ;;
+        esac
+        logcmd sed -i "/PcdDebugIoPort|0x[0-9A-Fa-f]/s/0x[0-9A-Fa-f]*/$dport/" \
+            BhyvePkg/BhyvePkg.dec || logerr "sed BhyvePkg.dec"
+        logcmd sed -i "/DEBUG_PORT=0x/s/0x.*/$dport/" \
+            BhyvePkg/Csm/BhyveCsm16/GNUmakefile || logerr "sed GNUmakefile"
+        logcmd sed -i "/DebugLevel = DBG/s/DBG_.*/DBG_$level;/" \
+            BhyvePkg/Csm/BhyveCsm16/Printf.c || logerr "sed Printf.c"
+
+        if [ $csm -eq 1 ]; then
+            logmsg "-- Building compatibility support module (CSM)"
+            logcmd gmake $MAKE_ARGS -C BhyvePkg/Csm/BhyveCsm16/ clean all \
+                || logerr "--- CSM build failed"
+        fi
+
         logcmd `which build` \
             -t OOGCC -a X64 -b $mode \
             -p BhyvePkg/BhyvePkgX64.dsc \
