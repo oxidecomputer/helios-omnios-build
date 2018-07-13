@@ -83,7 +83,7 @@ CONFIGURE_OPTS="
 CONFIGURE_OPTS_WS="
     --with-boot-cflags=\"-g -O2\"
     --with-pkgversion=\"OmniOS $RELVER\"
-    --with-bugurl=https://github.com/omniosorg/omnios-build/issues
+    --with-bugurl=https://omniosce.org/about/contact
 "
 LDFLAGS32="-R$OPT/lib"
 
