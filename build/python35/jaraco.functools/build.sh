@@ -10,17 +10,17 @@
 # A full copy of the text of the CDDL should have accompanied this
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
+#
 # }}}
-#
+
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+
 . ../../../lib/functions.sh
 
-PKG=library/python-2/pytz-27
-PROG=pytz
-VER=2018.5
-SUMMARY="pytz - World Timezone Definitions for Python"
+PKG=library/python-3/jaraco.functools-35
+PROG=jaraco.functools
+VER=1.20
+SUMMARY="jaraco.functools - Additional functools"
 DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
