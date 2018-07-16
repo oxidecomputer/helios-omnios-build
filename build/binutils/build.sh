@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=binutils
-VER=2.30
+VER=2.31
 VERHUMAN=$VER
 PKG=developer/gnu-binutils
 SUMMARY="$PROG - a collection of binary tools"
