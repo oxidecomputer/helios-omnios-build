@@ -31,11 +31,17 @@
 # list to use later when showing package differences.
 PKG=package/pkg
 PKGLIST=$PKG
+PKG=package/pkg-35
+PKGLIST+=" $PKG"
 PKG=system/zones/brand/ipkg
 PKGLIST+=" $PKG"
 PKG=system/zones/brand/lipkg
 PKGLIST+=" $PKG"
 PKG=system/zones/brand/sparse
+PKGLIST+=" $PKG"
+PKG=system/zones/brand/bhyve
+PKGLIST+=" $PKG"
+PKG=system/zones/brand/kvm
 PKGLIST+=" $PKG"
 SUMMARY="This isn't used"
 DESC="$SUMMARY"
@@ -66,23 +72,12 @@ clone_source() {
 }
 
 build() {
-    pushd $TMPDIR/$BUILDDIR/pkg/src > /dev/null \
-        || logerr "Cannot change to src dir"
-    find . -depth -name \*.mo -exec touch {} +
-    find gui/help -depth -name \*.in | sed -e 's/\.in$//' | xargs touch
-    pushd $TMPDIR/$BUILDDIR/pkg/src/brand > /dev/null
-    logmsg "--- brand subbuild"
-    logcmd make clean
-    ISALIST=i386 CC=gcc logcmd make CODE_WS=$TMPDIR/$BUILDDIR/pkg \
-        || logerr "brand make failed"
-    popd
+    pushd $TMPDIR/$BUILDDIR/pkg/src > /dev/null || logerr "Cannot chdir"
     logmsg "--- toplevel build"
     logcmd make clean
-    ISALIST=i386 CC=gcc logcmd make CODE_WS=$TMPDIR/$BUILDDIR/pkg \
-        || logerr "toplevel make failed"
+    logcmd make CODE_WS=$TMPDIR/$BUILDDIR/pkg || logerr "make failed"
     logmsg "--- proto install"
-    ISALIST=i386 CC=gcc logcmd make install CODE_WS=$TMPDIR/$BUILDDIR/pkg \
-        || logerr "proto install failed"
+    logcmd make install CODE_WS=$TMPDIR/$BUILDDIR/pkg || logerr "install failed"
     popd > /dev/null
 }
 
@@ -90,10 +85,10 @@ package() {
     pushd $TMPDIR/$BUILDDIR/pkg/src/pkg > /dev/null
     logmsg "--- packaging"
     logcmd make clean
-    ISALIST=i386 CC=gcc logcmd make \
+    logcmd make \
         CODE_WS=$TMPDIR/$BUILDDIR/pkg \
         BUILDNUM=$BUILDNUM || logerr "pkg make failed"
-    ISALIST=i386 CC=gcc logcmd make publish-pkgs \
+    logcmd make publish-pkgs \
         CODE_WS=$TMPDIR/$BUILDDIR/pkg \
         BUILDNUM=$BUILDNUM \
         PKGSEND_OPTS="" \
