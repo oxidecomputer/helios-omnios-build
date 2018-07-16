@@ -54,7 +54,7 @@
 | library/unixodbc			| 2.3.6			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | network/dns/bind			| 9.11.4		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
-| network/openssh			| 7.6p1			| https://mirrors.evowise.com/pub/OpenBSD/OpenSSH/portable/
+| network/openssh			| 7.7p1			| https://mirrors.evowise.com/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source

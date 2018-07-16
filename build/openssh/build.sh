@@ -27,13 +27,19 @@
 . ../../lib/functions.sh
 
 PROG=openssh
-VER=7.6p1
+VER=7.7p1
 VERHUMAN=$VER
 PKG=network/openssh
 SUMMARY="OpenSSH Client and utilities"
 DESC="OpenSSH Secure Shell protocol Client and associated Utilities"
 
 set_arch 64
+# OpenSSH enables spectre mitigations during build if the compiler
+# supports them. Our gcc 7 does, but they don't work and produce crashing
+# binaries. Since we want the mitigations in something like openssh, we
+# use gcc 8.
+set_gccver 8
+
 CONFIGURE_OPTS_64+="
     --sysconfdir=/etc/ssh
 "

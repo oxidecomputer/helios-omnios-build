@@ -6,9 +6,10 @@ Subject: [PATCH 19/34] PubKeyPlugin support
 This adds the PubKeyPlugin directive and associated code from
 SunSSH, allowing an in-process shared library to be called
 into to check public keys for authentication.
-diff -pruN '--exclude=*.orig' openssh-7.6p1~/auth2-pubkey.c openssh-7.6p1/auth2-pubkey.c
---- openssh-7.6p1~/auth2-pubkey.c	2017-10-02 21:34:26.000000000 +0000
-+++ openssh-7.6p1/auth2-pubkey.c	2017-11-22 12:16:10.880787872 +0000
+
+diff -wpruN '--exclude=*.orig' openssh-7.7p1~/auth2-pubkey.c openssh-7.7p1/auth2-pubkey.c
+--- openssh-7.7p1~/auth2-pubkey.c	2018-04-02 05:38:28.000000000 +0000
++++ openssh-7.7p1/auth2-pubkey.c	2018-07-11 14:51:09.909659552 +0000
 @@ -22,6 +22,11 @@
   * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
   * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
@@ -35,9 +36,9 @@ diff -pruN '--exclude=*.orig' openssh-7.6p1~/auth2-pubkey.c openssh-7.6p1/auth2-
  #include "buffer.h"
  #include "log.h"
  #include "misc.h"
-@@ -73,6 +80,15 @@ extern ServerOptions options;
- extern u_char *session_id2;
- extern u_int session_id2_len;
+@@ -84,6 +91,15 @@ format_key(const struct sshkey *key)
+ 	return ret;
+ }
  
 +static const char *RSA_SYM_NAME = "sshd_user_rsa_key_allowed";
 +static const char *ECDSA_SYM_NAME = "sshd_user_ecdsa_key_allowed";
@@ -51,7 +52,7 @@ diff -pruN '--exclude=*.orig' openssh-7.6p1~/auth2-pubkey.c openssh-7.6p1/auth2-
  static int
  userauth_pubkey(struct ssh *ssh)
  {
-@@ -788,6 +804,124 @@ user_key_command_allowed2(struct passwd
+@@ -967,6 +983,124 @@ user_key_command_allowed2(struct ssh *ss
  	return found_key;
  }
  
@@ -176,21 +177,21 @@ diff -pruN '--exclude=*.orig' openssh-7.6p1~/auth2-pubkey.c openssh-7.6p1/auth2-
  /*
   * Check whether key authenticates and authorises the user.
   */
-@@ -807,6 +941,10 @@ user_key_allowed(struct passwd *pw, stru
- 	if (success)
- 		return success;
+@@ -991,6 +1125,10 @@ user_key_allowed(struct ssh *ssh, struct
+ 	sshauthopt_free(opts);
+ 	opts = NULL;
  
 +	success = user_key_allowed_from_plugin(pw, key);
 +	if (success > 0)
 +		return success;
 +
- 	success = user_key_command_allowed2(pw, key);
- 	if (success > 0)
- 		return success;
-diff -pruN '--exclude=*.orig' openssh-7.6p1~/servconf.c openssh-7.6p1/servconf.c
---- openssh-7.6p1~/servconf.c	2017-11-22 12:16:10.610619472 +0000
-+++ openssh-7.6p1/servconf.c	2017-11-22 12:16:10.881359013 +0000
-@@ -179,6 +179,7 @@ initialize_server_options(ServerOptions
+ 	if ((success = user_key_command_allowed2(ssh, pw, key, &opts)) != 0)
+ 		goto out;
+ 	sshauthopt_free(opts);
+diff -wpruN '--exclude=*.orig' openssh-7.7p1~/servconf.c openssh-7.7p1/servconf.c
+--- openssh-7.7p1~/servconf.c	2018-07-11 14:51:09.571969810 +0000
++++ openssh-7.7p1/servconf.c	2018-07-11 14:51:09.910358790 +0000
+@@ -189,6 +189,7 @@ initialize_server_options(ServerOptions
  	 */
  	options->pam_service_per_authmethod = 1;
  #endif
@@ -198,23 +199,23 @@ diff -pruN '--exclude=*.orig' openssh-7.6p1~/servconf.c openssh-7.6p1/servconf.c
  }
  
  /* Returns 1 if a string option is unset or set to "none" or 0 otherwise. */
-@@ -463,6 +464,7 @@ typedef enum {
+@@ -506,6 +507,7 @@ typedef enum {
  	sStreamLocalBindMask, sStreamLocalBindUnlink,
  	sAllowStreamLocalForwarding, sFingerprintHash, sDisableForwarding,
- 	sExposeAuthInfo,
+ 	sExposeAuthInfo, sRDomain,
 +	sPubKeyPlugin,
  	sDeprecated, sIgnore, sUnsupported
  } ServerOpCodes;
  
-@@ -646,6 +648,7 @@ static struct {
- 	{ "fingerprinthash", sFingerprintHash, SSHCFG_GLOBAL },
+@@ -667,6 +669,7 @@ static struct {
  	{ "disableforwarding", sDisableForwarding, SSHCFG_ALL },
  	{ "exposeauthinfo", sExposeAuthInfo, SSHCFG_ALL },
+ 	{ "rdomain", sRDomain, SSHCFG_ALL },
 +	{ "pubkeyplugin", sPubKeyPlugin, SSHCFG_ALL },
  	{ NULL, sBadOption, 0 }
  };
  
-@@ -2011,6 +2014,18 @@ process_server_config_line(ServerOptions
+@@ -2129,6 +2132,18 @@ process_server_config_line(ServerOptions
  		}
  		break;
  
@@ -233,10 +234,10 @@ diff -pruN '--exclude=*.orig' openssh-7.6p1~/servconf.c openssh-7.6p1/servconf.c
  	case sDeprecated:
  	case sIgnore:
  	case sUnsupported:
-diff -pruN '--exclude=*.orig' openssh-7.6p1~/servconf.h openssh-7.6p1/servconf.h
---- openssh-7.6p1~/servconf.h	2017-11-22 12:16:10.610816905 +0000
-+++ openssh-7.6p1/servconf.h	2017-11-22 12:16:10.881562195 +0000
-@@ -210,6 +210,7 @@ typedef struct {
+diff -wpruN '--exclude=*.orig' openssh-7.7p1~/servconf.h openssh-7.7p1/servconf.h
+--- openssh-7.7p1~/servconf.h	2018-07-11 14:51:09.572189038 +0000
++++ openssh-7.7p1/servconf.h	2018-07-11 14:51:09.910560621 +0000
+@@ -221,6 +221,7 @@ typedef struct {
  
  	int	fingerprint_hash;
  	int	expose_userauth_info;
