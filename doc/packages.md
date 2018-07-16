@@ -105,8 +105,8 @@
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
 | library/python-3/cffi-35		| 1.11.5		| https://pypi.org/project/cffi
-| library/python-3/cheroot-35		| 6.3.2			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-35		| 16.0.2		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/cheroot-35		| 6.3.3			| https://pypi.org/project/cheroot
+| library/python-3/cherrypy-35		| 16.0.3		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-35		| 4.5.1			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.2.2			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.7			| https://pypi.org/project/idna
@@ -121,9 +121,9 @@
 | library/python-3/pycparser-35		| 2.18			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 18.0.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pytz-35		| 2018.4		| https://pypi.org/project/pytz
-| library/python-3/setuptools-35	| 39.2.0		| https://pypi.org/project/setuptools
-| library/python-3/simplejson-35	| 3.15.0		| https://pypi.org/project/simplejson
+| library/python-3/pytz-35		| 2018.5		| https://pypi.org/project/pytz
+| library/python-3/setuptools-35	| 40.0.0		| https://pypi.org/project/setuptools
+| library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.11.0		| https://pypi.org/project/six
-| library/python-3/tempora-35		| 1.11			| https://pypi.org/project/tempora
+| library/python-3/tempora-35		| 1.11			| https://pypi.org/project/tempora | At present, cherrypy requires tempora\<1.13
 

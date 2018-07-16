@@ -26,6 +26,7 @@ DESC="$SUMMARY"
 
 RUN_DEPENDS_IPS+="
     library/python-$PYMVER/pytz-$SPYVER
+    library/python-$PYMVER/jaraco.functools-$SPYVER
 "
 
 init

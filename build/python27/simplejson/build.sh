@@ -28,7 +28,7 @@
 
 PKG=library/python-2/simplejson-27
 PROG=simplejson
-VER=3.15.0
+VER=3.16.0
 SUMMARY="simplejson - Python interface to JSON for Python"
 DESC="$SUMMARY"
 
