@@ -94,7 +94,7 @@
 | library/glib2				| 2.56.1		| https://download.gnome.org/sources/glib/cache.json https://developer.gnome.org/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.30			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
-| system/virtualization/open-vm-tools	| 10.2.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
+| system/virtualization/open-vm-tools	| 10.3.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 3.0.12		| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-2/ipaddress-27		| 1.0.22		| https://pypi.org/project/ipaddress
