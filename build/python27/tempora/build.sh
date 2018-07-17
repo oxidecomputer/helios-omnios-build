@@ -19,7 +19,7 @@
 
 PKG=library/python-2/tempora-27
 PROG=tempora
-VER=1.11
+VER=1.13
 SUMMARY="tempora - Objects and routines pertaining to date and time"
 DESC="$SUMMARY"
 
