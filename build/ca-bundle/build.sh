@@ -68,6 +68,13 @@ build_pem() {
     logcmd mkdir -p $TMPDIR/$BUILDDIR
     logcmd cp $TMPDIR/nss-$NSSVER/nss/COPYING $TMPDIR/$BUILDDIR/license || \
         logerr "--- Failed to copy license file"
+
+    cp $DESTDIR/etc/ssl/cacert.pem{,.full}
+    sed -n < $DESTDIR/etc/ssl/cacert.pem.full > $DESTDIR/etc/ssl/cacert.pem '
+        /^#/p
+        /---BEGIN CERT/,/---END CERT/p
+    '
+    rm -f $DESTDIR/etc/ssl/cacert.pem.full
 }
 
 # Install the OmniOSce CA cert, to be used by pkg(1)
