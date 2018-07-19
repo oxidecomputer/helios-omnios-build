@@ -18,6 +18,10 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
 * bhyve virtual machines are now fully supported and recommended in place of
   KVM - see <https://omniosce.org/info/bhyve> for more details.
 
+* bhyve and kvm branded zones are now available. Our website contains
+  [documentation](https://omniosce.org/info/bhyve_kvm_brand) on how to make
+  use of these.
+
 * The default openssl version is 1.1 and OmniOS itself is now built against
   that version. The system openssl version can be changed back to 1.0.2 via
   the version property of the _openssl_ mediator, i.e.
@@ -32,10 +36,16 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
   very old SSH implementations (pre-2001);
   refer to the [release notes](https://www.openssh.com/txt/release-7.7)
   for more details. Several legacy SunSSH compatibility options for OpenSSH
-  were deprecated in release r151026; see *Deprecated features* below.
+  that were deprecated in release r151026 have been removed;
+  see *Deprecated features* below.
 
 * ZFS support for mounting filesystems in parallel. This significantly
   improves boot time for systems with many filesystems.
+
+* ZFS support for initialising unused blocks with a pattern -
+  [see blog post](https://omniosce.org/article/hole-punching)
+
+* Boot archives are now created in _cpio_ format by default.
 
 * Several 32-bit only packages have been moved to 64-bit only.
 
@@ -48,18 +58,7 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
 
 * New `cxgbetool` command for managing Chelsio T4/5/6 NICs.
 
-##### BEGIN TBC
-* `netstat` supports the `-u` option to include information on the process(es)
-  to which sockets are associated. A socket may be associated by more than
-  one process as shown in the example below:
-  ```
-  % netstat -nuf inet
-     Local Address        Remote Address      User    Pid       Command     Swind Send-Q Rwind Recv-Q    State
-  -------------------- --------------------  ------ ------- --------------- ----- ------ ----- ------ -----------
-  192.168.1.1.22       192.168.1.79.34640   root        531 sshd           134664     51  128872      0 ESTABLISHED
-  192.168.1.1.22       192.168.1.79.34640   af          533 sshd           134664     51  128872      0 ESTABLISHED
-  ```
-##### END TBC
+* The `sasinfo` command now support 12Gb/s SAS.
 
 ### LX zones
 
@@ -67,9 +66,35 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
 
 ### Package Management
 
+* Automatic naming is now supported for boot environments. This is configured
+  via the new `auto-be-name` package property, see the man page for the
+  `pkg` command for more information and examples.
+
+  ```
+  # pkg set-property auto-be-name omnios-r%r
+  ```
+
+* The `pkg set-publisher` command now accepts the `-r` option to indicate
+  that the changes should be applied recursively to linked child zones.
+  This makes upgrades easier and our
+  [upgrade guide](https://omniosce.org/upgrade) has been updated to make use
+  of this new feature.
+
 ### Hardware Support
 
 * Support for QLogic QL41000/45000 series devices.
+
+### Installer
+
+* The installer has been updated to allow selection of the shell to be used
+  for a user created via the post-installation configuration menu.
+
+* The `/etc/inet/hosts` file is now populated based on options selected
+  in the post-installation configuration menu.
+
+* When creating an initial user via the post-installation configuration menu
+  the user's home directory is now placed on a boot-environment independent
+  dataset and the _autofs_ automounter is disabled.
 
 ### Developer Features
 
@@ -77,7 +102,17 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
   found in /opt/gcc-8. Details of the changes in GCC 8 can be found on the
   [gcc web site](https://gcc.gnu.org/gcc-8/changes.html).
 
+* The default version of OpenSSL is now 1.1. See *System Features* above
+  for more information.
+
+* Python version 3 has been added to the core system; it is not installed
+  by default in this release. All python components will be moved over to
+  python 3 in the next release.
+
 * Perl has been upgraded to 5.28.
+
+* sqlite3 is now built with support for additional column metadata API
+  functions.
 
 ### Deprecated features
 
@@ -85,9 +120,14 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
   system which is upgraded, then it is left in-place.
 
 * Several legacy SunSSH compatibility options for OpenSSH were deprecated
-  with release r151026 and should be removed from SSH daemon configuration
-  files. A future release of OmniOS will remove support for these options
-  completely. Refer to <https://omniosce.org/info/sunssh> for more details.
+  with release r151026 and have now been removed. Please ensure that the
+  old directives are removed from your configuration files prior to upgrading
+  to this release. Refer to
+  <https://omniosce.org/info/sunssh> for more details.
+
+* Python 2 is deprecated and will become unmaintained starting with the next
+  OmniOS release. `/usr/bin/python` is now a mediated link that points to
+  python2 by default.
 
 ### Package changes ([+] Added, [-] Removed, [\*] Changed)
 
