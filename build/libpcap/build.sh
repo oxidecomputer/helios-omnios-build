@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,36 +18,27 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
+# CDDL HEADER END }}}
 #
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=libpcap
-VER=1.8.1
+VER=1.9.0
 VERHUMAN=$VER
 PKG=system/library/pcap
 SUMMARY="libpcap - a packet capture library"
 DESC="$SUMMARY"
 
-CONFIGURE_OPTS="$CONFIGURE_OPTS --mandir=/usr/share/man --with-pcap=dlpi"
+CONFIGURE_OPTS="
+    --mandir=/usr/share/man
+    --with-pcap=dlpi
+"
 
-save_function configure32 configure32_orig
-save_function configure64 configure64_orig
-configure32(){
-    configure32_orig
-    gsed -i 's/#define HAVE_NETPACKET_PACKET_H 1//;' config.h
-}
-configure64(){
-    configure64_orig
-    gsed -i 's/#define HAVE_NETPACKET_PACKET_H 1//;' config.h
-    echo "#define HAVE_SYS_BUFMOD_H 1" >> config.h
-    gsed -i 's/^LDFLAGS =.*/LDFLAGS =/;' Makefile
-}
 fixup_man3(){
     mv $DESTDIR/usr/share/man/man3 $DESTDIR/usr/share/man/man3pcap
 }
@@ -64,4 +55,4 @@ make_package
 clean_up
 
 # Vim hints
-# vim:ts=4:sw=4:et:
+# vim:ts=4:sw=4:et:fdm=marker
