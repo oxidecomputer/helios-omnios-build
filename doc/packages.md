@@ -74,7 +74,7 @@
 | system/cpuid				| 1.6.4			| https://github.com/tycho/cpuid/releases
 | system/library/dbus			| 1.12.8		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.110			| https://dbus.freedesktop.org/releases/dbus-glib/
-| system/library/pcap			| 1.8.1			| http://www.tcpdump.org/#latest-releases
+| system/library/pcap			| 1.9.0			| http://www.tcpdump.org/#latest-releases
 | system/management/ipmitool		| 1.8.18		| https://sourceforge.net/projects/ipmitool/files/ipmitool
 | system/management/snmp/net-snmp	| 5.7.3			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/pciutils			| 3.6.1			| https://www.kernel.org/pub/software/utils/pciutils/
