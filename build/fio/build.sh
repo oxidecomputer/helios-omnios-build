@@ -29,26 +29,22 @@
 . ../../lib/functions.sh
 
 PROG=fio
-VER=3.7
+VER=3.8
 VERHUMAN=$VER
 PKG=system/test/fio
 SUMMARY="Flexible IO Tester"
 DESC="Flexible IO Tester"
-NOSCRIPTSTUB=1
 BUILDDIR=$PROG-$PROG-$VER
 
-CONFIGURE_OPTS=
-CONFIGURE_OPTS_32=
-CONFIGURE_OPTS_64="--extra-cflags=-m64"
-MAKE_INSTALL_ARGS_32="bindir=/usr/bin/i386"
-MAKE_INSTALL_ARGS_64="bindir=/usr/bin/amd64"
+set_arch 64
+
+CONFIGURE_OPTS_64="--prefix=$PREFIX --extra-cflags=-m64"
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 
