@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=net-snmp
-VER=5.7.3
+VER=5.8
 VERHUMAN=$VER
 PKG=system/management/snmp/net-snmp
 SUMMARY="Net-SNMP Agent files and libraries"
@@ -60,11 +60,13 @@ CONFIGURE_OPTS="
     --enable-ucd-snmp-compatibility
     --enable-ipv6
     --enable-mfd-rewrites
-    --with-pkcs
+    --enable-blumenthal-aes
     --disable-embedded-perl
     --without-perl-modules
     --disable-static
     --with-sys-contact=root@localhost
+    --without-pkcs
+    --with-openssl=/usr
 "
 
 CONFIGURE_OPTS_WS="
@@ -73,11 +75,18 @@ CONFIGURE_OPTS_WS="
     LNETSNMPLIBS=\"$LNETSNMPLIBS\"
 "
 
+TESTSUITE_SED="
+    1,/^..RUNFULLTESTS/d
+    s/([^)]*net-snmp-.*//
+    /^gmake/d
+"
+
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
+run_testsuite test
 install_smf application/management net-snmp.xml svc-net-snmp
 strip_install
 make_package
