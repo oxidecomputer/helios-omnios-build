@@ -66,12 +66,19 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
 
 ### Package Management
 
-* Automatic naming is now supported for boot environments. This is configured
-  via the new `auto-be-name` package property, see the man page for the
-  `pkg` command for more information and examples.
+* Automatic naming is now supported for boot environments created during
+  package operations. This is configured via the new `auto-be-name` image
+  property which specifies a template for the new name; see the man page for
+  the `pkg` command for more information and examples. A suggested property
+  value is `omnios-r%r` which results in BE names such as `omnios-r151028x`:
 
   ```
   # pkg set-property auto-be-name omnios-r%r
+  # pkg update
+  ...
+  A clone of r151028 exists and has been updated and activated.
+  On the next boot the Boot Environment omnios-r151028x will be
+  mounted on '/'.  Reboot when ready to switch to this updated BE.
   ```
 
 * The `pkg set-publisher` command now accepts the `-r` option to indicate
