@@ -29,7 +29,7 @@
 
 case $DEPVER in
     "")
-        DEPVER=5.26.2
+        DEPVER=5.28.0
         logmsg "no version specified, using $DEPVER"
         ;;
 esac
