@@ -69,7 +69,7 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
 * Automatic naming is now supported for boot environments created during
   package operations. This is configured via the new `auto-be-name` image
   property which specifies a template for the new name; see the man page for
-  the `pkg` command for more information and examples. A suggested property
+  the `pkg` command for more information and examples. The default property
   value is `omnios-r%r` which results in BE names such as `omnios-r151028x`:
 
   ```
