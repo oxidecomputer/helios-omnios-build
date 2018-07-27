@@ -19,7 +19,7 @@
 
 PKG=library/python-2/cryptography-27
 PROG=cryptography
-VER=2.2.2
+VER=2.3
 SUMMARY="cryptography - cryptographic recipes and primitives"
 DESC="$SUMMARY"
 

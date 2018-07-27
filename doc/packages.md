@@ -108,7 +108,7 @@
 | library/python-3/cheroot-35		| 6.3.3			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 17.0.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-35		| 4.5.1			| https://pypi.org/project/coverage
-| library/python-3/cryptography-35	| 2.2.2			| https://pypi.org/project/cryptography
+| library/python-3/cryptography-35	| 2.3			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.7			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.3.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 2.6.0			| https://pypi.org/project/jsonschema
