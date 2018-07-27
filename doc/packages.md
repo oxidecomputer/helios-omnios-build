@@ -117,6 +117,7 @@
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-35		| 2.3			| https://pypi.org/project/portend
+| library/python-3/prettytable-35	| 0.7			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-35		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycparser-35		| 2.18			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
