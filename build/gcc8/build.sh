@@ -28,7 +28,7 @@
 
 PKG=developer/gcc8
 PROG=gcc
-VER=8.1.0
+VER=8.2.0
 VERHUMAN=$VER
 SUMMARY="gcc ${VER}"
 DESC="$SUMMARY"
