@@ -66,7 +66,7 @@ CONFIGURE_OPTS="
     --disable-static
     --with-sys-contact=root@localhost
     --without-pkcs
-    --with-openssl=/usr
+    --with-openssl=/usr/ssl
 "
 
 CONFIGURE_OPTS_WS="
