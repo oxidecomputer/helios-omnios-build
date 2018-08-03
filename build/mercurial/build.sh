@@ -27,39 +27,12 @@
 . ../../lib/functions.sh
 
 PROG=mercurial
-VER=4.6.2
+VER=4.7
 PKG=developer/versioning/mercurial
 SUMMARY="$PROG - distributed version control system"
 DESC="$SUMMARY"
 
 RUN_DEPENDS_IPS="web/curl library/security/openssl"
-
-python_build() {
-    logmsg "Building using python setup.py"
-    pushd $TMPDIR/$BUILDDIR > /dev/null
-    ISALIST=i386
-    export ISALIST
-    logmsg "--- setup.py (32) build"
-    logcmd $PYTHON ./setup.py build \
-        || logerr "--- build failed"
-    logmsg "--- setup.py (32) install"
-    logcmd $PYTHON \
-        ./setup.py install --root=$DESTDIR \
-        || logerr "--- install failed"
-
-    ISALIST="amd64 i386"
-    export ISALIST
-    logmsg "--- setup.py (64) build"
-    logcmd $PYTHON ./setup.py build \
-        || logerr "--- build failed"
-    logmsg "--- setup.py (64) install"
-    logcmd $PYTHON \
-        ./setup.py install --root=$DESTDIR \
-        || logerr "--- install failed"
-    popd > /dev/null
-
-    python_vendor_relocate
-}
 
 init
 download_source $PROG $PROG $VER

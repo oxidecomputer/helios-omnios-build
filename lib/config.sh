@@ -138,15 +138,6 @@ export PERL_MM_USE_DEFAULT=true
 PERL_MAKE_TEST=1
 
 #############################################################################
-# Python -- NOTE, these can be changed at runtime via set_python_version().
-#############################################################################
-: ${PYTHONVER:=2.7}
-: ${PYTHONPKGVER:=${PYTHONVER//./}}
-PYTHONPATH=/usr
-PYTHON=$PYTHONPATH/bin/python$PYTHONVER
-PYTHONLIB=$PYTHONPATH/lib
-
-#############################################################################
 # Paths to common tools
 #############################################################################
 WGET=wget
@@ -198,8 +189,11 @@ ISAPART64=amd64
 CC=gcc
 CXX=g++
 
-# Specify default GCC version for building packages
+# Specify default versions for building packages
 DEFAULT_GCC_VER=7
+PYTHON2VER=2.7
+PYTHON3VER=3.5
+DEFAULT_PYTHON_VER=$PYTHON2VER
 
 # CFLAGS applies to both builds, 32/64 only gets applied to the respective
 # build
