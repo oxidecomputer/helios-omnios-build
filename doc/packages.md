@@ -61,7 +61,7 @@
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
 | runtime/perl				| 5.28.0		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.15		| https://www.python.org/downloads/source/
-| runtime/python-35			| 3.5.5			| https://www.python.org/downloads/source/
+| runtime/python-35			| 3.5.6			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.23		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p11		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.1			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
@@ -105,7 +105,7 @@
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
 | library/python-3/cffi-35		| 1.11.5		| https://pypi.org/project/cffi
-| library/python-3/cheroot-35		| 6.3.3			| https://pypi.org/project/cheroot
+| library/python-3/cheroot-35		| 6.4.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 17.0.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-35		| 4.5.1			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.3			| https://pypi.org/project/cryptography
@@ -113,7 +113,7 @@
 | library/python-3/jsonrpclib-35	| 0.3.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 2.6.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.0.7			| https://pypi.org/project/Mako
-| library/python-3/more-itertools-35	| 4.2.0			| https://pypi.org/project/more-itertools
+| library/python-3/more-itertools-35	| 4.3.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-35		| 2.3			| https://pypi.org/project/portend

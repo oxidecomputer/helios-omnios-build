@@ -19,7 +19,7 @@
 
 PKG=library/python-2/more-itertools-27
 PROG=more-itertools
-VER=4.2.0
+VER=4.3.0
 SUMMARY="more-itertools - More routines for operating on iterables"
 DESC="$SUMMARY"
 

@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=Python
-VER=3.5.5
+VER=3.5.6
 PKG=runtime/python-35
 MVER=${VER%.*}
 SUMMARY="$PROG $SMVER"
@@ -37,6 +37,10 @@ RUN_DEPENDS_IPS="
     system/library/gcc-runtime
 "
 XFORM_ARGS="-D PYTHONVER=$MVER"
+
+HARDLINK_TARGETS="
+    usr/bin/python3.5
+"
 
 set_arch 64
 
