@@ -34,6 +34,10 @@ DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/functools32-$SPYVER
+"
+
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
