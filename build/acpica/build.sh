@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=acpica-unix
-VER=20180629
+VER=20180810
 VERHUMAN=$VER
 PKG=developer/acpi/compiler
 SUMMARY="ACPI Component Architecture compiler"
