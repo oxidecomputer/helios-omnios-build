@@ -45,10 +45,7 @@ CONFIGURE_OPTS_64+=" --includedir=$PREFIX/include/amd64"
 # Otherwise there are test failures because some tests preload a library
 # to override the hostname. If the library is 64-bit then the test aborts
 # when runtests.pl calls a 32-bit shell to spawn a sub-process.
-build() {
-    [[ $BUILDARCH =~ ^(64|both)$ ]] && build64
-    [[ $BUILDARCH =~ ^(32|both)$ ]] && build32
-}
+BUILDORDER="64 32"
 
 TESTSUITE_FILTER="^TEST[A-Z]"
 

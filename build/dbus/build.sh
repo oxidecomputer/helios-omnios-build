@@ -45,10 +45,7 @@ CONFIGURE_OPTS="
 
 # We build backwards here on purpose so that 32bit binaries win
 # (for install collisions).
-build() {
-    [[ $BUILDARCH =~ ^(64|both)$ ]] && build64
-    [[ $BUILDARCH =~ ^(32|both)$ ]] && build32
-}
+BUILDORDER="64 32"
 
 post_install() {
     mkdir -p $DESTDIR/etc/security/auth_attr.d
