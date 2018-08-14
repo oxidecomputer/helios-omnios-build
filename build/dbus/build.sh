@@ -27,9 +27,9 @@
 . ../../lib/functions.sh
 
 PROG=dbus
-VER=1.12.8
+VER=1.12.10
 PKG=dbus ##IGNORE##
-SUMMARY="$PROG - IPC-based message notifications"
+SUMMARY="filled in below"
 DESC="$SUMMARY"
 
 CPPFLAGS+=" -D__EXTENSIONS__ -D_REENTRANT -D_XPG6"
@@ -68,12 +68,12 @@ post_install
 
 PKG=system/library/dbus
 SUMMARY="Simple IPC library based on messages"
-DESC="Simple IPC library based on messages"
+DESC="A simple system for interprocess communication and coordination"
 make_package dbus.mog
 
 PKG=system/library/libdbus
-SUMMARY="Simple IPC library based on messages - client libraries"
-DESC="Simple IPC library based on messages - client libraries"
+SUMMARY+=" - client libraries"
+DESC+=" - client libraries"
 make_package libdbus.mog
 
 clean_up
