@@ -27,15 +27,15 @@
 . ../../lib/functions.sh
 
 PROG=openssl
-VER=1.1.0h
-LVER=1.0.2o
+VER=1.1.0i
+LVER=1.0.2p
 VERHUMAN=$VER
 PKG=library/security/openssl
-SUMMARY="$PROG - A toolkit for Secure Sockets Layer and Transport Layer protocols and general purpose cryptographic library"
-DESC="$SUMMARY"
+SUMMARY="Cryptography and SSL/TLS Toolkit"
+DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols and general purpose cryptographic library"
 
 RUN_DEPENDS_IPS="system/library library/zlib"
-BUILD_DEPENDS_IPS="$RUN_DEPENDS_IPS developer/sunstudio12.1"
+BUILD_DEPENDS_IPS+=" developer/sunstudio12.1"
 
 # Generic configure options for both 32 and 64bit variants
 base_OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"

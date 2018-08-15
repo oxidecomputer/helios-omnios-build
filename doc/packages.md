@@ -49,8 +49,8 @@
 | library/nspr				| 4.19			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.42			| https://ftp.pcre.org/pub/pcre/
 | library/readline			| 7.0			| https://ftp.gnu.org/gnu/readline/
-| library/security/openssl-1.0		| 1.0.2o		| https://www.openssl.org/source/
-| library/security/openssl-1.1		| 1.1.0h		| https://www.openssl.org/source/
+| library/security/openssl-1.0		| 1.0.2p		| https://www.openssl.org/source/
+| library/security/openssl-1.1		| 1.1.0i		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | network/dns/bind			| 9.11.4-P1		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
