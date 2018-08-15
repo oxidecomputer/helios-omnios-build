@@ -27,13 +27,13 @@
 . ../../lib/functions.sh
 
 PROG=pciutils
-VER=3.6.1
+VER=3.6.2
 VERHUMAN=$VER
 PKG=system/pciutils
-SUMMARY="Programs (lspci, setpci) for inspecting and manipulating configuration of PCI devices"
-DESC="$SUMMARY"
+SUMMARY="PCI device utilities"
+DESC="Programs (lspci, setpci) for inspecting and manipulating configuration of PCI devices"
 
-DEPENDS_IPS="system/pciutils/pci.ids@2.2"
+RUN_DEPENDS_IPS="system/pciutils/pci.ids"
 
 set_arch 32
 
