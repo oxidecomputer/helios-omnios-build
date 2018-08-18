@@ -27,11 +27,11 @@
 . ../../lib/functions.sh
 
 PROG=sudo
-VER=1.8.23
+VER=1.8.24
 VERHUMAN=$VER
 PKG=security/sudo
-SUMMARY="$PROG - authority delegation tool"
-DESC="$SUMMARY"
+SUMMARY="Authority delegation tool"
+DESC="Provide limited super-user privileges to specific users"
 
 CONFIGURE_OPTS_32+="
     --bindir=/usr/bin
