@@ -20,7 +20,6 @@
 #
 # CDDL HEADER END }}}
 #
-#
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
@@ -28,27 +27,24 @@
 . ../../lib/functions.sh
 
 PROG=expat
-VER=2.2.5
+VER=2.2.6
 PKG=library/expat
-SUMMARY="libexpat - XML parser library"
-DESC="$SUMMARY"
+SUMMARY="XML parser library"
+DESC="Fast streaming XML parser written in C"
 BUILDDIR=$PROG-$VER
 
-LIBTOOL_NOSTDLIB=libtool
-LIBTOOL_NOSTDLIB_EXTRAS=-lc
+CONFIGURE_OPTS_64+=" --includedir=/usr/include"
 
+save_function make_clean _make_clean
 make_clean() {
     # As of expat 2.2.4, distclean removes the generated xmlwf.1
     # man page too so that it is re-generated during build using
     # docbook2X. We don't have docbook2X so preserve the file.
     [ -f doc/xmlwf.1~ ] || cp doc/xmlwf.1 doc/xmlwf.1~
-    logcmd $MAKE distclean || \
-        logcmd $MAKE clean || \
-        logmsg "--- *** WARNING *** make (dist)clean Failed"
+    _make_clean
     [ -f doc/xmlwf.1 ] || cp doc/xmlwf.1~ doc/xmlwf.1
 }
 
-CONFIGURE_OPTS_64="$CONFIGURE_OPTS_64 --includedir=/usr/include"
 init
 download_source $PROG $PROG $VER
 patch_source
