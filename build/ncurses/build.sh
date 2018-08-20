@@ -27,13 +27,13 @@
 . ../../lib/functions.sh
 
 PROG=ncurses
-VER=6.1-20180707
+VER=6.1-20180818
 VERHUMAN=$VER
 BUILDDIR=$PROG-$VER
 VER=${VER/-/.}
 PKG=library/ncurses
-SUMMARY="A CRT screen handling and optimization package."
-DESC="$SUMMARY"
+SUMMARY="A CRT screen handling package"
+DESC="Utilities and shared libraries for terminal handling"
 
 DEPENDS_IPS="shell/bash system/library"
 
