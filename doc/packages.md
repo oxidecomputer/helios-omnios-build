@@ -106,9 +106,10 @@
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
 | library/python-3/cffi-35		| 1.11.5		| https://pypi.org/project/cffi
 | library/python-3/cheroot-35		| 6.4.0			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-35		| 17.0.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/cherrypy-35		| 17.3.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.1			| https://pypi.org/project/coverage
-| library/python-3/cryptography-35	| 2.3			| https://pypi.org/project/cryptography
+| library/python-3/cryptography-35	| 2.3.1			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.7			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.3.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 2.6.0			| https://pypi.org/project/jsonschema
@@ -123,8 +124,9 @@
 | library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 18.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pytz-35		| 2018.5		| https://pypi.org/project/pytz
-| library/python-3/setuptools-35	| 40.0.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-35	| 40.2.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.11.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.13			| https://pypi.org/project/tempora
+| library/python-3/zc.lockfile-35	| 1.3.0			| https://pypi.org/project/zc.lockfile
 

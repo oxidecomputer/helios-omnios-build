@@ -28,19 +28,21 @@
 
 PKG=library/python-2/cherrypy-27
 PROG=CherryPy
-VER=17.0.0
+VER=17.3.0
 SUMMARY="cherrypy - A Minimalist Python Web Framework"
 DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 
 RUN_DEPENDS_IPS+="
-    library/python-2/tempora-27
-    library/python-2/six-27
-    library/python-2/portend-27
-    library/python-2/cheroot-27
-    library/python-2/jaraco.classes-27
-    library/python-2/functools_lru_cache-27
+    library/python-$PYMVER/tempora-$SPYVER
+    library/python-$PYMVER/six-$SPYVER
+    library/python-$PYMVER/portend-$SPYVER
+    library/python-$PYMVER/cheroot-$SPYVER
+    library/python-$PYMVER/jaraco.classes-$SPYVER
+    library/python-$PYMVER/functools_lru_cache-$SPYVER
+    library/python-$PYMVER/zc.lockfile-$SPYVER
+    library/python-$PYMVER/contextlib2-$SPYVER
 "
 
 init

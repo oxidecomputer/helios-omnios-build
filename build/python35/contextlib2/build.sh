@@ -16,20 +16,13 @@
 #
 . ../../../lib/functions.sh
 
-PKG=library/python-3/cryptography-35
-PROG=cryptography
-VER=2.3.1
-SUMMARY="cryptography - cryptographic recipes and primitives"
-DESC="$SUMMARY"
+PKG=library/python-3/contextlib2-35
+PROG=contextlib2
+VER=0.5.5
+SUMMARY="Utilities for with-statement contexts"
+DESC="Provides utilities for common tasks involving the with statement"
 
 . $SRCDIR/../common.sh
-
-RUN_DEPENDS_IPS+="
-    library/python-$PYMVER/six-$SPYVER
-    library/python-$PYMVER/cffi-$SPYVER
-    library/python-$PYMVER/asn1crypto-$SPYVER
-    library/python-$PYMVER/idna-$SPYVER
-"
 
 init
 download_source pymodules/$PROG $PROG $VER
