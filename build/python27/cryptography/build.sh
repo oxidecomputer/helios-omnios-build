@@ -19,7 +19,7 @@
 
 PKG=library/python-2/cryptography-27
 PROG=cryptography
-VER=2.3
+VER=2.3.1
 SUMMARY="cryptography - cryptographic recipes and primitives"
 DESC="$SUMMARY"
 
@@ -32,8 +32,6 @@ RUN_DEPENDS_IPS+="
     library/python-2/asn1crypto-27
     library/python-2/idna-27
 "
-
-FORCE_OPENSSL_VERSION=1.0
 
 init
 download_source pymodules/$PROG $PROG $VER

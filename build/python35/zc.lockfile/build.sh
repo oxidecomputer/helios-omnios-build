@@ -16,20 +16,13 @@
 #
 . ../../../lib/functions.sh
 
-PKG=library/python-3/cryptography-35
-PROG=cryptography
-VER=2.3.1
-SUMMARY="cryptography - cryptographic recipes and primitives"
-DESC="$SUMMARY"
+PKG=library/python-3/zc.lockfile-35
+PROG=zc.lockfile
+VER=1.3.0
+SUMMARY="Portable inter-process lock implementation"
+DESC="A basic portable implementation of interprocess locks using lock files"
 
 . $SRCDIR/../common.sh
-
-RUN_DEPENDS_IPS+="
-    library/python-$PYMVER/six-$SPYVER
-    library/python-$PYMVER/cffi-$SPYVER
-    library/python-$PYMVER/asn1crypto-$SPYVER
-    library/python-$PYMVER/idna-$SPYVER
-"
 
 init
 download_source pymodules/$PROG $PROG $VER

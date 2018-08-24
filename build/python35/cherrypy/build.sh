@@ -19,7 +19,7 @@
 
 PKG=library/python-3/cherrypy-35
 PROG=CherryPy
-VER=17.0.0
+VER=17.3.0
 SUMMARY="cherrypy - A Minimalist Python Web Framework"
 DESC="$SUMMARY"
 
@@ -29,6 +29,8 @@ RUN_DEPENDS_IPS+="
     library/python-$PYMVER/six-$SPYVER
     library/python-$PYMVER/portend-$SPYVER
     library/python-$PYMVER/cheroot-$SPYVER
+    library/python-$PYMVER/zc.lockfile-$SPYVER
+    library/python-$PYMVER/contextlib2-$SPYVER
 "
 
 init
