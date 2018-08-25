@@ -31,7 +31,8 @@ VER=1.8.18
 VERHUMAN=$VER
 PKG=system/management/ipmitool
 SUMMARY="IPMI management tool"
-DESC="$SUMMARY"
+DESC="A utility for managing and configuring devices that support the "
+DESC+="Intelligent Platform Management Interface"
 
 BUILD_DEPENDS_IPS="driver/ipmi developer/build/libtool"
 
@@ -43,9 +44,6 @@ CONFIGURE_OPTS+="
     --enable-intf-usb=no
     --enable-solaris-opt
 "
-
-# Until ipmitool 1.8.19
-FORCE_OPENSSL_VERSION=1.0
 
 init
 download_source $PROG $PROG $VER

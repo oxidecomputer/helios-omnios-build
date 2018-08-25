@@ -75,7 +75,7 @@
 | system/library/dbus			| 1.12.10		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.110			| https://dbus.freedesktop.org/releases/dbus-glib/
 | system/library/pcap			| 1.9.0			| http://www.tcpdump.org/#latest-releases
-| system/management/ipmitool		| 1.8.18		| https://sourceforge.net/projects/ipmitool/files/ipmitool
+| system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/test/fio			| 3.8			| https://github.com/axboe/fio/releases
