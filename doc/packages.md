@@ -8,7 +8,7 @@
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.4			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
-| data/iso-codes			| 3.79			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
+| data/iso-codes			| 4.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3240000		| https://www.sqlite.org/download.html
 | developer/acpi/compiler		| 20180810		| https://www.acpica.org/downloads/
 | developer/bmake			| 20180512		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
@@ -44,7 +44,7 @@
 | library/libxml2			| 2.9.8			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20180818		| http://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
-| library/nghttp2			| 1.32.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nghttp2			| 1.32.1		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.38			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.19			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.42			| https://ftp.pcre.org/pub/pcre/

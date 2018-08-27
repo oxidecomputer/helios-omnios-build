@@ -27,11 +27,11 @@
 . ../../lib/functions.sh
 
 PROG=nghttp2
-VER=1.32.0
+VER=1.32.1
 VERHUMAN=$VER
 PKG=library/nghttp2
-SUMMARY="Nghttp2: HTTP/2 C Library"
-DESC="$SUMMARY"
+SUMMARY="nghttp2: HTTP/2 C Library"
+DESC="An implementation of the Hypertext Transfer Protocol version 2 in C"
 
 LDFLAGS="-lm"
 CONFIGURE_OPTS="
