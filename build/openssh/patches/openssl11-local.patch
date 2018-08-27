@@ -1,0 +1,182 @@
+
+This is a patch to add openssl 1.1 support to the other local patches.
+Kept as a separate patch from openssl11.patch which patches the OpenSSH
+core code and kept separate in order to make it easy to switch between the
+openssl versions since the patch does not retain openssl 1.0 compatibility.
+
+diff -wpruN '--exclude=*.orig' a~/gss-genr.c a/gss-genr.c
+--- a~/gss-genr.c	1970-01-01 00:00:00
++++ a/gss-genr.c	1970-01-01 00:00:00
+@@ -46,6 +46,8 @@
+ #include "kex.h"
+ #include <openssl/evp.h>
+ 
++#include "openbsd-compat/openssl-compat.h"
++
+ #include "ssh-gss.h"
+ 
+ extern u_char *session_id2;
+@@ -99,7 +101,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
+ 	u_char digest[EVP_MAX_MD_SIZE];
+ 	char deroid[2];
+ 	const EVP_MD *evp_md = EVP_md5();
+-	EVP_MD_CTX md;
++	EVP_MD_CTX *md;
+ 
+ 	if (gss_enc2oid != NULL) {
+ 		for (i = 0; gss_enc2oid[i].encoded != NULL; i++)
+@@ -120,12 +122,14 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_sup
+ 			deroid[0] = SSH_GSS_OIDTYPE;
+ 			deroid[1] = gss_supported->elements[i].length;
+ 
+-			EVP_DigestInit(&md, evp_md);
+-			EVP_DigestUpdate(&md, deroid, 2);
+-			EVP_DigestUpdate(&md,
++			md = EVP_MD_CTX_new();
++			EVP_DigestInit(md, evp_md);
++			EVP_DigestUpdate(md, deroid, 2);
++			EVP_DigestUpdate(md,
+ 			    gss_supported->elements[i].elements,
+ 			    gss_supported->elements[i].length);
+-			EVP_DigestFinal(&md, digest, NULL);
++			EVP_DigestFinal(md, digest, NULL);
++			EVP_MD_CTX_free(md);
+ 
+ 			encoded = xmalloc(EVP_MD_size(evp_md) * 2);
+ 			enclen = __b64_ntop(digest, EVP_MD_size(evp_md),
+diff -wpruN '--exclude=*.orig' a~/kexgssc.c a/kexgssc.c
+--- a~/kexgssc.c	1970-01-01 00:00:00
++++ a/kexgssc.c	1970-01-01 00:00:00
+@@ -165,10 +165,13 @@ kexgss_client(struct ssh *ssh) {
+ 		 */
+ 		if (send_tok.length != 0) {
+ 			if (first) {
++				const BIGNUM *pub_key;
++
+ 				packet_start(SSH2_MSG_KEXGSS_INIT);
+ 				packet_put_string(send_tok.value,
+ 				    send_tok.length);
+-				packet_put_bignum2(dh->pub_key);
++				DH_get0_key(dh, &pub_key, NULL);
++				packet_put_bignum2(pub_key);
+ 				first = 0;
+ 			} else {
+ 				packet_start(SSH2_MSG_KEXGSS_CONTINUE);
+@@ -270,6 +273,9 @@ kexgss_client(struct ssh *ssh) {
+ 	switch (ssh->kex->kex_type) {
+ 	case KEX_GSS_GRP1_SHA1:
+ 	case KEX_GSS_GRP14_SHA1:
++	{
++		const BIGNUM *pub_key;
++		DH_get0_key(dh, &pub_key, NULL);
+ 		kex_dh_hash(
+ 		    ssh->kex->hash_alg,
+ 		    ssh->kex->client_version_string,
+@@ -277,13 +283,18 @@ kexgss_client(struct ssh *ssh) {
+ 		    sshbuf_ptr(ssh->kex->my), sshbuf_len(ssh->kex->my),
+ 		    sshbuf_ptr(ssh->kex->peer), sshbuf_len(ssh->kex->peer),
+ 		    (serverhostkey ? serverhostkey : empty), slen,
+-		    dh->pub_key,	/* e */
++		    pub_key,		/* e */
+ 		    dh_server_pub,	/* f */
+ 		    shared_secret,	/* K */
+ 		    hash, &hashlen
+ 		);
+ 		break;
++	}
+ 	case KEX_GSS_GEX_SHA1:
++	{
++		const BIGNUM *pub_key, *p, *g;
++		DH_get0_key(dh, &pub_key, NULL);
++		DH_get0_pqg(dh, &p, NULL, &g);
+ 		kexgex_hash(
+ 		    ssh->kex->hash_alg,
+ 		    ssh->kex->client_version_string,
+@@ -292,13 +303,14 @@ kexgss_client(struct ssh *ssh) {
+ 		    sshbuf_ptr(ssh->kex->peer), sshbuf_len(ssh->kex->peer),
+ 		    (serverhostkey ? serverhostkey : empty), slen,
+  		    min, nbits, max,
+-		    dh->p, dh->g,
+-		    dh->pub_key,
++		    p, g,
++		    pub_key,
+ 		    dh_server_pub,
+ 		    shared_secret,
+ 		    hash, &hashlen
+ 		);
+ 		break;
++	}
+ 	default:
+ 		fatal("%s: Unexpected KEX type %d", __func__, ssh->kex->kex_type);
+ 	}
+diff -wpruN '--exclude=*.orig' a~/kexgsss.c a/kexgsss.c
+--- a~/kexgsss.c	1970-01-01 00:00:00
++++ a/kexgsss.c	1970-01-01 00:00:00
+@@ -121,8 +121,10 @@ kexgss_server(struct ssh *ssh)
+ 			packet_disconnect("Protocol error: no matching group found");
+ 
+ 		packet_start(SSH2_MSG_KEXGSS_GROUP);
+-		packet_put_bignum2(dh->p);
+-		packet_put_bignum2(dh->g);
++		const BIGNUM *p, *g;
++		DH_get0_pqg(dh, &p, NULL, &g);
++		packet_put_bignum2(p);
++		packet_put_bignum2(g);
+ 		packet_send();
+ 
+ 		packet_write_wait();
+@@ -218,17 +220,25 @@ kexgss_server(struct ssh *ssh)
+ 	switch (ssh->kex->kex_type) {
+ 	case KEX_GSS_GRP1_SHA1:
+ 	case KEX_GSS_GRP14_SHA1:
++	{
++		const BIGNUM *pub_key;
++		DH_get0_key(dh, &pub_key, NULL);
+ 		kex_dh_hash(
+ 		    ssh->kex->hash_alg,
+ 		    ssh->kex->client_version_string, ssh->kex->server_version_string,
+ 		    sshbuf_ptr(ssh->kex->peer), sshbuf_len(ssh->kex->peer),
+ 		    sshbuf_ptr(ssh->kex->my), sshbuf_len(ssh->kex->my),
+ 		    NULL, 0, /* Change this if we start sending host keys */
+-		    dh_client_pub, dh->pub_key, shared_secret,
++		    dh_client_pub, pub_key, shared_secret,
+ 		    hash, &hashlen
+ 		);
+ 		break;
++	}
+ 	case KEX_GSS_GEX_SHA1:
++	{
++		const BIGNUM *pub_key, *p, *g;
++		DH_get0_key(dh, &pub_key, NULL);
++		DH_get0_pqg(dh, &p, NULL, &g);
+ 		kexgex_hash(
+ 		    ssh->kex->hash_alg,
+ 		    ssh->kex->client_version_string, ssh->kex->server_version_string,
+@@ -236,13 +246,14 @@ kexgss_server(struct ssh *ssh)
+ 		    sshbuf_ptr(ssh->kex->my), sshbuf_len(ssh->kex->my),
+ 		    NULL, 0,
+ 		    min, nbits, max,
+-		    dh->p, dh->g,
++		    p, g,
+ 		    dh_client_pub,
+-		    dh->pub_key,
++		    pub_key,
+ 		    shared_secret,
+ 		    hash, &hashlen
+ 		);
+ 		break;
++	}
+ 	default:
+ 		fatal("%s: Unexpected KEX type %d", __func__, ssh->kex->kex_type);
+ 	}
+@@ -262,7 +273,9 @@ kexgss_server(struct ssh *ssh)
+ 		fatal("Couldn't get MIC");
+ 
+ 	packet_start(SSH2_MSG_KEXGSS_COMPLETE);
+-	packet_put_bignum2(dh->pub_key);
++	const BIGNUM *pub_key;
++	DH_get0_key(dh, &pub_key, NULL);
++	packet_put_bignum2(pub_key);
+ 	packet_put_string(msg_tok.value,msg_tok.length);
+ 
+ 	if (send_tok.length != 0) {

@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=openssh
-VER=7.7p1
+VER=7.8p1
 VERHUMAN=$VER
 PKG=network/openssh
 SUMMARY="OpenSSH Client and utilities"
@@ -66,8 +66,6 @@ CFLAGS+=" -fstack-check "
 CFLAGS+="-DPAM_ENHANCEMENT -DSET_USE_PAM -DPAM_BUGFIX -DDTRACE_SFTP "
 CFLAGS+="-I/usr/include/kerberosv5 -DKRB5_BUILD_FIX -DDISABLE_BANNER "
 CFLAGS+="-DDEPRECATE_SUNSSH_OPT -DOPTION_DEFAULT_VALUE -DSANDBOX_SOLARIS"
-
-FORCE_OPENSSL_VERSION=1.0
 
 move_manpage() {
     local page=$1
