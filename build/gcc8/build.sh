@@ -30,8 +30,8 @@ PKG=developer/gcc8
 PROG=gcc
 VER=8.2.0
 VERHUMAN=$VER
-SUMMARY="gcc ${VER}"
-DESC="$SUMMARY"
+SUMMARY="gcc $VER"
+DESC="The GNU Compiler Collection"
 
 GCCMAJOR=${VER%%.*}
 OPT=/opt/gcc-$GCCMAJOR
@@ -79,6 +79,7 @@ CONFIGURE_OPTS="
     --enable-__cxa_atexit
     --enable-initfini-array
     --disable-libitm
+    enable_frame_pointer=yes
 "
 CONFIGURE_OPTS_WS="
     --with-boot-cflags=\"-g -O2\"
