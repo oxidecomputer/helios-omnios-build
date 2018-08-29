@@ -27,11 +27,11 @@
 . ../../lib/functions.sh
 
 PROG=bison
-VER=3.0.5
+VER=3.1
 VERHUMAN=$VER
 PKG=developer/parser/bison
-SUMMARY="Bison is a general-purpose parser generator"
-DESC="$SUMMARY"
+SUMMARY="General-purpose parser generator"
+DESC="A general-purpose parser generator that converts an annotated context-free grammar into a deterministic or generalised parser"
 
 set_arch 32
 CONFIGURE_OPTS="--disable-yacc"
