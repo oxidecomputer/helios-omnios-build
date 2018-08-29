@@ -64,7 +64,7 @@
 | runtime/python-35			| 3.5.6			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.24		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p12		| http://www.ntp.org/downloads.html
-| service/network/ntpsec		| 1.1.1			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
+| service/network/ntpsec		| 1.1.2			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.11			| https://github.com/corecode/dma/releases
 | shell/bash				| 4.4.18		| https://ftp.gnu.org/gnu/bash/
 | shell/bash-patchlvl			| 023			| https://ftp.gnu.org/gnu/bash/bash-4.4-patches
