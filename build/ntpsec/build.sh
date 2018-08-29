@@ -17,11 +17,11 @@
 . ../../lib/functions.sh
 
 PROG=ntpsec
-VER=1.1.1
+VER=1.1.2
 VERHUMAN=$VER
 PKG=service/network/ntpsec
-SUMMARY="A secure, hardened and improved Network Time Protocol implementation"
-DESC="$SUMMARY"
+SUMMARY="Network time services"
+DESC="A secure, hardened and improved Network Time Protocol implementation"
 
 BUILDARCH=64
 XFORM_ARGS="-D PVER=$PYTHONVER"
@@ -52,9 +52,9 @@ configure64() {
         --sysconfdir=/etc/inet \
         --refclock=all \
         --define=CONFIG_FILE=/etc/inet/ntp.conf \
-        --python=/usr/bin/python$PYTHONVER \
-        --pythondir=/usr/lib/python$PYTHONVER/vendor-packages \
-        --pythonarchdir=/usr/lib/python$PYTHONVER/vendor-packages \
+        --python=$PYTHON \
+        --pythondir=$PYTHONVENDOR \
+        --pythonarchdir=$PYTHONVENDOR \
         --nopyc \
         --nopyo \
         --nopycache \
