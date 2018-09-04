@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=sudo
-VER=1.8.24
+VER=1.8.25
 VERHUMAN=$VER
 PKG=security/sudo
 SUMMARY="Authority delegation tool"
@@ -52,6 +52,10 @@ CONFIGURE_OPTS="
     --with-ignore-dot
     --with-bsm-audit
     --disable-pam-session
+"
+
+TESTSUITE_SED="
+    /^libtool:/d
 "
 
 make_install64() {
