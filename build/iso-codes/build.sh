@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=iso-codes
-VER=4.0
+VER=4.1
 VERHUMAN=$VER
 PKG=data/iso-codes
 SUMMARY="ISO code lists and translations"
@@ -36,15 +36,6 @@ DESC+="(e.g. country, language, language scripts, and currency names)"
 
 BUILD_DEPENDS_IPS="data/iso-codes"
 
-install_xml() {
-    # As of iso-code 4.0, the .xml files are no longer included. We continue
-    # to ship them for now, but they will no longer be updated.
-    # The XML files include a header pointing users at the JSON ones.
-    logcmd mkdir -p $DESTDIR/usr/share/xml || logerr "mkdir"
-    logcmd rsync -avr /usr/share/xml/iso-codes/ \
-        $DESTDIR/usr/share/xml/iso-codes/ || logerr "rsync"
-}
-
 set_arch 32
 
 init
@@ -52,7 +43,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-install_xml
 make_package
 clean_up
 
