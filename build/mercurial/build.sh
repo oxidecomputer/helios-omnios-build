@@ -27,9 +27,9 @@
 . ../../lib/functions.sh
 
 PROG=mercurial
-VER=4.7
+VER=4.7.1
 PKG=developer/versioning/mercurial
-SUMMARY="$PROG - distributed version control system"
+SUMMARY="Distributed version control system"
 DESC="$SUMMARY"
 
 RUN_DEPENDS_IPS="web/curl library/security/openssl"
