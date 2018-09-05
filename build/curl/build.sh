@@ -27,9 +27,9 @@
 . ../../lib/functions.sh
 
 PROG=curl
-VER=7.61.0
+VER=7.61.1
 PKG=web/curl
-SUMMARY="$PROG - command line tool for transferring data with URL syntax"
+SUMMARY="Command line tool for transferring data with URL syntax"
 DESC="$SUMMARY"
 
 DEPENDS_IPS="web/ca-bundle library/libidn"
@@ -46,6 +46,10 @@ CONFIGURE_OPTS_64+=" --includedir=$PREFIX/include/amd64"
 # to override the hostname. If the library is 64-bit then the test aborts
 # when runtests.pl calls a 32-bit shell to spawn a sub-process.
 BUILDORDER="64 32"
+
+# As of curl 7.61.1, Makefiles include macros over 8192 bytes long which our
+# default make does not like. Ensure that GNU make is used for all invocations.
+export MAKE
 
 TESTSUITE_FILTER="^TEST[A-Z]"
 
