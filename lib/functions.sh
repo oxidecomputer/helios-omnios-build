@@ -637,8 +637,11 @@ prep_build() {
         logcmd mkdir -p $TMPDIR/$BUILDDIR
     fi
 
-    # Create symbolic link to build area in source
+    # Create symbolic links to build area
+    [ -h $SRCDIR/tmp ] && rm -f $SRCDIR/tmp
     logcmd ln -sf $TMPDIR $SRCDIR/tmp
+    [ -h $SRCDIR/tmp/src ] && rm -f $SRCDIR/tmp/src
+    logcmd ln -sf $BUILDDIR $SRCDIR/tmp/src
 }
 
 #############################################################################
