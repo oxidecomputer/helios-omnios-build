@@ -54,9 +54,12 @@ MAKE_OPTS="
 
 NSS_LIBS="libfreebl3.so libnss3.so libnssckbi.so libnssdbm3.so
           libnssutil3.so libsmime3.so libsoftokn3.so libssl3.so"
-NSPR_LIBS="libnspr4.so libplc4.so libplds4.so"
 NSS_BINS="certutil"
+NSS_MANS="certutil.1"
+
+NSPR_LIBS="libnspr4.so libplc4.so libplds4.so"
 NSPR_BINS=
+NSPR_MANS=
 
 NSPR_SAVE="$TMPDIR/nspr-save.$$"
 
@@ -86,7 +89,8 @@ make_install32() {
     logmsg "Installing libraries (32)"
     for lib in $TGT_LIBS; do
         logcmd cp $TMPDIR/$BUILDDIR/dist/$DIST32/lib/$lib \
-            $DESTDIR/usr/lib/mps/$lib
+            $DESTDIR/usr/lib/mps/$lib \
+            || logerr "Install $lib failed"
     done
     logmsg "Installing headers"
     logcmd mkdir -p $DESTDIR/usr/include/mps \
@@ -105,7 +109,8 @@ make_install32() {
     mkdir -p $DESTDIR/usr/bin/i386
     for bin in $TGT_BINS; do
         logcmd cp $TMPDIR/$BUILDDIR/dist/$DIST32/bin/$bin \
-            $DESTDIR/usr/bin/i386/$bin
+            $DESTDIR/usr/bin/i386/$bin \
+            || logerr "Install $bin failed"
         logcmd elfedit -e 'dyn:runpath /usr/lib/mps' \
             $DESTDIR/usr/bin/i386/$bin
     done
@@ -127,7 +132,8 @@ make_install64() {
     logmsg "Installing libraries (64)"
     for lib in $TGT_LIBS; do
         logcmd cp $TMPDIR/$BUILDDIR/dist/$DIST64/lib/$lib \
-            $DESTDIR/usr/lib/mps/amd64/$lib
+            $DESTDIR/usr/lib/mps/amd64/$lib \
+            || logerr "Install $lib failed"
     done
     logmsg "Installing binaries (64)"
     mkdir -p $DESTDIR/usr/bin/amd64
@@ -135,7 +141,14 @@ make_install64() {
         logcmd cp $TMPDIR/$BUILDDIR/dist/$DIST64/bin/$bin \
             $DESTDIR/usr/bin/amd64/$bin
         logcmd elfedit -e 'dyn:runpath /usr/lib/mps/amd64' \
-            $DESTDIR/usr/bin/amd64/$bin
+            $DESTDIR/usr/bin/amd64/$bin \
+            || logerr "Install $bin failed"
+    done
+    for man in $TGT_MANS; do
+        sec=${man/#*./}
+        logcmd mkdir -p $DESTDIR/usr/share/man/man$sec
+        logcmd cp $TMPDIR/$BUILDDIR/$TGT_COMP/doc/nroff/$man \
+            $DESTDIR/usr/share/man/man$sec/ || logerr "Install $man failed"
     done
 }
 
@@ -163,8 +176,10 @@ patch_source
 # NSS
 
 LOCAL_MOG_FILE=nss-local.mog
+TGT_COMP=nss
 TGT_LIBS=$NSS_LIBS
 TGT_BINS=$NSS_BINS
+TGT_MANS=$NSS_MANS
 PC_FILE=nss.pc
 
 prep_build
@@ -201,8 +216,10 @@ SUMMARY="Netscape Portable Runtime Headers"
 DESC="$SUMMARY"
 
 VER=$NSPRVER
+TGT_COMP=nspr
 TGT_LIBS=$NSPR_LIBS
 TGT_BINS=$NSPR_BINS
+TGT_MANS=$NSPR_MANS
 PC_FILE=nspr.pc
 LOCAL_MOG_FILE=nspr-local.mog
 DESTDIR=${DESTDIR/nss/nspr}
