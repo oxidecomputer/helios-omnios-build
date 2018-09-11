@@ -27,55 +27,51 @@
 . ../../lib/functions.sh
 
 PROG=openssl
-VER=1.1.0j
+VER=1.1.1a
 LVER=1.0.2q
 VERHUMAN=$VER
 PKG=library/security/openssl
 SUMMARY="Cryptography and SSL/TLS Toolkit"
-DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols and general purpose cryptographic library"
+DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
+DESC+="and general purpose cryptographic library"
 
-RUN_DEPENDS_IPS="system/library library/zlib"
 BUILD_DEPENDS_IPS+=" developer/sunstudio12.1"
 
-# Generic configure options for both 32 and 64bit variants
+# Generic options for both 32 and 64bit variants
 base_OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"
+base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
 
-# Configure options specific to a 32bit build
-OPENSSL_CONFIG_32_OPTS=""
+# Configure options specific to a 32bit or 64bit builds
+base_OPENSSL_CONFIG_32_OPTS=
+base_OPENSSL_CONFIG_64_OPTS="enable-ec_nistp_64_gcc_128"
 
-# Configure options specific to a 64bit build
-OPENSSL_CONFIG_64_OPTS="enable-ec_nistp_64_gcc_128"
-
-NO_PARALLEL_MAKE=1
-
+save_function make_prog _make_prog
 make_prog() {
-    [ -n "$NO_PARALLEL_MAKE" ] && MAKE_JOBS=
-    logmsg "--- make"
-    # This will setup the internal runpath of libssl and libcrypto
-    logcmd $MAKE $MAKE_JOBS \
-        SHARED_LDFLAGS="$SHARED_LDFLAGS" \
-        LIB_LDFLAGS="$SHARED_LDFLAGS" \
-        || logerr "--- Make failed"
+    MAKE_ARGS_WS="
+        SHARED_LDFLAGS=\"$SHARED_LDFLAGS\"
+        LIB_LDFLAGS=\"$SHARED_LDFLAGS\"
+    "
+    _make_prog
 }
 
 configure32() {
     SSLPLAT=solaris-x86-gcc
-    logmsg "--- Configure (32-bit) $SSLPLAT"
+    logmsg -n "--- Configure (32-bit) $SSLPLAT"
+    unset __CNF_CFLAGS
     logcmd ./Configure $SSLPLAT --prefix=$PREFIX \
-        ${OPENSSL_CONFIG_OPTS} \
-        ${OPENSSL_CONFIG_32_OPTS} \
+        ${OPENSSL_CONFIG_OPTS} ${OPENSSL_CONFIG_32_OPTS} \
         || logerr "Failed to run configure"
-    SHARED_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
+    SHARED_LDFLAGS="$base_LDFLAGS"
 }
 
 configure64() {
     SSLPLAT=solaris64-x86_64-gcc
-    logmsg "--- Configure (64-bit) $SSLPLAT"
+    logmsg -n "--- Configure (64-bit) $SSLPLAT"
+    export __CNF_CFLAGS=-m64
     logcmd ./Configure $SSLPLAT --prefix=$PREFIX \
-        ${OPENSSL_CONFIG_OPTS} \
-        ${OPENSSL_CONFIG_64_OPTS} \
+        ${OPENSSL_CONFIG_OPTS} ${OPENSSL_CONFIG_64_OPTS} \
         || logerr "Failed to run configure"
-    SHARED_LDFLAGS="-m64 -shared -Wl,-z,text,-z,aslr,-z,ignore"
+    SHARED_LDFLAGS="-m64 $base_LDFLAGS"
 }
 
 # Preserve the opensslconf.h file from each build since there will be
@@ -96,7 +92,7 @@ install_pkcs11()
     popd > /dev/null
 }
 
-save_function make_package make_package_orig
+save_function make_package _make_package
 make_package() {
     if echo $VER | egrep -s '[a-z]'; then
         NUMVER=${VER::$((${#VER} -1))}
@@ -104,14 +100,14 @@ make_package() {
         VER=${NUMVER}.$(ord26 ${ALPHAVER})
     fi
 
-    make_package_orig
+    _make_package
 }
 
 # Move installed libs from /usr/lib to /lib
 move_libs() {
     logmsg "Relocating libs from usr/lib to lib"
-    logcmd mv $DESTDIR/usr/lib/64 $DESTDIR/usr/lib/amd64
-    logcmd mkdir -p $DESTDIR/lib/amd64
+    logcmd mv $DESTDIR/usr/lib/{64,amd64} || logerr "mv"
+    logcmd mkdir -p $DESTDIR/lib/amd64 || logerr "mkdir"
     logcmd mv $DESTDIR/usr/lib/lib* $DESTDIR/lib/ \
         || logerr "Failed to move libs (32-bit)"
     logcmd mv $DESTDIR/usr/lib/amd64/lib* $DESTDIR/lib/amd64/ \
@@ -121,27 +117,30 @@ move_libs() {
 version_files() {
     ver=$2
     [ -d "$1~" ] || cp -rp "$1" "$1~"
-    pushd $1
-    mv usr/include/openssl usr/include/openssl-$ver
+
+    pushd $1 >/dev/null || logerr "pushd version files"
+
+    logcmd mv usr/include/openssl{,-$ver}
     for f in usr/bin/*; do
-        mv $f $f-$ver
+        logcmd mv $f{,-$ver} || logerr "mv bin"
     done
-    [ -d usr/share/man ] && mv usr/share/man usr/ssl/man
+    [ -d usr/share/man ] && logcmd mv usr/share/man usr/ssl/man
 
-    mkdir usr/ssl/lib usr/ssl/lib/amd64
-    mv usr/lib/pkgconfig usr/ssl/lib/pkgconfig
-    mv usr/lib/amd64/pkgconfig usr/ssl/lib/amd64/pkgconfig
-    mv lib/llib* lib/lib*.a usr/ssl/lib
-    mv lib/amd64/llib* lib/amd64/lib*.a usr/ssl/lib/amd64
+    logcmd mkdir -p usr/ssl/lib usr/ssl/lib/amd64
+    logcmd mv usr/lib/pkgconfig usr/ssl/lib/pkgconfig
+    logcmd mv usr/lib/amd64/pkgconfig usr/ssl/lib/amd64/pkgconfig
+    logcmd mv lib/llib* lib/lib*.a usr/ssl/lib
+    logcmd mv lib/amd64/llib* lib/amd64/lib*.a usr/ssl/lib/amd64
 
-    rm -f lib/lib{crypto,ssl}.so
-    rm -f lib/amd64/lib{crypto,ssl}.so
+    logcmd rm -f lib/lib{crypto,ssl}.so
+    logcmd rm -f lib/amd64/lib{crypto,ssl}.so
 
-    [ -d usr/ssl/certs ] && rm -rf usr/ssl/certs
-    (cd usr/ssl; ln -s ../../etc/ssl/certs)
+    [ -d usr/ssl/certs ] && logcmd rm -rf usr/ssl/certs
+    logcmd ln -s ../../etc/ssl/certs usr/ssl/certs
 
-    mv usr/ssl usr/ssl-$ver
-    popd
+    logcmd mv usr/ssl usr/ssl-$ver
+
+    popd >/dev/null
 }
 
 merge_package() {
@@ -152,7 +151,7 @@ merge_package() {
 
     # This is to satisfy the dangling symlink checker. It's excluded by the
     # local.mog
-    mkdir -p $DESTDIR/etc/ssl/certs
+    logcmd mkdir -p $DESTDIR/etc/ssl/certs
 }
 
 ######################################################################
@@ -163,9 +162,12 @@ init
 ### OpenSSL 1.1.x build
 
 if [ -z "$FLAVOR" -o "$FLAVOR" = "1.1" ]; then
-    note "Building OpenSSL $VER"
+    note -n "Building OpenSSL $VER"
 
     OPENSSL_CONFIG_OPTS="$base_OPENSSL_CONFIG_OPTS --api=1.0.0"
+    OPENSSL_CONFIG_32_OPTS="$base_OPENSSL_CONFIG_32_OPTS"
+    #OPENSSL_CONFIG_64_OPTS="$base_OPENSSL_CONFIG_64_OPTS no-asm"
+    OPENSSL_CONFIG_64_OPTS="$base_OPENSSL_CONFIG_64_OPTS"
     download_source $PROG $PROG $VER
     patch_source
     prep_build
@@ -181,7 +183,7 @@ fi
 ### OpenSSL 1.0.x build
 
 if [ -z "$FLAVOR" -o "$FLAVOR" = "1.0" ]; then
-    note "Building OpenSSL $LVER"
+    note -n "Building OpenSSL $LVER"
 
     oDESTDIR=$DESTDIR
     oPKG=$PKG
@@ -189,7 +191,9 @@ if [ -z "$FLAVOR" -o "$FLAVOR" = "1.0" ]; then
 
     PKG+=_legacy        ##IGNORE## Use different directory for build
     OPENSSL_CONFIG_OPTS="$base_OPENSSL_CONFIG_OPTS"
+    OPENSSL_CONFIG_32_OPTS="$base_OPENSSL_CONFIG_32_OPTS"
     OPENSSL_CONFIG_32_OPTS+=" --pk11-libname=/usr/lib/libpkcs11.so.1"
+    OPENSSL_CONFIG_64_OPTS="$base_OPENSSL_CONFIG_64_OPTS"
     OPENSSL_CONFIG_64_OPTS+=" --pk11-libname=/usr/lib/64/libpkcs11.so.1"
     BUILDDIR=$PROG-$LVER
 
