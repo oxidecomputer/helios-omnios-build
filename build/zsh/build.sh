@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=zsh
-VER=5.5.1
+VER=5.6.1
 VERHUMAN=$VER
 PKG=shell/zsh
 SUMMARY="Z shell"
@@ -66,11 +66,11 @@ install_license() {
 init
 download_source $PROG $PROG $VER
 patch_source
+run_autoreconf -fi
 prep_build
 build
 install_zshrc
 install_license
-sed -i 's/diff -a/g&/' $TMPDIR/$BUILDDIR/Test/ztst.zsh
 run_testsuite
 make_package
 clean_up
