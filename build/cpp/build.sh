@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,13 +18,12 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=cpp
@@ -33,29 +32,26 @@ PKG=developer/macro/cpp
 SUMMARY="The C Pre-Processor (cpp)"
 DESC="$SUMMARY"
 
-BUILD_DEPENDS_IPS="gcc44 developer/parser/bison"
-DEPENDS_IPS="SUNWcs"
-
-CONFIGURE_OPTS=""
+BUILD_DEPENDS_IPS="developer/parser/bison"
 
 setup_src() {
-   BUILDDIR=cpp-src
    logcmd mkdir -p $TMPDIR/$BUILDDIR
-   logcmd cp $SRCDIR/files/* $TMPDIR/$BUILDDIR
+   logcmd cp $SRCDIR/files/* $TMPDIR/$BUILDDIR || logerr "file copy failed"
 }
+
 build() {
     # Set the version to something reasonable
     pushd $TMPDIR/$BUILDDIR > /dev/null || logerr "can't enter build harness"
     logcmd gmake CC=gcc
     popd > /dev/null
 }
+
 make_install() {
     logcmd mkdir -p $DESTDIR/usr/lib || logerr "mkdir failed"
     logcmd mkdir -p $DESTDIR/usr/ccs/lib || logerr "mkdir failed"
     pushd $TMPDIR/$BUILDDIR > /dev/null || logerr "can't enter build harness"
     logcmd gmake install CC=gcc DESTDIR=$DESTDIR
     popd > /dev/null
-    logcmd ln -s ../../lib/cpp $DESTDIR/usr/ccs/lib/cpp || logerr "softlink failed"
 }
 
 init
@@ -65,3 +61,6 @@ build
 make_install
 make_package
 clean_up
+
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker
