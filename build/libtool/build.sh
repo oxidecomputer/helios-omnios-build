@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,53 +18,48 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=libtool
 VER=2.4.6
 PKG=developer/build/libtool  ##IGNORE##
-SUMMARY="libtool - GNU libtool utility"
-DESC="GNU libtool - library support utility ($VER)"
+SUMMARY="unused; replaced below"
+DESC="$SUMMARY"
 
-DEPENDS_IPS="system/library system/library/gcc-runtime"
 BUILD_DEPENDS_IPS="autoconf automake"
 
 # The "binaries" here are just shell scripts so arch doesn't matter
 # The includes also are not arch-dependent
-CONFIGURE_OPTS="--bindir=$PREFIX/bin --includedir=$PREFIX/include --disable-static"
-reset_configure_opts
-LIBTOOL_NOSTDLIB=libtool
-LIBTOOL_NOSTDLIB_EXTRAS=-lc
-
-bootstrap() {
-  pushd $TMPDIR/$BUILDDIR >/dev/null || logerr "bootstrapping pushd failed"
-  logcmd ./bootstrap || logerr "bootstrap failed"
-  popd >/dev/null
-}
+CONFIGURE_OPTS="
+    --bindir=$PREFIX/bin
+    --includedir=$PREFIX/include
+    --disable-static
+"
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
-#bootstrap
 build
 make_isa_stub
 
 PKG=developer/build/libtool
-SUMMARY="libtool - GNU libtool utility"
-DESC="GNU libtool - library support utility ($VER)"
+SUMMARY="GNU libtool utility"
+DESC="GNU libtool - library support utility"
 make_package libtool.mog
 
 PKG=library/libtool/libltdl
-SUMMARY="libltdl - GNU libtool dlopen wrapper"
-DESC="GNU libtool dlopen wrapper - libltdl ($VER)"
+SUMMARY="GNU libtool dlopen wrapper"
+DESC="GNU libtool dlopen wrapper - libltdl"
 make_package libltdl.mog
 
 clean_up
+
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker

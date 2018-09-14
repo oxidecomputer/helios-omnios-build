@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,37 +18,37 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-# Load support functions
 . ../../lib/functions.sh
 
-PROG=illumos-closed   # App name
-VER=5.11        # App version
-VERHUMAN=$VER   # Human-readable version
-PKG=developer/illumos-closed  # Package name (without prefix)
-SUMMARY="$PROG - illumos closed binaries"
-DESC="Closed-source binaries required to build an illumos distribution, like OmniOS."
+PROG=illumos-closed
+VER=5.11
+VERHUMAN=$VER
+PKG=developer/illumos-closed
+SUMMARY="illumos closed binaries"
+DESC="Closed-source binaries required to build an illumos distribution."
 
 install_closed() {
-  logmsg "Creating proto directory"
-  logcmd mkdir -p $DESTDIR/opt/onbld || \
-    logerr "--- Failed to create proto directory"
+    logmsg "Creating proto directory"
+    logcmd mkdir -p $DESTDIR/opt/onbld \
+        || logerr "--- Failed to create proto directory"
 
-  logmsg "Unpacking closed binaries"
-  pushd $DESTDIR/opt/onbld > /dev/null
-  logcmd tar xjvpf $SRCDIR/on-closed-bins.i386.tar.bz2 || \
-    logerr "--- failed to unpack closed bins (debug version)"
-  logcmd tar xjvpf $SRCDIR/on-closed-bins-nd.i386.tar.bz2 || \
-    logerr "--- failed to unpack closed bins (non-debug version)"
-  cd closed
-  logcmd cp $SRCDIR/on-closed-bins.i386.tar.bz2 .
-  logcmd cp $SRCDIR/on-closed-bins-nd.i386.tar.bz2 .
-  popd > /dev/null
+    pushd $DESTDIR/opt/onbld > /dev/null
+
+    logmsg "Unpacking closed binaries"
+    logcmd tar xjvpf $SRCDIR/on-closed-bins.i386.tar.bz2 \
+        || logerr "--- failed to unpack closed bins (debug version)"
+    logcmd tar xjvpf $SRCDIR/on-closed-bins-nd.i386.tar.bz2 \
+        || logerr "--- failed to unpack closed bins (non-debug version)"
+    logcmd cp $SRCDIR/on-closed-bins.i386.tar.bz2 closed
+    logcmd cp $SRCDIR/on-closed-bins-nd.i386.tar.bz2 closed
+
+    popd > /dev/null
 }
 
 init
@@ -56,3 +56,6 @@ prep_build
 install_closed
 make_package
 clean_up
+
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker
