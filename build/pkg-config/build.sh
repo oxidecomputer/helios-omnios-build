@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,25 +18,25 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 
 #
 # Copyright (c) 2014 by Delphix. All rights reserved.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
 
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=pkg-config
 VER=0.29.2
-VERHUMAN=$VER
 PKG=developer/pkg-config
 SUMMARY="A tool for generating compiler command line options"
 DESC="pkg-config is a helper tool used when compiling applications and libraries that helps you insert the correct compiler options on the command line, rather than hard-coding values on where to find libraries."
 
-BUILD_DEPENDS_IPS=
-RUN_DEPENDS_IPS=
+HARDLINK_TARGETS="
+    usr/bin/i386/i386-pc-solaris2.11-pkg-config
+    usr/bin/amd64/i386-pc-solaris2.11-pkg-config
+"
 
 init
 download_source $PROG $PROG $VER
@@ -45,3 +45,6 @@ build
 make_isa_stub
 make_package
 clean_up
+
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker

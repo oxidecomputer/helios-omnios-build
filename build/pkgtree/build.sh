@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,13 +18,12 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2011-2013 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=pkgtree
@@ -44,16 +43,18 @@ build() {
     logmsg "Copying files"
     logcmd mkdir -p $VENDOR_DIR || logerr "--- Failed to make vendor_perl dir"
     pushd lib/perl5 > /dev/null
-        logcmd rsync -a . $VENDOR_DIR/ || logerr "--- Failed to copy files"
+    logcmd rsync -a . $VENDOR_DIR/ || logerr "--- Failed to copy files"
     popd > /dev/null
     logcmd mkdir ${DESTDIR}${PREFIX}/bin || logerr "--- Failed to make bin dir"
-    logcmd rsync -a bin/ ${DESTDIR}${PREFIX}/bin/ || logerr "--- Failed to install bins"
+    logcmd rsync -a bin/ ${DESTDIR}${PREFIX}/bin/ \
+        || logerr "--- Failed to install bins"
 
     MAN_DIR="${DESTDIR}${PREFIX}/share/man/man1"
     POD2MAN="/usr/perl5/bin/pod2man"
     logmsg "Creating man page"
     logcmd mkdir -p $MAN_DIR || logerr "--- Failed to make man1 dir"
-    logcmd $POD2MAN bin/pkgtree $MAN_DIR/pkgtree.1 || logerr "--- Failed to make man page"
+    logcmd $POD2MAN bin/pkgtree $MAN_DIR/pkgtree.1 \
+        || logerr "--- Failed to make man page"
 }
 
 init
@@ -65,4 +66,4 @@ make_package
 clean_up
 
 # Vim hints
-# vim:ts=4:sw=4:et:
+# vim:ts=4:sw=4:et:fdm=marker

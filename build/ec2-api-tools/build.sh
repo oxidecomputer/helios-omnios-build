@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,13 +18,12 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2011-2015 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=ec2-api-tools
@@ -35,29 +34,38 @@ SUMMARY="The API tools serve as the client interface to the Amazon EC2 web servi
 DESC="Use these tools to register and launch instances, manipulate security groups, and more."
 
 BUILD_DEPENDS_IPS="network/rsync"
-DEPENDS_IPS="runtime/java"
+RUN_DEPENDS_IPS="runtime/java"
 
 # Remove the dependence on EC2_HOME from all the commands,
 # since ec2-cmd takes care of it.
 # Just have each command script exec ec2-cmd
 exec_fix() {
     logmsg "Cleaning up command scripts"
-    find ${TMPDIR}/${BUILDDIR}/bin -type f | grep -v 'cmd$' | xargs sed -i -e '/^__ZIP_PREFIX.*/d' -e '/^__RPM_PREFIX.*/d' -e 's#^"${EC2_HOME}"/bin/#exec #'
+    find ${TMPDIR}/${BUILDDIR}/bin -type f \! -name '*cmd' \
+        | xargs sed -i '
+            /^__ZIP_PREFIX/d
+            /^__RPM_PREFIX/d
+            s#"${EC2_HOME}"/bin/#exec #
+        '
 }
 
 install_files() {
     logmsg "Setting up proto area and copying files"
+    mkdir -p $DESTDIR/$PREFIX
+    pushd $DESTDIR/$PREFIX 2>/dev/null || logerr "pushd"
+
     for d in bin lib/ec2-api-tools share/doc/ec2-api-tools; do
-        logcmd mkdir -p ${DESTDIR}${PREFIX}/$d || \
-            logerr "--- Failed to mkdir ${DESTDIR}${PREFIX}/$d"
+        logcmd mkdir -p $d || logerr "--- Failed to mkdir $d"
     done
-    pushd ${TMPDIR}/${BUILDDIR} > /dev/null
-    logcmd /usr/bin/rsync -a --exclude='*.cmd' bin/ ${DESTDIR}${PREFIX}/bin/ || \
-        logerr "--- Failed to copy files to ${DESTDIR}${PREFIX}/bin/"
-    logcmd /usr/bin/rsync -a lib/ ${DESTDIR}${PREFIX}/lib/ec2-api-tools/ || \
-        logerr "--- Failed to copy files to ${DESTDIR}${PREFIX}/lib/ec2-api-tools/"
-    logcmd cp -p *.{txt,TXT} ${DESTDIR}${PREFIX}/share/doc/ec2-api-tools/ || \
-        logerr "--- Failed to copy files to ${DESTDIR}${PREFIX}/share/doc/ec2-api-tools/"
+    logcmd /usr/bin/rsync -a --exclude='*.cmd' $TMPDIR/$BUILDDIR/bin/ bin/ \
+        || logerr "--- Failed to copy bin files"
+    logcmd /usr/bin/rsync -a --exclude='*.cmd' \
+        $TMPDIR/$BUILDDIR/lib/ lib/ec2-api-tools/ \
+        || logerr "--- Failed to copy lib files"
+
+    logcmd cp -p $TMPDIR/$BUILDDIR/*.{txt,TXT} share/doc/ec2-api-tools/ \
+        || logerr "--- Failed to copy licence files"
+
     popd > /dev/null
 }
 
@@ -71,4 +79,4 @@ make_package
 clean_up
 
 # Vim hints
-# vim:ts=4:sw=4:et:
+# vim:ts=4:sw=4:et:fdm=marker

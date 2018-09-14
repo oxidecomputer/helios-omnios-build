@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-# CDDL HEADER START
+# {{{ CDDL HEADER START
 #
 # The contents of this file are subject to the terms of the
 # Common Development and Distribution License, Version 1.0 only
@@ -18,13 +18,12 @@
 # fields enclosed by brackets "[]" replaced with your own identifying
 # information: Portions Copyright [yyyy] [name of copyright owner]
 #
-# CDDL HEADER END
-#
+# CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-# Load support functions
 . ../../lib/functions.sh
 
 PROG=readline
@@ -32,9 +31,7 @@ VER=7.0
 VERHUMAN=$VER
 PKG=library/readline
 SUMMARY="GNU readline"
-DESC="GNU readline library ($VER)"
-
-DEPENDS_IPS="system/library system/library/gcc-runtime"
+DESC="GNU readline library"
 
 CONFIGURE_OPTS="--disable-static"
 
@@ -55,13 +52,9 @@ copy_version6() {
     # Keep the r151018 version 6.3 library around for older apps.
     # On the off chance we do non-x86/amd64 architectures, this'll get more
     # complicated.
-    logcmd cp $SRCDIR/files/libreadline.so.6 $SRCDIR/files/libhistory.so.6 \
-	$DESTDIR$PREFIX/lib/. || logerr "--- Copying of v6.3 libraries failed"
-    logcmd cp $SRCDIR/files/amd64/libreadline.so.6 \
-	$SRCDIR/files/amd64/libhistory.so.6 $DESTDIR$PREFIX/lib/$ISAPART64/. \
-	|| logerr "--- Copying of 64-bit v6.3 libraries failed"
+    logcmd rsync -a $SRCDIR/files/lib/ $DESTDIR/$PREFIX/lib/ \
+        || logerr "Library copy failed"
 }
-
 
 init
 download_source $PROG $PROG $VER
@@ -69,10 +62,9 @@ patch_source
 prep_build
 build
 make_isa_stub
-fix_permissions
 copy_version6
 make_package
 clean_up
 
 # Vim hints
-# vim:ts=4:sw=4:et:
+# vim:ts=4:sw=4:et:fdm=marker
