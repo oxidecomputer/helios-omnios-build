@@ -19,7 +19,7 @@
 
 PKG=library/python-2/cheroot-27
 PROG=cheroot
-VER=6.4.0
+VER=6.5.2
 SUMMARY="cheroot - Highly-optimized, pure-python HTTP server"
 DESC="$SUMMARY"
 
