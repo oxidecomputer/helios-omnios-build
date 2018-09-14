@@ -28,6 +28,7 @@
 
 PKG=library/python-2/cherrypy-27
 PROG=CherryPy
+# CherryPy 17 is the last version with Python2 support.
 VER=17.3.0
 SUMMARY="cherrypy - A Minimalist Python Web Framework"
 DESC="$SUMMARY"
