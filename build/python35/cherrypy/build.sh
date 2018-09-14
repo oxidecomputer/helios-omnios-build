@@ -19,7 +19,7 @@
 
 PKG=library/python-3/cherrypy-35
 PROG=CherryPy
-VER=17.3.0
+VER=18.0.1
 SUMMARY="cherrypy - A Minimalist Python Web Framework"
 DESC="$SUMMARY"
 
