@@ -29,7 +29,7 @@
 . ../../lib/functions.sh
 
 PROG=fio
-VER=3.8
+VER=3.10
 VERHUMAN=$VER
 PKG=system/test/fio
 SUMMARY="Flexible IO Tester"
