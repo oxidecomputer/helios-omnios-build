@@ -71,7 +71,7 @@
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.20.00		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.6.1			| https://sourceforge.net/projects/zsh/files/zsh
-| system/cpuid				| 1.7.0			| https://github.com/tycho/cpuid/releases
+| system/cpuid				| 1.7.1			| https://github.com/tycho/cpuid/releases
 | system/library/dbus			| 1.12.10		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.110			| https://dbus.freedesktop.org/releases/dbus-glib/
 | system/library/pcap			| 1.9.0			| http://www.tcpdump.org/#latest-releases
