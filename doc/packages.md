@@ -70,7 +70,7 @@
 | shell/bash-patchlvl			| 023			| https://ftp.gnu.org/gnu/bash/bash-4.4-patches
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.20.00		| https://github.com/tcsh-org/tcsh/releases
-| shell/zsh				| 5.6.1			| https://sourceforge.net/projects/zsh/files/zsh
+| shell/zsh				| 5.6.2			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.7.1			| https://github.com/tycho/cpuid/releases
 | system/library/dbus			| 1.12.10		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.110			| https://dbus.freedesktop.org/releases/dbus-glib/
@@ -78,7 +78,7 @@
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
-| system/test/fio			| 3.8			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.10			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
 | terminal/tmux				| 2.7			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 4.2.1			| https://ftp.gnu.org/gnu/gawk/
@@ -101,12 +101,13 @@
 | library/python-2/jaraco.classes-27	| 1.5			| https://pypi.org/project/jaraco.classes
 | library/python-2/functools32-27	| 3.2.3-2		| https://pypi.org/project/functools32
 | library/python-2/enum-27		| 1.1.6			| https://pypi.org/project/enum34
+| library/python-2/cherrypy-27		| 17.3.0		| https://pypi.org/project/jsonrpclib
 | library/python-2/jsonrpclib-27	| 0.1.7			| https://pypi.org/project/jsonrpclib
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
 | library/python-3/cffi-35		| 1.11.5		| https://pypi.org/project/cffi
-| library/python-3/cheroot-35		| 6.4.0			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-35		| 17.3.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/cheroot-35		| 6.5.2			| https://pypi.org/project/cheroot
+| library/python-3/cherrypy-35		| 18.0.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.1			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.3.1			| https://pypi.org/project/cryptography

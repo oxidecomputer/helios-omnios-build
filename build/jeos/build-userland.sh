@@ -45,7 +45,7 @@ add_constraints()
 		fi
 		[ -z "$dash" ] && dash=0
 		echo "depend facet.version-lock.$pkg=true"\
-		    "fmri=$pkg@$ver,5.11-$dash.@RELVER@ type=incorporate" \
+		    "fmri=$pkg@$ver,5.11-@RELVER@.$dash type=incorporate" \
 		    >> $cmf
 	done
 }

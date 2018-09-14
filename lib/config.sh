@@ -68,7 +68,8 @@ LC_TIME=C;      export LC_TIME
 
 # Default branch
 RELVER=151027
-PVER=0.$RELVER
+DASHREV=0
+PVER=$RELVER.$DASHREV
 
 # Default package publisher
 PKGPUBLISHER=omnios
