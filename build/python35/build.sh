@@ -20,7 +20,7 @@ PROG=Python
 VER=3.5.6
 PKG=runtime/python-35
 MVER=${VER%.*}
-SUMMARY="$PROG $SMVER"
+SUMMARY="$PROG $MVER"
 DESC="$SUMMARY"
 
 BUILD_DEPENDS_IPS="developer/build/autoconf developer/pkg-config"
