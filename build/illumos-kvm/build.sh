@@ -94,6 +94,7 @@ clean_up() {
     _clean_up
     [ -f $SRCDIR/OPENSOLARIS.LICENSE ] \
         && logcmd rm -f $SRCDIR/OPENSOLARIS.LICENSE
+    return 0
 }
 
 fix_drivers() {
