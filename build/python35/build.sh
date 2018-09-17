@@ -92,8 +92,13 @@ launch_testsuite() {
 }
 
 test_dtrace() {
+    [ -n "$SKIP_TESTSUITE" ] && return
     pushd $TMPDIR/$BUILDDIR > /dev/null
+    # Dtrace requires elevated privileges.
     $PFEXEC $SRCDIR/files/run-dtrace-tests | tee $SRCDIR/testsuite-d.log
+    # Reset ownership on the python 3 cache directories/files that will have
+    # been created owned by root.
+    $PFEXEC chown -R "`stat -c %U $SRCDIR`" .
     popd
 }
 
