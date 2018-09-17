@@ -101,7 +101,7 @@
 | library/python-2/jaraco.classes-27	| 1.5			| https://pypi.org/project/jaraco.classes
 | library/python-2/functools32-27	| 3.2.3-2		| https://pypi.org/project/functools32
 | library/python-2/enum-27		| 1.1.6			| https://pypi.org/project/enum34
-| library/python-2/cherrypy-27		| 17.3.0		| https://pypi.org/project/jsonrpclib
+| library/python-2/cherrypy-27		| 17.3.0		| https://pypi.org/project/cherrypy
 | library/python-2/jsonrpclib-27	| 0.1.7			| https://pypi.org/project/jsonrpclib
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
