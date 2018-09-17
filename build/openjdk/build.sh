@@ -268,6 +268,7 @@ clean_up() {
     logcmd rm -rf $TMPDIR/openwin
     logcmd rm -rf $J2RE_INSTALLTMP
     logcmd rm -rf $J2SDK_INSTALLTMP
+    return 0
 }
 
 init
