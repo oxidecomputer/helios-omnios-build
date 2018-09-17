@@ -136,6 +136,18 @@ r151028 release repository: https://pkg.omniosce.org/r151028/core
   OmniOS release. `/usr/bin/python` is now a mediated link that points to
   python2 by default.
 
+* The java-based Amazon EC2 API tools are deprecated and have been removed;
+  however, if already installed on a system which is upgraded, then they are
+  left in-place. The recommended replacement is the new AWS command-line
+  interface which can be installed as follows:
+  ```
+  # pkg install python-35
+  # python3 -m ensurepip
+  # pip3 install --upgrade pip
+  # pip3 install awscli --upgrade
+  # aws --version
+  ```
+
 ### Package changes ([+] Added, [-] Removed, [\*] Changed)
 
 XXX
