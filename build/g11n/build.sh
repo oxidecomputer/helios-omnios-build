@@ -95,10 +95,10 @@ package() {
     logmsg "--- packaging"
     ISALIST=i386 CC=gcc logcmd dmake \
         CLOSED_BUILD=no \
-        L10N_BUILDNUM=$BUILDNUM \
+        L10N_BUILDNUM=$BUILDNUM PKGVERS_BRANCH=$PVER \
         || logerr "pkg make failed"
     ISALIST=i386 CC=gcc logcmd dmake publish_pkgs \
-        SRC=$SRC CLOSED_BUILD=no L10N_BUILDNUM=$BUILDNUM \
+        SRC=$SRC CLOSED_BUILD=no L10N_BUILDNUM=$BUILDNUM PKGVERS_BRANCH=$PVER \
         PKGPUBLISHER_REDIST=$PKGPUBLISHER \
         || logerr "publish failed"
     popd > /dev/null
