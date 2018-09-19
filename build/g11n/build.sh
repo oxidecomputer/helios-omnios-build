@@ -29,12 +29,11 @@
 
 # These are here so that buildctl can see what packages get built.
 # Makefiles in the repo do the actual publishing.
+PKG=system/library/iconv/unicode
 PKG=system/library/iconv/utf-8
 PKG=system/library/iconv/utf-8/manual
-PKG=system/library/iconv/unicode
-PKG=system/library/iconv/extra
 PKG=system/library/iconv/xsh4/latin
-PKG=system/install/locale
+PKG=system/library/liblayout
 PKG=text/auto_ef
 SUMMARY="This isn't used"
 DESC="$SUMMARY"
@@ -94,8 +93,7 @@ package() {
     pushd $TMPDIR/$BUILDDIR/g11n/pkg > /dev/null
     logmsg "--- packaging"
     ISALIST=i386 CC=gcc logcmd dmake \
-        CLOSED_BUILD=no \
-        L10N_BUILDNUM=$BUILDNUM PKGVERS_BRANCH=$PVER \
+        CLOSED_BUILD=no L10N_BUILDNUM=$BUILDNUM PKGVERS_BRANCH=$PVER \
         || logerr "pkg make failed"
     ISALIST=i386 CC=gcc logcmd dmake publish_pkgs \
         SRC=$SRC CLOSED_BUILD=no L10N_BUILDNUM=$BUILDNUM PKGVERS_BRANCH=$PVER \
