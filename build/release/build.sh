@@ -37,6 +37,8 @@ if [[ "$RELEASE" = *[a-z] ]]; then
     done
 fi
 
+DASHREV=$RELREV
+
 XFORM_ARGS="
     -DRELEASE=$RELEASE -DRELNUM=$RELNUM -DRELDATE=$RELDATE -DRELREV=$RELREV
 "
