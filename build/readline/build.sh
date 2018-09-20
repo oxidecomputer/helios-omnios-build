@@ -28,6 +28,7 @@
 
 PROG=readline
 VER=7.0
+PVER=6.3
 VERHUMAN=$VER
 PKG=library/readline
 SUMMARY="GNU readline"
@@ -35,34 +36,26 @@ DESC="GNU readline library"
 
 CONFIGURE_OPTS="--disable-static"
 
-fix_permissions() {
-    logmsg "--- Making shared libs executable"
-    for file in libhistory libreadline; do
-        logcmd chmod 0555 $DESTDIR$PREFIX/lib/${file}.so.*
-        logcmd chmod 0555 $DESTDIR$PREFIX/lib/$ISAPART64/${file}.so.*
-    done
-}
-
 make_prog() {
     logcmd gmake SHOBJ_LDFLAGS='-shared -Wl,-i -Wl,-h,$@ -nostdlib -lc' || \
         logerr "--- Make failed"
 }
 
-copy_version6() {
-    # Keep the r151018 version 6.3 library around for older apps.
-    # On the off chance we do non-x86/amd64 architectures, this'll get more
-    # complicated.
-    logcmd rsync -a $SRCDIR/files/lib/ $DESTDIR/$PREFIX/lib/ \
-        || logerr "Library copy failed"
-}
-
 init
+prep_build
+
+(
+    # Build version 6 libraries
+    BUILDDIR=$PROG-$PVER
+    download_source $PROG $PROG $PVER
+    PATCHDIR=patches-6 patch_source
+    build
+)
+
 download_source $PROG $PROG $VER
 patch_source
-prep_build
 build
 make_isa_stub
-copy_version6
 make_package
 clean_up
 
