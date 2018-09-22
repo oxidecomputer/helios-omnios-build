@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.58.0
+VER=2.58.1
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="$SUMMARY"
