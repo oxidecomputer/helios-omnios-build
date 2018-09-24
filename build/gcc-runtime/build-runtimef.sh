@@ -23,6 +23,10 @@ VERHUMAN=$VER
 SUMMARY="GNU fortran runtime dependencies"
 DESC="$SUMMARY"
 
+# As we copy libraries from the live system, the package must already be
+# installed.
+BUILD_DEPENDS_IPS+=" $PKG"
+
 init
 prep_build
 shopt -s extglob
