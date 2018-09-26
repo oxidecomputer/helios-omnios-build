@@ -19,12 +19,12 @@
 PKG=system/library/gcc-runtime
 PROG=libgcc_s
 VER=8
-VERHUMAN=$VER
 SUMMARY="GNU compiler runtime dependencies"
 DESC="$SUMMARY"
 
 init
 prep_build
+shopt -s extglob
 
 # Abort if any of the following commands fail
 set -o errexit
@@ -32,31 +32,75 @@ pushd $DESTDIR >/dev/null
 
 # To keep all of the logic in one place, links are not created in the .mog
 
-full=libgcc_s.so.1      # Same for all gcc versions
-
-for v in `seq 5 $VER`; do
-    logmsg "-- GCC $v - $full"
-    logcmd mkdir -p usr/gcc/$v/lib/$ISAPART64
-    logcmd ln -s $ISAPART64 usr/gcc/$v/lib/64
-    if [ -f /opt/gcc-$v/lib/$full ]; then
-        logcmd cp /opt/gcc-$v/lib/$full usr/gcc/$v/lib/$full
-        logcmd cp /opt/gcc-$v/lib/$ISAPART64/$full \
-            usr/gcc/$v/lib/$ISAPART64/$full
-    else
-        logcmd cp /usr/gcc/$v/lib/$full usr/gcc/$v/lib/$full
-        logcmd cp /usr/gcc/$v/lib/$ISAPART64/$full \
-            usr/gcc/$v/lib/$ISAPART64/$full
-    fi
-    logcmd ln -s $full usr/gcc/$v/lib/libgcc_s.so
-    logcmd ln -s $full usr/gcc/$v/lib/$ISAPART64/libgcc_s.so
-done
+libs="libgcc_s libatomic"
 
 mkdir -p usr/lib/$ISAPART64
-logcmd ln -s ../gcc/$DEFAULT_GCC_VER/lib/$full usr/lib/$full
-logcmd ln -s ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$full \
+
+for v in `seq 5 $VER`; do
+    logcmd mkdir -p usr/gcc/$v/lib/$ISAPART64
+    logcmd ln -s $ISAPART64 usr/gcc/$v/lib/64
+    for lib in $libs; do
+        # Find the library file in this gcc version
+        full=
+        if [ -d /opt/gcc-$v/lib ]; then
+            for l in /opt/gcc-$v/lib/$lib.so.*; do
+                [ -f $l -a ! -h $l ] && full=$l && break
+            done
+        else
+            for l in /usr/gcc/$v/lib/$lib.so.*; do
+                [ -f $l -a ! -h $l ] && full=$l && break
+            done
+        fi
+        [ -f $full ] || logerr "No $lib lib for gcc-$v"
+        full=`basename $full`                          # libxxxx.so.1.2.3
+        maj=${full/%.+([0-9]).+([0-9])/}               # libxxxx.so.1
+
+        logmsg "-- GCC $v - $full ($maj)"
+
+        if [ -f /opt/gcc-$v/lib/$full ]; then
+            logcmd cp /opt/gcc-$v/lib/$full usr/gcc/$v/lib/$full
+            logcmd cp /opt/gcc-$v/lib/$ISAPART64/$full \
+                usr/gcc/$v/lib/$ISAPART64/$full
+        else
+            logcmd cp /usr/gcc/$v/lib/$full usr/gcc/$v/lib/$full
+            logcmd cp /usr/gcc/$v/lib/$ISAPART64/$full \
+                usr/gcc/$v/lib/$ISAPART64/$full
+        fi
+
+        # Now sort out the links
+
+        # Link versioned libraries to /usr/lib - latest gcc version will win in
+        # the case that two deliver the same versioned file.
+        if [ "$full" != "$maj" ]; then
+            logcmd ln -sf ../gcc/$v/lib/$full usr/lib/$full
+            logcmd ln -sf ../../gcc/$v/lib/$ISAPART64/$full \
+                usr/lib/$ISAPART64/$full
+            logcmd ln -sf $full usr/lib/$maj
+            logcmd ln -sf $full usr/lib/$ISAPART64/$maj
+
+            logcmd ln -s $full usr/gcc/$v/lib/$maj
+            logcmd ln -s $full usr/gcc/$v/lib/$ISAPART64/$maj
+        fi
+        logcmd ln -s $maj usr/gcc/$v/lib/$lib.so
+        logcmd ln -s $maj usr/gcc/$v/lib/$ISAPART64/$lib.so
+    done
+done
+
+# Unversioned links
+for lib in $libs; do
+    logcmd ln -sf ../gcc/$DEFAULT_GCC_VER/lib/$lib.so usr/lib/$lib.so
+    logcmd ln -sf ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$lib.so \
+        usr/lib/amd64/$lib.so
+done
+
+# Special handling for libgcc.so.1
+full=libgcc_s.so.1
+lib=libgcc_s
+logcmd ln -sf ../gcc/$DEFAULT_GCC_VER/lib/$full usr/lib/$full
+logcmd ln -sf ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$full \
     usr/lib/$ISAPART64/$full
-logcmd ln -s $full usr/lib/libgcc_s.so
-logcmd ln -s $full usr/lib/$ISAPART64/libgcc_s.so
+logcmd ln -sf $full usr/lib/$lib.so
+logcmd ln -sf $full usr/lib/$ISAPART64/$lib.so
 
 popd >/dev/null
 set +o errexit

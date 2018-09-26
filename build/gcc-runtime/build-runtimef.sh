@@ -19,7 +19,6 @@
 PKG=system/library/gfortran-runtime
 PROG=gfortran
 VER=8
-VERHUMAN=$VER
 SUMMARY="GNU fortran runtime dependencies"
 DESC="$SUMMARY"
 
@@ -37,11 +36,13 @@ pushd $DESTDIR >/dev/null
 
 # To keep all of the logic in one place, links are not created in the .mog
 
+libs="libgfortran libquadmath"
+
 mkdir -p usr/lib/$ISAPART64
 
 for v in `seq 5 $VER`; do
     logcmd mkdir -p usr/gcc/$v/lib/$ISAPART64
-    for lib in libgfortran libquadmath; do
+    for lib in $libs; do
         # Find the library file in this gcc version
         full=
         if [ -d /opt/gcc-$v/lib ]; then
@@ -86,7 +87,7 @@ for v in `seq 5 $VER`; do
 done
 
 # Unversioned links
-for lib in libgfortran libquadmath; do
+for lib in $libs; do
     logcmd ln -sf ../gcc/$DEFAULT_GCC_VER/lib/$lib.so usr/lib/$lib.so
     logcmd ln -sf ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$lib.so \
         usr/lib/amd64/$lib.so
