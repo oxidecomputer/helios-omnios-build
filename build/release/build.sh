@@ -18,13 +18,16 @@
 
 PROG=release
 VER=0.5.11
-VERHUMAN=$VER
 PKG=release/name
 SUMMARY="OmniOS release information"
 DESC="OmniOS /etc/release and /etc/os-release files"
-RELEASE=${RELVER}
+
+# Update the following line with the current release suffix
+RELSUFFIX=
+
+RELEASE=${RELVER}${RELSUFFIX}
 RELDATE="`date +%Y.%m.%d`"
-RELNUM="`echo $RELEASE | sed 's/[a-z]//g'`"
+RELNUM=${RELVER}
 RELREV=0
 
 if [[ "$RELEASE" = *[a-z] ]]; then
