@@ -94,7 +94,7 @@ prep_build
 clone_source
 logmsg "Now building $PKG"
 $SUDO ./sudo-bits.sh $KAYAK_CLOBBER $TMPDIR/$BUILDDIR \
-    $PREBUILT_ILLUMOS $DESTDIR $PKGURL $VER $OLDUSER $BATCHMODE \
+    $PREBUILT_ILLUMOS $DESTDIR $PKGURL $VER $OLDUSER $BATCHMODE $RELVER \
     || logerr "--- sudo-bits sub-script failed."
 make_package kayak-kernel.mog
 clean_up

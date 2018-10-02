@@ -35,6 +35,7 @@ export PKGURL="$5"
 VER="$6"
 OLDUSER="$7"
 BATCHMODE="$8"
+RELVER="$9"
 
 export ROOT_OK=yes
 
@@ -63,7 +64,7 @@ fi
 
 pushd $CHECKOUTDIR/kayak > /dev/null || logerr "Cannot change to src dir"
 logmsg "Building miniroot"
-logcmd gmake $PBI_STRING DESTDIR=$DESTDIR install-tftp \
+logcmd gmake $PBI_STRING DESTDIR=$DESTDIR VERSION=$RELVER install-tftp \
     || logerr "miniroot build failed"
 
 # So the user's build.sh can cleanup after itself.
