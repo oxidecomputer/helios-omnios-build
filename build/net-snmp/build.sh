@@ -81,11 +81,25 @@ TESTSUITE_SED="
     /^gmake/d
 "
 
+install_legacy()
+{
+    # Include legacy API libraries (changed from .30 -> .35 in 5.8)
+    ver=30
+    for lib in snmp netsnmp netsnmpagent netsnmphelpers netsnmpmibs \
+      netsnmptrapd; do
+        logcmd cp /usr/lib/lib$lib.so.$ver $DESTDIR/usr/lib/ \
+            || logerr "$lib copy failed"
+        logcmd cp /usr/lib/amd64/lib$lib.so.$ver $DESTDIR/usr/lib/amd64/ \
+            || logerr "$lib copy failed"
+    done
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
+install_legacy
 run_testsuite test
 install_smf application/management net-snmp.xml svc-net-snmp
 strip_install
