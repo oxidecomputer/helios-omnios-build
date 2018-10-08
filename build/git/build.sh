@@ -116,6 +116,7 @@ run_testsuite
 make_isa_stub
 install_man
 install_pod
+strip_install
 make_package
 clean_up
 
