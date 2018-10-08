@@ -199,7 +199,7 @@ DEFAULT_PYTHON_VER=$PYTHON2VER
 
 # CFLAGS applies to both builds, 32/64 only gets applied to the respective
 # build
-CFLAGS="-g -O2"
+CFLAGS="-O2"
 CFLAGS32=
 CFLAGS64="-m64"
 
@@ -214,7 +214,7 @@ CPPFLAGS32=
 CPPFLAGS64=
 
 # C++ flags
-CXXFLAGS="-g -O2"
+CXXFLAGS="-O2"
 CXXFLAGS32=
 CXXFLAGS64="-m64"
 
