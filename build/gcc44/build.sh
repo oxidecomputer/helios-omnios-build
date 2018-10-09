@@ -85,6 +85,14 @@ CONFIGURE_OPTS="
 LDFLAGS32="-R/opt/gcc-${VER}/lib"
 export LD_OPTIONS="-zignore -zcombreloc -Bdirect -i"
 
+# If the selected compiler is the same version as the one we're building
+# then the three-stage bootstrap is unecessary and some build time can be
+# saved.
+[ -z "$FORCE_BOOTSTRAP" ] \
+    && [ "`gcc -v 2>&1 | nawk '/^gcc version/ { print $3 }'`" = "$VER" ] \
+    && CONFIGURE_OPTS+=" --disable-bootstrap" \
+    && logmsg "--- disabling bootstrap"
+
 init
 download_source gcc44 ${PROG}-gcc-4.4.4-${ILLUMOSVER}
 patch_source
