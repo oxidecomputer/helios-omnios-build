@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=nghttp2
-VER=1.33.0
+VER=1.34.0
 VERHUMAN=$VER
 PKG=library/nghttp2
 SUMMARY="nghttp2: HTTP/2 C Library"
