@@ -262,6 +262,14 @@ ask_to_testsuite() {
 }
 
 #############################################################################
+# Copyright string
+#############################################################################
+copyright_string() {
+    echo "Copyright 2017-`date +%Y`" \
+        "OmniOS Community Edition (OmniOSce) Association."
+}
+
+#############################################################################
 # URL encoding for package names, at least
 #############################################################################
 # This isn't real URL encoding, just a couple of common substitutions
