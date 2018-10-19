@@ -10,6 +10,8 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+
 PYTHONVER=2.7
 PYVER=$PYTHONVER		# 2.7
 PYMVER=${PYTHONVER%%.*}		# 2
@@ -33,3 +35,5 @@ TMPDIR+="/python$PYVER"
 DTMPDIR+="/python$PYVER"
 BASE_TMPDIR=$TMPDIR
 
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker
