@@ -56,7 +56,7 @@ build() {
     cat <<- EOM > etc/release
   OmniOS v11 r$RELEASE
   Copyright 2017 OmniTI Computer Consulting, Inc. All rights reserved.
-  Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+  `copyright_string`
   All rights reserved. Use is subject to licence terms.
 	EOM
 
@@ -79,7 +79,7 @@ BUG_REPORT_URL="https://github.com/omniosorg/omnios-build/issues/new"
 init
 prep_build
 build
-make_package
+make_package release.mog
 clean_up
 
 # Vim hints
