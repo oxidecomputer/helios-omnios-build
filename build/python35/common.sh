@@ -10,6 +10,8 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+
 PYTHONVER=3.5
 PYVER=$PYTHONVER		# 3.5
 PYMVER=${PYTHONVER%%.*}		# 3
@@ -36,3 +38,5 @@ BASE_TMPDIR=$TMPDIR
 # We only deliver Python 3 as 64-bit
 BUILDARCH=64
 
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker
