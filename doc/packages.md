@@ -10,7 +10,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | data/iso-codes			| 4.1			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3250200		| https://www.sqlite.org/download.html
-| developer/acpi/compiler		| 20180810		| https://www.acpica.org/downloads/
+| developer/acpi/compiler		| 20181003		| https://www.acpica.org/downloads/
 | developer/bmake			| 20180919		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.1		| https://git.savannah.gnu.org/cgit/automake.git/refs/tags https://ftp.gnu.org/gnu/automake/
@@ -54,7 +54,7 @@
 | library/security/openssl-1.1		| 1.1.0i		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| network/dns/bind			| 9.11.4-P2		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.11.5		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 7.8p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -79,7 +79,7 @@
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
-| system/test/fio			| 3.10			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.11			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
 | terminal/tmux				| 2.7			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 4.2.1			| https://ftp.gnu.org/gnu/gawk/
