@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=curl
-VER=7.61.1
+VER=7.62.0
 PKG=web/curl
 SUMMARY="Command line tool for transferring data with URL syntax"
 DESC="$SUMMARY"
