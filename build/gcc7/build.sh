@@ -29,12 +29,14 @@
 PKG=developer/gcc7
 PROG=gcc
 VER=7.3.0
-VERHUMAN=$VER
-SUMMARY="gcc $VER"
+ILVER=il-1
+SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
 
 GCCMAJOR=${VER%%.*}
 OPT=/opt/gcc-$GCCMAJOR
+
+BUILDDIR="$PROG-$PROG-$VER-$ILVER"
 
 XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 
@@ -83,7 +85,7 @@ CONFIGURE_OPTS="
 "
 CONFIGURE_OPTS_WS="
     --with-boot-cflags=\"-g -O2\"
-    --with-pkgversion=\"OmniOS $RELVER\"
+    --with-pkgversion=\"OmniOS $RELVER/$VER-$ILVER\"
     --with-bugurl=https://omniosce.org/about/contact
 "
 LDFLAGS32="-R$OPT/lib"
@@ -106,7 +108,7 @@ make_install() {
 OUT_OF_TREE_BUILD=1
 
 init
-download_source $PROG/releases/$PROG-$VER $PROG $VER
+download_source $PROG $PROG $VER-$ILVER
 patch_source
 prep_build
 build
