@@ -54,19 +54,28 @@ pre_build() {
     PVER="$RELVER.$DASHREV"
     (
         sed < myenv.sh "
-          s|^export CODEMGR_WS=.*|export CODEMGR_WS=$WORKDIR|
-          s|^export NIGHTLY_OPTIONS=.*|export NIGHTLY_OPTIONS=\"-Dprnl\"|
-          s|^export VERSION=.*|export VERSION=\"$PVER\"|
-          s|^export ONNV_BUILDNUM=.*|export ONNV_BUILDNUM=\"$RELVER\"|
+            s|^export CODEMGR_WS=.*|export CODEMGR_WS=$WORKDIR|
+            s|^export NIGHTLY_OPTIONS=.*|export NIGHTLY_OPTIONS='-Dprnl'|
+            /^export VERSION=/d
+            /^export ONNV_BUILDNUM=/d
         "
-        echo export PKGPUBLISHER=$PKGPUBLISHER
-        echo export SUPPRESSPKGDEP=true
-        echo export PKGVERS_BRANCH=$PVER
+        cat <<-EOM
+			export VERSION=$PVER
+			export ONNV_BUILDNUM=$RELVER
+			export PKGPUBLISHER=$PKGPUBLISHER
+			export SUPPRESSPKGDEP=true
+			export PKGVERS_BRANCH=$PVER
+			export GNUC_ROOT=/opt/gcc-4.4.4
+		EOM
     ) > env-d.sh
     sed < env-d.sh > env.sh '
         /^export ROOT=/s/"$/-nd"/
     '
     popd > /dev/null
+
+    BLDENV=$WORKDIR/tools/bldenv
+    logcmd chmod u+x $BLDENV || logerr "Cannot change bldenv mode"
+    export BLDENV
 }
 
 build() {
@@ -77,13 +86,13 @@ build() {
     for dir in $dirs; do
         logmsg " -- $dir"
         logmsg "  - Non-debug"
-        logcmd env -i /opt/onbld/bin/bldenv $WORKDIR/env.sh \
+        logcmd env -i $BLDENV $WORKDIR/env.sh \
             "cd $WORKDIR/usr/src/$dir && dmake install" \
             || logerr "$dir build failed"
-        logcmd env -i /opt/onbld/bin/bldenv $WORKDIR/env.sh \
+        logcmd env -i $BLDENV $WORKDIR/env.sh \
             "cd $WORKDIR/usr/src/$dir && dmake clobber"
         logmsg "  - Debug"
-        logcmd env -i /opt/onbld/bin/bldenv -d $WORKDIR/env-d.sh \
+        logcmd env -i $BLDENV -d $WORKDIR/env-d.sh \
             "cd $WORKDIR/usr/src/$dir && dmake install" \
             || logerr "$dir build failed"
     done
@@ -97,10 +106,10 @@ make_package() {
 
     logmsg "Packages for driver/graphics/agpgart and driver/graphics/drm"
     pushd $WORKDIR > /dev/null
-    logcmd env -i /opt/onbld/bin/bldenv $WORKDIR/env.sh \
+    logcmd env -i $BLDENV $WORKDIR/env.sh \
         "cd $WORKDIR/usr/src/pkg && make install" \
         || logerr "NON-DEBUG package build failed"
-    logcmd env -i /opt/onbld/bin/bldenv -d $WORKDIR/env-d.sh \
+    logcmd env -i $BLDENV -d $WORKDIR/env-d.sh \
         "cd $WORKDIR/usr/src/pkg && make install" \
         || logerr "DEBUG package build failed"
     popd > /dev/null
@@ -112,6 +121,10 @@ push_pkgs() {
         -s debug.illumos=false,$WORKDIR/packages/i386/nightly-nd/repo.drm \
         -s debug.illumos=true,$WORKDIR/packages/i386/nightly/repo.drm \
         || logerr "push failed"
+    if [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ]; then
+        diff_package driver/graphics/agpgart@0.5.11,$SUNOSVER-$RELVER.$DASHREV
+        diff_package driver/graphics/drm@0.5.11,$SUNOSVER-$RELVER.$DASHREV
+    fi
 }
 
 clone_source
