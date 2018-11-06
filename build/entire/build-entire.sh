@@ -71,7 +71,7 @@ publish_pkg()
         s/@PVER@/$PVER/g
         " < $pmf > $pmf.final
 
-    pkgsend -s $PKGSRVR publish $pmf.final || bail "pkgsend failed"
+    pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
 }
 
 init

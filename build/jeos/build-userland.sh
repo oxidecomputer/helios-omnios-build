@@ -29,7 +29,7 @@ create_manifest_header()
 set name=pkg.fmri \\
   value=pkg://@PKGPUBLISHER@/incorporation/jeos/omnios-userland@11,5.11-@PVER@
 set name=pkg.depend.install-hold value=core-os.omnios
-set name=pkg.summary value="$SUMMARY
+set name=pkg.summary value="$SUMMARY"
 set name=pkg.description value="$DESC"
 EOM
 }
@@ -60,7 +60,7 @@ publish_pkg()
         s/@PVER@/$PVER/g
         " < $pmf > $pmf.final
 
-    pkgsend -s $PKGSRVR publish $pmf.final || bail "pkgsend failed"
+    pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
 }
 
 init
