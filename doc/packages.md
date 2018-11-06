@@ -9,7 +9,7 @@
 | compress/xz				| 5.2.4			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | data/iso-codes			| 4.1			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3250200		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3250300		| https://www.sqlite.org/download.html
 | developer/acpi/compiler		| 20181003		| https://www.acpica.org/downloads/
 | developer/bmake			| 20180919		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
