@@ -74,7 +74,7 @@ publish_pkg()
 
     [ "`cat $pmf.final | wc -l`" -lt 300 ] && logerr "Short file."
 
-    pkgsend -s $PKGSRVR publish $pmf.final || bail "pkgsend failed"
+    pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
 }
 
 init
