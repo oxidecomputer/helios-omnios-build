@@ -72,6 +72,7 @@ clone_source() {
 }
 
 build() {
+    export CC
     pushd $TMPDIR/$BUILDDIR/pkg/src > /dev/null || logerr "Cannot chdir"
     logmsg "--- toplevel build"
     logcmd make clean
