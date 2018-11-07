@@ -25,6 +25,10 @@ DESC="$SUMMARY"
 
 BUILDARCH=32
 
+# This package does not yet build with gcc8. It is set to be removed once
+# the ACPI updates are imported from illumos-gate so use gcc 7 for now.
+set_gccver 7
+
 extract_licence() {
     # Horrible - need to extract the licence from a source file.
     # We choose the BSD licence

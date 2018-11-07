@@ -15,6 +15,7 @@
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
+. common.sh
 
 PKG=system/library/gcc-runtime
 PROG=libgcc_s
@@ -88,16 +89,16 @@ done
 
 # Unversioned links
 for lib in $libs; do
-    logcmd ln -sf ../gcc/$DEFAULT_GCC_VER/lib/$lib.so usr/lib/$lib.so
-    logcmd ln -sf ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$lib.so \
+    logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$lib.so usr/lib/$lib.so
+    logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$lib.so \
         usr/lib/amd64/$lib.so
 done
 
 # Special handling for libgcc.so.1
 full=libgcc_s.so.1
 lib=libgcc_s
-logcmd ln -sf ../gcc/$DEFAULT_GCC_VER/lib/$full usr/lib/$full
-logcmd ln -sf ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$full \
+logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$full usr/lib/$full
+logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$full \
     usr/lib/$ISAPART64/$full
 logcmd ln -sf $full usr/lib/$lib.so
 logcmd ln -sf $full usr/lib/$ISAPART64/$lib.so
