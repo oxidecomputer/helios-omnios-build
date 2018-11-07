@@ -51,6 +51,29 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
 
 ### Package Management
 
+* `pkg verify` has gained an option to verify individual files:
+  ```
+  # chown sys /var
+  # pkg verify -p /var
+  PACKAGE                                                            STATUS
+  pkg://omnios/SUNWcs                                                 ERROR
+        dir: var
+                ERROR: Owner: 'sys (3)' should be 'root (0)'
+  ```
+
+* Individual origins for a publisher can be enabled and disabled using -g to
+  specify the origin:
+  ```
+  # pkg set-publisher -g https://pkg.omniosce.org/bloody/fred/ --disable omnios
+  # pkg publisher
+  PUBLISHER    TYPE     STATUS   P LOCATION
+  omnios       origin   online   F https://pkg.omniosce.org/bloody/core/
+  omnios       origin   disabled F https://pkg.omniosce.org/bloody/fred/
+  ```
+
+* Package manifests now include SHA-2 hashes for objects, and extended hash
+  information for binary objects, alongside the existing SHA-1 information
+  for backwards compatibility with older `pkg` versions.
 
 ### Hardware Support
 
