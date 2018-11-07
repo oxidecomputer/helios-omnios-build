@@ -192,7 +192,7 @@ CC=gcc
 CXX=g++
 
 # Specify default versions for building packages
-DEFAULT_GCC_VER=7
+DEFAULT_GCC_VER=8
 PYTHON2VER=2.7
 PYTHON3VER=3.5
 DEFAULT_PYTHON_VER=$PYTHON2VER

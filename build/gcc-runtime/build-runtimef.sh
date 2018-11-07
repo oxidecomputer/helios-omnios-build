@@ -15,6 +15,7 @@
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
+. common.sh
 
 PKG=system/library/gfortran-runtime
 PROG=gfortran
@@ -88,15 +89,15 @@ done
 
 # Unversioned links
 for lib in $libs; do
-    logcmd ln -sf ../gcc/$DEFAULT_GCC_VER/lib/$lib.so usr/lib/$lib.so
-    logcmd ln -sf ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$lib.so \
+    logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$lib.so usr/lib/$lib.so
+    logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$lib.so \
         usr/lib/amd64/$lib.so
 done
 
 # And special-case libquadmath.so.0.0.0
 lib=libquadmath.so.0.0.0
-logcmd ln -sf ../gcc/$DEFAULT_GCC_VER/lib/$lib usr/lib/$lib
-logcmd ln -sf ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$lib \
+logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$lib usr/lib/$lib
+logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$lib \
     usr/lib/$ISAPART64/$lib
 
 popd >/dev/null

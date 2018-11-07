@@ -25,6 +25,11 @@ SUMMARY="The Netwide Assembler"
 DESC="$SUMMARY"
 
 set_arch 32
+# This package does not yet build with gcc8.
+# ./include/nasmlib.h:194:1: error: 'pure' attribute on function returning
+#     'void' [-Werror=attributes]
+# void pure_func seg_init(void);
+set_gccver 7
 
 init
 download_source $PROG $PROG $VER

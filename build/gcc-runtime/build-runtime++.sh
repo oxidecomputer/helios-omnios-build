@@ -15,6 +15,7 @@
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
+. common.sh
 
 PKG=system/library/g++-runtime
 PROG=libstdc++
@@ -84,17 +85,17 @@ for v in `seq 5 $VER`; do
         # And now link in the main .so version for the current gcc
 
         logcmd ln -sf $maj usr/lib/$lib.so
-        logcmd ln -sf ../gcc/$DEFAULT_GCC_VER/lib/$maj usr/lib/$maj
+        logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$maj usr/lib/$maj
         logcmd ln -sf $maj usr/lib/$ISAPART64/$lib.so
-        logcmd ln -sf ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$maj \
+        logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$maj \
             usr/lib/$ISAPART64/$maj
     done
 done
 
 # And special-case libssl.so.0.0.0
 lib=libssp.so.0.0.0
-logcmd ln -sf ../gcc/$DEFAULT_GCC_VER/lib/$lib usr/lib/$lib
-logcmd ln -sf ../../gcc/$DEFAULT_GCC_VER/lib/$ISAPART64/$lib \
+logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$lib usr/lib/$lib
+logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$lib \
     usr/lib/$ISAPART64/$lib
 
 # Copy in legacy versions in case old code is linked against them
