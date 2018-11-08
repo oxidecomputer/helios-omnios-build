@@ -18,18 +18,13 @@
 . ../../lib/functions.sh
 
 PROG=nasm
-VER=2.13.03
+VER=2.14
 VERHUMAN=$VER
 PKG=developer/nasm
 SUMMARY="The Netwide Assembler"
-DESC="$SUMMARY"
+DESC="an assembler targetting the Intel x86 series of processors"
 
 set_arch 32
-# This package does not yet build with gcc8.
-# ./include/nasmlib.h:194:1: error: 'pure' attribute on function returning
-#     'void' [-Werror=attributes]
-# void pure_func seg_init(void);
-set_gccver 7
 
 init
 download_source $PROG $PROG $VER
