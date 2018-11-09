@@ -107,9 +107,7 @@ package
 
 if [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ]; then
     for pkg in $PKGLIST; do
-        fmri="`pkg list -nvHg $PKGSRVR $pkg | awk '{print $1}'`"
-        logmsg "-- For package $fmri"
-        diff_package $fmri
+        diff_latest $pkg
     done
 fi
 
