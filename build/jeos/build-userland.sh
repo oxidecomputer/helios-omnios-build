@@ -44,8 +44,9 @@ add_constraints()
             logerr "Bad package line, $pkg $ver"
         fi
         [ -z "$dash" ] && dash=0
+        [ "$dash" = "-" ] && dash= || dash=".$dash"
         echo "depend facet.version-lock.$pkg=true"\
-            "fmri=$pkg@$ver,5.11-@RELVER@.$dash type=incorporate" \
+            "fmri=$pkg@$ver,5.11-@RELVER@$dash type=incorporate" \
             >> $cmf
     done
 }
