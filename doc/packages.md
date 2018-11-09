@@ -2,14 +2,14 @@
 | Package | Version | Link | Notes |
 | :------ | :------ | :--- | :---- |
 | archiver/gnu-tar			| 1.30			| http://git.savannah.gnu.org/cgit/tar.git/refs/tags
-| compress/bzip2			| 1.0.6			| http://www.bzip.org/downloads.html
+| compress/bzip2			| 1.0.6			| https://sourceforge.net/projects/bzip2/files
 | compress/gzip				| 1.9			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
 | compress/p7zip			| 16.02			| https://sourceforge.net/projects/p7zip/files/p7zip
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.4			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | data/iso-codes			| 4.1			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3250200		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3250300		| https://www.sqlite.org/download.html
 | developer/acpi/compiler		| 20181003		| https://www.acpica.org/downloads/
 | developer/bmake			| 20180919		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
@@ -23,15 +23,15 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.13.03		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.1			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.2			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.19.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 4.7.2			| https://www.mercurial-scm.org/release/?M=D
+| developer/versioning/mercurial	| 4.8			| https://www.mercurial-scm.org/release/?M=D
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.1			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 8.30			| https://git.savannah.gnu.org/cgit/coreutils.git/refs/tags
 | file/gnu-findutils			| 4.6.0			| https://ftp.gnu.org/pub/gnu/findutils/
-| library/c++/sigcpp			| 2.99.11		| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
+| library/c++/sigcpp			| 2.99.12		| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.6			| https://sourceforge.net/projects/expat/files/expat
 | library/gmp				| 6.1.2			| https://gmplib.org/
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
@@ -45,7 +45,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20180923		| http://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.34.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.39			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.40			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.20			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.42			| https://ftp.pcre.org/pub/pcre/
 | library/readline			| 7.0			| https://ftp.gnu.org/gnu/readline/
@@ -55,7 +55,7 @@
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | network/dns/bind			| 9.11.5		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
-| network/openssh			| 7.8p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
+| network/openssh			| 7.9p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
@@ -79,9 +79,9 @@
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
-| system/test/fio			| 3.11			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.12			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
-| terminal/tmux				| 2.7			| https://github.com/tmux/tmux/releases http://tmux.github.io/
+| terminal/tmux				| 2.8			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 4.2.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.6			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.19.8.1		| http://git.savannah.gnu.org/cgit/gettext.git/refs/tags
@@ -95,7 +95,7 @@
 | library/glib2				| 2.58.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.31.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
-| system/virtualization/open-vm-tools	| 10.3.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
+| system/virtualization/open-vm-tools	| 10.3.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 3.0.12		| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-2/ipaddress-27		| 1.0.22		| https://pypi.org/project/ipaddress

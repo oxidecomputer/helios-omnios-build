@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=tmux
-VER=2.7
+VER=2.8
 VERHUMAN=$VER
 PKG=terminal/tmux
 SUMMARY="Terminal multiplexer"
