@@ -61,6 +61,7 @@ publish_pkg()
         " < $pmf > $pmf.final
 
     pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
+    [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ] && diff_latest $PKG
 }
 
 init
