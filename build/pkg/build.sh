@@ -59,7 +59,6 @@ BUILD_DEPENDS_IPS="
     system/zones/internal
     text/intltool
 "
-RUN_DEPENDS_IPS="runtime/python-27"
 
 # Respect environmental overrides for these to ease development.
 : ${PKG_SOURCE_REPO:=$GITHUB/pkg5}
