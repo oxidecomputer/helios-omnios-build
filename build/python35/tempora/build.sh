@@ -18,8 +18,8 @@
 
 PKG=library/python-3/tempora-35
 PROG=tempora
-VER=1.13
-SUMMARY="tempora - Objects and routines pertaining to date and time"
+VER=1.14
+SUMMARY="Objects and routines pertaining to date and time"
 DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
