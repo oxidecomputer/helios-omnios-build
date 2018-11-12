@@ -18,8 +18,8 @@
 
 PKG=library/python-3/cryptography-35
 PROG=cryptography
-VER=2.3.1
-SUMMARY="cryptography - cryptographic recipes and primitives"
+VER=2.4.1
+SUMMARY="Cryptographic recipes and primitives"
 DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
