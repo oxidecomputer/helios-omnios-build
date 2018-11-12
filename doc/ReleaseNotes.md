@@ -42,6 +42,9 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
 
 * OmniOS userland is now built with gcc version 8.
 
+* A default installation now includes `ntpsec` in place of `ntp`; the package
+  can still be removed if not required.
+
 ### Commands and Command Options
 
 
