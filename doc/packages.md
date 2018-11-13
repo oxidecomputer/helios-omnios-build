@@ -63,7 +63,7 @@
 | runtime/perl				| 5.28.0		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.15		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.6			| https://www.python.org/downloads/source/
-| security/sudo				| 1.8.25p1		| https://www.sudo.ws/
+| security/sudo				| 1.8.26		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p12		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.2			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.11			| https://github.com/corecode/dma/releases
