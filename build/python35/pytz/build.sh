@@ -19,9 +19,9 @@
 
 PKG=library/python-3/pytz-35
 PROG=pytz
-VER=2018.5
-SUMMARY="pytz - World Timezone Definitions for Python"
-DESC="$SUMMARY"
+VER=2018.7
+SUMMARY="Python world timezone definitons"
+DESC="$SUMMARY, modern and historical"
 
 . $SRCDIR/../common.sh
 

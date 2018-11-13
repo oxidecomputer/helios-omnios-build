@@ -18,7 +18,7 @@
 
 PKG=library/python-3/zc.lockfile-35
 PROG=zc.lockfile
-VER=1.3.0
+VER=1.4
 SUMMARY="Portable inter-process lock implementation"
 DESC="A basic portable implementation of interprocess locks using lock files"
 

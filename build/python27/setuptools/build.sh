@@ -28,9 +28,10 @@
 
 PKG=library/python-2/setuptools-27
 PROG=setuptools
-VER=40.2.0
-SUMMARY="setuptools - Easily download, build, install, upgrade, and uninstall Python packages"
-DESC="$SUMMARY"
+py3build=$SRCDIR/../../python35/setuptools/build.sh
+VER="`grep '^VER=' $py3build | sed 's/.*=//;q'`"
+SUMMARY="Python package management"
+DESC="Easily download, build, install, upgrade, and uninstall Python packages"
 
 . $SRCDIR/../common.sh
 
