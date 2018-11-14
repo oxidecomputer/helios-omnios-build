@@ -27,7 +27,7 @@ create_manifest_header()
     local mf=$1
     cat << EOM > $mf
 set name=pkg.fmri \\
-  value=pkg://@PKGPUBLISHER@/incorporation/jeos/omnios-userland@11,5.11-@PVER@
+  value=pkg://@PKGPUBLISHER@/incorporation/jeos/omnios-userland@11,@SUNOSVER@-@PVER@
 set name=pkg.depend.install-hold value=core-os.omnios
 set name=pkg.summary value="$SUMMARY"
 set name=pkg.description value="$DESC"
@@ -51,20 +51,6 @@ add_constraints()
     done
 }
 
-publish_pkg()
-{
-    local pmf=$1
-
-    sed -e "
-        s/@PKGPUBLISHER@/$PKGPUBLISHER/g
-        s/@RELVER@/$RELVER/g
-        s/@PVER@/$PVER/g
-        " < $pmf > $pmf.final
-
-    pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
-    [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ] && diff_latest $PKG
-}
-
 init
 prep_build
 
@@ -72,7 +58,7 @@ manifest=$TMPDIR/$PKGE.p5m
 create_manifest_header $manifest
 add_constraints $manifest $SRCDIR/omnios-userland.pkg
 
-publish_pkg $manifest
+publish_manifest $PKG $manifest
 clean_up
 
 # Vim hints

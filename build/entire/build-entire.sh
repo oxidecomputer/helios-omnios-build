@@ -20,17 +20,17 @@
 PROG=entire
 PKG=entire
 VER=0.5.11
-SUMMARY="Builds the OmniOS entire meta-package"
-DESC="$SUMMARY"
+SUMMARY="Minimal set of core system packages"
+DESC="Meta package to specify the minimum OmniOS software set"
 
 create_manifest_header()
 {
     local mf=$1
     cat << EOM > $mf
-set name=pkg.fmri value=pkg://@PKGPUBLISHER@/entire@11,5.11-@PVER@
+set name=pkg.fmri value=pkg://@PKGPUBLISHER@/entire@11,@SUNOSVER@-@PVER@
 set name=pkg.depend.install-hold value=core-os
-set name=pkg.summary value="Minimal set of core system packages"
-set name=pkg.description value="Minimal set of core system packages"
+set name=pkg.summary value="$SUMMARY"
+set name=pkg.description value="$DESC"
 set name=variant.opensolaris.zone value=global value=nonglobal
 set name=variant.opensolaris.imagetype value=full value=partial
 EOM
@@ -61,20 +61,6 @@ add_constraints()
     done
 }
 
-publish_pkg()
-{
-    local pmf=$1
-
-    sed -e "
-        s/@PKGPUBLISHER@/$PKGPUBLISHER/g
-        s/@RELVER@/$RELVER/g
-        s/@PVER@/$PVER/g
-        " < $pmf > $pmf.final
-
-    pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
-    [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ] && diff_latest $PKG
-}
-
 init
 prep_build
 
@@ -82,7 +68,7 @@ manifest=$TMPDIR/$PKGE.p5m
 create_manifest_header $manifest
 add_constraints $manifest $SRCDIR/entire.pkg
 
-publish_pkg $manifest
+publish_manifest $PKG $manifest
 clean_up
 
 # Vim hints
