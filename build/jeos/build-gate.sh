@@ -20,17 +20,17 @@
 PROG=jeos
 PKG=incorporation/jeos/illumos-gate
 VER=0.5.11
-SUMMARY="Builds the OmniOS illumos-gate incorporation"
-DESC="$SUMMARY $VER"
+SUMMARY="OmniOS illumos incorporation"
+DESC="Incorporation to constrain OmniOS illumos packages to the same release"
 
 create_manifest_header()
 {
     local mf=$1
     cat << EOM > $mf
-set name=pkg.fmri value=pkg://@PKGPUBLISHER@/incorporation/jeos/illumos-gate@11,5.11-@PVER@
+set name=pkg.fmri value=pkg://@PKGPUBLISHER@/incorporation/jeos/illumos-gate@11,@SUNOSVER@-@PVER@
 set name=pkg.depend.install-hold value=core-os.omnios
-set name=pkg.description value="This incorporation constrains packages from illumos-gate."
-set name=pkg.summary value="OmniOS Illumos incorporation"
+set name=pkg.description value="$DESC"
+set name=pkg.summary value="$SUMMARY"
 EOM
 }
 
@@ -44,38 +44,31 @@ add_constraints()
 
     pkgrepo -s $repo list | sort -k2,2 | nawk -v pub=$PKGPUBLISHER '
         BEGIN {
-        ops["o"] = "Obsolete"
-        ops["r"] = "Renamed"
+            ops["o"] = "Obsolete"
+            ops["r"] = "Renamed"
         }
         $3 in ops {
             printf("# %s: %s\n", ops[$3], $2)
-        next
+            next
         }
         $1 == pub {
-        pkg = $2
-        ver = $3
-        # 1.6.0-0.151023:20170728T111351Z
-        i = index(ver, "-")
-        if (i) ver = substr(ver, 1, i - 1)
-        printf("depend fmri=%s@%s,5.11-@PVER@ type=incorporate\n",
-            pkg, ver)
-      }' | fgrep -v -f $SRCDIR/illumos-gate.exclude >> $mf
+            pkg = $2
+            ver = $3
+            # 1.6.0-0.151023:20170728T111351Z
+            i = index(ver, "-")
+            if (i) ver = substr(ver, 1, i - 1)
+            printf("depend fmri=%s@%s,5.11-@PVER@ type=incorporate\n",
+                pkg, ver)
+        }' | fgrep -v -f $SRCDIR/illumos-gate.exclude >> $mf
 }
 
 publish_pkg()
 {
     local pmf=$1
 
-    sed -e "
-        s/@PKGPUBLISHER@/$PKGPUBLISHER/g
-        s/@RELVER@/$RELVER/g
-        s/@PVER@/$PVER/g
-        " < $pmf > $pmf.final
+    [ "`cat $pmf | wc -l`" -lt 300 ] && logerr "Short file $pmf"
 
-    [ "`cat $pmf.final | wc -l`" -lt 300 ] && logerr "Short file."
-
-    pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
-    [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ] && diff_latest $PKG
+    publish_manifest $PKG $pmf
 }
 
 init
