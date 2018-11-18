@@ -31,9 +31,13 @@ VER=9.11.5
 VERHUMAN=$VER
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
-DESC="$SUMMARY"
+DESC="Client utilities for DNS lookups"
 
-set_arch 32
+# This package ships private shared libraries in $PREFIX/lib/dns that are only
+# provided for use by the client utilities. We can therefore build everything
+# as 64-bit only and avoid shipping the include files, python modules and
+# library man pages (see local.mog)
+set_arch 64
 
 CONFIGURE_OPTS="
     --libdir=$PREFIX/lib/dns
@@ -43,12 +47,12 @@ CONFIGURE_OPTS="
     --with-openssl
     --enable-threads=yes
     --enable-devpoll=yes
-    --disable-openssl-version-check
     --enable-fixed-rrset
     --disable-getifaddrs
     --with-pkcs11
     --enable-shared
     --disable-static
+    --without-python
 "
 
 init
@@ -56,7 +60,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-python_vendor_relocate
 VER=${VER//-P/.}
 VER=${VER//-W/.}
 make_package
