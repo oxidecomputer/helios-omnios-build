@@ -87,9 +87,13 @@ GITHUB=https://github.com/omniosorg
 # If $MIRROR begins with a '/', it is treated as a local directory.
 MIRROR=https://mirrors.omniosce.org
 
-# The production IPS repository for this branch (may be overriden in site.sh)
+# The production IPS repository for this branch (may be overridden in site.sh)
 # Used for package contents diffing.
-IPS_REPO=https://pkg.omniosce.org/bloody/core
+if [ $((RELVER % 2)) == 0 ]; then
+    IPS_REPO=https://pkg.omniosce.org/r$RELVER/core
+else
+    IPS_REPO=https://pkg.omniosce.org/bloody/core
+fi
 
 # Default prefix for packages (may be overridden)
 PREFIX=/usr
@@ -175,7 +179,7 @@ NO_PARALLEL_MAKE=
 DONT_REMOVE_INSTALL_DIR=
 
 #############################################################################
-# C compiler options - these can be overriden by a build script
+# C compiler options - these can be overridden by a build script
 #############################################################################
 # isaexec(3C) variants
 # These variables will be passed to the build to construct multi-arch
