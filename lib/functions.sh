@@ -199,6 +199,7 @@ note() {
     typeset xarg=
     [ "$1" = "-h" ] && xarg=$1 && shift
     [ "$1" = "-e" ] && xarg=$1 && shift
+    [ "$1" = "-n" ] && xarg=$1 && shift
     logmsg ""
     logmsg $xarg "***"
     logmsg $xarg "*** $@"
@@ -1438,12 +1439,13 @@ configure64() {
 }
 
 make_prog() {
+    eval set -- $MAKE_ARGS_WS
     [ -n "$NO_PARALLEL_MAKE" ] && MAKE_JOBS=""
     if [ -n "$LIBTOOL_NOSTDLIB" ]; then
         libtool_nostdlib $LIBTOOL_NOSTDLIB $LIBTOOL_NOSTDLIB_EXTRAS
     fi
     logmsg "--- make"
-    logcmd $MAKE $MAKE_JOBS $MAKE_ARGS || logerr "--- Make failed"
+    logcmd $MAKE $MAKE_JOBS $MAKE_ARGS "$@" || logerr "--- Make failed"
 }
 
 make_prog32() {
@@ -1456,9 +1458,10 @@ make_prog64() {
 
 make_install() {
     local args="$@"
+    eval set -- $MAKE_INSTALL_ARGS_WS
     logmsg "--- make install"
-    logcmd $MAKE DESTDIR=${DESTDIR} $args $MAKE_INSTALL_ARGS install || \
-        logerr "--- Make install failed"
+    logcmd $MAKE DESTDIR=${DESTDIR} $args $MAKE_INSTALL_ARGS "$@" install \
+        || logerr "--- Make install failed"
 }
 
 make_install32() {
