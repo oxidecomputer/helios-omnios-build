@@ -19,7 +19,7 @@
 
 PKG=library/python-3/coverage-35
 PROG=coverage
-VER=4.5.1
+VER=4.5.2
 SUMMARY="Code coverage measurement for Python"
 DESC="$SUMMARY"
 
