@@ -23,7 +23,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14			| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.2.1			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.2.2			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.19.2		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 4.8			| https://www.mercurial-scm.org/release/?M=D
@@ -44,7 +44,7 @@
 | library/libxml2			| 2.9.8			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20180923		| http://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
-| library/nghttp2			| 1.34.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nghttp2			| 1.35.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.40			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.20			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.42			| https://ftp.pcre.org/pub/pcre/
