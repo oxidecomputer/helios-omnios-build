@@ -32,8 +32,11 @@ PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="$SUMMARY"
 
-DEPENDS_IPS="
-    runtime/python-27
+set_python_version $PYTHON3VER
+BUILDARCH=both
+
+RUN_DEPENDS_IPS="
+    runtime/python-$PYTHONPKGVER
     runtime/perl
 "
 
@@ -46,6 +49,8 @@ CONFIGURE_OPTS="
     --with-threads=posix
     --disable-dependency-tracking
 "
+
+CONFIGURE_OPTS_64+=" --with-python=$PYTHON"
 
 # With gcc 6 and above, -Werror_format=2 produces errors like:
 #   error: format not a string literal, arguments not checked
