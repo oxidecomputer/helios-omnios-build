@@ -93,7 +93,8 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
 * Python version 3 is now the default python version and most packages have
   been updated so that they use Python 3; a noteable exception is the
   `mercurial` package which does not yet support Python 3.
-  A number of python 2.7 modules have been removed.
+  Most python 2.7 modules have been removed.
+  Python bindings for libxml2 and libxslt have been removed.
 
 * Perl has been upgraded to 5.30.
 
@@ -104,6 +105,12 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
   argument to limit the returned results.
 
 ### Deprecated features
+
+* Python 2.7 is deprecated and reaches end-of-support at the end of 2019.
+  OmniOS has mostly transitioned to Python 3. A Python 2 package is still
+  available but most previously-shipped modules have been obsoleted.
+
+* Python bindings for libxml2 and libxslt have been removed.
 
 * Several legacy SunSSH compatibility options for OpenSSH were deprecated
   with release r151026 and were removed in r151028. Please ensure that the
