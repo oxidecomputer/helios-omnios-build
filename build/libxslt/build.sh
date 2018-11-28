@@ -29,15 +29,8 @@
 PROG=libxslt
 VER=1.1.30
 PKG=library/libxslt
-SUMMARY="The XSLT library"
-DESC="$SUMMARY"
-
-RUN_DEPENDS_IPS="
-	library/libxml2
-	library/zlib
-	system/library
-	system/library/math
-"
+SUMMARY="The XSLT C library"
+DESC="The portable XSLT C library built on libxml2"
 
 CFLAGS32+=" -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
 CFLAGS64+=" -D_LARGEFILE_SOURCE"
@@ -45,15 +38,12 @@ LDFLAGS="-lpthread"
 
 # Without --with-libxml-prefix, configure does not find /usr/bin/xml2-config!
 CONFIGURE_OPTS="
-	--disable-static
-	--with-pic
-	--without-crypto
-	--with-libxml-prefix=/usr
+    --disable-static
+    --with-pic
+    --without-crypto
+    --with-libxml-prefix=/usr
+    --without-python
 "
-CONFIGURE_OPTS_32+=" --with-python=/usr/bin/$ISAPART/python2.7"
-CONFIGURE_OPTS_64+=" --with-python=/usr/bin/$ISAPART64/python2.7"
-
-NO_PARALLEL_MAKE="true"
 
 # Make clean removes the man page (xsltproc.1) so it is preserved and
 # restored between flavours (see below). However, this makes the tree
@@ -66,38 +56,28 @@ backup_man() {
     logcmd cp $TMPDIR/$BUILDDIR/doc/xsltproc.1 $TMPDIR/$BUILDDIR/backup.1
 }
 
-save_function configure64 configure64_orig
+save_function configure64 _configure64
 configure64() {
-    configure64_orig
+    _configure64
     logmsg "restoring backup of xsltproc.1"
+    [ -f $TMPDIR/$BUILDDIR/doc/xsltproc.1 ] && logerr "xsltproc.1 fixed!"
     logcmd cp $TMPDIR/$BUILDDIR/backup.1 $TMPDIR/$BUILDDIR/doc/xsltproc.1
     logcmd touch $TMPDIR/$BUILDDIR/doc/xsltproc.1
 }
 
-save_function make_prog64 make_prog64_orig
-save_function make_prog32 make_prog32_orig
-make_prog64() {
-    libtool_nostdlib libtool
-    make_prog64_orig
-}
-make_prog32() {
-    libtool_nostdlib libtool
-    make_prog32_orig
-}
-
 tests() {
-	logmsg "-- running tests"
-	[ `$DESTDIR/usr/bin/xslt-config --cflags` = "-I/usr/include/libxml2" ] \
-	    || logerr "xslt-config --cflags not working"
+    logmsg "-- running tests"
+    [ `$DESTDIR/usr/bin/xslt-config --cflags` = "-I/usr/include/libxml2" ] \
+        || logerr "xslt-config --cflags not working"
 }
 
 init
 download_source $PROG $PROG $VER
 patch_source
+run_autoreconf
 backup_man
 prep_build
 build
-python_vendor_relocate
 make_isa_stub
 tests
 make_package
