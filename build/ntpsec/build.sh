@@ -18,13 +18,12 @@
 
 PROG=ntpsec
 VER=1.1.2
-VERHUMAN=$VER
 PKG=service/network/ntpsec
 SUMMARY="Network time services"
 DESC="A secure, hardened and improved Network Time Protocol implementation"
 
-BUILDARCH=64
-XFORM_ARGS="-D PVER=$PYTHONVER"
+set_arch 64
+set_python_version $PYTHON3VER
 
 # Required to generate man pages
 BUILD_DEPENDS_IPS="ooce/text/asciidoc"
@@ -38,8 +37,24 @@ export CFLAGS
 
 # NTPsec uses the 'waf' build system
 
+fix_shebangs() {
+    # Although NTPSec components are tested with python3 and can run with
+    # either python2 or python3, the default shebang lines just point at
+    # '#!/usr/bin/env python'; we need to fix them up to use python3.
+    # (NB: there was discussion on the ntpsec mailing list about providing
+    #      an option to do this automatically but it has so far been rejected.
+    #      Distributions are rolling their own patches, e.g.
+    #      https://sources.debian.org/src/ntpsec/1.1.2+dfsg1-4/debian/patches/hardcode-python3-path.patch/
+    # Scripting it is more future-proof
+
+    logmsg "--- fix shebangs"
+    sed -i '1s^/usr/bin/env python$^/usr/bin/python3^' \
+        `find $TMPDIR/$BUILDDIR -type f`
+}
+
 make_clean() {
     logcmd ./waf distclean
+    fix_shebangs
 }
 
 configure64() {
@@ -94,19 +109,29 @@ install_files() {
         $DESTDIR/etc/security/prof_attr.d/ntp
 }
 
+# Force the testsuite output to be sorted by the binary being tested
+# to aid comparison; also remove binary paths from test log.
+fix_testsuite_output() {
+    [ -z "$SKIP_TESTSUITE" ] && \
+        cat $TMPDIR/$BUILDDIR/build/main/test.log | perl -e '
+        m|(BINARY\s+:\s).*/([^/]+)$| && push @{$t{$b = $2}}, "$1$b"
+            or push @{$t{$b}}, $_ while(<>);
+            map {
+                s/\\n/\n/g;
+                s/^b'"'"'//;
+                s/^'"'"'$//;
+                s/ tests in [\d\.]+s/ tests/;
+                print $_
+            } @{$t{$_}} for sort keys %t
+    ' > $SRCDIR/testsuite.log
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-# Force the testsuite output to be sorted by the binary being tested
-# to aid comparison; also remove binary paths from test log
-[ -z "$SKIP_TESTSUITE" ] && \
-    cat $TMPDIR/$BUILDDIR/build/main/test.log | perl -e '
-    m|(BINARY\s+:\s).*/([^/]+)$| && push @{$t{$b = $2}}, "$1$b"
-        or push @{$t{$b}}, $_ while(<>);
-    print @{$t{$_}} for sort keys %t
-' > $SRCDIR/testsuite.log
+fix_testsuite_output
 install_ntpdate
 install_files
 install_smf network ntpsec.xml ntpsec
