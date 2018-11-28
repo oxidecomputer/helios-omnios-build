@@ -28,15 +28,15 @@
 
 PROG=wget
 VER=1.19.5
-VERHUMAN=$VER
 PKG=web/wget
-SUMMARY="$PROG - a utility to retrieve files from the World Wide Web"
+SUMMARY="A utility to retrieve files from the World Wide Web"
 DESC="$SUMMARY"
 
 RUN_DEPENDS_IPS="library/libidn web/ca-bundle"
 BUILD_DEPENDS_IPS+="developer/lexer/flex"
 
-set_arch 32
+set_arch 64
+
 CONFIGURE_OPTS="
     --with-ssl=openssl
     --mandir=$PREFIX/share/man
@@ -48,6 +48,7 @@ TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 init
 download_source $PROG $PROG $VER
 patch_source
+run_autoreconf
 prep_build
 build
 run_testsuite check
