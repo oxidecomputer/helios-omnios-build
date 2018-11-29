@@ -31,8 +31,6 @@
 # list to use later when showing package differences.
 PKG=package/pkg
 PKGLIST=$PKG
-PKG=package/pkg-35
-PKGLIST+=" $PKG"
 PKG=system/zones/brand/ipkg
 PKGLIST+=" $PKG"
 PKG=system/zones/brand/lipkg
@@ -75,9 +73,10 @@ build() {
     pushd $TMPDIR/$BUILDDIR/pkg/src > /dev/null || logerr "Cannot chdir"
     logmsg "--- toplevel build"
     logcmd make clean
-    logcmd make CODE_WS=$TMPDIR/$BUILDDIR/pkg || logerr "make failed"
+    logcmd make CC=$GCC CODE_WS=$TMPDIR/$BUILDDIR/pkg || logerr "make failed"
     logmsg "--- proto install"
-    logcmd make install CODE_WS=$TMPDIR/$BUILDDIR/pkg || logerr "install failed"
+    logcmd make install CC=$GCC CODE_WS=$TMPDIR/$BUILDDIR/pkg \
+        || logerr "install failed"
     popd > /dev/null
 }
 
@@ -86,9 +85,11 @@ package() {
     logmsg "--- packaging"
     logcmd make clean
     logcmd make \
+        CC=$GCC \
         CODE_WS=$TMPDIR/$BUILDDIR/pkg \
         BUILDNUM=$BUILDNUM || logerr "pkg make failed"
     logcmd make publish-pkgs \
+        CC=$GCC \
         CODE_WS=$TMPDIR/$BUILDDIR/pkg \
         BUILDNUM=$BUILDNUM \
         PKGSEND_OPTS="" \
