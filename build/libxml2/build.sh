@@ -29,8 +29,8 @@
 PROG=libxml2
 VER=2.9.8
 PKG=library/libxml2
-SUMMARY="$PROG - XML C parser and toolkit"
-DESC="$SUMMARY"
+SUMMARY="XML C parser and toolkit"
+DESC="Portable XML parser and toolkit library"
 
 RUN_DEPENDS_IPS="compress/xz library/zlib"
 # For lint library creation
@@ -38,27 +38,15 @@ BUILD_DEPENDS_IPS="developer/sunstudio12.1"
 
 XFORM_ARGS="-D VER=$VER"
 
-make_install64() {
-    logmsg "--- make install"
+CONFIGURE_OPTS+=" --without-python"
 
-    # Install 64-bit python modules into 64/
-    for f in libxml2mod.la .libs/libxml2mod.la .libs/libxml2mod.lai; do
-        logcmd perl -pi -e 's#(\/site-packages)#$1\/64#g;' python/$f \
-            || logerr "libtool libxml2mod.la patch failed"
-    done
-
-    logcmd $MAKE DESTDIR=${DESTDIR} \
-        PYTHON_SITE_PACKAGES=/usr/lib/python2.7/site-packages/64 \
-        install \
-        || logerr "--- Make install failed"
-}
+TESTSUITE_FILTER="^(Total|[Tt]esting|Ran)"
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-python_vendor_relocate
 run_testsuite check
 make_lintlibs xml2 /usr/lib /usr/include/libxml2 "libxml/*.h"
 make_isa_stub
