@@ -28,7 +28,6 @@
 
 PROG=pkgtree
 VER=1.1
-VERHUMAN=$VER
 PKG=system/pkgtree
 SUMMARY="pkgtree displays the IPS package dependency tree."
 DESC="pkgtree takes package information from the running system, caches it, then displays dependency information for all packages or for an individual package selected by pkg_fmri."
@@ -39,17 +38,17 @@ RUN_DEPENDS_IPS="runtime/perl"
 build() {
     pushd $TMPDIR/$BUILDDIR > /dev/null
 
-    VENDOR_DIR="${DESTDIR}${PREFIX}/perl5/vendor_perl/${SPERLVER}"
+    VENDOR_DIR+="`/usr/bin/perl -V:installvendorlib | cut -d\' -f2`"
     logmsg "Copying files"
-    logcmd mkdir -p $VENDOR_DIR || logerr "--- Failed to make vendor_perl dir"
-    pushd lib/perl5 > /dev/null
-    logcmd rsync -a . $VENDOR_DIR/ || logerr "--- Failed to copy files"
-    popd > /dev/null
-    logcmd mkdir ${DESTDIR}${PREFIX}/bin || logerr "--- Failed to make bin dir"
-    logcmd rsync -a bin/ ${DESTDIR}${PREFIX}/bin/ \
+    logcmd mkdir -p $DESTDIR/$VENDOR_DIR \
+        || logerr "--- Failed to make vendor_perl dir"
+    logcmd rsync -a lib/perl5/ $DESTDIR/$VENDOR_DIR/ \
+        || logerr "--- Failed to copy files"
+    logcmd mkdir $DESTDIR$PREFIX/bin || logerr "--- Failed to make bin dir"
+    logcmd rsync -a bin/ $DESTDIR$PREFIX/bin/ \
         || logerr "--- Failed to install bins"
 
-    MAN_DIR="${DESTDIR}${PREFIX}/share/man/man1"
+    MAN_DIR="$DESTDIR$PREFIX/share/man/man1"
     POD2MAN="/usr/perl5/bin/pod2man"
     logmsg "Creating man page"
     logcmd mkdir -p $MAN_DIR || logerr "--- Failed to make man1 dir"

@@ -16,8 +16,6 @@
 
 . ../../lib/functions.sh
 
-[ -z "$DEPVER" ] && DEPVER=$PERLVER
-
 PKG=library/perl-5/xml-parser
 PROG=XML-Parser
 VER=2.44
