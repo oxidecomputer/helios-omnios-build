@@ -27,17 +27,10 @@
 
 . ../../lib/functions.sh
 
-case $DEPVER in
-    "")
-        DEPVER=5.28.0
-        logmsg "no version specified, using $DEPVER"
-        ;;
-esac
-
 PROG=perl
-VER=$DEPVER
-NODOTVER=${DEPVER//./}
-SVER=${VER%.*}
+VER=5.28.1
+NODOTVER=${VER//./} # 5xxy
+SVER=${VER%.*}      # 5.xx
 PKG=runtime/perl-$NODOTVER ##IGNORE##
 SUMMARY="Perl $SVER Programming Language"
 DESC="$SUMMARY"

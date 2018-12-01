@@ -121,7 +121,7 @@ NOSCRIPTSTUB=
 #############################################################################
 
 # Perl versions we currently build against
-PERLVER=5.28.0
+PERLVER="`/usr/bin/perl -V:version | cut -d\' -f2`"
 SPERLVER=${PERLVER%.*}
 
 # Full paths to bins

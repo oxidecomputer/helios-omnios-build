@@ -40,7 +40,7 @@ XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 
 # Build gcc with itself
 export LD_LIBRARY_PATH=$OPT/lib
-export PATH=/usr/perl5/$PERLVER/bin:$OPT/bin:$PATH
+export PATH=$OPT/bin:$PATH
 
 RUN_DEPENDS_IPS="
     developer/library/lint
