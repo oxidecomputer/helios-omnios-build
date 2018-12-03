@@ -27,13 +27,16 @@
 . ../../lib/functions.sh
 
 PROG=wget
-VER=1.19.5
+VER=1.20
 PKG=web/wget
 SUMMARY="A utility to retrieve files from the World Wide Web"
 DESC="$SUMMARY"
 
 RUN_DEPENDS_IPS="library/libidn web/ca-bundle"
-BUILD_DEPENDS_IPS+="developer/lexer/flex"
+BUILD_DEPENDS_IPS+="
+    developer/lexer/flex
+    library/pcre2
+"
 
 set_arch 64
 
