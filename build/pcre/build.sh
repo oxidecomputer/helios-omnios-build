@@ -29,22 +29,12 @@
 
 PROG=pcre
 VER=8.42
-VERHUMAN=$VER
 PKG=library/pcre
 SUMMARY="Perl-Compatible Regular Expressions"
-DESC="PCRE - $SUMMARY"
+DESC="The PCRE library is a set of functions that implement regular expression"
+DESC+=" pattern matching using the same syntax and semantics as Perl 5"
 
-RUN_DEPENDS_IPS="
-    library/readline
-    compress/bzip2
-    library/zlib
-"
-
-LIBTOOL_NOSTDLIB=libtool
-LIBTOOL_NOSTDLIB_EXTRAS=-lc
-
-CONFIGURE_OPTS+="
-	--includedir=/usr/include/pcre
+CONFIGURE_OPTS="
 	--localstatedir=/var
 	--disable-static
 	--enable-cpp
@@ -60,13 +50,6 @@ CONFIGURE_OPTS+="
 	--with-match-limit=10000000
 	--with-pic
 "
-
-make_install64() {
-    # the 32bit version installed these and the 64bit version will fail
-    # reinstalling them... clear them out and let 64bit do its business.
-    rm -rf $DESTDIR/usr/share/man
-    make_install
-}
 
 init
 download_source $PROG $PROG $VER
