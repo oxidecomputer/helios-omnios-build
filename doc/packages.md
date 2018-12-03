@@ -48,6 +48,7 @@
 | library/nss				| 3.40			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.20			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.42			| https://ftp.pcre.org/pub/pcre/
+| library/pcre2				| 10.32			| https://ftp.pcre.org/pub/pcre/
 | library/readline			| 7.0			| https://ftp.gnu.org/gnu/readline/
 | library/readline-patchlvl		| 005			| https://ftp.gnu.org/gnu/readline/readline-7.0-patches/
 | library/security/openssl-1.0		| 1.0.2q		| https://www.openssl.org/source/
