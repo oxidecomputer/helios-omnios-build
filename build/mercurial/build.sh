@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=mercurial
-VER=4.8
+VER=4.8.1
 PKG=developer/versioning/mercurial
 SUMMARY="Distributed version control system"
 DESC="$SUMMARY"
