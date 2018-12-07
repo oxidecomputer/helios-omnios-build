@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=dbus
-VER=1.12.10
+VER=1.12.12
 PKG=dbus ##IGNORE##
 SUMMARY="filled in below"
 DESC="$SUMMARY"
@@ -46,6 +46,7 @@ CONFIGURE_OPTS="
 # We build backwards here on purpose so that 32bit binaries win
 # (for install collisions).
 BUILDORDER="64 32"
+export MAKE
 
 post_install() {
     mkdir -p $DESTDIR/etc/security/auth_attr.d

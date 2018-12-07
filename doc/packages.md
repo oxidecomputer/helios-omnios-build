@@ -9,7 +9,7 @@
 | compress/xz				| 5.2.4			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | data/iso-codes			| 4.1			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3250300		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3260000		| https://www.sqlite.org/download.html
 | developer/acpi/compiler		| 20181003		| https://www.acpica.org/downloads/
 | developer/bmake			| 20180919		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
@@ -74,7 +74,7 @@
 | shell/tcsh				| 6.20.00		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.6.2			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.7.2			| https://github.com/tycho/cpuid/releases
-| system/library/dbus			| 1.12.10		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
+| system/library/dbus			| 1.12.12		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.110			| https://dbus.freedesktop.org/releases/dbus-glib/
 | system/library/pcap			| 1.9.0			| http://www.tcpdump.org/#latest-releases
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
