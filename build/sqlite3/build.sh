@@ -27,10 +27,11 @@
 . ../../lib/functions.sh
 
 PROG=sqlite-autoconf
-VER=3250300
+VER=3260000
 PKG=database/sqlite-3
 SUMMARY="SQL database engine library"
-DESC="$SUMMARY"
+DESC="SQLite is a self-contained, high-reliability, embedded, full-featured, "
+DESC+="public-domain, SQL database engine."
 
 VERHUMAN="`echo $VER | sed '
     # Mmmsspp -> M.mm.ss.pp
