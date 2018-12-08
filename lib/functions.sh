@@ -852,7 +852,7 @@ download_source() {
     else
         logmsg "--- Found $FILENAME"
     fi
-    _ARC_SOURCE="$DLDIR/$FILENAME"
+    _ARC_SOURCE+="${_ARC_SOURCE:+ }$DLDIR/$FILENAME"
 
     # Fetch and verify the archive checksum
     logmsg "Verifying checksum of downloaded file."
@@ -1084,14 +1084,26 @@ make_package() {
     # Package metadata
     logmsg "--- Generating package metadata"
     [ -z "$VERHUMAN" ] && VERHUMAN="$VER"
+    if [ "$OVERRIDE_SOURCE_URL" = "none" ]; then
+        _ARC_SOURCE=
+    elif [ -n "$OVERRIDE_SOURCE_URL" ]; then
+        _ARC_SOURCE="$OVERRIDE_SOURCE_URL"
+    fi
     (
         pkgmeta pkg.fmri            "$FMRI"
         pkgmeta pkg.summary         "$SUMMARY"
         pkgmeta pkg.description     "$DESCSTR"
         pkgmeta publisher           "$PUBLISHER_EMAIL"
         pkgmeta pkg.human-version   "$VERHUMAN"
-        [ -n "$_ARC_SOURCE" ] && \
+        if [[ $_ARC_SOURCE = *\ * ]]; then
+            _asindex=0
+            for _as in $_ARC_SOURCE; do
+                pkgmeta "info.source-url.$_asindex" "$OOCEMIRROR/$_as"
+                ((_asindex++))
+            done
+        elif [ -n "$_ARC_SOURCE" ]; then
             pkgmeta info.source-url "$OOCEMIRROR/$_ARC_SOURCE"
+        fi
     ) > $MY_MOG_FILE
 
     # Transforms
@@ -1587,6 +1599,40 @@ run_testsuite() {
         rm -f $op
         popd > /dev/null
     fi
+}
+
+#############################################################################
+# Build function for dependencies which are not packaged
+#############################################################################
+
+build_dependency() {
+    typeset dep="$1"
+    typeset dir="$2"
+    typeset dldir="$3"
+    typeset prog="$4"
+    typeset ver="$5"
+
+    # Preserve the current variables
+    typeset _BUILDDIR=$BUILDDIR
+    typeset _PATCHDIR=$PATCHDIR
+    typeset _DESTDIR=$DESTDIR
+
+    # Adjust variables so that download, patch and build work correctly
+    BUILDDIR="$dir"
+    PATCHDIR="patches-$dep"
+    DEPROOT=$TMPDIR/_deproot
+    DESTDIR=$DEPROOT
+    mkdir -p $DEPROOT
+
+    download_source "$dldir" "$prog" "$ver" "$TMPDIR"
+    patch_source
+    note "-- Building dependency $dep"
+    build
+
+    # Restore variables
+    BUILDDIR=$_BUILDDIR
+    PATCHDIR=$_PATCHDIR
+    DESTDIR=$_DESTDIR
 }
 
 #############################################################################
