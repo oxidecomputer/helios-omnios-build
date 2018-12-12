@@ -107,7 +107,7 @@
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.2			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.4.2			| https://pypi.org/project/cryptography
-| library/python-3/idna-35		| 2.7			| https://pypi.org/project/idna
+| library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.3.2			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 2.6.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.0.7			| https://pypi.org/project/Mako
