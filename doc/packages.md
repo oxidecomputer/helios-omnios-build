@@ -123,7 +123,7 @@
 | library/python-3/pytz-35		| 2018.7		| https://pypi.org/project/pytz
 | library/python-3/setuptools-35	| 40.6.2		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
-| library/python-3/six-35		| 1.11.0		| https://pypi.org/project/six
+| library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.14			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-35	| 1.4			| https://pypi.org/project/zc.lockfile
 
