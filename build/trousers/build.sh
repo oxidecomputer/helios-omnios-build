@@ -33,9 +33,6 @@ PKG=library/security/trousers
 SUMMARY="trousers - TCG Software Stack - software for accessing a TPM device"
 DESC="$SUMMARY"
 
-# For lint lib creation
-BUILD_DEPENDS_IPS="developer/sunstudio12.1"
-
 LIBS="-lbsm -lnsl -lsocket -lgen -lscf -lresolv"
 
 CONFIGURE_OPTS+="
@@ -62,7 +59,6 @@ patch_source
 fix_headers
 prep_build
 build
-make_lintlibs tspi /usr/lib /usr/include "{tss,trousers}/*.h"
 make_isa_stub
 install_smf application/security tcsd.xml tcsd
 make_package
