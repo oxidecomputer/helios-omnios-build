@@ -19,9 +19,9 @@
 
 PKG=library/python-3/cherrypy-35
 PROG=CherryPy
-VER=18.0.1
-SUMMARY="cherrypy - A Minimalist Python Web Framework"
-DESC="$SUMMARY"
+VER=18.1.0
+SUMMARY="Object-Oriented HTTP framework"
+DESC="A pythonic, object-oriented HTTP framework."
 
 . $SRCDIR/../common.sh
 

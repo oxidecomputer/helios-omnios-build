@@ -18,8 +18,8 @@
 
 PKG=library/python-3/six-35
 PROG=six
-VER=1.11.0
-SUMMARY="six - a Python 2 and 3 compatibility library"
+VER=1.12.0
+SUMMARY="A Python 2 and 3 compatibility library"
 DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh

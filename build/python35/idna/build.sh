@@ -18,9 +18,10 @@
 
 PKG=library/python-3/idna-35
 PROG=idna
-VER=2.7
-SUMMARY="idna - Robust idnaerated type support in Python"
-DESC="$SUMMARY"
+VER=2.8
+SUMMARY="Internationalized Domain Names in Applications (IDNA)"
+DESC="Support for the Internationalised Domain Names in Applications (IDNA) "
+DESC+="protocol as specified in RFC 5891"
 
 . $SRCDIR/../common.sh
 
