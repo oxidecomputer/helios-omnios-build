@@ -33,8 +33,6 @@ SUMMARY="XML C parser and toolkit"
 DESC="Portable XML parser and toolkit library"
 
 RUN_DEPENDS_IPS="compress/xz library/zlib"
-# For lint library creation
-BUILD_DEPENDS_IPS="developer/sunstudio12.1"
 
 XFORM_ARGS="-D VER=$VER"
 
@@ -48,7 +46,6 @@ patch_source
 prep_build
 build
 run_testsuite check
-make_lintlibs xml2 /usr/lib /usr/include/libxml2 "libxml/*.h"
 make_isa_stub
 make_package local.mog final.mog
 clean_up

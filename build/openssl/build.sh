@@ -35,8 +35,6 @@ SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
 
-BUILD_DEPENDS_IPS+=" developer/sunstudio12.1"
-
 # Generic options for both 32 and 64bit variants
 base_OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
@@ -129,8 +127,8 @@ version_files() {
     logcmd mkdir -p usr/ssl/lib usr/ssl/lib/amd64
     logcmd mv usr/lib/pkgconfig usr/ssl/lib/pkgconfig
     logcmd mv usr/lib/amd64/pkgconfig usr/ssl/lib/amd64/pkgconfig
-    logcmd mv lib/llib* lib/lib*.a usr/ssl/lib
-    logcmd mv lib/amd64/llib* lib/amd64/lib*.a usr/ssl/lib/amd64
+    logcmd mv lib/lib*.a usr/ssl/lib
+    logcmd mv lib/amd64/lib*.a usr/ssl/lib/amd64
 
     logcmd rm -f lib/lib{crypto,ssl}.so
     logcmd rm -f lib/amd64/lib{crypto,ssl}.so
@@ -175,8 +173,6 @@ if [ -z "$FLAVOR" -o "$FLAVOR" = "1.1" ]; then
     (cd $DESTDIR; gpatch -p1 < $SRCDIR/$PATCHDIR/post/opensslconf.dualarch)
     run_testsuite
     move_libs
-    make_lintlibs crypto /lib /usr/include "openssl/!(asn1_mac|ssl*|*tls*).h"
-    make_lintlibs ssl /lib /usr/include "openssl/{ssl,*tls}*.h"
 fi
 
 ######################################################################
@@ -215,8 +211,6 @@ if [ -z "$FLAVOR" -o "$FLAVOR" = "1.0" ]; then
     (cd $DESTDIR; gpatch -p1 < $SRCDIR/$PATCHDIR/post/opensslconf.dualarch)
     run_testsuite test "" testsuite.1.0.log
     move_libs
-    make_lintlibs crypto /lib /usr/include "openssl/!(ssl*|*tls*).h"
-    make_lintlibs ssl /lib /usr/include "openssl/{ssl,*tls}*.h"
 
     PKG=$oPKG ##IGNORE##
     PKGE=$oPKGE
