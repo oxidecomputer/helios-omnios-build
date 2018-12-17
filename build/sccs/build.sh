@@ -1,70 +1,46 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
-#
-# Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
+
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
 
 . ../../lib/functions.sh
 
 PROG=sccs
-VER=0.5.11
+VER=5.08
 PKG=developer/versioning/sccs
 SUMMARY="Source Code Control System (SCCS)"
-DESC="$SUMMARY"
+DESC="The POSIX standard Source Code Control System (SCCS)"
 
-BUILD_DEPENDS_IPS="sunstudio12.1 compatibility/ucb"
-RUN_DEPENDS_IPS="system/library/math"
+set_arch 32
+MAKE=dmake
+NO_PARALLEL_MAKE=1
 
-build() {
-    logmsg "Building and installing ($1)"
-    pushd $TMPDIR/$1/usr/src > /dev/null || logerr "can't enter build harness"
-    logcmd env STUDIOBIN=$SUNSTUDIO_BIN DESTDIR=$DESTDIR ./build \
-        || logerr "make/install ($1) failed"
-    popd > /dev/null
-}
+HARDLINK_TARGETS="
+    usr/bin/cdc
+    usr/bin/sact
+"
 
-move_and_links() {
-    logmsg "Shifting binaries and setting up links"
-    logcmd mkdir -p $DESTDIR/usr/bin
-    logcmd mv $DESTDIR/usr/ccs/bin/help $DESTDIR/usr/bin/sccshelp \
-        || logerr "help move failed"
-    pushd $DESTDIR/usr/ccs/bin > /dev/null || logerr "Cannot chdir"
-    for cmd in *; do
-        [ -x "$cmd" ] || continue
-        logcmd mv $cmd ../../bin/ || logerr "Cannot relocate /usr/ccs/bin/$cmd"
-        logcmd ln -s ../../bin/$cmd $cmd || logerr "Link $cmd failed"
-    done
-    logcmd ln -s ../../bin/sccshelp sccshelp || logerr "sccshelp link"
-    logcmd ln -s ../../bin/sccshelp help || logerr "sccshelp link2"
-    popd > /dev/null
-}
+# sccs uses the schily build environment so neither the clean nor configure
+# step are required.
+make_clean() { :; }
+configure32() { :; }
 
 init
 prep_build
-BUILDDIR=devpro-sccs-20061219
-download_source devpro devpro-sccs src-20061219
-build devpro-sccs-20061219
-move_and_links
+download_source $PROG $PROG $VER
+patch_source
+build
 make_package
 clean_up
 
