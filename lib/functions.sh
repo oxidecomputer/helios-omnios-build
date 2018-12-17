@@ -586,6 +586,12 @@ init() {
         LDFLAGS32="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib $LDFLAGS32"
         LDFLAGS64="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib/amd64 $LDFLAGS64"
     fi
+
+    # Create symbolic links to build area
+    [ -h $SRCDIR/tmp ] && rm -f $SRCDIR/tmp
+    logcmd ln -sf $TMPDIR $SRCDIR/tmp
+    [ -h $SRCDIR/tmp/src ] && rm -f $SRCDIR/tmp/src
+    logcmd ln -sf $BUILDDIR $SRCDIR/tmp/src
 }
 
 #############################################################################
@@ -676,10 +682,8 @@ prep_build() {
     fi
 
     # Create symbolic links to build area
-    [ -h $SRCDIR/tmp ] && rm -f $SRCDIR/tmp
-    logcmd ln -sf $TMPDIR $SRCDIR/tmp
-    [ -h $SRCDIR/tmp/src ] && rm -f $SRCDIR/tmp/src
-    logcmd ln -sf $BUILDDIR $SRCDIR/tmp/src
+    [ -h $SRCDIR/tmp/build ] && rm -f $SRCDIR/tmp/build
+    logcmd ln -sf $BUILDDIR $SRCDIR/tmp/build
 }
 
 #############################################################################
