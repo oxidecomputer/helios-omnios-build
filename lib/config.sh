@@ -166,6 +166,12 @@ GIT=git
 # Command for privilege escalation. Can be overridden in site.sh
 PFEXEC=sudo
 
+PKGSEND=/usr/bin/pkgsend
+PKGLINT=/usr/bin/pkglint
+PKGMOGRIFY=/usr/bin/pkgmogrify
+PKGFMT=/usr/bin/pkgfmt
+PKGDEPEND=/usr/bin/pkgdepend
+
 SUNSTUDIO_BIN=/opt/sunstudio12.1/bin
 
 # Figure out number of logical CPUs for use with parallel gmake jobs (-j)

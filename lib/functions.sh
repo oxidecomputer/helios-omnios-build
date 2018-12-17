@@ -156,13 +156,23 @@ EOM
 # Log output of a command to a file
 #############################################################################
 logcmd() {
+    typeset preserve_stdout=0
+    [ "$1" = "-p" ] && shift && preserve_stdout=1
     if [ -z "$SCREENOUT" ]; then
         echo Running: "$@" >> $LOGFILE
-        "$@" >> $LOGFILE 2>&1
+        if [ "$preserve_stdout" = 0 ]; then
+            "$@" >> $LOGFILE 2>&1
+        else
+            "$@"
+        fi
     else
         echo Running: "$@" | tee -a $LOGFILE
-        "$@" | tee -a $LOGFILE 2>&1
-        return ${PIPESTATUS[0]}
+        if [ "$preserve_stdout" = 0 ]; then
+            "$@" | tee -a $LOGFILE 2>&1
+            return ${PIPESTATUS[0]}
+        else
+            "$@"
+        fi
     fi
 }
 
@@ -576,6 +586,12 @@ init() {
         LDFLAGS32="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib $LDFLAGS32"
         LDFLAGS64="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib/amd64 $LDFLAGS64"
     fi
+
+    # Create symbolic links to build area
+    [ -h $SRCDIR/tmp ] && rm -f $SRCDIR/tmp
+    logcmd ln -sf $TMPDIR $SRCDIR/tmp
+    [ -h $SRCDIR/tmp/src ] && rm -f $SRCDIR/tmp/src
+    logcmd ln -sf $BUILDDIR $SRCDIR/tmp/src
 }
 
 #############################################################################
@@ -666,10 +682,8 @@ prep_build() {
     fi
 
     # Create symbolic links to build area
-    [ -h $SRCDIR/tmp ] && rm -f $SRCDIR/tmp
-    logcmd ln -sf $TMPDIR $SRCDIR/tmp
-    [ -h $SRCDIR/tmp/src ] && rm -f $SRCDIR/tmp/src
-    logcmd ln -sf $BUILDDIR $SRCDIR/tmp/src
+    [ -h $SRCDIR/tmp/build ] && rm -f $SRCDIR/tmp/build
+    logcmd ln -sf $BUILDDIR $SRCDIR/tmp/build
 }
 
 #############################################################################
@@ -997,7 +1011,7 @@ pkgmeta() {
 }
 
 make_package() {
-    logmsg "Making package"
+    logmsg -n "Building package $PKG"
     case $BUILDARCH in
         32)
             BUILDSTR="32bit-"
@@ -1023,11 +1037,6 @@ make_package() {
         DESCSTR="$DESCSTR ($FLAVOR)"
     fi
     PVER=$RELVER.$DASHREV
-    PKGSEND=/usr/bin/pkgsend
-    PKGLINT=/usr/bin/pkglint
-    PKGMOGRIFY=/usr/bin/pkgmogrify
-    PKGFMT=/usr/bin/pkgfmt
-    PKGDEPEND=/usr/bin/pkgdepend
     P5M_INT=$TMPDIR/${PKGE}.p5m.int
     P5M_INT2=$TMPDIR/${PKGE}.p5m.int.2
     P5M_INT3=$TMPDIR/${PKGE}.p5m.int.3
@@ -1072,7 +1081,7 @@ make_package() {
                 GENERATE_ARGS+="--target $f "
             done
         fi
-        $PKGSEND generate $GENERATE_ARGS $DESTDIR > $P5M_INT || \
+        logcmd -p $PKGSEND generate $GENERATE_ARGS $DESTDIR > $P5M_INT || \
             logerr "------ Failed to generate manifest"
     else
         logmsg "--- Looks like a meta-package. Creating empty manifest"
@@ -1107,7 +1116,7 @@ make_package() {
 
     # Transforms
     logmsg "--- Applying transforms"
-    $PKGMOGRIFY \
+    logcmd -p $PKGMOGRIFY \
         $XFORM_ARGS \
         $P5M_INT \
         $MY_MOG_FILE \
@@ -1118,8 +1127,8 @@ make_package() {
     logmsg "--- Resolving dependencies"
     (
         set -e
-        $PKGDEPEND generate -md $DESTDIR $P5M_INT2 > $P5M_INT3
-        $PKGDEPEND resolve -m $P5M_INT3
+        logcmd -p $PKGDEPEND generate -md $DESTDIR $P5M_INT2 > $P5M_INT3
+        logcmd $PKGDEPEND resolve -m $P5M_INT3
     ) || logerr "--- Dependency resolution failed"
     logmsg "--- Detected dependencies"
     grep '^depend ' $P5M_INT3.res | while read line; do
@@ -1182,8 +1191,8 @@ make_package() {
             fi
         done
     fi
-    $PKGMOGRIFY $XFORM_ARGS "${P5M_INT3}.res" "$MANUAL_DEPS" $FINAL_MOG_FILE \
-        | $PKGFMT -u > $P5M_FINAL
+    logcmd -p $PKGMOGRIFY $XFORM_ARGS "${P5M_INT3}.res" \
+        "$MANUAL_DEPS" $FINAL_MOG_FILE | $PKGFMT -u > $P5M_FINAL
     logmsg "--- Final dependencies"
     grep '^depend ' $P5M_FINAL | while read line; do
         logmsg "$line"
@@ -1235,7 +1244,7 @@ publish_manifest()
     translate_manifest $pmf $pmf.final
 
     logcmd pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
-    [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ] && diff_latest pkg
+    [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ] && diff_latest $pkg
 }
 
 # Create a list of the items contained within a package in a format suitable
