@@ -32,44 +32,29 @@ PKG=system/library/libdbus-glib
 SUMMARY="$PROG - GNOME GLib DBUS integration library"
 DESC="$SUMMARY"
 
-DEPENDS_IPS="system/library/libdbus library/glib2 library/zlib system/library system/library/gcc-runtime"
+BUILD_DEPENDS_IPS="
+    system/library/libdbus
+    library/glib2
+"
 
-CONFIGURE_OPTS="--disable-fam --disable-dtrace --disable-tests"
-GLIB_GENMARSHAL=/usr/bin/glib-genmarshal
-export GLIB_GENMARSHAL
-
-save_function configure32 configure32_orig
-save_function configure64 configure64_orig
-configure32() {
+CONFIGURE_OPTS="
+    --disable-fam
+    --disable-dtrace
+    --disable-tests
+    GLIB_GENMARSHAL=/usr/bin/glib-genmarshal
+"
+CONFIGURE_OPTS_WS="
     DBUS_LIBS=-ldbus-1
-    export DBUS_LIBS
-    DBUS_CFLAGS="-I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include"
-    export DBUS_CFLAGS
-    DBUS_GLIB_CFLAGS="-I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include"
-    export DBUS_GLIB_CFLAGS
-    DBUS_GLIB_LIBS="-lglib-2.0 -lgobject-2.0 -lgio-2.0"
-    export DBUS_GLIB_LIBS
-    configure32_orig
-    logcmd mv config.status config.status.old || logerr "status backup failed"
-    sed -e 's/S\["GLIB_GENMARSHAL"\]=""/S["GLIB_GENMARSHAL"]="glib-genmarshal"/' < config.status.old > config.status || logerr "sed failed"
-    logcmd chmod 755 config.status || logerr "chmod failed"
-    logcmd ./config.status || logerr "config status"
-}
-configure64() {
-    DBUS_LIBS=-ldbus-1
-    export DBUS_LIBS
-    DBUS_CFLAGS="-I/usr/include/dbus-1.0 -I/usr/lib/amd64/dbus-1.0/include"
-    export DBUS_CFLAGS
-    DBUS_GLIB_CFLAGS="-I/usr/include/glib-2.0 -I/usr/lib/amd64/glib-2.0/include"
-    export DBUS_GLIB_CFLAGS
-    DBUS_GLIB_LIBS="-lglib-2.0 -lgobject-2.0 -lgio-2.0"
-    export DBUS_GLIB_LIBS
-    configure64_orig
-    logcmd mv config.status config.status.old || logerr "status backup failed"
-    sed -e 's/S\["GLIB_GENMARSHAL"\]=""/S["GLIB_GENMARSHAL"]="glib-genmarshal"/' < config.status.old > config.status || logerr "sed failed"
-    logcmd chmod 755 config.status || logerr "chmod failed"
-    logcmd ./config.status || logerr "config status"
-}
+    DBUS_GLIB_LIBS=\"-lglib-2.0 -lgobject-2.0 -lgio-2.0\"
+"
+CONFIGURE_OPTS_WS_32="
+    DBUS_CFLAGS=\"-I/usr/include/dbus-1.0 -I/usr/lib/dbus-1.0/include\"
+    DBUS_GLIB_CFLAGS=\"-I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include\"
+"
+CONFIGURE_OPTS_WS_64="
+    DBUS_CFLAGS=\"-I/usr/include/dbus-1.0 -I/usr/lib/amd64/dbus-1.0/include\"
+    DBUS_GLIB_CFLAGS=\"-I/usr/include/glib-2.0 -I/usr/lib/amd64/glib-2.0/include\"
+"
 
 init
 download_source $PROG $PROG $VER

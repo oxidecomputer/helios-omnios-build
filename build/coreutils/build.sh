@@ -37,14 +37,13 @@ BUILD_DEPENDS_IPS="compress/xz library/gmp"
 CPPFLAGS="-I/usr/include/gmp"
 PREFIX=/usr/gnu
 reset_configure_opts
-CONFIGURE_OPTS+=" --with-openssl=auto"
+CONFIGURE_OPTS+="
+    --with-openssl=auto
+    gl_cv_host_operating_system=illumos
+    ac_cv_func_inotify_init=no
+"
 CONFIGURE_OPTS_32+=" --libexecdir=/usr/lib --bindir=/usr/gnu/bin"
 CONFIGURE_OPTS_64+=" --libexecdir=/usr/lib/$ISAPART64"
-
-# coreutils incorrectly detects inotify support
-export ac_cv_func_inotify_init=no
-# OS as reported by `uname -o`
-export gl_cv_host_operating_system=illumos
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
