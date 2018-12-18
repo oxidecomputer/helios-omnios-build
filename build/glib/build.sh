@@ -48,6 +48,8 @@ CONFIGURE_OPTS="
     --disable-dtrace
     --with-threads=posix
     --disable-dependency-tracking
+    ac_cv_header_sys_inotify_h=no
+    ac_cv_func_inotify_init1=no
 "
 
 CONFIGURE_OPTS_64+=" --with-python=$PYTHON"
