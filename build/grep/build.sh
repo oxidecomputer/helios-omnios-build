@@ -26,15 +26,15 @@
 #
 . ../../lib/functions.sh
 
-PROG=grep       # App name
-VER=3.1         # App version
-PKG=text/gnu-grep    # Package name (without prefix)
-SUMMARY="ggrep - GNU grep utilities"
-DESC="$SUMMARY"
+PROG=grep
+VER=3.3
+PKG=text/gnu-grep
+SUMMARY="GNU grep"
+DESC="GNU grep utilities"
 
 DEPENDS_IPS="system/prerequisite/gnu library/pcre"
 
-set_arch 32
+set_arch 64
 CONFIGURE_OPTS="--program-prefix=g"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'

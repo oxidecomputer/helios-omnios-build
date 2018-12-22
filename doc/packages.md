@@ -87,7 +87,7 @@
 | text/gawk				| 4.2.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.6			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.19.8.1		| http://git.savannah.gnu.org/cgit/gettext.git/refs/tags
-| text/gnu-grep				| 3.1			| http://git.savannah.gnu.org/cgit/grep.git/refs/tags
+| text/gnu-grep				| 3.3			| http://git.savannah.gnu.org/cgit/grep.git/refs/tags
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
 | text/gnu-sed				| 4.7			| http://git.savannah.gnu.org/cgit/sed.git/refs/tags https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.3		| https://ftp.gnu.org/gnu/groff/
