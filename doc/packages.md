@@ -11,7 +11,7 @@
 | data/iso-codes			| 4.1			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3260000		| https://www.sqlite.org/download.html
 | developer/acpi/compiler		| 20181003		| https://www.acpica.org/downloads/
-| developer/bmake			| 20180919		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
+| developer/bmake			| 20181216		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.1		| https://git.savannah.gnu.org/cgit/automake.git/refs/tags https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.2.1			| http://git.savannah.gnu.org/cgit/make.git/refs/tags
@@ -23,9 +23,9 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14			| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.2.2			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.2.3			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.20.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/git		| 2.20.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 4.8.1			| https://www.mercurial-scm.org/release/?M=D
 | developer/versioning/sccs		| 5.08			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
@@ -56,7 +56,7 @@
 | library/security/openssl-1.1		| 1.1.1a		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| network/dns/bind			| 9.11.5		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.11.5-P1		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 7.9p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -87,14 +87,14 @@
 | text/gawk				| 4.2.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.6			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.19.8.1		| http://git.savannah.gnu.org/cgit/gettext.git/refs/tags
-| text/gnu-grep				| 3.1			| http://git.savannah.gnu.org/cgit/grep.git/refs/tags
+| text/gnu-grep				| 3.3			| http://git.savannah.gnu.org/cgit/grep.git/refs/tags
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
-| text/gnu-sed				| 4.5			| http://git.savannah.gnu.org/cgit/sed.git/refs/tags https://savannah.gnu.org/news/?group=sed
+| text/gnu-sed				| 4.7			| http://git.savannah.gnu.org/cgit/sed.git/refs/tags https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.3		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 530			| https://ftp.gnu.org/gnu/less/
 | web/curl				| 7.63.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20			| https://git.savannah.gnu.org/cgit/wget.git/refs/tags
-| library/glib2				| 2.58.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.58.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.31.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/open-vm-tools	| 10.3.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/

@@ -27,15 +27,14 @@
 . ../../lib/functions.sh
 
 PROG=sed
-VER=4.5
+VER=4.7
 PKG=text/gnu-sed
-SUMMARY="gsed - GNU implementation of sed, the Unix stream editor"
-DESC="$SUMMARY"
+SUMMARY="GNU sed"
+DESC="GNU implementation of sed, the Unix stream editor"
 
 RUN_DEPENDS_IPS="system/prerequisite/gnu"
 
-set_arch 32
-BUILDARCH=32
+set_arch 64
 CONFIGURE_OPTS="--program-prefix=g"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
