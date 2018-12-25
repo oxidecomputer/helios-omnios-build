@@ -27,13 +27,14 @@
 . ../../lib/functions.sh
 
 PROG=bison
-VER=3.2.3
+VER=3.2.4
 PKG=developer/parser/bison
 SUMMARY="General-purpose parser generator"
 DESC="A general-purpose parser generator that converts an annotated "
 DESC+="context-free grammar into a deterministic or generalised parser"
 
 set_arch 64
+
 CONFIGURE_OPTS="--disable-yacc"
 export M4=/usr/bin/gm4
 
