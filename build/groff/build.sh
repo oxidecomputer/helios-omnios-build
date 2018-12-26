@@ -27,22 +27,24 @@
 . ../../lib/functions.sh
 
 PROG=groff
-VER=1.22.3
+VER=1.22.4
 PKG=text/groff
-SUMMARY="$PROG - GNU Troff typesetting package"
-DESC="$SUMMARY"
+SUMMARY="GNU troff"
+DESC="GNU Troff typesetting package"
 
-# As of 1.22.3, parallel gmake breaks.
-NO_PARALLEL_MAKE=1
+RUN_DEPENDS_IPS="
+    system/prerequisite/gnu
+    runtime/perl-64
+"
 
-RUN_DEPENDS_IPS="system/prerequisite/gnu"
-
-set_arch 32
+set_arch 64
 CONFIGURE_OPTS="--without-x"
 
 init
 download_source $PROG $PROG $VER
 patch_source
+# Stop configure complaining about missing texinfo package
+touch $TMPDIR/$BUILDDIR/doc/groff.info
 prep_build
 build
 strip_install

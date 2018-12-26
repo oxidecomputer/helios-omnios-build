@@ -11,7 +11,7 @@
 | data/iso-codes			| 4.1			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3260000		| https://www.sqlite.org/download.html
 | developer/acpi/compiler		| 20181003		| https://www.acpica.org/downloads/
-| developer/bmake			| 20181216		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
+| developer/bmake			| 20181221		| http://ftp.netbsd.org/pub/NetBSD/misc/sjg/ http://www.crufty.net/ftp/pub/sjg/
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.1		| https://git.savannah.gnu.org/cgit/automake.git/refs/tags https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.2.1			| http://git.savannah.gnu.org/cgit/make.git/refs/tags
@@ -22,8 +22,8 @@
 | developer/java/jdk			| 1.8.192-20181209	| https://ftp.netbsd.org/pub/pkgsrc/distfiles/openjdk7/
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
-| developer/nasm			| 2.14			| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.2.3			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
+| developer/nasm			| 2.14.01		| http://www.nasm.us/pub/nasm/releasebuilds
+| developer/parser/bison		| 3.2.4			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.20.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 4.8.1			| https://www.mercurial-scm.org/release/?M=D
@@ -90,7 +90,7 @@
 | text/gnu-grep				| 3.3			| http://git.savannah.gnu.org/cgit/grep.git/refs/tags
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
 | text/gnu-sed				| 4.7			| http://git.savannah.gnu.org/cgit/sed.git/refs/tags https://savannah.gnu.org/news/?group=sed
-| text/groff				| 1.22.3		| https://ftp.gnu.org/gnu/groff/
+| text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 530			| https://ftp.gnu.org/gnu/less/
 | web/curl				| 7.63.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20			| https://git.savannah.gnu.org/cgit/wget.git/refs/tags
