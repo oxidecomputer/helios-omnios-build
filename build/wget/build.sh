@@ -27,10 +27,11 @@
 . ../../lib/functions.sh
 
 PROG=wget
-VER=1.20
+VER=1.20.1
 PKG=web/wget
-SUMMARY="A utility to retrieve files from the World Wide Web"
-DESC="$SUMMARY"
+SUMMARY="GNU Wget"
+DESC="Retrieving files using HTTP, HTTPS, FTP and FTPS "
+DESC+="the most widely-used Internet protocols"
 
 RUN_DEPENDS_IPS="library/libidn web/ca-bundle"
 BUILD_DEPENDS_IPS+="

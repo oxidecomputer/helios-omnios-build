@@ -93,7 +93,7 @@
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 530			| https://ftp.gnu.org/gnu/less/
 | web/curl				| 7.63.0		| https://curl.haxx.se/download.html
-| web/wget				| 1.20			| https://git.savannah.gnu.org/cgit/wget.git/refs/tags
+| web/wget				| 1.20.1		| https://git.savannah.gnu.org/cgit/wget.git/refs/tags
 | library/glib2				| 2.58.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.31.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
