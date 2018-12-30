@@ -27,13 +27,13 @@
 . ../../lib/functions.sh
 
 PROG=gzip
-VER=1.9
+VER=1.10
 VERHUMAN=$VER
 PKG=compress/gzip
-SUMMARY="The GNU Zip (gzip) compression utility"
-DESC="$SUMMARY $VER"
+SUMMARY="GNU zip"
+DESC="The GNU Zip (gzip) compression utility"
 
-set_arch 32
+set_arch 64
 CONFIGURE_OPTS="
     --infodir=/usr/sfw/share/info
 "
