@@ -19,9 +19,9 @@
 
 PKG=library/python-3/more-itertools-35
 PROG=more-itertools
-VER=4.3.0
-SUMMARY="more-itertools - More routines for operating on iterables"
-DESC="$SUMMARY"
+VER=5.0.0
+SUMMARY="More routines for operating on iterables"
+DESC="$SUMMARY, beyond itertools"
 
 . $SRCDIR/../common.sh
 
