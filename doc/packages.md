@@ -85,7 +85,7 @@
 | terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
 | terminal/tmux				| 2.8			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 4.2.1			| https://ftp.gnu.org/gnu/gawk/
-| text/gnu-diffutils			| 3.6			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
+| text/gnu-diffutils			| 3.7			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.19.8.1		| http://git.savannah.gnu.org/cgit/gettext.git/refs/tags
 | text/gnu-grep				| 3.3			| http://git.savannah.gnu.org/cgit/grep.git/refs/tags
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
