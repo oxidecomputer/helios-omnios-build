@@ -1,7 +1,7 @@
 
 | Package | Version | Link | Notes |
 | :------ | :------ | :--- | :---- |
-| archiver/gnu-tar			| 1.30			| http://git.savannah.gnu.org/cgit/tar.git/refs/tags
+| archiver/gnu-tar			| 1.31			| https://ftp.gnu.org/gnu/tar/ http://git.savannah.gnu.org/cgit/tar.git/refs/tags
 | compress/bzip2			| 1.0.6			| https://sourceforge.net/projects/bzip2/files
 | compress/gzip				| 1.10			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
 | compress/p7zip			| 16.02			| https://sourceforge.net/projects/p7zip/files/p7zip
@@ -42,7 +42,7 @@
 | library/libevent			| 2.1.8			| https://github.com/libevent/libevent/releases | Used solely by tmux
 | library/libidn			| 1.35			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags
 | library/libffi			| 3.2.1			| https://sourceware.org/libffi/
-| library/libxml2			| 2.9.8			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
+| library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20181208		| http://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.35.1		| https://github.com/nghttp2/nghttp2/releases
@@ -85,7 +85,7 @@
 | terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
 | terminal/tmux				| 2.8			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 4.2.1			| https://ftp.gnu.org/gnu/gawk/
-| text/gnu-diffutils			| 3.6			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
+| text/gnu-diffutils			| 3.7			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.19.8.1		| http://git.savannah.gnu.org/cgit/gettext.git/refs/tags
 | text/gnu-grep				| 3.3			| http://git.savannah.gnu.org/cgit/grep.git/refs/tags
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags

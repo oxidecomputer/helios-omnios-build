@@ -21,13 +21,13 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
 PROG=libxml2
-VER=2.9.8
+VER=2.9.9
 PKG=library/libxml2
 SUMMARY="XML C parser and toolkit"
 DESC="Portable XML parser and toolkit library"
