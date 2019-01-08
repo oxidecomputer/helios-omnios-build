@@ -23,29 +23,30 @@
 # Copyright 2011-2013 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
 # Copyright (c) 2013 by Delphix. All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=bash
-VER=4.4
-PATCHLEVEL=23
-VERHUMAN="$VER.$PATCHLEVEL"
+VER=5.0
+PATCHLEVEL=
 PKG=shell/bash
-SUMMARY="GNU Bourne-Again shell (bash)"
-DESC="$SUMMARY"
+SUMMARY="GNU Bash"
+DESC="GNU Bourne-Again shell (bash)"
 
+BUILD_DEPENDS_IPS="library/readline"
 RUN_DEPENDS_IPS="system/prerequisite/gnu system/library"
 
-set_arch 32
-NO_PARALLEL_MAKE=1
+set_arch 64
+
+CFLAGS="-I/usr/include/ncurses"
 
 # Cribbed from upstream but modified for gcc
 # "let's shrink the SHT_SYMTAB as much as we can"
-LDFLAGS="-Wl,-z -Wl,redlocsym"
+LDFLAGS="-Wl,-z -Wl,redlocsym -lncurses"
 
 # Cribbed from upstream, with a few changes:
-#   We only do 32-bit so forgo the isaexec stuff
+#   We only do 64-bit so forgo the isaexec stuff
 #   Don't bother building static
 CONFIGURE_OPTS="
     --localstatedir=/var
@@ -87,7 +88,7 @@ CONFIGURE_OPTS="
     --enable-nls
     --with-bash-malloc
     --with-curses
-    --with-installed-readline=no
+    --with-installed-readline=yes
 "
 
 # Files taken from upstream userland-gate
@@ -102,7 +103,7 @@ patch_source
 prep_build
 build
 install_files
-VER=${VER}.$PATCHLEVEL
+[ -n "$PATCHLEVEL" ] && VER+=".$PATCHLEVEL"
 make_package
 clean_up
 
