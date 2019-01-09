@@ -50,8 +50,9 @@
 | library/nspr				| 4.20			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.42			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.32			| https://ftp.pcre.org/pub/pcre/
-| library/readline			| 7.0			| https://ftp.gnu.org/gnu/readline/
-| library/readline-patchlvl		| 005			| https://ftp.gnu.org/gnu/readline/readline-7.0-patches/
+| library/readline			| 8.0			| https://ftp.gnu.org/gnu/readline/
+| library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
+| library/readline7-patchlvl		| 005			| https://ftp.gnu.org/gnu/readline/readline-7.0-patches/
 | library/security/openssl-1.0		| 1.0.2q		| https://www.openssl.org/source/
 | library/security/openssl-1.1		| 1.1.1a		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html

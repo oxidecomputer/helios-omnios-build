@@ -22,40 +22,36 @@
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=readline
-VER=7.0
-PVER=6.3
-VERHUMAN=$VER
+VER=8.0
 PKG=library/readline
 SUMMARY="GNU readline"
 DESC="GNU readline library"
 
-CONFIGURE_OPTS="--disable-static"
+# Previous versions that also need to be built and packaged since compiled
+# software may depend on it.
+PVERS="7.0 6.3"
 
-make_prog() {
-    logcmd gmake SHOBJ_LDFLAGS='-shared -Wl,-i -Wl,-h,$@ -nostdlib -lc' || \
-        logerr "--- Make failed"
-}
+CONFIGURE_OPTS="--disable-static"
 
 init
 prep_build
-
-(
-    # Build version 6 libraries
-    BUILDDIR=$PROG-$PVER
-    download_source $PROG $PROG $PVER
-    PATCHDIR=patches-6 patch_source
-    build
-)
-
 download_source $PROG $PROG $VER
 patch_source
 build
-make_isa_stub
+
+# Build previous versions
+for pver in $PVERS; do
+    note -n "Building previous version: $pver"
+    BUILDDIR=$PROG-$pver download_source $PROG $PROG $pver
+    PATCHDIR=patches-${pver##.*} patch_source
+    BUILDDIR=$PROG-$pver build
+done
+
 make_package
 clean_up
 
