@@ -34,15 +34,12 @@ DESC="GNU readline library"
 
 # Previous versions that also need to be built and packaged since compiled
 # software may depend on it.
-PVERS="7.0 6.3"
+PVERS="6.3 7.0"
 
 CONFIGURE_OPTS="--disable-static"
 
 init
 prep_build
-download_source $PROG $PROG $VER
-patch_source
-build
 
 # Build previous versions
 for pver in $PVERS; do
@@ -52,6 +49,10 @@ for pver in $PVERS; do
     BUILDDIR=$PROG-$pver build
 done
 
+note -n "Building current version: $VER"
+download_source $PROG $PROG $VER
+patch_source
+build
 make_package
 clean_up
 
