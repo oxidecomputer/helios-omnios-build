@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 BUILD_DEPENDS_IPS="
-    developer/acpi/compiler
+    developer/acpi
     developer/nasm
 "
 
