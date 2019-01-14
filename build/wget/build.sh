@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
@@ -39,6 +39,12 @@ BUILD_DEPENDS_IPS+="
     library/pcre2
 "
 
+# required to run the test-suite
+TEST_DEPENDS_PERLMOD="
+    HTTP::Daemon
+    IO::Socket::SSL
+"
+
 set_arch 64
 
 CONFIGURE_OPTS="
@@ -49,13 +55,23 @@ CONFIGURE_OPTS="
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
+download_perl_deps() {
+    # download and build perl dependencies
+    for dep in $TEST_DEPENDS_PERLMOD; do
+        note "-- Building dependency $dep"
+        curl -L https://cpanmin.us | perl - -l $TMPDIR/_deproot \
+            -M https://cpan.metacpan.org -n $dep
+    done
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source
 run_autoreconf
 prep_build
 build
-run_testsuite check
+[ -n "$BATCH" ] || download_perl_deps
+PERL5LIB=$TMPDIR/_deproot/lib/perl5 run_testsuite check
 make_package
 clean_up
 
