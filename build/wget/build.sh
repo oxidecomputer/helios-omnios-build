@@ -70,7 +70,7 @@ patch_source
 run_autoreconf
 prep_build
 build
-[ -n "$BATCH" ] || download_perl_deps
+[ -z "$SKIP_TESTSUITE" ] && download_perl_deps
 PERL5LIB=$TMPDIR/_deproot/lib/perl5 run_testsuite check
 make_package
 clean_up
