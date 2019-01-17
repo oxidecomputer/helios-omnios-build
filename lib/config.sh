@@ -163,6 +163,7 @@ XZCAT=xzcat
 UNZIP=unzip
 AWK=gawk
 GIT=git
+RIPGREP=/opt/ooce/bin/rg
 # Command for privilege escalation. Can be overridden in site.sh
 PFEXEC=sudo
 
