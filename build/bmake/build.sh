@@ -43,6 +43,13 @@ BUILDARCH=64
 NO_PARALLEL_MAKE=1
 REMOVE_PREVIOUS=1
 
+extract_licence() {
+    sed '/ifndef/{
+        d
+        q
+    }' < $TMPDIR/$BUILDDIR/main.c > $TMPDIR/$BUILDDIR/LICENCE
+}
+
 init
 BUILDDIR="bmake"
 download_source $PROG $PROG $VER
@@ -50,6 +57,7 @@ patch_source
 prep_build
 build
 make_isa_stub
+extract_licence
 make_package
 clean_up
 

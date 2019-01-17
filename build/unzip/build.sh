@@ -39,6 +39,7 @@ set_arch 32
 HARDLINK_TARGETS="
     usr/bin/unzip
 "
+SKIP_LICENCES="*"
 
 # Copied from upstream's pkg makefile
 export LOCAL_UNZIP="-DUNICODE_SUPPORT -DNO_WORKING_ISPRINT -DUNICODE_WCHAR"

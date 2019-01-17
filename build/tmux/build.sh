@@ -37,6 +37,7 @@ LIBEVENT_DIR=libevent-${LIBEVENT_VER}-stable
 XFORM_ARGS+=" -DLIBEVENT=$LIBEVENT_VER"
 
 BUILD_DEPENDS_IPS=library/ncurses
+SKIP_LICENCES=tmux
 
 init
 prep_build

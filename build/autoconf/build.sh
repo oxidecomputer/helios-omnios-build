@@ -37,6 +37,7 @@ RUN_DEPENDS_IPS="system/prerequisite/gnu developer/macro/gnu-m4"
 NO_PARALLEL_MAKE=1
 set_arch 32
 CONFIGURE_OPTS="--infodir=$PREFIX/share/info"
+SKIP_LICENCES=GPL.EXCEPTION
 
 init
 download_source $PROG $PROG $VER

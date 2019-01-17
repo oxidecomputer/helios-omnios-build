@@ -24,6 +24,7 @@ SUMMARY="$PROG - A massively spiffy yet delicately unobtrusive compression libra
 DESC="$SUMMARY"
 
 DEPENDS_IPS="system/library/gcc-runtime"
+SKIP_LICENCES=zlib
 
 CFLAGS+=" -DNO_VIZ"
 

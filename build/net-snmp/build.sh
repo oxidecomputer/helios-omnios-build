@@ -34,6 +34,7 @@ SUMMARY="Net-SNMP Agent files and libraries"
 DESC="$SUMMARY"
 
 NO_PARALLEL_MAKE=true
+SKIP_LICENCES="CMU/UCD"
 
 RUN_DEPENDS_IPS="shell/bash"
 

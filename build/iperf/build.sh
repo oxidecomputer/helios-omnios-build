@@ -39,6 +39,7 @@ BUILDARCH=64
 
 CONFIGURE_OPTS="--bindir=$PREFIX/bin"
 LDFLAGS="-lsocket -lnsl"
+SKIP_LICENCES=iperf
 
 make_symlinks()  {
     logcmd ln -s iperf3 $DESTDIR/usr/bin/iperf

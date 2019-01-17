@@ -51,6 +51,7 @@ CONFIGURE_OPTS_32+="
 "
 
 HARDLINK_TARGETS=usr/bin/zsh-$VER
+SKIP_LICENCES="*"
 
 install_zshrc() {
     mkdir -p $DESTDIR/etc

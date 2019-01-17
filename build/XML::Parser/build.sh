@@ -26,6 +26,7 @@ PREFIX=/usr/perl5
 reset_configure_opts
 
 NO_PARALLEL_MAKE=1
+SKIP_LICENCES=Artistic
 
 BUILD_DEPENDS_IPS="runtime/perl runtime/perl-64"
 RUN_DEPENDS_IPS="library/expat runtime/perl runtime/perl-64"

@@ -50,6 +50,7 @@ CONFIGURE_OPTS="
 # end up with this file missing. Force removal of any previous extracted
 # source trees to start from a clean slate.
 REMOVE_PREVIOUS=1
+SKIP_LICENCES=libxslt
 
 backup_man() {
     logmsg "making a backup of xsltproc.1"

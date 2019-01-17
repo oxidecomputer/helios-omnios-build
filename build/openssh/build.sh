@@ -38,6 +38,8 @@ set_arch 64
 # is not yet known.
 set_gccver 5
 
+SKIP_LICENCES=OpenSSH
+
 CONFIGURE_OPTS_64+="
     --sysconfdir=/etc/ssh
 "

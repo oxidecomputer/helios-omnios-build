@@ -34,6 +34,7 @@ SUMMARY="netperf network testing tool"
 DESC="$SUMMARY $VER"
 
 DEPENDS_IPS="system/library"
+SKIP_LICENCES=HP
 
 set_arch 64
 

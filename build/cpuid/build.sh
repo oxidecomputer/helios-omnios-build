@@ -30,6 +30,7 @@ configure64() { :; }
 
 # cpuid uses lower case $prefix
 MAKE_INSTALL_ARGS="prefix=$PREFIX"
+SKIP_LICENCES="*"
 
 init
 download_source $PROG $VER

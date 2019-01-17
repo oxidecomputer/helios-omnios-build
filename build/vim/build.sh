@@ -39,6 +39,8 @@ set_arch 64
 
 XFORM_ARGS+=" -D SVER=$SVER"
 
+SKIP_LICENCES="*"
+
 # VIM 8.0 source exposes either a bug in illumos msgfmt(1), OR it contains
 # a GNU-ism we are strict about.  Either way, use GNU msgfmt for now.
 export MSGFMT=/usr/gnu/bin/msgfmt

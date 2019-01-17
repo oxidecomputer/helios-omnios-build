@@ -29,6 +29,8 @@ set_python_version $PYTHON3VER
 BUILD_DEPENDS_IPS="ooce/text/asciidoc"
 export PATH=$PATH:/opt/ooce/bin
 
+SKIP_LICENCES="*"
+
 export XML_CATALOG_FILES=/opt/ooce/docbook-xsl/catalog.xml
 
 # Required to include struct timespec definition and constants.

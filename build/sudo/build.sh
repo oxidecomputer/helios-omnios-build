@@ -53,6 +53,7 @@ CONFIGURE_OPTS="
     --disable-pam-session
 "
 
+SKIP_LICENCES=Various
 TESTSUITE_SED="
     /^libtool:/d
 "

@@ -33,6 +33,8 @@ PKG=library/libffi
 SUMMARY="A Portable Foreign Function Interface Library"
 DESC="$SUMMARY"
 
+SKIP_LICENCES=libffi
+
 make_prog32() {
     logmsg "Making program (32)"
     logcmd gmake

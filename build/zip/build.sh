@@ -36,6 +36,8 @@ DESC="$SUMMARY"
 BUILDDIR=$PROG${VER//./}
 set_arch 32
 
+SKIP_LICENCES="*"
+
 export CPP="gcc -E"
 
 configure32() {

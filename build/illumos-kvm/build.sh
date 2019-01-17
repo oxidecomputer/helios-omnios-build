@@ -43,6 +43,7 @@ BUILD_DEPENDS_IPS="
     developer/versioning/git
     file/gnu-coreutils
 "
+SKIP_LICENCES='qemu.license'
 
 BUILDARCH=64
 
