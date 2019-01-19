@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
@@ -34,6 +34,9 @@ SUMMARY="OpenSSH Client and utilities"
 DESC="OpenSSH Secure Shell protocol Client and associated Utilities"
 
 set_arch 64
+# Building OpenSSH with a newer GCC version causes terminal hangs; the cause
+# is not yet known.
+set_gccver 5
 
 CONFIGURE_OPTS_64+="
     --sysconfdir=/etc/ssh
