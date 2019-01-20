@@ -33,6 +33,8 @@ SUMMARY="SQL database engine library"
 DESC="SQLite is a self-contained, high-reliability, embedded, full-featured, "
 DESC+="public-domain, SQL database engine."
 
+SKIP_LICENCES="Public Domain"
+
 VERHUMAN="`echo $VER | sed '
     # Mmmsspp -> M.mm.ss.pp
     s/\(.\)\(..\)\(..\)\(..\)/\1.\2.\3.\4/

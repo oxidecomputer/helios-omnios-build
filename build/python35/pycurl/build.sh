@@ -24,6 +24,8 @@ DESC="PycURL provides a thin layer of Python bindings on top of libcurl."
 
 . $SRCDIR/../common.sh
 
+SKIP_LICENCES=MIT
+
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source

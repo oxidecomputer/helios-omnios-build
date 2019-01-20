@@ -39,6 +39,7 @@ BUILDDIR=$PROG-$PROG-$VER
 set_arch 64
 
 CONFIGURE_OPTS_64="--prefix=$PREFIX --extra-cflags=-m64"
+SKIP_LICENCES=fio
 
 init
 download_source $PROG $PROG $VER

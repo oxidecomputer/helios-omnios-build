@@ -56,9 +56,8 @@ build_server() {
 init
 clone_source
 prep_build
-logmsg "Now building $PKG"
 build_server
-make_package kayak.mog
+make_package
 clean_up
 
 # Vim hints

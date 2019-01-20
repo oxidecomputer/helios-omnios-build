@@ -39,6 +39,8 @@ DESC="Client utilities for DNS lookups"
 # library man pages (see local.mog)
 set_arch 64
 
+SKIP_LICENCES="*"
+
 CONFIGURE_OPTS="
     --libdir=$PREFIX/lib/dns
     --bindir=$PREFIX/sbin

@@ -33,6 +33,7 @@ SUMMARY="The C Pre-Processor (cpp)"
 DESC="$SUMMARY"
 
 BUILD_DEPENDS_IPS="developer/parser/bison"
+SKIP_LICENCES="*.licence"
 
 setup_src() {
    logcmd mkdir -p $TMPDIR/$BUILDDIR

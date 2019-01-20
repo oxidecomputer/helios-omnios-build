@@ -42,6 +42,7 @@ CONFIGURE_OPTS_64+=" --includedir=/usr/include"
 
 MAKE_ARGS+=' dist_doc_DATA= '
 MAKE_INSTALL_ARGS+=' dist_doc_DATA= '
+SKIP_LICENCES=BSD-LLNL
 
 init
 download_source $PROG $PROG $VER

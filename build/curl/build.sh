@@ -51,6 +51,7 @@ BUILDORDER="64 32"
 # default make does not like. Ensure that GNU make is used for all invocations.
 export MAKE
 
+SKIP_LICENCES=curl
 TESTSUITE_FILTER="^TEST[A-Z]"
 
 init

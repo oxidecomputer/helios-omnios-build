@@ -24,6 +24,8 @@ DESC="A basic portable implementation of interprocess locks using lock files"
 
 . $SRCDIR/../common.sh
 
+SKIP_LICENCES=ZPL
+
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source

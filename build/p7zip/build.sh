@@ -42,6 +42,8 @@ RUN_DEPENDS_IPS="
     shell/bash
 "
 
+SKIP_LICENCES=unRar
+
 configure32() {
     DEST_HOME=$PREFIX
     DEST_SHARE_DOC=$DEST_HOME/share/doc/p7zip

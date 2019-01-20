@@ -37,7 +37,7 @@ DESC="$SUMMARY"
 PREFIX=/usr/perl5/${SVER}
 
 BUILD_DEPENDS_IPS="text/gnu-sed"
-
+SKIP_LICENCES="Artistic2"
 TESTSUITE_SED="
     /ExtUtils::Command/d
 "

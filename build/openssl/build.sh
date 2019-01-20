@@ -35,6 +35,8 @@ SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
 
+SKIP_LICENCES=OpenSSL
+
 # Generic options for both 32 and 64bit variants
 base_OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"

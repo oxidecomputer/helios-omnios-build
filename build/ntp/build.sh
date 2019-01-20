@@ -55,6 +55,8 @@ CONFIGURE_OPTS="
     --without-lineeditlibs
 "
 
+SKIP_LICENCES="UD Open Source"
+
 overlay_root() {
     (cd $SRCDIR/root && tar cf - .) | (cd $DESTDIR && tar xf -)
 }

@@ -24,6 +24,7 @@ SUMMARY="XZ Utils - general-purpose data compression software"
 DESC="$SUMMARY"
 
 BUILD_DEPENDS_IPS="autoconf"
+SKIP_LICENCES=xz
 
 save_function configure32 _configure32
 configure32() {
@@ -38,6 +39,7 @@ configure64() {
 }
 
 TESTSUITE_SED="/libtool/d"
+SKIP_LICENCES="xz"
 
 init
 download_source $PROG $PROG $VER
