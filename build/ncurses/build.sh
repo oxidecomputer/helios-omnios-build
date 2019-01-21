@@ -50,6 +50,7 @@ CONFIGURE_OPTS_COMMON="
     --disable-lib-suffixes
     --without-debug
     --enable-string-hacks
+    --enable-symlinks
     --includedir=$PREFIX/include/ncurses
     --prefix=$GPREFIX
 "
