@@ -32,6 +32,8 @@ PKG=compress/bzip2
 SUMMARY="The bzip compression utility"
 DESC="$SUMMARY"
 
+SKIP_LICENCES=bzip2
+
 # We don't use configure, so explicitly export PREFIX
 PREFIX=/usr
 export PREFIX
