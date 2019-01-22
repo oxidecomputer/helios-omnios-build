@@ -21,16 +21,13 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
 PROG=ncurses
-VER=6.1-20181208
-VERHUMAN=$VER
-BUILDDIR=$PROG-$VER
-VER=${VER/-/.}
+VER=6.1-20190112
 PKG=library/ncurses
 SUMMARY="A CRT screen handling package"
 DESC="Utilities and shared libraries for terminal handling"
@@ -50,6 +47,7 @@ CONFIGURE_OPTS_COMMON="
     --disable-lib-suffixes
     --without-debug
     --enable-string-hacks
+    --enable-symlinks
     --includedir=$PREFIX/include/ncurses
     --prefix=$GPREFIX
 "
@@ -91,13 +89,14 @@ build_abi6() {
 }
 
 init
-download_source $PROG $PROG $VERHUMAN
+download_source $PROG $PROG $VER
 patch_source
 prep_build
 build_abi5
 build_abi6
 make_isa_stub
 gnu_links
+VER=${VER/-/.}
 make_package
 clean_up
 
