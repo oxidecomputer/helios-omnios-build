@@ -19,7 +19,7 @@
 
 PKG=library/python-3/pytz-35
 PROG=pytz
-VER=2018.7
+VER=2018.9
 SUMMARY="Python world timezone definitons"
 DESC="$SUMMARY, modern and historical"
 
