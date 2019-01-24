@@ -21,18 +21,17 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
 PROG=nss
-VER=3.41
+VER=3.41.1
 # Include NSPR version since we're downloading a combined tarball.
 NSPRVER=4.20
 # But set BUILDDIR to just be the NSS version.
 BUILDDIR=$PROG-$VER
-VERHUMAN=$VER
 PKG=$PROG ##IGNORE##
 SUMMARY="Overridden for each package below"
 DESC="$SUMMARY"
