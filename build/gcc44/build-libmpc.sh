@@ -21,28 +21,22 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
-PATH=/usr/gnu/bin:/opt/gcc-4.4.4/bin:$PATH
-export PATH
-
 PROG=mpc
 VER=0.8.2
-VERHUMAN=$VER
 PKG=developer/gcc44/libmpc-gcc44
 SUMMARY="gcc44 - private libmpc"
 DESC="$SUMMARY"
 
+set_gccver 4.4.4
+set_arch 32
+
 BUILD_DEPENDS_IPS="developer/gcc44/libgmp-gcc44 developer/gcc44/libmpfr-gcc44"
-DEPENDS_IPS="developer/gcc44/libgmp-gcc44 developer/gcc44/libmpfr-gcc44"
+RUN_DEPENDS_IPS="developer/gcc44/libgmp-gcc44 developer/gcc44/libmpfr-gcc44"
 
-# This stuff is in its own domain
-PKGPREFIX=""
-
-BUILDARCH=32
-GCCVER=4.4.4
 PREFIX=/opt/gcc-${GCCVER}
 CC=gcc
 CONFIGURE_OPTS="
@@ -60,7 +54,6 @@ init
 download_source $PROG $PROG $VER
 prep_build
 build
-make_isa_stub
 make_package libmpc.mog depends.mog
 clean_up
 

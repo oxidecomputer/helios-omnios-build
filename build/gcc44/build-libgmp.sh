@@ -21,30 +21,24 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
-GCCVER=4.4.4
-PATH=/usr/gnu/bin:/opt/gcc-${GCCVER}/bin:$PATH
-export LD_LIBRARY_PATH=/opt/gcc-${GCCVER}/lib
-
 PROG=gmp
 VER=5.0.2
-VERHUMAN=$VER
 PKG=developer/gcc44/libgmp-gcc44
 SUMMARY="gcc44 - private libgmp"
 DESC="$SUMMARY"
 
-# This stuff is in its own domain
-PKGPREFIX=""
-BUILDARCH=32
+set_gccver 4.4.4
+set_arch 32
+
 PREFIX=/opt/gcc-${GCCVER}
 CC=gcc
 CONFIGURE_OPTS="--enable-cxx"
-CFLAGS="-fexceptions"
-ABI=32
-export ABI
+CFLAGS+=" -fexceptions"
+export ABI=32
 
 make_install32() {
     logcmd mkdir -p $DESTDIR/opt/gcc-${GCCVER}/share/info
@@ -57,7 +51,6 @@ init
 download_source $PROG $PROG $VER
 prep_build
 build
-make_isa_stub
 make_package libgmp.mog depends.mog
 clean_up
 

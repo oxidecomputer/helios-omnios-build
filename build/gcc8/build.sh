@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
@@ -39,8 +39,8 @@ OPT=/opt/gcc-$GCCMAJOR
 XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 
 # Build gcc with itself
-export LD_LIBRARY_PATH=$OPT/lib
 set_gccver $GCCMAJOR
+set_arch 32
 
 RUN_DEPENDS_IPS="
     developer/library/lint
@@ -61,8 +61,15 @@ export LD_FOR_TARGET=$LD
 export LD_OPTIONS="-zignore -zcombreloc -i"
 ARCH=i386-pc-solaris2.11
 
-# Strip binaries but preserve the symbol table
-export STRIP="/bin/strip -x"
+HARDLINK_TARGETS="
+    ${PREFIX/#\/}/bin/$ARCH-gcc-$VER
+    ${PREFIX/#\/}/bin/$ARCH-gcc-ar
+    ${PREFIX/#\/}/bin/$ARCH-gcc-nm
+    ${PREFIX/#\/}/bin/$ARCH-gcc-ranlib
+    ${PREFIX/#\/}/bin/$ARCH-c++
+    ${PREFIX/#\/}/bin/$ARCH-g++
+    ${PREFIX/#\/}/bin/$ARCH-gfortran
+"
 
 CONFIGURE_OPTS_32="--prefix=$OPT"
 CONFIGURE_OPTS="
