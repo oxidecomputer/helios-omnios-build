@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
@@ -45,7 +45,8 @@ BUILD_DEPENDS_IPS="
 "
 SKIP_LICENCES='qemu.license'
 
-BUILDARCH=64
+set_gccver 4.4.4
+set_arch 64
 
 # Unset the prefix because we actually DO want things in kernel etc
 PREFIX=
@@ -123,7 +124,7 @@ clean_up
 
 configure64() {
     PREFIX=/usr
-    CC=/opt/gcc-4.4.4/bin/gcc
+    CC=$GCC
     export KERNEL_SOURCE KVM_DIR PREFIX CC
 
     # Borrowed from Joyent's build.sh within the source
