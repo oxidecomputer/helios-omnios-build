@@ -21,22 +21,22 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
 PROG=zsh
-VER=5.6.2
+VER=5.7
 VERHUMAN=$VER
 PKG=shell/zsh
 SUMMARY="Z shell"
-DESC="Z shell"
+DESC="The Z shell"
 
-set_arch 32
+set_arch 64
 
-CPPFLAGS32+=" -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
-CONFIGURE_OPTS_32+="
+CPPFLAGS+=" -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
+CONFIGURE_OPTS+="
 	--enable-cap
 	--enable-dynamic
 	--enable-etcdir=/etc
@@ -49,6 +49,8 @@ CONFIGURE_OPTS_32+="
 	--with-tcsetpgrp
 	--disable-gdbm
 "
+
+CONFIGURE_OPTS_WS="--enable-ldflags=\"-m64 -zignore\""
 
 HARDLINK_TARGETS=usr/bin/zsh-$VER
 SKIP_LICENCES="*"
