@@ -36,7 +36,7 @@ DESC="$SUMMARY"
 # Branch names can include '/' so remove them.
 VER+="-${EDK2_SOURCE_BRANCH//\//_}"
 
-export GCCPATH=/opt/gcc-4.4.4
+set_gccver 4.4.4
 
 MAKE_ARGS="
         AS=/usr/bin/gas

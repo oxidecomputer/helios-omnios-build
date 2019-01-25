@@ -28,8 +28,9 @@ set_arch 32
 # adding ASLR flags to compiler and linker since
 # dma:             gets ASLR if linker flag is set
 # dma-mbox-create: gets ASLR if compiler flag is set
-export CFLAGS="-O2 -g -pipe -Wl,-z,aslr -DHAVE_STRLCPY -DHAVE_GETPROGNAME"
-export LDADD="-Wl,-z,aslr -lssl -lcrypto -lresolv -lsocket -lnsl"
+CFLAGS+=" -pipe -Wl,-z,aslr -DHAVE_STRLCPY -DHAVE_GETPROGNAME"
+LDADD="-Wl,-z,aslr -lssl -lcrypto -lresolv -lsocket -lnsl"
+export CFLAGS LDADD
 
 export PREFIX=/usr
 export SBIN=${PREFIX}/lib/smtp/dma

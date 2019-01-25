@@ -57,7 +57,7 @@ make_prog() {
 configure32() {
     SSLPLAT=solaris-x86-gcc
     logmsg -n "--- Configure (32-bit) $SSLPLAT"
-    unset __CNF_CFLAGS
+    export __CNF_CFLAGS="$CFLAGS $CFLAGS32"
     logcmd ./Configure $SSLPLAT --prefix=$PREFIX \
         ${OPENSSL_CONFIG_OPTS} ${OPENSSL_CONFIG_32_OPTS} \
         || logerr "Failed to run configure"
@@ -67,7 +67,7 @@ configure32() {
 configure64() {
     SSLPLAT=solaris64-x86_64-gcc
     logmsg -n "--- Configure (64-bit) $SSLPLAT"
-    export __CNF_CFLAGS=-m64
+    export __CNF_CFLAGS="$CFLAGS $CFLAGS64"
     logcmd ./Configure $SSLPLAT --prefix=$PREFIX \
         ${OPENSSL_CONFIG_OPTS} ${OPENSSL_CONFIG_64_OPTS} \
         || logerr "Failed to run configure"

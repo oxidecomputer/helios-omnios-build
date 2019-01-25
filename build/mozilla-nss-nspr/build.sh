@@ -42,14 +42,16 @@ DIST64=SunOS5.11_i86pc_gcc_64_OPT.OBJ
 
 BUILD_DEPENDS_IPS="library/nspr/header-nspr"
 
-MAKE_OPTS="
+MAKE_ARGS="
     BUILD_OPT=1
     NS_USE_GCC=1
     NO_MDUPDATE=1
     NSDISTMODE=copy
     NSS_USE_SYSTEM_SQLITE=1
     NSS_ENABLE_WERROR=0
-    XCFLAGS=-g
+"
+MAKE_ARGS_WS="
+    XCFLAGS=\"-g $CFLAGS\"
 "
 
 NSS_LIBS="libfreebl3.so libnss3.so libnssckbi.so libnssdbm3.so
@@ -69,7 +71,7 @@ make_clean() {
     # Assume PWD == top-level with nss & nspr subdirs.
     /bin/rm -rf dist
     pushd nss >/dev/null || logerr "pushd nss"
-    logcmd gmake $MAKE_OPTS nss_clean_all || logerr "Can't make clean"
+    logcmd gmake $MAKE_ARGS nss_clean_all || logerr "Can't make clean"
     popd >/dev/null
 }
 
@@ -80,12 +82,14 @@ configure32() {
 }
 
 make_prog32() {
+    eval set -- $MAKE_ARGS_WS
     pushd nss >/dev/null || logerr "pushd nss"
     logmsg "  -- nspr"
-    logcmd $MAKE $MAKE_OPTS $MAKE_JOBS build_nspr || logerr "nspr build failed"
+    logcmd $MAKE $MAKE_ARGS "$@" $MAKE_JOBS build_nspr \
+        || logerr "nspr build failed"
     for d in coreconf lib cmd; do
         logmsg "  -- $d"
-        logcmd $MAKE $MAKE_OPTS -C $d || logerr "$d build failed"
+        logcmd $MAKE $MAKE_ARGS "$@" -C $d || logerr "$d build failed"
     done
     popd >/dev/null
 }
@@ -128,13 +132,14 @@ configure64() {
 }
 
 make_prog64() {
+    eval set -- $MAKE_ARGS_WS
     pushd nss >/dev/null || logerr "pushd nss"
     logmsg "  -- nspr"
-    logcmd $MAKE $MAKE_OPTS $MAKE_JOBS USE_64=1 build_nspr \
+    logcmd $MAKE $MAKE_ARGS "$@" $MAKE_JOBS USE_64=1 build_nspr \
         || logerr "nspr build failed"
     for d in coreconf lib cmd; do
         logmsg "  -- $d"
-        logcmd $MAKE $MAKE_OPTS USE_64=1 -C $d || logerr "$d build failed"
+        logcmd $MAKE $MAKE_ARGS "$@" USE_64=1 -C $d || logerr "$d build failed"
     done
     popd >/dev/null
 }

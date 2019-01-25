@@ -40,11 +40,11 @@ CONFIGURE_OPTS="
     --disable-silent-rules
 "
 
-export ZLIB_CFLAGS="-I/usr/include"
+export ZLIB_CFLAGS="$CFLAGS -I/usr/include"
 export ZLIB_LIBS="-L/usr/lib"
-export OPENSSL_CFLAGS="-I/usr/include"
+export OPENSSL_CFLAGS="$CFLAGS -I/usr/include"
 export OPENSSL_LIBS="-L/usr/lib"
-export CUNIT_CFLAGS="-I/opt/ooce/include"
+export CUNIT_CFLAGS="$CFLAGS -I/opt/ooce/include"
 export CUNIT_LIBS="-L/opt/ooce/lib/amd64 -R/opt/ooce/lib/amd64 -lcunit"
 
 TESTSUITE_SED="
