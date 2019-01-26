@@ -21,6 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
@@ -38,35 +39,41 @@ ILLUMOSVER=il-4
 VERHUMAN="${VER}-${ILLUMOSVER}"
 PKG=developer/gcc44
 SUMMARY="gcc ${VER} (illumos il-4_4_4 branch, tag gcc-4.4.4-${ILLUMOSVER})"
-DESC="GCC with the patches from Codesourcery/Sun Microsystems used in the 3.4.3 and 4.3.3 shipped with Solaris. The il-* branches contain the Solaris patches rebased forward across GCC versions in an attempt to bring them up to date."
+DESC="GCC with the patches from Codesourcery/Sun Microsystems used in the "
+DESC+="3.4.3 and 4.3.3 shipped with Solaris."
 
 BUILDDIR=${PROG}-gcc-4.4.4-${ILLUMOSVER}
 
-export LD_LIBRARY_PATH=/opt/gcc-${VER}/lib
-# Build gcc44 only with itself...
-PATH=/usr/perl5/${PERLVER}/bin:/opt/gcc-${VER}/bin:$PATH
-export PATH
+# Build gcc44 with itself...
+set_gccver 4.4.4
+set_arch 32
 
-DEPENDS_IPS="developer/gcc44/libgmp-gcc44 developer/gcc44/libmpfr-gcc44 developer/gcc44/libmpc-gcc44
-	     developer/gnu-binutils developer/library/lint developer/linker system/library/gcc-runtime"
-BUILD_DEPENDS_IPS="$DEPENDS_IPS"
+BUILD_DEPENDS_IPS="
+    developer/gcc44/libgmp-gcc44
+    developer/gcc44/libmpfr-gcc44
+    developer/gcc44/libmpc-gcc44
+    developer/gnu-binutils
+    developer/library/lint
+    developer/linker
+    system/library/gcc-runtime
+"
+RUN_DEPEND_IPS="$BUILD_DEPENDS_IPS"
 
-# This stuff is in its own domain
-PKGPREFIX=""
-
-BUILDARCH=32
 PREFIX=/opt/gcc-${VER}
 reset_configure_opts
-CC=gcc
-
-LD_FOR_TARGET=/bin/ld
-export LD_FOR_TARGET
-LD_FOR_HOST=/bin/ld
-export LD_FOR_HOST
-LD=/bin/ld
-export LD
 
 HSTRING=i386-pc-solaris2.11
+
+HARDLINK_TARGETS="
+    ${PREFIX/#\/}/bin/$HSTRING-gcc-$VER
+    ${PREFIX/#\/}/bin/$HSTRING-c++
+    ${PREFIX/#\/}/bin/$HSTRING-g++
+    ${PREFIX/#\/}/bin/$HSTRING-gfortran
+"
+
+export LD=/bin/ld
+export LD_FOR_TARGET=$LD
+export LD_FOR_HOST=$LD
 
 CONFIGURE_OPTS_32="--prefix=/opt/gcc-${VER}"
 CONFIGURE_OPTS="
@@ -99,9 +106,8 @@ patch_source
 prep_build
 build
 
-# Ick.  For some bizarre reason, this gcc44 package doesn't properly push
-# the LDFLAGS shown above into various subdirectories.  Use elfedit to fix
-# it.
+# For some reason, this gcc44 package doesn't properly push the LDFLAGS shown
+# above into various subdirectories.  Use elfedit to fix it.
 ESTRING="dyn:runpath /opt/gcc-${VER}/lib:%o"
 elfedit -e "${ESTRING}" ${TMPDIR}/${BUILDDIR}/host-${HSTRING}/gcc/cc1
 elfedit -e "${ESTRING}" ${TMPDIR}/${BUILDDIR}/host-${HSTRING}/gcc/cc1plus

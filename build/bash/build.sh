@@ -39,7 +39,7 @@ RUN_DEPENDS_IPS="system/prerequisite/gnu system/library"
 
 set_arch 64
 
-CFLAGS="-I/usr/include/ncurses"
+CFLAGS+=" -I/usr/include/ncurses"
 
 # Cribbed from upstream but modified for gcc
 # "let's shrink the SHT_SYMTAB as much as we can"

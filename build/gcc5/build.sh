@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
@@ -31,7 +31,7 @@ PROG=gcc
 VER=5.5.0
 VERHUMAN=$VER
 SUMMARY="gcc ${VER}"
-DESC="$SUMMARY"
+DESC="The GNU Compiler Collection"
 
 GCCMAJOR=${VER%%.*}
 OPT=/opt/gcc-$GCCMAJOR
@@ -39,8 +39,8 @@ OPT=/opt/gcc-$GCCMAJOR
 XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 
 # Build gcc with itself
-export LD_LIBRARY_PATH=$OPT/lib
-export PATH=$OPT/bin:$PATH
+set_gccver $GCCMAJOR
+set_arch 32
 
 RUN_DEPENDS_IPS="
     developer/library/lint
@@ -49,29 +49,34 @@ RUN_DEPENDS_IPS="
     system/header
 "
 
-[ "$BUILDARCH" = "both" ] && BUILDARCH=32
 PREFIX=$OPT
-
 reset_configure_opts
-CC=gcc
 
-LD=/bin/ld
-LD_FOR_HOST=/bin/ld
-LD_FOR_TARGET=/bin/ld
-export LD LD_FOR_HOST LD_FOR_TARGET
+HSTRING=i386-pc-solaris2.11
+
+HARDLINK_TARGETS="
+    ${PREFIX/#\/}/bin/$HSTRING-gcc-$VER
+    ${PREFIX/#\/}/bin/$HSTRING-c++
+    ${PREFIX/#\/}/bin/$HSTRING-g++
+    ${PREFIX/#\/}/bin/$HSTRING-gfortran
+"
+
+export LD=/bin/ld
+export LD_FOR_HOST=$LD
+export LD_FOR_TARGET=$LD
 
 CONFIGURE_OPTS_32="--prefix=$OPT"
 CONFIGURE_OPTS="
-    --host i386-pc-solaris2.11
-    --build i386-pc-solaris2.11
-    --target i386-pc-solaris2.11
+    --host $HSTRING
+    --build $HSTRING
+    --target $HSTRING
     --with-boot-ldflags=-R$OPT/lib
     --with-gmp-include=/usr/include/gmp
     --enable-languages=c,c++,fortran,lto
     --enable-__cxa_atexit
     --without-gnu-ld --with-ld=/bin/ld
     --with-as=/usr/bin/gas --with-gnu-as
-    --with-build-time-tools=/usr/gnu/i386-pc-solaris2.11/bin"
+    --with-build-time-tools=/usr/gnu/$HSTRING/bin"
 LDFLAGS32="-R$OPT/lib"
 export LD_OPTIONS="-zignore -zcombreloc -i"
 
