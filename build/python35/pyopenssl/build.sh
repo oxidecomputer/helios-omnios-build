@@ -12,19 +12,19 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-3/pyopenssl-35
 PROG=pyOpenSSL
-VER=18.0.0
+VER=19.0.0
 SUMMARY="pyOpenSSL - Python interface to the OpenSSL library"
 DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 
-RUN_DEPENDS_IPS+="library/python-3/cryptography-35"
+RUN_DEPENDS_IPS+=" library/python-3/cryptography-35"
 
 init
 download_source pymodules/${PROG,,} $PROG $VER
