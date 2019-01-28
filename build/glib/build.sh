@@ -21,16 +21,15 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.58.2
+VER=2.58.3
 PKG=library/glib2
 SUMMARY="GNOME utility library"
-DESC="$SUMMARY"
+DESC="The GNOME general-purpose utility library"
 
 set_python_version $PYTHON3VER
 BUILDARCH=both
@@ -57,17 +56,13 @@ CONFIGURE_OPTS_64+=" --with-python=$PYTHON"
 # With gcc 6 and above, -Werror_format=2 produces errors like:
 #   error: format not a string literal, arguments not checked
 # Tell configure that this flag doesn't exist for the compiler.
-CONFIGURE_OPTS+="
-    cc_cv_CFLAGS__Werror_format_2=no
-"
+CONFIGURE_OPTS+=" cc_cv_CFLAGS__Werror_format_2=no"
 
 # As of glib 2.58.0, the sys/auxv.h header is spotted and then it is assumed
 # that we have getauxval() and the Linux glibc-specific AT_SECURE; we don't.
-CONFIGURE_OPTS+="
-    ac_cv_header_sys_auxv_h=no
-"
+CONFIGURE_OPTS+=" ac_cv_header_sys_auxv_h=no"
 
-# glib 2.58.0 does not contain a built autotools. This could be deliberate
+# glib 2.58.x does not contain a built autotools. This could be deliberate
 # since they are moving to Meson/ninja or it could be fixed in the next
 # release.
 build_autotools() {
