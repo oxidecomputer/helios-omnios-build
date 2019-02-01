@@ -122,7 +122,7 @@
 | library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pytz-35		| 2018.9		| https://pypi.org/project/pytz
-| library/python-3/setuptools-35	| 40.6.3		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-35	| 40.7.2		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.14			| https://pypi.org/project/tempora
