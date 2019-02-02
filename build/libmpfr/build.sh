@@ -13,13 +13,12 @@
 #
 # CDDL HEADER END  }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=mpfr
-VER=4.0.1
-VERHUMAN=$VER
+VER=4.0.2
 PKG=library/mpfr
 SUMMARY="The GNU multiple-precision floating-point computation library"
 DESC="$SUMMARY"
@@ -27,10 +26,6 @@ DESC="$SUMMARY"
 CONFIGURE_OPTS+="
     --with-gmp-include=$PREFIX/include/gmp
 "
-
-# As of MPFR 4.0.0, the configure script detects libquadmath and then tries
-# to link it against testcases. We don't have libquadmath...
-export ac_cv_lib_quadmath_main=no
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 

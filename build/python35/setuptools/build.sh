@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-3/setuptools-35
 PROG=setuptools
-VER=40.6.3
+VER=40.7.2
 SUMMARY="Python package management"
 DESC="Easily download, build, install, upgrade, and uninstall Python packages"
 
