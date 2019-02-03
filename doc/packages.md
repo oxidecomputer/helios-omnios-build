@@ -95,7 +95,7 @@
 | web/curl				| 7.63.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.1		| https://git.savannah.gnu.org/cgit/wget.git/refs/tags
 | library/glib2				| 2.58.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
-| developer/gnu-binutils		| 2.31.1		| https://ftp.gnu.org/gnu/binutils
+| developer/gnu-binutils		| 2.32			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/open-vm-tools	| 10.3.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 3.0.12		| http://www.swig.org/download.html
