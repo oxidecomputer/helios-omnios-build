@@ -21,17 +21,17 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
 PROG=binutils
-VER=2.31.1
-VERHUMAN=$VER
+VER=2.32
 PKG=developer/gnu-binutils
-SUMMARY="$PROG - a collection of binary tools"
-DESC="$SUMMARY"
+SUMMARY="GNU binary utilities"
+DESC="A set of programming tools for creating and managing binary programs, "
+DESC+="object files, libraries, etc."
 
 [ "$BUILDARCH" = "both" ] && BUILDARCH=32
 
