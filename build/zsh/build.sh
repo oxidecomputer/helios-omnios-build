@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=zsh
-VER=5.7
+VER=5.7.1
 VERHUMAN=$VER
 PKG=shell/zsh
 SUMMARY="Z shell"
@@ -54,6 +54,11 @@ CONFIGURE_OPTS_WS="--enable-ldflags=\"-m64 -zignore\""
 
 HARDLINK_TARGETS=usr/bin/zsh-$VER
 SKIP_LICENCES="*"
+
+PKGDIFF_HELPER='
+    s:usr/share/zsh/[0-9.]*:usr/share/zsh/VERSION:
+    s:usr/lib/amd64/zsh/[0-9.]*:usr/lib/amd64/zsh/VERSION:
+'
 
 install_zshrc() {
     mkdir -p $DESTDIR/etc
