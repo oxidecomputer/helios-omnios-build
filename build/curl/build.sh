@@ -21,18 +21,19 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
 PROG=curl
-VER=7.63.0
+VER=7.64.0
 PKG=web/curl
 SUMMARY="Command line tool for transferring data with URL syntax"
-DESC="$SUMMARY"
+DESC="Curl is a command line tool for transferring data with URL syntax, "
+DESC+="supporting many Internet protocols"
 
-DEPENDS_IPS="web/ca-bundle library/libidn"
+RUN_DEPENDS_IPS="web/ca-bundle library/libidn"
 
 CONFIGURE_OPTS="
     --enable-thread
