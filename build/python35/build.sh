@@ -35,6 +35,7 @@ RUN_DEPENDS_IPS="
     library/security/openssl
     library/zlib
     system/library/gcc-runtime
+    developer/object-file
 "
 XFORM_ARGS="-D PYTHONVER=$MVER"
 
