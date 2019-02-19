@@ -53,7 +53,6 @@ BUILD_DEPENDS_IPS="
     developer/gcc44/libmpfr-gcc44
     developer/gcc44/libmpc-gcc44
     developer/gnu-binutils
-    developer/library/lint
     developer/linker
     system/library/gcc-runtime
 "
