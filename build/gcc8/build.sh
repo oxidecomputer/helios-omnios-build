@@ -43,7 +43,6 @@ set_gccver $GCCMAJOR
 set_arch 32
 
 RUN_DEPENDS_IPS="
-    developer/library/lint
     developer/linker
     developer/gnu-binutils
     system/header
