@@ -49,7 +49,6 @@ RUN_DEPENDS_IPS="
 "
 
 PREFIX=$OPT
-reset_configure_opts
 
 HSTRING=i386-pc-solaris2.11
 
@@ -58,6 +57,11 @@ HARDLINK_TARGETS="
     ${PREFIX/#\/}/bin/$HSTRING-c++
     ${PREFIX/#\/}/bin/$HSTRING-g++
     ${PREFIX/#\/}/bin/$HSTRING-gfortran
+"
+
+PKGDIFF_HELPER="
+    s^/$GCCMAJOR\\.[0-9]\\.[0-9]([/ ])^/$GCCMAJOR.x.x\\1^
+    s^/gcc-$GCCMAJOR\\.[0-9]\\.[0-9]^/gcc-$GCCMAJOR.x.x^
 "
 
 export LD=/bin/ld
@@ -84,7 +88,7 @@ export LD_OPTIONS="-zignore -zcombreloc -i"
 # saved.
 [ "`gcc -v 2>&1 | nawk '/^gcc version/ { print $3 }'`" = "$VER" ] \
     && CONFIGURE_OPTS+=" --disable-bootstrap" \
-    && logmsg "--- disabling bootstrap"
+    && logmsg -n "--- disabling bootstrap"
 
 make_install() {
     logmsg "--- make install"
