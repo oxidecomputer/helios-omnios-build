@@ -16,7 +16,7 @@
 | developer/build/gnu-make		| 4.2.1			| http://git.savannah.gnu.org/cgit/make.git/refs/tags
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/gcc5			| 5.5			| https://www.gnu.org/software/gcc/releases.html
-| developer/gcc7			| 7.3			| https://www.gnu.org/software/gcc/releases.html
+| developer/gcc7			| 7.4			| https://www.gnu.org/software/gcc/releases.html
 | developer/gcc8			| 8.2			| https://www.gnu.org/software/gcc/releases.html
 | developer/java/jdk			| 1.8.192-20181209	| https://ftp.netbsd.org/pub/pkgsrc/distfiles/openjdk7/
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases

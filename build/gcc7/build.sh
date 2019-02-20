@@ -28,15 +28,13 @@
 
 PKG=developer/gcc7
 PROG=gcc
-VER=7.3.0
+VER=7.4.0
 ILVER=il-1
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
 
 GCCMAJOR=${VER%%.*}
 OPT=/opt/gcc-$GCCMAJOR
-
-BUILDDIR="$PROG-$PROG-$VER-$ILVER"
 
 XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 
@@ -50,10 +48,8 @@ RUN_DEPENDS_IPS="
     system/header
 "
 
-[ "$BUILDARCH" = "both" ] && BUILDARCH=32
 PREFIX=$OPT
 
-reset_configure_opts
 CC=gcc
 
 export LD=/bin/ld
@@ -70,6 +66,11 @@ HARDLINK_TARGETS="
     ${PREFIX/#\/}/bin/$ARCH-c++
     ${PREFIX/#\/}/bin/$ARCH-g++
     ${PREFIX/#\/}/bin/$ARCH-gfortran
+"
+
+PKGDIFF_HELPER="
+    s^/$GCCMAJOR\\.[0-9]\\.[0-9]([/ ])^/$GCCMAJOR.x.x\\1^
+    s^/gcc-$GCCMAJOR\\.[0-9]\\.[0-9]^/gcc-$GCCMAJOR.x.x^
 "
 
 CONFIGURE_OPTS_32="--prefix=$OPT"
@@ -102,7 +103,7 @@ LDFLAGS32="-R$OPT/lib"
 [ -z "$FORCE_BOOTSTRAP" ] \
     && [ "`gcc -v 2>&1 | nawk '/^gcc version/ { print $3 }'`" = "$VER" ] \
     && CONFIGURE_OPTS+=" --disable-bootstrap" \
-    && logmsg "--- disabling bootstrap"
+    && logmsg -n "--- disabling bootstrap"
 
 make_install() {
     logmsg "--- make install"
@@ -114,7 +115,7 @@ make_install() {
 OUT_OF_TREE_BUILD=1
 
 init
-download_source $PROG $PROG $VER-$ILVER
+download_source $PROG $PROG $VER
 patch_source
 prep_build
 build

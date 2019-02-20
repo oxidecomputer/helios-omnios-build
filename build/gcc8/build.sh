@@ -48,10 +48,8 @@ RUN_DEPENDS_IPS="
     system/header
 "
 
-[ "$BUILDARCH" = "both" ] && BUILDARCH=32
 PREFIX=$OPT
 
-reset_configure_opts
 CC=gcc
 
 export LD=/bin/ld
@@ -68,6 +66,11 @@ HARDLINK_TARGETS="
     ${PREFIX/#\/}/bin/$ARCH-c++
     ${PREFIX/#\/}/bin/$ARCH-g++
     ${PREFIX/#\/}/bin/$ARCH-gfortran
+"
+
+PKGDIFF_HELPER="
+    s^/$GCCMAJOR\\.[0-9]\\.[0-9]([/ ])^/$GCCMAJOR.x.x\\1^
+    s^/gcc-$GCCMAJOR\\.[0-9]\\.[0-9]^/gcc-$GCCMAJOR.x.x^
 "
 
 CONFIGURE_OPTS_32="--prefix=$OPT"
@@ -100,7 +103,7 @@ LDFLAGS32="-R$OPT/lib"
 [ -z "$FORCE_BOOTSTRAP" ] \
     && [ "`gcc -v 2>&1 | nawk '/^gcc version/ { print $3 }'`" = "$VER" ] \
     && CONFIGURE_OPTS+=" --disable-bootstrap" \
-    && logmsg "--- disabling bootstrap"
+    && logmsg -n "--- disabling bootstrap"
 
 make_install() {
     logmsg "--- make install"
