@@ -1,4 +1,3 @@
-
 | Package | Version | Link | Notes |
 | :------ | :------ | :--- | :---- |
 | archiver/gnu-tar			| 1.31			| https://ftp.gnu.org/gnu/tar/ http://git.savannah.gnu.org/cgit/tar.git/refs/tags
@@ -43,7 +42,7 @@
 | library/libffi			| 3.2.1			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/ncurses			| 6.1.20190202		| http://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
+| library/ncurses			| 6.1.20190216		| http://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.36.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.42.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.20			| http://archive.mozilla.org/pub/nspr/releases/
@@ -102,7 +101,7 @@
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
-| library/python-3/cffi-35		| 1.11.5		| https://pypi.org/project/cffi
+| library/python-3/cffi-35		| 1.12.1		| https://pypi.org/project/cffi
 | library/python-3/cheroot-35		| 6.5.4			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 18.1.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
@@ -112,7 +111,7 @@
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 2.6.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.0.7			| https://pypi.org/project/Mako
-| library/python-3/more-itertools-35	| 5.0.0			| https://pypi.org/project/more-itertools
+| library/python-3/more-itertools-35	| 6.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-35		| 2.3			| https://pypi.org/project/portend
@@ -122,7 +121,7 @@
 | library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pytz-35		| 2018.9		| https://pypi.org/project/pytz
-| library/python-3/setuptools-35	| 40.7.2		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-35	| 40.8.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.14			| https://pypi.org/project/tempora
