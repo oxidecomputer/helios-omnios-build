@@ -21,14 +21,13 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
 PROG=bind
-VER=9.11.5-P1
-VERHUMAN=$VER
+VER=9.11.5-P4
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"
