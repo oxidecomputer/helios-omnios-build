@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=sccs
-VER=5.08
+VER=5.09
 PKG=developer/versioning/sccs
 SUMMARY="Source Code Control System (SCCS)"
 DESC="The POSIX standard Source Code Control System (SCCS)"
@@ -27,8 +27,8 @@ MAKE=dmake
 NO_PARALLEL_MAKE=1
 
 HARDLINK_TARGETS="
-    usr/bin/cdc
-    usr/bin/sact
+    usr/ccs/bin/cdc
+    usr/ccs/bin/sact
 "
 
 # sccs uses the schily build environment so neither the clean nor configure
