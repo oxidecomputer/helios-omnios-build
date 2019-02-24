@@ -22,14 +22,12 @@
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
 PKG=developer/gcc8
 PROG=gcc
-VER=8.2.0
-VERHUMAN=$VER
+VER=8.3.0
 SUMMARY="gcc $VER"
 DESC="The GNU Compiler Collection"
 
@@ -115,7 +113,7 @@ make_install() {
 OUT_OF_TREE_BUILD=1
 
 init
-download_source $PROG/releases/$PROG-$VER $PROG $VER
+download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
