@@ -1,0 +1,121 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0621
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0621
+Problem:    Terminal debugger does not handle unexpected debugger exit.
+Solution:   Check for debugger job ended and close unused buffers. (Damien)
+Files:	    runtime/pack/dist/opt/termdebug/plugin/termdebug.vim
+
+
+*** ../vim-8.1.0620/runtime/pack/dist/opt/termdebug/plugin/termdebug.vim	2018-12-09 15:52:57.091463593 +0100
+--- runtime/pack/dist/opt/termdebug/plugin/termdebug.vim	2018-12-22 15:10:55.681015048 +0100
+***************
+*** 142,147 ****
+--- 142,154 ----
+    endif
+  endfunc
+  
++ " Use when debugger didn't start or ended.
++ func s:CloseBuffers()
++   exe 'bwipe! ' . s:ptybuf
++   exe 'bwipe! ' . s:commbuf
++   unlet! s:gdbwin
++ endfunc
++ 
+  func s:StartDebug_term(dict)
+    " Open a terminal window without a job, to run the debugged program in.
+    let s:ptybuf = term_start('NONE', {
+***************
+*** 181,193 ****
+    let cmd = [g:termdebugger, '-quiet', '-tty', pty] + gdb_args
+    call ch_log('executing "' . join(cmd) . '"')
+    let s:gdbbuf = term_start(cmd, {
+-         \ 'exit_cb': function('s:EndTermDebug'),
+          \ 'term_finish': 'close',
+          \ })
+    if s:gdbbuf == 0
+      echoerr 'Failed to open the gdb terminal window'
+!     exe 'bwipe! ' . s:ptybuf
+!     exe 'bwipe! ' . s:commbuf
+      return
+    endif
+    let s:gdbwin = win_getid(winnr())
+--- 188,198 ----
+    let cmd = [g:termdebugger, '-quiet', '-tty', pty] + gdb_args
+    call ch_log('executing "' . join(cmd) . '"')
+    let s:gdbbuf = term_start(cmd, {
+          \ 'term_finish': 'close',
+          \ })
+    if s:gdbbuf == 0
+      echoerr 'Failed to open the gdb terminal window'
+!     call s:CloseBuffers()
+      return
+    endif
+    let s:gdbwin = win_getid(winnr())
+***************
+*** 204,209 ****
+--- 209,221 ----
+    " why the debugger doesn't work.
+    let try_count = 0
+    while 1
++     let gdbproc = term_getjob(s:gdbbuf)
++     if gdbproc == v:null || job_status(gdbproc) !=# 'run'
++       echoerr string(g:termdebugger) . ' exited unexpectedly'
++       call s:CloseBuffers()
++       return
++     endif
++ 
+      let response = ''
+      for lnum in range(1,200)
+        if term_getline(s:gdbbuf, lnum) =~ 'new-ui mi '
+***************
+*** 211,218 ****
+          let response = term_getline(s:gdbbuf, lnum) . term_getline(s:gdbbuf, lnum + 1)
+          if response =~ 'Undefined command'
+            echoerr 'Sorry, your gdb is too old, gdb 7.12 is required'
+!           exe 'bwipe! ' . s:ptybuf
+!           exe 'bwipe! ' . s:commbuf
+            return
+          endif
+          if response =~ 'New UI allocated'
+--- 223,229 ----
+          let response = term_getline(s:gdbbuf, lnum) . term_getline(s:gdbbuf, lnum + 1)
+          if response =~ 'Undefined command'
+            echoerr 'Sorry, your gdb is too old, gdb 7.12 is required'
+! 	  call s:CloseBuffers()
+            return
+          endif
+          if response =~ 'New UI allocated'
+***************
+*** 243,248 ****
+--- 254,260 ----
+    " "Type <return> to continue" prompt.
+    call s:SendCommand('set pagination off')
+  
++   call job_setoptions(gdbproc, {'exit_cb': function('s:EndTermDebug')})
+    call s:StartDebugCommon(a:dict)
+  endfunc
+  
+*** ../vim-8.1.0620/src/version.c	2018-12-22 14:58:58.750451917 +0100
+--- src/version.c	2018-12-22 15:14:08.407563485 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     621,
+  /**/
+
+-- 
+A day without sunshine is like, well, night.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

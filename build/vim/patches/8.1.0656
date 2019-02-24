@@ -1,0 +1,119 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0656
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0656
+Problem:    Trying to reconnect to X server may cause problems.
+Solution:   Do no try reconnecting when exiting. (James McCoy)
+Files:	    src/os_unix.c
+
+
+*** ../vim-8.1.0655/src/os_unix.c	2018-12-28 17:01:55.307292166 +0100
+--- src/os_unix.c	2018-12-29 10:55:01.706850859 +0100
+***************
+*** 1671,1676 ****
+--- 1671,1702 ----
+      return 0;
+  }
+  
++ /*
++  * Return TRUE when connection to the X server is desired.
++  */
++     static int
++ x_connect_to_server(void)
++ {
++     // No point in connecting if we are exiting or dying.
++     if (exiting || v_dying)
++ 	return FALSE;
++ 
++ #if defined(FEAT_CLIENTSERVER)
++     if (x_force_connect)
++ 	return TRUE;
++ #endif
++     if (x_no_connect)
++ 	return FALSE;
++ 
++     /* Check for a match with "exclude:" from 'clipboard'. */
++     if (clip_exclude_prog != NULL)
++     {
++ 	if (vim_regexec_prog(&clip_exclude_prog, FALSE, T_NAME, (colnr_T)0))
++ 	    return FALSE;
++     }
++     return TRUE;
++ }
++ 
+  #if defined(FEAT_X11) && defined(FEAT_XCLIPBOARD)
+  # if defined(HAVE_SETJMP_H)
+  /*
+***************
+*** 1716,1722 ****
+      static void
+  may_restore_clipboard(void)
+  {
+!     if (xterm_dpy_retry_count > 0)
+      {
+  	--xterm_dpy_retry_count;
+  
+--- 1742,1749 ----
+      static void
+  may_restore_clipboard(void)
+  {
+!     // Only try restoring if we want the connection.
+!     if (x_connect_to_server() && xterm_dpy_retry_count > 0)
+      {
+  	--xterm_dpy_retry_count;
+  
+***************
+*** 1737,1764 ****
+  #endif
+  
+  /*
+-  * Return TRUE when connection to the X server is desired.
+-  */
+-     static int
+- x_connect_to_server(void)
+- {
+- #if defined(FEAT_CLIENTSERVER)
+-     if (x_force_connect)
+- 	return TRUE;
+- #endif
+-     if (x_no_connect)
+- 	return FALSE;
+- 
+-     /* Check for a match with "exclude:" from 'clipboard'. */
+-     if (clip_exclude_prog != NULL)
+-     {
+- 	if (vim_regexec_prog(&clip_exclude_prog, FALSE, T_NAME, (colnr_T)0))
+- 	    return FALSE;
+-     }
+-     return TRUE;
+- }
+- 
+- /*
+   * Test if "dpy" and x11_window are valid by getting the window title.
+   * I don't actually want it yet, so there may be a simpler call to use, but
+   * this will cause the error handler x_error_check() to be called if anything
+--- 1764,1769 ----
+*** ../vim-8.1.0655/src/version.c	2018-12-28 23:22:36.270750732 +0100
+--- src/version.c	2018-12-29 10:59:48.804432411 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     656,
+  /**/
+
+-- 
+"Thou shalt not follow the Null Pointer, for at its end Chaos and
+Madness lie."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,375 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0845
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0845
+Problem:    Having job_status() free the job causes problems.
+Solution:   Do not actually free the job or terminal yet, put it in a list and
+            free it a bit later. Do not use a terminal after checking the job
+            status.  (closes #3873)
+Files:	    src/channel.c, src/terminal.c, src/proto/terminal.pro, src/misc2.c
+
+
+*** ../vim-8.1.0844/src/channel.c	2019-01-28 20:04:20.324937137 +0100
+--- src/channel.c	2019-01-29 22:08:49.222535249 +0100
+***************
+*** 5161,5168 ****
+      }
+  }
+  
+      static void
+! job_free_job(job_T *job)
+  {
+      if (job->jv_next != NULL)
+  	job->jv_next->jv_prev = job->jv_prev;
+--- 5161,5171 ----
+      }
+  }
+  
++ /*
++  * Remove "job" from the list of jobs.
++  */
+      static void
+! job_unlink(job_T *job)
+  {
+      if (job->jv_next != NULL)
+  	job->jv_next->jv_prev = job->jv_prev;
+***************
+*** 5170,5175 ****
+--- 5173,5184 ----
+  	first_job = job->jv_next;
+      else
+  	job->jv_prev->jv_next = job->jv_next;
++ }
++ 
++     static void
++ job_free_job(job_T *job)
++ {
++     job_unlink(job);
+      vim_free(job);
+  }
+  
+***************
+*** 5183,5194 ****
+--- 5192,5235 ----
+      }
+  }
+  
++ job_T *jobs_to_free = NULL;
++ 
++ /*
++  * Put "job" in a list to be freed later, when it's no longer referenced.
++  */
++     static void
++ job_free_later(job_T *job)
++ {
++     job_unlink(job);
++     job->jv_next = jobs_to_free;
++     jobs_to_free = job;
++ }
++ 
++     static void
++ free_jobs_to_free_later(void)
++ {
++     job_T *job;
++ 
++     while (jobs_to_free != NULL)
++     {
++ 	job = jobs_to_free;
++ 	jobs_to_free = job->jv_next;
++ 	job_free_contents(job);
++ 	vim_free(job);
++     }
++ }
++ 
+  #if defined(EXITFREE) || defined(PROTO)
+      void
+  job_free_all(void)
+  {
+      while (first_job != NULL)
+  	job_free(first_job);
++     free_jobs_to_free_later();
++ 
++ # ifdef FEAT_TERMINAL
++     free_unused_terminals();
++ # endif
+  }
+  #endif
+  
+***************
+*** 5359,5364 ****
+--- 5400,5407 ----
+   * NOTE: Must call job_cleanup() only once right after the status of "job"
+   * changed to JOB_ENDED (i.e. after job_status() returned "dead" first or
+   * mch_detect_ended_job() returned non-NULL).
++  * If the job is no longer used it will be removed from the list of jobs, and
++  * deleted a bit later.
+   */
+      void
+  job_cleanup(job_T *job)
+***************
+*** 5394,5408 ****
+  	channel_need_redraw = TRUE;
+      }
+  
+!     /* Do not free the job in case the close callback of the associated channel
+!      * isn't invoked yet and may get information by job_info(). */
+      if (job->jv_refcount == 0 && !job_channel_still_useful(job))
+!     {
+! 	/* The job was already unreferenced and the associated channel was
+! 	 * detached, now that it ended it can be freed. Careful: caller must
+! 	 * not use "job" after this! */
+! 	job_free(job);
+!     }
+  }
+  
+  /*
+--- 5437,5449 ----
+  	channel_need_redraw = TRUE;
+      }
+  
+!     // Do not free the job in case the close callback of the associated channel
+!     // isn't invoked yet and may get information by job_info().
+      if (job->jv_refcount == 0 && !job_channel_still_useful(job))
+! 	// The job was already unreferenced and the associated channel was
+! 	// detached, now that it ended it can be freed. However, a caller might
+! 	// still use it, thus free it a bit later.
+! 	job_free_later(job);
+  }
+  
+  /*
+***************
+*** 5609,5617 ****
+  	if (job == NULL)
+  	    break;
+  	did_end = TRUE;
+! 	job_cleanup(job); // may free "job"
+      }
+  
+      if (channel_need_redraw)
+      {
+  	channel_need_redraw = FALSE;
+--- 5650,5661 ----
+  	if (job == NULL)
+  	    break;
+  	did_end = TRUE;
+! 	job_cleanup(job); // may add "job" to jobs_to_free
+      }
+  
++     // Actually free jobs that were cleaned up.
++     free_jobs_to_free_later();
++ 
+      if (channel_need_redraw)
+      {
+  	channel_need_redraw = FALSE;
+*** ../vim-8.1.0844/src/terminal.c	2019-01-26 15:12:52.558260916 +0100
+--- src/terminal.c	2019-01-29 22:27:59.339243929 +0100
+***************
+*** 803,812 ****
+--- 803,819 ----
+      ga_clear(&term->tl_scrollback);
+  }
+  
++ 
++ // Terminals that need to be freed soon.
++ term_T	*terminals_to_free = NULL;
++ 
+  /*
+   * Free a terminal and everything it refers to.
+   * Kills the job if there is one.
+   * Called when wiping out a buffer.
++  * The actual terminal structure is freed later in free_unused_terminals(),
++  * because callbacks may wipe out a buffer while the terminal is still
++  * referenced.
+   */
+      void
+  free_terminal(buf_T *buf)
+***************
+*** 816,821 ****
+--- 823,830 ----
+  
+      if (term == NULL)
+  	return;
++ 
++     // Unlink the terminal form the list of terminals.
+      if (first_term == term)
+  	first_term = term->tl_next;
+      else
+***************
+*** 834,860 ****
+  	    job_stop(term->tl_job, NULL, "kill");
+  	job_unref(term->tl_job);
+      }
+  
+!     free_scrollback(term);
+  
+!     term_free_vterm(term);
+!     vim_free(term->tl_title);
+  #ifdef FEAT_SESSION
+!     vim_free(term->tl_command);
+  #endif
+!     vim_free(term->tl_kill);
+!     vim_free(term->tl_status_text);
+!     vim_free(term->tl_opencmd);
+!     vim_free(term->tl_eof_chars);
+  #ifdef WIN3264
+!     if (term->tl_out_fd != NULL)
+! 	fclose(term->tl_out_fd);
+  #endif
+!     vim_free(term->tl_cursor_color);
+!     vim_free(term);
+!     buf->b_term = NULL;
+!     if (in_terminal_loop == term)
+! 	in_terminal_loop = NULL;
+  }
+  
+  /*
+--- 843,883 ----
+  	    job_stop(term->tl_job, NULL, "kill");
+  	job_unref(term->tl_job);
+      }
++     term->tl_next = terminals_to_free;
++     terminals_to_free = term;
+  
+!     buf->b_term = NULL;
+!     if (in_terminal_loop == term)
+! 	in_terminal_loop = NULL;
+! }
+  
+!     void
+! free_unused_terminals()
+! {
+!     while (terminals_to_free != NULL)
+!     {
+! 	term_T	    *term = terminals_to_free;
+! 
+! 	terminals_to_free = term->tl_next;
+! 
+! 	free_scrollback(term);
+! 
+! 	term_free_vterm(term);
+! 	vim_free(term->tl_title);
+  #ifdef FEAT_SESSION
+! 	vim_free(term->tl_command);
+  #endif
+! 	vim_free(term->tl_kill);
+! 	vim_free(term->tl_status_text);
+! 	vim_free(term->tl_opencmd);
+! 	vim_free(term->tl_eof_chars);
+  #ifdef WIN3264
+! 	if (term->tl_out_fd != NULL)
+! 	    fclose(term->tl_out_fd);
+  #endif
+! 	vim_free(term->tl_cursor_color);
+! 	vim_free(term);
+!     }
+  }
+  
+  /*
+***************
+*** 1275,1280 ****
+--- 1298,1304 ----
+  /*
+   * Return TRUE if the job for "term" is still running.
+   * If "check_job_status" is TRUE update the job status.
++  * NOTE: "term" may be freed by callbacks.
+   */
+      static int
+  term_job_running_check(term_T *term, int check_job_status)
+***************
+*** 1285,1294 ****
+  	&& term->tl_job != NULL
+  	&& channel_is_open(term->tl_job->jv_channel))
+      {
+  	if (check_job_status)
+! 	    job_status(term->tl_job);
+! 	return (term->tl_job->jv_status == JOB_STARTED
+! 		|| term->tl_job->jv_channel->ch_keep_open);
+      }
+      return FALSE;
+  }
+--- 1309,1323 ----
+  	&& term->tl_job != NULL
+  	&& channel_is_open(term->tl_job->jv_channel))
+      {
++ 	job_T *job = term->tl_job;
++ 
++ 	// Careful: Checking the job status may invoked callbacks, which close
++ 	// the buffer and terminate "term".  However, "job" will not be freed
++ 	// yet.
+  	if (check_job_status)
+! 	    job_status(job);
+! 	return (job->jv_status == JOB_STARTED
+! 		|| (job->jv_channel != NULL && job->jv_channel->ch_keep_open));
+      }
+      return FALSE;
+  }
+***************
+*** 2151,2159 ****
+  #ifdef FEAT_GUI
+  	if (!curbuf->b_term->tl_system)
+  #endif
+! 	    /* TODO: skip screen update when handling a sequence of keys. */
+! 	    /* Repeat redrawing in case a message is received while redrawing.
+! 	     */
+  	    while (must_redraw != 0)
+  		if (update_screen(0) == FAIL)
+  		    break;
+--- 2180,2187 ----
+  #ifdef FEAT_GUI
+  	if (!curbuf->b_term->tl_system)
+  #endif
+! 	    // TODO: skip screen update when handling a sequence of keys.
+! 	    // Repeat redrawing in case a message is received while redrawing.
+  	    while (must_redraw != 0)
+  		if (update_screen(0) == FAIL)
+  		    break;
+*** ../vim-8.1.0844/src/proto/terminal.pro	2019-01-20 15:30:36.893328693 +0100
+--- src/proto/terminal.pro	2019-01-29 22:07:47.982845114 +0100
+***************
+*** 5,10 ****
+--- 5,11 ----
+  int term_write_session(FILE *fd, win_T *wp);
+  int term_should_restore(buf_T *buf);
+  void free_terminal(buf_T *buf);
++ void free_unused_terminals(void);
+  void write_to_term(buf_T *buffer, char_u *msg, channel_T *channel);
+  int term_job_running(term_T *term);
+  int term_none_open(term_T *term);
+*** ../vim-8.1.0844/src/misc2.c	2019-01-29 20:17:25.550548240 +0100
+--- src/misc2.c	2019-01-29 22:07:18.670987912 +0100
+***************
+*** 6387,6392 ****
+--- 6387,6395 ----
+  	if (job_check_ended())
+  	    continue;
+  # endif
++ # ifdef FEAT_TERMINAL
++ 	free_unused_terminals();
++ # endif
+  	break;
+      }
+  
+*** ../vim-8.1.0844/src/version.c	2019-01-29 20:36:53.350466201 +0100
+--- src/version.c	2019-01-29 21:39:08.114348374 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     845,
+  /**/
+
+-- 
+"Hegel was right when he said that we learn from history that man can
+never learn anything from history."       (George Bernard Shaw)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

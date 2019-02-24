@@ -1,0 +1,863 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0717
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0717
+Problem:    There is no function for the ":sign jump" command.
+Solution:   Add the sign_jump() function. (Yegappan Lakshmanan, closes #3780)
+Files:	    runtime/doc/eval.txt, runtime/doc/sign.txt,
+            runtime/doc/usr_41.txt, src/evalfunc.c, src/proto/sign.pro,
+            src/sign.c, src/testdir/test_signs.vim
+
+
+*** ../vim-8.1.0716/runtime/doc/eval.txt	2019-01-07 22:09:54.435460918 +0100
+--- runtime/doc/eval.txt	2019-01-11 13:27:08.166911415 +0100
+***************
+*** 2399,2404 ****
+--- 2412,2419 ----
+  sign_getdefined([{name}])	List	get a list of defined signs
+  sign_getplaced([{expr} [, {dict}]])
+  				List	get a list of placed signs
++ sign_jump({id}, {group}, {expr})
++ 				Number	jump to a sign
+  sign_place({id}, {group}, {name}, {expr} [, {dict}])
+  				Number	place a sign
+  sign_undefine([{name}])		Number	undefine a sign
+***************
+*** 7972,7977 ****
+--- 8000,8020 ----
+  			" Get a List of all the placed signs
+  			echo sign_getplaced()
+  <
++ 							*sign_jump()*
++ sign_jump({id}, {group}, {expr})
++ 		Open the buffer {expr} or jump to the window that contains
++ 		{expr} and position the cursor at sign {id} in group {group}.
++ 		This is similar to the |:sign-jump| command.
++ 
++ 		For the use of {expr}, see |bufname()|.
++ 
++ 		Returns the line number of the sign. Returns -1 if the
++ 		arguments are invalid.
++ 
++ 		Example: >
++ 			" Jump to sign 10 in the current buffer
++ 			call sign_jump(10, '', '')
++ <
+  							*sign_place()*
+  sign_place({id}, {group}, {name}, {expr} [, {dict}])
+  		Place the sign defined as {name} at line {lnum} in file {expr}
+*** ../vim-8.1.0716/runtime/doc/sign.txt	2019-01-06 16:23:29.495325106 +0100
+--- runtime/doc/sign.txt	2019-01-11 13:27:08.166911415 +0100
+***************
+*** 263,275 ****
+  		all the files it appears in.
+  
+  :sign unplace *
+! 		Remove placed signs in the global group from all the files.
+  
+  :sign unplace * group={group}
+! 		Remove placed signs in group {group} from all the files.
+  
+  :sign unplace * group=*
+! 		Remove placed signs in all the groups from all the files.
+  
+  :sign unplace
+  		Remove a placed sign at the cursor position. If multiple signs
+--- 263,275 ----
+  		all the files it appears in.
+  
+  :sign unplace *
+! 		Remove all placed signs in the global group from all the files.
+  
+  :sign unplace * group={group}
+! 		Remove all placed signs in group {group} from all the files.
+  
+  :sign unplace * group=*
+! 		Remove all placed signs in all the groups from all the files.
+  
+  :sign unplace
+  		Remove a placed sign at the cursor position. If multiple signs
+***************
+*** 317,322 ****
+--- 317,324 ----
+  
+  JUMPING TO A SIGN					*:sign-jump* *E157*
+  
++ See |sign_jump()| for the equivalent Vim script function.
++ 
+  :sign jump {id} file={fname}
+  		Open the file {fname} or jump to the window that contains
+  		{fname} and position the cursor at sign {id}.
+*** ../vim-8.1.0716/runtime/doc/usr_41.txt	2018-12-21 15:16:57.475579814 +0100
+--- runtime/doc/usr_41.txt	2019-01-11 13:27:08.166911415 +0100
+***************
+*** 977,982 ****
+--- 987,993 ----
+  	sign_define()		define or update a sign
+  	sign_getdefined()	get a list of defined signs
+  	sign_getplaced()	get a list of placed signs
++ 	sign_jump()		jump to a sign
+  	sign_place()		place a sign
+  	sign_undefine()		undefine a sign
+  	sign_unplace()		unplace a sign
+*** ../vim-8.1.0716/src/evalfunc.c	2019-01-07 22:09:54.439460880 +0100
+--- src/evalfunc.c	2019-01-11 13:35:27.055355680 +0100
+***************
+*** 371,376 ****
+--- 371,377 ----
+  static void f_sign_define(typval_T *argvars, typval_T *rettv);
+  static void f_sign_getdefined(typval_T *argvars, typval_T *rettv);
+  static void f_sign_getplaced(typval_T *argvars, typval_T *rettv);
++ static void f_sign_jump(typval_T *argvars, typval_T *rettv);
+  static void f_sign_place(typval_T *argvars, typval_T *rettv);
+  static void f_sign_undefine(typval_T *argvars, typval_T *rettv);
+  static void f_sign_unplace(typval_T *argvars, typval_T *rettv);
+***************
+*** 858,863 ****
+--- 859,865 ----
+      {"sign_define",	1, 2, f_sign_define},
+      {"sign_getdefined",	0, 1, f_sign_getdefined},
+      {"sign_getplaced",	0, 2, f_sign_getplaced},
++     {"sign_jump",	3, 3, f_sign_jump},
+      {"sign_place",	4, 5, f_sign_place},
+      {"sign_undefine",	0, 1, f_sign_undefine},
+      {"sign_unplace",	1, 2, f_sign_unplace},
+***************
+*** 1918,1923 ****
+--- 1920,1942 ----
+  }
+  
+  /*
++  * Get the buffer from "arg" and give an error and return NULL if it is not
++  * valid.
++  */
++     static buf_T *
++ get_buf_arg(typval_T *arg)
++ {
++     buf_T *buf;
++ 
++     ++emsg_off;
++     buf = tv_get_buf(arg, FALSE);
++     --emsg_off;
++     if (buf == NULL)
++ 	EMSG2(_("E158: Invalid buffer name: %s"), tv_get_string(arg));
++     return buf;
++ }
++ 
++ /*
+   * "bufname(expr)" function
+   */
+      static void
+***************
+*** 11366,11379 ****
+  
+      if (argvars[0].v_type != VAR_UNKNOWN)
+      {
+! 	// get signs placed in this buffer
+! 	buf = tv_get_buf(&argvars[0], FALSE);
+  	if (buf == NULL)
+- 	{
+- 	    EMSG2(_("E158: Invalid buffer name: %s"),
+- 						tv_get_string(&argvars[0]));
+  	    return;
+- 	}
+  
+  	if (argvars[1].v_type != VAR_UNKNOWN)
+  	{
+--- 11385,11394 ----
+  
+      if (argvars[0].v_type != VAR_UNKNOWN)
+      {
+! 	// get signs placed in the specified buffer
+! 	buf = get_buf_arg(&argvars[0]);
+  	if (buf == NULL)
+  	    return;
+  
+  	if (argvars[1].v_type != VAR_UNKNOWN)
+  	{
+***************
+*** 11413,11418 ****
+--- 11428,11480 ----
+  }
+  
+  /*
++  * "sign_jump()" function
++  */
++     static void
++ f_sign_jump(typval_T *argvars, typval_T *rettv)
++ {
++     int		sign_id;
++     char_u	*sign_group = NULL;
++     buf_T	*buf;
++     int		notanum = FALSE;
++ 
++     rettv->vval.v_number = -1;
++ 
++     // Sign identifer
++     sign_id = (int)tv_get_number_chk(&argvars[0], &notanum);
++     if (notanum)
++ 	return;
++     if (sign_id <= 0)
++     {
++ 	EMSG(_(e_invarg));
++ 	return;
++     }
++ 
++     // Sign group
++     sign_group = tv_get_string_chk(&argvars[1]);
++     if (sign_group == NULL)
++ 	return;
++     if (sign_group[0] == '\0')
++ 	sign_group = NULL;			// global sign group
++     else
++     {
++ 	sign_group = vim_strsave(sign_group);
++ 	if (sign_group == NULL)
++ 	    return;
++     }
++ 
++     // Buffer to place the sign
++     buf = get_buf_arg(&argvars[2]);
++     if (buf == NULL)
++ 	goto cleanup;
++ 
++     rettv->vval.v_number = sign_jump(sign_id, sign_group, buf);
++ 
++ cleanup:
++     vim_free(sign_group);
++ }
++ 
++ /*
+   * "sign_place()" function
+   */
+      static void
+***************
+*** 11459,11470 ****
+  	goto cleanup;
+  
+      // Buffer to place the sign
+!     buf = tv_get_buf(&argvars[3], FALSE);
+      if (buf == NULL)
+-     {
+- 	EMSG2(_("E158: Invalid buffer name: %s"), tv_get_string(&argvars[3]));
+  	goto cleanup;
+-     }
+  
+      if (argvars[4].v_type != VAR_UNKNOWN)
+      {
+--- 11521,11529 ----
+  	goto cleanup;
+  
+      // Buffer to place the sign
+!     buf = get_buf_arg(&argvars[3]);
+      if (buf == NULL)
+  	goto cleanup;
+  
+      if (argvars[4].v_type != VAR_UNKNOWN)
+      {
+***************
+*** 11568,11580 ****
+  
+  	if ((di = dict_find(dict, (char_u *)"buffer", -1)) != NULL)
+  	{
+! 	    buf = tv_get_buf(&di->di_tv, FALSE);
+  	    if (buf == NULL)
+- 	    {
+- 		EMSG2(_("E158: Invalid buffer name: %s"),
+- 						tv_get_string(&di->di_tv));
+  		goto cleanup;
+- 	    }
+  	}
+  	if (dict_find(dict, (char_u *)"id", -1) != NULL)
+  	    sign_id = dict_get_number(dict, (char_u *)"id");
+--- 11627,11635 ----
+  
+  	if ((di = dict_find(dict, (char_u *)"buffer", -1)) != NULL)
+  	{
+! 	    buf = get_buf_arg(&di->di_tv);
+  	    if (buf == NULL)
+  		goto cleanup;
+  	}
+  	if (dict_find(dict, (char_u *)"id", -1) != NULL)
+  	    sign_id = dict_get_number(dict, (char_u *)"id");
+*** ../vim-8.1.0716/src/proto/sign.pro	2019-01-01 13:20:05.944711187 +0100
+--- src/proto/sign.pro	2019-01-11 13:27:08.170911387 +0100
+***************
+*** 11,16 ****
+--- 11,17 ----
+  int sign_define_by_name(char_u *name, char_u *icon, char_u *linehl, char_u *text, char_u *texthl);
+  int sign_undefine_by_name(char_u *name);
+  int sign_place(int *sign_id, char_u *sign_group, char_u *sign_name, buf_T *buf, linenr_T lnum, int prio);
++ linenr_T sign_jump(int sign_id, char_u *sign_group, buf_T *buf);
+  int sign_unplace(int sign_id, char_u *sign_group, buf_T *buf, linenr_T atlnum);
+  void ex_sign(exarg_T *eap);
+  void sign_getlist(char_u *name, list_T *retlist);
+*** ../vim-8.1.0716/src/sign.c	2019-01-09 21:47:26.352341721 +0100
+--- src/sign.c	2019-01-11 13:37:14.114593014 +0100
+***************
+*** 22,37 ****
+  
+  struct sign
+  {
+!     sign_T	*sn_next;	/* next sign in list */
+!     int		sn_typenr;	/* type number of sign */
+!     char_u	*sn_name;	/* name of sign */
+!     char_u	*sn_icon;	/* name of pixmap */
+  # ifdef FEAT_SIGN_ICONS
+!     void	*sn_image;	/* icon image */
+  # endif
+!     char_u	*sn_text;	/* text used instead of pixmap */
+!     int		sn_line_hl;	/* highlight ID for line */
+!     int		sn_text_hl;	/* highlight ID for text */
+  };
+  
+  static sign_T	*first_sign = NULL;
+--- 22,37 ----
+  
+  struct sign
+  {
+!     sign_T	*sn_next;	// next sign in list
+!     int		sn_typenr;	// type number of sign
+!     char_u	*sn_name;	// name of sign
+!     char_u	*sn_icon;	// name of pixmap
+  # ifdef FEAT_SIGN_ICONS
+!     void	*sn_image;	// icon image
+  # endif
+!     char_u	*sn_text;	// text used instead of pixmap
+!     int		sn_line_hl;	// highlight ID for line
+!     int		sn_text_hl;	// highlight ID for text
+  };
+  
+  static sign_T	*first_sign = NULL;
+***************
+*** 381,389 ****
+  buf_getsigntype(
+      buf_T	*buf,
+      linenr_T	lnum,
+!     int		type)	/* SIGN_ICON, SIGN_TEXT, SIGN_ANY, SIGN_LINEHL */
+  {
+!     signlist_T	*sign;		/* a sign in a b_signlist */
+  
+      FOR_ALL_SIGNS_IN_BUF(buf, sign)
+  	if (sign->lnum == lnum
+--- 381,389 ----
+  buf_getsigntype(
+      buf_T	*buf,
+      linenr_T	lnum,
+!     int		type)	// SIGN_ICON, SIGN_TEXT, SIGN_ANY, SIGN_LINEHL
+  {
+!     signlist_T	*sign;		// a sign in a b_signlist
+  
+      FOR_ALL_SIGNS_IN_BUF(buf, sign)
+  	if (sign->lnum == lnum
+***************
+*** 526,536 ****
+   */
+      int
+  buf_findsigntype_id(
+!     buf_T	*buf,		/* buffer whose sign we are searching for */
+!     linenr_T	lnum,		/* line number of sign */
+!     int		typenr)		/* sign type number */
+  {
+!     signlist_T	*sign;		/* a sign in the signlist */
+  
+      FOR_ALL_SIGNS_IN_BUF(buf, sign)
+  	if (sign->lnum == lnum && sign->typenr == typenr)
+--- 526,536 ----
+   */
+      int
+  buf_findsigntype_id(
+!     buf_T	*buf,		// buffer whose sign we are searching for
+!     linenr_T	lnum,		// line number of sign
+!     int		typenr)		// sign type number
+  {
+!     signlist_T	*sign;		// a sign in the signlist
+  
+      FOR_ALL_SIGNS_IN_BUF(buf, sign)
+  	if (sign->lnum == lnum && sign->typenr == typenr)
+***************
+*** 656,662 ****
+      long	amount,
+      long	amount_after)
+  {
+!     signlist_T	*sign;		/* a sign in a b_signlist */
+  
+      FOR_ALL_SIGNS_IN_BUF(curbuf, sign)
+      {
+--- 656,662 ----
+      long	amount,
+      long	amount_after)
+  {
+!     signlist_T	*sign;		// a sign in a b_signlist
+  
+      FOR_ALL_SIGNS_IN_BUF(curbuf, sign)
+      {
+***************
+*** 678,685 ****
+   */
+      static int
+  sign_cmd_idx(
+!     char_u	*begin_cmd,	/* begin of sign subcmd */
+!     char_u	*end_cmd)	/* just after sign subcmd */
+  {
+      int		idx;
+      char	save = *end_cmd;
+--- 678,685 ----
+   */
+      static int
+  sign_cmd_idx(
+!     char_u	*begin_cmd,	// begin of sign subcmd
+!     char_u	*end_cmd)	// just after sign subcmd
+  {
+      int		idx;
+      char	save = *end_cmd;
+***************
+*** 984,991 ****
+  }
+  
+  /*
+!  * sign define command
+!  *   ":sign define {name} ..."
+   */
+      static void
+  sign_define_cmd(char_u *sign_name, char_u *cmdline)
+--- 984,1034 ----
+  }
+  
+  /*
+!  * Jump to a sign.
+!  */
+!     linenr_T
+! sign_jump(int sign_id, char_u *sign_group, buf_T *buf)
+! {
+!     linenr_T	lnum;
+! 
+!     if ((lnum = buf_findsign(buf, sign_id, sign_group)) <= 0)
+!     {
+! 	EMSGN(_("E157: Invalid sign ID: %ld"), sign_id);
+! 	return -1;
+!     }
+! 
+!     // goto a sign ...
+!     if (buf_jump_open_win(buf) != NULL)
+!     {			// ... in a current window
+! 	curwin->w_cursor.lnum = lnum;
+! 	check_cursor_lnum();
+! 	beginline(BL_WHITE);
+!     }
+!     else
+!     {			// ... not currently in a window
+! 	char_u	*cmd;
+! 
+! 	if (buf->b_fname == NULL)
+! 	{
+! 	    EMSG(_("E934: Cannot jump to a buffer that does not have a name"));
+! 	    return -1;
+! 	}
+! 	cmd = alloc((unsigned)STRLEN(buf->b_fname) + 25);
+! 	if (cmd == NULL)
+! 	    return -1;
+! 	sprintf((char *)cmd, "e +%ld %s", (long)lnum, buf->b_fname);
+! 	do_cmdline_cmd(cmd);
+! 	vim_free(cmd);
+!     }
+! # ifdef FEAT_FOLDING
+!     foldOpenCursor();
+! # endif
+! 
+!     return lnum;
+! }
+! 
+! /*
+!  * ":sign define {name} ..." command
+   */
+      static void
+  sign_define_cmd(char_u *sign_name, char_u *cmdline)
+***************
+*** 1043,1049 ****
+  }
+  
+  /*
+!  * :sign place command
+   */
+      static void
+  sign_place_cmd(
+--- 1086,1092 ----
+  }
+  
+  /*
+!  * ":sign place" command
+   */
+      static void
+  sign_place_cmd(
+***************
+*** 1087,1093 ****
+  }
+  
+  /*
+!  * :sign unplace command
+   */
+      static void
+  sign_unplace_cmd(
+--- 1130,1136 ----
+  }
+  
+  /*
+!  * ":sign unplace" command
+   */
+      static void
+  sign_unplace_cmd(
+***************
+*** 1152,1158 ****
+  }
+  
+  /*
+!  * Jump to a placed sign
+   *   :sign jump {id} file={fname}
+   *   :sign jump {id} buffer={nr}
+   *   :sign jump {id} group={group} file={fname}
+--- 1195,1201 ----
+  }
+  
+  /*
+!  * Jump to a placed sign commands:
+   *   :sign jump {id} file={fname}
+   *   :sign jump {id} buffer={nr}
+   *   :sign jump {id} group={group} file={fname}
+***************
+*** 1180,1218 ****
+  	EMSG(_(e_invarg));
+  	return;
+      }
+! 
+!     if ((lnum = buf_findsign(buf, id, group)) <= 0)
+!     {
+! 	EMSGN(_("E157: Invalid sign ID: %ld"), id);
+! 	return;
+!     }
+! 
+!     // goto a sign ...
+!     if (buf_jump_open_win(buf) != NULL)
+!     {			// ... in a current window
+! 	curwin->w_cursor.lnum = lnum;
+! 	check_cursor_lnum();
+! 	beginline(BL_WHITE);
+!     }
+!     else
+!     {			// ... not currently in a window
+! 	char_u	*cmd;
+! 
+! 	if (buf->b_fname == NULL)
+! 	{
+! 	    EMSG(_("E934: Cannot jump to a buffer that does not have a name"));
+! 	    return;
+! 	}
+! 	cmd = alloc((unsigned)STRLEN(buf->b_fname) + 25);
+! 	if (cmd == NULL)
+! 	    return;
+! 	sprintf((char *)cmd, "e +%ld %s", (long)lnum, buf->b_fname);
+! 	do_cmdline_cmd(cmd);
+! 	vim_free(cmd);
+!     }
+! # ifdef FEAT_FOLDING
+!     foldOpenCursor();
+! # endif
+  }
+  
+  /*
+--- 1223,1229 ----
+  	EMSG(_(e_invarg));
+  	return;
+      }
+!     (void)sign_jump(id, group, buf);
+  }
+  
+  /*
+***************
+*** 1685,1691 ****
+  # if defined(FEAT_SIGN_ICONS) || defined(PROTO)
+      void *
+  sign_get_image(
+!     int		typenr)		/* the attribute which may have a sign */
+  {
+      sign_T	*sp;
+  
+--- 1696,1702 ----
+  # if defined(FEAT_SIGN_ICONS) || defined(PROTO)
+      void *
+  sign_get_image(
+!     int		typenr)		// the attribute which may have a sign
+  {
+      sign_T	*sp;
+  
+***************
+*** 1709,1719 ****
+  # if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  static enum
+  {
+!     EXP_SUBCMD,		/* expand :sign sub-commands */
+!     EXP_DEFINE,		/* expand :sign define {name} args */
+!     EXP_PLACE,		/* expand :sign place {id} args */
+!     EXP_UNPLACE,	/* expand :sign unplace" */
+!     EXP_SIGN_NAMES	/* expand with name of placed signs */
+  } expand_what;
+  
+  /*
+--- 1720,1730 ----
+  # if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  static enum
+  {
+!     EXP_SUBCMD,		// expand :sign sub-commands
+!     EXP_DEFINE,		// expand :sign define {name} args
+!     EXP_PLACE,		// expand :sign place {id} args
+!     EXP_UNPLACE,	// expand :sign unplace"
+!     EXP_SIGN_NAMES	// expand with name of placed signs
+  } expand_what;
+  
+  /*
+***************
+*** 1753,1759 ****
+  	    return (char_u *)unplace_arg[idx];
+  	}
+      case EXP_SIGN_NAMES:
+! 	/* Complete with name of signs already defined */
+  	current_idx = 0;
+  	for (sp = first_sign; sp != NULL; sp = sp->sn_next)
+  	    if (current_idx++ == idx)
+--- 1764,1770 ----
+  	    return (char_u *)unplace_arg[idx];
+  	}
+      case EXP_SIGN_NAMES:
+! 	// Complete with name of signs already defined
+  	current_idx = 0;
+  	for (sp = first_sign; sp != NULL; sp = sp->sn_next)
+  	    if (current_idx++ == idx)
+***************
+*** 1776,1813 ****
+      int		cmd_idx;
+      char_u	*begin_subcmd_args;
+  
+!     /* Default: expand subcommands. */
+      xp->xp_context = EXPAND_SIGN;
+      expand_what = EXP_SUBCMD;
+      xp->xp_pattern = arg;
+  
+      end_subcmd = skiptowhite(arg);
+      if (*end_subcmd == NUL)
+! 	/* expand subcmd name
+! 	 * :sign {subcmd}<CTRL-D>*/
+  	return;
+  
+      cmd_idx = sign_cmd_idx(arg, end_subcmd);
+  
+!     /* :sign {subcmd} {subcmd_args}
+!      *		      |
+!      *		      begin_subcmd_args */
+      begin_subcmd_args = skipwhite(end_subcmd);
+      p = skiptowhite(begin_subcmd_args);
+      if (*p == NUL)
+      {
+! 	/*
+! 	 * Expand first argument of subcmd when possible.
+! 	 * For ":jump {id}" and ":unplace {id}", we could
+! 	 * possibly expand the ids of all signs already placed.
+! 	 */
+  	xp->xp_pattern = begin_subcmd_args;
+  	switch (cmd_idx)
+  	{
+  	    case SIGNCMD_LIST:
+  	    case SIGNCMD_UNDEFINE:
+! 		/* :sign list <CTRL-D>
+! 		 * :sign undefine <CTRL-D> */
+  		expand_what = EXP_SIGN_NAMES;
+  		break;
+  	    default:
+--- 1787,1824 ----
+      int		cmd_idx;
+      char_u	*begin_subcmd_args;
+  
+!     // Default: expand subcommands.
+      xp->xp_context = EXPAND_SIGN;
+      expand_what = EXP_SUBCMD;
+      xp->xp_pattern = arg;
+  
+      end_subcmd = skiptowhite(arg);
+      if (*end_subcmd == NUL)
+! 	// expand subcmd name
+! 	// :sign {subcmd}<CTRL-D>
+  	return;
+  
+      cmd_idx = sign_cmd_idx(arg, end_subcmd);
+  
+!     // :sign {subcmd} {subcmd_args}
+!     //		      |
+!     //		      begin_subcmd_args
+      begin_subcmd_args = skipwhite(end_subcmd);
+      p = skiptowhite(begin_subcmd_args);
+      if (*p == NUL)
+      {
+! 	//
+! 	// Expand first argument of subcmd when possible.
+! 	// For ":jump {id}" and ":unplace {id}", we could
+! 	// possibly expand the ids of all signs already placed.
+! 	//
+  	xp->xp_pattern = begin_subcmd_args;
+  	switch (cmd_idx)
+  	{
+  	    case SIGNCMD_LIST:
+  	    case SIGNCMD_UNDEFINE:
+! 		// :sign list <CTRL-D>
+! 		// :sign undefine <CTRL-D>
+  		expand_what = EXP_SIGN_NAMES;
+  		break;
+  	    default:
+***************
+*** 1816,1828 ****
+  	return;
+      }
+  
+!     /* expand last argument of subcmd */
+  
+!     /* :sign define {name} {args}...
+!      *		    |
+!      *		    p */
+  
+!     /* Loop until reaching last argument. */
+      do
+      {
+  	p = skipwhite(p);
+--- 1827,1839 ----
+  	return;
+      }
+  
+!     // expand last argument of subcmd
+  
+!     // :sign define {name} {args}...
+!     //		    |
+!     //		    p
+  
+!     // Loop until reaching last argument.
+      do
+      {
+  	p = skipwhite(p);
+***************
+*** 1832,1843 ****
+  
+      p = vim_strchr(last, '=');
+  
+!     /* :sign define {name} {args}... {last}=
+!      *				     |	   |
+!      *				  last	   p */
+      if (p == NULL)
+      {
+! 	/* Expand last argument name (before equal sign). */
+  	xp->xp_pattern = last;
+  	switch (cmd_idx)
+  	{
+--- 1843,1854 ----
+  
+      p = vim_strchr(last, '=');
+  
+!     // :sign define {name} {args}... {last}=
+!     //				     |	   |
+!     //				  last	   p
+      if (p == NULL)
+      {
+! 	// Expand last argument name (before equal sign).
+  	xp->xp_pattern = last;
+  	switch (cmd_idx)
+  	{
+***************
+*** 1857,1863 ****
+      }
+      else
+      {
+! 	/* Expand last argument value (after equal sign). */
+  	xp->xp_pattern = p + 1;
+  	switch (cmd_idx)
+  	{
+--- 1868,1874 ----
+      }
+      else
+      {
+! 	// Expand last argument value (after equal sign).
+  	xp->xp_pattern = p + 1;
+  	switch (cmd_idx)
+  	{
+*** ../vim-8.1.0716/src/testdir/test_signs.vim	2019-01-07 22:09:54.439460880 +0100
+--- src/testdir/test_signs.vim	2019-01-11 13:27:08.170911387 +0100
+***************
+*** 1255,1257 ****
+--- 1255,1302 ----
+    sign undefine sign2
+    enew!
+  endfunc
++ 
++ " Test for the sign_jump() function
++ func Test_sign_jump_func()
++   enew! | only!
++ 
++   sign define sign1 text=#> linehl=Comment
++ 
++   edit foo
++   set buftype=nofile
++   call setline(1, ['A', 'B', 'C', 'D', 'E'])
++   call sign_place(5, '', 'sign1', '', {'lnum' : 2})
++   call sign_place(5, 'g1', 'sign1', '', {'lnum' : 3})
++   call sign_place(6, '', 'sign1', '', {'lnum' : 4})
++   call sign_place(6, 'g1', 'sign1', '', {'lnum' : 5})
++   split bar
++   set buftype=nofile
++   call setline(1, ['P', 'Q', 'R', 'S', 'T'])
++   call sign_place(5, '', 'sign1', '', {'lnum' : 2})
++   call sign_place(5, 'g1', 'sign1', '', {'lnum' : 3})
++   call sign_place(6, '', 'sign1', '', {'lnum' : 4})
++   call sign_place(6, 'g1', 'sign1', '', {'lnum' : 5})
++ 
++   let r = sign_jump(5, '', 'foo')
++   call assert_equal(2, r)
++   call assert_equal(2, line('.'))
++   let r = sign_jump(6, 'g1', 'foo')
++   call assert_equal(5, r)
++   call assert_equal(5, line('.'))
++   let r = sign_jump(5, '', 'bar')
++   call assert_equal(2, r)
++   call assert_equal(2, line('.'))
++ 
++   " Error cases
++   call assert_fails("call sign_jump(99, '', 'bar')", 'E157:')
++   call assert_fails("call sign_jump(0, '', 'foo')", 'E474:')
++   call assert_fails("call sign_jump(5, 'g5', 'foo')", 'E157:')
++   call assert_fails('call sign_jump([], "", "foo")', 'E745:')
++   call assert_fails('call sign_jump(2, [], "foo")', 'E730:')
++   call assert_fails('call sign_jump(2, "", {})', 'E158:')
++   call assert_fails('call sign_jump(2, "", "baz")', 'E158:')
++ 
++   sign unplace * group=*
++   sign undefine sign1
++   enew! | only!
++ endfunc
+*** ../vim-8.1.0716/src/version.c	2019-01-11 13:02:20.105567884 +0100
+--- src/version.c	2019-01-11 13:28:07.266489981 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     717,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+155. You forget to eat because you're too busy surfing the net.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,330 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0706
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0706
+Problem:    Tabline is not always redrawn when something that is used in
+            'tabline' changes.
+Solution:   Add ":redrawtabline" so that a plugin can at least cause the
+            redraw when needed.
+Files:	    runtime/doc/various.txt, runtime/doc/options.txt, src/ex_docmd.c,
+            src/ex_cmds.h, src/screen.c, src/proto/screen.pro,
+            src/ex_cmdidxs.h, src/testdir/test_tabline.vim
+
+
+*** ../vim-8.1.0705/runtime/doc/various.txt	2018-10-25 13:31:33.825906932 +0200
+--- runtime/doc/various.txt	2019-01-08 21:30:41.024061801 +0100
+***************
+*** 30,35 ****
+--- 30,40 ----
+  			includes an item that doesn't cause automatic
+  			updating.
+  
++ 						*:redrawt* *:redrawtabline*
++ :redrawt[abline]	Redraw the tabline.  Useful to update the tabline when
++ 			'tabline' includes an item that doesn't trigger
++ 			automatic updating.
++ 
+  							*N<Del>*
+  <Del>			When entering a number: Remove the last digit.
+  			Note: if you like to use <BS> for this, add this
+***************
+*** 448,453 ****
+--- 453,459 ----
+  N  *+termresponse*	support for |t_RV| and |v:termresponse|
+  B  *+termguicolors*	24-bit color in xterm-compatible terminals support
+  N  *+textobjects*	|text-objects| selection
++ N  *+textprop*		|text-properties|
+     *+tgetent*		non-Unix only: able to use external termcap
+  N  *+timers*		the |timer_start()| function
+  N  *+title*		Setting the window 'title' and 'icon'
+*** ../vim-8.1.0705/runtime/doc/options.txt	2018-12-16 18:19:56.142140712 +0100
+--- runtime/doc/options.txt	2019-01-08 21:33:05.538835954 +0100
+***************
+*** 7716,7721 ****
+--- 7761,7769 ----
+  	the text to be displayed.  Use "%1T" for the first label, "%2T" for
+  	the second one, etc.  Use "%X" items for closing labels.
+  
++ 	When changing something that is used in 'tabline' that does not
++ 	trigger it to be updated, use |:redrawtabline|.
++ 
+  	Keep in mind that only one of the tab pages is the current one, others
+  	are invisible and you can't jump to their windows.
+  
+*** ../vim-8.1.0705/src/ex_docmd.c	2018-12-26 21:44:49.815970351 +0100
+--- src/ex_docmd.c	2019-01-08 21:37:20.140705263 +0100
+***************
+*** 296,301 ****
+--- 296,302 ----
+  static void	ex_later(exarg_T *eap);
+  static void	ex_redir(exarg_T *eap);
+  static void	ex_redrawstatus(exarg_T *eap);
++ static void	ex_redrawtabline(exarg_T *eap);
+  static void	close_redir(void);
+  static void	ex_mkrc(exarg_T *eap);
+  static void	ex_mark(exarg_T *eap);
+***************
+*** 9916,9921 ****
+--- 9917,9941 ----
+      RedrawingDisabled = r;
+      p_lz = p;
+      out_flush();
++ }
++ 
++ /*
++  * ":redrawtabline": force redraw of the tabline
++  */
++     static void
++ ex_redrawtabline(exarg_T *eap UNUSED)
++ {
++     int		r = RedrawingDisabled;
++     int		p = p_lz;
++ 
++     RedrawingDisabled = 0;
++     p_lz = FALSE;
++ 
++     draw_tabline();
++ 
++     RedrawingDisabled = r;
++     p_lz = p;
++     out_flush();
+  }
+  
+      static void
+*** ../vim-8.1.0705/src/ex_cmds.h	2018-12-14 18:52:57.169528762 +0100
+--- src/ex_cmds.h	2019-01-08 21:37:55.296413236 +0100
+***************
+*** 1175,1180 ****
+--- 1175,1183 ----
+  EX(CMD_redrawstatus,	"redrawstatus",	ex_redrawstatus,
+  			BANG|TRLBAR|CMDWIN,
+  			ADDR_LINES),
++ EX(CMD_redrawtabline,	"redrawtabline", ex_redrawtabline,
++ 			TRLBAR|CMDWIN,
++ 			ADDR_LINES),
+  EX(CMD_registers,	"registers",	ex_display,
+  			EXTRA|NOTRLCOM|TRLBAR|CMDWIN,
+  			ADDR_LINES),
+*** ../vim-8.1.0705/src/screen.c	2019-01-06 22:22:03.323843894 +0100
+--- src/screen.c	2019-01-08 21:39:59.155387564 +0100
+***************
+*** 154,160 ****
+  static void win_rest_invalid(win_T *wp);
+  static void msg_pos_mode(void);
+  static void recording_mode(int attr);
+- static void draw_tabline(void);
+  static int fillchar_status(int *attr, win_T *wp);
+  static int fillchar_vsep(int *attr);
+  #ifdef FEAT_MENU
+--- 154,159 ----
+***************
+*** 10693,10699 ****
+  /*
+   * Draw the tab pages line at the top of the Vim window.
+   */
+!     static void
+  draw_tabline(void)
+  {
+      int		tabcount = 0;
+--- 10692,10698 ----
+  /*
+   * Draw the tab pages line at the top of the Vim window.
+   */
+!     void
+  draw_tabline(void)
+  {
+      int		tabcount = 0;
+*** ../vim-8.1.0705/src/proto/screen.pro	2018-09-12 21:52:14.323799725 +0200
+--- src/proto/screen.pro	2019-01-08 21:40:02.323361391 +0100
+***************
+*** 52,57 ****
+--- 52,58 ----
+  int showmode(void);
+  void unshowmode(int force);
+  void clearmode(void);
++ void draw_tabline(void);
+  void get_trans_bufname(buf_T *buf);
+  int redrawing(void);
+  int messaging(void);
+*** ../vim-8.1.0705/src/ex_cmdidxs.h	2018-10-19 22:35:04.885189994 +0200
+--- src/ex_cmdidxs.h	2019-01-08 21:41:34.674599461 +0100
+***************
+*** 23,36 ****
+    /* p */ 309,
+    /* q */ 348,
+    /* r */ 351,
+!   /* s */ 370,
+!   /* t */ 437,
+!   /* u */ 480,
+!   /* v */ 491,
+!   /* w */ 509,
+!   /* x */ 524,
+!   /* y */ 533,
+!   /* z */ 534
+  };
+  
+  /*
+--- 23,36 ----
+    /* p */ 309,
+    /* q */ 348,
+    /* r */ 351,
+!   /* s */ 371,
+!   /* t */ 438,
+!   /* u */ 481,
+!   /* v */ 492,
+!   /* w */ 510,
+!   /* x */ 525,
+!   /* y */ 534,
+!   /* z */ 535
+  };
+  
+  /*
+***************
+*** 58,64 ****
+    /* o */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  5,  0,  0,  0,  0,  0,  0,  9,  0, 11,  0,  0,  0 },
+    /* p */ {  1,  0,  3,  0,  4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  9,  0,  0, 16, 17, 26,  0, 27,  0, 28,  0 },
+    /* q */ {  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+!   /* r */ {  0,  0,  0,  0,  0,  0,  0,  0, 11,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 13, 18,  0,  0,  0,  0 },
+    /* s */ {  2,  6, 15,  0, 18, 22,  0, 24, 25,  0,  0, 28, 30, 34, 38, 40,  0, 48,  0, 49,  0, 61, 62,  0, 63,  0 },
+    /* t */ {  2,  0, 19,  0, 22, 24,  0, 25,  0, 26,  0, 27, 31, 34, 36, 37,  0, 38, 40,  0, 41,  0,  0,  0,  0,  0 },
+    /* u */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+--- 58,64 ----
+    /* o */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  5,  0,  0,  0,  0,  0,  0,  9,  0, 11,  0,  0,  0 },
+    /* p */ {  1,  0,  3,  0,  4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  9,  0,  0, 16, 17, 26,  0, 27,  0, 28,  0 },
+    /* q */ {  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+!   /* r */ {  0,  0,  0,  0,  0,  0,  0,  0, 12,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 14, 19,  0,  0,  0,  0 },
+    /* s */ {  2,  6, 15,  0, 18, 22,  0, 24, 25,  0,  0, 28, 30, 34, 38, 40,  0, 48,  0, 49,  0, 61, 62,  0, 63,  0 },
+    /* t */ {  2,  0, 19,  0, 22, 24,  0, 25,  0, 26,  0, 27, 31, 34, 36, 37,  0, 38, 40,  0, 41,  0,  0,  0,  0,  0 },
+    /* u */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+***************
+*** 69,72 ****
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 547;
+--- 69,72 ----
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 548;
+*** ../vim-8.1.0705/src/testdir/test_tabline.vim	2016-04-11 22:47:00.000000000 +0200
+--- src/testdir/test_tabline.vim	2019-01-08 21:58:51.558123995 +0100
+***************
+*** 1,19 ****
+! function! TablineWithCaughtError()
+    let s:func_in_tabline_called = 1
+    try
+      call eval('unknown expression')
+    catch
+    endtry
+    return ''
+! endfunction
+  
+! function! TablineWithError()
+    let s:func_in_tabline_called = 1
+    call eval('unknown expression')
+    return ''
+! endfunction
+  
+! function! Test_caught_error_in_tabline()
+    if has('gui')
+      set guioptions-=e
+    endif
+--- 1,22 ----
+! 
+! source shared.vim
+! 
+! func TablineWithCaughtError()
+    let s:func_in_tabline_called = 1
+    try
+      call eval('unknown expression')
+    catch
+    endtry
+    return ''
+! endfunc
+  
+! func TablineWithError()
+    let s:func_in_tabline_called = 1
+    call eval('unknown expression')
+    return ''
+! endfunc
+  
+! func Test_caught_error_in_tabline()
+    if has('gui')
+      set guioptions-=e
+    endif
+***************
+*** 27,35 ****
+    call assert_equal(tabline, &tabline)
+    set tabline=
+    let &showtabline = showtabline_save
+! endfunction
+  
+! function! Test_tabline_will_be_disabled_with_error()
+    if has('gui')
+      set guioptions-=e
+    endif
+--- 30,38 ----
+    call assert_equal(tabline, &tabline)
+    set tabline=
+    let &showtabline = showtabline_save
+! endfunc
+  
+! func Test_tabline_will_be_disabled_with_error()
+    if has('gui')
+      set guioptions-=e
+    endif
+***************
+*** 46,49 ****
+    call assert_equal('', &tabline)
+    set tabline=
+    let &showtabline = showtabline_save
+! endfunction
+--- 49,72 ----
+    call assert_equal('', &tabline)
+    set tabline=
+    let &showtabline = showtabline_save
+! endfunc
+! 
+! func Test_redrawtabline()
+!   if has('gui')
+!     set guioptions-=e
+!   endif
+!   let showtabline_save = &showtabline
+!   set showtabline=2
+!   set tabline=%{bufnr('$')}
+!   edit Xtabline1
+!   edit Xtabline2
+!   redraw
+!   call assert_match(bufnr('$') . '', Screenline(1))
+!   au BufAdd * redrawtabline
+!   badd Xtabline3
+!   call assert_match(bufnr('$') . '', Screenline(1))
+! 
+!   set tabline=
+!   let &showtabline = showtabline_save
+!   au! Bufadd
+! endfunc
+*** ../vim-8.1.0705/src/version.c	2019-01-08 21:05:47.820952657 +0100
+--- src/version.c	2019-01-08 21:53:43.416634012 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     706,
+  /**/
+
+-- 
+Never eat yellow snow.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

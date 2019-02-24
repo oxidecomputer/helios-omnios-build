@@ -1,0 +1,3620 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0614
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0614
+Problem:    Placing signs can be complicated.
+Solution:   Add functions for defining and placing signs.  Introduce a group
+            name to avoid different plugins using the same signs. (Yegappan
+            Lakshmanan, closes #3652)
+Files:	    runtime/doc/eval.txt, runtime/doc/sign.txt,
+            runtime/doc/usr_41.txt, src/alloc.h, src/buffer.c, src/evalfunc.c,
+            src/ex_cmds.c, src/globals.h, src/list.c, src/misc2.c,
+            src/netbeans.c, src/proto/buffer.pro, src/proto/ex_cmds.pro,
+            src/proto/list.pro, src/proto/misc2.pro, src/structs.h,
+            src/testdir/test_signs.vim, src/workshop.c
+
+
+*** ../vim-8.1.0613/runtime/doc/eval.txt	2018-12-13 22:17:52.869941530 +0100
+--- runtime/doc/eval.txt	2018-12-21 14:49:21.627875310 +0100
+***************
+*** 2395,2400 ****
+--- 2408,2422 ----
+  				String	escape {string} for use as shell
+  					command argument
+  shiftwidth([{col}])		Number	effective value of 'shiftwidth'
++ sign_define({name} [, {dict}])	Number	define or update a sign
++ sign_getdefined([{name}])	List	get a list of defined signs
++ sign_getplaced([{expr} [, {dict}]])
++ 				List	get a list of placed signs
++ sign_place({id}, {group}, {name}, {expr} [, {dict}])
++ 				Number	place a sign
++ sign_undefine([{name}])		Number	undefine a sign
++ sign_unplace({group} [, {dict}])
++ 				Number	unplace a sign
+  simplify({filename})		String	simplify filename as much as possible
+  sin({expr})			Float	sine of {expr}
+  sinh({expr})			Float	hyperbolic sine of {expr}
+***************
+*** 7841,7847 ****
+--- 7867,8083 ----
+  		'vartabstop' feature. If the 'vartabstop' setting is enabled and
+  		no {col} argument is given, column 1 will be assumed.
+  
++ sign_define({name} [, {dict}])				*sign_define()*
++ 		Define a new sign named {name} or modify the attributes of an
++ 		existing sign.  This is similar to the |:sign-define| command.
+  
++ 		Prefix {name} with a unique text to avoid name collisions.
++ 		There is no {group} like with placing signs.
++ 
++ 		The {name} can be a String or a Number.  The optional {dict}
++ 		argument specifies the sign attributes.  The following values
++ 		are supported:
++ 		    icon	full path to the bitmap file for the sign.
++ 		    linehl	highlight group used for the whole line the
++ 				sign is placed in.
++ 		    text	text that is displayed when there is no icon
++ 				or the GUI is not being used.
++ 		    texthl	highlight group used for the text item
++ 		For an existing sign, the attributes are updated.
++ 
++ 		Returns 0 on success and -1 on failure.
++ 
++ 		Examples: >
++ 			call sign_define("mySign", {"text" : "=>", "texthl" :
++ 					\ "Error", "linehl" : "Search"})
++ <
++ sign_getdefined([{name}])				*sign_getdefined()*
++ 		Get a list of defined signs and their attributes.
++ 		This is similar to the |:sign-list| command.
++ 
++ 		If the {name} is not supplied, then a list of all the defined
++ 		signs is returned. Otherwise the attribute of the specified
++ 		sign is returned.
++ 
++ 		Each list item in the returned value is a dictionary with the
++ 		following entries:
++ 			icon	full path to the bitmap file of the sign
++ 			linehl	highlight group used for the whole line the
++ 				sign is placed in.
++ 			name	name of the sign
++ 			text	text that is displayed when there is no icon
++ 				or the GUI is not being used.
++ 			texthl	highlight group used for the text item
++ 
++ 		Returns an empty List if there are no signs and when {name} is
++ 		not found.
++ 
++ 		Examples: >
++ 			" Get a list of all the defined signs
++ 			echo sign_getdefined()
++ 
++ 			" Get the attribute of the sign named mySign
++ 			echo sign_getdefined("mySign")
++ <
++ sign_getplaced([{expr} [, {dict}]])			*sign_getplaced()*
++ 		Return a list of signs placed in a buffer or all the buffers.
++ 		This is similar to the |:sign-place-list| command.
++ 
++ 		If the optional buffer name {expr} is specified, then only the
++ 		list of signs placed in that buffer is returned.  For the use
++ 		of {expr}, see |bufname()|. The optional {dict} can contain
++ 		the following entries:
++ 			group	select only signs in this group
++ 			id	select sign with this identifier
++ 			lnum	select signs placed in this line. For the use
++ 				of {lnum}, see |line()|.
++ 		If {group} is '*', then signs in all the groups including the
++ 		global group are returned. If {group} is not supplied, then
++ 		only signs in the global group are returned.  If no arguments
++ 		are supplied, then signs in the global group placed in all the
++ 		buffers are returned.
++ 
++ 		Each list item in the returned value is a dictionary with the
++ 		following entries:
++ 			bufnr	number of the buffer with the sign
++ 			signs	list of signs placed in {bufnr}. Each list
++ 				item is a dictionary with the below listed
++ 				entries
++ 
++ 		The dictionary for each sign contains the following entries:
++ 			group	sign group. Set to '' for the global group.
++ 			id	identifier of the sign
++ 			lnum	line number where the sign is placed
++ 			name	name of the defined sign
++ 			priority	sign priority
++ 
++ 		Returns an empty list on failure.
++ 
++ 		Examples: >
++ 			" Get a List of signs placed in eval.c in the
++ 			" global group
++ 			echo sign_getplaced("eval.c")
++ 
++ 			" Get a List of signs in group 'g1' placed in eval.c
++ 			echo sign_getplaced("eval.c", {'group' : 'g1'})
++ 
++ 			" Get a List of signs placed at line 10 in eval.c
++ 			echo sign_getplaced("eval.c", {'lnum' : 10})
++ 
++ 			" Get sign with identifier 10 placed in a.py
++ 			echo sign_getplaced("a.py", {'id' : 10'})
++ 
++ 			" Get sign with id 20 in group 'g1' placed in a.py
++ 			echo sign_getplaced("a.py", {'group' : 'g1',
++ 							\  'id' : 20'})
++ 
++ 			" Get a List of all the placed signs
++ 			echo sign_getplaced()
++ <
++ 							*sign_place()*
++ sign_place({id}, {group}, {name}, {expr} [, {dict}])
++ 		Place the sign defined as {name} at line {lnum} in file {expr}
++ 		and assign {id} and {group} to sign.  This is similar to the
++ 		|:sign-place| command.
++ 
++ 		If the sign identifier {id} is zero, then a new identifier is
++ 		allocated.  Otherwise the specified number is used. {group} is
++ 		the sign group name. To use the global sign group, use an
++ 		empty string.  {group} functions as a namespace for {id}, thus
++ 		two groups can use the same IDs.
++ 		
++ 		{name} refers to a defined sign.
++ 		{expr} refers to a buffer name or number. For the accepted
++ 		values, see |bufname()|.
++ 
++ 		The optional {dict} argument supports the following entries:
++ 			lnum		line number in the buffer {expr} where
++ 					the sign is to be placed. For the
++ 					accepted values, see |line()|.
++ 			priority	priority of the sign. See
++ 					|sign-priority| for more information.
++ 
++ 		If the optional {dict} is not specified, then it modifies the
++ 		placed sign {id} in group {group} to use the defined sign
++ 		{name}.
++ 
++ 		Returns the sign identifier on success and -1 on failure.
++ 
++ 		Examples: >
++ 			" Place a sign named sign1 with id 5 at line 20 in
++ 			" buffer json.c
++ 			call sign_place(5, '', 'sign1', 'json.c',
++ 							\ {'lnum' : 20})
++ 
++ 			" Updates sign 5 in buffer json.c to use sign2
++ 			call sign_place(5, '', 'sign2', 'json.c')
++ 
++ 			" Place a sign named sign3 at line 30 in
++ 			" buffer json.c with a new identifier
++ 			let id = sign_place(0, '', 'sign3', 'json.c',
++ 							\ {'lnum' : 30})
++ 
++ 			" Place a sign named sign4 with id 10 in group 'g3'
++ 			" at line 40 in buffer json.c with priority 90
++ 			call sign_place(10, 'g3', 'sign4', 'json.c',
++ 					\ {'lnum' : 40, 'priority' : 90})
++ <
++ sign_undefine([{name}])					*sign_undefine()*
++ 		Deletes a previously defined sign {name}. This is similar to
++ 		the |:sign-undefine| command. If {name} is not supplied, then
++ 		deletes all the defined signs.
++ 
++ 		Returns 0 on success and -1 on failure.
++ 
++ 		Examples: >
++ 			" Delete a sign named mySign
++ 			call sign_undefine("mySign")
++ 
++ 			" Delete all the signs
++ 			call sign_undefine()
++ <
++ sign_unplace({group} [, {dict}])			*sign_unplace()*
++ 		Remove a previously placed sign in one or more buffers.  This
++ 		is similar to the |:sign-unplace()| command.
++ 
++ 		{group} is the sign group name. To use the global sign group,
++ 		use an empty string.  If {group} is set to '*', then all the
++ 		groups including the global group are used.
++ 		The signs in {group} are selected based on the entries in
++ 		{dict}.  The following optional entries in {dict} are
++ 		supported:
++ 			buffer	buffer name or number. See |bufname()|.
++ 			id	sign identifier
++ 		If {dict} is not supplied, then all the signs in {group} are
++ 		removed.
++ 
++ 		Returns 0 on success and -1 on failure.
++ 
++ 		Examples: >
++ 			" Remove sign 10 from buffer a.vim
++ 			call sign_unplace('', {'buffer' : "a.vim", 'id' : 10})
++ 
++ 			" Remove sign 20 in group 'g1' from buffer 3
++ 			call sign_unplace('g1', {'buffer' : 3, 'id' : 20})
++ 
++ 			" Remove all the signs in group 'g2' from buffer 10
++ 			call sign_unplace('g2', {'buffer' : 10})
++ 
++ 			" Remove sign 30 in group 'g3' from all the buffers
++ 			call sign_unplace('g3', {'id' : 30})
++ 
++ 			" Remove all the signs placed in buffer 5
++ 			call sign_unplace('*', {'buffer' : 5})
++ 
++ 			" Remove the signs in group 'g4' from all the buffers
++ 			call sign_unplace('g4')
++ 
++ 			" Remove sign 40 from all the buffers
++ 			call sign_unplace('*', {'id' : 40})
++ 
++ 			" Remove all the placed signs from all the buffers
++ 			call sign_unplace('*')
++ <
+  simplify({filename})					*simplify()*
+  		Simplify the file name as much as possible without changing
+  		the meaning.  Shortcuts (on MS-Windows) or symbolic links (on
+*** ../vim-8.1.0613/runtime/doc/sign.txt	2018-05-17 13:42:02.000000000 +0200
+--- runtime/doc/sign.txt	2018-12-21 14:52:11.058495079 +0100
+***************
+*** 51,56 ****
+--- 51,70 ----
+  Example to set the color: >
+  
+  	:highlight SignColumn guibg=darkgrey
++ <
++ 							*sign-group*
++ Each sign can be assigned to either the global group or a named group. When
++ placing a sign, if a group name is not supplied, or an empty string is used,
++ then the sign is placed in the global group. Otherwise the sign is placed in
++ the named group. The sign identifier is unique within a group. The sign group
++ allows Vim plugins to use unique signs without interfering with other plugins
++ using signs.
++ 
++ 							*sign-priority*
++ Each placed sign is assigned a priority value. When multiple signs are placed
++ on the same line, the attributes of the sign with the highest priority is used
++ independent of the sign group. The default priority for a sign is 10. The
++ priority is assigned at the time of placing a sign.
+  
+  ==============================================================================
+  2. Commands					*sign-commands* *:sig* *:sign*
+***************
+*** 69,74 ****
+--- 83,90 ----
+  
+  DEFINING A SIGN.			*:sign-define* *E255* *E160* *E612*
+  
++ See |sign_define()| for the equivalent Vim script function.
++ 
+  :sign define {name} {argument}...
+  		Define a new sign or set attributes for an existing sign.
+  		The {name} can either be a number (all digits) or a name
+***************
+*** 106,118 ****
+--- 122,139 ----
+  
+  DELETING A SIGN						*:sign-undefine* *E155*
+  
++ See |sign_undefine()| for the equivalent Vim script function.
++ 
+  :sign undefine {name}
+  		Deletes a previously defined sign.  If signs with this {name}
+  		are still placed this will cause trouble.
+  
+  
++ 
+  LISTING SIGNS						*:sign-list* *E156*
+  
++ See |sign_getdefined()| for the equivalent Vim script function.
++ 
+  :sign list	Lists all defined signs and their attributes.
+  
+  :sign list {name}
+***************
+*** 121,126 ****
+--- 142,149 ----
+  
+  PLACING SIGNS						*:sign-place* *E158*
+  
++ See |sign_place()| for the equivalent Vim script function.
++ 
+  :sign place {id} line={lnum} name={name} file={fname}
+  		Place sign defined as {name} at line {lnum} in file {fname}.
+  							*:sign-fname*
+***************
+*** 136,141 ****
+--- 159,183 ----
+  		to be done several times and making changes may not work as
+  		expected).
+  
++ 		The following optional sign attributes can be specified before
++ 		"file=":
++ 			group={group}	Place sign in sign group {group}
++ 			priority={prio}	Assign priority {prio} to sign
++ 
++ 		By default, the sign is placed in the global sign group.
++ 
++ 		By default, the sign is assigned a default priority of 10. To
++ 		assign a different priority value, use "priority={prio}" to
++ 		specify a value. The priority is used to determine the
++ 		highlight group used when multiple signs are placed on the
++ 		same line.
++ 
++ 		Examples: >
++ 			:sign place 5 line=3 name=sign1 file=a.py
++ 			:sign place 6 group=g2 line=2 name=sign2 file=x.py
++ 			:sign place 9 group=g2 priority=50 line=5
++ 							\ name=sign1 file=a.py
++ <
+  :sign place {id} line={lnum} name={name} buffer={nr}
+  		Same, but use buffer {nr}.
+  
+***************
+*** 146,176 ****
+  		This can be used to change the displayed sign without moving
+  		it (e.g., when the debugger has stopped at a breakpoint).
+  
+  :sign place {id} name={name} buffer={nr}
+  		Same, but use buffer {nr}.
+  
+  
+  REMOVING SIGNS						*:sign-unplace* *E159*
+  
+  :sign unplace {id} file={fname}
+  		Remove the previously placed sign {id} from file {fname}.
+  		See remark above about {fname} |:sign-fname|.
+  
+  :sign unplace * file={fname}
+  		Remove all placed signs in file {fname}.
+  
+  :sign unplace {id} buffer={nr}
+  		Remove the previously placed sign {id} from buffer {nr}.
+  
+  :sign unplace * buffer={nr}
+  		Remove all placed signs in buffer {nr}.
+  
+  :sign unplace {id}
+  		Remove the previously placed sign {id} from all files it
+  		appears in.
+  
+  :sign unplace *
+! 		Remove all placed signs.
+  
+  :sign unplace
+  		Remove the placed sign at the cursor position.
+--- 188,260 ----
+  		This can be used to change the displayed sign without moving
+  		it (e.g., when the debugger has stopped at a breakpoint).
+  
++ 		The optional "group={group}" attribute can be used before
++ 		"file=" to select a sign in a particular group.
++ 
+  :sign place {id} name={name} buffer={nr}
+  		Same, but use buffer {nr}.
+  
+  
+  REMOVING SIGNS						*:sign-unplace* *E159*
+  
++ See |sign_unplace()| for the equivalent Vim script function.
++ 
+  :sign unplace {id} file={fname}
+  		Remove the previously placed sign {id} from file {fname}.
+  		See remark above about {fname} |:sign-fname|.
+  
++ :sign unplace {id} group={group} file={fname}
++ 		Same but remove the sign {id} in sign group {group}.
++ 
++ :sign unplace {id} group=* file={fname}
++ 		Same but remove the sign {id} from all the sign groups.
++ 
+  :sign unplace * file={fname}
+  		Remove all placed signs in file {fname}.
+  
++ :sign unplace * group={group} file={fname}
++ 		Remove all placed signs in group {group} from file {fname}.
++ 
++ :sign unplace * group=* file={fname}
++ 		Remove all placed signs in all the groups from file {fname}.
++ 
+  :sign unplace {id} buffer={nr}
+  		Remove the previously placed sign {id} from buffer {nr}.
+  
++ :sign unplace {id} group={group} buffer={nr}
++ 		Remove the previously placed sign {id} in group {group} from
++ 		buffer {nr}.
++ 
++ :sign unplace {id} group=* buffer={nr}
++ 		Remove the previously placed sign {id} in all the groups from
++ 		buffer {nr}.
++ 
+  :sign unplace * buffer={nr}
+  		Remove all placed signs in buffer {nr}.
+  
++ :sign unplace * group={group} buffer={nr}
++ 		Remove all placed signs in group {group} from buffer {nr}.
++ 
++ :sign unplace * group=* buffer={nr}
++ 		Remove all placed signs in all the groups from buffer {nr}.
++ 
+  :sign unplace {id}
+  		Remove the previously placed sign {id} from all files it
+  		appears in.
+  
++ :sign unplace {id} group={group}
++ 		Remove the previously placed sign {id} in group {group} from
++ 		all files it appears in.
++ 
++ :sign unplace {id} group=*
++ 		Remove the previously placed sign {id} in all the groups from
++ 		all the files it appears in.
++ 
+  :sign unplace *
+! 		Remove all placed signs in the global group.
+! 
+! :sign unplace * group=*
+! 		Remove all placed signs in all the groups.
+  
+  :sign unplace
+  		Remove the placed sign at the cursor position.
+***************
+*** 178,192 ****
+--- 262,287 ----
+  
+  LISTING PLACED SIGNS					*:sign-place-list*
+  
++ See |sign_getplaced()| for the equivalent Vim script function.
++ 
+  :sign place file={fname}
+  		List signs placed in file {fname}.
+  		See remark above about {fname} |:sign-fname|.
+  
++ :sign place group={group} file={fname}
++ 		List signs in group {group} placed in file {fname}.
++ 
+  :sign place buffer={nr}
+  		List signs placed in buffer {nr}.
+  
++ :sign place group={group} buffer={nr}
++ 		List signs in group {group} placed in buffer {nr}.
++ 
+  :sign place	List placed signs in all files.
+  
++ :sign place group={group}
++ 		List placed signs in all sign groups in all the files.
++ 
+  
+  JUMPING TO A SIGN					*:sign-jump* *E157*
+  
+***************
+*** 202,205 ****
+  		have a name.
+  
+  
+!  vim:tw=78:ts=8:ft=help:norl:
+--- 297,300 ----
+  		have a name.
+  
+  
+!  vim:tw=78:ts=8:noet:ft=help:norl:
+*** ../vim-8.1.0613/runtime/doc/usr_41.txt	2018-11-11 15:20:32.432704446 +0100
+--- runtime/doc/usr_41.txt	2018-12-21 14:36:57.238303578 +0100
+***************
+*** 973,978 ****
+--- 983,996 ----
+  	job_info()		get information about a job
+  	job_setoptions()	set options for a job
+  
++ Signs:						*sign-functions*
++ 	sign_define()		define or update a sign
++ 	sign_getdefined()	get a list of defined signs
++ 	sign_getplaced()	get a list of placed signs
++ 	sign_place()		place a sign
++ 	sign_undefine()		undefine a sign
++ 	sign_unplace()		unplace a sign
++ 
+  Terminal window:				*terminal-functions*
+  	term_start()		open a terminal window and run a job
+  	term_list()		get the list of terminal buffers
+*** ../vim-8.1.0613/src/alloc.h	2018-11-11 15:20:32.432704446 +0100
+--- src/alloc.h	2018-12-21 14:36:57.238303578 +0100
+***************
+*** 21,25 ****
+--- 21,33 ----
+  	aid_tagstack_items,
+  	aid_tagstack_from,
+  	aid_tagstack_details,
++ 	aid_sign_getdefined,
++ 	aid_sign_getplaced,
++ 	aid_sign_define_by_name,
++ 	aid_sign_getlist,
++ 	aid_sign_getplaced_dict,
++ 	aid_sign_getplaced_list,
++ 	aid_insert_sign,
++ 	aid_sign_getinfo,
+  	aid_last
+  } alloc_id_T;
+*** ../vim-8.1.0613/src/buffer.c	2018-12-21 13:03:24.292337854 +0100
+--- src/buffer.c	2018-12-21 14:54:24.453442611 +0100
+***************
+*** 936,942 ****
+      uc_clear(&buf->b_ucmds);		/* clear local user commands */
+  #endif
+  #ifdef FEAT_SIGNS
+!     buf_delete_signs(buf);		/* delete any signs */
+  #endif
+  #ifdef FEAT_NETBEANS_INTG
+      netbeans_file_killed(buf);
+--- 936,942 ----
+      uc_clear(&buf->b_ucmds);		/* clear local user commands */
+  #endif
+  #ifdef FEAT_SIGNS
+!     buf_delete_signs(buf, (char_u *)"*");	// delete any signs */
+  #endif
+  #ifdef FEAT_NETBEANS_INTG
+      netbeans_file_killed(buf);
+***************
+*** 5866,5890 ****
+  
+  #if defined(FEAT_SIGNS) || defined(PROTO)
+  /*
+!  * Insert the sign into the signlist.
+   */
+      static void
+  insert_sign(
+!     buf_T	*buf,		/* buffer to store sign in */
+!     signlist_T	*prev,		/* previous sign entry */
+!     signlist_T	*next,		/* next sign entry */
+!     int		id,		/* sign ID */
+!     linenr_T	lnum,		/* line number which gets the mark */
+!     int		typenr)		/* typenr of sign we are adding */
+  {
+      signlist_T	*newsign;
+  
+!     newsign = (signlist_T *)lalloc((long_u)sizeof(signlist_T), FALSE);
+      if (newsign != NULL)
+      {
+  	newsign->id = id;
+  	newsign->lnum = lnum;
+  	newsign->typenr = typenr;
+  	newsign->next = next;
+  	newsign->prev = prev;
+  	if (next != NULL)
+--- 5866,5899 ----
+  
+  #if defined(FEAT_SIGNS) || defined(PROTO)
+  /*
+!  * Insert a new sign into the signlist for buffer 'buf' between the 'prev' and
+!  * 'next' signs.
+   */
+      static void
+  insert_sign(
+!     buf_T	*buf,		// buffer to store sign in
+!     signlist_T	*prev,		// previous sign entry
+!     signlist_T	*next,		// next sign entry
+!     int		id,		// sign ID
+!     char_u	*group,		// sign group; NULL for global group
+!     int		prio,		// sign priority
+!     linenr_T	lnum,		// line number which gets the mark
+!     int		typenr)		// typenr of sign we are adding
+  {
+      signlist_T	*newsign;
+  
+!     newsign = (signlist_T *)lalloc_id((long_u)sizeof(signlist_T), FALSE,
+! 							aid_insert_sign);
+      if (newsign != NULL)
+      {
+  	newsign->id = id;
+  	newsign->lnum = lnum;
+  	newsign->typenr = typenr;
++ 	if (group != NULL)
++ 	    newsign->group = vim_strsave(group);
++ 	else
++ 	    newsign->group = NULL;
++ 	newsign->priority = prio;
+  	newsign->next = next;
+  	newsign->prev = prev;
+  	if (next != NULL)
+***************
+*** 5892,5906 ****
+  
+  	if (prev == NULL)
+  	{
+! 	    /* When adding first sign need to redraw the windows to create the
+! 	     * column for signs. */
+  	    if (buf->b_signlist == NULL)
+  	    {
+  		redraw_buf_later(buf, NOT_VALID);
+  		changed_cline_bef_curs();
+  	    }
+  
+! 	    /* first sign in signlist */
+  	    buf->b_signlist = newsign;
+  #ifdef FEAT_NETBEANS_INTG
+  	    if (netbeans_active())
+--- 5901,5915 ----
+  
+  	if (prev == NULL)
+  	{
+! 	    // When adding first sign need to redraw the windows to create the
+! 	    // column for signs.
+  	    if (buf->b_signlist == NULL)
+  	    {
+  		redraw_buf_later(buf, NOT_VALID);
+  		changed_cline_bef_curs();
+  	    }
+  
+! 	    // first sign in signlist
+  	    buf->b_signlist = newsign;
+  #ifdef FEAT_NETBEANS_INTG
+  	    if (netbeans_active())
+***************
+*** 5913,5962 ****
+  }
+  
+  /*
+   * Add the sign into the signlist. Find the right spot to do it though.
+   */
+      void
+  buf_addsign(
+!     buf_T	*buf,		/* buffer to store sign in */
+!     int		id,		/* sign ID */
+!     linenr_T	lnum,		/* line number which gets the mark */
+!     int		typenr)		/* typenr of sign we are adding */
+  {
+!     signlist_T	*sign;		/* a sign in the signlist */
+!     signlist_T	*prev;		/* the previous sign */
+  
+      prev = NULL;
+!     for (sign = buf->b_signlist; sign != NULL; sign = sign->next)
+      {
+! 	if (lnum == sign->lnum && id == sign->id)
+  	{
+  	    sign->typenr = typenr;
+  	    return;
+  	}
+  	else if (lnum < sign->lnum)
+  	{
+! 	    // keep signs sorted by lnum: insert new sign at head of list for
+! 	    // this lnum
+! 	    while (prev != NULL && prev->lnum == lnum)
+! 		prev = prev->prev;
+! 	    if (prev == NULL)
+! 		sign = buf->b_signlist;
+! 	    else
+! 		sign = prev->next;
+! 	    insert_sign(buf, prev, sign, id, lnum, typenr);
+  	    return;
+  	}
+  	prev = sign;
+      }
+  
+!     // insert new sign at head of list for this lnum
+!     while (prev != NULL && prev->lnum == lnum)
+! 	prev = prev->prev;
+!     if (prev == NULL)
+! 	sign = buf->b_signlist;
+!     else
+! 	sign = prev->next;
+!     insert_sign(buf, prev, sign, id, lnum, typenr);
+  
+      return;
+  }
+--- 5922,6021 ----
+  }
+  
+  /*
++  * Insert a new sign sorted by line number and sign priority.
++  */
++     static void
++ insert_sign_by_lnum_prio(
++     buf_T	*buf,		// buffer to store sign in
++     signlist_T	*prev,		// previous sign entry
++     int		id,		// sign ID
++     char_u	*group,		// sign group; NULL for global group
++     int		prio,		// sign priority
++     linenr_T	lnum,		// line number which gets the mark
++     int		typenr)		// typenr of sign we are adding
++ {
++     signlist_T	*sign;
++ 
++     // keep signs sorted by lnum and by priority: insert new sign at
++     // the proper position in the list for this lnum.
++     while (prev != NULL && prev->lnum == lnum && prev->priority <= prio)
++ 	prev = prev->prev;
++     if (prev == NULL)
++ 	sign = buf->b_signlist;
++     else
++ 	sign = prev->next;
++ 
++     insert_sign(buf, prev, sign, id, group, prio, lnum, typenr);
++ }
++ 
++ /*
++  * Returns TRUE if 'sign' is in 'group'.
++  * A sign can either be in the global group (sign->group == NULL)
++  * or in a named group. If 'group' is '*', then the sign is part of the group.
++  */
++     int
++ sign_in_group(signlist_T *sign, char_u *group)
++ {
++     return ((group != NULL && STRCMP(group, "*") == 0) ||
++ 	    (group == NULL && sign->group == NULL) ||
++ 	    (group != NULL && sign->group != NULL &&
++ 					STRCMP(group, sign->group) == 0));
++ }
++ 
++ /*
++  * Return information about a sign in a Dict
++  */
++     dict_T *
++ sign_get_info(signlist_T *sign)
++ {
++     dict_T	*d;
++ 
++     if ((d = dict_alloc_id(aid_sign_getinfo)) == NULL)
++ 	return NULL;
++     dict_add_number(d, "id", sign->id);
++     dict_add_string(d, "group", (sign->group == NULL) ?
++ 						(char_u *)"" : sign->group);
++     dict_add_number(d, "lnum", sign->lnum);
++     dict_add_string(d, "name", sign_typenr2name(sign->typenr));
++     dict_add_number(d, "priority", sign->priority);
++ 
++     return d;
++ }
++ 
++ /*
+   * Add the sign into the signlist. Find the right spot to do it though.
+   */
+      void
+  buf_addsign(
+!     buf_T	*buf,		// buffer to store sign in
+!     int		id,		// sign ID
+!     char_u	*group,		// sign group
+!     int		prio,		// sign priority
+!     linenr_T	lnum,		// line number which gets the mark
+!     int		typenr)		// typenr of sign we are adding
+  {
+!     signlist_T	*sign;		// a sign in the signlist
+!     signlist_T	*prev;		// the previous sign
+  
+      prev = NULL;
+!     FOR_ALL_SIGNS_IN_BUF(buf)
+      {
+! 	if (lnum == sign->lnum && id == sign->id &&
+! 		sign_in_group(sign, group))
+  	{
++ 	    // Update an existing sign
+  	    sign->typenr = typenr;
+  	    return;
+  	}
+  	else if (lnum < sign->lnum)
+  	{
+! 	    insert_sign_by_lnum_prio(buf, prev, id, group, prio, lnum, typenr);
+  	    return;
+  	}
+  	prev = sign;
+      }
+  
+!     insert_sign_by_lnum_prio(buf, prev, id, group, prio, lnum, typenr);
+  
+      return;
+  }
+***************
+*** 5967,5981 ****
+   */
+      linenr_T
+  buf_change_sign_type(
+!     buf_T	*buf,		/* buffer to store sign in */
+!     int		markId,		/* sign ID */
+!     int		typenr)		/* typenr of sign we are adding */
+  {
+!     signlist_T	*sign;		/* a sign in the signlist */
+  
+!     for (sign = buf->b_signlist; sign != NULL; sign = sign->next)
+      {
+! 	if (sign->id == markId)
+  	{
+  	    sign->typenr = typenr;
+  	    return sign->lnum;
+--- 6026,6041 ----
+   */
+      linenr_T
+  buf_change_sign_type(
+!     buf_T	*buf,		// buffer to store sign in
+!     int		markId,		// sign ID
+!     char_u	*group,		// sign group
+!     int		typenr)		// typenr of sign we are adding
+  {
+!     signlist_T	*sign;		// a sign in the signlist
+  
+!     FOR_ALL_SIGNS_IN_BUF(buf)
+      {
+! 	if (sign->id == markId && sign_in_group(sign, group))
+  	{
+  	    sign->typenr = typenr;
+  	    return sign->lnum;
+***************
+*** 5985,5990 ****
+--- 6045,6055 ----
+      return (linenr_T)0;
+  }
+  
++ /*
++  * Return the type number of the sign at line number 'lnum' in buffer 'buf'
++  * which has the attribute specifed by 'type'. Returns 0 if a sign is not found
++  * at the line number or it doesn't have the specified attribute.
++  */
+      int
+  buf_getsigntype(
+      buf_T	*buf,
+***************
+*** 5993,5999 ****
+  {
+      signlist_T	*sign;		/* a sign in a b_signlist */
+  
+!     for (sign = buf->b_signlist; sign != NULL; sign = sign->next)
+  	if (sign->lnum == lnum
+  		&& (type == SIGN_ANY
+  # ifdef FEAT_SIGN_ICONS
+--- 6058,6064 ----
+  {
+      signlist_T	*sign;		/* a sign in a b_signlist */
+  
+!     FOR_ALL_SIGNS_IN_BUF(buf)
+  	if (sign->lnum == lnum
+  		&& (type == SIGN_ANY
+  # ifdef FEAT_SIGN_ICONS
+***************
+*** 6008,6044 ****
+      return 0;
+  }
+  
+! 
+      linenr_T
+  buf_delsign(
+!     buf_T	*buf,		/* buffer sign is stored in */
+!     int		id)		/* sign id */
+! {
+!     signlist_T	**lastp;	/* pointer to pointer to current sign */
+!     signlist_T	*sign;		/* a sign in a b_signlist */
+!     signlist_T	*next;		/* the next sign in a b_signlist */
+!     linenr_T	lnum;		/* line number whose sign was deleted */
+  
+      lastp = &buf->b_signlist;
+      lnum = 0;
+      for (sign = buf->b_signlist; sign != NULL; sign = next)
+      {
+  	next = sign->next;
+! 	if (sign->id == id)
+  	{
+  	    *lastp = next;
+  	    if (next != NULL)
+  		next->prev = sign->prev;
+  	    lnum = sign->lnum;
+  	    vim_free(sign);
+! 	    break;
+  	}
+  	else
+  	    lastp = &sign->next;
+      }
+  
+!     /* When deleted the last sign need to redraw the windows to remove the
+!      * sign column. */
+      if (buf->b_signlist == NULL)
+      {
+  	redraw_buf_later(buf, NOT_VALID);
+--- 6073,6123 ----
+      return 0;
+  }
+  
+! /*
+!  * Delete sign 'id' in group 'group' from buffer 'buf'.
+!  * If 'id' is zero, then delete all the signs in group 'group'. Otherwise
+!  * delete only the specified sign.
+!  * If 'group' is '*', then delete the sign in all the groups. If 'group' is
+!  * NULL, then delete the sign in the global group. Otherwise delete the sign in
+!  * the specified group.
+!  * Returns the line number of the deleted sign. If multiple signs are deleted,
+!  * then returns the line number of the last sign deleted.
+!  */
+      linenr_T
+  buf_delsign(
+!     buf_T	*buf,		// buffer sign is stored in
+!     int		id,		// sign id
+!     char_u	*group)		// sign group
+! {
+!     signlist_T	**lastp;	// pointer to pointer to current sign
+!     signlist_T	*sign;		// a sign in a b_signlist
+!     signlist_T	*next;		// the next sign in a b_signlist
+!     linenr_T	lnum;		// line number whose sign was deleted
+  
+      lastp = &buf->b_signlist;
+      lnum = 0;
+      for (sign = buf->b_signlist; sign != NULL; sign = next)
+      {
+  	next = sign->next;
+! 	if ((id == 0 || sign->id == id) && sign_in_group(sign, group))
+! 
+  	{
+  	    *lastp = next;
+  	    if (next != NULL)
+  		next->prev = sign->prev;
+  	    lnum = sign->lnum;
++ 	    vim_free(sign->group);
+  	    vim_free(sign);
+! 	    // Check whether only one sign needs to be deleted
+! 	    if (group == NULL || (*group != '*' && id != 0))
+! 		break;
+  	}
+  	else
+  	    lastp = &sign->next;
+      }
+  
+!     // When deleted the last sign need to redraw the windows to remove the
+!     // sign column.
+      if (buf->b_signlist == NULL)
+      {
+  	redraw_buf_later(buf, NOT_VALID);
+***************
+*** 6050,6088 ****
+  
+  
+  /*
+!  * Find the line number of the sign with the requested id. If the sign does
+!  * not exist, return 0 as the line number. This will still let the correct file
+!  * get loaded.
+   */
+      int
+  buf_findsign(
+!     buf_T	*buf,		/* buffer to store sign in */
+!     int		id)		/* sign ID */
+  {
+!     signlist_T	*sign;		/* a sign in the signlist */
+  
+!     for (sign = buf->b_signlist; sign != NULL; sign = sign->next)
+! 	if (sign->id == id)
+  	    return sign->lnum;
+  
+      return 0;
+  }
+  
+      int
+  buf_findsign_id(
+!     buf_T	*buf,		/* buffer whose sign we are searching for */
+!     linenr_T	lnum)		/* line number of sign */
+  {
+!     signlist_T	*sign;		/* a sign in the signlist */
+  
+!     for (sign = buf->b_signlist; sign != NULL; sign = sign->next)
+! 	if (sign->lnum == lnum)
+! 	    return sign->id;
+  
+      return 0;
+  }
+  
+- 
+  # if defined(FEAT_NETBEANS_INTG) || defined(PROTO)
+  /*
+   * See if a given type of sign exists on a specific line.
+--- 6129,6206 ----
+  
+  
+  /*
+!  * Find the line number of the sign with the requested id in group 'group'. If
+!  * the sign does not exist, return 0 as the line number. This will still let
+!  * the correct file get loaded.
+   */
+      int
+  buf_findsign(
+!     buf_T	*buf,		// buffer to store sign in
+!     int		id,		// sign ID
+!     char_u	*group)		// sign group
+  {
+!     signlist_T	*sign;		// a sign in the signlist
+  
+!     FOR_ALL_SIGNS_IN_BUF(buf)
+! 	if (sign->id == id && sign_in_group(sign, group))
+  	    return sign->lnum;
+  
+      return 0;
+  }
+  
++ /*
++  * Return the sign at line 'lnum' in buffer 'buf'. Returns NULL if a sign is
++  * not found at the line.
++  */
++     static signlist_T *
++ buf_getsign_at_line(
++     buf_T	*buf,		// buffer whose sign we are searching for
++     linenr_T	lnum)		// line number of sign
++ {
++     signlist_T	*sign;		// a sign in the signlist
++ 
++     FOR_ALL_SIGNS_IN_BUF(buf)
++ 	if (sign->lnum == lnum)
++ 	    return sign;
++ 
++     return NULL;
++ }
++ 
++ /*
++  * Return the sign with identifier 'id' in group 'group' placed in buffer 'buf'
++  */
++     signlist_T *
++ buf_getsign_with_id(
++     buf_T	*buf,		// buffer whose sign we are searching for
++     int		id,		// sign identifier
++     char_u	*group)		// sign group
++ {
++     signlist_T	*sign;		// a sign in the signlist
++ 
++     FOR_ALL_SIGNS_IN_BUF(buf)
++ 	if (sign->id == id && sign_in_group(sign, group))
++ 	    return sign;
++ 
++     return NULL;
++ }
++ 
++ /*
++  * Return the identifier of the sign at line number 'lnum' in buffer 'buf'.
++  */
+      int
+  buf_findsign_id(
+!     buf_T	*buf,		// buffer whose sign we are searching for
+!     linenr_T	lnum)		// line number of sign
+  {
+!     signlist_T	*sign;		// a sign in the signlist
+  
+!     sign = buf_getsign_at_line(buf, lnum);
+!     if (sign != NULL)
+! 	return sign->id;
+  
+      return 0;
+  }
+  
+  # if defined(FEAT_NETBEANS_INTG) || defined(PROTO)
+  /*
+   * See if a given type of sign exists on a specific line.
+***************
+*** 6095,6101 ****
+  {
+      signlist_T	*sign;		/* a sign in the signlist */
+  
+!     for (sign = buf->b_signlist; sign != NULL; sign = sign->next)
+  	if (sign->lnum == lnum && sign->typenr == typenr)
+  	    return sign->id;
+  
+--- 6213,6219 ----
+  {
+      signlist_T	*sign;		/* a sign in the signlist */
+  
+!     FOR_ALL_SIGNS_IN_BUF(buf)
+  	if (sign->lnum == lnum && sign->typenr == typenr)
+  	    return sign->id;
+  
+***************
+*** 6110,6119 ****
+      int
+  buf_signcount(buf_T *buf, linenr_T lnum)
+  {
+!     signlist_T	*sign;		/* a sign in the signlist */
+      int		count = 0;
+  
+!     for (sign = buf->b_signlist; sign != NULL; sign = sign->next)
+  	if (sign->lnum == lnum)
+  	    if (sign_get_image(sign->typenr) != NULL)
+  		count++;
+--- 6228,6237 ----
+      int
+  buf_signcount(buf_T *buf, linenr_T lnum)
+  {
+!     signlist_T	*sign;		// a sign in the signlist
+      int		count = 0;
+  
+!     FOR_ALL_SIGNS_IN_BUF(buf)
+  	if (sign->lnum == lnum)
+  	    if (sign_get_image(sign->typenr) != NULL)
+  		count++;
+***************
+*** 6123,6150 ****
+  #  endif /* FEAT_SIGN_ICONS */
+  # endif /* FEAT_NETBEANS_INTG */
+  
+- 
+  /*
+!  * Delete signs in buffer "buf".
+   */
+      void
+! buf_delete_signs(buf_T *buf)
+  {
+      signlist_T	*next;
+  
+!     /* When deleting the last sign need to redraw the windows to remove the
+!      * sign column. Not when curwin is NULL (this means we're exiting). */
+      if (buf->b_signlist != NULL && curwin != NULL)
+      {
+  	redraw_buf_later(buf, NOT_VALID);
+  	changed_cline_bef_curs();
+      }
+  
+!     while (buf->b_signlist != NULL)
+      {
+! 	next = buf->b_signlist->next;
+! 	vim_free(buf->b_signlist);
+! 	buf->b_signlist = next;
+      }
+  }
+  
+--- 6241,6279 ----
+  #  endif /* FEAT_SIGN_ICONS */
+  # endif /* FEAT_NETBEANS_INTG */
+  
+  /*
+!  * Delete signs in group 'group' in buffer "buf". If 'group' is '*', then
+!  * delete all the signs.
+   */
+      void
+! buf_delete_signs(buf_T *buf, char_u *group)
+  {
++     signlist_T	*sign;
++     signlist_T	**lastp;	// pointer to pointer to current sign
+      signlist_T	*next;
+  
+!     // When deleting the last sign need to redraw the windows to remove the
+!     // sign column. Not when curwin is NULL (this means we're exiting).
+      if (buf->b_signlist != NULL && curwin != NULL)
+      {
+  	redraw_buf_later(buf, NOT_VALID);
+  	changed_cline_bef_curs();
+      }
+  
+!     lastp = &buf->b_signlist;
+!     for (sign = buf->b_signlist; sign != NULL; sign = next)
+      {
+! 	next = sign->next;
+! 	if (sign_in_group(sign, group))
+! 	{
+! 	    *lastp = next;
+! 	    if (next != NULL)
+! 		next->prev = sign->prev;
+! 	    vim_free(sign->group);
+! 	    vim_free(sign);
+! 	}
+! 	else
+! 	    lastp = &sign->next;
+      }
+  }
+  
+***************
+*** 6158,6175 ****
+  
+      FOR_ALL_BUFFERS(buf)
+  	if (buf->b_signlist != NULL)
+! 	    buf_delete_signs(buf);
+  }
+  
+  /*
+   * List placed signs for "rbuf".  If "rbuf" is NULL do it for all buffers.
+   */
+      void
+! sign_list_placed(buf_T *rbuf)
+  {
+      buf_T	*buf;
+!     signlist_T	*p;
+      char	lbuf[BUFSIZ];
+  
+      MSG_PUTS_TITLE(_("\n--- Signs ---"));
+      msg_putchar('\n');
+--- 6287,6305 ----
+  
+      FOR_ALL_BUFFERS(buf)
+  	if (buf->b_signlist != NULL)
+! 	    buf_delete_signs(buf, (char_u *)"*");
+  }
+  
+  /*
+   * List placed signs for "rbuf".  If "rbuf" is NULL do it for all buffers.
+   */
+      void
+! sign_list_placed(buf_T *rbuf, char_u *sign_group)
+  {
+      buf_T	*buf;
+!     signlist_T	*sign;
+      char	lbuf[BUFSIZ];
++     char	group[BUFSIZ];
+  
+      MSG_PUTS_TITLE(_("\n--- Signs ---"));
+      msg_putchar('\n');
+***************
+*** 6185,6194 ****
+  	    MSG_PUTS_ATTR(lbuf, HL_ATTR(HLF_D));
+  	    msg_putchar('\n');
+  	}
+! 	for (p = buf->b_signlist; p != NULL && !got_int; p = p->next)
+  	{
+! 	    vim_snprintf(lbuf, BUFSIZ, _("    line=%ld  id=%d  name=%s"),
+! 			   (long)p->lnum, p->id, sign_typenr2name(p->typenr));
+  	    MSG_PUTS(lbuf);
+  	    msg_putchar('\n');
+  	}
+--- 6315,6332 ----
+  	    MSG_PUTS_ATTR(lbuf, HL_ATTR(HLF_D));
+  	    msg_putchar('\n');
+  	}
+! 	FOR_ALL_SIGNS_IN_BUF(buf)
+  	{
+! 	    if (!sign_in_group(sign, sign_group))
+! 		continue;
+! 	    if (sign->group != NULL)
+! 		vim_snprintf(group, BUFSIZ, "  group=%s", sign->group);
+! 	    else
+! 		group[0] = '\0';
+! 	    vim_snprintf(lbuf, BUFSIZ, _("    line=%ld  id=%d%s  name=%s "
+! 							"priority=%d"),
+! 			   (long)sign->lnum, sign->id, group,
+! 			   sign_typenr2name(sign->typenr), sign->priority);
+  	    MSG_PUTS(lbuf);
+  	    msg_putchar('\n');
+  	}
+***************
+*** 6210,6216 ****
+  {
+      signlist_T	*sign;		/* a sign in a b_signlist */
+  
+!     for (sign = curbuf->b_signlist; sign != NULL; sign = sign->next)
+      {
+  	if (sign->lnum >= line1 && sign->lnum <= line2)
+  	{
+--- 6348,6354 ----
+  {
+      signlist_T	*sign;		/* a sign in a b_signlist */
+  
+!     FOR_ALL_SIGNS_IN_BUF(curbuf)
+      {
+  	if (sign->lnum >= line1 && sign->lnum <= line2)
+  	{
+*** ../vim-8.1.0613/src/evalfunc.c	2018-12-14 15:38:28.327597664 +0100
+--- src/evalfunc.c	2018-12-21 14:36:57.242303552 +0100
+***************
+*** 367,372 ****
+--- 367,380 ----
+  #endif /* FEAT_CRYPT */
+  static void f_shellescape(typval_T *argvars, typval_T *rettv);
+  static void f_shiftwidth(typval_T *argvars, typval_T *rettv);
++ #ifdef FEAT_SIGNS
++ static void f_sign_define(typval_T *argvars, typval_T *rettv);
++ static void f_sign_getdefined(typval_T *argvars, typval_T *rettv);
++ static void f_sign_getplaced(typval_T *argvars, typval_T *rettv);
++ static void f_sign_place(typval_T *argvars, typval_T *rettv);
++ static void f_sign_undefine(typval_T *argvars, typval_T *rettv);
++ static void f_sign_unplace(typval_T *argvars, typval_T *rettv);
++ #endif
+  static void f_simplify(typval_T *argvars, typval_T *rettv);
+  #ifdef FEAT_FLOAT
+  static void f_sin(typval_T *argvars, typval_T *rettv);
+***************
+*** 847,852 ****
+--- 855,868 ----
+  #endif
+      {"shellescape",	1, 2, f_shellescape},
+      {"shiftwidth",	0, 1, f_shiftwidth},
++ #ifdef FEAT_SIGNS
++     {"sign_define",	1, 2, f_sign_define},
++     {"sign_getdefined",	0, 1, f_sign_getdefined},
++     {"sign_getplaced",	0, 2, f_sign_getplaced},
++     {"sign_place",	4, 5, f_sign_place},
++     {"sign_undefine",	0, 1, f_sign_undefine},
++     {"sign_unplace",	1, 2, f_sign_unplace},
++ #endif
+      {"simplify",	1, 1, f_simplify},
+  #ifdef FEAT_FLOAT
+      {"sin",		1, 1, f_sin},
+***************
+*** 4417,4435 ****
+  get_buffer_signs(buf_T *buf, list_T *l)
+  {
+      signlist_T	*sign;
+  
+!     for (sign = buf->b_signlist; sign; sign = sign->next)
+      {
+! 	dict_T *d = dict_alloc();
+! 
+! 	if (d != NULL)
+! 	{
+! 	    dict_add_number(d, "id", sign->id);
+! 	    dict_add_number(d, "lnum", sign->lnum);
+! 	    dict_add_string(d, "name", sign_typenr2name(sign->typenr));
+! 
+  	    list_append_dict(l, d);
+- 	}
+      }
+  }
+  #endif
+--- 4433,4444 ----
+  get_buffer_signs(buf_T *buf, list_T *l)
+  {
+      signlist_T	*sign;
++     dict_T	*d;
+  
+!     FOR_ALL_SIGNS_IN_BUF(buf)
+      {
+! 	if ((d = sign_get_info(sign)) != NULL)
+  	    list_append_dict(l, d);
+      }
+  }
+  #endif
+***************
+*** 11285,11290 ****
+--- 11294,11612 ----
+      rettv->vval.v_number = get_sw_value(curbuf);
+  }
+  
++ #ifdef FEAT_SIGNS
++ /*
++  * "sign_define()" function
++  */
++     static void
++ f_sign_define(typval_T *argvars, typval_T *rettv)
++ {
++     char_u	*name;
++     dict_T	*dict;
++     char_u	*icon = NULL;
++     char_u	*linehl = NULL;
++     char_u	*text = NULL;
++     char_u	*texthl = NULL;
++ 
++     rettv->vval.v_number = -1;
++ 
++     name = get_tv_string_chk(&argvars[0]);
++     if (name == NULL)
++ 	return;
++ 
++     if (argvars[1].v_type != VAR_UNKNOWN)
++     {
++ 	if (argvars[1].v_type != VAR_DICT)
++ 	{
++ 	    EMSG(_(e_dictreq));
++ 	    return;
++ 	}
++ 
++ 	// sign attributes
++ 	dict = argvars[1].vval.v_dict;
++ 	if (dict_find(dict, (char_u *)"icon", -1) != NULL)
++ 	    icon = dict_get_string(dict, (char_u *)"icon", TRUE);
++ 	if (dict_find(dict, (char_u *)"linehl", -1) != NULL)
++ 	    linehl = dict_get_string(dict, (char_u *)"linehl", TRUE);
++ 	if (dict_find(dict, (char_u *)"text", -1) != NULL)
++ 	    text = dict_get_string(dict, (char_u *)"text", TRUE);
++ 	if (dict_find(dict, (char_u *)"texthl", -1) != NULL)
++ 	    texthl = dict_get_string(dict, (char_u *)"texthl", TRUE);
++     }
++ 
++     if (sign_define_by_name(name, icon, linehl, text, texthl) == OK)
++ 	rettv->vval.v_number = 0;
++ 
++     vim_free(icon);
++     vim_free(linehl);
++     vim_free(text);
++     vim_free(texthl);
++ }
++ 
++ /*
++  * "sign_getdefined()" function
++  */
++     static void
++ f_sign_getdefined(typval_T *argvars, typval_T *rettv)
++ {
++     char_u	*name = NULL;
++ 
++     if (rettv_list_alloc_id(rettv, aid_sign_getdefined) != OK)
++ 	return;
++ 
++     if (argvars[0].v_type != VAR_UNKNOWN)
++ 	name = get_tv_string(&argvars[0]);
++ 
++     sign_getlist(name, rettv->vval.v_list);
++ }
++ 
++ /*
++  * "sign_getplaced()" function
++  */
++     static void
++ f_sign_getplaced(typval_T *argvars, typval_T *rettv)
++ {
++     buf_T	*buf = NULL;
++     dict_T	*dict;
++     dictitem_T	*di;
++     linenr_T	lnum = 0;
++     int		sign_id = 0;
++     char_u	*group = NULL;
++     int		notanum = FALSE;
++ 
++     if (rettv_list_alloc_id(rettv, aid_sign_getplaced) != OK)
++ 	return;
++ 
++     if (argvars[0].v_type != VAR_UNKNOWN)
++     {
++ 	// get signs placed in this buffer
++ 	buf = find_buffer(&argvars[0]);
++ 	if (buf == NULL)
++ 	{
++ 	    EMSG2(_("E158: Invalid buffer name: %s"),
++ 						get_tv_string(&argvars[0]));
++ 	    return;
++ 	}
++ 
++ 	if (argvars[1].v_type != VAR_UNKNOWN)
++ 	{
++ 	    if (argvars[1].v_type != VAR_DICT ||
++ 				((dict = argvars[1].vval.v_dict) == NULL))
++ 	    {
++ 		EMSG(_(e_dictreq));
++ 		return;
++ 	    }
++ 	    if ((di = dict_find(dict, (char_u *)"lnum", -1)) != NULL)
++ 	    {
++ 		// get signs placed at this line
++ 		(void)get_tv_number_chk(&di->di_tv, &notanum);
++ 		if (notanum)
++ 		    return;
++ 		lnum = get_tv_lnum(&di->di_tv);
++ 	    }
++ 	    if ((di = dict_find(dict, (char_u *)"id", -1)) != NULL)
++ 	    {
++ 		// get sign placed with this identifier
++ 		sign_id = (int)get_tv_number_chk(&di->di_tv, &notanum);
++ 		if (notanum)
++ 		    return;
++ 	    }
++ 	    if ((di = dict_find(dict, (char_u *)"group", -1)) != NULL)
++ 	    {
++ 		group = get_tv_string_chk(&di->di_tv);
++ 		if (group == NULL)
++ 		    return;
++ 	    }
++ 	}
++     }
++ 
++     sign_get_placed(buf, lnum, sign_id, group, rettv->vval.v_list);
++ }
++ 
++ /*
++  * "sign_place()" function
++  */
++     static void
++ f_sign_place(typval_T *argvars, typval_T *rettv)
++ {
++     int		sign_id;
++     char_u	*group = NULL;
++     char_u	*sign_name;
++     buf_T	*buf;
++     dict_T	*dict;
++     dictitem_T	*di;
++     linenr_T	lnum = 0;
++     int		prio = SIGN_DEF_PRIO;
++     int		notanum = FALSE;
++ 
++     rettv->vval.v_number = -1;
++ 
++     // Sign identifer
++     sign_id = (int)get_tv_number_chk(&argvars[0], &notanum);
++     if (notanum)
++ 	return;
++     if (sign_id < 0)
++     {
++ 	EMSG(_(e_invarg));
++ 	return;
++     }
++ 
++     // Sign group
++     group = get_tv_string_chk(&argvars[1]);
++     if (group == NULL)
++ 	return;
++     if (group[0] == '\0')
++ 	group = NULL;			// global sign group
++     else
++     {
++ 	group = vim_strsave(group);
++ 	if (group == NULL)
++ 	    return;
++     }
++ 
++     // Sign name
++     sign_name = get_tv_string_chk(&argvars[2]);
++     if (sign_name == NULL)
++ 	goto cleanup;
++ 
++     // Buffer to place the sign
++     buf = find_buffer(&argvars[3]);
++     if (buf == NULL)
++     {
++ 	EMSG2(_("E158: Invalid buffer name: %s"), get_tv_string(&argvars[2]));
++ 	goto cleanup;
++     }
++ 
++     if (argvars[4].v_type != VAR_UNKNOWN)
++     {
++ 	if (argvars[4].v_type != VAR_DICT ||
++ 				((dict = argvars[4].vval.v_dict) == NULL))
++ 	{
++ 	    EMSG(_(e_dictreq));
++ 	    goto cleanup;
++ 	}
++ 
++ 	// Line number where the sign is to be placed
++ 	if ((di = dict_find(dict, (char_u *)"lnum", -1)) != NULL)
++ 	{
++ 	    (void)get_tv_number_chk(&di->di_tv, &notanum);
++ 	    if (notanum)
++ 		goto cleanup;
++ 	    lnum = get_tv_lnum(&di->di_tv);
++ 	}
++ 	if ((di = dict_find(dict, (char_u *)"priority", -1)) != NULL)
++ 	{
++ 	    // Sign priority
++ 	    prio = (int)get_tv_number_chk(&di->di_tv, &notanum);
++ 	    if (notanum)
++ 		goto cleanup;
++ 	}
++     }
++ 
++     if (sign_place(&sign_id, group, sign_name, buf, lnum, prio) == OK)
++ 	rettv->vval.v_number = sign_id;
++ 
++ cleanup:
++     vim_free(group);
++ }
++ 
++ /*
++  * "sign_undefine()" function
++  */
++     static void
++ f_sign_undefine(typval_T *argvars, typval_T *rettv)
++ {
++     char_u *name;
++ 
++     rettv->vval.v_number = -1;
++ 
++     if (argvars[0].v_type == VAR_UNKNOWN)
++     {
++ 	// Free all the signs
++ 	free_signs();
++ 	rettv->vval.v_number = 0;
++     }
++     else
++     {
++ 	// Free only the specified sign
++ 	name = get_tv_string_chk(&argvars[0]);
++ 	if (name == NULL)
++ 	    return;
++ 
++ 	if (sign_undefine_by_name(name) == OK)
++ 	    rettv->vval.v_number = 0;
++     }
++ }
++ 
++ /*
++  * "sign_unplace()" function
++  */
++     static void
++ f_sign_unplace(typval_T *argvars, typval_T *rettv)
++ {
++     dict_T	*dict;
++     dictitem_T	*di;
++     int		sign_id = 0;
++     buf_T	*buf = NULL;
++     char_u	*group = NULL;
++ 
++     rettv->vval.v_number = -1;
++ 
++     if (argvars[0].v_type != VAR_STRING)
++     {
++ 	EMSG(_(e_invarg));
++ 	return;
++     }
++ 
++     group = get_tv_string(&argvars[0]);
++     if (group[0] == '\0')
++ 	group = NULL;			// global sign group
++     else
++     {
++ 	group = vim_strsave(group);
++ 	if (group == NULL)
++ 	    return;
++     }
++ 
++     if (argvars[1].v_type != VAR_UNKNOWN)
++     {
++ 	if (argvars[1].v_type != VAR_DICT)
++ 	{
++ 	    EMSG(_(e_dictreq));
++ 	    return;
++ 	}
++ 	dict = argvars[1].vval.v_dict;
++ 
++ 	if ((di = dict_find(dict, (char_u *)"buffer", -1)) != NULL)
++ 	{
++ 	    buf = find_buffer(&di->di_tv);
++ 	    if (buf == NULL)
++ 	    {
++ 		EMSG2(_("E158: Invalid buffer name: %s"),
++ 						get_tv_string(&di->di_tv));
++ 		return;
++ 	    }
++ 	}
++ 	if (dict_find(dict, (char_u *)"id", -1) != NULL)
++ 	    sign_id = dict_get_number(dict, (char_u *)"id");
++     }
++ 
++     if (buf == NULL)
++     {
++ 	// Delete the sign in all the buffers
++ 	FOR_ALL_BUFFERS(buf)
++ 	    if (sign_unplace(sign_id, group, buf) == OK)
++ 		rettv->vval.v_number = 0;
++     }
++     else
++     {
++ 	if (sign_unplace(sign_id, group, buf) == OK)
++ 	    rettv->vval.v_number = 0;
++     }
++     vim_free(group);
++ }
++ #endif
++ 
+  /*
+   * "simplify()" function
+   */
+*** ../vim-8.1.0613/src/ex_cmds.c	2018-12-14 19:37:03.677899412 +0100
+--- src/ex_cmds.c	2018-12-21 14:36:57.242303552 +0100
+***************
+*** 7644,7649 ****
+--- 7644,7932 ----
+  }
+  
+  /*
++  * Find a sign by name. Also returns pointer to the previous sign.
++  */
++     static sign_T *
++ sign_find(char_u *name, sign_T **sp_prev)
++ {
++     sign_T *sp;
++ 
++     if (sp_prev != NULL)
++ 	*sp_prev = NULL;
++     for (sp = first_sign; sp != NULL; sp = sp->sn_next)
++     {
++ 	if (STRCMP(sp->sn_name, name) == 0)
++ 	    break;
++ 	if (sp_prev != NULL)
++ 	    *sp_prev = sp;
++     }
++ 
++     return sp;
++ }
++ 
++ /*
++  * Define a new sign or update an existing sign
++  */
++     int
++ sign_define_by_name(
++ 	char_u	*name,
++ 	char_u	*icon,
++ 	char_u	*linehl,
++ 	char_u	*text,
++ 	char_u	*texthl)
++ {
++     sign_T	*sp_prev;
++     sign_T	*sp;
++ 
++     sp = sign_find(name, &sp_prev);
++     if (sp == NULL)
++     {
++ 	sign_T	*lp;
++ 	int	start = next_sign_typenr;
++ 
++ 	// Allocate a new sign.
++ 	sp = (sign_T *)alloc_clear_id((unsigned)sizeof(sign_T),
++ 						aid_sign_define_by_name);
++ 	if (sp == NULL)
++ 	    return FAIL;
++ 
++ 	// Check that next_sign_typenr is not already being used.
++ 	// This only happens after wrapping around.  Hopefully
++ 	// another one got deleted and we can use its number.
++ 	for (lp = first_sign; lp != NULL; )
++ 	{
++ 	    if (lp->sn_typenr == next_sign_typenr)
++ 	    {
++ 		++next_sign_typenr;
++ 		if (next_sign_typenr == MAX_TYPENR)
++ 		    next_sign_typenr = 1;
++ 		if (next_sign_typenr == start)
++ 		{
++ 		    vim_free(sp);
++ 		    EMSG(_("E612: Too many signs defined"));
++ 		    return FAIL;
++ 		}
++ 		lp = first_sign;  // start all over
++ 		continue;
++ 	    }
++ 	    lp = lp->sn_next;
++ 	}
++ 
++ 	sp->sn_typenr = next_sign_typenr;
++ 	if (++next_sign_typenr == MAX_TYPENR)
++ 	    next_sign_typenr = 1; // wrap around
++ 
++ 	sp->sn_name = vim_strsave(name);
++ 	if (sp->sn_name == NULL)  // out of memory
++ 	{
++ 	    vim_free(sp);
++ 	    return FAIL;
++ 	}
++ 
++ 	// add the new sign to the list of signs
++ 	if (sp_prev == NULL)
++ 	    first_sign = sp;
++ 	else
++ 	    sp_prev->sn_next = sp;
++     }
++ 
++     // set values for a defined sign.
++     if (icon != NULL)
++     {
++ 	vim_free(sp->sn_icon);
++ 	sp->sn_icon = vim_strsave(icon);
++ 	backslash_halve(sp->sn_icon);
++ # ifdef FEAT_SIGN_ICONS
++ 	if (gui.in_use)
++ 	{
++ 	    out_flush();
++ 	    if (sp->sn_image != NULL)
++ 		gui_mch_destroy_sign(sp->sn_image);
++ 	    sp->sn_image = gui_mch_register_sign(sp->sn_icon);
++ 	}
++ # endif
++     }
++ 
++     if (text != NULL)
++     {
++ 	char_u	*s;
++ 	char_u	*endp;
++ 	int	cells;
++ 	int	len;
++ 
++ 	endp = text + (int)STRLEN(text);
++ 	for (s = text; s + 1 < endp; ++s)
++ 	    if (*s == '\\')
++ 	    {
++ 		// Remove a backslash, so that it is possible
++ 		// to use a space.
++ 		STRMOVE(s, s + 1);
++ 		--endp;
++ 	    }
++ # ifdef FEAT_MBYTE
++ 	// Count cells and check for non-printable chars
++ 	if (has_mbyte)
++ 	{
++ 	    cells = 0;
++ 	    for (s = text; s < endp; s += (*mb_ptr2len)(s))
++ 	    {
++ 		if (!vim_isprintc((*mb_ptr2char)(s)))
++ 		    break;
++ 		cells += (*mb_ptr2cells)(s);
++ 	    }
++ 	}
++ 	else
++ # endif
++ 	{
++ 	    for (s = text; s < endp; ++s)
++ 		if (!vim_isprintc(*s))
++ 		    break;
++ 	    cells = (int)(s - text);
++ 	}
++ 	// Currently must be one or two display cells
++ 	if (s != endp || cells < 1 || cells > 2)
++ 	{
++ 	    EMSG2(_("E239: Invalid sign text: %s"), text);
++ 	    return FAIL;
++ 	}
++ 
++ 	vim_free(sp->sn_text);
++ 	// Allocate one byte more if we need to pad up
++ 	// with a space.
++ 	len = (int)(endp - text + ((cells == 1) ? 1 : 0));
++ 	sp->sn_text = vim_strnsave(text, len);
++ 
++ 	if (sp->sn_text != NULL && cells == 1)
++ 	    STRCPY(sp->sn_text + len - 1, " ");
++     }
++ 
++     if (linehl != NULL)
++ 	sp->sn_line_hl = syn_check_group(linehl, (int)STRLEN(linehl));
++ 
++     if (texthl != NULL)
++ 	sp->sn_text_hl = syn_check_group(texthl, (int)STRLEN(texthl));
++ 
++     return OK;
++ }
++ 
++ /*
++  * Free the sign specified by 'name'.
++  */
++     int
++ sign_undefine_by_name(char_u *name)
++ {
++     sign_T	*sp_prev;
++     sign_T	*sp;
++ 
++     sp = sign_find(name, &sp_prev);
++     if (sp == NULL)
++     {
++ 	EMSG2(_("E155: Unknown sign: %s"), name);
++ 	return FAIL;
++     }
++     sign_undefine(sp, sp_prev);
++ 
++     return OK;
++ }
++ 
++ /*
++  * List the signs matching 'name'
++  */
++     static void
++ sign_list_by_name(char_u *name)
++ {
++     sign_T	*sp;
++ 
++     sp = sign_find(name, NULL);
++     if (sp != NULL)
++ 	sign_list_defined(sp);
++     else
++ 	EMSG2(_("E155: Unknown sign: %s"), name);
++ }
++ 
++ /*
++  * Place a sign at the specifed file location or update a sign.
++  */
++     int
++ sign_place(
++ 	int		*sign_id,
++ 	char_u		*sign_group,
++ 	char_u		*sign_name,
++ 	buf_T		*buf,
++ 	linenr_T	lnum,
++ 	int		prio)
++ {
++     sign_T	*sp;
++ 
++     // Check for reserved character '*' in group name
++     if (sign_group != NULL && (*sign_group == '*' || *sign_group == '\0'))
++ 	return FAIL;
++ 
++     for (sp = first_sign; sp != NULL; sp = sp->sn_next)
++ 	if (STRCMP(sp->sn_name, sign_name) == 0)
++ 	    break;
++     if (sp == NULL)
++     {
++ 	EMSG2(_("E155: Unknown sign: %s"), sign_name);
++ 	return FAIL;
++     }
++     if (*sign_id == 0)
++     {
++ 	// Allocate a new sign id
++ 	int		id = 1;
++ 	signlist_T	*sign;
++ 
++ 	while ((sign = buf_getsign_with_id(buf, id, sign_group)) != NULL)
++ 	    id++;
++ 
++ 	*sign_id = id;
++     }
++ 
++     if (lnum > 0)
++ 	// ":sign place {id} line={lnum} name={name} file={fname}":
++ 	// place a sign
++ 	buf_addsign(buf, *sign_id, sign_group, prio, lnum, sp->sn_typenr);
++     else
++ 	// ":sign place {id} file={fname}": change sign type
++ 	lnum = buf_change_sign_type(buf, *sign_id, sign_group, sp->sn_typenr);
++     if (lnum > 0)
++ 	update_debug_sign(buf, lnum);
++     else
++     {
++ 	EMSG2(_("E885: Not possible to change sign %s"), sign_name);
++ 	return FAIL;
++     }
++ 
++     return OK;
++ }
++ 
++ /*
++  * Unplace the specified sign
++  */
++     int
++ sign_unplace(int sign_id, char_u *sign_group, buf_T *buf)
++ {
++     if (sign_id == 0)
++     {
++ 	// Delete all the signs in the specified buffer
++ 	redraw_buf_later(buf, NOT_VALID);
++ 	buf_delete_signs(buf, sign_group);
++     }
++     else
++     {
++ 	linenr_T	lnum;
++ 
++ 	// Delete only the specified signs
++ 	lnum = buf_delsign(buf, sign_id, sign_group);
++ 	if (lnum == 0)
++ 	    return FAIL;
++ 	update_debug_sign(buf, lnum);
++     }
++ 
++     return OK;
++ }
++ 
++ /*
+   * ":sign" command
+   */
+      void
+***************
+*** 7653,7659 ****
+      char_u	*p;
+      int		idx;
+      sign_T	*sp;
+-     sign_T	*sp_prev;
+      buf_T	*buf = NULL;
+  
+      /* Parse the subcommand. */
+--- 7936,7941 ----
+***************
+*** 7681,7686 ****
+--- 7963,7974 ----
+  	    EMSG(_("E156: Missing sign name"));
+  	else
+  	{
++ 	    char_u	*name;
++ 	    char_u	*icon = NULL;
++ 	    char_u	*text = NULL;
++ 	    char_u	*linehl = NULL;
++ 	    char_u	*texthl = NULL;
++ 
+  	    /* Isolate the sign name.  If it's a number skip leading zeroes,
+  	     * so that "099" and "99" are the same sign.  But keep "0". */
+  	    p = skiptowhite(arg);
+***************
+*** 7688,7753 ****
+  		*p++ = NUL;
+  	    while (arg[0] == '0' && arg[1] != NUL)
+  		++arg;
+  
+- 	    sp_prev = NULL;
+- 	    for (sp = first_sign; sp != NULL; sp = sp->sn_next)
+- 	    {
+- 		if (STRCMP(sp->sn_name, arg) == 0)
+- 		    break;
+- 		sp_prev = sp;
+- 	    }
+  	    if (idx == SIGNCMD_DEFINE)
+  	    {
+! 		/* ":sign define {name} ...": define a sign */
+! 		if (sp == NULL)
+! 		{
+! 		    sign_T	*lp;
+! 		    int		start = next_sign_typenr;
+! 
+! 		    /* Allocate a new sign. */
+! 		    sp = (sign_T *)alloc_clear((unsigned)sizeof(sign_T));
+! 		    if (sp == NULL)
+! 			return;
+! 
+! 		    /* Check that next_sign_typenr is not already being used.
+! 		     * This only happens after wrapping around.  Hopefully
+! 		     * another one got deleted and we can use its number. */
+! 		    for (lp = first_sign; lp != NULL; )
+! 		    {
+! 			if (lp->sn_typenr == next_sign_typenr)
+! 			{
+! 			    ++next_sign_typenr;
+! 			    if (next_sign_typenr == MAX_TYPENR)
+! 				next_sign_typenr = 1;
+! 			    if (next_sign_typenr == start)
+! 			    {
+! 				vim_free(sp);
+! 				EMSG(_("E612: Too many signs defined"));
+! 				return;
+! 			    }
+! 			    lp = first_sign;  /* start all over */
+! 			    continue;
+! 			}
+! 			lp = lp->sn_next;
+! 		    }
+! 
+! 		    sp->sn_typenr = next_sign_typenr;
+! 		    if (++next_sign_typenr == MAX_TYPENR)
+! 			next_sign_typenr = 1; /* wrap around */
+! 
+! 		    sp->sn_name = vim_strsave(arg);
+! 		    if (sp->sn_name == NULL)  /* out of memory */
+! 		    {
+! 			vim_free(sp);
+! 			return;
+! 		    }
+  
+! 		    /* add the new sign to the list of signs */
+! 		    if (sp_prev == NULL)
+! 			first_sign = sp;
+! 		    else
+! 			sp_prev->sn_next = sp;
+! 		}
+  
+  		/* set values for a defined sign. */
+  		for (;;)
+--- 7976,7988 ----
+  		*p++ = NUL;
+  	    while (arg[0] == '0' && arg[1] != NUL)
+  		++arg;
++ 	    name = vim_strsave(arg);
+  
+  	    if (idx == SIGNCMD_DEFINE)
+  	    {
+! 		int failed = FALSE;
+  
+! 		/* ":sign define {name} ...": define a sign */
+  
+  		/* set values for a defined sign. */
+  		for (;;)
+***************
+*** 7759,7854 ****
+  		    if (STRNCMP(arg, "icon=", 5) == 0)
+  		    {
+  			arg += 5;
+! 			vim_free(sp->sn_icon);
+! 			sp->sn_icon = vim_strnsave(arg, (int)(p - arg));
+! 			backslash_halve(sp->sn_icon);
+! # ifdef FEAT_SIGN_ICONS
+! 			if (gui.in_use)
+! 			{
+! 			    out_flush();
+! 			    if (sp->sn_image != NULL)
+! 				gui_mch_destroy_sign(sp->sn_image);
+! 			    sp->sn_image = gui_mch_register_sign(sp->sn_icon);
+! 			}
+! # endif
+  		    }
+  		    else if (STRNCMP(arg, "text=", 5) == 0)
+  		    {
+- 			char_u	*s;
+- 			int	cells;
+- 			int	len;
+- 
+  			arg += 5;
+! 			for (s = arg; s + 1 < p; ++s)
+! 			    if (*s == '\\')
+! 			    {
+! 				// Remove a backslash, so that it is possible
+! 				// to use a space.
+! 				STRMOVE(s, s + 1);
+! 				--p;
+! 			    }
+! # ifdef FEAT_MBYTE
+! 			/* Count cells and check for non-printable chars */
+! 			if (has_mbyte)
+! 			{
+! 			    cells = 0;
+! 			    for (s = arg; s < p; s += (*mb_ptr2len)(s))
+! 			    {
+! 				if (!vim_isprintc((*mb_ptr2char)(s)))
+! 				    break;
+! 				cells += (*mb_ptr2cells)(s);
+! 			    }
+! 			}
+! 			else
+! # endif
+! 			{
+! 			    for (s = arg; s < p; ++s)
+! 				if (!vim_isprintc(*s))
+! 				    break;
+! 			    cells = (int)(s - arg);
+! 			}
+! 			/* Currently must be one or two display cells */
+! 			if (s != p || cells < 1 || cells > 2)
+! 			{
+! 			    *p = NUL;
+! 			    EMSG2(_("E239: Invalid sign text: %s"), arg);
+! 			    return;
+! 			}
+! 
+! 			vim_free(sp->sn_text);
+! 			/* Allocate one byte more if we need to pad up
+! 			 * with a space. */
+! 			len = (int)(p - arg + ((cells == 1) ? 1 : 0));
+! 			sp->sn_text = vim_strnsave(arg, len);
+! 
+! 			if (sp->sn_text != NULL && cells == 1)
+! 			    STRCPY(sp->sn_text + len - 1, " ");
+  		    }
+  		    else if (STRNCMP(arg, "linehl=", 7) == 0)
+  		    {
+  			arg += 7;
+! 			sp->sn_line_hl = syn_check_group(arg, (int)(p - arg));
+  		    }
+  		    else if (STRNCMP(arg, "texthl=", 7) == 0)
+  		    {
+  			arg += 7;
+! 			sp->sn_text_hl = syn_check_group(arg, (int)(p - arg));
+  		    }
+  		    else
+  		    {
+  			EMSG2(_(e_invarg2), arg);
+! 			return;
+  		    }
+  		}
+  	    }
+- 	    else if (sp == NULL)
+- 		EMSG2(_("E155: Unknown sign: %s"), arg);
+  	    else if (idx == SIGNCMD_LIST)
+  		/* ":sign list {name}" */
+! 		sign_list_defined(sp);
+  	    else
+  		/* ":sign undefine {name}" */
+! 		sign_undefine(sp, sp_prev);
+  	}
+      }
+      else
+--- 7994,8041 ----
+  		    if (STRNCMP(arg, "icon=", 5) == 0)
+  		    {
+  			arg += 5;
+! 			icon = vim_strnsave(arg, (int)(p - arg));
+  		    }
+  		    else if (STRNCMP(arg, "text=", 5) == 0)
+  		    {
+  			arg += 5;
+! 			text = vim_strnsave(arg, (int)(p - arg));
+  		    }
+  		    else if (STRNCMP(arg, "linehl=", 7) == 0)
+  		    {
+  			arg += 7;
+! 			linehl = vim_strnsave(arg, (int)(p - arg));
+  		    }
+  		    else if (STRNCMP(arg, "texthl=", 7) == 0)
+  		    {
+  			arg += 7;
+! 			texthl = vim_strnsave(arg, (int)(p - arg));
+  		    }
+  		    else
+  		    {
+  			EMSG2(_(e_invarg2), arg);
+! 			failed = TRUE;
+! 			break;
+  		    }
+  		}
++ 
++ 		if (!failed)
++ 		    sign_define_by_name(name, icon, linehl, text, texthl);
++ 
++ 		vim_free(icon);
++ 		vim_free(text);
++ 		vim_free(linehl);
++ 		vim_free(texthl);
+  	    }
+  	    else if (idx == SIGNCMD_LIST)
+  		/* ":sign list {name}" */
+! 		sign_list_by_name(name);
+  	    else
+  		/* ":sign undefine {name}" */
+! 		sign_undefine_by_name(name);
+! 
+! 	    vim_free(name);
+! 	    return;
+  	}
+      }
+      else
+***************
+*** 7856,7879 ****
+  	int		id = -1;
+  	linenr_T	lnum = -1;
+  	char_u		*sign_name = NULL;
+  	char_u		*arg1;
+  
+  	if (*arg == NUL)
+  	{
+  	    if (idx == SIGNCMD_PLACE)
+  	    {
+  		/* ":sign place": list placed signs in all buffers */
+! 		sign_list_placed(NULL);
+  	    }
+  	    else if (idx == SIGNCMD_UNPLACE)
+  	    {
+  		/* ":sign unplace": remove placed sign at cursor */
+  		id = buf_findsign_id(curwin->w_buffer, curwin->w_cursor.lnum);
+  		if (id > 0)
+! 		{
+! 		    buf_delsign(curwin->w_buffer, id);
+! 		    update_debug_sign(curwin->w_buffer, curwin->w_cursor.lnum);
+! 		}
+  		else
+  		    EMSG(_("E159: Missing sign number"));
+  	    }
+--- 8043,8066 ----
+  	int		id = -1;
+  	linenr_T	lnum = -1;
+  	char_u		*sign_name = NULL;
++ 	char_u		*group = NULL;
++ 	int		prio = SIGN_DEF_PRIO;
+  	char_u		*arg1;
++ 	int		bufarg = FALSE;
+  
+  	if (*arg == NUL)
+  	{
+  	    if (idx == SIGNCMD_PLACE)
+  	    {
+  		/* ":sign place": list placed signs in all buffers */
+! 		sign_list_placed(NULL, NULL);
+  	    }
+  	    else if (idx == SIGNCMD_UNPLACE)
+  	    {
+  		/* ":sign unplace": remove placed sign at cursor */
+  		id = buf_findsign_id(curwin->w_buffer, curwin->w_cursor.lnum);
+  		if (id > 0)
+! 		    sign_unplace(id, NULL, curwin->w_buffer);
+  		else
+  		    EMSG(_("E159: Missing sign number"));
+  	    }
+***************
+*** 7906,7923 ****
+  		{
+  		    /* ":sign unplace {id}": remove placed sign by number */
+  		    FOR_ALL_BUFFERS(buf)
+! 			if ((lnum = buf_delsign(buf, id)) != 0)
+! 			    update_debug_sign(buf, lnum);
+  		    return;
+  		}
+  	    }
+  	}
+  
+  	/*
+! 	 * Check for line={lnum} name={name} and file={fname} or buffer={nr}.
+! 	 * Leave "arg" pointing to {fname}.
+  	 */
+! 	for (;;)
+  	{
+  	    if (STRNCMP(arg, "line=", 5) == 0)
+  	    {
+--- 8093,8109 ----
+  		{
+  		    /* ":sign unplace {id}": remove placed sign by number */
+  		    FOR_ALL_BUFFERS(buf)
+! 			sign_unplace(id, NULL, buf);
+  		    return;
+  		}
+  	    }
+  	}
+  
+  	/*
+! 	 * Check for line={lnum} name={name} group={group} priority={prio}
+! 	 * and file={fname} or buffer={nr}.  Leave "arg" pointing to {fname}.
+  	 */
+! 	while (*arg != NUL)
+  	{
+  	    if (STRNCMP(arg, "line=", 5) == 0)
+  	    {
+***************
+*** 7945,7954 ****
+  		while (sign_name[0] == '0' && sign_name[1] != NUL)
+  		    ++sign_name;
+  	    }
+  	    else if (STRNCMP(arg, "file=", 5) == 0)
+  	    {
+  		arg += 5;
+! 		buf = buflist_findname(arg);
+  		break;
+  	    }
+  	    else if (STRNCMP(arg, "buffer=", 7) == 0)
+--- 8131,8155 ----
+  		while (sign_name[0] == '0' && sign_name[1] != NUL)
+  		    ++sign_name;
+  	    }
++ 	    else if (STRNCMP(arg, "group=", 6) == 0)
++ 	    {
++ 		arg += 6;
++ 		group = arg;
++ 		arg = skiptowhite(arg);
++ 		if (*arg != NUL)
++ 		    *arg++ = NUL;
++ 	    }
++ 	    else if (STRNCMP(arg, "priority=", 9) == 0)
++ 	    {
++ 		arg += 9;
++ 		prio = atoi((char *)arg);
++ 		arg = skiptowhite(arg);
++ 	    }
+  	    else if (STRNCMP(arg, "file=", 5) == 0)
+  	    {
+  		arg += 5;
+! 		buf = buflist_findname_exp(arg);
+! 		bufarg = TRUE;
+  		break;
+  	    }
+  	    else if (STRNCMP(arg, "buffer=", 7) == 0)
+***************
+*** 7957,7962 ****
+--- 8158,8164 ----
+  		buf = buflist_findnr((int)getdigits(&arg));
+  		if (*skipwhite(arg) != NUL)
+  		    EMSG(_(e_trailing));
++ 		bufarg = TRUE;
+  		break;
+  	    }
+  	    else
+***************
+*** 7967,7990 ****
+  	    arg = skipwhite(arg);
+  	}
+  
+! 	if (buf == NULL)
+  	{
+  	    EMSG2(_("E158: Invalid buffer name: %s"), arg);
+  	}
+  	else if (id <= 0 && !(idx == SIGNCMD_UNPLACE && id == -2))
+  	{
+! 	    if (lnum >= 0 || sign_name != NULL)
+  		EMSG(_(e_invarg));
+  	    else
+! 		/* ":sign place file={fname}": list placed signs in one file */
+! 		sign_list_placed(buf);
+  	}
+  	else if (idx == SIGNCMD_JUMP)
+  	{
+  	    /* ":sign jump {id} file={fname}" */
+  	    if (lnum >= 0 || sign_name != NULL)
+  		EMSG(_(e_invarg));
+! 	    else if ((lnum = buf_findsign(buf, id)) > 0)
+  	    {				/* goto a sign ... */
+  		if (buf_jump_open_win(buf) != NULL)
+  		{			/* ... in a current window */
+--- 8169,8201 ----
+  	    arg = skipwhite(arg);
+  	}
+  
+! 	if ((!bufarg && group == NULL) || (group != NULL && *group == '\0'))
+! 	{
+! 	    // File or buffer is not specified or an empty group is used
+! 	    EMSG(_(e_invarg));
+! 	    return;
+! 	}
+! 
+! 	if (bufarg && buf == NULL)
+  	{
+  	    EMSG2(_("E158: Invalid buffer name: %s"), arg);
+  	}
+  	else if (id <= 0 && !(idx == SIGNCMD_UNPLACE && id == -2))
+  	{
+! 	    if ((group == NULL) && (lnum >= 0 || sign_name != NULL))
+  		EMSG(_(e_invarg));
+  	    else
+! 		// ":sign place file={fname}": list placed signs in one file
+! 		// ":sign place group={group} file={fname}"
+! 		// ":sign place group=* file={fname}"
+! 		sign_list_placed(buf, group);
+  	}
+  	else if (idx == SIGNCMD_JUMP)
+  	{
+  	    /* ":sign jump {id} file={fname}" */
+  	    if (lnum >= 0 || sign_name != NULL)
+  		EMSG(_(e_invarg));
+! 	    else if ((lnum = buf_findsign(buf, id, group)) > 0)
+  	    {				/* goto a sign ... */
+  		if (buf_jump_open_win(buf) != NULL)
+  		{			/* ... in a current window */
+***************
+*** 8021,8065 ****
+  		EMSG(_(e_invarg));
+  	    else if (id == -2)
+  	    {
+! 		/* ":sign unplace * file={fname}" */
+! 		redraw_buf_later(buf, NOT_VALID);
+! 		buf_delete_signs(buf);
+  	    }
+  	    else
+  	    {
+! 		/* ":sign unplace {id} file={fname}" */
+! 		lnum = buf_delsign(buf, id);
+! 		update_debug_sign(buf, lnum);
+  	    }
+  	}
+  	    /* idx == SIGNCMD_PLACE */
+! 	else if (sign_name != NULL)
+! 	{
+! 	    for (sp = first_sign; sp != NULL; sp = sp->sn_next)
+! 		if (STRCMP(sp->sn_name, sign_name) == 0)
+! 		    break;
+! 	    if (sp == NULL)
+! 	    {
+! 		EMSG2(_("E155: Unknown sign: %s"), sign_name);
+! 		return;
+! 	    }
+! 	    if (lnum > 0)
+! 		/* ":sign place {id} line={lnum} name={name} file={fname}":
+! 		 * place a sign */
+! 		buf_addsign(buf, id, lnum, sp->sn_typenr);
+! 	    else
+! 		/* ":sign place {id} file={fname}": change sign type */
+! 		lnum = buf_change_sign_type(buf, id, sp->sn_typenr);
+! 	    if (lnum > 0)
+! 		update_debug_sign(buf, lnum);
+! 	    else
+! 		EMSG2(_("E885: Not possible to change sign %s"), sign_name);
+! 	}
+  	else
+  	    EMSG(_(e_invarg));
+      }
+  }
+  
+  # if defined(FEAT_SIGN_ICONS) || defined(PROTO)
+  /*
+   * Allocate the icons.  Called when the GUI has started.  Allows defining
+--- 8232,8395 ----
+  		EMSG(_(e_invarg));
+  	    else if (id == -2)
+  	    {
+! 		if (buf != NULL)
+! 		    // ":sign unplace * file={fname}"
+! 		    sign_unplace(0, group, buf);
+! 		else
+! 		    // ":sign unplace * group=*": remove all placed signs
+! 		    FOR_ALL_BUFFERS(buf)
+! 			if (buf->b_signlist != NULL)
+! 			    buf_delete_signs(buf, group);
+  	    }
+  	    else
+  	    {
+! 		if (buf != NULL)
+! 		    // ":sign unplace {id} file={fname}"
+! 		    // ":sign unplace {id} group={group} file={fname}"
+! 		    // ":sign unplace {id} group=* file={fname}"
+! 		    sign_unplace(id, group, buf);
+! 		else
+! 		    // ":sign unplace {id} group={group}":
+! 		    // ":sign unplace {id} group=*":
+! 		    //     remove all placed signs in this group.
+! 		    FOR_ALL_BUFFERS(buf)
+! 			if (buf->b_signlist != NULL)
+! 			    sign_unplace(id, group, buf);
+  	    }
+  	}
+  	    /* idx == SIGNCMD_PLACE */
+! 	else if (sign_name != NULL && buf != NULL)
+! 	    sign_place(&id, group, sign_name, buf, lnum, prio);
+  	else
+  	    EMSG(_(e_invarg));
+      }
+  }
+  
++ /*
++  * Return information about a specified sign
++  */
++     static void
++ sign_getinfo(sign_T *sp, dict_T *retdict)
++ {
++     char_u	*p;
++ 
++     dict_add_string(retdict, "name", (char_u *)sp->sn_name);
++     if (sp->sn_icon != NULL)
++ 	dict_add_string(retdict, "icon", (char_u *)sp->sn_icon);
++     if (sp->sn_text != NULL)
++ 	dict_add_string(retdict, "text", (char_u *)sp->sn_text);
++     if (sp->sn_line_hl > 0)
++     {
++ 	p = get_highlight_name_ext(NULL, sp->sn_line_hl - 1, FALSE);
++ 	if (p == NULL)
++ 	    p = (char_u *)"NONE";
++ 	dict_add_string(retdict, "linehl", (char_u *)p);
++     }
++     if (sp->sn_text_hl > 0)
++     {
++ 	p = get_highlight_name_ext(NULL, sp->sn_text_hl - 1, FALSE);
++ 	if (p == NULL)
++ 	    p = (char_u *)"NONE";
++ 	dict_add_string(retdict, "texthl", (char_u *)p);
++     }
++ }
++ 
++ /*
++  * If 'name' is NULL, return a list of all the defined signs.
++  * Otherwise, return information about the specified sign.
++  */
++     void
++ sign_getlist(char_u *name, list_T *retlist)
++ {
++     sign_T	*sp = first_sign;
++     dict_T	*dict;
++ 
++     if (name != NULL)
++     {
++ 	sp = sign_find(name, NULL);
++ 	if (sp == NULL)
++ 	    return;
++     }
++ 
++     for (; sp != NULL && !got_int; sp = sp->sn_next)
++     {
++ 	if ((dict = dict_alloc_id(aid_sign_getlist)) == NULL)
++ 	    return;
++ 	if (list_append_dict(retlist, dict) == FAIL)
++ 	    return;
++ 	sign_getinfo(sp, dict);
++ 
++ 	if (name != NULL)	    // handle only the specified sign
++ 	    break;
++     }
++ }
++ 
++ /*
++  * Return information about all the signs placed in a buffer
++  */
++     static void
++ sign_get_placed_in_buf(
++ 	buf_T		*buf,
++ 	linenr_T	lnum,
++ 	int		sign_id,
++ 	char_u		*sign_group,
++ 	list_T		*retlist)
++ {
++     dict_T	*d;
++     list_T	*l;
++     signlist_T	*sign;
++     dict_T	*sdict;
++ 
++     if ((d = dict_alloc_id(aid_sign_getplaced_dict)) == NULL)
++ 	return;
++     list_append_dict(retlist, d);
++ 
++     dict_add_number(d, "bufnr", (long)buf->b_fnum);
++ 
++     if ((l = list_alloc_id(aid_sign_getplaced_list)) == NULL)
++ 	return;
++     dict_add_list(d, "signs", l);
++ 
++     FOR_ALL_SIGNS_IN_BUF(buf)
++     {
++ 	if (!sign_in_group(sign, sign_group))
++ 	    continue;
++ 	if ((lnum == 0 && sign_id == 0) ||
++ 		(sign_id == 0 && lnum == sign->lnum) ||
++ 		(lnum == 0 && sign_id == sign->id) ||
++ 		(lnum == sign->lnum && sign_id == sign->id))
++ 	{
++ 	    if ((sdict = sign_get_info(sign)) != NULL)
++ 		list_append_dict(l, sdict);
++ 	}
++     }
++ }
++ 
++ /*
++  * Get a list of signs placed in buffer 'buf'. If 'num' is non-zero, return the
++  * sign placed at the line number. If 'lnum' is zero, return all the signs
++  * placed in 'buf'. If 'buf' is NULL, return signs placed in all the buffers.
++  */
++     void
++ sign_get_placed(
++ 	buf_T		*buf,
++ 	linenr_T	lnum,
++ 	int		sign_id,
++ 	char_u		*sign_group,
++ 	list_T		*retlist)
++ {
++     if (buf != NULL)
++ 	sign_get_placed_in_buf(buf, lnum, sign_id, sign_group, retlist);
++     else
++     {
++ 	FOR_ALL_BUFFERS(buf)
++ 	{
++ 	    if (buf->b_signlist != NULL)
++ 		sign_get_placed_in_buf(buf, 0, sign_id, sign_group, retlist);
++ 	}
++     }
++ }
++ 
+  # if defined(FEAT_SIGN_ICONS) || defined(PROTO)
+  /*
+   * Allocate the icons.  Called when the GUI has started.  Allows defining
+***************
+*** 8214,8220 ****
+      return (char_u *)_("[Deleted]");
+  }
+  
+- # if defined(EXITFREE) || defined(PROTO)
+  /*
+   * Undefine/free all signs.
+   */
+--- 8544,8549 ----
+***************
+*** 8224,8230 ****
+      while (first_sign != NULL)
+  	sign_undefine(first_sign, NULL);
+  }
+- # endif
+  
+  # if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  static enum
+--- 8553,8558 ----
+*** ../vim-8.1.0613/src/globals.h	2018-11-10 17:33:23.087518814 +0100
+--- src/globals.h	2018-12-21 14:36:57.242303552 +0100
+***************
+*** 606,611 ****
+--- 606,615 ----
+  
+  #define FOR_ALL_BUFFERS(buf) for (buf = firstbuf; buf != NULL; buf = buf->b_next)
+  
++ // Iterate through all the signs placed in a buffer
++ #define FOR_ALL_SIGNS_IN_BUF(buf) \
++ 	for (sign = buf->b_signlist; sign != NULL; sign = sign->next)
++ 
+  /* Flag that is set when switching off 'swapfile'.  It means that all blocks
+   * are to be loaded into memory.  Shouldn't be global... */
+  EXTERN int	mf_dont_release INIT(= FALSE);	/* don't release blocks */
+*** ../vim-8.1.0613/src/list.c	2018-11-11 15:20:32.432704446 +0100
+--- src/list.c	2018-12-21 14:36:57.242303552 +0100
+***************
+*** 116,121 ****
+--- 116,135 ----
+  }
+  
+  /*
++  * Same as rettv_list_alloc() but uses an allocation id for testing.
++  */
++     int
++ rettv_list_alloc_id(typval_T *rettv, alloc_id_T id UNUSED)
++ {
++ #ifdef FEAT_EVAL
++     if (alloc_fail_id == id && alloc_does_fail((long_u)sizeof(list_T)))
++ 	return FAIL;
++ #endif
++     return rettv_list_alloc(rettv);
++ }
++ 
++ 
++ /*
+   * Set a list as the return value
+   */
+      void
+*** ../vim-8.1.0613/src/misc2.c	2018-12-16 16:30:17.810717978 +0100
+--- src/misc2.c	2018-12-21 14:36:57.246303525 +0100
+***************
+*** 895,900 ****
+--- 895,913 ----
+  }
+  
+  /*
++  * Same as alloc_clear() but with allocation id for testing
++  */
++     char_u *
++ alloc_clear_id(unsigned size, alloc_id_T id UNUSED)
++ {
++ #ifdef FEAT_EVAL
++     if (alloc_fail_id == id && alloc_does_fail((long_u)size))
++ 	return NULL;
++ #endif
++     return alloc_clear(size);
++ }
++ 
++ /*
+   * alloc() with check for maximum line length
+   */
+      char_u *
+*** ../vim-8.1.0613/src/netbeans.c	2018-09-30 21:43:17.199693265 +0200
+--- src/netbeans.c	2018-12-21 14:36:57.246303525 +0100
+***************
+*** 1042,1048 ****
+  		cp = (char *)args;
+  		serNum = strtol(cp, &cp, 10);
+  		/* If the sign isn't found linenum will be zero. */
+! 		linenum = (long)buf_findsign(buf->bufp, serNum);
+  	    }
+  #endif
+  	    nb_reply_nr(cmdno, linenum);
+--- 1042,1048 ----
+  		cp = (char *)args;
+  		serNum = strtol(cp, &cp, 10);
+  		/* If the sign isn't found linenum will be zero. */
+! 		linenum = (long)buf_findsign(buf->bufp, serNum, NULL);
+  	    }
+  #endif
+  	    nb_reply_nr(cmdno, linenum);
+***************
+*** 1256,1262 ****
+  			{
+  			    nbdebug(("    Deleting sign %d on line %d\n",
+  								      id, i));
+! 			    buf_delsign(buf->bufp, id);
+  			}
+  			else
+  			{
+--- 1256,1262 ----
+  			{
+  			    nbdebug(("    Deleting sign %d on line %d\n",
+  								      id, i));
+! 			    buf_delsign(buf->bufp, id, NULL);
+  			}
+  			else
+  			{
+*** ../vim-8.1.0613/src/proto/buffer.pro	2018-12-18 21:56:25.084495836 +0100
+--- src/proto/buffer.pro	2018-12-21 14:36:57.246303525 +0100
+***************
+*** 69,85 ****
+  void switch_to_win_for_buf(buf_T *buf, win_T **save_curwinp, tabpage_T **save_curtabp, bufref_T *save_curbuf);
+  void restore_win_for_buf(win_T *save_curwin, tabpage_T *save_curtab, bufref_T *save_curbuf);
+  int find_win_for_buf(buf_T *buf, win_T **wp, tabpage_T **tp);
+! void buf_addsign(buf_T *buf, int id, linenr_T lnum, int typenr);
+! linenr_T buf_change_sign_type(buf_T *buf, int markId, int typenr);
+  int buf_getsigntype(buf_T *buf, linenr_T lnum, int type);
+! linenr_T buf_delsign(buf_T *buf, int id);
+! int buf_findsign(buf_T *buf, int id);
+  int buf_findsign_id(buf_T *buf, linenr_T lnum);
+  int buf_findsigntype_id(buf_T *buf, linenr_T lnum, int typenr);
+  int buf_signcount(buf_T *buf, linenr_T lnum);
+! void buf_delete_signs(buf_T *buf);
+  void buf_delete_all_signs(void);
+! void sign_list_placed(buf_T *rbuf);
+  void sign_mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after);
+  void set_buflisted(int on);
+  int buf_contents_changed(buf_T *buf);
+--- 69,90 ----
+  void switch_to_win_for_buf(buf_T *buf, win_T **save_curwinp, tabpage_T **save_curtabp, bufref_T *save_curbuf);
+  void restore_win_for_buf(win_T *save_curwin, tabpage_T *save_curtab, bufref_T *save_curbuf);
+  int find_win_for_buf(buf_T *buf, win_T **wp, tabpage_T **tp);
+! void buf_addsign(buf_T *buf, int id, char_u *group, int prio, linenr_T lnum, int typenr);
+! linenr_T buf_change_sign_type(buf_T *buf, int markId, char_u *group, int typenr);
+  int buf_getsigntype(buf_T *buf, linenr_T lnum, int type);
+! linenr_T buf_delsign(buf_T *buf, int id, char_u *group);
+! int buf_findsign(buf_T *buf, int id, char_u *group);
+! #ifdef FEAT_SIGNS
+! int sign_in_group(signlist_T *sign, char_u *group);
+! dict_T *sign_get_info(signlist_T *sign);
+! signlist_T *buf_getsign_with_id(buf_T *buf, int id, char_u *group);
+! #endif
+  int buf_findsign_id(buf_T *buf, linenr_T lnum);
+  int buf_findsigntype_id(buf_T *buf, linenr_T lnum, int typenr);
+  int buf_signcount(buf_T *buf, linenr_T lnum);
+! void buf_delete_signs(buf_T *buf, char_u *group);
+  void buf_delete_all_signs(void);
+! void sign_list_placed(buf_T *rbuf, char_u *sign_group);
+  void sign_mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after);
+  void set_buflisted(int on);
+  int buf_contents_changed(buf_T *buf);
+*** ../vim-8.1.0613/src/proto/ex_cmds.pro	2018-12-18 21:56:25.084495836 +0100
+--- src/proto/ex_cmds.pro	2018-12-21 14:36:57.246303525 +0100
+***************
+*** 61,70 ****
+--- 61,77 ----
+  void *sign_get_image(int typenr);
+  char_u *sign_typenr2name(int typenr);
+  void free_signs(void);
++ void free_signs(void);
+  char_u *get_sign_name(expand_T *xp, int idx);
+  void set_context_in_sign_cmd(expand_T *xp, char_u *arg);
+  void ex_smile(exarg_T *eap);
+  void ex_drop(exarg_T *eap);
+  char_u *skip_vimgrep_pat(char_u *p, char_u **s, int *flags);
+  void ex_oldfiles(exarg_T *eap);
++ int sign_define_by_name(char_u *name, char_u *icon, char_u *linehl, char_u *text, char_u *texthl);
++ int sign_undefine_by_name(char_u *name);
++ void sign_getlist(char_u *name, list_T *retlist);
++ int sign_place(int *sign_id, char_u *group, char_u *sign_name, buf_T *buf, linenr_T lnum, int prio);
++ int sign_unplace(int id, char_u *group, buf_T *buf);
++ void sign_get_placed(buf_T *buf, linenr_T lnum, int id, char_u *group, list_T *retlist);
+  /* vim: set ft=c : */
+*** ../vim-8.1.0613/src/proto/list.pro	2018-11-11 15:20:32.436704418 +0100
+--- src/proto/list.pro	2018-12-21 14:36:57.246303525 +0100
+***************
+*** 5,10 ****
+--- 5,11 ----
+  list_T *list_alloc(void);
+  list_T *list_alloc_id(alloc_id_T id);
+  int rettv_list_alloc(typval_T *rettv);
++ int rettv_list_alloc_id(typval_T *rettv, alloc_id_T id);
+  void rettv_list_set(typval_T *rettv, list_T *l);
+  void list_unref(list_T *l);
+  int list_free_nonref(int copyID);
+*** ../vim-8.1.0613/src/proto/misc2.pro	2018-12-18 21:56:25.084495836 +0100
+--- src/proto/misc2.pro	2018-12-21 14:36:57.246303525 +0100
+***************
+*** 24,29 ****
+--- 24,30 ----
+  char_u *alloc(unsigned size);
+  char_u *alloc_id(unsigned size, alloc_id_T id);
+  char_u *alloc_clear(unsigned size);
++ char_u * alloc_clear_id(unsigned size, alloc_id_T id);
+  char_u *alloc_check(unsigned size);
+  char_u *lalloc_clear(long_u size, int message);
+  char_u *lalloc(long_u size, int message);
+*** ../vim-8.1.0613/src/structs.h	2018-12-13 22:17:52.881941445 +0100
+--- src/structs.h	2018-12-21 14:36:57.246303525 +0100
+***************
+*** 740,749 ****
+--- 740,754 ----
+      int		id;		/* unique identifier for each placed sign */
+      linenr_T	lnum;		/* line number which has this sign */
+      int		typenr;		/* typenr of sign */
++     char_u	*group;		/* sign group */
++     int		priority;	/* priority for highlighting */
+      signlist_T	*next;		/* next signlist entry */
+      signlist_T  *prev;		/* previous entry -- for easy reordering */
+  };
+  
++ // Default sign priority for highlighting
++ #define SIGN_DEF_PRIO	10
++ 
+  /* type argument for buf_getsigntype() */
+  #define SIGN_ANY	0
+  #define SIGN_LINEHL	1
+*** ../vim-8.1.0613/src/testdir/test_signs.vim	2018-12-14 19:37:03.677899412 +0100
+--- src/testdir/test_signs.vim	2018-12-21 14:44:27.834440393 +0100
+***************
+*** 16,23 ****
+    try
+      sign define Sign2 text=xy texthl=Title linehl=Error icon=../../pixmaps/stock_vim_find_help.png
+    catch /E255:/
+!     " ignore error: E255: Couldn't read in sign data!
+!     " This error can happen when running in gui.
+      " Some gui like Motif do not support the png icon format.
+    endtry
+  
+--- 16,23 ----
+    try
+      sign define Sign2 text=xy texthl=Title linehl=Error icon=../../pixmaps/stock_vim_find_help.png
+    catch /E255:/
+!     " Ignore error: E255: Couldn't read in sign data!
+!     " This error can happen when running in the GUI.
+      " Some gui like Motif do not support the png icon format.
+    endtry
+  
+***************
+*** 63,69 ****
+  
+    " Check placed signs
+    let a=execute('sign place')
+!   call assert_equal("\n--- Signs ---\nSigns for [NULL]:\n    line=3  id=41  name=Sign1\n", a)
+  
+    " Unplace the sign and try jumping to it again should fail.
+    sign unplace 41
+--- 63,69 ----
+  
+    " Check placed signs
+    let a=execute('sign place')
+!   call assert_equal("\n--- Signs ---\nSigns for [NULL]:\n    line=3  id=41  name=Sign1 priority=10\n", a)
+  
+    " Unplace the sign and try jumping to it again should fail.
+    sign unplace 41
+***************
+*** 112,118 ****
+    " Only 1 or 2 character text is allowed
+    call assert_fails("sign define Sign4 text=abc linehl=Comment", 'E239:')
+    call assert_fails("sign define Sign4 text= linehl=Comment", 'E239:')
+!   call assert_fails("sign define Sign4 text=\ ab  linehl=Comment", 'E239:')
+  
+    " define sign with whitespace
+    sign define Sign4 text=\ X linehl=Comment
+--- 112,118 ----
+    " Only 1 or 2 character text is allowed
+    call assert_fails("sign define Sign4 text=abc linehl=Comment", 'E239:')
+    call assert_fails("sign define Sign4 text= linehl=Comment", 'E239:')
+!   call assert_fails("sign define Sign4 text=\\ ab  linehl=Comment", 'E239:')
+  
+    " define sign with whitespace
+    sign define Sign4 text=\ X linehl=Comment
+***************
+*** 131,136 ****
+--- 131,158 ----
+    sign define Sign4 text=\\ linehl=Comment
+    sign undefine Sign4
+  
++   " Error cases
++   call assert_fails("exe 'sign place abc line=3 name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   call assert_fails("exe 'sign unplace abc name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   call assert_fails("exe 'sign place 1abc line=3 name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   call assert_fails("exe 'sign unplace 2abc name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   call assert_fails("sign unplace 2 *", 'E474:')
++   call assert_fails("exe 'sign place 1 line=3 name=Sign1 buffer=' . bufnr('%') a", 'E488:')
++   call assert_fails("exe 'sign place name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   call assert_fails("exe 'sign place line=10 buffer=' . bufnr('%')", 'E474:')
++   call assert_fails("exe 'sign unplace 2 line=10 buffer=' . bufnr('%')", 'E474:')
++   call assert_fails("exe 'sign unplace 2 name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   call assert_fails("exe 'sign place 2 line=3 buffer=' . bufnr('%')", 'E474:')
++   call assert_fails("sign place 2", 'E474:')
++   call assert_fails("sign place abc", 'E474:')
++   call assert_fails("sign place 5 line=3", 'E474:')
++   call assert_fails("sign place 5 name=Sign1", 'E474:')
++   call assert_fails("sign place 5 group=g1", 'E474:')
++   call assert_fails("sign place 5 group=*", 'E474:')
++   call assert_fails("sign place 5 priority=10", 'E474:')
++   call assert_fails("sign place 5 line=3 name=Sign1", 'E474:')
++   call assert_fails("sign place 5 group=g1 line=3 name=Sign1", 'E474:')
++ 
+    " After undefining the sign, we should no longer be able to place it.
+    sign undefine Sign1
+    sign undefine Sign2
+***************
+*** 152,158 ****
+  
+    " Listing placed sign should show that sign is deleted.
+    let a=execute('sign place')
+!   call assert_equal("\n--- Signs ---\nSigns for foobar:\n    line=1  id=41  name=[Deleted]\n", a)
+  
+    sign unplace 41
+    let a=execute('sign place')
+--- 174,180 ----
+  
+    " Listing placed sign should show that sign is deleted.
+    let a=execute('sign place')
+!   call assert_equal("\n--- Signs ---\nSigns for foobar:\n    line=1  id=41  name=[Deleted] priority=10\n", a)
+  
+    sign unplace 41
+    let a=execute('sign place')
+***************
+*** 202,207 ****
+--- 224,231 ----
+  endfunc
+  
+  func Test_sign_invalid_commands()
++   sign define Sign1 text=x
++ 
+    call assert_fails('sign', 'E471:')
+    call assert_fails('sign jump', 'E471:')
+    call assert_fails('sign xxx', 'E160:')
+***************
+*** 211,216 ****
+--- 235,286 ----
+    call assert_fails('sign list xxx', 'E155:')
+    call assert_fails('sign place 1 buffer=999', 'E158:')
+    call assert_fails('sign define Sign2 text=', 'E239:')
++   " Non-numeric identifier for :sign place
++   call assert_fails("exe 'sign place abc line=3 name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   " Non-numeric identifier for :sign unplace
++   call assert_fails("exe 'sign unplace abc name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   " Number followed by an alphabet as sign identifier for :sign place
++   call assert_fails("exe 'sign place 1abc line=3 name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   " Number followed by an alphabet as sign identifier for :sign unplace
++   call assert_fails("exe 'sign unplace 2abc name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   " Sign identifier and '*' for :sign unplace
++   call assert_fails("sign unplace 2 *", 'E474:')
++   " Trailing characters after buffer number for :sign place
++   call assert_fails("exe 'sign place 1 line=3 name=Sign1 buffer=' . bufnr('%') . 'xxx'", 'E488:')
++   " Trailing characters after buffer number for :sign unplace
++   call assert_fails("exe 'sign unplace 1 buffer=' . bufnr('%') . 'xxx'", 'E488:')
++   call assert_fails("exe 'sign unplace * buffer=' . bufnr('%') . 'xxx'", 'E488:')
++   call assert_fails("sign unplace 1 xxx", 'E474:')
++   call assert_fails("sign unplace * xxx", 'E474:')
++   call assert_fails("sign unplace xxx", 'E474:')
++   " Placing a sign without line number
++   call assert_fails("exe 'sign place name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   " Placing a sign without sign name
++   call assert_fails("exe 'sign place line=10 buffer=' . bufnr('%')", 'E474:')
++   " Unplacing a sign with line number
++   call assert_fails("exe 'sign unplace 2 line=10 buffer=' . bufnr('%')", 'E474:')
++   " Unplacing a sign with sign name
++   call assert_fails("exe 'sign unplace 2 name=Sign1 buffer=' . bufnr('%')", 'E474:')
++   " Placing a sign without sign name
++   call assert_fails("exe 'sign place 2 line=3 buffer=' . bufnr('%')", 'E474:')
++   " Placing a sign with only sign identifier
++   call assert_fails("sign place 2", 'E474:')
++   " Placing a sign with only a name
++   call assert_fails("sign place abc", 'E474:')
++   " Placing a sign with only line number
++   call assert_fails("sign place 5 line=3", 'E474:')
++   " Placing a sign with only sign name
++   call assert_fails("sign place 5 name=Sign1", 'E474:')
++   " Placing a sign with only sign group
++   call assert_fails("sign place 5 group=g1", 'E474:')
++   call assert_fails("sign place 5 group=*", 'E474:')
++   " Placing a sign with only sign priority
++   call assert_fails("sign place 5 priority=10", 'E474:')
++   " Placing a sign without buffer number or file name
++   call assert_fails("sign place 5 line=3 name=Sign1", 'E474:')
++   call assert_fails("sign place 5 group=g1 line=3 name=Sign1", 'E474:')
++ 
++   sign undefine Sign1
+  endfunc
+  
+  func Test_sign_delete_buffer()
+***************
+*** 224,226 ****
+--- 294,842 ----
+    sign unplace 61
+    sign undefine Sign
+  endfunc
++ 
++ " Test for VimL functions for managing signs
++ func Test_sign_funcs()
++   " Remove all the signs
++   call sign_unplace('*')
++   call sign_undefine()
++ 
++   " Tests for sign_define()
++   let attr = {'text' : '=>', 'linehl' : 'Search', 'texthl' : 'Error'}
++   call assert_equal(0, sign_define("sign1", attr))
++   call assert_equal([{'name' : 'sign1', 'texthl' : 'Error',
++ 	      \ 'linehl' : 'Search', 'text' : '=>'}], sign_getdefined())
++ 
++   " Define a new sign without attributes and then update it
++   call sign_define("sign2")
++   let attr = {'text' : '!!', 'linehl' : 'DiffAdd', 'texthl' : 'DiffChange',
++ 	      \ 'icon' : 'sign2.ico'}
++   try
++     call sign_define("sign2", attr)
++   catch /E255:/
++     " ignore error: E255: Couldn't read in sign data!
++     " This error can happen when running in gui.
++   endtry
++   call assert_equal([{'name' : 'sign2', 'texthl' : 'DiffChange',
++ 	      \ 'linehl' : 'DiffAdd', 'text' : '!!', 'icon' : 'sign2.ico'}],
++ 	      \ sign_getdefined("sign2"))
++ 
++   " Test for a sign name with digits
++   call assert_equal(0, sign_define(0002, {'linehl' : 'StatusLine'}))
++   call assert_equal([{'name' : '2', 'linehl' : 'StatusLine'}],
++ 	      \ sign_getdefined(0002))
++   call sign_undefine(0002)
++ 
++   " Tests for invalid arguments to sign_define()
++   call assert_fails('call sign_define("sign4", {"text" : "===>"})', 'E239:')
++   call assert_fails('call sign_define("sign5", {"text" : ""})', 'E239:')
++   call assert_fails('call sign_define([])', 'E730:')
++   call assert_fails('call sign_define("sign6", [])', 'E715:')
++ 
++   " Tests for sign_getdefined()
++   call assert_equal([], sign_getdefined("none"))
++   call assert_fails('call sign_getdefined({})', 'E731:')
++ 
++   " Tests for sign_place()
++   call writefile(repeat(["Sun is shining"], 30), "Xsign")
++   edit Xsign
++ 
++   call assert_equal(10, sign_place(10, '', 'sign1', 'Xsign',
++ 	      \ {'lnum' : 20}))
++   call assert_equal([{'bufnr' : bufnr(''), 'signs' :
++ 	      \ [{'id' : 10, 'group' : '', 'lnum' : 20, 'name' : 'sign1',
++ 	      \ 'priority' : 10}]}], sign_getplaced('Xsign'))
++   call assert_equal([{'bufnr' : bufnr(''), 'signs' :
++ 	      \ [{'id' : 10, 'group' : '', 'lnum' : 20, 'name' : 'sign1',
++ 	      \ 'priority' : 10}]}],
++ 	      \ sign_getplaced('Xsign', {'lnum' : 20}))
++   call assert_equal([{'bufnr' : bufnr(''), 'signs' :
++ 	      \ [{'id' : 10, 'group' : '', 'lnum' : 20, 'name' : 'sign1',
++ 	      \ 'priority' : 10}]}],
++ 	      \ sign_getplaced('Xsign', {'id' : 10}))
++ 
++   " Tests for invalid arguments to sign_place()
++   call assert_fails('call sign_place([], "", "mySign", 1)', 'E745:')
++   call assert_fails('call sign_place(5, "", "mySign", -1)', 'E158:')
++   call assert_fails('call sign_place(-1, "", "sign1", "Xsign", [])',
++ 	      \ 'E474:')
++   call assert_fails('call sign_place(-1, "", "sign1", "Xsign",
++ 	      \ {"lnum" : 30})', 'E474:')
++   call assert_fails('call sign_place(10, "", "xsign1x", "Xsign",
++ 	      \ {"lnum" : 30})', 'E155:')
++   call assert_fails('call sign_place(10, "", "", "Xsign",
++ 	      \ {"lnum" : 30})', 'E155:')
++   call assert_fails('call sign_place(10, "", [], "Xsign",
++ 	      \ {"lnum" : 30})', 'E730:')
++   call assert_fails('call sign_place(5, "", "sign1", "abcxyz.xxx",
++ 	      \ {"lnum" : 10})', 'E158:')
++   call assert_fails('call sign_place(5, "", "sign1", "", {"lnum" : 10})',
++ 	      \ 'E158:')
++   call assert_fails('call sign_place(5, "", "sign1", [], {"lnum" : 10})',
++ 	      \ 'E158:')
++   call assert_fails('call sign_place(21, "", "sign1", "Xsign",
++ 	      \ {"lnum" : -1})', 'E885:')
++   call assert_fails('call sign_place(22, "", "sign1", "Xsign",
++ 	      \ {"lnum" : 0})', 'E885:')
++   call assert_equal(-1, sign_place(1, "*", "sign1", "Xsign", {"lnum" : 10}))
++ 
++   " Tests for sign_getplaced()
++   call assert_equal([{'bufnr' : bufnr(''), 'signs' :
++ 	      \ [{'id' : 10, 'group' : '', 'lnum' : 20, 'name' : 'sign1',
++ 	      \ 'priority' : 10}]}],
++ 	      \ sign_getplaced(bufnr('Xsign')))
++   call assert_equal([{'bufnr' : bufnr(''), 'signs' :
++ 	      \ [{'id' : 10, 'group' : '', 'lnum' : 20, 'name' : 'sign1',
++ 	      \ 'priority' : 10}]}],
++ 	      \ sign_getplaced())
++   call assert_fails("call sign_getplaced('dummy.sign')", 'E158:')
++   call assert_fails('call sign_getplaced("")', 'E158:')
++   call assert_fails('call sign_getplaced(-1)', 'E158:')
++   call assert_fails('call sign_getplaced("Xsign", [])', 'E715:')
++   call assert_equal([{'bufnr' : bufnr(''), 'signs' : []}],
++ 	      \ sign_getplaced('Xsign', {'lnum' : 1000000}))
++   call assert_fails("call sign_getplaced('Xsign', {'lnum' : []})",
++ 	      \ 'E745:')
++   call assert_equal([{'bufnr' : bufnr(''), 'signs' : []}],
++ 	      \ sign_getplaced('Xsign', {'id' : 44}))
++   call assert_fails("call sign_getplaced('Xsign', {'id' : []})",
++ 	      \ 'E745:')
++ 
++   " Tests for sign_unplace()
++   call sign_place(20, '', 'sign2', 'Xsign', {"lnum" : 30})
++   call assert_equal(0, sign_unplace('',
++ 	      \ {'id' : 20, 'buffer' : 'Xsign'}))
++   call assert_equal(-1, sign_unplace('',
++ 	      \ {'id' : 30, 'buffer' : 'Xsign'}))
++   call sign_place(20, '', 'sign2', 'Xsign', {"lnum" : 30})
++   call assert_fails("call sign_unplace('',
++ 	      \ {'id' : 20, 'buffer' : 'buffer.c'})", 'E158:')
++   call assert_fails("call sign_unplace('',
++ 	      \ {'id' : 20, 'buffer' : ''})", 'E158:')
++   call assert_fails("call sign_unplace('',
++ 	      \ {'id' : 20, 'buffer' : 200})", 'E158:')
++   call assert_fails("call sign_unplace('', 'mySign')", 'E715:')
++ 
++   " Tests for sign_undefine()
++   call assert_equal(0, sign_undefine("sign1"))
++   call assert_equal([], sign_getdefined("sign1"))
++   call assert_fails('call sign_undefine("none")', 'E155:')
++   call assert_fails('call sign_undefine([])', 'E730:')
++ 
++   call delete("Xsign")
++   call sign_unplace('*')
++   call sign_undefine()
++   enew | only
++ endfunc
++ 
++ " Tests for sign groups
++ func Test_sign_group()
++   enew | only
++   " Remove all the signs
++   call sign_unplace('*')
++   call sign_undefine()
++ 
++   call writefile(repeat(["Sun is shining"], 30), "Xsign")
++ 
++   let attr = {'text' : '=>', 'linehl' : 'Search', 'texthl' : 'Error'}
++   call assert_equal(0, sign_define("sign1", attr))
++ 
++   edit Xsign
++   let bnum = bufnr('%')
++   let fname = fnamemodify('Xsign', ':p')
++ 
++   " Error case
++   call assert_fails("call sign_place(5, [], 'sign1', 'Xsign',
++ 	      \ {'lnum' : 30})", 'E730:')
++ 
++   " place three signs with the same identifier. One in the global group and
++   " others in the named groups
++   call assert_equal(5, sign_place(5, '', 'sign1', 'Xsign',
++ 	      \ {'lnum' : 10}))
++   call assert_equal(5, sign_place(5, 'g1', 'sign1', bnum, {'lnum' : 20}))
++   call assert_equal(5, sign_place(5, 'g2', 'sign1', bnum, {'lnum' : 30}))
++ 
++   " Test for sign_getplaced() with group
++   let s = sign_getplaced('Xsign')
++   call assert_equal(1, len(s[0].signs))
++   call assert_equal(s[0].signs[0].group, '')
++   let s = sign_getplaced(bnum, {'group' : 'g2'})
++   call assert_equal('g2', s[0].signs[0].group)
++   let s = sign_getplaced(bnum, {'group' : 'g3'})
++   call assert_equal([], s[0].signs)
++   let s = sign_getplaced(bnum, {'group' : '*'})
++   call assert_equal([{'id' : 5, 'group' : '', 'name' : 'sign1', 'lnum' : 10,
++ 	      \ 'priority' : 10},
++ 	      \ {'id' : 5, 'group' : 'g1', 'name' : 'sign1', 'lnum' : 20,
++ 	      \  'priority' : 10},
++ 	      \ {'id' : 5, 'group' : 'g2', 'name' : 'sign1', 'lnum' : 30,
++ 	      \  'priority' : 10}],
++ 	      \ s[0].signs)
++ 
++   " Test for sign_getplaced() with id
++   let s = sign_getplaced(bnum, {'id' : 5})
++   call assert_equal([{'id' : 5, 'group' : '', 'name' : 'sign1', 'lnum' : 10,
++ 	      \ 'priority' : 10}],
++ 	      \ s[0].signs)
++   let s = sign_getplaced(bnum, {'id' : 5, 'group' : 'g2'})
++   call assert_equal(
++ 	      \ [{'id' : 5, 'name' : 'sign1', 'lnum' : 30, 'group' : 'g2',
++ 	      \ 'priority' : 10}],
++ 	      \ s[0].signs)
++   let s = sign_getplaced(bnum, {'id' : 5, 'group' : '*'})
++   call assert_equal([{'id' : 5, 'group' : '', 'name' : 'sign1', 'lnum' : 10,
++ 	      \ 'priority' : 10},
++ 	      \ {'id' : 5, 'group' : 'g1', 'name' : 'sign1', 'lnum' : 20,
++ 	      \ 'priority' : 10},
++ 	      \ {'id' : 5, 'group' : 'g2', 'name' : 'sign1', 'lnum' : 30,
++ 	      \ 'priority' : 10}],
++ 	      \ s[0].signs)
++   let s = sign_getplaced(bnum, {'id' : 5, 'group' : 'g3'})
++   call assert_equal([], s[0].signs)
++ 
++   " Test for sign_getplaced() with lnum
++   let s = sign_getplaced(bnum, {'lnum' : 20})
++   call assert_equal([], s[0].signs)
++   let s = sign_getplaced(bnum, {'lnum' : 20, 'group' : 'g1'})
++   call assert_equal(
++ 	      \ [{'id' : 5, 'name' : 'sign1', 'lnum' : 20, 'group' : 'g1',
++ 	      \ 'priority' : 10}],
++ 	      \ s[0].signs)
++   let s = sign_getplaced(bnum, {'lnum' : 30, 'group' : '*'})
++   call assert_equal(
++ 	      \ [{'id' : 5, 'name' : 'sign1', 'lnum' : 30, 'group' : 'g2',
++ 	      \ 'priority' : 10}],
++ 	      \ s[0].signs)
++   let s = sign_getplaced(bnum, {'lnum' : 40, 'group' : '*'})
++   call assert_equal([], s[0].signs)
++ 
++   " Error case
++   call assert_fails("call sign_getplaced(bnum, {'group' : []})",
++ 	      \ 'E730:')
++ 
++   " Clear the sign in global group
++   call sign_unplace('', {'id' : 5, 'buffer' : bnum})
++   let s = sign_getplaced(bnum, {'group' : '*'})
++   call assert_equal([
++ 	      \ {'id' : 5, 'name' : 'sign1', 'lnum' : 20, 'group' : 'g1',
++ 	      \ 'priority' : 10},
++ 	      \ {'id' : 5, 'name' : 'sign1', 'lnum' : 30, 'group' : 'g2',
++ 	      \ 'priority' : 10}],
++ 	      \ s[0].signs)
++ 
++   " Clear the sign in one of the groups
++   call sign_unplace('g1', {'buffer' : 'Xsign'})
++   let s = sign_getplaced(bnum, {'group' : '*'})
++   call assert_equal([
++ 	      \ {'id' : 5, 'name' : 'sign1', 'lnum' : 30, 'group' : 'g2',
++ 	      \ 'priority' : 10}],
++ 	      \ s[0].signs)
++ 
++   " Clear all the signs from the buffer
++   call sign_unplace('*', {'buffer' : bnum})
++   call assert_equal([], sign_getplaced(bnum, {'group' : '*'})[0].signs)
++ 
++   " Clear sign across groups using an identifier
++   call sign_place(25, '', 'sign1', bnum, {'lnum' : 10})
++   call sign_place(25, 'g1', 'sign1', bnum, {'lnum' : 11})
++   call sign_place(25, 'g2', 'sign1', bnum, {'lnum' : 12})
++   call assert_equal(0, sign_unplace('*', {'id' : 25}))
++   call assert_equal([], sign_getplaced(bnum, {'group' : '*'})[0].signs)
++ 
++   " Error case
++   call assert_fails("call sign_unplace([])", 'E474:')
++ 
++   " Place a sign in the global group and try to delete it using a group
++   call assert_equal(5, sign_place(5, '', 'sign1', bnum, {'lnum' : 10}))
++   call assert_equal(-1, sign_unplace('g1', {'id' : 5}))
++ 
++   " Place signs in multiple groups and delete all the signs in one of the
++   " group
++   call assert_equal(5, sign_place(5, '', 'sign1', bnum, {'lnum' : 10}))
++   call assert_equal(6, sign_place(6, '', 'sign1', bnum, {'lnum' : 11}))
++   call assert_equal(5, sign_place(5, 'g1', 'sign1', bnum, {'lnum' : 10}))
++   call assert_equal(5, sign_place(5, 'g2', 'sign1', bnum, {'lnum' : 10}))
++   call assert_equal(6, sign_place(6, 'g1', 'sign1', bnum, {'lnum' : 11}))
++   call assert_equal(6, sign_place(6, 'g2', 'sign1', bnum, {'lnum' : 11}))
++   call assert_equal(0, sign_unplace('g1'))
++   let s = sign_getplaced(bnum, {'group' : 'g1'})
++   call assert_equal([], s[0].signs)
++   let s = sign_getplaced(bnum)
++   call assert_equal(2, len(s[0].signs))
++   let s = sign_getplaced(bnum, {'group' : 'g2'})
++   call assert_equal('g2', s[0].signs[0].group)
++   call assert_equal(0, sign_unplace('', {'id' : 5}))
++   call assert_equal(0, sign_unplace('', {'id' : 6}))
++   let s = sign_getplaced(bnum, {'group' : 'g2'})
++   call assert_equal('g2', s[0].signs[0].group)
++   call assert_equal(0, sign_unplace('', {'buffer' : bnum}))
++ 
++   call sign_unplace('*')
++ 
++   " Test for :sign command and groups
++   exe 'sign place 5 line=10 name=sign1 file=' . fname
++   exe 'sign place 5 group=g1 line=10 name=sign1 file=' . fname
++   exe 'sign place 5 group=g2 line=10 name=sign1 file=' . fname
++ 
++   " Test for :sign place group={group} file={fname}
++   let a = execute('sign place file=' . fname)
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n    line=10  id=5  name=sign1 priority=10\n", a)
++ 
++   let a = execute('sign place group=g2 file=' . fname)
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n    line=10  id=5  group=g2  name=sign1 priority=10\n", a)
++ 
++   let a = execute('sign place group=* file=' . fname)
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=10  id=5  group=g2  name=sign1 priority=10\n" .
++ 	      \ "    line=10  id=5  group=g1  name=sign1 priority=10\n" .
++ 	      \ "    line=10  id=5  name=sign1 priority=10\n", a)
++ 
++   let a = execute('sign place group=xyz file=' . fname)
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n", a)
++ 
++   call sign_unplace('*')
++ 
++   " Test for :sign place group={group} buffer={nr}
++   let bnum = bufnr('Xsign')
++   exe 'sign place 5 line=10 name=sign1 buffer=' . bnum
++   exe 'sign place 5 group=g1 line=11 name=sign1 buffer=' . bnum
++   exe 'sign place 5 group=g2 line=12 name=sign1 buffer=' . bnum
++ 
++   let a = execute('sign place buffer=' . bnum)
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n    line=10  id=5  name=sign1 priority=10\n", a)
++ 
++   let a = execute('sign place group=g2 buffer=' . bnum)
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n    line=12  id=5  group=g2  name=sign1 priority=10\n", a)
++ 
++   let a = execute('sign place group=* buffer=' . bnum)
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=10  id=5  name=sign1 priority=10\n" .
++ 	      \ "    line=11  id=5  group=g1  name=sign1 priority=10\n" .
++ 	      \ "    line=12  id=5  group=g2  name=sign1 priority=10\n", a)
++ 
++   let a = execute('sign place group=xyz buffer=' . bnum)
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n", a)
++ 
++   let a = execute('sign place group=*')
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=10  id=5  name=sign1 priority=10\n" .
++ 	      \ "    line=11  id=5  group=g1  name=sign1 priority=10\n" .
++ 	      \ "    line=12  id=5  group=g2  name=sign1 priority=10\n", a)
++ 
++   " Test for :sign unplace
++   exe 'sign unplace 5 group=g2 file=' . fname
++   call assert_equal([], sign_getplaced(bnum, {'group' : 'g2'})[0].signs)
++ 
++   exe 'sign unplace 5 group=g1 buffer=' . bnum
++   call assert_equal([], sign_getplaced(bnum, {'group' : 'g1'})[0].signs)
++ 
++   exe 'sign unplace 5 group=xy file=' . fname
++   call assert_equal(1, len(sign_getplaced(bnum, {'group' : '*'})[0].signs))
++ 
++   " Test for removing all the signs. Place the signs again for this test
++   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
++   exe 'sign place 5 group=g2 line=12 name=sign1 file=' . fname
++   exe 'sign place 6 line=20 name=sign1 file=' . fname
++   exe 'sign place 6 group=g1 line=21 name=sign1 file=' . fname
++   exe 'sign place 6 group=g2 line=22 name=sign1 file=' . fname
++   exe 'sign unplace 5 group=* file=' . fname
++   let a = execute('sign place group=*')
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=20  id=6  name=sign1 priority=10\n" .
++ 	      \ "    line=21  id=6  group=g1  name=sign1 priority=10\n" .
++ 	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
++ 
++   " Remove all the signs from the global group
++   exe 'sign unplace * file=' . fname
++   let a = execute('sign place group=*')
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=21  id=6  group=g1  name=sign1 priority=10\n" .
++ 	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
++ 
++   " Remove all the signs from a particular group
++   exe 'sign place 5 line=10 name=sign1 file=' . fname
++   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
++   exe 'sign place 5 group=g2 line=12 name=sign1 file=' . fname
++   exe 'sign unplace * group=g1 file=' . fname
++   let a = execute('sign place group=*')
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=10  id=5  name=sign1 priority=10\n" .
++ 	      \ "    line=12  id=5  group=g2  name=sign1 priority=10\n" .
++ 	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
++ 
++   " Remove all the signs from all the groups in a file
++   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
++   exe 'sign place 6 line=20 name=sign1 file=' . fname
++   exe 'sign place 6 group=g1 line=21 name=sign1 file=' . fname
++   exe 'sign unplace * group=* file=' . fname
++   let a = execute('sign place group=*')
++   call assert_equal("\n--- Signs ---\n", a)
++ 
++   " Remove a particular sign id in a group from all the files
++   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
++   sign unplace 5 group=g1
++   let a = execute('sign place group=*')
++   call assert_equal("\n--- Signs ---\n", a)
++ 
++   " Remove a particular sign id in all the groups from all the files
++   exe 'sign place 5 line=10 name=sign1 file=' . fname
++   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
++   exe 'sign place 5 group=g2 line=12 name=sign1 file=' . fname
++   exe 'sign place 6 line=20 name=sign1 file=' . fname
++   exe 'sign place 6 group=g1 line=21 name=sign1 file=' . fname
++   exe 'sign place 6 group=g2 line=22 name=sign1 file=' . fname
++   sign unplace 5 group=*
++   let a = execute('sign place group=*')
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=20  id=6  name=sign1 priority=10\n" .
++ 	      \ "    line=21  id=6  group=g1  name=sign1 priority=10\n" .
++ 	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
++ 
++   " Remove all the signs from all the groups in all the files
++   exe 'sign place 5 line=10 name=sign1 file=' . fname
++   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
++   sign unplace * group=*
++   let a = execute('sign place group=*')
++   call assert_equal("\n--- Signs ---\n", a)
++ 
++   " Error cases
++   call assert_fails("exe 'sign place 3 group= name=sign1 buffer=' . bnum", 'E474:')
++ 
++   call delete("Xsign")
++   call sign_unplace('*')
++   call sign_undefine()
++   enew  | only
++ endfunc
++ 
++ " Tests for auto-generating the sign identifier
++ func Test_sign_id_autogen()
++   enew | only
++   call sign_unplace('*')
++   call sign_undefine()
++ 
++   let attr = {'text' : '=>', 'linehl' : 'Search', 'texthl' : 'Error'}
++   call assert_equal(0, sign_define("sign1", attr))
++ 
++   call writefile(repeat(["Sun is shining"], 30), "Xsign")
++   edit Xsign
++ 
++   call assert_equal(1, sign_place(0, '', 'sign1', 'Xsign',
++ 	      \ {'lnum' : 10}))
++   call assert_equal(2, sign_place(2, '', 'sign1', 'Xsign',
++ 	      \ {'lnum' : 12}))
++   call assert_equal(3, sign_place(0, '', 'sign1', 'Xsign',
++ 	      \ {'lnum' : 14}))
++   call sign_unplace('', {'buffer' : 'Xsign', 'id' : 2})
++   call assert_equal(2, sign_place(0, '', 'sign1', 'Xsign',
++ 	      \ {'lnum' : 12}))
++ 
++   call assert_equal(1, sign_place(0, 'g1', 'sign1', 'Xsign',
++ 	      \ {'lnum' : 11}))
++   call assert_equal(0, sign_unplace('g1', {'id' : 1}))
++   call assert_equal(10,
++ 	      \ sign_getplaced('Xsign', {'id' : 1})[0].signs[0].lnum)
++ 
++   call delete("Xsign")
++   call sign_unplace('*')
++   call sign_undefine()
++   enew  | only
++ endfunc
++ 
++ " Test for sign priority
++ func Test_sign_priority()
++   enew | only
++   call sign_unplace('*')
++   call sign_undefine()
++ 
++   let attr = {'text' : '=>', 'linehl' : 'Search', 'texthl' : 'Search'}
++   call sign_define("sign1", attr)
++   call sign_define("sign2", attr)
++   call sign_define("sign3", attr)
++ 
++   " Place three signs with different priority in the same line
++   call writefile(repeat(["Sun is shining"], 30), "Xsign")
++   edit Xsign
++   let fname = fnamemodify('Xsign', ':p')
++ 
++   call sign_place(1, 'g1', 'sign1', 'Xsign',
++ 	      \ {'lnum' : 11, 'priority' : 50})
++   call sign_place(2, 'g2', 'sign2', 'Xsign',
++ 	      \ {'lnum' : 11, 'priority' : 100})
++   call sign_place(3, '', 'sign3', 'Xsign', {'lnum' : 11})
++   let s = sign_getplaced('Xsign', {'group' : '*'})
++   call assert_equal([
++ 	      \ {'id' : 2, 'name' : 'sign2', 'lnum' : 11, 'group' : 'g2',
++ 	      \ 'priority' : 100},
++ 	      \ {'id' : 1, 'name' : 'sign1', 'lnum' : 11, 'group' : 'g1',
++ 	      \ 'priority' : 50},
++ 	      \ {'id' : 3, 'name' : 'sign3', 'lnum' : 11, 'group' : '',
++ 	      \ 'priority' : 10}],
++ 	      \ s[0].signs)
++ 
++   " Error case
++   call assert_fails("call sign_place(1, 'g1', 'sign1', 'Xsign',
++ 	      \ [])", 'E715:')
++   call sign_unplace('*')
++ 
++   " Tests for the :sign place command with priority
++   sign place 5 line=10 name=sign1 priority=30 file=Xsign
++   sign place 5 group=g1 line=10 name=sign1 priority=20 file=Xsign
++   sign place 5 group=g2 line=10 name=sign1 priority=25 file=Xsign
++   let a = execute('sign place group=*')
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=10  id=5  name=sign1 priority=30\n" .
++ 	      \ "    line=10  id=5  group=g2  name=sign1 priority=25\n" .
++ 	      \ "    line=10  id=5  group=g1  name=sign1 priority=20\n", a)
++ 
++   " Test for :sign place group={group}
++   let a = execute('sign place group=g1')
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=10  id=5  group=g1  name=sign1 priority=20\n", a)
++ 
++   call sign_unplace('*')
++   call sign_undefine()
++   enew  | only
++   call delete("Xsign")
++ endfunc
++ 
++ " Tests for memory allocation failures in sign functions
++ func Test_sign_memfailures()
++   call writefile(repeat(["Sun is shining"], 30), "Xsign")
++   edit Xsign
++ 
++   call test_alloc_fail(GetAllocId('sign_getdefined'), 0, 0)
++   call assert_fails('call sign_getdefined("sign1")', 'E342:')
++   call test_alloc_fail(GetAllocId('sign_getplaced'), 0, 0)
++   call assert_fails('call sign_getplaced("Xsign")', 'E342:')
++   call test_alloc_fail(GetAllocId('sign_define_by_name'), 0, 0)
++   let attr = {'text' : '=>', 'linehl' : 'Search', 'texthl' : 'Error'}
++   call assert_fails('call sign_define("sign1", attr)', 'E342:')
++ 
++   let attr = {'text' : '=>', 'linehl' : 'Search', 'texthl' : 'Error'}
++   call sign_define("sign1", attr)
++   call test_alloc_fail(GetAllocId('sign_getlist'), 0, 0)
++   call assert_fails('call sign_getdefined("sign1")', 'E342:')
++ 
++   call sign_place(3, 'g1', 'sign1', 'Xsign', {'lnum' : 10})
++   call test_alloc_fail(GetAllocId('sign_getplaced_dict'), 0, 0)
++   call assert_fails('call sign_getplaced("Xsign")', 'E342:')
++   call test_alloc_fail(GetAllocId('sign_getplaced_list'), 0, 0)
++   call assert_fails('call sign_getplaced("Xsign")', 'E342:')
++ 
++   call test_alloc_fail(GetAllocId('insert_sign'), 0, 0)
++   call assert_fails('call sign_place(4, "g1", "sign1", "Xsign", {"lnum" : 11})',
++ 								\ 'E342:')
++ 
++   call test_alloc_fail(GetAllocId('sign_getinfo'), 0, 0)
++   call assert_fails('call getbufinfo()', 'E342:')
++   call sign_place(4, 'g1', 'sign1', 'Xsign', {'lnum' : 11})
++   call test_alloc_fail(GetAllocId('sign_getinfo'), 0, 0)
++   call assert_fails('let binfo=getbufinfo("Xsign")', 'E342:')
++   call assert_equal([{'lnum': 11, 'id': 4, 'name': 'sign1',
++ 	      \ 'priority': 10, 'group': 'g1'}], binfo[0].signs)
++ 
++   call sign_unplace('*')
++   call sign_undefine()
++   enew  | only
++   call delete("Xsign")
++ endfunc
+*** ../vim-8.1.0613/src/workshop.c	2018-09-30 21:43:17.207693209 +0200
+--- src/workshop.c	2018-12-21 14:36:57.246303525 +0100
+***************
+*** 491,497 ****
+      lineno = 0;
+      buf = buflist_findname((char_u *)filename);
+      if (buf != NULL)
+! 	lineno = buf_findsign(buf, markId);
+  
+      return lineno;
+  }
+--- 491,497 ----
+      lineno = 0;
+      buf = buflist_findname((char_u *)filename);
+      if (buf != NULL)
+! 	lineno = buf_findsign(buf, markId, NULL);
+  
+      return lineno;
+  }
+*** ../vim-8.1.0613/src/version.c	2018-12-21 13:03:24.296337825 +0100
+--- src/version.c	2018-12-21 14:37:53.945927817 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     614,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+31. You code your homework in HTML and give your instructor the URL.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

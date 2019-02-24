@@ -1,0 +1,121 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0973
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0973
+Problem:    Pattern with syntax error gives threee error messages. (Kuang-che
+            Wu)
+Solution:   Remove outdated internal error.  Don't fall back to other engine
+            after an error.(closes #4035)
+Files:	    src/regexp_nfa.c, src/testdir/test_search.vim, src/regexp.c
+
+
+*** ../vim-8.1.0972/src/regexp_nfa.c	2019-02-21 22:28:48.247020124 +0100
+--- src/regexp_nfa.c	2019-02-22 16:41:08.995016894 +0100
+***************
+*** 7252,7263 ****
+       * (and count its size). */
+      postfix = re2post();
+      if (postfix == NULL)
+-     {
+- 	/* TODO: only give this error for debugging? */
+- 	if (post_ptr >= post_end)
+- 	    siemsg("Internal error: estimated max number of states insufficient: %ld", post_end - post_start);
+  	goto fail;	    /* Cascaded (syntax?) error */
+-     }
+  
+      /*
+       * In order to build the NFA, we parse the input regexp twice:
+--- 7252,7258 ----
+*** ../vim-8.1.0972/src/testdir/test_search.vim	2019-02-21 22:28:48.247020124 +0100
+--- src/testdir/test_search.vim	2019-02-22 16:42:41.518448221 +0100
+***************
+*** 1220,1222 ****
+--- 1220,1227 ----
+      call assert_match('E678:', v:exception)
+    endtry
+  endfunc
++ 
++ func Test_one_error_msg()
++   " This  was also giving an internal error
++   call assert_fails('call search(" \\((\\v[[=P=]]){185}+             ")', 'E871:')
++ endfunc
+*** ../vim-8.1.0972/src/regexp.c	2019-02-17 13:53:31.600227794 +0100
+--- src/regexp.c	2019-02-22 17:14:48.603178939 +0100
+***************
+*** 7969,7974 ****
+--- 7969,7975 ----
+  {
+      regprog_T   *prog = NULL;
+      char_u	*expr = expr_arg;
++     int		save_called_emsg;
+  
+      regexp_engine = p_re;
+  
+***************
+*** 8004,8009 ****
+--- 8005,8012 ----
+      /*
+       * First try the NFA engine, unless backtracking was requested.
+       */
++     save_called_emsg = called_emsg;
++     called_emsg = FALSE;
+      if (regexp_engine != BACKTRACKING_ENGINE)
+  	prog = nfa_regengine.regcomp(expr,
+  		re_flags + (regexp_engine == AUTOMATIC_ENGINE ? RE_AUTO : 0));
+***************
+*** 8032,8044 ****
+  	 * If the NFA engine failed, try the backtracking engine.
+  	 * The NFA engine also fails for patterns that it can't handle well
+  	 * but are still valid patterns, thus a retry should work.
+  	 */
+! 	if (regexp_engine == AUTOMATIC_ENGINE)
+  	{
+  	    regexp_engine = BACKTRACKING_ENGINE;
+  	    prog = bt_regengine.regcomp(expr, re_flags);
+  	}
+      }
+  
+      if (prog != NULL)
+      {
+--- 8035,8049 ----
+  	 * If the NFA engine failed, try the backtracking engine.
+  	 * The NFA engine also fails for patterns that it can't handle well
+  	 * but are still valid patterns, thus a retry should work.
++ 	 * But don't try if an error message was given.
+  	 */
+! 	if (regexp_engine == AUTOMATIC_ENGINE && !called_emsg)
+  	{
+  	    regexp_engine = BACKTRACKING_ENGINE;
+  	    prog = bt_regengine.regcomp(expr, re_flags);
+  	}
+      }
++     called_emsg |= save_called_emsg;
+  
+      if (prog != NULL)
+      {
+*** ../vim-8.1.0972/src/version.c	2019-02-22 16:09:06.578746015 +0100
+--- src/version.c	2019-02-22 17:15:43.734875931 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     973,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+15. Your heart races faster and beats irregularly each time you see a new WWW
+    site address in print or on TV, even though you've never had heart
+    problems before.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

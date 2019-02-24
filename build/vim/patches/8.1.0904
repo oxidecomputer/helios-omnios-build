@@ -1,0 +1,179 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0904
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0904
+Problem:    USE_LONG_FNAME never defined.
+Solution:   Remove using USE_LONG_FNAME. (Ken Takata, closes #3938)
+Files:	    src/buffer.c, src/ex_cmds.c, src/fileio.c
+
+
+*** ../vim-8.1.0903/src/buffer.c	2019-02-10 23:18:49.034187552 +0100
+--- src/buffer.c	2019-02-12 22:35:13.866773217 +0100
+***************
+*** 3168,3177 ****
+  	    return FAIL;
+  	}
+  #ifdef USE_FNAME_CASE
+! # ifdef USE_LONG_FNAME
+! 	if (USE_LONG_FNAME)
+! # endif
+! 	    fname_case(sfname, 0);    /* set correct case for short file name */
+  #endif
+  	if (buf->b_sfname != buf->b_ffname)
+  	    vim_free(buf->b_sfname);
+--- 3168,3174 ----
+  	    return FAIL;
+  	}
+  #ifdef USE_FNAME_CASE
+! 	fname_case(sfname, 0);    /* set correct case for short file name */
+  #endif
+  	if (buf->b_sfname != buf->b_ffname)
+  	    vim_free(buf->b_sfname);
+***************
+*** 4808,4820 ****
+      fname = vim_strsave(fname);
+  
+  # ifdef USE_FNAME_CASE
+! #  ifdef USE_LONG_FNAME
+!     if (USE_LONG_FNAME)
+! #  endif
+!     {
+! 	if (fname != NULL)
+! 	    fname_case(fname, 0);	/* set correct case for file name */
+!     }
+  # endif
+  
+      return fname;
+--- 4805,4812 ----
+      fname = vim_strsave(fname);
+  
+  # ifdef USE_FNAME_CASE
+!     if (fname != NULL)
+! 	fname_case(fname, 0);	/* set correct case for file name */
+  # endif
+  
+      return fname;
+*** ../vim-8.1.0903/src/ex_cmds.c	2019-02-10 21:55:23.109307873 +0100
+--- src/ex_cmds.c	2019-02-12 22:35:13.866773217 +0100
+***************
+*** 3826,3836 ****
+  	if (sfname == NULL)
+  	    sfname = ffname;
+  #ifdef USE_FNAME_CASE
+! # ifdef USE_LONG_FNAME
+! 	if (USE_LONG_FNAME)
+! # endif
+! 	    if (sfname != NULL)
+! 		fname_case(sfname, 0);   /* set correct case for sfname */
+  #endif
+  
+  	if ((flags & ECMD_ADDBUF) && (ffname == NULL || *ffname == NUL))
+--- 3826,3833 ----
+  	if (sfname == NULL)
+  	    sfname = ffname;
+  #ifdef USE_FNAME_CASE
+! 	if (sfname != NULL)
+! 	    fname_case(sfname, 0);   /* set correct case for sfname */
+  #endif
+  
+  	if ((flags & ECMD_ADDBUF) && (ffname == NULL || *ffname == NUL))
+*** ../vim-8.1.0903/src/fileio.c	2019-02-10 23:26:10.099319000 +0100
+--- src/fileio.c	2019-02-12 22:35:13.870773193 +0100
+***************
+*** 6224,6236 ****
+       */
+      for (ptr = retval + fnamelen; ptr > retval; MB_PTR_BACK(retval, ptr))
+      {
+! 	if (*ext == '.'
+! #ifdef USE_LONG_FNAME
+! 		    && (!USE_LONG_FNAME || shortname)
+! #else
+! 		    && shortname
+! #endif
+! 								)
+  	    if (*ptr == '.')	/* replace '.' by '_' */
+  		*ptr = '_';
+  	if (vim_ispathsep(*ptr))
+--- 6224,6230 ----
+       */
+      for (ptr = retval + fnamelen; ptr > retval; MB_PTR_BACK(retval, ptr))
+      {
+! 	if (*ext == '.' && shortname)
+  	    if (*ptr == '.')	/* replace '.' by '_' */
+  		*ptr = '_';
+  	if (vim_ispathsep(*ptr))
+***************
+*** 6249,6259 ****
+      /*
+       * For 8.3 file names we may have to reduce the length.
+       */
+- #ifdef USE_LONG_FNAME
+-     if (!USE_LONG_FNAME || shortname)
+- #else
+      if (shortname)
+- #endif
+      {
+  	/*
+  	 * If there is no file name, or the file name ends in '/', and the
+--- 6243,6249 ----
+***************
+*** 6291,6297 ****
+  	else if ((int)STRLEN(e) + extlen > 4)
+  	    s = e + 4 - extlen;
+      }
+! #if defined(USE_LONG_FNAME) || defined(WIN3264)
+      /*
+       * If there is no file name, and the extension starts with '.', put a
+       * '_' before the dot, because just ".ext" may be invalid if it's on a
+--- 6281,6287 ----
+  	else if ((int)STRLEN(e) + extlen > 4)
+  	    s = e + 4 - extlen;
+      }
+! #ifdef WIN3264
+      /*
+       * If there is no file name, and the extension starts with '.', put a
+       * '_' before the dot, because just ".ext" may be invalid if it's on a
+***************
+*** 6310,6320 ****
+      /*
+       * Prepend the dot.
+       */
+!     if (prepend_dot && !shortname && *(e = gettail(retval)) != '.'
+! #ifdef USE_LONG_FNAME
+! 	    && USE_LONG_FNAME
+! #endif
+! 				)
+      {
+  	STRMOVE(e + 1, e);
+  	*e = '.';
+--- 6300,6306 ----
+      /*
+       * Prepend the dot.
+       */
+!     if (prepend_dot && !shortname && *(e = gettail(retval)) != '.')
+      {
+  	STRMOVE(e + 1, e);
+  	*e = '.';
+*** ../vim-8.1.0903/src/version.c	2019-02-12 22:32:56.895616785 +0100
+--- src/version.c	2019-02-12 22:37:08.398060202 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     904,
+  /**/
+
+-- 
+Mushrooms always grow in damp places and so they look like umbrellas.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

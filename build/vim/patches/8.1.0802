@@ -1,0 +1,135 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0802
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0802
+Problem:    Negative index doesn't work for Blob.
+Solution:   Make it work, add a test. (closes #3856)
+Files:	    src/blob.c, src/proto/blob.pro, src/eval.c,
+            src/testdir/test_blob.vim
+
+
+*** ../vim-8.1.0801/src/blob.c	2019-01-23 21:56:17.623300022 +0100
+--- src/blob.c	2019-01-24 12:29:14.225795888 +0100
+***************
+*** 72,79 ****
+--- 72,83 ----
+  	int  len = from->vval.v_blob->bv_ga.ga_len;
+  
+  	if (len > 0)
++ 	{
+  	    to->vval.v_blob->bv_ga.ga_data =
+  			    vim_memsave(from->vval.v_blob->bv_ga.ga_data, len);
++ 	    if (to->vval.v_blob->bv_ga.ga_data == NULL)
++ 		len = 0;
++ 	}
+  	to->vval.v_blob->bv_ga.ga_len = len;
+      }
+      return ret;
+***************
+*** 112,118 ****
+   * Get byte "idx" in blob "b".
+   * Caller must check that "idx" is valid.
+   */
+!     char_u
+  blob_get(blob_T *b, int idx)
+  {
+      return ((char_u*)b->bv_ga.ga_data)[idx];
+--- 116,122 ----
+   * Get byte "idx" in blob "b".
+   * Caller must check that "idx" is valid.
+   */
+!     int
+  blob_get(blob_T *b, int idx)
+  {
+      return ((char_u*)b->bv_ga.ga_data)[idx];
+*** ../vim-8.1.0801/src/proto/blob.pro	2019-01-23 21:56:17.623300022 +0100
+--- src/proto/blob.pro	2019-01-24 12:29:39.945646015 +0100
+***************
+*** 6,12 ****
+  void blob_free(blob_T *b);
+  void blob_unref(blob_T *b);
+  long blob_len(blob_T *b);
+! char_u blob_get(blob_T *b, int idx);
+  void blob_set(blob_T *b, int idx, char_u c);
+  int blob_equal(blob_T *b1, blob_T *b2);
+  int read_blob(FILE *fd, blob_T *blob);
+--- 6,12 ----
+  void blob_free(blob_T *b);
+  void blob_unref(blob_T *b);
+  long blob_len(blob_T *b);
+! int blob_get(blob_T *b, int idx);
+  void blob_set(blob_T *b, int idx, char_u c);
+  int blob_equal(blob_T *b1, blob_T *b2);
+  int read_blob(FILE *fd, blob_T *blob);
+*** ../vim-8.1.0801/src/eval.c	2019-01-23 21:56:17.627299992 +0100
+--- src/eval.c	2019-01-24 12:30:23.197391236 +0100
+***************
+*** 4723,4734 ****
+  		}
+  		else
+  		{
+! 		    // The resulting variable is a string of a single
+! 		    // character.  If the index is too big or negative the
+! 		    // result is empty.
+  		    if (n1 < len && n1 >= 0)
+  		    {
+! 			int v = (int)blob_get(rettv->vval.v_blob, n1);
+  
+  			clear_tv(rettv);
+  			rettv->v_type = VAR_NUMBER;
+--- 4723,4735 ----
+  		}
+  		else
+  		{
+! 		    // The resulting variable is a byte value.
+! 		    // If the index is too big or negative that is an error.
+! 		    if (n1 < 0)
+! 			n1 = len + n1;
+  		    if (n1 < len && n1 >= 0)
+  		    {
+! 			int v = blob_get(rettv->vval.v_blob, n1);
+  
+  			clear_tv(rettv);
+  			rettv->v_type = VAR_NUMBER;
+*** ../vim-8.1.0801/src/testdir/test_blob.vim	2019-01-23 21:56:17.627299992 +0100
+--- src/testdir/test_blob.vim	2019-01-24 12:24:45.847268594 +0100
+***************
+*** 95,100 ****
+--- 95,107 ----
+    call assert_equal(999, get(b, 5, 999))
+    call assert_equal(-1, get(b, -8))
+    call assert_equal(999, get(b, -8, 999))
++ 
++   call assert_equal(0x00, b[0])
++   call assert_equal(0x22, b[2])
++   call assert_equal(0x44, b[4])
++   call assert_equal(0x44, b[-1])
++   call assert_fails('echo b[5]', 'E979:')
++   call assert_fails('echo b[-8]', 'E979:')
+  endfunc
+  
+  func Test_blob_to_string()
+*** ../vim-8.1.0801/src/version.c	2019-01-24 12:18:43.448842486 +0100
+--- src/version.c	2019-01-24 12:25:38.178996684 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     802,
+  /**/
+
+-- 
+"Intelligence has much less practical application than you'd think."
+		  -- Scott Adams, Dilbert.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

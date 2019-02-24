@@ -1,0 +1,634 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0623
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0623
+Problem:    Iterating through window frames is repeated.
+Solution:   Define FOR_ALL_FRAMES. (Yegappan Lakshmanan)
+Files:	    src/ex_docmd.c, src/globals.h, src/screen.c, src/window.c
+
+
+*** ../vim-8.1.0622/src/ex_docmd.c	2018-12-16 16:30:17.810717978 +0100
+--- src/ex_docmd.c	2018-12-22 17:01:06.186531011 +0100
+***************
+*** 11688,11694 ****
+  {
+      frame_T	*frc;
+  
+!     for (frc = fr; frc != NULL; frc = frc->fr_next)
+  	if (ses_do_frame(frc))
+  	    break;
+      return frc;
+--- 11688,11694 ----
+  {
+      frame_T	*frc;
+  
+!     FOR_ALL_FRAMES(frc, fr)
+  	if (ses_do_frame(frc))
+  	    break;
+      return frc;
+***************
+*** 11705,11711 ****
+  
+      if (fr->fr_layout == FR_LEAF)
+  	return ses_do_win(fr->fr_win);
+!     for (frc = fr->fr_child; frc != NULL; frc = frc->fr_next)
+  	if (ses_do_frame(frc))
+  	    return TRUE;
+      return FALSE;
+--- 11705,11711 ----
+  
+      if (fr->fr_layout == FR_LEAF)
+  	return ses_do_win(fr->fr_win);
+!     FOR_ALL_FRAMES(frc, fr->fr_child)
+  	if (ses_do_frame(frc))
+  	    return TRUE;
+      return FALSE;
+*** ../vim-8.1.0622/src/globals.h	2018-12-21 15:16:57.479579788 +0100
+--- src/globals.h	2018-12-22 17:01:06.186531011 +0100
+***************
+*** 564,569 ****
+--- 564,571 ----
+  # define ONE_WINDOW (firstwin == lastwin)
+  # define W_NEXT(wp) ((wp)->w_next)
+  # define FOR_ALL_WINDOWS(wp) for (wp = firstwin; wp != NULL; wp = wp->w_next)
++ # define FOR_ALL_FRAMES(frp, first_frame) \
++     for (frp = first_frame; frp != NULL; frp = frp->fr_next)
+  # define FOR_ALL_TABPAGES(tp) for (tp = first_tabpage; tp != NULL; tp = tp->tp_next)
+  # define FOR_ALL_WINDOWS_IN_TAB(tp, wp) \
+      for ((wp) = ((tp) == NULL || (tp) == curtab) \
+*** ../vim-8.1.0622/src/screen.c	2018-12-13 22:17:52.881941445 +0100
+--- src/screen.c	2018-12-22 17:01:06.186531011 +0100
+***************
+*** 6681,6687 ****
+  	frp->fr_win->w_redr_status = TRUE;
+      else if (frp->fr_layout == FR_ROW)
+      {
+! 	for (frp = frp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    win_redraw_last_status(frp);
+      }
+      else /* frp->fr_layout == FR_COL */
+--- 6681,6687 ----
+  	frp->fr_win->w_redr_status = TRUE;
+      else if (frp->fr_layout == FR_ROW)
+      {
+! 	FOR_ALL_FRAMES(frp, frp->fr_child)
+  	    win_redraw_last_status(frp);
+      }
+      else /* frp->fr_layout == FR_COL */
+*** ../vim-8.1.0622/src/window.c	2018-12-21 16:04:16.320437461 +0100
+--- src/window.c	2018-12-22 17:01:06.186531011 +0100
+***************
+*** 836,843 ****
+  							frp = frp->fr_parent)
+  	    {
+  		if (frp->fr_layout == FR_ROW)
+! 		    for (frp2 = frp->fr_child; frp2 != NULL;
+! 							frp2 = frp2->fr_next)
+  			if (frp2 != prevfrp)
+  			    minwidth += frame_minwidth(frp2, NOWIN);
+  		prevfrp = frp;
+--- 836,842 ----
+  							frp = frp->fr_parent)
+  	    {
+  		if (frp->fr_layout == FR_ROW)
+! 		    FOR_ALL_FRAMES(frp2, frp->fr_child)
+  			if (frp2 != prevfrp)
+  			    minwidth += frame_minwidth(frp2, NOWIN);
+  		prevfrp = frp;
+***************
+*** 920,927 ****
+  							frp = frp->fr_parent)
+  	    {
+  		if (frp->fr_layout == FR_COL)
+! 		    for (frp2 = frp->fr_child; frp2 != NULL;
+! 							frp2 = frp2->fr_next)
+  			if (frp2 != prevfrp)
+  			    minheight += frame_minheight(frp2, NOWIN);
+  		prevfrp = frp;
+--- 919,925 ----
+  							frp = frp->fr_parent)
+  	    {
+  		if (frp->fr_layout == FR_COL)
+! 		    FOR_ALL_FRAMES(frp2, frp->fr_child)
+  			if (frp2 != prevfrp)
+  			    minheight += frame_minheight(frp2, NOWIN);
+  		prevfrp = frp;
+***************
+*** 1078,1084 ****
+  	if (frp->fr_win != NULL)
+  	    oldwin->w_frame = frp;
+  	else
+! 	    for (frp = frp->fr_child; frp != NULL; frp = frp->fr_next)
+  		frp->fr_parent = curfrp;
+      }
+  
+--- 1076,1082 ----
+  	if (frp->fr_win != NULL)
+  	    oldwin->w_frame = frp;
+  	else
+! 	    FOR_ALL_FRAMES(frp, frp->fr_child)
+  		frp->fr_parent = curfrp;
+      }
+  
+***************
+*** 1605,1612 ****
+  #endif
+  
+      /* Check if all frames in this row/col have one window. */
+!     for (frp = curwin->w_frame->fr_parent->fr_child; frp != NULL;
+! 							   frp = frp->fr_next)
+  	if (frp->fr_win == NULL)
+  	{
+  	    EMSG(_("E443: Cannot rotate when another window is split"));
+--- 1603,1609 ----
+  #endif
+  
+      /* Check if all frames in this row/col have one window. */
+!     FOR_ALL_FRAMES(frp, curwin->w_frame->fr_parent->fr_child)
+  	if (frp->fr_win == NULL)
+  	{
+  	    EMSG(_("E443: Cannot rotate when another window is split"));
+***************
+*** 1856,1862 ****
+  	    else
+  	    {
+  		next_curwin_size = -1;
+! 		for (fr = topfr->fr_child; fr != NULL; fr = fr->fr_next)
+  		{
+  		    /* If 'winfixwidth' set keep the window width if
+  		     * possible.
+--- 1853,1859 ----
+  	    else
+  	    {
+  		next_curwin_size = -1;
+! 		FOR_ALL_FRAMES(fr, topfr->fr_child)
+  		{
+  		    /* If 'winfixwidth' set keep the window width if
+  		     * possible.
+***************
+*** 1909,1915 ****
+  		--totwincount;		/* don't count curwin */
+  	}
+  
+! 	for (fr = topfr->fr_child; fr != NULL; fr = fr->fr_next)
+  	{
+  	    wincount = 1;
+  	    if (fr->fr_next == NULL)
+--- 1906,1912 ----
+  		--totwincount;		/* don't count curwin */
+  	}
+  
+! 	FOR_ALL_FRAMES(fr, topfr->fr_child)
+  	{
+  	    wincount = 1;
+  	    if (fr->fr_next == NULL)
+***************
+*** 1997,2003 ****
+  	    else
+  	    {
+  		next_curwin_size = -1;
+! 		for (fr = topfr->fr_child; fr != NULL; fr = fr->fr_next)
+  		{
+  		    /* If 'winfixheight' set keep the window height if
+  		     * possible.
+--- 1994,2000 ----
+  	    else
+  	    {
+  		next_curwin_size = -1;
+! 		FOR_ALL_FRAMES(fr, topfr->fr_child)
+  		{
+  		    /* If 'winfixheight' set keep the window height if
+  		     * possible.
+***************
+*** 2050,2056 ****
+  		--totwincount;		/* don't count curwin */
+  	}
+  
+! 	for (fr = topfr->fr_child; fr != NULL; fr = fr->fr_next)
+  	{
+  	    wincount = 1;
+  	    if (fr->fr_next == NULL)
+--- 2047,2053 ----
+  		--totwincount;		/* don't count curwin */
+  	}
+  
+! 	FOR_ALL_FRAMES(fr, topfr->fr_child)
+  	{
+  	    wincount = 1;
+  	    if (fr->fr_next == NULL)
+***************
+*** 2751,2757 ****
+  	 * and remove it. */
+  	frp2->fr_parent->fr_layout = frp2->fr_layout;
+  	frp2->fr_parent->fr_child = frp2->fr_child;
+! 	for (frp = frp2->fr_child; frp != NULL; frp = frp->fr_next)
+  	    frp->fr_parent = frp2->fr_parent;
+  	frp2->fr_parent->fr_win = frp2->fr_win;
+  	if (frp2->fr_win != NULL)
+--- 2748,2754 ----
+  	 * and remove it. */
+  	frp2->fr_parent->fr_layout = frp2->fr_layout;
+  	frp2->fr_parent->fr_child = frp2->fr_child;
+! 	FOR_ALL_FRAMES(frp, frp2->fr_child)
+  	    frp->fr_parent = frp2->fr_parent;
+  	frp2->fr_parent->fr_win = frp2->fr_win;
+  	if (frp2->fr_win != NULL)
+***************
+*** 2883,2889 ****
+      if (frp->fr_layout == FR_LEAF)
+  	return frp->fr_win == wp;
+  
+!     for (p = frp->fr_child; p != NULL; p = p->fr_next)
+  	if (frame_has_win(p, wp))
+  	    return TRUE;
+      return FALSE;
+--- 2880,2886 ----
+      if (frp->fr_layout == FR_LEAF)
+  	return frp->fr_win == wp;
+  
+!     FOR_ALL_FRAMES(p, frp->fr_child)
+  	if (frame_has_win(p, wp))
+  	    return TRUE;
+      return FALSE;
+***************
+*** 2917,2923 ****
+  	do
+  	{
+  	    /* All frames in this row get the same new height. */
+! 	    for (frp = topfrp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    {
+  		frame_new_height(frp, height, topfirst, wfh);
+  		if (frp->fr_height > height)
+--- 2914,2920 ----
+  	do
+  	{
+  	    /* All frames in this row get the same new height. */
+! 	    FOR_ALL_FRAMES(frp, topfrp->fr_child)
+  	    {
+  		frame_new_height(frp, height, topfirst, wfh);
+  		if (frp->fr_height > height)
+***************
+*** 3014,3020 ****
+      {
+  	/* The frame is fixed height if one of the frames in the row is fixed
+  	 * height. */
+! 	for (frp = frp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    if (frame_fixed_height(frp))
+  		return TRUE;
+  	return FALSE;
+--- 3011,3017 ----
+      {
+  	/* The frame is fixed height if one of the frames in the row is fixed
+  	 * height. */
+! 	FOR_ALL_FRAMES(frp, frp->fr_child)
+  	    if (frame_fixed_height(frp))
+  		return TRUE;
+  	return FALSE;
+***************
+*** 3022,3028 ****
+  
+      /* frp->fr_layout == FR_COL: The frame is fixed height if all of the
+       * frames in the row are fixed height. */
+!     for (frp = frp->fr_child; frp != NULL; frp = frp->fr_next)
+  	if (!frame_fixed_height(frp))
+  	    return FALSE;
+      return TRUE;
+--- 3019,3025 ----
+  
+      /* frp->fr_layout == FR_COL: The frame is fixed height if all of the
+       * frames in the row are fixed height. */
+!     FOR_ALL_FRAMES(frp, frp->fr_child)
+  	if (!frame_fixed_height(frp))
+  	    return FALSE;
+      return TRUE;
+***************
+*** 3043,3049 ****
+      {
+  	/* The frame is fixed width if one of the frames in the row is fixed
+  	 * width. */
+! 	for (frp = frp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    if (frame_fixed_width(frp))
+  		return TRUE;
+  	return FALSE;
+--- 3040,3046 ----
+      {
+  	/* The frame is fixed width if one of the frames in the row is fixed
+  	 * width. */
+! 	FOR_ALL_FRAMES(frp, frp->fr_child)
+  	    if (frame_fixed_width(frp))
+  		return TRUE;
+  	return FALSE;
+***************
+*** 3051,3057 ****
+  
+      /* frp->fr_layout == FR_ROW: The frame is fixed width if all of the
+       * frames in the row are fixed width. */
+!     for (frp = frp->fr_child; frp != NULL; frp = frp->fr_next)
+  	if (!frame_fixed_width(frp))
+  	    return FALSE;
+      return TRUE;
+--- 3048,3054 ----
+  
+      /* frp->fr_layout == FR_ROW: The frame is fixed width if all of the
+       * frames in the row are fixed width. */
+!     FOR_ALL_FRAMES(frp, frp->fr_child)
+  	if (!frame_fixed_width(frp))
+  	    return FALSE;
+      return TRUE;
+***************
+*** 3079,3085 ****
+      else if (frp->fr_layout == FR_ROW)
+      {
+  	/* Handle all the frames in the row. */
+! 	for (frp = frp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    frame_add_statusline(frp);
+      }
+      else /* frp->fr_layout == FR_COL */
+--- 3076,3082 ----
+      else if (frp->fr_layout == FR_ROW)
+      {
+  	/* Handle all the frames in the row. */
+! 	FOR_ALL_FRAMES(frp, frp->fr_child)
+  	    frame_add_statusline(frp);
+      }
+      else /* frp->fr_layout == FR_COL */
+***************
+*** 3125,3131 ****
+  	do
+  	{
+  	    /* All frames in this column get the same new width. */
+! 	    for (frp = topfrp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    {
+  		frame_new_width(frp, width, leftfirst, wfw);
+  		if (frp->fr_width > width)
+--- 3122,3128 ----
+  	do
+  	{
+  	    /* All frames in this column get the same new width. */
+! 	    FOR_ALL_FRAMES(frp, topfrp->fr_child)
+  	    {
+  		frame_new_width(frp, width, leftfirst, wfw);
+  		if (frp->fr_width > width)
+***************
+*** 3228,3234 ****
+      else if (frp->fr_layout == FR_COL)
+      {
+  	/* Handle all the frames in the column. */
+! 	for (frp = frp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    frame_add_vsep(frp);
+      }
+      else /* frp->fr_layout == FR_ROW */
+--- 3225,3231 ----
+      else if (frp->fr_layout == FR_COL)
+      {
+  	/* Handle all the frames in the column. */
+! 	FOR_ALL_FRAMES(frp, frp->fr_child)
+  	    frame_add_vsep(frp);
+      }
+      else /* frp->fr_layout == FR_ROW */
+***************
+*** 3295,3301 ****
+      {
+  	/* get the minimal height from each frame in this row */
+  	m = 0;
+! 	for (frp = topfrp->fr_child; frp != NULL; frp = frp->fr_next)
+  	{
+  	    n = frame_minheight(frp, next_curwin);
+  	    if (n > m)
+--- 3292,3298 ----
+      {
+  	/* get the minimal height from each frame in this row */
+  	m = 0;
+! 	FOR_ALL_FRAMES(frp, topfrp->fr_child)
+  	{
+  	    n = frame_minheight(frp, next_curwin);
+  	    if (n > m)
+***************
+*** 3306,3312 ****
+      {
+  	/* Add up the minimal heights for all frames in this column. */
+  	m = 0;
+! 	for (frp = topfrp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    m += frame_minheight(frp, next_curwin);
+      }
+  
+--- 3303,3309 ----
+      {
+  	/* Add up the minimal heights for all frames in this column. */
+  	m = 0;
+! 	FOR_ALL_FRAMES(frp, topfrp->fr_child)
+  	    m += frame_minheight(frp, next_curwin);
+      }
+  
+***************
+*** 3344,3350 ****
+      {
+  	/* get the minimal width from each frame in this column */
+  	m = 0;
+! 	for (frp = topfrp->fr_child; frp != NULL; frp = frp->fr_next)
+  	{
+  	    n = frame_minwidth(frp, next_curwin);
+  	    if (n > m)
+--- 3341,3347 ----
+      {
+  	/* get the minimal width from each frame in this column */
+  	m = 0;
+! 	FOR_ALL_FRAMES(frp, topfrp->fr_child)
+  	{
+  	    n = frame_minwidth(frp, next_curwin);
+  	    if (n > m)
+***************
+*** 3355,3361 ****
+      {
+  	/* Add up the minimal widths for all frames in this row. */
+  	m = 0;
+! 	for (frp = topfrp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    m += frame_minwidth(frp, next_curwin);
+      }
+  
+--- 3352,3358 ----
+      {
+  	/* Add up the minimal widths for all frames in this row. */
+  	m = 0;
+! 	FOR_ALL_FRAMES(frp, topfrp->fr_child)
+  	    m += frame_minwidth(frp, next_curwin);
+      }
+  
+***************
+*** 5023,5029 ****
+      {
+  	startrow = *row;
+  	startcol = *col;
+! 	for (frp = topfrp->fr_child; frp != NULL; frp = frp->fr_next)
+  	{
+  	    if (topfrp->fr_layout == FR_ROW)
+  		*row = startrow;	/* all frames are at the same row */
+--- 5020,5026 ----
+      {
+  	startrow = *row;
+  	startcol = *col;
+! 	FOR_ALL_FRAMES(frp, topfrp->fr_child)
+  	{
+  	    if (topfrp->fr_layout == FR_ROW)
+  		*row = startrow;	/* all frames are at the same row */
+***************
+*** 5143,5150 ****
+  	{
+  	    room = 0;
+  	    room_reserved = 0;
+! 	    for (frp = curfrp->fr_parent->fr_child; frp != NULL;
+! 							   frp = frp->fr_next)
+  	    {
+  		if (frp != curfrp
+  			&& frp->fr_win != NULL
+--- 5140,5146 ----
+  	{
+  	    room = 0;
+  	    room_reserved = 0;
+! 	    FOR_ALL_FRAMES(frp, curfrp->fr_parent->fr_child)
+  	    {
+  		if (frp != curfrp
+  			&& frp->fr_win != NULL
+***************
+*** 5337,5344 ****
+  	{
+  	    room = 0;
+  	    room_reserved = 0;
+! 	    for (frp = curfrp->fr_parent->fr_child; frp != NULL;
+! 							   frp = frp->fr_next)
+  	    {
+  		if (frp != curfrp
+  			&& frp->fr_win != NULL
+--- 5333,5339 ----
+  	{
+  	    room = 0;
+  	    room_reserved = 0;
+! 	    FOR_ALL_FRAMES(frp, curfrp->fr_parent->fr_child)
+  	    {
+  		if (frp != curfrp
+  			&& frp->fr_win != NULL
+***************
+*** 5562,5568 ****
+  	if (room < 0)
+  	    room = 0;
+  	/* sum up the room of frames below of the current one */
+! 	for (fr = curfr->fr_next; fr != NULL; fr = fr->fr_next)
+  	    room += fr->fr_height - frame_minheight(fr, NULL);
+  	fr = curfr;			/* put fr at window that grows */
+      }
+--- 5557,5563 ----
+  	if (room < 0)
+  	    room = 0;
+  	/* sum up the room of frames below of the current one */
+! 	FOR_ALL_FRAMES(fr, curfr->fr_next)
+  	    room += fr->fr_height - frame_minheight(fr, NULL);
+  	fr = curfr;			/* put fr at window that grows */
+      }
+***************
+*** 5676,5682 ****
+  	left = FALSE;
+  	/* sum up the room of frames right of the current one */
+  	room = 0;
+! 	for (fr = curfr->fr_next; fr != NULL; fr = fr->fr_next)
+  	    room += fr->fr_width - frame_minwidth(fr, NULL);
+  	fr = curfr;			/* put fr at window that grows */
+      }
+--- 5671,5677 ----
+  	left = FALSE;
+  	/* sum up the room of frames right of the current one */
+  	room = 0;
+! 	FOR_ALL_FRAMES(fr, curfr->fr_next)
+  	    room += fr->fr_width - frame_minwidth(fr, NULL);
+  	fr = curfr;			/* put fr at window that grows */
+      }
+***************
+*** 6073,6079 ****
+      else if (fr->fr_layout == FR_ROW)
+      {
+  	/* vertically split windows, set status line for each one */
+! 	for (fp = fr->fr_child; fp != NULL; fp = fp->fr_next)
+  	    last_status_rec(fp, statusline);
+      }
+      else
+--- 6068,6074 ----
+      else if (fr->fr_layout == FR_ROW)
+      {
+  	/* vertically split windows, set status line for each one */
+! 	FOR_ALL_FRAMES(fp, fr->fr_child)
+  	    last_status_rec(fp, statusline);
+      }
+      else
+***************
+*** 6751,6757 ****
+  	return TRUE;
+  
+      if (topframe->fr_layout == FR_COL)
+! 	for (fr = topframe->fr_child; fr != NULL; fr = fr->fr_next)
+  	    if (fr->fr_layout == FR_ROW)
+  		return TRUE;
+  
+--- 6746,6752 ----
+  	return TRUE;
+  
+      if (topframe->fr_layout == FR_COL)
+! 	FOR_ALL_FRAMES(fr, topframe->fr_child)
+  	    if (fr->fr_layout == FR_ROW)
+  		return TRUE;
+  
+***************
+*** 7097,7103 ****
+  	return FALSE;
+  
+      if (topfrp->fr_layout == FR_ROW)
+! 	for (frp = topfrp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    if (frp->fr_height != height)
+  		return FALSE;
+  
+--- 7092,7098 ----
+  	return FALSE;
+  
+      if (topfrp->fr_layout == FR_ROW)
+! 	FOR_ALL_FRAMES(frp, topfrp->fr_child)
+  	    if (frp->fr_height != height)
+  		return FALSE;
+  
+***************
+*** 7116,7122 ****
+  	return FALSE;
+  
+      if (topfrp->fr_layout == FR_COL)
+! 	for (frp = topfrp->fr_child; frp != NULL; frp = frp->fr_next)
+  	    if (frp->fr_width != width)
+  		return FALSE;
+  
+--- 7111,7117 ----
+  	return FALSE;
+  
+      if (topfrp->fr_layout == FR_COL)
+! 	FOR_ALL_FRAMES(frp, topfrp->fr_child)
+  	    if (frp->fr_width != width)
+  		return FALSE;
+  
+*** ../vim-8.1.0622/src/version.c	2018-12-22 16:49:11.348536036 +0100
+--- src/version.c	2018-12-22 17:01:53.558148676 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     623,
+  /**/
+
+-- 
+Change is inevitable, except from a vending machine.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

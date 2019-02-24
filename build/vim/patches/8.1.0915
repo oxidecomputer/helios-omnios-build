@@ -1,0 +1,185 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0915
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0915
+Problem:    fsync() may not work properly on Mac.
+Solution:   Use fcntl() with F_FULLFSYNC. (suggested by Justin M. Keyes)
+Files:	    src/fileio.c, src/proto/fileio.pro, src/evalfunc.c, src/memfile.c
+
+
+*** ../vim-8.1.0914/src/fileio.c	2019-02-12 22:37:24.181961482 +0100
+--- src/fileio.c	2019-02-14 12:50:03.216177171 +0100
+***************
+*** 4661,4667 ****
+  	 * work (could be a pipe).
+  	 * If the 'fsync' option is FALSE, don't fsync().  Useful for laptops.
+  	 */
+! 	if (p_fs && fsync(fd) != 0 && !device)
+  	{
+  	    errmsg = (char_u *)_(e_fsync);
+  	    end = 0;
+--- 4661,4667 ----
+  	 * work (could be a pipe).
+  	 * If the 'fsync' option is FALSE, don't fsync().  Useful for laptops.
+  	 */
+! 	if (p_fs && vim_fsync(fd) != 0 && !device)
+  	{
+  	    errmsg = (char_u *)_(e_fsync);
+  	    end = 0;
+***************
+*** 5123,5128 ****
+--- 5123,5147 ----
+      return retval;
+  }
+  
++ #if defined(HAVE_FSYNC) || defined(PROTO)
++ /*
++  * Call fsync() with Mac-specific exception.
++  * Return fsync() result: zero for success.
++  */
++     int
++ vim_fsync(int fd)
++ {
++     int r;
++ 
++ # ifdef MACOS_X
++     r = fcntl(fd, F_FULLFSYNC);
++     if (r != 0 && errno == ENOTTY)
++ # endif
++ 	r = fsync(fd);
++     return r;
++ }
++ #endif
++ 
+  /*
+   * Set the name of the current buffer.  Use when the buffer doesn't have a
+   * name and a ":r" or ":w" command with a file name is used.
+*** ../vim-8.1.0914/src/proto/fileio.pro	2019-01-26 16:20:44.264683546 +0100
+--- src/proto/fileio.pro	2019-02-14 12:50:10.784127736 +0100
+***************
+*** 7,12 ****
+--- 7,13 ----
+  void set_forced_fenc(exarg_T *eap);
+  int check_file_readonly(char_u *fname, int perm);
+  int buf_write(buf_T *buf, char_u *fname, char_u *sfname, linenr_T start, linenr_T end, exarg_T *eap, int append, int forceit, int reset_changed, int filtering);
++ int vim_fsync(int fd);
+  void msg_add_fname(buf_T *buf, char_u *fname);
+  void msg_add_lines(int insert_space, long lnum, off_T nchars);
+  char_u *shorten_fname1(char_u *full_path);
+*** ../vim-8.1.0914/src/evalfunc.c	2019-02-12 22:15:03.069282157 +0100
+--- src/evalfunc.c	2019-02-14 12:50:23.456044974 +0100
+***************
+*** 14791,14797 ****
+  	else if (do_fsync)
+  	    // Ignore the error, the user wouldn't know what to do about it.
+  	    // May happen for a device.
+! 	    vim_ignored = fsync(fileno(fd));
+  #endif
+  	fclose(fd);
+      }
+--- 14791,14797 ----
+  	else if (do_fsync)
+  	    // Ignore the error, the user wouldn't know what to do about it.
+  	    // May happen for a device.
+! 	    vim_ignored = vim_fsync(fileno(fd));
+  #endif
+  	fclose(fd);
+      }
+***************
+*** 14803,14809 ****
+  	else if (do_fsync)
+  	    /* Ignore the error, the user wouldn't know what to do about it.
+  	     * May happen for a device. */
+! 	    vim_ignored = fsync(fileno(fd));
+  #endif
+  	fclose(fd);
+      }
+--- 14803,14809 ----
+  	else if (do_fsync)
+  	    /* Ignore the error, the user wouldn't know what to do about it.
+  	     * May happen for a device. */
+! 	    vim_ignored = vim_fsync(fileno(fd));
+  #endif
+  	fclose(fd);
+      }
+*** ../vim-8.1.0914/src/memfile.c	2019-01-13 23:38:33.399773248 +0100
+--- src/memfile.c	2019-02-14 12:51:22.295660849 +0100
+***************
+*** 600,606 ****
+  	 */
+  	if (STRCMP(p_sws, "fsync") == 0)
+  	{
+! 	    if (fsync(mfp->mf_fd))
+  		status = FAIL;
+  	}
+  	else
+--- 600,606 ----
+  	 */
+  	if (STRCMP(p_sws, "fsync") == 0)
+  	{
+! 	    if (vim_fsync(mfp->mf_fd))
+  		status = FAIL;
+  	}
+  	else
+***************
+*** 617,623 ****
+  #ifdef VMS
+  	if (STRCMP(p_sws, "fsync") == 0)
+  	{
+! 	    if (fsync(mfp->mf_fd))
+  		status = FAIL;
+  	}
+  #endif
+--- 617,623 ----
+  #ifdef VMS
+  	if (STRCMP(p_sws, "fsync") == 0)
+  	{
+! 	    if (vim_fsync(mfp->mf_fd))
+  		status = FAIL;
+  	}
+  #endif
+***************
+*** 627,633 ****
+  #endif
+  #ifdef AMIGA
+  # if defined(__AROS__) || defined(__amigaos4__)
+! 	if (fsync(mfp->mf_fd) != 0)
+  	    status = FAIL;
+  # else
+  	/*
+--- 627,633 ----
+  #endif
+  #ifdef AMIGA
+  # if defined(__AROS__) || defined(__amigaos4__)
+! 	if (vim_fsync(mfp->mf_fd) != 0)
+  	    status = FAIL;
+  # else
+  	/*
+*** ../vim-8.1.0914/src/version.c	2019-02-13 22:45:21.512636158 +0100
+--- src/version.c	2019-02-14 12:53:58.158767467 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     915,
+  /**/
+
+
+-- 
+THEOREM: VI is perfect.
+PROOF: VI in roman numerals is 6.  The natural numbers < 6 which divide 6 are
+1, 2, and 3. 1+2+3 = 6.  So 6 is a perfect number.  Therefore, VI is perfect.
+QED
+						    -- Arthur Tateishi
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

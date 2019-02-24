@@ -1,0 +1,146 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0822
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0822
+Problem:    Peeking and flushing output slows down execution.
+Solution:   Do not update the mode message when global_busy is set.  Do not
+            flush when only peeking for a character. (Ken Takata)
+Files:	    src/getchar.c, src/screen.c, src/proto/screen.pro, src/edit.c
+
+
+*** ../vim-8.1.0821/src/getchar.c	2019-01-24 17:18:37.591462362 +0100
+--- src/getchar.c	2019-01-25 22:11:09.128279171 +0100
+***************
+*** 3039,3047 ****
+  
+  	/*
+  	 * Always flush the output characters when getting input characters
+! 	 * from the user.
+  	 */
+! 	out_flush();
+  
+  	/*
+  	 * Fill up to a third of the buffer, because each character may be
+--- 3039,3048 ----
+  
+  	/*
+  	 * Always flush the output characters when getting input characters
+! 	 * from the user and not just peeking.
+  	 */
+! 	if (wait_time == -1L || wait_time > 10L)
+! 	    out_flush();
+  
+  	/*
+  	 * Fill up to a third of the buffer, because each character may be
+*** ../vim-8.1.0821/src/screen.c	2019-01-24 18:20:14.436543394 +0100
+--- src/screen.c	2019-01-25 22:23:24.083428734 +0100
+***************
+*** 10110,10115 ****
+--- 10110,10135 ----
+  }
+  
+  /*
++  * Return TRUE when postponing displaying the mode message: when not redrawing
++  * or inside a mapping.
++  */
++     int
++ skip_showmode()
++ {
++     // Call char_avail() only when we are going to show something, because it
++     // takes a bit of time.  redrawing() may also call char_avail_avail().
++     if (global_busy
++ 	    || msg_silent != 0
++ 	    || !redrawing()
++ 	    || (char_avail() && !KeyTyped))
++     {
++ 	redraw_cmdline = TRUE;		// show mode later
++ 	return TRUE;
++     }
++     return FALSE;
++ }
++ 
++ /*
+   * Show the current mode and ruler.
+   *
+   * If clear_cmdline is TRUE, clear the rest of the cmdline.
+***************
+*** 10135,10150 ****
+  		|| VIsual_active));
+      if (do_mode || reg_recording != 0)
+      {
+! 	/*
+! 	 * Don't show mode right now, when not redrawing or inside a mapping.
+! 	 * Call char_avail() only when we are going to show something, because
+! 	 * it takes a bit of time.
+! 	 */
+! 	if (!redrawing() || (char_avail() && !KeyTyped) || msg_silent != 0)
+! 	{
+! 	    redraw_cmdline = TRUE;		/* show mode later */
+! 	    return 0;
+! 	}
+  
+  	nwr_save = need_wait_return;
+  
+--- 10155,10162 ----
+  		|| VIsual_active));
+      if (do_mode || reg_recording != 0)
+      {
+! 	if (skip_showmode())
+! 	    return 0;		// show mode later
+  
+  	nwr_save = need_wait_return;
+  
+*** ../vim-8.1.0821/src/proto/screen.pro	2019-01-11 20:34:18.300314693 +0100
+--- src/proto/screen.pro	2019-01-25 22:22:17.887869921 +0100
+***************
+*** 49,54 ****
+--- 49,55 ----
+  int win_del_lines(win_T *wp, int row, int line_count, int invalid, int mayclear, int clear_attr);
+  int screen_ins_lines(int off, int row, int line_count, int end, int clear_attr, win_T *wp);
+  int screen_del_lines(int off, int row, int line_count, int end, int force, int clear_attr, win_T *wp);
++ int skip_showmode(void);
+  int showmode(void);
+  void unshowmode(int force);
+  void clearmode(void);
+*** ../vim-8.1.0821/src/edit.c	2019-01-24 15:04:44.662887892 +0100
+--- src/edit.c	2019-01-25 22:23:48.535265639 +0100
+***************
+*** 8722,8728 ****
+       */
+      if (reg_recording != 0 || restart_edit != NUL)
+  	showmode();
+!     else if (p_smd)
+  	msg("");
+  
+      return TRUE;	    /* exit Insert mode */
+--- 8722,8728 ----
+       */
+      if (reg_recording != 0 || restart_edit != NUL)
+  	showmode();
+!     else if (p_smd && !skip_showmode())
+  	msg("");
+  
+      return TRUE;	    /* exit Insert mode */
+*** ../vim-8.1.0821/src/version.c	2019-01-25 21:52:12.190931859 +0100
+--- src/version.c	2019-01-25 22:28:55.492398277 +0100
+***************
+*** 789,790 ****
+--- 789,792 ----
+  {   /* Add new patch number below this line */
++ /**/
++     822,
+  /**/
+
+-- 
+Overflow on /dev/null, please empty the bit bucket.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

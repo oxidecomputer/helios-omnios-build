@@ -1,0 +1,139 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0747
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0747
+Problem:    map() with a bad expression doesn't give an error. (Ingo Karkat)
+Solution:   Check for giving an error message. (closes #3800)
+Files:	    src/eval.c, src/testdir/test_filter_map.vim
+
+
+*** ../vim-8.1.0746/src/eval.c	2019-01-13 23:38:33.383773361 +0100
+--- src/eval.c	2019-01-14 22:17:17.022853149 +0100
+***************
+*** 696,701 ****
+--- 696,725 ----
+      return (int)retval;
+  }
+  
++ /*
++  * Call eval1() and give an error message if not done at a lower level.
++  */
++     static int
++ eval1_emsg(char_u **arg, typval_T *rettv, int evaluate)
++ {
++     int		ret;
++     int		did_emsg_before = did_emsg;
++     int		called_emsg_before = called_emsg;
++ 
++     ret = eval1(arg, rettv, evaluate);
++     if (ret == FAIL)
++     {
++ 	// Report the invalid expression unless the expression evaluation has
++ 	// been cancelled due to an aborting error, an interrupt, or an
++ 	// exception, or we already gave a more specific error.
++ 	// Also check called_emsg for when using assert_fails().
++ 	if (!aborting() && did_emsg == did_emsg_before
++ 					  && called_emsg == called_emsg_before)
++ 	    semsg(_(e_invexpr2), arg);
++     }
++     return ret;
++ }
++ 
+      static int
+  eval_expr_typval(typval_T *expr, typval_T *argv, int argc, typval_T *rettv)
+  {
+***************
+*** 729,735 ****
+  	if (s == NULL)
+  	    return FAIL;
+  	s = skipwhite(s);
+! 	if (eval1(&s, rettv, TRUE) == FAIL)
+  	    return FAIL;
+  	if (*s != NUL)  /* check for trailing chars after expr */
+  	{
+--- 753,759 ----
+  	if (s == NULL)
+  	    return FAIL;
+  	s = skipwhite(s);
+! 	if (eval1_emsg(&s, rettv, TRUE) == FAIL)
+  	    return FAIL;
+  	if (*s != NUL)  /* check for trailing chars after expr */
+  	{
+***************
+*** 8464,8481 ****
+      while (*arg != NUL && *arg != '|' && *arg != '\n')
+      {
+  	p = arg;
+! 	if (eval1(&arg, &rettv, !eap->skip) == FAIL)
+! 	{
+! 	    /*
+! 	     * Report the invalid expression unless the expression evaluation
+! 	     * has been cancelled due to an aborting error, an interrupt, or an
+! 	     * exception.
+! 	     */
+! 	    if (!aborting() && did_emsg == save_did_emsg)
+! 		semsg(_(e_invexpr2), p);
+! 	    ret = FAIL;
+  	    break;
+- 	}
+  
+  	if (!eap->skip)
+  	{
+--- 8488,8496 ----
+      while (*arg != NUL && *arg != '|' && *arg != '\n')
+      {
+  	p = arg;
+! 	ret = eval1_emsg(&arg, &rettv, !eap->skip);
+! 	if (ret == FAIL)
+  	    break;
+  
+  	if (!eap->skip)
+  	{
+***************
+*** 10758,10763 ****
+--- 10773,10779 ----
+  	}
+  	else
+  	{
++ 	    // argvars[0].v_type == VAR_LIST
+  	    vimvars[VV_KEY].vv_type = VAR_NUMBER;
+  
+  	    for (li = l->lv_first; li != NULL; li = nli)
+*** ../vim-8.1.0746/src/testdir/test_filter_map.vim	2016-07-08 20:01:07.000000000 +0200
+--- src/testdir/test_filter_map.vim	2019-01-14 22:17:58.102558935 +0100
+***************
+*** 79,81 ****
+--- 79,86 ----
+    endfunc
+    call assert_equal({"foo": "f", "bar": "b", "baz": "b"}, map(copy(dict), function('s:filter4')))
+  endfunc
++ 
++ func Test_map_fails()
++   call assert_fails('call map([1], "42 +")', 'E15:')
++   call assert_fails('call filter([1], "42 +")', 'E15:')
++ endfunc
+*** ../vim-8.1.0746/src/version.c	2019-01-14 21:51:17.987461933 +0100
+--- src/version.c	2019-01-14 22:18:16.678425599 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     747,
+  /**/
+
+-- 
+Spam seems to be something useful to novices.  Later you realize that
+it's a bunch of indigestable junk that only clogs your system.
+Applies to both the food and the e-mail!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

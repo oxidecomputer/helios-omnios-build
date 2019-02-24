@@ -1,0 +1,137 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0936
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0936
+Problem:    May leak memory when using 'vartabstop'. (Kuang-che Wu)
+Solution:   Fix handling allocated memory for 'vartabstop'. (closes #3976)
+Files:	    src/option.c, src/buffer.c
+
+
+*** ../vim-8.1.0935/src/option.c	2019-02-16 15:09:21.213946217 +0100
+--- src/option.c	2019-02-16 18:41:47.573680439 +0100
+***************
+*** 5594,5600 ****
+--- 5594,5602 ----
+      (void)check_clipboard_option();
+  #endif
+  #ifdef FEAT_VARTABS
++     vim_free(curbuf->b_p_vsts_array);
+      tabstop_set(curbuf->b_p_vsts, &curbuf->b_p_vsts_array);
++     vim_free(curbuf->b_p_vts_array);
+      tabstop_set(curbuf->b_p_vts,  &curbuf->b_p_vts_array);
+  #endif
+  }
+***************
+*** 7572,7585 ****
+  	    if (errmsg == NULL)
+  	    {
+  		int *oldarray = curbuf->b_p_vts_array;
+  		if (tabstop_set(*varp, &(curbuf->b_p_vts_array)))
+  		{
+! 		    if (oldarray)
+! 			vim_free(oldarray);
+  #ifdef FEAT_FOLDING
+  		    if (foldmethodIsIndent(curwin))
+  			foldUpdateAll(curwin);
+! #endif /* FEAT_FOLDING */
+  		}
+  		else
+  		    errmsg = e_invarg;
+--- 7574,7587 ----
+  	    if (errmsg == NULL)
+  	    {
+  		int *oldarray = curbuf->b_p_vts_array;
++ 
+  		if (tabstop_set(*varp, &(curbuf->b_p_vts_array)))
+  		{
+! 		    vim_free(oldarray);
+  #ifdef FEAT_FOLDING
+  		    if (foldmethodIsIndent(curwin))
+  			foldUpdateAll(curwin);
+! #endif
+  		}
+  		else
+  		    errmsg = e_invarg;
+***************
+*** 12706,12715 ****
+      return check_opt_strings(p, p_ff_values, FALSE);
+  }
+  
+! #ifdef FEAT_VARTABS
+  
+  /*
+   * Set the integer values corresponding to the string setting of 'vartabstop'.
+   */
+      int
+  tabstop_set(char_u *var, int **array)
+--- 12708,12718 ----
+      return check_opt_strings(p, p_ff_values, FALSE);
+  }
+  
+! #if defined(FEAT_VARTABS) || defined(PROTO)
+  
+  /*
+   * Set the integer values corresponding to the string setting of 'vartabstop'.
++  * "array" will be set, caller must free it if needed.
+   */
+      int
+  tabstop_set(char_u *var, int **array)
+***************
+*** 12752,12757 ****
+--- 12755,12762 ----
+      }
+  
+      *array = (int *)alloc((unsigned) ((valcount + 1) * sizeof(int)));
++     if (*array == NULL)
++ 	return FALSE;
+      (*array)[0] = valcount;
+  
+      t = 1;
+*** ../vim-8.1.0935/src/buffer.c	2019-02-12 22:37:24.177961507 +0100
+--- src/buffer.c	2019-02-16 18:36:24.507317493 +0100
+***************
+*** 2170,2178 ****
+  	vim_free(buf->b_p_vsts_array);
+      buf->b_p_vsts_array = NULL;
+      clear_string_option(&buf->b_p_vts);
+!     if (buf->b_p_vts_array)
+! 	vim_free(buf->b_p_vts_array);
+!     buf->b_p_vts_array = NULL;
+  #endif
+  #ifdef FEAT_KEYMAP
+      clear_string_option(&buf->b_p_keymap);
+--- 2170,2176 ----
+  	vim_free(buf->b_p_vsts_array);
+      buf->b_p_vsts_array = NULL;
+      clear_string_option(&buf->b_p_vts);
+!     VIM_CLEAR(buf->b_p_vts_array);
+  #endif
+  #ifdef FEAT_KEYMAP
+      clear_string_option(&buf->b_p_keymap);
+*** ../vim-8.1.0935/src/version.c	2019-02-16 18:07:53.723796781 +0100
+--- src/version.c	2019-02-16 19:04:41.060527328 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     936,
+  /**/
+
+-- 
+BEDEVERE:        Why do you think she is a witch?
+SECOND VILLAGER: She turned me into a newt.
+BEDEVERE:        A newt?
+SECOND VILLAGER: (After looking at himself for some time) I got better.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

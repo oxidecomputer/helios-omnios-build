@@ -1,0 +1,7308 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0805
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0805
+Problem:    Too many #ifdefs.
+Solution:   Graduate FEAT_MBYTE, part 1.
+Files:	    src/buffer.c, src/charset.c, src/diff.c, src/digraph.c,
+            src/edit.c, src/eval.c, src/evalfunc.c, src/ex_cmds.c,
+            src/ex_cmds2.c, src/ex_docmd.c, src/ex_getln.c, src/fileio.c,
+            src/fold.c, src/gui.c, src/gui_mac.c, src/gui_photon.c,
+            src/gui_w32.c
+
+
+*** ../vim-8.1.0804/src/buffer.c	2019-01-20 18:25:50.313911236 +0100
+--- src/buffer.c	2019-01-24 14:03:05.483739052 +0100
+***************
+*** 704,713 ****
+      buf->b_shortname = FALSE;
+      buf->b_p_eol = TRUE;
+      buf->b_start_eol = TRUE;
+- #ifdef FEAT_MBYTE
+      buf->b_p_bomb = FALSE;
+      buf->b_start_bomb = FALSE;
+- #endif
+      buf->b_ml.ml_mfp = NULL;
+      buf->b_ml.ml_flags = ML_EMPTY;		/* empty buffer */
+  #ifdef FEAT_NETBEANS_INTG
+--- 704,711 ----
+***************
+*** 940,948 ****
+      map_clear_int(buf, MAP_ALL_MODES, TRUE, FALSE);  /* clear local mappings */
+      map_clear_int(buf, MAP_ALL_MODES, TRUE, TRUE);   /* clear local abbrevs */
+  #endif
+- #ifdef FEAT_MBYTE
+      VIM_CLEAR(buf->b_start_fenc);
+- #endif
+  }
+  
+  /*
+--- 938,944 ----
+***************
+*** 2133,2141 ****
+  {
+      if (free_p_ff)
+      {
+- #ifdef FEAT_MBYTE
+  	clear_string_option(&buf->b_p_fenc);
+- #endif
+  	clear_string_option(&buf->b_p_ff);
+  	clear_string_option(&buf->b_p_bh);
+  	clear_string_option(&buf->b_p_bt);
+--- 2129,2135 ----
+***************
+*** 2245,2253 ****
+      clear_string_option(&buf->b_p_lw);
+  #endif
+      clear_string_option(&buf->b_p_bkc);
+- #ifdef FEAT_MBYTE
+      clear_string_option(&buf->b_p_menc);
+- #endif
+  }
+  
+  /*
+--- 2239,2245 ----
+***************
+*** 3778,3787 ****
+  	    if (len > 100)
+  	    {
+  		len -= 100;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    len += (*mb_tail_off)(p, p + len) + 1;
+- #endif
+  		p += len;
+  	    }
+  	    STRCPY(icon_str, p);
+--- 3770,3777 ----
+***************
+*** 3939,3949 ****
+  
+      if (fillchar == 0)
+  	fillchar = ' ';
+- #ifdef FEAT_MBYTE
+      /* Can't handle a multi-byte fill character yet. */
+      else if (mb_char2len(fillchar) > 1)
+  	fillchar = '-';
+- #endif
+  
+      // The cursor in windows other than the current one isn't always
+      // up-to-date, esp. because of autocommands and timers.
+--- 3929,3937 ----
+***************
+*** 3973,3983 ****
+  	byteval = 0;
+      }
+      else
+- #ifdef FEAT_MBYTE
+  	byteval = (*mb_ptr2char)(p + wp->w_cursor.col);
+- #else
+- 	byteval = p[wp->w_cursor.col];
+- #endif
+  
+      groupdepth = 0;
+      p = out;
+--- 3961,3967 ----
+***************
+*** 4079,4085 ****
+  	    if (l > item[groupitem[groupdepth]].maxwid)
+  	    {
+  		/* truncate, remove n bytes of text at the start */
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    /* Find the first character that should be included. */
+--- 4063,4068 ----
+***************
+*** 4091,4107 ****
+  		    }
+  		}
+  		else
+- #endif
+  		    n = (long)(p - t) - item[groupitem[groupdepth]].maxwid + 1;
+  
+  		*t = '<';
+  		mch_memmove(t + 1, t + n, (size_t)(p - (t + n)));
+  		p = p - n + 1;
+! #ifdef FEAT_MBYTE
+! 		/* Fill up space left over by half a double-wide char. */
+  		while (++l < item[groupitem[groupdepth]].minwid)
+  		    *p++ = fillchar;
+- #endif
+  
+  		/* correct the start of the items for the truncation */
+  		for (l = groupitem[groupdepth] + 1; l < curitem; l++)
+--- 4074,4088 ----
+  		    }
+  		}
+  		else
+  		    n = (long)(p - t) - item[groupitem[groupdepth]].maxwid + 1;
+  
+  		*t = '<';
+  		mch_memmove(t + 1, t + n, (size_t)(p - (t + n)));
+  		p = p - n + 1;
+! 
+! 		// Fill up space left over by half a double-wide char.
+  		while (++l < item[groupitem[groupdepth]].minwid)
+  		    *p++ = fillchar;
+  
+  		/* correct the start of the items for the truncation */
+  		for (l = groupitem[groupdepth] + 1; l < curitem; l++)
+***************
+*** 4483,4496 ****
+  	    if (l > maxwid)
+  	    {
+  		while (l >= maxwid)
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  		    {
+  			l -= ptr2cells(t);
+  			t += (*mb_ptr2len)(t);
+  		    }
+  		    else
+- #endif
+  			l -= byte2cells(*t++);
+  		if (p + 1 >= out + outlen)
+  		    break;
+--- 4464,4475 ----
+***************
+*** 4610,4616 ****
+  	if (width - vim_strsize(s) >= maxwidth)
+  	{
+  	    /* Truncation mark is beyond max length */
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		s = out;
+--- 4589,4594 ----
+***************
+*** 4627,4633 ****
+  		    *s++ = fillchar;
+  	    }
+  	    else
+- #endif
+  		s = out + maxwidth - 1;
+  	    for (l = 0; l < itemcnt; l++)
+  		if (item[l].start > s)
+--- 4605,4610 ----
+***************
+*** 4638,4644 ****
+  	}
+  	else
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		n = 0;
+--- 4615,4620 ----
+***************
+*** 4649,4655 ****
+  		}
+  	    }
+  	    else
+- #endif
+  		n = width - maxwidth + 1;
+  	    p = s + n;
+  	    STRMOVE(s + 1, p);
+--- 4625,4630 ----
+*** ../vim-8.1.0804/src/charset.c	2018-09-30 21:43:17.179693404 +0200
+--- src/charset.c	2019-01-24 14:08:03.845910116 +0100
+***************
+*** 9,20 ****
+  
+  #include "vim.h"
+  
+! #ifdef FEAT_MBYTE
+! # if defined(HAVE_WCHAR_H)
+! #  include <wchar.h>	    /* for towupper() and towlower() */
+! # endif
+! static int win_nolbr_chartabsize(win_T *wp, char_u *s, colnr_T col, int *headp);
+  #endif
+  
+  static unsigned nr2hex(unsigned c);
+  
+--- 9,18 ----
+  
+  #include "vim.h"
+  
+! #if defined(HAVE_WCHAR_H)
+! # include <wchar.h>	    /* for towupper() and towlower() */
+  #endif
++ static int win_nolbr_chartabsize(win_T *wp, char_u *s, colnr_T col, int *headp);
+  
+  static unsigned nr2hex(unsigned c);
+  
+***************
+*** 109,115 ****
+  #endif
+  	while (c < 256)
+  	{
+- #ifdef FEAT_MBYTE
+  	    /* UTF-8: bytes 0xa0 - 0xff are printable (latin1) */
+  	    if (enc_utf8 && c >= 0xa0)
+  		g_chartab[c++] = CT_PRINT_CHAR + 1;
+--- 107,112 ----
+***************
+*** 120,145 ****
+  	    else if (enc_dbcs != 0 && MB_BYTE2LEN(c) == 2)
+  		g_chartab[c++] = CT_PRINT_CHAR + 2;
+  	    else
+- #endif
+  		/* the rest is unprintable by default */
+  		g_chartab[c++] = (dy_flags & DY_UHEX) ? 4 : 2;
+  	}
+  
+- #ifdef FEAT_MBYTE
+  	/* Assume that every multi-byte char is a filename character. */
+  	for (c = 1; c < 256; ++c)
+  	    if ((enc_dbcs != 0 && MB_BYTE2LEN(c) > 1)
+  		    || (enc_dbcs == DBCS_JPNU && c == 0x8e)
+  		    || (enc_utf8 && c >= 0xa0))
+  		g_chartab[c] |= CT_FNAME_CHAR;
+- #endif
+      }
+  
+      /*
+       * Init word char flags all to FALSE
+       */
+      vim_memset(buf->b_chartab, 0, (size_t)32);
+- #ifdef FEAT_MBYTE
+      if (enc_dbcs != 0)
+  	for (c = 0; c < 256; ++c)
+  	{
+--- 117,138 ----
+***************
+*** 147,153 ****
+  	    if (MB_BYTE2LEN(c) == 2)
+  		SET_CHARTAB(buf, c);
+  	}
+- #endif
+  
+  #ifdef FEAT_LISP
+      /*
+--- 140,145 ----
+***************
+*** 184,194 ****
+  	    if (VIM_ISDIGIT(*p))
+  		c = getdigits(&p);
+  	    else
+- #ifdef FEAT_MBYTE
+  		 if (has_mbyte)
+  		c = mb_ptr2char_adv(&p);
+  	    else
+- #endif
+  		c = *p++;
+  	    c2 = -1;
+  	    if (*p == '-' && p[1] != NUL)
+--- 176,184 ----
+***************
+*** 197,207 ****
+  		if (VIM_ISDIGIT(*p))
+  		    c2 = getdigits(&p);
+  		else
+- #ifdef FEAT_MBYTE
+  		     if (has_mbyte)
+  		    c2 = mb_ptr2char_adv(&p);
+  		else
+- #endif
+  		    c2 = *p++;
+  	    }
+  	    if (c <= 0 || c >= 256 || (c2 < c && c2 != -1) || c2 >= 256
+--- 187,195 ----
+***************
+*** 253,265 ****
+  				    || (p_altkeymap
+  					&& (F_isalpha(c) || F_isdigit(c)))
+  #endif
+! 			    )
+! #ifdef FEAT_MBYTE
+! 				/* For double-byte we keep the cell width, so
+! 				 * that we can detect it from the first byte. */
+! 				&& !(enc_dbcs && MB_BYTE2LEN(c) == 2)
+! #endif
+! 			   )
+  			{
+  			    if (tilde)
+  			    {
+--- 241,249 ----
+  				    || (p_altkeymap
+  					&& (F_isalpha(c) || F_isdigit(c)))
+  #endif
+! 				// For double-byte we keep the cell width, so
+! 				// that we can detect it from the first byte.
+! 			    ) && !(enc_dbcs && MB_BYTE2LEN(c) == 2))
+  			{
+  			    if (tilde)
+  			    {
+***************
+*** 322,333 ****
+      room = bufsize - len;
+      while (*buf != 0)
+      {
+- # ifdef FEAT_MBYTE
+  	/* Assume a multi-byte character doesn't need translation. */
+  	if (has_mbyte && (trs_len = (*mb_ptr2len)(buf)) > 1)
+  	    len -= trs_len;
+  	else
+- # endif
+  	{
+  	    trs = transchar_byte(*buf);
+  	    trs_len = (int)STRLEN(trs);
+--- 306,315 ----
+***************
+*** 356,367 ****
+  {
+      char_u	*res;
+      char_u	*p;
+- #ifdef FEAT_MBYTE
+      int		l, len, c;
+      char_u	hexbuf[11];
+- #endif
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	/* Compute the length of the result, taking account of unprintable
+--- 338,346 ----
+***************
+*** 394,400 ****
+  	res = alloc((unsigned)(len + 1));
+      }
+      else
+- #endif
+  	res = alloc((unsigned)(vim_strsize(s) + 1));
+      if (res != NULL)
+      {
+--- 373,378 ----
+***************
+*** 402,408 ****
+  	p = s;
+  	while (*p != NUL)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
+  	    {
+  		c = (*mb_ptr2char)(p);
+--- 380,385 ----
+***************
+*** 413,419 ****
+  		p += l;
+  	    }
+  	    else
+- #endif
+  		STRCAT(res, transchar_byte(*p++));
+  	}
+      }
+--- 390,395 ----
+***************
+*** 468,474 ****
+      i = 0;
+      while (STR_CHAR(i) != NUL)
+      {
+- #ifdef FEAT_MBYTE
+  	if (enc_utf8 || (has_mbyte && MB_BYTE2LEN(STR_CHAR(i)) > 1))
+  	{
+  	    if (enc_utf8)
+--- 444,449 ----
+***************
+*** 520,526 ****
+  	    i += (*mb_ptr2len)(STR_PTR(i));
+  	}
+  	else
+- #endif
+  	{
+  	    if (buf == NULL)
+  		GA_CHAR(i) = TOLOWER_LOC(GA_CHAR(i));
+--- 495,500 ----
+***************
+*** 580,586 ****
+      return transchar_buf;
+  }
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Like transchar(), but called with a byte instead of a character.  Checks
+   * for an illegal UTF-8 byte.
+--- 554,559 ----
+***************
+*** 595,601 ****
+      }
+      return transchar(c);
+  }
+- #endif
+  
+  /*
+   * Convert non-printable character to two or more printable characters in
+--- 568,573 ----
+***************
+*** 632,643 ****
+  
+  	buf[2] = NUL;
+      }
+- #ifdef FEAT_MBYTE
+      else if (enc_utf8 && c >= 0x80)
+      {
+  	transchar_hex(buf, c);
+      }
+- #endif
+  #ifndef EBCDIC
+      else if (c >= ' ' + 0x80 && c <= '~' + 0x80)    /* 0xa0 - 0xfe */
+      {
+--- 604,613 ----
+***************
+*** 675,687 ****
+      int		i = 0;
+  
+      buf[0] = '<';
+- #ifdef FEAT_MBYTE
+      if (c > 255)
+      {
+  	buf[++i] = nr2hex((unsigned)c >> 12);
+  	buf[++i] = nr2hex((unsigned)c >> 8);
+      }
+- #endif
+      buf[++i] = nr2hex((unsigned)c >> 4);
+      buf[++i] = nr2hex((unsigned)c);
+      buf[++i] = '>';
+--- 645,655 ----
+***************
+*** 712,721 ****
+      int
+  byte2cells(int b)
+  {
+- #ifdef FEAT_MBYTE
+      if (enc_utf8 && b >= 0x80)
+  	return 0;
+- #endif
+      return (g_chartab[b] & CT_CELL_MASK);
+  }
+  
+--- 680,687 ----
+***************
+*** 729,735 ****
+  {
+      if (IS_SPECIAL(c))
+  	return char2cells(K_SECOND(c)) + 2;
+- #ifdef FEAT_MBYTE
+      if (c >= 0x80)
+      {
+  	/* UTF-8: above 0x80 need to check the value */
+--- 695,700 ----
+***************
+*** 744,750 ****
+  	    return 2;
+  	}
+      }
+- #endif
+      return (g_chartab[c & 0xff] & CT_CELL_MASK);
+  }
+  
+--- 709,714 ----
+***************
+*** 755,766 ****
+      int
+  ptr2cells(char_u *p)
+  {
+- #ifdef FEAT_MBYTE
+      /* For UTF-8 we need to look at more bytes if the first byte is >= 0x80. */
+      if (enc_utf8 && *p >= 0x80)
+  	return utf_ptr2cells(p);
+      /* For DBCS we can tell the cell count from the first byte. */
+- #endif
+      return (g_chartab[*p] & CT_CELL_MASK);
+  }
+  
+--- 719,728 ----
+***************
+*** 784,791 ****
+      int		size = 0;
+  
+      while (*s != NUL && --len >= 0)
+-     {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    int	    l = (*mb_ptr2len)(s);
+--- 746,751 ----
+***************
+*** 795,803 ****
+  	    len -= l - 1;
+  	}
+  	else
+- #endif
+  	    size += byte2cells(*s++);
+!     }
+      return size;
+  }
+  
+--- 755,762 ----
+  	    len -= l - 1;
+  	}
+  	else
+  	    size += byte2cells(*s++);
+! 
+      return size;
+  }
+  
+***************
+*** 907,918 ****
+  {
+      if (c >= 0x100)
+      {
+- #ifdef FEAT_MBYTE
+  	if (enc_dbcs != 0)
+  	    return dbcs_class((unsigned)c >> 8, (unsigned)(c & 0xff)) >= 2;
+  	if (enc_utf8)
+  	    return utf_class_buf(c, buf) >= 2;
+- #endif
+  	return FALSE;
+      }
+      return (c > 0 && GET_CHARTAB(buf, c) != 0);
+--- 866,875 ----
+***************
+*** 932,941 ****
+  {
+      int	c = *p;
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte && MB_BYTE2LEN(c) > 1)
+  	c = (*mb_ptr2char)(p);
+- #endif
+      return vim_iswordc_buf(c, buf);
+  }
+  
+--- 889,896 ----
+***************
+*** 973,982 ****
+      int
+  vim_isprintc(int c)
+  {
+- #ifdef FEAT_MBYTE
+      if (enc_utf8 && c >= 0x100)
+  	return utf_printable(c);
+- #endif
+      return (c >= 0x100 || (c > 0 && (g_chartab[c] & CT_PRINT_CHAR)));
+  }
+  
+--- 928,935 ----
+***************
+*** 987,998 ****
+      int
+  vim_isprintc_strict(int c)
+  {
+- #ifdef FEAT_MBYTE
+      if (enc_dbcs != 0 && c < 0x100 && MB_BYTE2LEN(c) > 1)
+  	return FALSE;
+      if (enc_utf8 && c >= 0x100)
+  	return utf_printable(c);
+- #endif
+      return (c >= 0x100 || (c > 0 && (g_chartab[c] & CT_PRINT_CHAR)));
+  }
+  
+--- 940,949 ----
+***************
+*** 1009,1018 ****
+      if (!curwin->w_p_lbr && *p_sbr == NUL && !curwin->w_p_bri)
+      {
+  #endif
+- #ifdef FEAT_MBYTE
+  	if (curwin->w_p_wrap)
+  	    return win_nolbr_chartabsize(curwin, s, col, NULL);
+- #endif
+  	RET_WIN_BUF_CHARTABSIZE(curwin, curbuf, s, col)
+  #ifdef FEAT_LINEBREAK
+      }
+--- 960,967 ----
+***************
+*** 1058,1068 ****
+      colnr_T	col_adj = 0; /* col + screen size of tab */
+      colnr_T	colmax;
+      int		added;
+- # ifdef FEAT_MBYTE
+      int		mb_added = 0;
+- # else
+- #  define mb_added 0
+- # endif
+      int		numberextra;
+      char_u	*ps;
+      int		tab_corr = (*s == TAB);
+--- 1007,1013 ----
+***************
+*** 1074,1083 ****
+      if (!wp->w_p_lbr && !wp->w_p_bri && *p_sbr == NUL)
+  #endif
+      {
+- #ifdef FEAT_MBYTE
+  	if (wp->w_p_wrap)
+  	    return win_nolbr_chartabsize(wp, s, col, headp);
+- #endif
+  	RET_WIN_BUF_CHARTABSIZE(wp, wp->w_buffer, s, col)
+      }
+  
+--- 1019,1026 ----
+***************
+*** 1135,1148 ****
+  	    }
+  	}
+      }
+- # ifdef FEAT_MBYTE
+      else if (has_mbyte && size == 2 && MB_BYTE2LEN(*s) > 1
+  				    && wp->w_p_wrap && in_win_border(wp, col))
+      {
+  	++size;		/* Count the ">" in the last column. */
+  	mb_added = 1;
+      }
+- # endif
+  
+      /*
+       * May have to add something for 'breakindent' and/or 'showbreak'
+--- 1078,1089 ----
+***************
+*** 1210,1216 ****
+  #endif
+  }
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Like win_lbr_chartabsize(), except that we know 'linebreak' is off and
+   * 'wrap' is on.  This means we need to check for a double-byte character that
+--- 1151,1156 ----
+***************
+*** 1269,1275 ****
+  	return FALSE;
+      return ((vcol - width1) % width2 == width2 - 1);
+  }
+- #endif /* FEAT_MBYTE */
+  
+  /*
+   * Get virtual column number of pos.
+--- 1209,1214 ----
+***************
+*** 1310,1320 ****
+  	if (*ptr == NUL)
+  	    pos->col = 0;
+  	posptr = ptr + pos->col;
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    /* always start on the first byte */
+  	    posptr -= (*mb_head_off)(line, posptr);
+- #endif
+      }
+  
+      /*
+--- 1249,1257 ----
+***************
+*** 1329,1342 ****
+  #endif
+         )
+      {
+- #ifndef FEAT_MBYTE
+  	head = 0;
+- #endif
+  	for (;;)
+  	{
+- #ifdef FEAT_MBYTE
+  	    head = 0;
+- #endif
+  	    c = *ptr;
+  	    /* make sure we don't go past the end of the line */
+  	    if (c == NUL)
+--- 1266,1275 ----
+***************
+*** 1353,1359 ****
+  #endif
+  	    else
+  	    {
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    /* For utf-8, if the byte is >= 0x80, need to look at
+--- 1286,1291 ----
+***************
+*** 1374,1380 ****
+  		    }
+  		}
+  		else
+- #endif
+  		    incr = g_chartab[c] & CT_CELL_MASK;
+  	    }
+  
+--- 1306,1311 ----
+***************
+*** 1460,1468 ****
+      colnr_T	col;
+      colnr_T	coladd;
+      colnr_T	endadd;
+- # ifdef FEAT_MBYTE
+      char_u	*ptr;
+- # endif
+  
+      if (virtual_active())
+      {
+--- 1391,1397 ----
+***************
+*** 1471,1477 ****
+  
+  	coladd = pos->coladd;
+  	endadd = 0;
+- # ifdef FEAT_MBYTE
+  	/* Cannot put the cursor on part of a wide character. */
+  	ptr = ml_get_buf(wp->w_buffer, pos->lnum, FALSE);
+  	if (pos->col < (colnr_T)STRLEN(ptr))
+--- 1400,1405 ----
+***************
+*** 1487,1493 ****
+  		    coladd = 0;
+  	    }
+  	}
+- # endif
+  	col += coladd;
+  	if (start != NULL)
+  	    *start = col;
+--- 1415,1420 ----
+***************
+*** 1684,1690 ****
+      return (c == '0' || c == '1');
+  }
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Vim's own character class functions.  These exist because many library
+   * islower()/toupper() etc. do not work properly: they crash when used with
+--- 1611,1616 ----
+***************
+*** 1797,1803 ****
+  	return TOLOWER_ASC(c);
+      return TOLOWER_LOC(c);
+  }
+- #endif
+  
+  /*
+   * skiptowhite: skip over text until ' ' or '\t' or NUL.
+--- 1723,1728 ----
+***************
+*** 2077,2085 ****
+  {
+  #ifdef BACKSLASH_IN_FILENAME
+      return (str[0] == '\\'
+- # ifdef FEAT_MBYTE
+  	    && str[1] < 0x80
+- # endif
+  	    && (str[1] == ' '
+  		|| (str[1] != NUL
+  		    && str[1] != '*'
+--- 2002,2008 ----
+*** ../vim-8.1.0804/src/diff.c	2019-01-15 20:19:36.739904461 +0100
+--- src/diff.c	2019-01-24 14:09:08.117504177 +0100
+***************
+*** 741,752 ****
+  	    if (diff_flags & DIFF_ICASE)
+  	    {
+  		int c;
+- 
+- 		// xdiff doesn't support ignoring case, fold-case the text.
+- #ifdef FEAT_MBYTE
+  		int	orig_len;
+  		char_u	cbuf[MB_MAXBYTES + 1];
+  
+  		c = PTR2CHAR(s);
+  		c = enc_utf8 ? utf_fold(c) : MB_TOLOWER(c);
+  		orig_len = MB_PTR2LEN(s);
+--- 741,750 ----
+  	    if (diff_flags & DIFF_ICASE)
+  	    {
+  		int c;
+  		int	orig_len;
+  		char_u	cbuf[MB_MAXBYTES + 1];
+  
++ 		// xdiff doesn't support ignoring case, fold-case the text.
+  		c = PTR2CHAR(s);
+  		c = enc_utf8 ? utf_fold(c) : MB_TOLOWER(c);
+  		orig_len = MB_PTR2LEN(s);
+***************
+*** 758,767 ****
+  
+  		s += orig_len;
+  		len += orig_len;
+- #else
+- 		c = *s++;
+- 		ptr[len++] = TOLOWER_LOC(c);
+- #endif
+  	    }
+  	    else
+  		ptr[len++] = *s++;
+--- 756,761 ----
+***************
+*** 1946,1952 ****
+      static int
+  diff_equal_char(char_u *p1, char_u *p2, int *len)
+  {
+- #ifdef FEAT_MBYTE
+      int l  = (*mb_ptr2len)(p1);
+  
+      if (l != (*mb_ptr2len)(p2))
+--- 1940,1945 ----
+***************
+*** 1962,1968 ****
+  	*len = l;
+      }
+      else
+- #endif
+      {
+  	if ((*p1 != *p2)
+  		&& (!(diff_flags & DIFF_ICASE)
+--- 1955,1960 ----
+***************
+*** 2400,2406 ****
+  		    si_new += l;
+  		}
+  	    }
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		/* Move back to first byte of character in both lines (may
+--- 2392,2397 ----
+***************
+*** 2408,2414 ****
+  		si_org -= (*mb_head_off)(line_org, line_org + si_org);
+  		si_new -= (*mb_head_off)(line_new, line_new + si_new);
+  	    }
+- #endif
+  	    if (*startp > si_org)
+  		*startp = si_org;
+  
+--- 2399,2404 ----
+***************
+*** 2438,2447 ****
+  		    {
+  			p1 = line_org + ei_org;
+  			p2 = line_new + ei_new;
+- #ifdef FEAT_MBYTE
+  			p1 -= (*mb_head_off)(line_org, p1);
+  			p2 -= (*mb_head_off)(line_new, p2);
+- #endif
+  			if (!diff_equal_char(p1, p2, &l))
+  			    break;
+  			ei_org -= l;
+--- 2428,2435 ----
+*** ../vim-8.1.0804/src/digraph.c	2019-01-13 23:38:33.379773390 +0100
+--- src/digraph.c	2019-01-24 14:11:43.248512005 +0100
+***************
+*** 15,25 ****
+  
+  #if defined(FEAT_DIGRAPHS) || defined(PROTO)
+  
+- #ifdef FEAT_MBYTE
+  typedef int result_T;
+- #else
+- typedef char_u result_T;
+- #endif
+  
+  typedef struct digraph
+  {
+--- 15,21 ----
+***************
+*** 38,45 ****
+   * compilers cannot handle them (Amiga SAS/C is the most picky one).
+   */
+  static digr_T digraphdefault[] =
+- #ifdef __MINT__
+  
+  	/*
+  	 * ATARI digraphs
+  	 */
+--- 34,41 ----
+   * compilers cannot handle them (Amiga SAS/C is the most picky one).
+   */
+  static digr_T digraphdefault[] =
+  
++ #ifdef __MINT__
+  	/*
+  	 * ATARI digraphs
+  	 */
+***************
+*** 316,451 ****
+  	};
+  
+  #  else
+- #   if defined(MACOS_X) && !defined(FEAT_MBYTE)
+- 
+- 	/*
+- 	 * Macintosh digraphs
+- 	 */
+-        {{'a', 't', 64},		/* @ */
+- 	{'A', '"', 128},	/* ~@ XX */
+- 	{'A', 'o', 129},	/* ≈ */
+- 	{'C', ',', 130},	/* « */
+- 	{'E', '\'', 131},	/* … */
+- 	{'N', '~', 132},	/* — */
+- 	{'O', '"', 133},	/* ÷ */
+- 	{'U', '"', 134},	/* ‹ */
+- 	{'a', '\'', 135},	/* ~G XX */
+- 	{'a', '`', 136},	/* ~H XX */
+- 	{'a', '^', 137},	/* ‚ */
+- 	{'a', '"', 138},	/* ‰ */
+- 	{'a', '~', 139},	/* „ */
+- 	{'a', 'o', 140},	/* Â */
+- 	{'c', ',', 141},	/* Á */
+- 	{'e', '\'', 142},	/* È */
+- 	{'e', '`', 143},	/* Ë */
+- 	{'e', '^', 144},	/* Í */
+- 	{'e', '"', 145},	/* Î */
+- 	{'i', '\'', 146},	/* Ì */
+- 	{'i', '`', 147},	/* Ï */
+- 	{'i', '^', 148},	/* Ó */
+- 	{'i', '"', 149},	/* Ô */
+- 	{'n', '~', 150},	/* Ò */
+- 	{'o', '\'', 151},	/* Û */
+- 	{'o', '`', 152},	/* Ú */
+- 	{'o', '^', 153},	/* Ù */
+- 	{'o', '"', 154},	/* ˆ */
+- 	{'o', '~', 155},	/* o */
+- 	{'u', '\'', 156},	/* ˙ */
+- 	{'u', '`', 157},	/* ~] XX */
+- 	{'u', '^', 158},	/* ˚ */
+- 	{'u', '"', 159},	/* ¸ */
+- 	{'+', '_', 160},	/* › */
+- 	{'~', 'o', 161},	/* ∞ */
+- 	{'c', '|', 162},	/* ¢ */
+- 	{'$', '$', 163},	/* £ */
+- 	{'p', 'a', 164},	/* ß */
+- 	{'.', '.', 165},	/* * */
+- 	{'P', 'P', 166},	/* ∂ */
+- 	{'s', 's', 167},	/* ﬂ */
+- 	{'r', 'O', 168},	/* Æ */
+- 	{'c', 'O', 169},	/* © */
+- 	{'T', 'M', 170},	/* Å */
+- 	{'=', '/', 173},	/* Ç */
+- 	{'A', 'E', 174},	/* ∆ */
+- 	{'O', '/', 175},	/* ÿ */
+- 	{'0', '0', 176},	/* É */
+- 	{'+', '-', 177},	/* ± */
+- 	{'<', '=', 178},	/* æ */
+- 	{'>', '=', 179},	/* Ñ */
+- 	{'Y', '-', 180},	/* • */
+- 	{'j', 'u', 181},	/* µ */
+- 	{'m', 'u', 181},	/* µ */
+- 	{'d', 'd', 182},	/* è */
+- 	{'S', 'S', 183},	/* Ö */
+- 	{'S', 'I', 183},	/* Ö */
+- 	{'P', 'I', 184},	/* Ω */
+- 	{'p', 'i', 185},	/* º */
+- 	{'I', 'I', 186},	/* Ü */
+- 	{'a', '-', 187},	/* ª */
+- 	{'o', '-', 188},	/* ∫ */
+- 	{'O', 'M', 189},	/* Ω */
+- 	{'a', 'e', 190},	/* Ê */
+- 	{'o', '/', 191},	/* ¯ */
+- 	{'~', '?', 192},	/* ø */
+- 	{'~', '!', 193},	/* ° */
+- 	{'-', ',', 194},	/* ¨ */
+- 	{'v', '-', 195},	/* ~H XX */
+- 	{'f', '-', 196},	/* ü */
+- 	{'~', '~', 197},	/* â */
+- 	{'D', 'E', 198},	/* ê */
+- 	{'<', '<', 199},	/* ´ */
+- 	{'>', '>', 200},	/* ª */
+- 	{'.', ':', 201},	/* ä */
+- 	{'A', '`', 203},	/* ¿ */
+- 	{'A', '~', 204},	/* √ */
+- 	{'O', '~', 205},	/* ’ */
+- 	{'O', 'E', 206},	/* ë */
+- 	{'o', 'e', 207},	/* ¶ */
+- 	{'-', '.', 208},	/* - */
+- 	{'-', '-', 209},	/* - */
+- 	{'`', '`', 210},	/* " */
+- 	{'\'', '\'', 211},	/* " */
+- 	{'`', ' ', 212},	/* ' */
+- 	{'\'', ' ', 213},	/* ' */
+- 	{'-', ':', 214},	/* ˜ */
+- 	{'D', 'I', 215},	/* ◊ */
+- 	{'y', ':', 216},	/* ˇ */
+- 	{'Y', ':', 217},	/* ç */
+- 	{'/', '/', 218},	/* é */
+- 	{'E', '=', 219},	/* § Euro System >=8.5 */
+- 	{'o', 'x', 219},	/* § Currency System <=8.1*/
+- 	{'<', ' ', 220},	/* – */
+- 	{'>', ' ', 221},	/*  */
+- 	{'f', 'i', 222},	/* ﬁ */
+- 	{'f', 'l', 223},	/* ˛ */
+- 	{'+', '+', 224},	/* ˝ */
+- 	{'~', '.', 225},	/* ∑ */
+- 	{',', ' ', 226},	/* í */
+- 	{',', ',', 227},	/* ì */
+- 	{'%', '.', 228},	/* î */
+- 	{'%', '0', 228},	/* î */
+- 	{'A', '^', 229},	/* ¬ */
+- 	{'E', '^', 230},	/*   */
+- 	{'A', '\'', 231},	/* ¡ */
+- 	{'E', '"', 232},	/* À */
+- 	{'E', '`', 233},	/* » */
+- 	{'I', '\'', 234},	/* Õ */
+- 	{'I', '^', 235},	/* Œ */
+- 	{'I', '"', 236},	/* œ */
+- 	{'I', '`', 237},	/* Ã */
+- 	{'O', '\'', 238},	/* ” */
+- 	{'O', '^', 239},	/* ‘ */
+- 	{'A', 'P', 240},	/* ï */
+- 	{'O', '`', 241},	/* “ */
+- 	{'U', '\'', 242},	/* ⁄ */
+- 	{'U', '^', 243},	/* € */
+- 	{'U', '`', 244},	/* Ÿ */
+- 	{'i', '.', 245},	/* û */
+- 	{NUL, NUL, NUL}
+- 	};
+- 
+- #   else	/* !MACOS_X */
+- 
+  #    ifdef OLD_DIGRAPHS
+  
+  	/*
+--- 316,321 ----
+***************
+*** 557,563 ****
+  	{'y', '"', 255},	/* x XX */
+  	{NUL, NUL, NUL}
+  	};
+! #    else /* OLD_DIGRAPHS */
+  
+  	/*
+  	 * digraphs for Unicode from RFC1345
+--- 423,429 ----
+  	{'y', '"', 255},	/* x XX */
+  	{NUL, NUL, NUL}
+  	};
+! #   else /* OLD_DIGRAPHS */
+  
+  	/*
+  	 * digraphs for Unicode from RFC1345
+***************
+*** 792,798 ****
+  	{'y', ':', 0xff},
+  	{'y', '"', 0xff},	// x XX  Vim 5.x compatible
+  
+- #      ifdef FEAT_MBYTE
+  #	define USE_UNICODE_DIGRAPHS
+  
+  	{'A', '-', 0x0100},
+--- 658,663 ----
+***************
+*** 1957,1970 ****
+  	{'f', 'l', 0xfb02},
+  	{'f', 't', 0xfb05},
+  	{'s', 't', 0xfb06},
+- #      endif /* FEAT_MBYTE */
+  
+  	{NUL, NUL, NUL}
+         };
+  
+! #    endif /* OLD_DIGRAPHS */
+! 
+! #   endif /* Macintosh */
+  #  endif /* EBCDIC */
+  # endif    /* !HPUX_DIGRAPHS */
+  #endif	/* !__MINT__ */
+--- 1822,1832 ----
+  	{'f', 'l', 0xfb02},
+  	{'f', 't', 0xfb05},
+  	{'s', 't', 0xfb06},
+  
+  	{NUL, NUL, NUL}
+         };
+  
+! #   endif /* OLD_DIGRAPHS */
+  #  endif /* EBCDIC */
+  # endif    /* !HPUX_DIGRAPHS */
+  #endif	/* !__MINT__ */
+***************
+*** 2141,2148 ****
+  	    ++dp;
+  	}
+      }
+! #ifdef FEAT_MBYTE
+! # ifdef USE_UNICODE_DIGRAPHS
+      if (retval != 0 && !enc_utf8)
+      {
+  	char_u	    buf[6], *to;
+--- 2003,2009 ----
+  	    ++dp;
+  	}
+      }
+! #ifdef USE_UNICODE_DIGRAPHS
+      if (retval != 0 && !enc_utf8)
+      {
+  	char_u	    buf[6], *to;
+***************
+*** 2166,2177 ****
+  	    (void)convert_setup(&vc, NULL, NULL);
+  	}
+      }
+! # endif
+  
+      /* Ignore multi-byte characters when not in multi-byte mode. */
+      if (!has_mbyte && retval > 0xff)
+  	retval = 0;
+- #endif
+  
+      if (retval == 0)		/* digraph deleted or not found */
+      {
+--- 2027,2037 ----
+  	    (void)convert_setup(&vc, NULL, NULL);
+  	}
+      }
+! #endif
+  
+      /* Ignore multi-byte characters when not in multi-byte mode. */
+      if (!has_mbyte && retval > 0xff)
+  	retval = 0;
+  
+      if (retval == 0)		/* digraph deleted or not found */
+      {
+***************
+*** 2297,2306 ****
+  #else
+  
+  	if (getexactdigraph(dp->char1, dp->char2, FALSE) == dp->result
+! # ifdef FEAT_MBYTE
+! 		&& (has_mbyte || dp->result <= 255)
+! # endif
+! 		)
+  	    printdigraph(dp, use_headers ? &previous : NULL);
+  #endif
+  	++dp;
+--- 2157,2163 ----
+  #else
+  
+  	if (getexactdigraph(dp->char1, dp->char2, FALSE) == dp->result
+! 		&& (has_mbyte || dp->result <= 255))
+  	    printdigraph(dp, use_headers ? &previous : NULL);
+  #endif
+  	++dp;
+***************
+*** 2364,2374 ****
+  
+      int		list_width;
+  
+!     if ((dy_flags & DY_UHEX)
+! #ifdef FEAT_MBYTE
+! 	    || has_mbyte
+! #endif
+! 	    )
+  	list_width = 13;
+      else
+  	list_width = 11;
+--- 2221,2227 ----
+  
+      int		list_width;
+  
+!     if ((dy_flags & DY_UHEX) || has_mbyte)
+  	list_width = 13;
+      else
+  	list_width = 11;
+***************
+*** 2404,2410 ****
+  	*p = NUL;
+  	msg_outtrans(buf);
+  	p = buf;
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    /* add a space to draw a composing char on */
+--- 2257,2262 ----
+***************
+*** 2413,2419 ****
+  	    p += (*mb_char2bytes)(dp->result, p);
+  	}
+  	else
+- #endif
+  	    *p++ = (char_u)dp->result;
+  	*p = NUL;
+  	msg_outtrans_attr(buf, HL_ATTR(HLF_8));
+--- 2265,2270 ----
+***************
+*** 2465,2485 ****
+  
+  	/* Source the keymap file.  It will contain a ":loadkeymap" command
+  	 * which will call ex_loadkeymap() below. */
+! 	buflen = STRLEN(curbuf->b_p_keymap)
+! # ifdef FEAT_MBYTE
+! 					   + STRLEN(p_enc)
+! # endif
+! 						       + 14;
+  	buf = alloc((unsigned)buflen);
+  	if (buf == NULL)
+  	    return e_outofmem;
+  
+- # ifdef FEAT_MBYTE
+  	/* try finding "keymap/'keymap'_'encoding'.vim"  in 'runtimepath' */
+  	vim_snprintf((char *)buf, buflen, "keymap/%s_%s.vim",
+  						   curbuf->b_p_keymap, p_enc);
+  	if (source_runtime(buf, 0) == FAIL)
+- # endif
+  	{
+  	    /* try finding "keymap/'keymap'.vim" in 'runtimepath'  */
+  	    vim_snprintf((char *)buf, buflen, "keymap/%s.vim",
+--- 2316,2330 ----
+  
+  	/* Source the keymap file.  It will contain a ":loadkeymap" command
+  	 * which will call ex_loadkeymap() below. */
+! 	buflen = STRLEN(curbuf->b_p_keymap) + STRLEN(p_enc) + 14;
+  	buf = alloc((unsigned)buflen);
+  	if (buf == NULL)
+  	    return e_outofmem;
+  
+  	/* try finding "keymap/'keymap'_'encoding'.vim"  in 'runtimepath' */
+  	vim_snprintf((char *)buf, buflen, "keymap/%s_%s.vim",
+  						   curbuf->b_p_keymap, p_enc);
+  	if (source_runtime(buf, 0) == FAIL)
+  	{
+  	    /* try finding "keymap/'keymap'.vim" in 'runtimepath'  */
+  	    vim_snprintf((char *)buf, buflen, "keymap/%s.vim",
+*** ../vim-8.1.0804/src/edit.c	2019-01-22 22:08:05.227676880 +0100
+--- src/edit.c	2019-01-24 14:29:03.005638715 +0100
+***************
+*** 212,220 ****
+  static void stop_insert(pos_T *end_insert_pos, int esc, int nomove);
+  static int  echeck_abbr(int);
+  static void replace_join(int off);
+- #ifdef FEAT_MBYTE
+  static void mb_replace_pop_ins(int cc);
+- #endif
+  static void replace_flush(void);
+  static void replace_do_bs(int limit_col);
+  static int del_char_after_col(int limit_col);
+--- 212,218 ----
+***************
+*** 567,580 ****
+  	{
+  	    if (ptr[1] == NUL)
+  		++curwin->w_cursor.col;
+- #ifdef FEAT_MBYTE
+  	    else if (has_mbyte)
+  	    {
+  		i = (*mb_ptr2len)(ptr);
+  		if (ptr[i] == NUL)
+  		    curwin->w_cursor.col += i;
+  	    }
+- #endif
+  	}
+  	ins_at_eol = FALSE;
+      }
+--- 565,576 ----
+***************
+*** 1580,1591 ****
+  	     * special character.  Let CTRL-] expand abbreviations without
+  	     * inserting it. */
+  	    if (vim_iswordc(c) || (!echeck_abbr(
+! #ifdef FEAT_MBYTE
+! 			/* Add ABBR_OFF for characters above 0x100, this is
+! 			 * what check_abbr() expects. */
+! 			(has_mbyte && c >= 0x100) ? (c + ABBR_OFF) :
+! #endif
+! 		       c) && c != Ctrl_RSB))
+  	    {
+  		insert_special(c, FALSE, FALSE);
+  #ifdef FEAT_RIGHTLEFT
+--- 1576,1585 ----
+  	     * special character.  Let CTRL-] expand abbreviations without
+  	     * inserting it. */
+  	    if (vim_iswordc(c) || (!echeck_abbr(
+! 			// Add ABBR_OFF for characters above 0x100, this is
+! 			// what check_abbr() expects.
+! 				(has_mbyte && c >= 0x100) ? (c + ABBR_OFF) : c)
+! 			&& c != Ctrl_RSB))
+  	    {
+  		insert_special(c, FALSE, FALSE);
+  #ifdef FEAT_RIGHTLEFT
+***************
+*** 1835,1848 ****
+  	    attr = 0;
+  	pc_row = W_WINROW(curwin) + curwin->w_wrow;
+  	pc_col = curwin->w_wincol;
+- #if defined(FEAT_RIGHTLEFT) || defined(FEAT_MBYTE)
+  	pc_status = PC_STATUS_UNSET;
+- #endif
+  #ifdef FEAT_RIGHTLEFT
+  	if (curwin->w_p_rl)
+  	{
+  	    pc_col += curwin->w_width - 1 - curwin->w_wcol;
+- # ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		int fix_col = mb_fix_col(pc_col, pc_row);
+--- 1829,1839 ----
+***************
+*** 1854,1875 ****
+  		    pc_status = PC_STATUS_RIGHT;
+  		}
+  	    }
+- # endif
+  	}
+  	else
+  #endif
+  	{
+  	    pc_col += curwin->w_wcol;
+- #ifdef FEAT_MBYTE
+  	    if (mb_lefthalve(pc_row, pc_col))
+  		pc_status = PC_STATUS_LEFT;
+- #endif
+  	}
+  
+  	/* save the character to be able to put it back */
+- #if defined(FEAT_RIGHTLEFT) || defined(FEAT_MBYTE)
+  	if (pc_status == PC_STATUS_UNSET)
+- #endif
+  	{
+  	    screen_getbytes(pc_row, pc_col, pc_bytes, &pc_attr);
+  	    pc_status = PC_STATUS_SET;
+--- 1845,1861 ----
+***************
+*** 1953,1965 ****
+  {
+      if (pc_status != PC_STATUS_UNSET && pc_row >= msg_scrolled)
+      {
+- #if defined(FEAT_MBYTE)
+  	if (pc_status == PC_STATUS_RIGHT)
+  	    ++curwin->w_wcol;
+  	if (pc_status == PC_STATUS_RIGHT || pc_status == PC_STATUS_LEFT)
+  	    redrawWinline(curwin, curwin->w_cursor.lnum);
+  	else
+- #endif
+  	    screen_puts(pc_bytes, pc_row - msg_scrolled, pc_col, pc_attr);
+      }
+  }
+--- 1939,1949 ----
+***************
+*** 1979,1985 ****
+      cursor_off();
+      save_col = curwin->w_cursor.col;
+      curwin->w_cursor.col = col;
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	char_u *p;
+--- 1963,1968 ----
+***************
+*** 1988,1994 ****
+  	p = ml_get_curline();
+  	curwin->w_cursor.col -= (*mb_head_off)(p, p + col);
+      }
+- #endif
+      curs_columns(FALSE);	    /* recompute w_wrow and w_wcol */
+      if (curwin->w_wcol < curwin->w_width)
+      {
+--- 1971,1976 ----
+***************
+*** 2132,2142 ****
+  	while (vcol <= (int)curwin->w_virtcol)
+  	{
+  	    last_vcol = vcol;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte && new_cursor_col >= 0)
+  		new_cursor_col += (*mb_ptr2len)(ptr + new_cursor_col);
+  	    else
+- #endif
+  		++new_cursor_col;
+  	    vcol += lbr_chartabsize(ptr, ptr + new_cursor_col, (colnr_T)vcol);
+  	}
+--- 2114,2122 ----
+***************
+*** 2302,2308 ****
+     static int
+  del_char_after_col(int limit_col UNUSED)
+  {
+- #ifdef FEAT_MBYTE
+      if (enc_utf8 && limit_col >= 0)
+      {
+  	colnr_T ecol = curwin->w_cursor.col + 1;
+--- 2282,2287 ----
+***************
+*** 2324,2330 ****
+  	del_bytes((long)((int)ecol - curwin->w_cursor.col), FALSE, TRUE);
+      }
+      else
+- #endif
+  	(void)del_char(FALSE);
+      return TRUE;
+  }
+--- 2303,2308 ----
+***************
+*** 2529,2535 ****
+  	/* Infer case of completed part. */
+  
+  	/* Find actual length of completion. */
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    p = str;
+--- 2507,2512 ----
+***************
+*** 2541,2551 ****
+  	    }
+  	}
+  	else
+- #endif
+  	    actual_len = len;
+  
+  	/* Find actual length of original text. */
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    p = compl_orig_text;
+--- 2518,2526 ----
+***************
+*** 2557,2563 ****
+  	    }
+  	}
+  	else
+- #endif
+  	    actual_compl_length = compl_length;
+  
+  	/* "actual_len" may be smaller than "actual_compl_length" when using
+--- 2532,2537 ----
+***************
+*** 2571,2592 ****
+  	{
+  	    p = str;
+  	    for (i = 0; i < actual_len; ++i)
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    wca[i] = mb_ptr2char_adv(&p);
+  		else
+- #endif
+  		    wca[i] = *(p++);
+  
+  	    /* Rule 1: Were any chars converted to lower? */
+  	    p = compl_orig_text;
+  	    for (i = 0; i < min_len; ++i)
+  	    {
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    c = mb_ptr2char_adv(&p);
+  		else
+- #endif
+  		    c = *(p++);
+  		if (MB_ISLOWER(c))
+  		{
+--- 2545,2562 ----
+***************
+*** 2610,2620 ****
+  		p = compl_orig_text;
+  		for (i = 0; i < min_len; ++i)
+  		{
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  			c = mb_ptr2char_adv(&p);
+  		    else
+- #endif
+  			c = *(p++);
+  		    if (was_letter && MB_ISUPPER(c) && MB_ISLOWER(wca[i]))
+  		    {
+--- 2580,2588 ----
+***************
+*** 2631,2641 ****
+  	    p = compl_orig_text;
+  	    for (i = 0; i < min_len; ++i)
+  	    {
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    c = mb_ptr2char_adv(&p);
+  		else
+- #endif
+  		    c = *(p++);
+  		if (MB_ISLOWER(c))
+  		    wca[i] = MB_TOLOWER(wca[i]);
+--- 2599,2607 ----
+***************
+*** 2652,2662 ****
+  	    p = IObuff;
+  	    i = 0;
+  	    while (i < actual_len && (p - IObuff + 6) < IOSIZE)
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    p += (*mb_char2bytes)(wca[i++], p);
+  		else
+- #endif
+  		    *(p++) = wca[i++];
+  	    *p = NUL;
+  
+--- 2618,2626 ----
+***************
+*** 2837,2850 ****
+  	s = match->cp_str;
+  	while (*p != NUL)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		c1 = mb_ptr2char(p);
+  		c2 = mb_ptr2char(s);
+  	    }
+  	    else
+- #endif
+  	    {
+  		c1 = *p;
+  		c2 = *s;
+--- 2801,2812 ----
+***************
+*** 2852,2865 ****
+  	    if (match->cp_icase ? (MB_TOLOWER(c1) != MB_TOLOWER(c2))
+  								 : (c1 != c2))
+  		break;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		MB_PTR_ADV(p);
+  		MB_PTR_ADV(s);
+  	    }
+  	    else
+- #endif
+  	    {
+  		++p;
+  		++s;
+--- 2814,2825 ----
+***************
+*** 3426,3432 ****
+  			    wstart = ptr;
+  
+  			    /* Find end of the word. */
+- #ifdef FEAT_MBYTE
+  			    if (has_mbyte)
+  				/* Japanese words may have characters in
+  				 * different classes, only separate words
+--- 3386,3391 ----
+***************
+*** 3440,3446 ****
+  				    ptr += l;
+  				}
+  			    else
+- #endif
+  				ptr = find_word_end(ptr);
+  
+  			    /* Add the word. Skip the regexp match. */
+--- 3399,3404 ----
+***************
+*** 3475,3486 ****
+      char_u *
+  find_word_start(char_u *ptr)
+  {
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+  	while (*ptr != NUL && *ptr != '\n' && mb_get_class(ptr) <= 1)
+  	    ptr += (*mb_ptr2len)(ptr);
+      else
+- #endif
+  	while (*ptr != NUL && *ptr != '\n' && !vim_iswordc(*ptr))
+  	    ++ptr;
+      return ptr;
+--- 3433,3442 ----
+***************
+*** 3493,3499 ****
+      char_u *
+  find_word_end(char_u *ptr)
+  {
+- #ifdef FEAT_MBYTE
+      int		start_class;
+  
+      if (has_mbyte)
+--- 3449,3454 ----
+***************
+*** 3508,3514 ****
+  	    }
+      }
+      else
+- #endif
+  	while (vim_iswordc(*ptr))
+  	    ++ptr;
+      return ptr;
+--- 3463,3468 ----
+***************
+*** 3719,3731 ****
+      static void
+  ins_compl_addleader(int c)
+  {
+- #ifdef FEAT_MBYTE
+      int		cc;
+- #endif
+  
+      if (stop_arrow() == FAIL)
+  	return;
+- #ifdef FEAT_MBYTE
+      if (has_mbyte && (cc = (*mb_char2len)(c)) > 1)
+      {
+  	char_u	buf[MB_MAXBYTES + 1];
+--- 3673,3682 ----
+***************
+*** 3737,3743 ****
+  	    AppendToRedobuff(buf);
+      }
+      else
+- #endif
+      {
+  	ins_char(c);
+  	if (compl_opt_refresh_always)
+--- 3688,3693 ----
+***************
+*** 4155,4164 ****
+  	p = compl_orig_text;
+  	for (len = 0; p[len] != NUL && p[len] == ptr[len]; ++len)
+  	    ;
+- #ifdef FEAT_MBYTE
+  	if (len > 0)
+  	    len -= (*mb_head_off)(p, p + len);
+- #endif
+  	for (p += len; *p != NUL; MB_PTR_ADV(p))
+  	    AppendCharToRedobuff(K_BS);
+      }
+--- 4105,4112 ----
+***************
+*** 5416,5440 ****
+  		    return FAIL;
+  		if (!vim_iswordp(line + compl_col)
+  			|| (compl_col > 0
+! 			    && (
+! #ifdef FEAT_MBYTE
+! 				vim_iswordp(mb_prevptr(line, line + compl_col))
+! #else
+! 				vim_iswordc(line[compl_col - 1])
+! #endif
+! 				)))
+  		    prefix = (char_u *)"";
+  		STRCPY((char *)compl_pattern, prefix);
+  		(void)quote_meta(compl_pattern + STRLEN(prefix),
+  					      line + compl_col, compl_length);
+  	    }
+! 	    else if (--startcol < 0 ||
+! #ifdef FEAT_MBYTE
+! 			   !vim_iswordp(mb_prevptr(line, line + startcol + 1))
+! #else
+! 			   !vim_iswordc(line[startcol])
+! #endif
+! 		    )
+  	    {
+  		/* Match any word of at least two chars */
+  		compl_pattern = vim_strsave((char_u *)"\\<\\k\\k");
+--- 5364,5377 ----
+  		    return FAIL;
+  		if (!vim_iswordp(line + compl_col)
+  			|| (compl_col > 0
+! 			 && (vim_iswordp(mb_prevptr(line, line + compl_col)))))
+  		    prefix = (char_u *)"";
+  		STRCPY((char *)compl_pattern, prefix);
+  		(void)quote_meta(compl_pattern + STRLEN(prefix),
+  					      line + compl_col, compl_length);
+  	    }
+! 	    else if (--startcol < 0
+! 		    || !vim_iswordp(mb_prevptr(line, line + startcol + 1)))
+  	    {
+  		/* Match any word of at least two chars */
+  		compl_pattern = vim_strsave((char_u *)"\\<\\k\\k");
+***************
+*** 5445,5451 ****
+  	    }
+  	    else
+  	    {
+- #ifdef FEAT_MBYTE
+  		/* Search the point of change class of multibyte character
+  		 * or not a word single byte character backward.  */
+  		if (has_mbyte)
+--- 5382,5387 ----
+***************
+*** 5465,5471 ****
+  		    }
+  		}
+  		else
+- #endif
+  		    while (--startcol >= 0 && vim_iswordc(line[startcol]))
+  			;
+  		compl_col += ++startcol;
+--- 5401,5406 ----
+***************
+*** 5956,5962 ****
+  	}
+  	if (dest != NULL)
+  	    *dest++ = *src;
+- # ifdef FEAT_MBYTE
+  	/* Copy remaining bytes of a multibyte character. */
+  	if (has_mbyte)
+  	{
+--- 5891,5896 ----
+***************
+*** 5972,5978 ****
+  			*dest++ = *src;
+  		}
+  	}
+- # endif
+      }
+      if (dest != NULL)
+  	*dest = NUL;
+--- 5906,5911 ----
+***************
+*** 5995,6003 ****
+      int		i;
+      int		hex = FALSE;
+      int		octal = FALSE;
+- #ifdef FEAT_MBYTE
+      int		unicode = 0;
+- #endif
+  
+      if (got_int)
+  	return Ctrl_C;
+--- 5928,5934 ----
+***************
+*** 6022,6049 ****
+      {
+  	nc = plain_vgetc();
+  #ifdef FEAT_CMDL_INFO
+! 	if (!(State & CMDLINE)
+! # ifdef FEAT_MBYTE
+! 		&& MB_BYTE2LEN_CHECK(nc) == 1
+! # endif
+! 	   )
+  	    add_to_showcmd(nc);
+  #endif
+  	if (nc == 'x' || nc == 'X')
+  	    hex = TRUE;
+  	else if (nc == 'o' || nc == 'O')
+  	    octal = TRUE;
+- #ifdef FEAT_MBYTE
+  	else if (nc == 'u' || nc == 'U')
+  	    unicode = nc;
+- #endif
+  	else
+  	{
+! 	    if (hex
+! #ifdef FEAT_MBYTE
+! 		    || unicode != 0
+! #endif
+! 		    )
+  	    {
+  		if (!vim_isxdigit(nc))
+  		    break;
+--- 5953,5970 ----
+      {
+  	nc = plain_vgetc();
+  #ifdef FEAT_CMDL_INFO
+! 	if (!(State & CMDLINE) && MB_BYTE2LEN_CHECK(nc) == 1)
+  	    add_to_showcmd(nc);
+  #endif
+  	if (nc == 'x' || nc == 'X')
+  	    hex = TRUE;
+  	else if (nc == 'o' || nc == 'O')
+  	    octal = TRUE;
+  	else if (nc == 'u' || nc == 'U')
+  	    unicode = nc;
+  	else
+  	{
+! 	    if (hex || unicode != 0)
+  	    {
+  		if (!vim_isxdigit(nc))
+  		    break;
+***************
+*** 6065,6075 ****
+  	    ++i;
+  	}
+  
+! 	if (cc > 255
+! #ifdef FEAT_MBYTE
+! 		&& unicode == 0
+! #endif
+! 		)
+  	    cc = 255;		/* limit range to 0-255 */
+  	nc = 0;
+  
+--- 5986,5992 ----
+  	    ++i;
+  	}
+  
+! 	if (cc > 255 && unicode == 0)
+  	    cc = 255;		/* limit range to 0-255 */
+  	nc = 0;
+  
+***************
+*** 6078,6090 ****
+  	    if (i >= 2)
+  		break;
+  	}
+- #ifdef FEAT_MBYTE
+  	else if (unicode)	/* Unicode: up to four or eight chars */
+  	{
+  	    if ((unicode == 'u' && i >= 4) || (unicode == 'U' && i >= 8))
+  		break;
+  	}
+- #endif
+  	else if (i >= 3)	/* decimal or octal: up to three chars */
+  	    break;
+      }
+--- 5995,6005 ----
+***************
+*** 6104,6114 ****
+  
+      if (cc == 0)	/* NUL is stored as NL */
+  	cc = '\n';
+- #ifdef FEAT_MBYTE
+      if (enc_dbcs && (cc & 0xff) == 0)
+  	cc = '?';	/* don't accept an illegal DBCS char, the NUL in the
+  			   second byte will cause trouble! */
+- #endif
+  
+      --no_mapping;
+  #ifdef FEAT_GUI
+--- 6019,6027 ----
+***************
+*** 6179,6189 ****
+  # define ISSPECIAL(c)	((c) < ' ' || (c) >= DEL || (c) == '0' || (c) == '^')
+  #endif
+  
+! #ifdef FEAT_MBYTE
+! # define WHITECHAR(cc) (VIM_ISWHITE(cc) && (!enc_utf8 || !utf_iscomposing(utf_ptr2char(ml_get_cursor() + 1))))
+! #else
+! # define WHITECHAR(cc) VIM_ISWHITE(cc)
+! #endif
+  
+  /*
+   * "flags": INSCHAR_FORMAT - force formatting
+--- 6092,6098 ----
+  # define ISSPECIAL(c)	((c) < ' ' || (c) >= DEL || (c) == '0' || (c) == '^')
+  #endif
+  
+! #define WHITECHAR(cc) (VIM_ISWHITE(cc) && (!enc_utf8 || !utf_iscomposing(utf_ptr2char(ml_get_cursor() + 1))))
+  
+  /*
+   * "flags": INSCHAR_FORMAT - force formatting
+***************
+*** 6340,6348 ****
+  #endif
+  
+      if (       !ISSPECIAL(c)
+- #ifdef FEAT_MBYTE
+  	    && (!has_mbyte || (*mb_char2len)(c) == 1)
+- #endif
+  	    && !has_insertcharpre()
+  	    && vpeekc() != NUL
+  	    && !(State & REPLACE_FLAG)
+--- 6249,6255 ----
+***************
+*** 6373,6381 ****
+  	 */
+  	while (	   (c = vpeekc()) != NUL
+  		&& !ISSPECIAL(c)
+- #ifdef FEAT_MBYTE
+  		&& (!has_mbyte || MB_BYTE2LEN_CHECK(c) == 1)
+- #endif
+  		&& i < INPUT_BUFLEN
+  # ifdef FEAT_FKMAP
+  		&& !(p_fkmap && KeyTyped) /* Farsi mode mapping moves cursor */
+--- 6280,6286 ----
+***************
+*** 6412,6418 ****
+      }
+      else
+      {
+- #ifdef FEAT_MBYTE
+  	int		cc;
+  
+  	if (has_mbyte && (cc = (*mb_char2len)(c)) > 1)
+--- 6317,6322 ----
+***************
+*** 6425,6431 ****
+  	    AppendCharToRedobuff(c);
+  	}
+  	else
+- #endif
+  	{
+  	    ins_char(c);
+  	    if (flags & INSCHAR_CTRLV)
+--- 6329,6334 ----
+***************
+*** 6454,6462 ****
+      int		save_char = NUL;
+      int		haveto_redraw = FALSE;
+      int		fo_ins_blank = has_format_option(FO_INS_BLANK);
+- #ifdef FEAT_MBYTE
+      int		fo_multibyte = has_format_option(FO_MBYTE_BREAK);
+- #endif
+      int		fo_white_par = has_format_option(FO_WHITE_PAR);
+      int		first_line = TRUE;
+  #ifdef FEAT_COMMENTS
+--- 6357,6363 ----
+***************
+*** 6613,6619 ****
+  		if (curwin->w_cursor.col <= (colnr_T)wantcol)
+  		    break;
+  	    }
+- #ifdef FEAT_MBYTE
+  	    else if (cc >= 0x100 && fo_multibyte)
+  	    {
+  		/* Break after or before a multi-byte character. */
+--- 6514,6519 ----
+***************
+*** 6660,6666 ****
+  		if (curwin->w_cursor.col <= (colnr_T)wantcol)
+  		    break;
+  	    }
+- #endif
+  	    if (curwin->w_cursor.col == 0)
+  		break;
+  	    dec_cursor();
+--- 6560,6565 ----
+***************
+*** 7350,7356 ****
+      char_u *
+  add_char2buf(int c, char_u *s)
+  {
+- #ifdef FEAT_MBYTE
+      char_u	temp[MB_MAXBYTES + 1];
+      int		i;
+      int		len;
+--- 7249,7254 ----
+***************
+*** 7359,7365 ****
+      for (i = 0; i < len; ++i)
+      {
+  	c = temp[i];
+- #endif
+  	/* Need to escape K_SPECIAL and CSI like in the typeahead buffer. */
+  	if (c == K_SPECIAL)
+  	{
+--- 7257,7262 ----
+***************
+*** 7377,7385 ****
+  #endif
+  	else
+  	    *s++ = c;
+- #ifdef FEAT_MBYTE
+      }
+- #endif
+      return s;
+  }
+  
+--- 7274,7280 ----
+***************
+*** 7435,7447 ****
+  
+  	/* Adjust for multi-wide char (excluding TAB) */
+  	ptr = ml_get_cursor();
+! 	coladvance(getviscol() + ((*ptr != TAB && vim_isprintc(
+! # ifdef FEAT_MBYTE
+! 			    (*mb_ptr2char)(ptr)
+! # else
+! 			    *ptr
+! # endif
+! 			    ))
+  		    ? ptr2cells(ptr) : 1));
+  	curwin->w_set_curswant = TRUE;
+  	/* Return OK if the cursor moved, FAIL otherwise (at window edge). */
+--- 7330,7337 ----
+  
+  	/* Adjust for multi-wide char (excluding TAB) */
+  	ptr = ml_get_cursor();
+! 	coladvance(getviscol() + ((*ptr != TAB
+! 					  && vim_isprintc((*mb_ptr2char)(ptr)))
+  		    ? ptr2cells(ptr) : 1));
+  	curwin->w_set_curswant = TRUE;
+  	/* Return OK if the cursor moved, FAIL otherwise (at window edge). */
+***************
+*** 7454,7464 ****
+      if (*ptr == NUL)
+  	return FAIL;	    /* already at the very end */
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+  	l = (*mb_ptr2len)(ptr);
+      else
+- #endif
+  	l = 1;
+  
+      /* move "l" bytes right, but don't end up on the NUL, unless 'virtualedit'
+--- 7344,7352 ----
+***************
+*** 7499,7508 ****
+  	     * 'breakindent' is not set and there are no multi-byte
+  	     * characters */
+  	    if ((*p_sbr == NUL && !curwin->w_p_bri
+! #  ifdef FEAT_MBYTE
+! 			&& !has_mbyte
+! #  endif
+! 			) || getviscol() < v)
+  		break;
+  	    ++width;
+  	}
+--- 7387,7393 ----
+  	     * 'breakindent' is not set and there are no multi-byte
+  	     * characters */
+  	    if ((*p_sbr == NUL && !curwin->w_p_bri
+! 					     && !has_mbyte) || getviscol() < v)
+  		break;
+  	    ++width;
+  	}
+***************
+*** 7516,7528 ****
+  
+  	    /* Adjust for multi-wide char (not a TAB) */
+  	    ptr = ml_get_cursor();
+! 	    if (*ptr != TAB && vim_isprintc(
+! #  ifdef FEAT_MBYTE
+! 			    (*mb_ptr2char)(ptr)
+! #  else
+! 			    *ptr
+! #  endif
+! 			    ) && ptr2cells(ptr) > 1)
+  		curwin->w_cursor.coladd = 0;
+  	}
+  
+--- 7401,7408 ----
+  
+  	    /* Adjust for multi-wide char (not a TAB) */
+  	    ptr = ml_get_cursor();
+! 	    if (*ptr != TAB && vim_isprintc((*mb_ptr2char)(ptr))
+! 							 && ptr2cells(ptr) > 1)
+  		curwin->w_cursor.coladd = 0;
+  	}
+  
+***************
+*** 7537,7548 ****
+      curwin->w_set_curswant = TRUE;
+      --curwin->w_cursor.col;
+  
+- #ifdef FEAT_MBYTE
+      /* if the character on the left of the current cursor is a multi-byte
+       * character, move to its first byte */
+      if (has_mbyte)
+  	mb_adjust_cursor();
+- #endif
+      return OK;
+  }
+  
+--- 7417,7426 ----
+***************
+*** 7829,7835 ****
+      ++replace_stack_nr;
+  }
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Push a character onto the replace stack.  Handles a multi-byte character in
+   * reverse byte order, so that the first byte is popped off first.
+--- 7707,7712 ----
+***************
+*** 7845,7851 ****
+  	replace_push(p[j]);
+      return l;
+  }
+- #endif
+  
+  /*
+   * Pop one item from the replace stack.
+--- 7722,7727 ----
+***************
+*** 7893,7909 ****
+      State = NORMAL;			/* don't want REPLACE here */
+      while ((cc = replace_pop()) > 0)
+      {
+- #ifdef FEAT_MBYTE
+  	mb_replace_pop_ins(cc);
+- #else
+- 	ins_char(cc);
+- #endif
+  	dec_cursor();
+      }
+      State = oldState;
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Insert bytes popped from the replace stack. "cc" is the first byte.  If it
+   * indicates a multi-byte char, pop the other bytes too.
+--- 7769,7780 ----
+***************
+*** 7956,7962 ****
+  	    }
+  	}
+  }
+- #endif
+  
+  /*
+   * make the replace stack empty
+--- 7827,7832 ----
+***************
+*** 8012,8018 ****
+  	    getvcol(curwin, &curwin->w_cursor, NULL, &start_vcol, NULL);
+  	    orig_vcols = chartabsize(ml_get_cursor(), start_vcol);
+  	}
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    (void)del_char_after_col(limit_col);
+--- 7882,7887 ----
+***************
+*** 8021,8027 ****
+  	    replace_push(cc);
+  	}
+  	else
+- #endif
+  	{
+  	    pchar_cursor(cc);
+  	    if (State & VREPLACE_FLAG)
+--- 7890,7895 ----
+***************
+*** 8038,8046 ****
+  	    for (i = 0; i < ins_len; ++i)
+  	    {
+  		vcol += chartabsize(p + i, vcol);
+- #ifdef FEAT_MBYTE
+  		i += (*mb_ptr2len)(p) - 1;
+- #endif
+  	    }
+  	    vcol -= start_vcol;
+  
+--- 7906,7912 ----
+***************
+*** 8329,8335 ****
+  		    /* Just completed a word, check if it starts with "look".
+  		     * search back for the start of a word. */
+  		    line = ml_get_curline();
+- # ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  		    {
+  			char_u	*n;
+--- 8195,8200 ----
+***************
+*** 8342,8348 ****
+  			}
+  		    }
+  		    else
+- # endif
+  			for (s = line + curwin->w_cursor.col; s > line; --s)
+  			    if (!vim_iswordc(s[-1]))
+  				break;
+--- 8207,8212 ----
+***************
+*** 8823,8833 ****
+  #endif
+  	{
+  	    --curwin->w_cursor.col;
+- #ifdef FEAT_MBYTE
+  	    /* Correct cursor for multi-byte character. */
+  	    if (has_mbyte)
+  		mb_adjust_cursor();
+- #endif
+  	}
+      }
+  
+--- 8687,8695 ----
+***************
+*** 9137,9145 ****
+      int		did_backspace = FALSE;
+      int		in_indent;
+      int		oldState;
+- #ifdef FEAT_MBYTE
+      int		cpc[MAX_MCO];	    /* composing characters */
+- #endif
+  
+      /*
+       * can't delete anything in an empty file
+--- 8999,9005 ----
+***************
+*** 9287,9297 ****
+  		while (cc > 0)
+  		{
+  		    save_col = curwin->w_cursor.col;
+- #ifdef FEAT_MBYTE
+  		    mb_replace_pop_ins(cc);
+- #else
+- 		    ins_char(cc);
+- #endif
+  		    curwin->w_cursor.col = save_col;
+  		    cc = replace_pop();
+  		}
+--- 9147,9153 ----
+***************
+*** 9413,9424 ****
+  	 */
+  	else
+  	{
+- #ifdef FEAT_MBYTE
+  	    int cclass = 0, prev_cclass = 0;
+  
+  	    if (has_mbyte)
+  		cclass = mb_get_class(ml_get_cursor());
+- #endif
+  	    do
+  	    {
+  #ifdef FEAT_RIGHTLEFT
+--- 9269,9278 ----
+***************
+*** 9427,9440 ****
+  		    dec_cursor();
+  
+  		cc = gchar_cursor();
+- #ifdef FEAT_MBYTE
+  		/* look multi-byte character class */
+  		if (has_mbyte)
+  		{
+  		    prev_cclass = cclass;
+  		    cclass = mb_get_class(ml_get_cursor());
+  		}
+- #endif
+  
+  		/* start of word? */
+  		if (mode == BACKSPACE_WORD && !vim_isspace(cc))
+--- 9281,9292 ----
+***************
+*** 9445,9454 ****
+  		/* end of word? */
+  		else if (mode == BACKSPACE_WORD_NOT_SPACE
+  			&& ((vim_isspace(cc) || vim_iswordc(cc) != temp)
+! #ifdef FEAT_MBYTE
+! 			|| prev_cclass != cclass
+! #endif
+! 			))
+  		{
+  #ifdef FEAT_RIGHTLEFT
+  		    if (!revins_on)
+--- 9297,9303 ----
+  		/* end of word? */
+  		else if (mode == BACKSPACE_WORD_NOT_SPACE
+  			&& ((vim_isspace(cc) || vim_iswordc(cc) != temp)
+! 			|| prev_cclass != cclass))
+  		{
+  #ifdef FEAT_RIGHTLEFT
+  		    if (!revins_on)
+***************
+*** 9464,9475 ****
+  		    replace_do_bs(-1);
+  		else
+  		{
+- #ifdef FEAT_MBYTE
+  		    if (enc_utf8 && p_deco)
+  			(void)utfc_ptr2char(ml_get_cursor(), cpc);
+- #endif
+  		    (void)del_char(FALSE);
+- #ifdef FEAT_MBYTE
+  		    /*
+  		     * If there are combining characters and 'delcombine' is set
+  		     * move the cursor back.  Don't back up before the base
+--- 9313,9321 ----
+***************
+*** 9477,9483 ****
+  		     */
+  		    if (enc_utf8 && p_deco && cpc[0] != NUL)
+  			inc_cursor();
+- #endif
+  #ifdef FEAT_RIGHTLEFT
+  		    if (revins_chars)
+  		    {
+--- 9323,9328 ----
+***************
+*** 9713,9723 ****
+  	    // won't get the end sequence.
+  	    break;
+  
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    idx += (*mb_char2bytes)(c, buf + idx);
+  	else
+- #endif
+  	    buf[idx++] = c;
+  	buf[idx] = NUL;
+  	if (end != NULL && STRNCMP(buf, end, idx) == 0)
+--- 9558,9566 ----
+***************
+*** 9760,9770 ****
+  		case PASTE_ONE_CHAR:
+  		    if (ret_char == -1)
+  		    {
+- #ifdef FEAT_MBYTE
+  			if (has_mbyte)
+  			    ret_char = (*mb_ptr2char)(buf);
+  			else
+- #endif
+  			    ret_char = buf[0];
+  		    }
+  		    break;
+--- 9603,9611 ----
+***************
+*** 9972,9982 ****
+  	else
+  #endif
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		curwin->w_cursor.col += (*mb_ptr2len)(ml_get_cursor());
+  	    else
+- #endif
+  		++curwin->w_cursor.col;
+  	}
+  
+--- 9813,9821 ----
+***************
+*** 10590,10600 ****
+      if ((colnr_T)temp > curwin->w_virtcol)
+  	ptr = prev_ptr;
+  
+- #ifdef FEAT_MBYTE
+      c = (*mb_ptr2char)(ptr);
+- #else
+-     c = *ptr;
+- #endif
+      if (c == NUL)
+  	vim_beep(BO_COPY);
+      return c;
+--- 10429,10435 ----
+***************
+*** 10773,10783 ****
+      if (!has_insertcharpre())
+  	return NULL;
+  
+- # ifdef FEAT_MBYTE
+      if (has_mbyte)
+  	buf[(*mb_char2bytes)(c, buf)] = NUL;
+      else
+- # endif
+      {
+  	buf[0] = c;
+  	buf[1] = NUL;
+--- 10608,10616 ----
+*** ../vim-8.1.0804/src/eval.c	2019-01-24 13:58:05.817568979 +0100
+--- src/eval.c	2019-01-24 14:29:53.237302251 +0100
+***************
+*** 577,583 ****
+      VIM_CLEAR(redir_varname);
+  }
+  
+- # if defined(FEAT_MBYTE) || defined(PROTO)
+      int
+  eval_charconvert(
+      char_u	*enc_from,
+--- 577,582 ----
+***************
+*** 602,608 ****
+  	return FAIL;
+      return OK;
+  }
+- # endif
+  
+  # if defined(FEAT_POSTSCRIPT) || defined(PROTO)
+      int
+--- 601,606 ----
+***************
+*** 4998,5010 ****
+  				  nr = (nr << 4) + hex2nr(*p);
+  			      }
+  			      ++p;
+- #ifdef FEAT_MBYTE
+  			      /* For "\u" store the number according to
+  			       * 'encoding'. */
+  			      if (c != 'X')
+  				  name += (*mb_char2bytes)(nr, name);
+  			      else
+- #endif
+  				  *name++ = nr;
+  			  }
+  			  break;
+--- 4996,5006 ----
+***************
+*** 6704,6714 ****
+  {
+      char_u	buf[MB_MAXBYTES + 1];
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+  	buf[(*mb_char2bytes)(c, buf)] = NUL;
+      else
+- #endif
+      {
+  	buf[0] = c;
+  	buf[1] = NUL;
+--- 6700,6708 ----
+***************
+*** 6885,6896 ****
+  
+      if (eap->force_ff != 0)
+  	len += 10; /* " ++ff=unix" */
+- # ifdef FEAT_MBYTE
+      if (eap->force_enc != 0)
+  	len += (unsigned)STRLEN(eap->cmd + eap->force_enc) + 7;
+      if (eap->bad_char != 0)
+  	len += 7 + 4;  /* " ++bad=" + "keep" or "drop" */
+- # endif
+  
+      newval = alloc(len + 1);
+      if (newval == NULL)
+--- 6879,6888 ----
+***************
+*** 6911,6917 ****
+  						eap->force_ff == 'u' ? "unix"
+  						: eap->force_ff == 'd' ? "dos"
+  						: "mac");
+- #ifdef FEAT_MBYTE
+      if (eap->force_enc != 0)
+  	sprintf((char *)newval + STRLEN(newval), " ++enc=%s",
+  					       eap->cmd + eap->force_enc);
+--- 6903,6908 ----
+***************
+*** 6921,6927 ****
+  	STRCPY(newval + STRLEN(newval), " ++bad=drop");
+      else if (eap->bad_char != 0)
+  	sprintf((char *)newval + STRLEN(newval), " ++bad=%c", eap->bad_char);
+- #endif
+      vimvars[VV_CMDARG].vv_str = newval;
+      return oldval;
+  }
+--- 6912,6917 ----
+***************
+*** 8432,8438 ****
+  		    }
+  		    else
+  		    {
+- #ifdef FEAT_MBYTE
+  			if (has_mbyte)
+  			{
+  			    int i = (*mb_ptr2len)(p);
+--- 8422,8427 ----
+***************
+*** 8441,8447 ****
+  			    p += i - 1;
+  			}
+  			else
+- #endif
+  			    (void)msg_outtrans_len_attr(p, 1, echo_attr);
+  		    }
+  		}
+--- 8430,8435 ----
+***************
+*** 10082,10091 ****
+      /* Count the paths backward to find the beginning of the desired string. */
+      for (p = tfname + len - 1; p >= tfname; --p)
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    p -= mb_head_off(tfname, p);
+- #endif
+  	if (vim_ispathsep(*p))
+  	{
+  	    if (sepcount == 0 || (hasTilde && sepcount == 1))
+--- 10070,10077 ----
+*** ../vim-8.1.0804/src/evalfunc.c	2019-01-23 21:14:59.161314629 +0100
+--- src/evalfunc.c	2019-01-24 14:33:04.500019700 +0100
+***************
+*** 2071,2079 ****
+      static void
+  byteidx(typval_T *argvars, typval_T *rettv, int comp UNUSED)
+  {
+- #ifdef FEAT_MBYTE
+      char_u	*t;
+- #endif
+      char_u	*str;
+      varnumber_T	idx;
+  
+--- 2071,2077 ----
+***************
+*** 2083,2089 ****
+      if (str == NULL || idx < 0)
+  	return;
+  
+- #ifdef FEAT_MBYTE
+      t = str;
+      for ( ; idx > 0; idx--)
+      {
+--- 2081,2086 ----
+***************
+*** 2095,2104 ****
+  	    t += (*mb_ptr2len)(t);
+      }
+      rettv->vval.v_number = (varnumber_T)(t - str);
+- #else
+-     if ((size_t)idx <= STRLEN(str))
+- 	rettv->vval.v_number = idx;
+- #endif
+  }
+  
+  /*
+--- 2092,2097 ----
+***************
+*** 2450,2456 ****
+      static void
+  f_char2nr(typval_T *argvars, typval_T *rettv)
+  {
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	int	utf8 = 0;
+--- 2443,2448 ----
+***************
+*** 2464,2471 ****
+  	    rettv->vval.v_number = (*mb_ptr2char)(tv_get_string(&argvars[0]));
+      }
+      else
+! #endif
+!     rettv->vval.v_number = tv_get_string(&argvars[0])[0];
+  }
+  
+  /*
+--- 2456,2462 ----
+  	    rettv->vval.v_number = (*mb_ptr2char)(tv_get_string(&argvars[0]));
+      }
+      else
+! 	rettv->vval.v_number = tv_get_string(&argvars[0])[0];
+  }
+  
+  /*
+***************
+*** 2536,2550 ****
+  		if (curwin->w_cursor.coladd >= (colnr_T)chartabsize(p,
+  				 curwin->w_virtcol - curwin->w_cursor.coladd))
+  		{
+- # ifdef FEAT_MBYTE
+  		    int		l;
+  
+  		    if (*p != NUL && p[(l = (*mb_ptr2len)(p))] == NUL)
+  			col += l;
+- # else
+- 		    if (*p != NUL && p[1] == NUL)
+- 			++col;
+- # endif
+  		}
+  	    }
+  #endif
+--- 2527,2536 ----
+***************
+*** 2904,2914 ****
+  
+      /* Make sure the cursor is in a valid position. */
+      check_cursor();
+- #ifdef FEAT_MBYTE
+      /* Correct cursor for multi-byte character. */
+      if (has_mbyte)
+  	mb_adjust_cursor();
+- #endif
+  
+      curwin->w_set_curswant = set_curswant;
+      rettv->vval.v_number = 0;
+--- 2890,2898 ----
+***************
+*** 4888,4897 ****
+  	    temp[i++] = K_SECOND(n);
+  	    temp[i++] = K_THIRD(n);
+  	}
+- #ifdef FEAT_MBYTE
+  	else if (has_mbyte)
+  	    i += (*mb_char2bytes)(n, temp + i);
+- #endif
+  	else
+  	    temp[i++] = n;
+  	temp[i++] = NUL;
+--- 4872,4879 ----
+***************
+*** 5439,5445 ****
+  	    dict_add_string(dict, "group", syn_id2name(cur->hlg_id));
+  	    dict_add_number(dict, "priority", (long)cur->priority);
+  	    dict_add_number(dict, "id", (long)cur->id);
+! # if defined(FEAT_CONCEAL) && defined(FEAT_MBYTE)
+  	    if (cur->conceal_char)
+  	    {
+  		char_u buf[MB_MAXBYTES + 1];
+--- 5421,5427 ----
+  	    dict_add_string(dict, "group", syn_id2name(cur->hlg_id));
+  	    dict_add_number(dict, "priority", (long)cur->priority);
+  	    dict_add_number(dict, "id", (long)cur->id);
+! # if defined(FEAT_CONCEAL)
+  	    if (cur->conceal_char)
+  	    {
+  		char_u buf[MB_MAXBYTES + 1];
+***************
+*** 6423,6431 ****
+  	"mouse_xterm",
+  # endif
+  #endif
+- #ifdef FEAT_MBYTE
+  	"multi_byte",
+- #endif
+  #ifdef FEAT_MBYTE_IME
+  	"multi_byte_ime",
+  #endif
+--- 6405,6411 ----
+***************
+*** 6674,6683 ****
+  	    n = mch_input_isatty();
+  	else if (STRICMP(name, "ttyout") == 0)
+  	    n = stdout_isatty;
+- #ifdef FEAT_MBYTE
+  	else if (STRICMP(name, "multi_byte_encoding") == 0)
+  	    n = has_mbyte;
+- #endif
+  #if defined(FEAT_BEVAL) && defined(FEAT_GUI_W32)
+  	else if (STRICMP(name, "balloon_multiline") == 0)
+  	    n = multiline_balloon_available();
+--- 6654,6661 ----
+***************
+*** 6965,6981 ****
+      static void
+  f_iconv(typval_T *argvars UNUSED, typval_T *rettv)
+  {
+- #ifdef FEAT_MBYTE
+      char_u	buf1[NUMBUFLEN];
+      char_u	buf2[NUMBUFLEN];
+      char_u	*from, *to, *str;
+      vimconv_T	vimconv;
+- #endif
+  
+      rettv->v_type = VAR_STRING;
+      rettv->vval.v_string = NULL;
+  
+- #ifdef FEAT_MBYTE
+      str = tv_get_string(&argvars[0]);
+      from = enc_canonize(enc_skip(tv_get_string_buf(&argvars[1], buf1)));
+      to = enc_canonize(enc_skip(tv_get_string_buf(&argvars[2], buf2)));
+--- 6943,6956 ----
+***************
+*** 6991,6997 ****
+      convert_setup(&vimconv, NULL, NULL);
+      vim_free(from);
+      vim_free(to);
+- #endif
+  }
+  
+  /*
+--- 6966,6971 ----
+***************
+*** 8097,8108 ****
+  	    }
+  	    else
+  	    {
+- #ifdef FEAT_MBYTE
+  		startcol = (colnr_T)(regmatch.startp[0]
+  				    + (*mb_ptr2len)(regmatch.startp[0]) - str);
+- #else
+- 		startcol = (colnr_T)(regmatch.startp[0] + 1 - str);
+- #endif
+  		if (startcol > (colnr_T)len
+  				      || str + startcol <= regmatch.startp[0])
+  		{
+--- 8071,8078 ----
+***************
+*** 8712,8718 ****
+  {
+      char_u	buf[NUMBUFLEN];
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	int	utf8 = 0;
+--- 8682,8687 ----
+***************
+*** 8725,8731 ****
+  	    buf[(*mb_char2bytes)((int)tv_get_number(&argvars[0]), buf)] = NUL;
+      }
+      else
+- #endif
+      {
+  	buf[0] = (char_u)tv_get_number(&argvars[0]);
+  	buf[1] = NUL;
+--- 8694,8699 ----
+***************
+*** 9175,9181 ****
+  	    }
+  	    else if (*p == NUL)
+  		*p = '\n';
+- #ifdef FEAT_MBYTE
+  	    /* Check for utf8 "bom"; U+FEFF is encoded as EF BB BF.  Do this
+  	     * when finding the BF and check the previous two bytes. */
+  	    else if (*p == 0xbf && enc_utf8 && !binary)
+--- 9143,9148 ----
+***************
+*** 9215,9221 ****
+  		    }
+  		}
+  	    }
+- #endif
+  	} /* for */
+  
+  	if (failed || (cnt >= maxline && maxline >= 0) || readlen <= 0)
+--- 9182,9187 ----
+***************
+*** 10386,10396 ****
+      else
+      {
+  	off = LineOffset[row] + col;
+- #ifdef FEAT_MBYTE
+  	if (enc_utf8 && ScreenLinesUC[off] != 0)
+  	    c = ScreenLinesUC[off];
+  	else
+- #endif
+  	    c = ScreenLines[off];
+      }
+      rettv->vval.v_number = c;
+--- 10352,10360 ----
+***************
+*** 10910,10916 ****
+  	csearch = dict_get_string(d, (char_u *)"char", FALSE);
+  	if (csearch != NULL)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (enc_utf8)
+  	    {
+  		int pcc[MAX_MCO];
+--- 10874,10879 ----
+***************
+*** 10919,10925 ****
+  		set_last_csearch(c, csearch, utfc_ptr2len(csearch));
+  	    }
+  	    else
+- #endif
+  		set_last_csearch(PTR2CHAR(csearch),
+  						csearch, MB_PTR2LEN(csearch));
+  	}
+--- 10882,10887 ----
+***************
+*** 12511,12528 ****
+  	    }
+  	    if (!match)
+  		break;
+! 	    /* Advance to just after the match. */
+  	    if (regmatch.endp[0] > str)
+  		col = 0;
+  	    else
+! 	    {
+! 		/* Don't get stuck at the same match. */
+! #ifdef FEAT_MBYTE
+  		col = (*mb_ptr2len)(regmatch.endp[0]);
+- #else
+- 		col = 1;
+- #endif
+- 	    }
+  	    str = regmatch.endp[0];
+  	}
+  
+--- 12473,12484 ----
+  	    }
+  	    if (!match)
+  		break;
+! 	    // Advance to just after the match.
+  	    if (regmatch.endp[0] > str)
+  		col = 0;
+  	    else
+! 		// Don't get stuck at the same match.
+  		col = (*mb_ptr2len)(regmatch.endp[0]);
+  	    str = regmatch.endp[0];
+  	}
+  
+***************
+*** 12632,12638 ****
+  	rettv->vval.v_string = vim_strsave((char_u *)_("(Invalid)"));
+      else
+      {
+- # ifdef FEAT_MBYTE
+  	vimconv_T   conv;
+  	char_u	    *enc;
+  
+--- 12588,12593 ----
+***************
+*** 12641,12668 ****
+  	convert_setup(&conv, p_enc, enc);
+  	if (conv.vc_type != CONV_NONE)
+  	    p = string_convert(&conv, p, NULL);
+- # endif
+  	if (p != NULL)
+  	    (void)strftime((char *)result_buf, sizeof(result_buf),
+  							  (char *)p, curtime);
+  	else
+  	    result_buf[0] = NUL;
+  
+- # ifdef FEAT_MBYTE
+  	if (conv.vc_type != CONV_NONE)
+  	    vim_free(p);
+  	convert_setup(&conv, enc, p_enc);
+  	if (conv.vc_type != CONV_NONE)
+  	    rettv->vval.v_string = string_convert(&conv, result_buf, NULL);
+  	else
+- # endif
+  	    rettv->vval.v_string = vim_strsave(result_buf);
+  
+- # ifdef FEAT_MBYTE
+  	/* Release conversion descriptors */
+  	convert_setup(&conv, NULL, NULL);
+  	vim_free(enc);
+- # endif
+      }
+  }
+  #endif
+--- 12596,12618 ----
+***************
+*** 12677,12682 ****
+--- 12627,12633 ----
+      int		len;
+      int		error = FALSE;
+      int		charidx;
++     int		byteidx = 0;
+  
+      rettv->vval.v_number = -1;
+      str = tv_get_string_chk(&argvars[0]);
+***************
+*** 12686,12710 ****
+      charidx = (int)tv_get_number_chk(&argvars[1], &error);
+      if (error)
+  	return;
+- #ifdef FEAT_MBYTE
+-     {
+- 	int	byteidx = 0;
+  
+! 	while (charidx >= 0 && byteidx < len)
+  	{
+! 	    if (charidx == 0)
+! 	    {
+! 		rettv->vval.v_number = mb_ptr2char(str + byteidx);
+! 		break;
+! 	    }
+! 	    --charidx;
+! 	    byteidx += MB_CPTR2LEN(str + byteidx);
+  	}
+      }
+- #else
+-     if (charidx < len)
+- 	rettv->vval.v_number = str[charidx];
+- #endif
+  }
+  
+  /*
+--- 12637,12653 ----
+      charidx = (int)tv_get_number_chk(&argvars[1], &error);
+      if (error)
+  	return;
+  
+!     while (charidx >= 0 && byteidx < len)
+!     {
+! 	if (charidx == 0)
+  	{
+! 	    rettv->vval.v_number = mb_ptr2char(str + byteidx);
+! 	    break;
+  	}
++ 	--charidx;
++ 	byteidx += MB_CPTR2LEN(str + byteidx);
+      }
+  }
+  
+  /*
+***************
+*** 12777,12786 ****
+  {
+      char_u		*s = tv_get_string(&argvars[0]);
+      int			skipcc = 0;
+- #ifdef FEAT_MBYTE
+      varnumber_T		len = 0;
+      int			(*func_mb_ptr2char_adv)(char_u **pp);
+- #endif
+  
+      if (argvars[1].v_type != VAR_UNKNOWN)
+  	skipcc = (int)tv_get_number_chk(&argvars[1], NULL);
+--- 12720,12727 ----
+***************
+*** 12788,12794 ****
+  	emsg(_(e_invarg));
+      else
+      {
+- #ifdef FEAT_MBYTE
+  	func_mb_ptr2char_adv = skipcc ? mb_ptr2char_adv : mb_cptr2char_adv;
+  	while (*s != NUL)
+  	{
+--- 12729,12734 ----
+***************
+*** 12796,12804 ****
+  	    ++len;
+  	}
+  	rettv->vval.v_number = len;
+- #else
+- 	rettv->vval.v_number = (varnumber_T)(STRLEN(s));
+- #endif
+      }
+  }
+  
+--- 12736,12741 ----
+***************
+*** 12825,12837 ****
+  {
+      char_u	*s = tv_get_string(&argvars[0]);
+  
+!     rettv->vval.v_number = (varnumber_T)(
+! #ifdef FEAT_MBYTE
+! 	    mb_string2cells(s, -1)
+! #else
+! 	    STRLEN(s)
+! #endif
+! 	    );
+  }
+  
+  /*
+--- 12762,12768 ----
+  {
+      char_u	*s = tv_get_string(&argvars[0]);
+  
+!     rettv->vval.v_number = (varnumber_T)(mb_string2cells(s, -1));
+  }
+  
+  /*
+***************
+*** 12840,12846 ****
+      static void
+  f_strcharpart(typval_T *argvars, typval_T *rettv)
+  {
+- #ifdef FEAT_MBYTE
+      char_u	*p;
+      int		nchar;
+      int		nbyte = 0;
+--- 12771,12776 ----
+***************
+*** 12899,12907 ****
+  
+      rettv->v_type = VAR_STRING;
+      rettv->vval.v_string = vim_strnsave(p + nbyte, len);
+- #else
+-     f_strpart(argvars, rettv);
+- #endif
+  }
+  
+  /*
+--- 12829,12834 ----
+***************
+*** 13278,13288 ****
+  		    cchar = (lcs_conceal == NUL) ? ' ' : lcs_conceal;
+  		if (cchar != NUL)
+  		{
+- # ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  			(*mb_char2bytes)(cchar, str);
+  		    else
+- # endif
+  			str[0] = cchar;
+  		}
+  	    }
+--- 13205,13213 ----
+***************
+*** 14208,14214 ****
+      char_u	*fromstr;
+      char_u	*tostr;
+      char_u	*p;
+- #ifdef FEAT_MBYTE
+      int		inlen;
+      int		fromlen;
+      int		tolen;
+--- 14133,14138 ----
+***************
+*** 14216,14222 ****
+      char_u	*cpstr;
+      int		cplen;
+      int		first = TRUE;
+- #endif
+      char_u	buf[NUMBUFLEN];
+      char_u	buf2[NUMBUFLEN];
+      garray_T	ga;
+--- 14140,14145 ----
+***************
+*** 14232,14246 ****
+  	    return;		/* type error; errmsg already given */
+      ga_init2(&ga, (int)sizeof(char), 80);
+  
+- #ifdef FEAT_MBYTE
+      if (!has_mbyte)
+- #endif
+  	/* not multi-byte: fromstr and tostr must be the same length */
+  	if (STRLEN(fromstr) != STRLEN(tostr))
+  	{
+- #ifdef FEAT_MBYTE
+  error:
+- #endif
+  	    semsg(_(e_invarg2), fromstr);
+  	    ga_clear(&ga);
+  	    return;
+--- 14155,14165 ----
+***************
+*** 14249,14255 ****
+      /* fromstr and tostr have to contain the same number of chars */
+      while (*in_str != NUL)
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    inlen = (*mb_ptr2len)(in_str);
+--- 14168,14173 ----
+***************
+*** 14300,14306 ****
+  	    in_str += inlen;
+  	}
+  	else
+- #endif
+  	{
+  	    /* When not using multi-byte chars we can do it faster. */
+  	    p = vim_strchr(fromstr, *in_str);
+--- 14218,14223 ----
+*** ../vim-8.1.0804/src/ex_cmds.c	2019-01-19 17:43:03.405449224 +0100
+--- src/ex_cmds.c	2019-01-24 14:35:27.375010277 +0100
+***************
+*** 50,56 ****
+  #ifdef FEAT_DIGRAPHS
+      char_u      *dig;
+  #endif
+- #ifdef FEAT_MBYTE
+      int		cc[MAX_MCO];
+      int		ci = 0;
+      int		len;
+--- 50,55 ----
+***************
+*** 58,64 ****
+      if (enc_utf8)
+  	c = utfc_ptr2char(ml_get_cursor(), cc);
+      else
+- #endif
+  	c = gchar_cursor();
+      if (c == NUL)
+      {
+--- 57,62 ----
+***************
+*** 66,75 ****
+  	return;
+      }
+  
+- #ifdef FEAT_MBYTE
+      IObuff[0] = NUL;
+      if (!has_mbyte || (enc_dbcs != 0 && c < 0x100) || c < 0x80)
+- #endif
+      {
+  	if (c == NL)	    /* NUL is stored as NL */
+  	    c = NUL;
+--- 64,71 ----
+***************
+*** 106,120 ****
+  	    vim_snprintf((char *)IObuff, IOSIZE,
+  		_("<%s>%s%s  %d,  Hex %02x,  Octal %03o"),
+  				  transchar(c), buf1, buf2, cval, cval, cval);
+- #ifdef FEAT_MBYTE
+  	if (enc_utf8)
+  	    c = cc[ci++];
+  	else
+  	    c = 0;
+- #endif
+      }
+  
+- #ifdef FEAT_MBYTE
+      /* Repeat for combining characters. */
+      while (has_mbyte && (c >= 0x100 || (enc_utf8 && c >= 0x80)))
+      {
+--- 102,113 ----
+***************
+*** 150,156 ****
+  	else
+  	    c = 0;
+      }
+- #endif
+  
+      msg((char *)IObuff);
+  }
+--- 143,148 ----
+***************
+*** 823,833 ****
+  	    if (ptr[col] == NUL)
+  		break;
+  	    vcol += chartabsize(ptr + col, (colnr_T)vcol);
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		col += (*mb_ptr2len)(ptr + col);
+  	    else
+- #endif
+  		++col;
+  	}
+  	if (new_line == NULL)		    /* out of memory */
+--- 815,823 ----
+***************
+*** 2282,2290 ****
+      if ((vir.vir_line = alloc(LSIZE)) == NULL)
+  	return;
+      vir.vir_fd = fp_in;
+- #ifdef FEAT_MBYTE
+      vir.vir_conv.vc_type = CONV_NONE;
+- #endif
+      ga_init2(&vir.vir_barlines, (int)sizeof(char_u *), 100);
+      vir.vir_version = -1;
+  
+--- 2272,2278 ----
+***************
+*** 2321,2330 ****
+  							  VIM_VERSION_MEDIUM);
+  	fputs(_("# You may edit it if you're careful!\n\n"), fp_out);
+  	write_viminfo_version(fp_out);
+- #ifdef FEAT_MBYTE
+  	fputs(_("# Value of 'encoding' when this file was written\n"), fp_out);
+  	fprintf(fp_out, "*encoding=%s\n\n", p_enc);
+- #endif
+  	write_viminfo_search_pattern(fp_out);
+  	write_viminfo_sub_string(fp_out);
+  #ifdef FEAT_CMDHIST
+--- 2309,2316 ----
+***************
+*** 2353,2362 ****
+      }
+  
+      vim_free(vir.vir_line);
+- #ifdef FEAT_MBYTE
+      if (vir.vir_conv.vc_type != CONV_NONE)
+  	convert_setup(&vir.vir_conv, NULL, NULL);
+- #endif
+      ga_clear_strings(&vir.vir_barlines);
+  }
+  
+--- 2339,2346 ----
+***************
+*** 2484,2490 ****
+      static int
+  viminfo_encoding(vir_T *virp)
+  {
+- #ifdef FEAT_MBYTE
+      char_u	*p;
+      int		i;
+  
+--- 2468,2473 ----
+***************
+*** 2502,2508 ****
+  	    convert_setup(&virp->vir_conv, p, p_enc);
+  	}
+      }
+- #endif
+      return viminfo_readline(virp);
+  }
+  
+--- 2485,2490 ----
+***************
+*** 2574,2580 ****
+      }
+      *d = NUL;
+  
+- #ifdef FEAT_MBYTE
+      if (convert && virp->vir_conv.vc_type != CONV_NONE && *retval != NUL)
+      {
+  	d = string_convert(&virp->vir_conv, retval, NULL);
+--- 2556,2561 ----
+***************
+*** 2584,2590 ****
+  	    retval = d;
+  	}
+      }
+- #endif
+  
+      return retval;
+  }
+--- 2565,2570 ----
+***************
+*** 2708,2717 ****
+      int	    i;
+      int	    allocated = FALSE;
+      int	    eof;
+- #ifdef FEAT_MBYTE
+      char_u  *sconv;
+      int	    converted;
+- #endif
+  
+      while (*p == ',')
+      {
+--- 2688,2695 ----
+***************
+*** 2835,2841 ****
+  	    ++p;
+  	    s[len] = NUL;
+  
+- #ifdef FEAT_MBYTE
+  	    converted = FALSE;
+  	    if (virp->vir_conv.vc_type != CONV_NONE && *s != NUL)
+  	    {
+--- 2813,2818 ----
+***************
+*** 2849,2855 ****
+  		    converted = TRUE;
+  		}
+  	    }
+! #endif
+  	    /* Need to copy in allocated memory if the string wasn't allocated
+  	     * above and we did allocate before, thus vir_line may change. */
+  	    if (s != buf && allocated)
+--- 2826,2832 ----
+  		    converted = TRUE;
+  		}
+  	    }
+! 
+  	    /* Need to copy in allocated memory if the string wasn't allocated
+  	     * above and we did allocate before, thus vir_line may change. */
+  	    if (s != buf && allocated)
+***************
+*** 2857,2867 ****
+  	    value->bv_string = s;
+  	    value->bv_type = BVAL_STRING;
+  	    value->bv_len = len;
+! 	    value->bv_allocated = allocated
+! #ifdef FEAT_MBYTE
+! 					    || converted
+! #endif
+! 						;
+  	    ++values->ga_len;
+  	    if (nextp != NULL)
+  	    {
+--- 2834,2840 ----
+  	    value->bv_string = s;
+  	    value->bv_type = BVAL_STRING;
+  	    value->bv_len = len;
+! 	    value->bv_allocated = allocated || converted;
+  	    ++values->ga_len;
+  	    if (nextp != NULL)
+  	    {
+***************
+*** 4094,4102 ****
+  		    if (!oldbuf && eap != NULL)
+  		    {
+  			set_file_options(TRUE, eap);
+- #ifdef FEAT_MBYTE
+  			set_forced_fenc(eap);
+- #endif
+  		    }
+  		}
+  
+--- 4067,4073 ----
+***************
+*** 5317,5327 ****
+  		    else
+  		    {
+  			 /* search for a match at next column */
+- #ifdef FEAT_MBYTE
+  			if (has_mbyte)
+  			    matchcol += mb_ptr2len(sub_firstline + matchcol);
+  			else
+- #endif
+  			    ++matchcol;
+  		    }
+  		    goto skip;
+--- 5288,5296 ----
+***************
+*** 5759,5768 ****
+  			    p1 = new_start - 1;
+  			}
+  		    }
+- #ifdef FEAT_MBYTE
+  		    else if (has_mbyte)
+  			p1 += (*mb_ptr2len)(p1) - 1;
+- #endif
+  		}
+  
+  		/*
+--- 5728,5735 ----
+***************
+*** 7017,7026 ****
+  		    FILE	*fd;
+  		    char_u	*s;
+  		    int		fi;
+- #ifdef FEAT_MBYTE
+  		    vimconv_T	vc;
+  		    char_u	*cp;
+- #endif
+  
+  		    /* Find all "doc/ *.txt" files in this directory. */
+  		    add_pathsep(NameBuff);
+--- 6984,6991 ----
+***************
+*** 7086,7094 ****
+  					&& (s = vim_strchr(IObuff + 1, '*'))
+  								  != NULL)
+  				{
+- #ifdef FEAT_MBYTE
+  				    int	this_utf = MAYBE;
+! #endif
+  				    /* Change tag definition to a
+  				     * reference and remove <CR>/<NL>. */
+  				    IObuff[0] = '|';
+--- 7051,7058 ----
+  					&& (s = vim_strchr(IObuff + 1, '*'))
+  								  != NULL)
+  				{
+  				    int	this_utf = MAYBE;
+! 
+  				    /* Change tag definition to a
+  				     * reference and remove <CR>/<NL>. */
+  				    IObuff[0] = '|';
+***************
+*** 7097,7103 ****
+  				    {
+  					if (*s == '\r' || *s == '\n')
+  					    *s = NUL;
+- #ifdef FEAT_MBYTE
+  					/* The text is utf-8 when a byte
+  					 * above 127 is found and no
+  					 * illegal byte sequence is found.
+--- 7061,7066 ----
+***************
+*** 7112,7121 ****
+  						this_utf = FALSE;
+  					    s += l - 1;
+  					}
+- #endif
+  					++s;
+  				    }
+! #ifdef FEAT_MBYTE
+  				    /* The help file is latin1 or utf-8;
+  				     * conversion to the current
+  				     * 'encoding' may be required. */
+--- 7075,7083 ----
+  						this_utf = FALSE;
+  					    s += l - 1;
+  					}
+  					++s;
+  				    }
+! 
+  				    /* The help file is latin1 or utf-8;
+  				     * conversion to the current
+  				     * 'encoding' may be required. */
+***************
+*** 7140,7149 ****
+  				    ml_append(lnum, cp, (colnr_T)0, FALSE);
+  				    if (cp != IObuff)
+  					vim_free(cp);
+- #else
+- 				    ml_append(lnum, IObuff, (colnr_T)0,
+- 								   FALSE);
+- #endif
+  				    ++lnum;
+  				}
+  				fclose(fd);
+--- 7102,7107 ----
+***************
+*** 7199,7210 ****
+      int		i;
+      char_u	*fname;
+      int		dirlen;
+- # ifdef FEAT_MBYTE
+      int		utf8 = MAYBE;
+      int		this_utf8;
+      int		firstline;
+      int		mix = FALSE;	/* detected mixed encodings */
+- # endif
+  
+      /*
+       * Find all *.txt files.
+--- 7157,7166 ----
+***************
+*** 7274,7285 ****
+  	}
+  	fname = files[fi] + dirlen + 1;
+  
+- # ifdef FEAT_MBYTE
+  	firstline = TRUE;
+- # endif
+  	while (!vim_fgets(IObuff, IOSIZE, fd) && !got_int)
+  	{
+- # ifdef FEAT_MBYTE
+  	    if (firstline)
+  	    {
+  		/* Detect utf-8 file by a non-ASCII char in the first line. */
+--- 7230,7238 ----
+***************
+*** 7311,7317 ****
+  		}
+  		firstline = FALSE;
+  	    }
+- # endif
+  	    p1 = vim_strchr(IObuff, '*');	/* find first '*' */
+  	    while (p1 != NULL)
+  	    {
+--- 7264,7269 ----
+***************
+*** 7398,7407 ****
+  	    }
+  	}
+  
+- # ifdef FEAT_MBYTE
+  	if (utf8 == TRUE)
+  	    fprintf(fd_tags, "!_TAG_FILE_ENCODING\tutf-8\t//\n");
+- # endif
+  
+  	/*
+  	 * Write the tags into the file.
+--- 7350,7357 ----
+***************
+*** 7426,7435 ****
+  	    }
+  	}
+      }
+- #ifdef FEAT_MBYTE
+      if (mix)
+  	got_int = FALSE;    /* continue with other languages */
+- #endif
+  
+      for (i = 0; i < ga.ga_len; ++i)
+  	vim_free(((char_u **)ga.ga_data)[i]);
+--- 7376,7383 ----
+*** ../vim-8.1.0804/src/ex_cmds2.c	2019-01-20 15:30:36.881328770 +0100
+--- src/ex_cmds2.c	2019-01-24 14:36:07.666721980 +0100
+***************
+*** 1957,1963 ****
+  		    if (IObuff[IOSIZE - 2] != NUL && IObuff[IOSIZE - 2] != NL)
+  		    {
+  			int n = IOSIZE - 2;
+! # ifdef FEAT_MBYTE
+  			if (enc_utf8)
+  			{
+  			    /* Move to the first byte of this char.
+--- 1957,1963 ----
+  		    if (IObuff[IOSIZE - 2] != NUL && IObuff[IOSIZE - 2] != NL)
+  		    {
+  			int n = IOSIZE - 2;
+! 
+  			if (enc_utf8)
+  			{
+  			    /* Move to the first byte of this char.
+***************
+*** 1968,1974 ****
+  			}
+  			else if (has_mbyte)
+  			    n -= mb_head_off(IObuff, IObuff + n);
+- # endif
+  			IObuff[n] = NL;
+  			IObuff[n + 1] = NUL;
+  		    }
+--- 1968,1973 ----
+***************
+*** 4254,4262 ****
+      int		dbg_tick;	/* debug_tick when breakpoint was set */
+      int		level;		/* top nesting level of sourced file */
+  #endif
+- #ifdef FEAT_MBYTE
+      vimconv_T	conv;		/* type of conversion */
+- #endif
+  };
+  
+  #ifdef FEAT_EVAL
+--- 4253,4259 ----
+***************
+*** 4593,4599 ****
+  # endif
+  #endif
+  
+- #ifdef FEAT_MBYTE
+      cookie.conv.vc_type = CONV_NONE;		/* no conversion */
+  
+      /* Read the first line so we can check for a UTF-8 BOM. */
+--- 4590,4595 ----
+***************
+*** 4612,4618 ****
+  	    firstline = p;
+  	}
+      }
+- #endif
+  
+      /*
+       * Call do_cmdline, which will call getsourceline() to get the lines.
+--- 4608,4613 ----
+***************
+*** 4683,4691 ****
+      fclose(cookie.fp);
+      vim_free(cookie.nextline);
+      vim_free(firstline);
+- #ifdef FEAT_MBYTE
+      convert_setup(&cookie.conv, NULL, NULL);
+- #endif
+  
+      if (trigger_source_post)
+  	apply_autocmds(EVENT_SOURCEPOST, fname_exp, fname_exp, FALSE, curbuf);
+--- 4678,4684 ----
+***************
+*** 4924,4930 ****
+  	}
+      }
+  
+- #ifdef FEAT_MBYTE
+      if (line != NULL && sp->conv.vc_type != CONV_NONE)
+      {
+  	char_u	*s;
+--- 4917,4922 ----
+***************
+*** 4937,4943 ****
+  	    line = s;
+  	}
+      }
+- #endif
+  
+  #ifdef FEAT_EVAL
+      /* Did we encounter a breakpoint? */
+--- 4929,4934 ----
+***************
+*** 5194,5200 ****
+      void
+  ex_scriptencoding(exarg_T *eap UNUSED)
+  {
+- #ifdef FEAT_MBYTE
+      struct source_cookie	*sp;
+      char_u			*name;
+  
+--- 5185,5190 ----
+***************
+*** 5219,5225 ****
+  
+      if (name != eap->arg)
+  	vim_free(name);
+- #endif
+  }
+  
+  #if defined(FEAT_EVAL) || defined(PROTO)
+--- 5209,5214 ----
+*** ../vim-8.1.0804/src/ex_docmd.c	2019-01-24 13:34:37.815464545 +0100
+--- src/ex_docmd.c	2019-01-24 14:38:50.885564621 +0100
+***************
+*** 404,411 ****
+  # define ex_foldopen		ex_ni
+  # define ex_folddo		ex_ni
+  #endif
+! #if !((defined(HAVE_LOCALE_H) || defined(X_LOCALE)) \
+! 	&& (defined(FEAT_GETTEXT) || defined(FEAT_MBYTE)))
+  # define ex_language		ex_ni
+  #endif
+  #ifndef FEAT_SIGNS
+--- 404,410 ----
+  # define ex_foldopen		ex_ni
+  # define ex_folddo		ex_ni
+  #endif
+! #if !(defined(HAVE_LOCALE_H) || defined(X_LOCALE))
+  # define ex_language		ex_ni
+  #endif
+  #ifndef FEAT_SIGNS
+***************
+*** 1550,1556 ****
+  #endif
+  }
+  
+- #if defined(FEAT_EVAL) || defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * If "fgetline" is get_loop_line(), return the cookie used by the original
+   * getline function.  Otherwise return "cookie".
+--- 1549,1554 ----
+***************
+*** 1560,1566 ****
+      char_u	*(*fgetline)(int, void *, int) UNUSED,
+      void	*cookie)		/* argument for fgetline() */
+  {
+! # ifdef FEAT_EVAL
+      char_u		*(*gp)(int, void *, int);
+      struct loop_cookie *cp;
+  
+--- 1558,1564 ----
+      char_u	*(*fgetline)(int, void *, int) UNUSED,
+      void	*cookie)		/* argument for fgetline() */
+  {
+! #ifdef FEAT_EVAL
+      char_u		*(*gp)(int, void *, int);
+      struct loop_cookie *cp;
+  
+***************
+*** 1575,1585 ****
+  	cp = cp->cookie;
+      }
+      return cp;
+! # else
+      return cookie;
+- # endif
+- }
+  #endif
+  
+  
+  /*
+--- 1573,1582 ----
+  	cp = cp->cookie;
+      }
+      return cp;
+! #else
+      return cookie;
+  #endif
++ }
+  
+  
+  /*
+***************
+*** 3116,3132 ****
+      d = IObuff + STRLEN(IObuff);
+      while (*s != NUL && d - IObuff < IOSIZE - 7)
+      {
+! 	if (
+! #ifdef FEAT_MBYTE
+! 		enc_utf8 ? (s[0] == 0xc2 && s[1] == 0xa0) :
+! #endif
+! 		*s == 0xa0)
+  	{
+! 	    s +=
+! #ifdef FEAT_MBYTE
+! 		enc_utf8 ? 2 :
+! #endif
+! 		1;
+  	    STRCPY(d, "<a0>");
+  	    d += 4;
+  	}
+--- 3113,3121 ----
+      d = IObuff + STRLEN(IObuff);
+      while (*s != NUL && d - IObuff < IOSIZE - 7)
+      {
+! 	if (enc_utf8 ? (s[0] == 0xc2 && s[1] == 0xa0) : *s == 0xa0)
+  	{
+! 	    s += enc_utf8 ? 2 : 1;
+  	    STRCPY(d, "<a0>");
+  	    d += 4;
+  	}
+***************
+*** 3752,3762 ****
+  	p = xp->xp_pattern;
+  	while (*p != NUL)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		c = mb_ptr2char(p);
+  	    else
+- #endif
+  		c = *p;
+  	    if (c == '\\' && p[1] != NUL)
+  		++p;
+--- 3741,3749 ----
+***************
+*** 3780,3798 ****
+  		len = 0;  /* avoid getting stuck when space is in 'isfname' */
+  		while (*p != NUL)
+  		{
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  			c = mb_ptr2char(p);
+  		    else
+- #endif
+  			c = *p;
+  		    if (c == '`' || vim_isfilec_or_wc(c))
+  			break;
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  			len = (*mb_ptr2len)(p);
+  		    else
+- #endif
+  			len = 1;
+  		    MB_PTR_ADV(p);
+  		}
+--- 3767,3781 ----
+***************
+*** 5408,5414 ****
+      return p;
+  }
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+      int
+  get_bad_opt(char_u *p, exarg_T *eap)
+  {
+--- 5391,5396 ----
+***************
+*** 5422,5428 ****
+  	return FAIL;
+      return OK;
+  }
+- #endif
+  
+  /*
+   * Get "++opt=arg" argument.
+--- 5404,5409 ----
+***************
+*** 5433,5442 ****
+  {
+      char_u	*arg = eap->arg + 2;
+      int		*pp = NULL;
+- #ifdef FEAT_MBYTE
+      int		bad_char_idx;
+      char_u	*p;
+- #endif
+  
+      /* ":edit ++[no]bin[ary] file" */
+      if (STRNCMP(arg, "bin", 3) == 0 || STRNCMP(arg, "nobin", 5) == 0)
+--- 5414,5421 ----
+***************
+*** 5472,5478 ****
+  	arg += 10;
+  	pp = &eap->force_ff;
+      }
+- #ifdef FEAT_MBYTE
+      else if (STRNCMP(arg, "enc", 3) == 0)
+      {
+  	if (STRNCMP(arg, "encoding", 8) == 0)
+--- 5451,5456 ----
+***************
+*** 5486,5492 ****
+  	arg += 3;
+  	pp = &bad_char_idx;
+      }
+- #endif
+  
+      if (pp == NULL || *arg != '=')
+  	return FAIL;
+--- 5464,5469 ----
+***************
+*** 5497,5510 ****
+      eap->arg = skipwhite(arg);
+      *arg = NUL;
+  
+- #ifdef FEAT_MBYTE
+      if (pp == &eap->force_ff)
+      {
+- #endif
+  	if (check_ff_value(eap->cmd + eap->force_ff) == FAIL)
+  	    return FAIL;
+  	eap->force_ff = eap->cmd[eap->force_ff];
+- #ifdef FEAT_MBYTE
+      }
+      else if (pp == &eap->force_enc)
+      {
+--- 5474,5484 ----
+***************
+*** 5519,5525 ****
+  	if (get_bad_opt(eap->cmd + bad_char_idx, eap) == FAIL)
+  	    return FAIL;
+      }
+- #endif
+  
+      return OK;
+  }
+--- 5493,5498 ----
+***************
+*** 6507,6520 ****
+  	}
+  	else
+  	{
+- #ifdef FEAT_MBYTE
+  	    int charlen = (*mb_ptr2len)(p);
+  	    len += charlen;
+  	    p += charlen;
+- #else
+- 	    ++len;
+- 	    ++p;
+- #endif
+  	}
+      }
+  
+--- 6480,6489 ----
+  	}
+  	else
+  	{
+  	    int charlen = (*mb_ptr2len)(p);
++ 
+  	    len += charlen;
+  	    p += charlen;
+  	}
+      }
+  
+***************
+*** 6685,6697 ****
+  	    result = STRLEN(eap->arg) + 2;
+  	    for (p = eap->arg; *p; ++p)
+  	    {
+- #ifdef  FEAT_MBYTE
+  		if (enc_dbcs != 0 && (*mb_ptr2len)(p) == 2)
+  		    /* DBCS can contain \ in a trail byte, skip the
+  		     * double-byte character. */
+  		    ++p;
+  		else
+- #endif
+  		     if (*p == '\\' || *p == '"')
+  		    ++result;
+  	    }
+--- 6654,6664 ----
+***************
+*** 6701,6713 ****
+  		*buf++ = '"';
+  		for (p = eap->arg; *p; ++p)
+  		{
+- #ifdef  FEAT_MBYTE
+  		    if (enc_dbcs != 0 && (*mb_ptr2len)(p) == 2)
+  			/* DBCS can contain \ in a trail byte, copy the
+  			 * double-byte character to avoid escaping. */
+  			*buf++ = *p++;
+  		    else
+- #endif
+  			 if (*p == '\\' || *p == '"')
+  			*buf++ = '\\';
+  		    *buf++ = *p;
+--- 6668,6678 ----
+***************
+*** 10328,10338 ****
+  ex_normal(exarg_T *eap)
+  {
+      save_state_T save_state;
+- #ifdef FEAT_MBYTE
+      char_u	*arg = NULL;
+      int		l;
+      char_u	*p;
+- #endif
+  
+      if (ex_normal_lock > 0)
+      {
+--- 10293,10301 ----
+***************
+*** 10345,10351 ****
+  	return;
+      }
+  
+- #ifdef FEAT_MBYTE
+      /*
+       * vgetc() expects a CSI and K_SPECIAL to have been escaped.  Don't do
+       * this for the K_SPECIAL leading byte, otherwise special keys will not
+--- 10308,10313 ----
+***************
+*** 10358,10372 ****
+  	/* Count the number of characters to be escaped. */
+  	for (p = eap->arg; *p != NUL; ++p)
+  	{
+! # ifdef FEAT_GUI
+  	    if (*p == CSI)  /* leadbyte CSI */
+  		len += 2;
+! # endif
+  	    for (l = (*mb_ptr2len)(p) - 1; l > 0; --l)
+  		if (*++p == K_SPECIAL	  /* trailbyte K_SPECIAL or CSI */
+! # ifdef FEAT_GUI
+  			|| *p == CSI
+! # endif
+  			)
+  		    len += 2;
+  	}
+--- 10320,10334 ----
+  	/* Count the number of characters to be escaped. */
+  	for (p = eap->arg; *p != NUL; ++p)
+  	{
+! #ifdef FEAT_GUI
+  	    if (*p == CSI)  /* leadbyte CSI */
+  		len += 2;
+! #endif
+  	    for (l = (*mb_ptr2len)(p) - 1; l > 0; --l)
+  		if (*++p == K_SPECIAL	  /* trailbyte K_SPECIAL or CSI */
+! #ifdef FEAT_GUI
+  			|| *p == CSI
+! #endif
+  			)
+  		    len += 2;
+  	}
+***************
+*** 10379,10391 ****
+  		for (p = eap->arg; *p != NUL; ++p)
+  		{
+  		    arg[len++] = *p;
+! # ifdef FEAT_GUI
+  		    if (*p == CSI)
+  		    {
+  			arg[len++] = KS_EXTRA;
+  			arg[len++] = (int)KE_CSI;
+  		    }
+! # endif
+  		    for (l = (*mb_ptr2len)(p) - 1; l > 0; --l)
+  		    {
+  			arg[len++] = *++p;
+--- 10341,10353 ----
+  		for (p = eap->arg; *p != NUL; ++p)
+  		{
+  		    arg[len++] = *p;
+! #ifdef FEAT_GUI
+  		    if (*p == CSI)
+  		    {
+  			arg[len++] = KS_EXTRA;
+  			arg[len++] = (int)KE_CSI;
+  		    }
+! #endif
+  		    for (l = (*mb_ptr2len)(p) - 1; l > 0; --l)
+  		    {
+  			arg[len++] = *++p;
+***************
+*** 10394,10413 ****
+  			    arg[len++] = KS_SPECIAL;
+  			    arg[len++] = KE_FILLER;
+  			}
+! # ifdef FEAT_GUI
+  			else if (*p == CSI)
+  			{
+  			    arg[len++] = KS_EXTRA;
+  			    arg[len++] = (int)KE_CSI;
+  			}
+! # endif
+  		    }
+  		    arg[len] = NUL;
+  		}
+  	    }
+  	}
+      }
+- #endif
+  
+      ++ex_normal_busy;
+      if (save_current_state(&save_state))
+--- 10356,10374 ----
+  			    arg[len++] = KS_SPECIAL;
+  			    arg[len++] = KE_FILLER;
+  			}
+! #ifdef FEAT_GUI
+  			else if (*p == CSI)
+  			{
+  			    arg[len++] = KS_EXTRA;
+  			    arg[len++] = (int)KE_CSI;
+  			}
+! #endif
+  		    }
+  		    arg[len] = NUL;
+  		}
+  	    }
+  	}
+      }
+  
+      ++ex_normal_busy;
+      if (save_current_state(&save_state))
+***************
+*** 10426,10436 ****
+  		check_cursor_moved(curwin);
+  	    }
+  
+! 	    exec_normal_cmd(
+! #ifdef FEAT_MBYTE
+! 		    arg != NULL ? arg :
+! #endif
+! 		    eap->arg, eap->forceit ? REMAP_NONE : REMAP_YES, FALSE);
+  	}
+  	while (eap->addr_count > 0 && eap->line1 <= eap->line2 && !got_int);
+      }
+--- 10387,10395 ----
+  		check_cursor_moved(curwin);
+  	    }
+  
+! 	    exec_normal_cmd(arg != NULL
+! 		     ? arg
+! 		     : eap->arg, eap->forceit ? REMAP_NONE : REMAP_YES, FALSE);
+  	}
+  	while (eap->addr_count > 0 && eap->line1 <= eap->line2 && !got_int);
+      }
+***************
+*** 10447,10455 ****
+      ui_cursor_shape();		/* may show different cursor shape */
+  #endif
+  
+- #ifdef FEAT_MBYTE
+      vim_free(arg);
+- #endif
+  }
+  
+  /*
+--- 10406,10412 ----
+*** ../vim-8.1.0804/src/ex_getln.c	2019-01-22 22:54:56.215326924 +0100
+--- src/ex_getln.c	2019-01-24 14:41:44.460348365 +0100
+***************
+*** 89,97 ****
+  static int	cmdline_charsize(int idx);
+  static void	set_cmdspos(void);
+  static void	set_cmdspos_cursor(void);
+- #ifdef FEAT_MBYTE
+  static void	correct_cmdspos(int idx, int cells);
+- #endif
+  static void	alloc_cmdbuff(int len);
+  static int	realloc_cmdbuff(int len);
+  static void	draw_cmdline(int start, int len);
+--- 89,95 ----
+***************
+*** 769,775 ****
+  		    stuffcharReadbuff(*c);
+  		    *c = '\\';
+  		}
+- #ifdef FEAT_MBYTE
+  		// add any composing characters
+  		if (mb_char2len(*c) != mb_ptr2len(ml_get_cursor()))
+  		{
+--- 767,772 ----
+***************
+*** 783,789 ****
+  		    }
+  		    *c = save_c;
+  		}
+- #endif
+  		return FAIL;
+  	    }
+  	}
+--- 780,785 ----
+***************
+*** 1253,1262 ****
+  		i = (int)(xpc.xp_pattern - ccline.cmdbuff);
+  		while (--j > i)
+  		{
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  			j -= (*mb_head_off)(ccline.cmdbuff, ccline.cmdbuff + j);
+- #endif
+  		    if (vim_ispathsep(ccline.cmdbuff[j]))
+  		    {
+  			found = TRUE;
+--- 1249,1256 ----
+***************
+*** 1281,1290 ****
+  		i = (int)(xpc.xp_pattern - ccline.cmdbuff);
+  		while (--j > i)
+  		{
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  			j -= (*mb_head_off)(ccline.cmdbuff, ccline.cmdbuff + j);
+- #endif
+  		    if (vim_ispathsep(ccline.cmdbuff[j])
+  #ifdef BACKSLASH_IN_FILENAME
+  			    && vim_strchr((char_u *)" *?[{`$%#",
+--- 1275,1282 ----
+***************
+*** 1616,1633 ****
+  		 */
+  		if (c == K_DEL && ccline.cmdpos != ccline.cmdlen)
+  		    ++ccline.cmdpos;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte && c == K_DEL)
+  		    ccline.cmdpos += mb_off_next(ccline.cmdbuff,
+  					      ccline.cmdbuff + ccline.cmdpos);
+- #endif
+  		if (ccline.cmdpos > 0)
+  		{
+  		    char_u *p;
+  
+  		    j = ccline.cmdpos;
+  		    p = ccline.cmdbuff + j;
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  		    {
+  			p = mb_prevptr(ccline.cmdbuff, p);
+--- 1608,1622 ----
+***************
+*** 1642,1650 ****
+  				p += (*mb_ptr2len)(p);
+  			}
+  		    }
+! 		    else
+! #endif
+! 			if (c == Ctrl_W)
+  		    {
+  			while (p > ccline.cmdbuff && vim_isspace(p[-1]))
+  			    --p;
+--- 1631,1637 ----
+  				p += (*mb_ptr2len)(p);
+  			}
+  		    }
+! 		    else if (c == Ctrl_W)
+  		    {
+  			while (p > ccline.cmdbuff && vim_isspace(p[-1]))
+  			    --p;
+***************
+*** 1893,1913 ****
+  		    if (KeyTyped && ccline.cmdspos + i >= Columns * Rows)
+  			break;
+  		    ccline.cmdspos += i;
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  			ccline.cmdpos += (*mb_ptr2len)(ccline.cmdbuff
+  							     + ccline.cmdpos);
+  		    else
+- #endif
+  			++ccline.cmdpos;
+  		}
+  		while ((c == K_S_RIGHT || c == K_C_RIGHT
+  			       || (mod_mask & (MOD_MASK_SHIFT|MOD_MASK_CTRL)))
+  			&& ccline.cmdbuff[ccline.cmdpos] != ' ');
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    set_cmdspos_cursor();
+- #endif
+  		goto cmdline_not_changed;
+  
+  	case K_LEFT:
+--- 1880,1896 ----
+***************
+*** 1918,1938 ****
+  		do
+  		{
+  		    --ccline.cmdpos;
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)	/* move to first byte of char */
+  			ccline.cmdpos -= (*mb_head_off)(ccline.cmdbuff,
+  					      ccline.cmdbuff + ccline.cmdpos);
+- #endif
+  		    ccline.cmdspos -= cmdline_charsize(ccline.cmdpos);
+  		}
+  		while (ccline.cmdpos > 0
+  			&& (c == K_S_LEFT || c == K_C_LEFT
+  			       || (mod_mask & (MOD_MASK_SHIFT|MOD_MASK_CTRL)))
+  			&& ccline.cmdbuff[ccline.cmdpos - 1] != ' ');
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    set_cmdspos_cursor();
+- #endif
+  		goto cmdline_not_changed;
+  
+  	case K_IGNORE:
+--- 1901,1917 ----
+***************
+*** 2030,2036 ****
+  		    if (mouse_row <= cmdline_row + ccline.cmdspos / Columns
+  				  && mouse_col < ccline.cmdspos % Columns + i)
+  			break;
+- # ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  		    {
+  			/* Count ">" for double-wide char that doesn't fit. */
+--- 2009,2014 ----
+***************
+*** 2038,2044 ****
+  			ccline.cmdpos += (*mb_ptr2len)(ccline.cmdbuff
+  							 + ccline.cmdpos) - 1;
+  		    }
+- # endif
+  		    ccline.cmdspos += i;
+  		}
+  		goto cmdline_not_changed;
+--- 2016,2021 ----
+***************
+*** 2301,2307 ****
+  		c = get_literal();	    /* get next (two) character(s) */
+  		do_abbr = FALSE;	    /* don't do abbreviation now */
+  		extra_char = NUL;
+- #ifdef FEAT_MBYTE
+  		/* may need to remove ^ when composing char was typed */
+  		if (enc_utf8 && utf_iscomposing(c) && !cmd_silent)
+  		{
+--- 2278,2283 ----
+***************
+*** 2309,2315 ****
+  		    msg_putchar(' ');
+  		    cursorcmd();
+  		}
+- #endif
+  		break;
+  
+  #ifdef FEAT_DIGRAPHS
+--- 2285,2290 ----
+***************
+*** 2374,2386 ****
+  	 * We come here if we have a normal character.
+  	 */
+  
+! 	if (do_abbr && (IS_SPECIAL(c) || !vim_iswordc(c)) && (ccheck_abbr(
+! #ifdef FEAT_MBYTE
+! 			/* Add ABBR_OFF for characters above 0x100, this is
+! 			 * what check_abbr() expects. */
+! 			(has_mbyte && c >= 0x100) ? (c + ABBR_OFF) :
+! #endif
+! 							 c) || c == Ctrl_RSB))
+  	    goto cmdline_changed;
+  
+  	/*
+--- 2349,2360 ----
+  	 * We come here if we have a normal character.
+  	 */
+  
+! 	if (do_abbr && (IS_SPECIAL(c) || !vim_iswordc(c))
+! 		&& (ccheck_abbr(
+! 			// Add ABBR_OFF for characters above 0x100, this is
+! 			// what check_abbr() expects.
+! 				(has_mbyte && c >= 0x100) ? (c + ABBR_OFF) : c)
+! 		    || c == Ctrl_RSB))
+  	    goto cmdline_changed;
+  
+  	/*
+***************
+*** 2390,2396 ****
+  	    put_on_cmdline(get_special_key_name(c, mod_mask), -1, TRUE);
+  	else
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		j = (*mb_char2bytes)(c, IObuff);
+--- 2364,2369 ----
+***************
+*** 2398,2404 ****
+  		put_on_cmdline(IObuff, j, TRUE);
+  	    }
+  	    else
+- #endif
+  	    {
+  		IObuff[0] = c;
+  		put_on_cmdline(IObuff, 1, TRUE);
+--- 2371,2376 ----
+***************
+*** 2687,2697 ****
+      for (i = 0; i < ccline.cmdlen && i < ccline.cmdpos; ++i)
+      {
+  	c = cmdline_charsize(i);
+- #ifdef FEAT_MBYTE
+  	/* Count ">" for double-wide multi-byte char that doesn't fit. */
+  	if (has_mbyte)
+  	    correct_cmdspos(i, c);
+- #endif
+  	/* If the cmdline doesn't fit, show cursor on last visible char.
+  	 * Don't move the cursor itself, so we can still append. */
+  	if ((ccline.cmdspos += c) >= m)
+--- 2659,2667 ----
+***************
+*** 2699,2712 ****
+  	    ccline.cmdspos -= c;
+  	    break;
+  	}
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    i += (*mb_ptr2len)(ccline.cmdbuff + i) - 1;
+- #endif
+      }
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Check if the character at "idx", which is "cells" wide, is a multi-byte
+   * character that doesn't fit, so that a ">" must be displayed.
+--- 2669,2679 ----
+***************
+*** 2719,2725 ****
+  		&& ccline.cmdspos % Columns + cells > Columns)
+  	ccline.cmdspos++;
+  }
+- #endif
+  
+  /*
+   * Get an Ex command line for the ":" command.
+--- 2686,2691 ----
+***************
+*** 2849,2855 ****
+  	    {
+  		if (line_ga.ga_len > 0)
+  		{
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  		    {
+  			p = (char_u *)line_ga.ga_data;
+--- 2815,2820 ----
+***************
+*** 2858,2864 ****
+  			line_ga.ga_len -= len;
+  		    }
+  		    else
+- #endif
+  			--line_ga.ga_len;
+  		    goto redraw;
+  		}
+--- 2823,2828 ----
+***************
+*** 2962,2973 ****
+  
+  	if (IS_SPECIAL(c1))
+  	    c1 = '?';
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    len = (*mb_char2bytes)(c1,
+  				  (char_u *)line_ga.ga_data + line_ga.ga_len);
+  	else
+- #endif
+  	{
+  	    len = 1;
+  	    ((char_u *)line_ga.ga_data)[line_ga.ga_len] = c1;
+--- 2926,2935 ----
+***************
+*** 3070,3076 ****
+      if (ccline.cmdbuff == NULL || ccline.cmdpos > ccline.cmdlen)
+  	return MAXCOL;
+  
+- # ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	colnr_T	col;
+--- 3032,3037 ----
+***************
+*** 3082,3088 ****
+  	return col;
+      }
+      else
+- # endif
+  	return ccline.cmdpos;
+  }
+  #endif
+--- 3043,3048 ----
+***************
+*** 3111,3117 ****
+  	old_col = msg_col;
+  	cmdspos = ((ccline.cmdfirstc != NUL) ? 1 : 0) + ccline.cmdindent;
+  
+- # ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    for (col = 0; col < preedit_start_col
+--- 3071,3076 ----
+***************
+*** 3122,3128 ****
+  	    }
+  	}
+  	else
+- # endif
+  	{
+  	    cmdspos += preedit_start_col;
+  	    cmdpos  += preedit_start_col;
+--- 3081,3086 ----
+***************
+*** 3142,3152 ****
+  	    if (char_attr < 0)
+  		break; /* end of preedit string */
+  
+- # ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		char_len = (*mb_ptr2len)(ccline.cmdbuff + cmdpos);
+  	    else
+- # endif
+  		char_len = 1;
+  
+  	    msg_outtrans_len_attr(ccline.cmdbuff + cmdpos, char_len, char_attr);
+--- 3100,3108 ----
+***************
+*** 3245,3254 ****
+  	for (i = 0; i < len; ++i)
+  	{
+  	    msg_putchar('*');
+- # ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		i += (*mb_ptr2len)(ccline.cmdbuff + start + i) - 1;
+- # endif
+  	}
+      else
+  #endif
+--- 3201,3208 ----
+***************
+*** 3382,3392 ****
+      msg_no_more = TRUE;
+      if (ccline.cmdlen == ccline.cmdpos)
+  	msg_putchar(' ');
+- #ifdef FEAT_MBYTE
+      else if (has_mbyte)
+  	draw_cmdline(ccline.cmdpos,
+  			       (*mb_ptr2len)(ccline.cmdbuff + ccline.cmdpos));
+- #endif
+      else
+  	draw_cmdline(ccline.cmdpos, 1);
+      msg_no_more = FALSE;
+--- 3336,3344 ----
+***************
+*** 3429,3435 ****
+  	}
+  	else
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		/* Count nr of characters in the new string. */
+--- 3381,3386 ----
+***************
+*** 3450,3464 ****
+  		else
+  		    ccline.cmdlen = ccline.cmdpos + len;
+  	    }
+! 	    else
+! #endif
+! 	    if (ccline.cmdpos + len > ccline.cmdlen)
+  		ccline.cmdlen = ccline.cmdpos + len;
+  	}
+  	mch_memmove(ccline.cmdbuff + ccline.cmdpos, str, (size_t)len);
+  	ccline.cmdbuff[ccline.cmdlen] = NUL;
+  
+- #ifdef FEAT_MBYTE
+  	if (enc_utf8)
+  	{
+  	    /* When the inserted text starts with a composing character,
+--- 3401,3412 ----
+  		else
+  		    ccline.cmdlen = ccline.cmdpos + len;
+  	    }
+! 	    else if (ccline.cmdpos + len > ccline.cmdlen)
+  		ccline.cmdlen = ccline.cmdpos + len;
+  	}
+  	mch_memmove(ccline.cmdbuff + ccline.cmdpos, str, (size_t)len);
+  	ccline.cmdbuff[ccline.cmdlen] = NUL;
+  
+  	if (enc_utf8)
+  	{
+  	    /* When the inserted text starts with a composing character,
+***************
+*** 3474,3480 ****
+  		len += i;
+  		c = utf_ptr2char(ccline.cmdbuff + ccline.cmdpos);
+  	    }
+! # ifdef FEAT_ARABIC
+  	    if (i == 0 && ccline.cmdpos > 0 && arabic_maycombine(c))
+  	    {
+  		/* Check the previous character for Arabic combining pair. */
+--- 3422,3428 ----
+  		len += i;
+  		c = utf_ptr2char(ccline.cmdbuff + ccline.cmdpos);
+  	    }
+! #ifdef FEAT_ARABIC
+  	    if (i == 0 && ccline.cmdpos > 0 && arabic_maycombine(c))
+  	    {
+  		/* Check the previous character for Arabic combining pair. */
+***************
+*** 3489,3495 ****
+  		else
+  		    i = 0;
+  	    }
+! # endif
+  	    if (i != 0)
+  	    {
+  		/* Also backup the cursor position. */
+--- 3437,3443 ----
+  		else
+  		    i = 0;
+  	    }
+! #endif
+  	    if (i != 0)
+  	    {
+  		/* Also backup the cursor position. */
+***************
+*** 3503,3509 ****
+  		}
+  	    }
+  	}
+- #endif
+  
+  	if (redraw && !cmd_silent)
+  	{
+--- 3451,3456 ----
+***************
+*** 3535,3551 ****
+  	    for (i = 0; i < len; ++i)
+  	    {
+  		c = cmdline_charsize(ccline.cmdpos);
+- #ifdef FEAT_MBYTE
+  		/* count ">" for a double-wide char that doesn't fit. */
+  		if (has_mbyte)
+  		    correct_cmdspos(ccline.cmdpos, c);
+- #endif
+  		/* Stop cursor at the end of the screen, but do increment the
+  		 * insert position, so that entering a very long command
+  		 * works, even though you can't see it. */
+  		if (ccline.cmdspos + c < m)
+  		    ccline.cmdspos += c;
+! #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    c = (*mb_ptr2len)(ccline.cmdbuff + ccline.cmdpos) - 1;
+--- 3482,3496 ----
+  	    for (i = 0; i < len; ++i)
+  	    {
+  		c = cmdline_charsize(ccline.cmdpos);
+  		/* count ">" for a double-wide char that doesn't fit. */
+  		if (has_mbyte)
+  		    correct_cmdspos(ccline.cmdpos, c);
+  		/* Stop cursor at the end of the screen, but do increment the
+  		 * insert position, so that entering a very long command
+  		 * works, even though you can't see it. */
+  		if (ccline.cmdspos + c < m)
+  		    ccline.cmdspos += c;
+! 
+  		if (has_mbyte)
+  		{
+  		    c = (*mb_ptr2len)(ccline.cmdbuff + ccline.cmdpos) - 1;
+***************
+*** 3554,3560 ****
+  		    ccline.cmdpos += c;
+  		    i += c;
+  		}
+- #endif
+  		++ccline.cmdpos;
+  	    }
+  	}
+--- 3499,3504 ----
+***************
+*** 3654,3660 ****
+  	    /* Locate start of last word in the cmd buffer. */
+  	    for (w = ccline.cmdbuff + ccline.cmdpos; w > ccline.cmdbuff; )
+  	    {
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    len = (*mb_head_off)(ccline.cmdbuff, w - 1) + 1;
+--- 3598,3603 ----
+***************
+*** 3663,3669 ****
+  		    w -= len;
+  		}
+  		else
+- #endif
+  		{
+  		    if (!vim_iswordc(w[-1]))
+  			break;
+--- 3606,3611 ----
+***************
+*** 3703,3713 ****
+  	    cv = *s;
+  	    if (cv == Ctrl_V && s[1])
+  		++s;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		c = mb_cptr2char_adv(&s);
+  	    else
+- #endif
+  		c = *s++;
+  	    if (cv == Ctrl_V || c == ESC || c == Ctrl_C
+  		    || c == CAR || c == NL || c == Ctrl_L
+--- 3645,3653 ----
+***************
+*** 4237,4258 ****
+  
+  	for (len = 0; xp->xp_files[0][len]; len += mb_len)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		mb_len = (*mb_ptr2len)(&xp->xp_files[0][len]);
+  		c0 =(* mb_ptr2char)(&xp->xp_files[0][len]);
+  	    }
+  	    else
+- #endif
+  		c0 = xp->xp_files[0][len];
+  	    for (i = 1; i < xp->xp_numfiles; ++i)
+  	    {
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    ci =(* mb_ptr2char)(&xp->xp_files[i][len]);
+  		else
+- #endif
+  		    ci = xp->xp_files[i][len];
+  		if (p_fic && (xp->xp_context == EXPAND_DIRECTORIES
+  			|| xp->xp_context == EXPAND_FILES
+--- 4177,4194 ----
+*** ../vim-8.1.0804/src/fileio.c	2019-01-20 15:30:36.885328746 +0100
+--- src/fileio.c	2019-01-24 14:48:42.309458757 +0100
+***************
+*** 27,37 ****
+  /* Is there any system that doesn't have access()? */
+  #define USE_MCH_ACCESS
+  
+- #ifdef FEAT_MBYTE
+  static char_u *next_fenc(char_u **pp);
+! # ifdef FEAT_EVAL
+  static char_u *readfile_charconvert(char_u *fname, char_u *fenc, int *fdp);
+- # endif
+  #endif
+  #ifdef FEAT_VIMINFO
+  static void check_marks_read(void);
+--- 27,35 ----
+  /* Is there any system that doesn't have access()? */
+  #define USE_MCH_ACCESS
+  
+  static char_u *next_fenc(char_u **pp);
+! #ifdef FEAT_EVAL
+  static char_u *readfile_charconvert(char_u *fname, char_u *fenc, int *fdp);
+  #endif
+  #ifdef FEAT_VIMINFO
+  static void check_marks_read(void);
+***************
+*** 47,77 ****
+  static int apply_autocmds_exarg(event_T event, char_u *fname, char_u *fname_io, int force, buf_T *buf, exarg_T *eap);
+  static int au_find_group(char_u *name);
+  
+! # define AUGROUP_DEFAULT    -1	    /* default autocmd group */
+! # define AUGROUP_ERROR	    -2	    /* erroneous autocmd group */
+! # define AUGROUP_ALL	    -3	    /* all autocmd groups */
+! 
+! #if defined(FEAT_CRYPT) || defined(FEAT_MBYTE)
+! # define HAS_BW_FLAGS
+! # define FIO_LATIN1	0x01	/* convert Latin1 */
+! # define FIO_UTF8	0x02	/* convert UTF-8 */
+! # define FIO_UCS2	0x04	/* convert UCS-2 */
+! # define FIO_UCS4	0x08	/* convert UCS-4 */
+! # define FIO_UTF16	0x10	/* convert UTF-16 */
+! # ifdef WIN3264
+! #  define FIO_CODEPAGE	0x20	/* convert MS-Windows codepage */
+! #  define FIO_PUT_CP(x) (((x) & 0xffff) << 16)	/* put codepage in top word */
+! #  define FIO_GET_CP(x)	(((x)>>16) & 0xffff)	/* get codepage from top word */
+! # endif
+! # ifdef MACOS_CONVERT
+! #  define FIO_MACROMAN	0x20	/* convert MacRoman */
+! # endif
+! # define FIO_ENDIAN_L	0x80	/* little endian */
+! # define FIO_ENCRYPTED	0x1000	/* encrypt written bytes */
+! # define FIO_NOCONVERT	0x2000	/* skip encoding conversion */
+! # define FIO_UCSBOM	0x4000	/* check for BOM at start of file */
+! # define FIO_ALL	-1	/* allow all formats */
+  #endif
+  
+  /* When converting, a read() or write() may leave some bytes to be converted
+   * for the next call.  The value is guessed... */
+--- 45,73 ----
+  static int apply_autocmds_exarg(event_T event, char_u *fname, char_u *fname_io, int force, buf_T *buf, exarg_T *eap);
+  static int au_find_group(char_u *name);
+  
+! #define AUGROUP_DEFAULT    -1	    /* default autocmd group */
+! #define AUGROUP_ERROR	    -2	    /* erroneous autocmd group */
+! #define AUGROUP_ALL	    -3	    /* all autocmd groups */
+! 
+! #define HAS_BW_FLAGS
+! #define FIO_LATIN1	0x01	/* convert Latin1 */
+! #define FIO_UTF8	0x02	/* convert UTF-8 */
+! #define FIO_UCS2	0x04	/* convert UCS-2 */
+! #define FIO_UCS4	0x08	/* convert UCS-4 */
+! #define FIO_UTF16	0x10	/* convert UTF-16 */
+! #ifdef WIN3264
+! # define FIO_CODEPAGE	0x20	/* convert MS-Windows codepage */
+! # define FIO_PUT_CP(x) (((x) & 0xffff) << 16)	/* put codepage in top word */
+! # define FIO_GET_CP(x)	(((x)>>16) & 0xffff)	/* get codepage from top word */
+  #endif
++ #ifdef MACOS_CONVERT
++ # define FIO_MACROMAN	0x20	/* convert MacRoman */
++ #endif
++ #define FIO_ENDIAN_L	0x80	/* little endian */
++ #define FIO_ENCRYPTED	0x1000	/* encrypt written bytes */
++ #define FIO_NOCONVERT	0x2000	/* skip encoding conversion */
++ #define FIO_UCSBOM	0x4000	/* check for BOM at start of file */
++ #define FIO_ALL	-1	/* allow all formats */
+  
+  /* When converting, a read() or write() may leave some bytes to be converted
+   * for the next call.  The value is guessed... */
+***************
+*** 95,101 ****
+  #ifdef FEAT_CRYPT
+      buf_T	*bw_buffer;	/* buffer being written */
+  #endif
+- #ifdef FEAT_MBYTE
+      char_u	bw_rest[CONV_RESTLEN]; /* not converted bytes */
+      int		bw_restlen;	/* nr of bytes in bw_rest[] */
+      int		bw_first;	/* first write call */
+--- 91,96 ----
+***************
+*** 104,130 ****
+      int		bw_conv_error;	/* set for conversion error */
+      linenr_T	bw_conv_error_lnum;  /* first line with error or zero */
+      linenr_T	bw_start_lnum;  /* line number at start of buffer */
+! # ifdef USE_ICONV
+      iconv_t	bw_iconv_fd;	/* descriptor for iconv() or -1 */
+- # endif
+  #endif
+  };
+  
+  static int  buf_write_bytes(struct bw_info *ip);
+  
+- #ifdef FEAT_MBYTE
+  static linenr_T readfile_linenr(linenr_T linecnt, char_u *p, char_u *endp);
+  static int ucs2bytes(unsigned c, char_u **pp, int flags);
+  static int need_conversion(char_u *fenc);
+  static int get_fio_flags(char_u *ptr);
+  static char_u *check_for_bom(char_u *p, long size, int *lenp, int flags);
+  static int make_bom(char_u *buf, char_u *name);
+! # ifdef WIN3264
+  static int get_win_fio_flags(char_u *ptr);
+! # endif
+! # ifdef MACOS_CONVERT
+  static int get_mac_fio_flags(char_u *ptr);
+- # endif
+  #endif
+  static char *e_auchangedbuf = N_("E812: Autocommands changed buffer or buffer name");
+  
+--- 99,122 ----
+      int		bw_conv_error;	/* set for conversion error */
+      linenr_T	bw_conv_error_lnum;  /* first line with error or zero */
+      linenr_T	bw_start_lnum;  /* line number at start of buffer */
+! #ifdef USE_ICONV
+      iconv_t	bw_iconv_fd;	/* descriptor for iconv() or -1 */
+  #endif
+  };
+  
+  static int  buf_write_bytes(struct bw_info *ip);
+  
+  static linenr_T readfile_linenr(linenr_T linecnt, char_u *p, char_u *endp);
+  static int ucs2bytes(unsigned c, char_u **pp, int flags);
+  static int need_conversion(char_u *fenc);
+  static int get_fio_flags(char_u *ptr);
+  static char_u *check_for_bom(char_u *p, long size, int *lenp, int flags);
+  static int make_bom(char_u *buf, char_u *name);
+! #ifdef WIN3264
+  static int get_win_fio_flags(char_u *ptr);
+! #endif
+! #ifdef MACOS_CONVERT
+  static int get_mac_fio_flags(char_u *ptr);
+  #endif
+  static char *e_auchangedbuf = N_("E812: Autocommands changed buffer or buffer name");
+  
+***************
+*** 265,271 ****
+      int		try_dos;
+      int		try_unix;
+      int		file_rewind = FALSE;
+- #ifdef FEAT_MBYTE
+      int		can_retry;
+      linenr_T	conv_error = 0;		/* line nr with conversion error */
+      linenr_T	illegal_byte = 0;	/* line nr with illegal byte */
+--- 257,262 ----
+***************
+*** 281,299 ****
+      char_u	*fenc_next = NULL;	/* next item in 'fencs' or NULL */
+      int		advance_fenc = FALSE;
+      long	real_size = 0;
+! # ifdef USE_ICONV
+      iconv_t	iconv_fd = (iconv_t)-1;	/* descriptor for iconv() or -1 */
+! #  ifdef FEAT_EVAL
+      int		did_iconv = FALSE;	/* TRUE when iconv() failed and trying
+  					   'charconvert' next */
+- #  endif
+  # endif
+      int		converted = FALSE;	/* TRUE if conversion done */
+      int		notconverted = FALSE;	/* TRUE if conversion wanted but it
+  					   wasn't possible */
+      char_u	conv_rest[CONV_RESTLEN];
+      int		conv_restlen = 0;	/* nr of bytes in conv_rest[] */
+- #endif
+      buf_T	*old_curbuf;
+      char_u	*old_b_ffname;
+      char_u	*old_b_fname;
+--- 272,289 ----
+      char_u	*fenc_next = NULL;	/* next item in 'fencs' or NULL */
+      int		advance_fenc = FALSE;
+      long	real_size = 0;
+! #ifdef USE_ICONV
+      iconv_t	iconv_fd = (iconv_t)-1;	/* descriptor for iconv() or -1 */
+! # ifdef FEAT_EVAL
+      int		did_iconv = FALSE;	/* TRUE when iconv() failed and trying
+  					   'charconvert' next */
+  # endif
++ #endif
+      int		converted = FALSE;	/* TRUE if conversion done */
+      int		notconverted = FALSE;	/* TRUE if conversion wanted but it
+  					   wasn't possible */
+      char_u	conv_rest[CONV_RESTLEN];
+      int		conv_restlen = 0;	/* nr of bytes in conv_rest[] */
+      buf_T	*old_curbuf;
+      char_u	*old_b_ffname;
+      char_u	*old_b_fname;
+***************
+*** 609,619 ****
+  		     * edited before and deleted.  Get the old marks. */
+  		    check_marks_read();
+  #endif
+- #ifdef FEAT_MBYTE
+  		    /* Set forced 'fileencoding'.  */
+  		    if (eap != NULL)
+  			set_forced_fenc(eap);
+- #endif
+  		    apply_autocmds_exarg(EVENT_BUFNEWFILE, sfname, sfname,
+  							  FALSE, curbuf, eap);
+  		    /* remember the current fileformat */
+--- 599,607 ----
+***************
+*** 658,667 ****
+  	    curbuf->b_p_eol = TRUE;
+  	    curbuf->b_start_eol = TRUE;
+  	}
+- #ifdef FEAT_MBYTE
+  	curbuf->b_p_bomb = FALSE;
+  	curbuf->b_start_bomb = FALSE;
+- #endif
+      }
+  
+      /* Create a swap file now, so that other Vims are warned that we are
+--- 646,653 ----
+***************
+*** 846,852 ****
+       */
+      linecnt = curbuf->b_ml.ml_line_count;
+  
+- #ifdef FEAT_MBYTE
+      /* "++bad=" argument. */
+      if (eap != NULL && eap->bad_char != 0)
+      {
+--- 832,837 ----
+***************
+*** 926,932 ****
+  	fenc = next_fenc(&fenc_next);
+  	fenc_alloced = TRUE;
+      }
+- #endif
+  
+      /*
+       * Jump back here to retry reading the file in different ways.
+--- 911,916 ----
+***************
+*** 966,979 ****
+  	while (lnum > from)
+  	    ml_delete(lnum--, FALSE);
+  	file_rewind = FALSE;
+- #ifdef FEAT_MBYTE
+  	if (set_options)
+  	{
+  	    curbuf->b_p_bomb = FALSE;
+  	    curbuf->b_start_bomb = FALSE;
+  	}
+  	conv_error = 0;
+- #endif
+      }
+  
+      /*
+--- 950,961 ----
+***************
+*** 997,1011 ****
+  	    fileformat = EOL_UNKNOWN;		/* detect from file */
+      }
+  
+! #ifdef FEAT_MBYTE
+! # ifdef USE_ICONV
+      if (iconv_fd != (iconv_t)-1)
+      {
+  	/* aborted conversion with iconv(), close the descriptor */
+  	iconv_close(iconv_fd);
+  	iconv_fd = (iconv_t)-1;
+      }
+! # endif
+  
+      if (advance_fenc)
+      {
+--- 979,992 ----
+  	    fileformat = EOL_UNKNOWN;		/* detect from file */
+      }
+  
+! #ifdef USE_ICONV
+      if (iconv_fd != (iconv_t)-1)
+      {
+  	/* aborted conversion with iconv(), close the descriptor */
+  	iconv_close(iconv_fd);
+  	iconv_fd = (iconv_t)-1;
+      }
+! #endif
+  
+      if (advance_fenc)
+      {
+***************
+*** 1073,1121 ****
+  	else if (enc_utf8 || STRCMP(p_enc, "latin1") == 0)
+  	    fio_flags = get_fio_flags(fenc);
+  
+! # ifdef WIN3264
+  	/*
+  	 * Conversion from an MS-Windows codepage to UTF-8 or another codepage
+  	 * is handled with MultiByteToWideChar().
+  	 */
+  	if (fio_flags == 0)
+  	    fio_flags = get_win_fio_flags(fenc);
+! # endif
+  
+! # ifdef MACOS_CONVERT
+  	/* Conversion from Apple MacRoman to latin1 or UTF-8 */
+  	if (fio_flags == 0)
+  	    fio_flags = get_mac_fio_flags(fenc);
+! # endif
+  
+! # ifdef USE_ICONV
+  	/*
+  	 * Try using iconv() if we can't convert internally.
+  	 */
+  	if (fio_flags == 0
+! #  ifdef FEAT_EVAL
+  		&& !did_iconv
+! #  endif
+  		)
+  	    iconv_fd = (iconv_t)my_iconv_open(
+  				  enc_utf8 ? (char_u *)"utf-8" : p_enc, fenc);
+! # endif
+  
+! # ifdef FEAT_EVAL
+  	/*
+  	 * Use the 'charconvert' expression when conversion is required
+  	 * and we can't do it internally or with iconv().
+  	 */
+  	if (fio_flags == 0 && !read_stdin && !read_buffer && *p_ccv != NUL
+  						    && !read_fifo
+! #  ifdef USE_ICONV
+  						    && iconv_fd == (iconv_t)-1
+! #  endif
+  		)
+  	{
+! #  ifdef USE_ICONV
+  	    did_iconv = FALSE;
+! #  endif
+  	    /* Skip conversion when it's already done (retry for wrong
+  	     * "fileformat"). */
+  	    if (tmpname == NULL)
+--- 1054,1102 ----
+  	else if (enc_utf8 || STRCMP(p_enc, "latin1") == 0)
+  	    fio_flags = get_fio_flags(fenc);
+  
+! #ifdef WIN3264
+  	/*
+  	 * Conversion from an MS-Windows codepage to UTF-8 or another codepage
+  	 * is handled with MultiByteToWideChar().
+  	 */
+  	if (fio_flags == 0)
+  	    fio_flags = get_win_fio_flags(fenc);
+! #endif
+  
+! #ifdef MACOS_CONVERT
+  	/* Conversion from Apple MacRoman to latin1 or UTF-8 */
+  	if (fio_flags == 0)
+  	    fio_flags = get_mac_fio_flags(fenc);
+! #endif
+  
+! #ifdef USE_ICONV
+  	/*
+  	 * Try using iconv() if we can't convert internally.
+  	 */
+  	if (fio_flags == 0
+! # ifdef FEAT_EVAL
+  		&& !did_iconv
+! # endif
+  		)
+  	    iconv_fd = (iconv_t)my_iconv_open(
+  				  enc_utf8 ? (char_u *)"utf-8" : p_enc, fenc);
+! #endif
+  
+! #ifdef FEAT_EVAL
+  	/*
+  	 * Use the 'charconvert' expression when conversion is required
+  	 * and we can't do it internally or with iconv().
+  	 */
+  	if (fio_flags == 0 && !read_stdin && !read_buffer && *p_ccv != NUL
+  						    && !read_fifo
+! # ifdef USE_ICONV
+  						    && iconv_fd == (iconv_t)-1
+! # endif
+  		)
+  	{
+! # ifdef USE_ICONV
+  	    did_iconv = FALSE;
+! # endif
+  	    /* Skip conversion when it's already done (retry for wrong
+  	     * "fileformat"). */
+  	    if (tmpname == NULL)
+***************
+*** 1137,1148 ****
+  	    }
+  	}
+  	else
+! # endif
+  	{
+  	    if (fio_flags == 0
+! # ifdef USE_ICONV
+  		    && iconv_fd == (iconv_t)-1
+! # endif
+  	       )
+  	    {
+  		/* Conversion wanted but we can't.
+--- 1118,1129 ----
+  	    }
+  	}
+  	else
+! #endif
+  	{
+  	    if (fio_flags == 0
+! #ifdef USE_ICONV
+  		    && iconv_fd == (iconv_t)-1
+! #endif
+  	       )
+  	    {
+  		/* Conversion wanted but we can't.
+***************
+*** 1157,1163 ****
+       * another "fenc" value.  It's FALSE when no other "fenc" to try, reading
+       * stdin or fixed at a specific encoding. */
+      can_retry = (*fenc != NUL && !read_stdin && !read_fifo && !keep_dest_enc);
+- #endif
+  
+      if (!skip_read)
+      {
+--- 1138,1143 ----
+***************
+*** 1165,1173 ****
+  	filesize = 0;
+  	skip_count = lines_to_skip;
+  	read_count = lines_to_read;
+- #ifdef FEAT_MBYTE
+  	conv_restlen = 0;
+- #endif
+  #ifdef FEAT_PERSISTENT_UNDO
+  	read_undo_file = (newfile && (flags & READ_KEEP_UNDO) == 0
+  				  && curbuf->b_ffname != NULL
+--- 1145,1151 ----
+***************
+*** 1253,1259 ****
+  		ptr = buffer + linerest;
+  		line_start = buffer;
+  
+- #ifdef FEAT_MBYTE
+  		/* May need room to translate into.
+  		 * For iconv() we don't really know the required space, use a
+  		 * factor ICONV_MULT.
+--- 1231,1236 ----
+***************
+*** 1265,1275 ****
+  		 * ucs-4 to utf-8: 4 bytes become up to 6 bytes, size must be
+  		 * multiple of 4 */
+  		real_size = (int)size;
+! # ifdef USE_ICONV
+  		if (iconv_fd != (iconv_t)-1)
+  		    size = size / ICONV_MULT;
+  		else
+! # endif
+  		    if (fio_flags & FIO_LATIN1)
+  		    size = size / 2;
+  		else if (fio_flags & (FIO_UCS2 | FIO_UTF16))
+--- 1242,1252 ----
+  		 * ucs-4 to utf-8: 4 bytes become up to 6 bytes, size must be
+  		 * multiple of 4 */
+  		real_size = (int)size;
+! #ifdef USE_ICONV
+  		if (iconv_fd != (iconv_t)-1)
+  		    size = size / ICONV_MULT;
+  		else
+! #endif
+  		    if (fio_flags & FIO_LATIN1)
+  		    size = size / 2;
+  		else if (fio_flags & (FIO_UCS2 | FIO_UTF16))
+***************
+*** 1278,1294 ****
+  		    size = (size * 2 / 3) & ~3;
+  		else if (fio_flags == FIO_UCSBOM)
+  		    size = size / ICONV_MULT;	/* worst case */
+! # ifdef WIN3264
+  		else if (fio_flags & FIO_CODEPAGE)
+  		    size = size / ICONV_MULT;	/* also worst case */
+! # endif
+! # ifdef MACOS_CONVERT
+  		else if (fio_flags & FIO_MACROMAN)
+  		    size = size / ICONV_MULT;	/* also worst case */
+- # endif
+  #endif
+  
+- #ifdef FEAT_MBYTE
+  		if (conv_restlen > 0)
+  		{
+  		    /* Insert unconverted bytes from previous line. */
+--- 1255,1269 ----
+  		    size = (size * 2 / 3) & ~3;
+  		else if (fio_flags == FIO_UCSBOM)
+  		    size = size / ICONV_MULT;	/* worst case */
+! #ifdef WIN3264
+  		else if (fio_flags & FIO_CODEPAGE)
+  		    size = size / ICONV_MULT;	/* also worst case */
+! #endif
+! #ifdef MACOS_CONVERT
+  		else if (fio_flags & FIO_MACROMAN)
+  		    size = size / ICONV_MULT;	/* also worst case */
+  #endif
+  
+  		if (conv_restlen > 0)
+  		{
+  		    /* Insert unconverted bytes from previous line. */
+***************
+*** 1296,1302 ****
+  		    ptr += conv_restlen;
+  		    size -= conv_restlen;
+  		}
+- #endif
+  
+  		if (read_buffer)
+  		{
+--- 1271,1276 ----
+***************
+*** 1445,1451 ****
+  		{
+  		    if (size < 0)		    /* read error */
+  			error = TRUE;
+- #ifdef FEAT_MBYTE
+  		    else if (conv_restlen > 0)
+  		    {
+  			/*
+--- 1419,1424 ----
+***************
+*** 1455,1463 ****
+  
+  			/* When we did a conversion report an error. */
+  			if (fio_flags != 0
+! # ifdef USE_ICONV
+  				|| iconv_fd != (iconv_t)-1
+! # endif
+  			   )
+  			{
+  			    if (can_retry)
+--- 1428,1436 ----
+  
+  			/* When we did a conversion report an error. */
+  			if (fio_flags != 0
+! #ifdef USE_ICONV
+  				|| iconv_fd != (iconv_t)-1
+! #endif
+  			   )
+  			{
+  			    if (can_retry)
+***************
+*** 1482,1490 ****
+  			     * leave the UTF8 checking code to do it, as it
+  			     * works slightly differently. */
+  			    if (bad_char_behavior != BAD_KEEP && (fio_flags != 0
+! # ifdef USE_ICONV
+  				    || iconv_fd != (iconv_t)-1
+! # endif
+  			       ))
+  			    {
+  				while (conv_restlen > 0)
+--- 1455,1463 ----
+  			     * leave the UTF8 checking code to do it, as it
+  			     * works slightly differently. */
+  			    if (bad_char_behavior != BAD_KEEP && (fio_flags != 0
+! #ifdef USE_ICONV
+  				    || iconv_fd != (iconv_t)-1
+! #endif
+  			       ))
+  			    {
+  				while (conv_restlen > 0)
+***************
+*** 1494,1514 ****
+  				}
+  			    }
+  			    fio_flags = 0;	/* don't convert this */
+! # ifdef USE_ICONV
+  			    if (iconv_fd != (iconv_t)-1)
+  			    {
+  				iconv_close(iconv_fd);
+  				iconv_fd = (iconv_t)-1;
+  			    }
+! # endif
+  			}
+  		    }
+- #endif
+  		}
+  	    }
+  	    skip_read = FALSE;
+  
+- #ifdef FEAT_MBYTE
+  	    /*
+  	     * At start of file (or after crypt magic number): Check for BOM.
+  	     * Also check for a BOM for other Unicode encodings, but not after
+--- 1467,1485 ----
+  				}
+  			    }
+  			    fio_flags = 0;	/* don't convert this */
+! #ifdef USE_ICONV
+  			    if (iconv_fd != (iconv_t)-1)
+  			    {
+  				iconv_close(iconv_fd);
+  				iconv_fd = (iconv_t)-1;
+  			    }
+! #endif
+  			}
+  		    }
+  		}
+  	    }
+  	    skip_read = FALSE;
+  
+  	    /*
+  	     * At start of file (or after crypt magic number): Check for BOM.
+  	     * Also check for a BOM for other Unicode encodings, but not after
+***************
+*** 1516,1526 ****
+  	     * found.
+  	     */
+  	    if ((filesize == 0
+! # ifdef FEAT_CRYPT
+  		   || (cryptkey != NULL
+  			&& filesize == crypt_get_header_len(
+  						 crypt_get_method_nr(curbuf)))
+! # endif
+  		       )
+  		    && (fio_flags == FIO_UCSBOM
+  			|| (!curbuf->b_p_bomb
+--- 1487,1497 ----
+  	     * found.
+  	     */
+  	    if ((filesize == 0
+! #ifdef FEAT_CRYPT
+  		   || (cryptkey != NULL
+  			&& filesize == crypt_get_header_len(
+  						 crypt_get_method_nr(curbuf)))
+! #endif
+  		       )
+  		    && (fio_flags == FIO_UCSBOM
+  			|| (!curbuf->b_p_bomb
+***************
+*** 1574,1589 ****
+  	    ptr -= conv_restlen;
+  	    size += conv_restlen;
+  	    conv_restlen = 0;
+- #endif
+  	    /*
+  	     * Break here for a read error or end-of-file.
+  	     */
+  	    if (size <= 0)
+  		break;
+  
+- #ifdef FEAT_MBYTE
+  
+! # ifdef USE_ICONV
+  	    if (iconv_fd != (iconv_t)-1)
+  	    {
+  		/*
+--- 1545,1558 ----
+  	    ptr -= conv_restlen;
+  	    size += conv_restlen;
+  	    conv_restlen = 0;
+  	    /*
+  	     * Break here for a read error or end-of-file.
+  	     */
+  	    if (size <= 0)
+  		break;
+  
+  
+! #ifdef USE_ICONV
+  	    if (iconv_fd != (iconv_t)-1)
+  	    {
+  		/*
+***************
+*** 1645,1653 ****
+  		mch_memmove(line_start, buffer, (size_t)linerest);
+  		size = (long)((char_u *)top - ptr);
+  	    }
+! # endif
+  
+! # ifdef WIN3264
+  	    if (fio_flags & FIO_CODEPAGE)
+  	    {
+  		char_u	*src, *dst;
+--- 1614,1622 ----
+  		mch_memmove(line_start, buffer, (size_t)linerest);
+  		size = (long)((char_u *)top - ptr);
+  	    }
+! #endif
+  
+! #ifdef WIN3264
+  	    if (fio_flags & FIO_CODEPAGE)
+  	    {
+  		char_u	*src, *dst;
+***************
+*** 1813,1820 ****
+  		size = (long)(dst - ptr);
+  	    }
+  	    else
+! # endif
+! # ifdef MACOS_CONVERT
+  	    if (fio_flags & FIO_MACROMAN)
+  	    {
+  		/*
+--- 1782,1789 ----
+  		size = (long)(dst - ptr);
+  	    }
+  	    else
+! #endif
+! #ifdef MACOS_CONVERT
+  	    if (fio_flags & FIO_MACROMAN)
+  	    {
+  		/*
+***************
+*** 1825,1831 ****
+  		    goto rewind_retry;
+  	    }
+  	    else
+! # endif
+  	    if (fio_flags != 0)
+  	    {
+  		int	u8c;
+--- 1794,1800 ----
+  		    goto rewind_retry;
+  	    }
+  	    else
+! #endif
+  	    if (fio_flags != 0)
+  	    {
+  		int	u8c;
+***************
+*** 2089,2099 ****
+  			     * file is more likely than a conversion error. */
+  			    if (can_retry && !incomplete_tail)
+  				break;
+! # ifdef USE_ICONV
+  			    /* When we did a conversion report an error. */
+  			    if (iconv_fd != (iconv_t)-1 && conv_error == 0)
+  				conv_error = readfile_linenr(linecnt, ptr, p);
+! # endif
+  			    /* Remember the first linenr with an illegal byte */
+  			    if (conv_error == 0 && illegal_byte == 0)
+  				illegal_byte = readfile_linenr(linecnt, ptr, p);
+--- 2058,2068 ----
+  			     * file is more likely than a conversion error. */
+  			    if (can_retry && !incomplete_tail)
+  				break;
+! #ifdef USE_ICONV
+  			    /* When we did a conversion report an error. */
+  			    if (iconv_fd != (iconv_t)-1 && conv_error == 0)
+  				conv_error = readfile_linenr(linecnt, ptr, p);
+! #endif
+  			    /* Remember the first linenr with an illegal byte */
+  			    if (conv_error == 0 && illegal_byte == 0)
+  				illegal_byte = readfile_linenr(linecnt, ptr, p);
+***************
+*** 2117,2135 ****
+  		    /* Detected a UTF-8 error. */
+  rewind_retry:
+  		    /* Retry reading with another conversion. */
+! # if defined(FEAT_EVAL) && defined(USE_ICONV)
+  		    if (*p_ccv != NUL && iconv_fd != (iconv_t)-1)
+  			/* iconv() failed, try 'charconvert' */
+  			did_iconv = TRUE;
+  		    else
+! # endif
+  			/* use next item from 'fileencodings' */
+  			advance_fenc = TRUE;
+  		    file_rewind = TRUE;
+  		    goto retry;
+  		}
+  	    }
+- #endif
+  
+  	    /* count the number of characters (after conversion!) */
+  	    filesize += size;
+--- 2086,2103 ----
+  		    /* Detected a UTF-8 error. */
+  rewind_retry:
+  		    /* Retry reading with another conversion. */
+! #if defined(FEAT_EVAL) && defined(USE_ICONV)
+  		    if (*p_ccv != NUL && iconv_fd != (iconv_t)-1)
+  			/* iconv() failed, try 'charconvert' */
+  			did_iconv = TRUE;
+  		    else
+! #endif
+  			/* use next item from 'fileencodings' */
+  			advance_fenc = TRUE;
+  		    file_rewind = TRUE;
+  		    goto retry;
+  		}
+  	    }
+  
+  	    /* count the number of characters (after conversion!) */
+  	    filesize += size;
+***************
+*** 2371,2377 ****
+       * encryption was used. */
+  #endif
+  
+- #ifdef FEAT_MBYTE
+      /* If editing a new file: set 'fenc' for the current buffer.
+       * Also for ":read ++edit file". */
+      if (set_options)
+--- 2339,2344 ----
+***************
+*** 2379,2391 ****
+  						       OPT_FREE|OPT_LOCAL, 0);
+      if (fenc_alloced)
+  	vim_free(fenc);
+! # ifdef USE_ICONV
+      if (iconv_fd != (iconv_t)-1)
+      {
+  	iconv_close(iconv_fd);
+  	iconv_fd = (iconv_t)-1;
+      }
+- # endif
+  #endif
+  
+      if (!read_buffer && !read_stdin)
+--- 2346,2357 ----
+  						       OPT_FREE|OPT_LOCAL, 0);
+      if (fenc_alloced)
+  	vim_free(fenc);
+! #ifdef USE_ICONV
+      if (iconv_fd != (iconv_t)-1)
+      {
+  	iconv_close(iconv_fd);
+  	iconv_fd = (iconv_t)-1;
+      }
+  #endif
+  
+      if (!read_buffer && !read_stdin)
+***************
+*** 2409,2421 ****
+      }
+  #endif
+  
+- #ifdef FEAT_MBYTE
+      if (tmpname != NULL)
+      {
+  	mch_remove(tmpname);		/* delete converted file */
+  	vim_free(tmpname);
+      }
+- #endif
+      --no_wait_return;			/* may wait for return now */
+  
+      /*
+--- 2375,2385 ----
+***************
+*** 2528,2534 ****
+  		STRCAT(IObuff, _("[long lines split]"));
+  		c = TRUE;
+  	    }
+- #ifdef FEAT_MBYTE
+  	    if (notconverted)
+  	    {
+  		STRCAT(IObuff, _("[NOT converted]"));
+--- 2492,2497 ----
+***************
+*** 2539,2545 ****
+  		STRCAT(IObuff, _("[converted]"));
+  		c = TRUE;
+  	    }
+- #endif
+  #ifdef FEAT_CRYPT
+  	    if (cryptkey != NULL)
+  	    {
+--- 2502,2507 ----
+***************
+*** 2547,2553 ****
+  		c = TRUE;
+  	    }
+  #endif
+- #ifdef FEAT_MBYTE
+  	    if (conv_error != 0)
+  	    {
+  		sprintf((char *)IObuff + STRLEN(IObuff),
+--- 2509,2514 ----
+***************
+*** 2560,2568 ****
+  			 _("[ILLEGAL BYTE in line %ld]"), (long)illegal_byte);
+  		c = TRUE;
+  	    }
+! 	    else
+! #endif
+! 		if (error)
+  	    {
+  		STRCAT(IObuff, _("[READ ERRORS]"));
+  		c = TRUE;
+--- 2521,2527 ----
+  			 _("[ILLEGAL BYTE in line %ld]"), (long)illegal_byte);
+  		c = TRUE;
+  	    }
+! 	    else if (error)
+  	    {
+  		STRCAT(IObuff, _("[READ ERRORS]"));
+  		c = TRUE;
+***************
+*** 2601,2611 ****
+  
+  	/* with errors writing the file requires ":w!" */
+  	if (newfile && (error
+- #ifdef FEAT_MBYTE
+  		    || conv_error != 0
+! 		    || (illegal_byte > 0 && bad_char_behavior != BAD_KEEP)
+! #endif
+! 		    ))
+  	    curbuf->b_p_ro = TRUE;
+  
+  	u_clearline();	    /* cannot use "U" command after adding lines */
+--- 2560,2567 ----
+  
+  	/* with errors writing the file requires ":w!" */
+  	if (newfile && (error
+  		    || conv_error != 0
+! 		    || (illegal_byte > 0 && bad_char_behavior != BAD_KEEP)))
+  	    curbuf->b_p_ro = TRUE;
+  
+  	u_clearline();	    /* cannot use "U" command after adding lines */
+***************
+*** 2745,2752 ****
+  }
+  #endif
+  
+- #ifdef FEAT_MBYTE
+- 
+  /*
+   * From the current line count and characters read after that, estimate the
+   * line number where we are now.
+--- 2701,2706 ----
+***************
+*** 2767,2773 ****
+  	    ++lnum;
+      return lnum;
+  }
+- #endif
+  
+  /*
+   * Fill "*eap" to force the 'fileencoding', 'fileformat' and 'binary to be
+--- 2721,2726 ----
+***************
+*** 2777,2797 ****
+      int
+  prep_exarg(exarg_T *eap, buf_T *buf)
+  {
+!     eap->cmd = alloc(15
+! #ifdef FEAT_MBYTE
+! 		+ (unsigned)STRLEN(buf->b_p_fenc)
+! #endif
+! 	    );
+      if (eap->cmd == NULL)
+  	return FAIL;
+  
+- #ifdef FEAT_MBYTE
+      sprintf((char *)eap->cmd, "e ++enc=%s", buf->b_p_fenc);
+      eap->force_enc = 8;
+      eap->bad_char = buf->b_bad_char;
+- #else
+-     sprintf((char *)eap->cmd, "e");
+- #endif
+      eap->force_ff = *buf->b_p_ff;
+  
+      eap->force_bin = buf->b_p_bin ? FORCE_BIN : FORCE_NOBIN;
+--- 2730,2742 ----
+      int
+  prep_exarg(exarg_T *eap, buf_T *buf)
+  {
+!     eap->cmd = alloc(15 + (unsigned)STRLEN(buf->b_p_fenc));
+      if (eap->cmd == NULL)
+  	return FAIL;
+  
+      sprintf((char *)eap->cmd, "e ++enc=%s", buf->b_p_fenc);
+      eap->force_enc = 8;
+      eap->bad_char = buf->b_bad_char;
+      eap->force_ff = *buf->b_p_ff;
+  
+      eap->force_bin = buf->b_p_bin ? FORCE_BIN : FORCE_NOBIN;
+***************
+*** 2825,2831 ****
+      }
+  }
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Set forced 'fileencoding'.
+   */
+--- 2770,2775 ----
+***************
+*** 2886,2892 ****
+      return r;
+  }
+  
+! # ifdef FEAT_EVAL
+  /*
+   * Convert a file with the 'charconvert' expression.
+   * This closes the file which is to be read, converts it and opens the
+--- 2830,2836 ----
+      return r;
+  }
+  
+! #ifdef FEAT_EVAL
+  /*
+   * Convert a file with the 'charconvert' expression.
+   * This closes the file which is to be read, converts it and opens the
+***************
+*** 2937,2946 ****
+  
+      return tmpname;
+  }
+- # endif
+- 
+  #endif
+  
+  #ifdef FEAT_VIMINFO
+  /*
+   * Read marks for the current buffer from the viminfo file, when we support
+--- 2881,2889 ----
+  
+      return tmpname;
+  }
+  #endif
+  
++ 
+  #ifdef FEAT_VIMINFO
+  /*
+   * Read marks for the current buffer from the viminfo file, when we support
+***************
+*** 3176,3187 ****
+      int		    fileformat;
+      int		    write_bin;
+      struct bw_info  write_info;		/* info for buf_write_bytes() */
+- #ifdef FEAT_MBYTE
+      int		    converted = FALSE;
+      int		    notconverted = FALSE;
+      char_u	    *fenc;		/* effective 'fileencoding' */
+      char_u	    *fenc_tofree = NULL; /* allocated "fenc" */
+- #endif
+  #ifdef HAS_BW_FLAGS
+      int		    wb_flags = 0;
+  #endif
+--- 3119,3128 ----
+***************
+*** 3219,3233 ****
+  	return FAIL;
+      }
+  
+- #ifdef FEAT_MBYTE
+      /* must init bw_conv_buf and bw_iconv_fd before jumping to "fail" */
+      write_info.bw_conv_buf = NULL;
+      write_info.bw_conv_error = FALSE;
+      write_info.bw_conv_error_lnum = 0;
+      write_info.bw_restlen = 0;
+! # ifdef USE_ICONV
+      write_info.bw_iconv_fd = (iconv_t)-1;
+- # endif
+  #endif
+  #ifdef FEAT_CRYPT
+      write_info.bw_buffer = buf;
+--- 3160,3172 ----
+  	return FAIL;
+      }
+  
+      /* must init bw_conv_buf and bw_iconv_fd before jumping to "fail" */
+      write_info.bw_conv_buf = NULL;
+      write_info.bw_conv_error = FALSE;
+      write_info.bw_conv_error_lnum = 0;
+      write_info.bw_restlen = 0;
+! #ifdef USE_ICONV
+      write_info.bw_iconv_fd = (iconv_t)-1;
+  #endif
+  #ifdef FEAT_CRYPT
+      write_info.bw_buffer = buf;
+***************
+*** 4227,4233 ****
+       * multi-byte conversion. */
+      wfname = fname;
+  
+- #ifdef FEAT_MBYTE
+      /* Check for forced 'fileencoding' from "++opt=val" argument. */
+      if (eap != NULL && eap->force_enc != 0)
+      {
+--- 4166,4171 ----
+***************
+*** 4265,4271 ****
+  	}
+      }
+  
+! # ifdef WIN3264
+      if (converted && wb_flags == 0 && (wb_flags = get_win_fio_flags(fenc)) != 0)
+      {
+  	/* Convert UTF-8 -> UCS-2 and UCS-2 -> DBCS.  Worst-case * 4: */
+--- 4203,4209 ----
+  	}
+      }
+  
+! #ifdef WIN3264
+      if (converted && wb_flags == 0 && (wb_flags = get_win_fio_flags(fenc)) != 0)
+      {
+  	/* Convert UTF-8 -> UCS-2 and UCS-2 -> DBCS.  Worst-case * 4: */
+***************
+*** 4275,4283 ****
+  	if (write_info.bw_conv_buf == NULL)
+  	    end = 0;
+      }
+! # endif
+  
+! # ifdef MACOS_CONVERT
+      if (converted && wb_flags == 0 && (wb_flags = get_mac_fio_flags(fenc)) != 0)
+      {
+  	write_info.bw_conv_buflen = bufsize * 3;
+--- 4213,4221 ----
+  	if (write_info.bw_conv_buf == NULL)
+  	    end = 0;
+      }
+! #endif
+  
+! #ifdef MACOS_CONVERT
+      if (converted && wb_flags == 0 && (wb_flags = get_mac_fio_flags(fenc)) != 0)
+      {
+  	write_info.bw_conv_buflen = bufsize * 3;
+***************
+*** 4286,4297 ****
+  	if (write_info.bw_conv_buf == NULL)
+  	    end = 0;
+      }
+! # endif
+  
+! # if defined(FEAT_EVAL) || defined(USE_ICONV)
+      if (converted && wb_flags == 0)
+      {
+! #  ifdef USE_ICONV
+  	/*
+  	 * Use iconv() conversion when conversion is needed and it's not done
+  	 * internally.
+--- 4224,4235 ----
+  	if (write_info.bw_conv_buf == NULL)
+  	    end = 0;
+      }
+! #endif
+  
+! #if defined(FEAT_EVAL) || defined(USE_ICONV)
+      if (converted && wb_flags == 0)
+      {
+! # ifdef USE_ICONV
+  	/*
+  	 * Use iconv() conversion when conversion is needed and it's not done
+  	 * internally.
+***************
+*** 4308,4319 ****
+  		end = 0;
+  	    write_info.bw_first = TRUE;
+  	}
+! #   ifdef FEAT_EVAL
+  	else
+- #   endif
+  #  endif
+  
+! #  ifdef FEAT_EVAL
+  	    /*
+  	     * When the file needs to be converted with 'charconvert' after
+  	     * writing, write to a temp file instead and let the conversion
+--- 4246,4257 ----
+  		end = 0;
+  	    write_info.bw_first = TRUE;
+  	}
+! #  ifdef FEAT_EVAL
+  	else
+  #  endif
++ # endif
+  
+! # ifdef FEAT_EVAL
+  	    /*
+  	     * When the file needs to be converted with 'charconvert' after
+  	     * writing, write to a temp file instead and let the conversion
+***************
+*** 4328,4343 ****
+  		    goto restore_backup;
+  		}
+  	    }
+- #  endif
+-     }
+  # endif
+      if (converted && wb_flags == 0
+! #  ifdef USE_ICONV
+  	    && write_info.bw_iconv_fd == (iconv_t)-1
+! #  endif
+! #  ifdef FEAT_EVAL
+  	    && wfname == fname
+! #  endif
+  	    )
+      {
+  	if (!forceit)
+--- 4266,4281 ----
+  		    goto restore_backup;
+  		}
+  	    }
+  # endif
++     }
++ #endif
+      if (converted && wb_flags == 0
+! #ifdef USE_ICONV
+  	    && write_info.bw_iconv_fd == (iconv_t)-1
+! # endif
+! # ifdef FEAT_EVAL
+  	    && wfname == fname
+! # endif
+  	    )
+      {
+  	if (!forceit)
+***************
+*** 4347,4353 ****
+  	}
+  	notconverted = TRUE;
+      }
+- #endif
+  
+      /*
+       * If conversion is taking place, we may first pretend to write and check
+--- 4285,4290 ----
+***************
+*** 4362,4370 ****
+  	 * - we make a backup file, that can be restored in case of conversion
+  	 *   failure.
+  	 */
+- #ifdef FEAT_MBYTE
+  	if (!converted || dobackup)
+- #endif
+  	    checking_conversion = FALSE;
+  
+  	if (checking_conversion)
+--- 4299,4305 ----
+***************
+*** 4477,4486 ****
+  			end = 0;
+  		}
+  
+- #ifdef FEAT_MBYTE
+  		if (wfname != fname)
+  		    vim_free(wfname);
+- #endif
+  		goto fail;
+  	    }
+  	    write_info.bw_fd = fd;
+--- 4412,4419 ----
+***************
+*** 4563,4569 ****
+  	else
+  	    write_bin = buf->b_p_bin;
+  
+- #ifdef FEAT_MBYTE
+  	/*
+  	 * The BOM is written just after the encryption magic number.
+  	 * Skip it when appending and the file already existed, the BOM only
+--- 4496,4501 ----
+***************
+*** 4583,4589 ****
+  	    }
+  	}
+  	write_info.bw_start_lnum = start;
+- #endif
+  
+  #ifdef FEAT_PERSISTENT_UNDO
+  	write_undo_file = (buf->b_p_udf
+--- 4515,4520 ----
+***************
+*** 4635,4643 ****
+  		nchars += bufsize;
+  		s = buffer;
+  		len = 0;
+- #ifdef FEAT_MBYTE
+  		write_info.bw_start_lnum = lnum;
+- #endif
+  	    }
+  	    /* write failed or last line has no EOL: stop here */
+  	    if (end == 0
+--- 4566,4572 ----
+***************
+*** 4841,4847 ****
+  	}
+  #endif
+  
+! #if defined(FEAT_MBYTE) && defined(FEAT_EVAL)
+  	if (wfname != fname)
+  	{
+  	    /*
+--- 4770,4776 ----
+  	}
+  #endif
+  
+! #if defined(FEAT_EVAL)
+  	if (wfname != fname)
+  	{
+  	    /*
+***************
+*** 4870,4876 ****
+  	 */
+  	if (errmsg == NULL)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (write_info.bw_conv_error)
+  	    {
+  		if (write_info.bw_conv_error_lnum == 0)
+--- 4799,4804 ----
+***************
+*** 4883,4894 ****
+  					 (long)write_info.bw_conv_error_lnum);
+  		}
+  	    }
+  	    else
+! #endif
+! 		if (got_int)
+! 		    errmsg = (char_u *)_(e_interr);
+! 		else
+! 		    errmsg = (char_u *)_("E514: write error (file system full?)");
+  	}
+  
+  	/*
+--- 4811,4820 ----
+  					 (long)write_info.bw_conv_error_lnum);
+  		}
+  	    }
++ 	    else if (got_int)
++ 		errmsg = (char_u *)_(e_interr);
+  	    else
+! 		errmsg = (char_u *)_("E514: write error (file system full?)");
+  	}
+  
+  	/*
+***************
+*** 4953,4959 ****
+      {
+  	msg_add_fname(buf, fname);	/* put fname in IObuff with quotes */
+  	c = FALSE;
+- #ifdef FEAT_MBYTE
+  	if (write_info.bw_conv_error)
+  	{
+  	    STRCAT(IObuff, _(" CONVERSION ERROR"));
+--- 4879,4884 ----
+***************
+*** 4972,4978 ****
+  	    STRCAT(IObuff, _("[converted]"));
+  	    c = TRUE;
+  	}
+- #endif
+  	if (device)
+  	{
+  	    STRCAT(IObuff, _("[Device]"));
+--- 4897,4902 ----
+***************
+*** 5013,5023 ****
+      /* When written everything correctly: reset 'modified'.  Unless not
+       * writing to the original file and '+' is not in 'cpoptions'. */
+      if (reset_changed && whole && !append
+- #ifdef FEAT_MBYTE
+  	    && !write_info.bw_conv_error
+! #endif
+! 	    && (overwriting || vim_strchr(p_cpo, CPO_PLUS) != NULL)
+! 	    )
+      {
+  	unchanged(buf, TRUE);
+  	/* b:changedtick is always incremented in unchanged() but that
+--- 4937,4944 ----
+      /* When written everything correctly: reset 'modified'.  Unless not
+       * writing to the original file and '+' is not in 'cpoptions'. */
+      if (reset_changed && whole && !append
+  	    && !write_info.bw_conv_error
+! 	    && (overwriting || vim_strchr(p_cpo, CPO_PLUS) != NULL))
+      {
+  	unchanged(buf, TRUE);
+  	/* b:changedtick is always incremented in unchanged() but that
+***************
+*** 5113,5128 ****
+      vim_free(backup);
+      if (buffer != smallbuf)
+  	vim_free(buffer);
+- #ifdef FEAT_MBYTE
+      vim_free(fenc_tofree);
+      vim_free(write_info.bw_conv_buf);
+! # ifdef USE_ICONV
+      if (write_info.bw_iconv_fd != (iconv_t)-1)
+      {
+  	iconv_close(write_info.bw_iconv_fd);
+  	write_info.bw_iconv_fd = (iconv_t)-1;
+      }
+- # endif
+  #endif
+  #ifdef HAVE_ACL
+      mch_free_acl(acl);
+--- 5034,5047 ----
+      vim_free(backup);
+      if (buffer != smallbuf)
+  	vim_free(buffer);
+      vim_free(fenc_tofree);
+      vim_free(write_info.bw_conv_buf);
+! #ifdef USE_ICONV
+      if (write_info.bw_iconv_fd != (iconv_t)-1)
+      {
+  	iconv_close(write_info.bw_iconv_fd);
+  	write_info.bw_iconv_fd = (iconv_t)-1;
+      }
+  #endif
+  #ifdef HAVE_ACL
+      mch_free_acl(acl);
+***************
+*** 5411,5417 ****
+      int		flags = ip->bw_flags;	/* extra flags */
+  #endif
+  
+- #ifdef FEAT_MBYTE
+      /*
+       * Skip conversion when writing the crypt magic number or the BOM.
+       */
+--- 5330,5335 ----
+***************
+*** 5521,5527 ****
+  	    }
+  	}
+  
+! # ifdef WIN3264
+  	else if (flags & FIO_CODEPAGE)
+  	{
+  	    /*
+--- 5439,5445 ----
+  	    }
+  	}
+  
+! #ifdef WIN3264
+  	else if (flags & FIO_CODEPAGE)
+  	{
+  	    /*
+***************
+*** 5617,5623 ****
+  
+  	    fromlen = to - ip->bw_conv_buf;
+  	    buf = to;
+! #  ifdef CP_UTF8	/* VC 4.1 doesn't define CP_UTF8 */
+  	    if (FIO_GET_CP(flags) == CP_UTF8)
+  	    {
+  		/* Convert from UCS-2 to UTF-8, using the remainder of the
+--- 5535,5541 ----
+  
+  	    fromlen = to - ip->bw_conv_buf;
+  	    buf = to;
+! # ifdef CP_UTF8	/* VC 4.1 doesn't define CP_UTF8 */
+  	    if (FIO_GET_CP(flags) == CP_UTF8)
+  	    {
+  		/* Convert from UCS-2 to UTF-8, using the remainder of the
+***************
+*** 5636,5642 ****
+  		len = (int)(to - buf);
+  	    }
+  	    else
+! #endif
+  	    {
+  		/* Convert from UCS-2 to the codepage, using the remainder of
+  		 * the conversion buffer.  If the conversion uses the default
+--- 5554,5560 ----
+  		len = (int)(to - buf);
+  	    }
+  	    else
+! # endif
+  	    {
+  		/* Convert from UCS-2 to the codepage, using the remainder of
+  		 * the conversion buffer.  If the conversion uses the default
+***************
+*** 5653,5661 ****
+  		}
+  	    }
+  	}
+! # endif
+  
+! # ifdef MACOS_CONVERT
+  	else if (flags & FIO_MACROMAN)
+  	{
+  	    /*
+--- 5571,5579 ----
+  		}
+  	    }
+  	}
+! #endif
+  
+! #ifdef MACOS_CONVERT
+  	else if (flags & FIO_MACROMAN)
+  	{
+  	    /*
+***************
+*** 5689,5697 ****
+  	    }
+  	    buf = ip->bw_conv_buf;
+  	}
+! # endif
+  
+! # ifdef USE_ICONV
+  	if (ip->bw_iconv_fd != (iconv_t)-1)
+  	{
+  	    const char	*from;
+--- 5607,5615 ----
+  	    }
+  	    buf = ip->bw_conv_buf;
+  	}
+! #endif
+  
+! #ifdef USE_ICONV
+  	if (ip->bw_iconv_fd != (iconv_t)-1)
+  	{
+  	    const char	*from;
+***************
+*** 5759,5767 ****
+  	    buf = ip->bw_conv_buf;
+  	    len = (int)((char_u *)to - ip->bw_conv_buf);
+  	}
+! # endif
+      }
+- #endif /* FEAT_MBYTE */
+  
+      if (ip->bw_fd < 0)
+  	/* Only checking conversion, which is OK if we get here. */
+--- 5677,5684 ----
+  	    buf = ip->bw_conv_buf;
+  	    len = (int)((char_u *)to - ip->bw_conv_buf);
+  	}
+! #endif
+      }
+  
+      if (ip->bw_fd < 0)
+  	/* Only checking conversion, which is OK if we get here. */
+***************
+*** 5798,5804 ****
+      return (wlen < len) ? FAIL : OK;
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Convert a Unicode character to bytes.
+   * Return TRUE for an error, FALSE when it's OK.
+--- 5715,5720 ----
+***************
+*** 6089,6095 ****
+      (void)ucs2bytes(0xfeff, &p, flags);
+      return (int)(p - buf);
+  }
+- #endif
+  
+  /*
+   * Try to find a shortname by comparing the fullname with the current
+--- 6005,6010 ----
+***************
+*** 7639,7651 ****
+      if (path_with_url(fname))
+  	return;
+      for (p = fname; *p != NUL; ++p)
+- # ifdef  FEAT_MBYTE
+  	/* The Big5 encoding can have '\' in the trail byte. */
+  	if (enc_dbcs != 0 && (*mb_ptr2len)(p) > 1)
+  	    ++p;
+! 	else
+! # endif
+! 	if (*p == '\\')
+  	    *p = '/';
+  }
+  #endif
+--- 7554,7563 ----
+      if (path_with_url(fname))
+  	return;
+      for (p = fname; *p != NUL; ++p)
+  	/* The Big5 encoding can have '\' in the trail byte. */
+  	if (enc_dbcs != 0 && (*mb_ptr2len)(p) > 1)
+  	    ++p;
+! 	else if (*p == '\\')
+  	    *p = '/';
+  }
+  #endif
+***************
+*** 10340,10352 ****
+  #endif
+  	    default:
+  		size++;
+- # ifdef FEAT_MBYTE
+  		if (enc_dbcs != 0 && (*mb_ptr2len)(p) > 1)
+  		{
+  		    ++p;
+  		    ++size;
+  		}
+- # endif
+  		break;
+  	}
+      }
+--- 10252,10262 ----
+***************
+*** 10479,10490 ****
+  		    reg_pat[i++] = ',';
+  		break;
+  	    default:
+- # ifdef  FEAT_MBYTE
+  		if (enc_dbcs != 0 && (*mb_ptr2len)(p) > 1)
+  		    reg_pat[i++] = *p++;
+! 		else
+! # endif
+! 		if (allow_dirs != NULL && vim_ispathsep(*p))
+  		    *allow_dirs = TRUE;
+  		reg_pat[i++] = *p;
+  		break;
+--- 10389,10397 ----
+  		    reg_pat[i++] = ',';
+  		break;
+  	    default:
+  		if (enc_dbcs != 0 && (*mb_ptr2len)(p) > 1)
+  		    reg_pat[i++] = *p++;
+! 		else if (allow_dirs != NULL && vim_ispathsep(*p))
+  		    *allow_dirs = TRUE;
+  		reg_pat[i++] = *p;
+  		break;
+*** ../vim-8.1.0804/src/fold.c	2019-01-13 23:38:33.391773303 +0100
+--- src/fold.c	2019-01-24 14:49:06.965289375 +0100
+***************
+*** 1057,1067 ****
+  	end->col = (colnr_T)STRLEN(ptr);
+  	if (end->col > 0 && *p_sel == 'o')
+  	    --end->col;
+- #ifdef FEAT_MBYTE
+  	/* prevent cursor from moving on the trail byte */
+  	if (has_mbyte)
+  	    mb_adjust_cursor();
+- #endif
+      }
+  }
+  
+--- 1057,1065 ----
+***************
+*** 1946,1952 ****
+  	     * replace a TAB with a space. */
+  	    for (p = text; *p != NUL; ++p)
+  	    {
+- # ifdef FEAT_MBYTE
+  		int	len;
+  
+  		if (has_mbyte && (len = (*mb_ptr2len)(p)) > 1)
+--- 1944,1949 ----
+***************
+*** 1956,1962 ****
+  		    p += len - 1;
+  		}
+  		else
+- # endif
+  		    if (*p == TAB)
+  			*p = ' ';
+  		    else if (ptr2cells(p) > 1)
+--- 1953,1958 ----
+*** ../vim-8.1.0804/src/gui.c	2019-01-19 17:43:03.413449172 +0100
+--- src/gui.c	2019-01-24 14:52:09.860035462 +0100
+***************
+*** 13,19 ****
+  /* Structure containing all the GUI information */
+  gui_T gui;
+  
+! #if defined(FEAT_MBYTE) && !defined(FEAT_GUI_GTK)
+  static void set_guifontwide(char_u *font_name);
+  #endif
+  static void gui_check_pos(void);
+--- 13,19 ----
+  /* Structure containing all the GUI information */
+  gui_T gui;
+  
+! #if !defined(FEAT_GUI_GTK)
+  static void set_guifontwide(char_u *font_name);
+  #endif
+  static void gui_check_pos(void);
+***************
+*** 397,409 ****
+      gui.fontset = NOFONTSET;
+  # endif
+  #endif
+- #ifdef FEAT_MBYTE
+      gui.wide_font = NOFONT;
+! # ifndef FEAT_GUI_GTK
+      gui.wide_bold_font = NOFONT;
+      gui.wide_ital_font = NOFONT;
+      gui.wide_boldital_font = NOFONT;
+- # endif
+  #endif
+  
+  #ifdef FEAT_MENU
+--- 397,407 ----
+      gui.fontset = NOFONTSET;
+  # endif
+  #endif
+      gui.wide_font = NOFONT;
+! #ifndef FEAT_GUI_GTK
+      gui.wide_bold_font = NOFONT;
+      gui.wide_ital_font = NOFONT;
+      gui.wide_boldital_font = NOFONT;
+  #endif
+  
+  #ifdef FEAT_MENU
+***************
+*** 652,661 ****
+  	emsg(_("E665: Cannot start GUI, no valid font found"));
+  	goto error2;
+      }
+- #ifdef FEAT_MBYTE
+      if (gui_get_wide_font() == FAIL)
+  	emsg(_("E231: 'guifontwide' invalid"));
+- #endif
+  
+      gui.num_cols = Columns;
+      gui.num_rows = Rows;
+--- 650,657 ----
+***************
+*** 874,880 ****
+  		 * longer be used! */
+  		if (gui_mch_init_font(font_name, FALSE) == OK)
+  		{
+! #if defined(FEAT_MBYTE) && !defined(FEAT_GUI_GTK)
+  		    /* If it's a Unicode font, try setting 'guifontwide' to a
+  		     * similar double-width font. */
+  		    if ((p_guifontwide == NULL || *p_guifontwide == NUL)
+--- 870,876 ----
+  		 * longer be used! */
+  		if (gui_mch_init_font(font_name, FALSE) == OK)
+  		{
+! #if !defined(FEAT_GUI_GTK)
+  		    /* If it's a Unicode font, try setting 'guifontwide' to a
+  		     * similar double-width font. */
+  		    if ((p_guifontwide == NULL || *p_guifontwide == NUL)
+***************
+*** 916,923 ****
+      return ret;
+  }
+  
+! #if defined(FEAT_MBYTE) || defined(PROTO)
+! # ifndef FEAT_GUI_GTK
+  /*
+   * Try setting 'guifontwide' to a font twice as wide as "name".
+   */
+--- 912,918 ----
+      return ret;
+  }
+  
+! #ifndef FEAT_GUI_GTK
+  /*
+   * Try setting 'guifontwide' to a font twice as wide as "name".
+   */
+***************
+*** 964,970 ****
+  	}
+      }
+  }
+! # endif /* !FEAT_GUI_GTK */
+  
+  /*
+   * Get the font for 'guifontwide'.
+--- 959,965 ----
+  	}
+      }
+  }
+! #endif /* !FEAT_GUI_GTK */
+  
+  /*
+   * Get the font for 'guifontwide'.
+***************
+*** 995,1001 ****
+      }
+  
+      gui_mch_free_font(gui.wide_font);
+! # ifdef FEAT_GUI_GTK
+      /* Avoid unnecessary overhead if 'guifontwide' is equal to 'guifont'. */
+      if (font != NOFONT && gui.norm_font != NOFONT
+  			 && pango_font_description_equal(font, gui.norm_font))
+--- 990,996 ----
+      }
+  
+      gui_mch_free_font(gui.wide_font);
+! #ifdef FEAT_GUI_GTK
+      /* Avoid unnecessary overhead if 'guifontwide' is equal to 'guifont'. */
+      if (font != NOFONT && gui.norm_font != NOFONT
+  			 && pango_font_description_equal(font, gui.norm_font))
+***************
+*** 1004,1022 ****
+  	gui_mch_free_font(font);
+      }
+      else
+! # endif
+  	gui.wide_font = font;
+! # ifdef FEAT_GUI_MSWIN
+      gui_mch_wide_font_changed();
+! # else
+      /*
+       * TODO: setup wide_bold_font, wide_ital_font and wide_boldital_font to
+       * support those fonts for 'guifontwide'.
+       */
+! # endif
+      return OK;
+  }
+- #endif
+  
+      void
+  gui_set_cursor(int row, int col)
+--- 999,1016 ----
+  	gui_mch_free_font(font);
+      }
+      else
+! #endif
+  	gui.wide_font = font;
+! #ifdef FEAT_GUI_MSWIN
+      gui_mch_wide_font_changed();
+! #else
+      /*
+       * TODO: setup wide_bold_font, wide_ital_font and wide_boldital_font to
+       * support those fonts for 'guifontwide'.
+       */
+! #endif
+      return OK;
+  }
+  
+      void
+  gui_set_cursor(int row, int col)
+***************
+*** 1258,1264 ****
+  	}
+  	else
+  	{
+! #if defined(FEAT_MBYTE) && defined(FEAT_RIGHTLEFT)
+  	    int	    col_off = FALSE;
+  #endif
+  	    /*
+--- 1252,1258 ----
+  	}
+  	else
+  	{
+! #if defined(FEAT_RIGHTLEFT)
+  	    int	    col_off = FALSE;
+  #endif
+  	    /*
+***************
+*** 1275,1288 ****
+  		cur_height = (gui.char_height * shape->percentage + 99) / 100;
+  		cur_width = gui.char_width;
+  	    }
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte && (*mb_off2cells)(LineOffset[gui.row] + gui.col,
+  				    LineOffset[gui.row] + screen_Columns) > 1)
+  	    {
+  		/* Double wide character. */
+  		if (shape->shape != SHAPE_VER)
+  		    cur_width += gui.char_width;
+! # ifdef FEAT_RIGHTLEFT
+  		if (CURSOR_BAR_RIGHT)
+  		{
+  		    /* gui.col points to the left halve of the character but
+--- 1269,1281 ----
+  		cur_height = (gui.char_height * shape->percentage + 99) / 100;
+  		cur_width = gui.char_width;
+  	    }
+  	    if (has_mbyte && (*mb_off2cells)(LineOffset[gui.row] + gui.col,
+  				    LineOffset[gui.row] + screen_Columns) > 1)
+  	    {
+  		/* Double wide character. */
+  		if (shape->shape != SHAPE_VER)
+  		    cur_width += gui.char_width;
+! #ifdef FEAT_RIGHTLEFT
+  		if (CURSOR_BAR_RIGHT)
+  		{
+  		    /* gui.col points to the left halve of the character but
+***************
+*** 1292,1302 ****
+  		    col_off = TRUE;
+  		    ++gui.col;
+  		}
+- # endif
+- 	    }
+  #endif
+  	    gui_mch_draw_part_cursor(cur_width, cur_height, cbg);
+! #if defined(FEAT_MBYTE) && defined(FEAT_RIGHTLEFT)
+  	    if (col_off)
+  		--gui.col;
+  #endif
+--- 1285,1294 ----
+  		    col_off = TRUE;
+  		    ++gui.col;
+  		}
+  #endif
++ 	    }
+  	    gui_mch_draw_part_cursor(cur_width, cur_height, cbg);
+! #if defined(FEAT_RIGHTLEFT)
+  	    if (col_off)
+  		--gui.col;
+  #endif
+***************
+*** 2023,2031 ****
+  gui_outstr(char_u *s, int len)
+  {
+      int	    this_len;
+- #ifdef FEAT_MBYTE
+      int	    cells;
+- #endif
+  
+      if (len == 0)
+  	return;
+--- 2015,2021 ----
+***************
+*** 2035,2041 ****
+  
+      while (len > 0)
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    /* Find out how many chars fit in the current line. */
+--- 2025,2030 ----
+***************
+*** 2051,2057 ****
+  		this_len = len;	    /* don't include following composing char */
+  	}
+  	else
+- #endif
+  	    if (gui.col + len > Columns)
+  	    this_len = Columns - gui.col;
+  	else
+--- 2040,2045 ----
+***************
+*** 2061,2072 ****
+  					  0, (guicolor_T)0, (guicolor_T)0, 0);
+  	s += this_len;
+  	len -= this_len;
+- #ifdef FEAT_MBYTE
+  	/* fill up for a double-width char that doesn't fit. */
+  	if (len > 0 && gui.col < Columns)
+  	    (void)gui_outstr_nowrap((char_u *)" ", 1,
+  					  0, (guicolor_T)0, (guicolor_T)0, 0);
+- #endif
+  	/* The cursor may wrap to the next line. */
+  	if (gui.col >= Columns)
+  	{
+--- 2049,2058 ----
+***************
+*** 2089,2095 ****
+      guicolor_T	bg,	    /* colors for cursor */
+      int		back)	    /* backup this many chars when using bold trick */
+  {
+- #ifdef FEAT_MBYTE
+      char_u	buf[MB_MAXBYTES + 1];
+  
+      /* Don't draw right halve of a double-width UTF-8 char. "cannot happen" */
+--- 2075,2080 ----
+***************
+*** 2112,2120 ****
+      return gui_outstr_nowrap(ScreenLines + off,
+  	    enc_dbcs ? (*mb_ptr2len)(ScreenLines + off) : 1,
+  							 flags, fg, bg, back);
+- #else
+-     return gui_outstr_nowrap(ScreenLines + off, 1, flags, fg, bg, back);
+- #endif
+  }
+  
+  #ifdef FEAT_GUI_GTK
+--- 2097,2102 ----
+***************
+*** 2223,2231 ****
+      guicolor_T	sp_color;
+  #if !defined(FEAT_GUI_GTK)
+      GuiFont	font = NOFONT;
+- # ifdef FEAT_MBYTE
+      GuiFont	wide_font = NOFONT;
+- # endif
+  # ifdef FEAT_XFONTSET
+      GuiFontset	fontset = NOFONTSET;
+  # endif
+--- 2205,2211 ----
+***************
+*** 2316,2322 ****
+  	else
+  	    font = gui.norm_font;
+  
+- # ifdef FEAT_MBYTE
+  	/*
+  	 * Choose correct wide_font by font.  wide_font should be set with font
+  	 * at same time in above block.  But it will make many "ifdef" nasty
+--- 2296,2301 ----
+***************
+*** 2330,2337 ****
+  	    wide_font = gui.wide_ital_font;
+  	else if (font == gui.norm_font && gui.wide_font)
+  	    wide_font = gui.wide_font;
+- # endif
+- 
+      }
+  # ifdef FEAT_XFONTSET
+      if (fontset != NOFONTSET)
+--- 2309,2314 ----
+***************
+*** 2441,2447 ****
+      /* The value returned is the length in display cells */
+      len = gui_gtk2_draw_string(gui.row, col, s, len, draw_flags);
+  #else
+- # ifdef FEAT_MBYTE
+      if (enc_utf8)
+      {
+  	int	start;		/* index of bytes to be drawn */
+--- 2418,2423 ----
+***************
+*** 2456,2466 ****
+  	int	curr_wide = FALSE;  /* use 'guifontwide' */
+  	int	prev_wide = FALSE;
+  	int	wide_changed;
+! #  ifdef WIN3264
+  	int	sep_comp = FALSE;   /* Don't separate composing chars. */
+! #  else
+  	int	sep_comp = TRUE;    /* Separate composing chars. */
+! #  endif
+  
+  	/* Break the string at a composing character, it has to be drawn on
+  	 * top of the previous character. */
+--- 2432,2442 ----
+  	int	curr_wide = FALSE;  /* use 'guifontwide' */
+  	int	prev_wide = FALSE;
+  	int	wide_changed;
+! # ifdef WIN3264
+  	int	sep_comp = FALSE;   /* Don't separate composing chars. */
+! # else
+  	int	sep_comp = TRUE;    /* Separate composing chars. */
+! # endif
+  
+  	/* Break the string at a composing character, it has to be drawn on
+  	 * top of the previous character. */
+***************
+*** 2476,2484 ****
+  	    if (!comping || sep_comp)
+  	    {
+  		if (cn > 1
+! #  ifdef FEAT_XFONTSET
+  			&& fontset == NOFONTSET
+! #  endif
+  			&& wide_font != NOFONT)
+  		    curr_wide = TRUE;
+  		else
+--- 2452,2460 ----
+  	    if (!comping || sep_comp)
+  	    {
+  		if (cn > 1
+! # ifdef FEAT_XFONTSET
+  			&& fontset == NOFONTSET
+! # endif
+  			&& wide_font != NOFONT)
+  		    curr_wide = TRUE;
+  		else
+***************
+*** 2494,2508 ****
+  	     * a composing character. */
+  	    if (i + cl >= len || (comping && sep_comp && i > start)
+  		    || wide_changed
+! #  if defined(FEAT_GUI_X11)
+  		    || (cn > 1
+! #   ifdef FEAT_XFONTSET
+  			/* No fontset: At least draw char after wide char at
+  			 * right position. */
+  			&& fontset == NOFONTSET
+- #   endif
+- 		       )
+  #  endif
+  	       )
+  	    {
+  		if ((comping && sep_comp) || wide_changed)
+--- 2470,2484 ----
+  	     * a composing character. */
+  	    if (i + cl >= len || (comping && sep_comp && i > start)
+  		    || wide_changed
+! # if defined(FEAT_GUI_X11)
+  		    || (cn > 1
+! #  ifdef FEAT_XFONTSET
+  			/* No fontset: At least draw char after wide char at
+  			 * right position. */
+  			&& fontset == NOFONTSET
+  #  endif
++ 		       )
++ # endif
+  	       )
+  	    {
+  		if ((comping && sep_comp) || wide_changed)
+***************
+*** 2529,2557 ****
+  		    cl = 0;
+  		}
+  
+! #  if defined(FEAT_GUI_X11)
+  		/* No fontset: draw a space to fill the gap after a wide char
+  		 * */
+  		if (cn > 1 && (draw_flags & DRAW_TRANSP) == 0
+! #   ifdef FEAT_XFONTSET
+  			&& fontset == NOFONTSET
+! #   endif
+  			&& !wide_changed)
+  		    gui_mch_draw_string(gui.row, scol - 1, (char_u *)" ",
+  							       1, draw_flags);
+! #  endif
+  	    }
+  	    /* Draw a composing char on top of the previous char. */
+  	    if (comping && sep_comp)
+  	    {
+! #  if defined(__APPLE_CC__) && TARGET_API_MAC_CARBON
+  		/* Carbon ATSUI autodraws composing char over previous char */
+  		gui_mch_draw_string(gui.row, scol, s + i, cl,
+  						    draw_flags | DRAW_TRANSP);
+! #  else
+  		gui_mch_draw_string(gui.row, scol - cn, s + i, cl,
+  						    draw_flags | DRAW_TRANSP);
+! #  endif
+  		start = i + cl;
+  	    }
+  	    prev_wide = curr_wide;
+--- 2505,2533 ----
+  		    cl = 0;
+  		}
+  
+! # if defined(FEAT_GUI_X11)
+  		/* No fontset: draw a space to fill the gap after a wide char
+  		 * */
+  		if (cn > 1 && (draw_flags & DRAW_TRANSP) == 0
+! #  ifdef FEAT_XFONTSET
+  			&& fontset == NOFONTSET
+! #  endif
+  			&& !wide_changed)
+  		    gui_mch_draw_string(gui.row, scol - 1, (char_u *)" ",
+  							       1, draw_flags);
+! # endif
+  	    }
+  	    /* Draw a composing char on top of the previous char. */
+  	    if (comping && sep_comp)
+  	    {
+! # if defined(__APPLE_CC__) && TARGET_API_MAC_CARBON
+  		/* Carbon ATSUI autodraws composing char over previous char */
+  		gui_mch_draw_string(gui.row, scol, s + i, cl,
+  						    draw_flags | DRAW_TRANSP);
+! # else
+  		gui_mch_draw_string(gui.row, scol - cn, s + i, cl,
+  						    draw_flags | DRAW_TRANSP);
+! # endif
+  		start = i + cl;
+  	    }
+  	    prev_wide = curr_wide;
+***************
+*** 2560,2576 ****
+  	len = scol - col;
+      }
+      else
+- # endif
+      {
+  	gui_mch_draw_string(gui.row, col, s, len, draw_flags);
+- # ifdef FEAT_MBYTE
+  	if (enc_dbcs == DBCS_JPNU)
+  	{
+  	    /* Get the length in display cells, this can be different from the
+  	     * number of bytes for "euc-jp". */
+  	    len = mb_string2cells(s, len);
+  	}
+- # endif
+      }
+  #endif /* !FEAT_GUI_GTK */
+  
+--- 2536,2549 ----
+***************
+*** 2697,2705 ****
+      int		idx, len;
+      int		back, nback;
+      int		retval = FALSE;
+- #ifdef FEAT_MBYTE
+      int		orig_col1, orig_col2;
+- #endif
+  
+      /* Don't try to update when ScreenLines is not valid */
+      if (!screen_cleared || ScreenLines == NULL)
+--- 2670,2676 ----
+***************
+*** 2716,2729 ****
+      old_row = gui.row;
+      old_col = gui.col;
+      old_hl_mask = gui.highlight_mask;
+- #ifdef FEAT_MBYTE
+      orig_col1 = col1;
+      orig_col2 = col2;
+- #endif
+  
+      for (gui.row = row1; gui.row <= row2; gui.row++)
+      {
+- #ifdef FEAT_MBYTE
+  	/* When only half of a double-wide character is in the block, include
+  	 * the other half. */
+  	col1 = orig_col1;
+--- 2687,2697 ----
+***************
+*** 2753,2764 ****
+  		    msg((char *)IObuff);
+  		}
+  	    }
+! # ifdef FEAT_GUI_GTK
+  	    if (col2 + 1 < Columns && ScreenLines[off + col2 + 1] == 0)
+  		++col2;
+- # endif
+- 	}
+  #endif
+  	gui.col = col1;
+  	off = LineOffset[gui.row] + gui.col;
+  	len = col2 - col1 + 1;
+--- 2721,2731 ----
+  		    msg((char *)IObuff);
+  		}
+  	    }
+! #ifdef FEAT_GUI_GTK
+  	    if (col2 + 1 < Columns && ScreenLines[off + col2 + 1] == 0)
+  		++col2;
+  #endif
++ 	}
+  	gui.col = col1;
+  	off = LineOffset[gui.row] + gui.col;
+  	len = col2 - col1 + 1;
+***************
+*** 2778,2784 ****
+  	{
+  	    first_attr = ScreenAttrs[off];
+  	    gui.highlight_mask = first_attr;
+! #if defined(FEAT_MBYTE) && !defined(FEAT_GUI_GTK)
+  	    if (enc_utf8 && ScreenLinesUC[off] != 0)
+  	    {
+  		/* output multi-byte character separately */
+--- 2745,2751 ----
+  	{
+  	    first_attr = ScreenAttrs[off];
+  	    gui.highlight_mask = first_attr;
+! #if !defined(FEAT_GUI_GTK)
+  	    if (enc_utf8 && ScreenLinesUC[off] != 0)
+  	    {
+  		/* output multi-byte character separately */
+***************
+*** 2814,2820 ****
+  		for (idx = 0; idx < len && ScreenAttrs[off + idx] == first_attr;
+  									idx++)
+  		{
+- # ifdef FEAT_MBYTE
+  		    /* Stop at a multi-byte Unicode character. */
+  		    if (enc_utf8 && ScreenLinesUC[off + idx] != 0)
+  			break;
+--- 2781,2786 ----
+***************
+*** 2827,2833 ****
+  							    + off + idx) == 2)
+  			    ++idx;  /* skip second byte of double-byte char */
+  		    }
+- # endif
+  		}
+  		nback = gui_outstr_nowrap(ScreenLines + off, idx, flags,
+  					  (guicolor_T)0, (guicolor_T)0, back);
+--- 2793,2798 ----
+***************
+*** 3390,3400 ****
+      int		col = check_col(X_2_COL(x));
+      int		row = check_row(Y_2_ROW(y));
+  
+- #ifdef FEAT_MBYTE
+      *colp = mb_fix_col(col, row);
+- #else
+-     *colp = col;
+- #endif
+      return row;
+  }
+  
+--- 3355,3361 ----
+*** ../vim-8.1.0804/src/gui_mac.c	2019-01-13 23:38:33.395773275 +0100
+--- src/gui_mac.c	2019-01-24 14:55:07.014824269 +0100
+***************
+*** 48,58 ****
+  
+  /* Vim's Scrap flavor. */
+  #define VIMSCRAPFLAVOR 'VIM!'
+! #ifdef FEAT_MBYTE
+! # define SCRAPTEXTFLAVOR kScrapFlavorTypeUnicode
+! #else
+! # define SCRAPTEXTFLAVOR kScrapFlavorTypeText
+! #endif
+  
+  static EventHandlerUPP mouseWheelHandlerUPP = NULL;
+  SInt32 gMacSystemVersion;
+--- 48,54 ----
+  
+  /* Vim's Scrap flavor. */
+  #define VIMSCRAPFLAVOR 'VIM!'
+! #define SCRAPTEXTFLAVOR kScrapFlavorTypeUnicode
+  
+  static EventHandlerUPP mouseWheelHandlerUPP = NULL;
+  SInt32 gMacSystemVersion;
+***************
+*** 169,177 ****
+  # define USE_ATSUI_DRAWING
+  int	    p_macatsui_last;
+  ATSUStyle   gFontStyle;
+- # ifdef FEAT_MBYTE
+  ATSUStyle   gWideFontStyle;
+- # endif
+  Boolean	    gIsFontFallbackSet;
+  UInt32      useAntialias_cached = 0x0;
+  #endif
+--- 165,171 ----
+***************
+*** 2035,2049 ****
+  	switch (eventKind)
+  	{
+  	    case kEventWindowActivated:
+- # if defined(FEAT_MBYTE)
+  		im_on_window_switch(TRUE);
+- # endif
+  		return noErr;
+  
+  	    case kEventWindowDeactivated:
+- # if defined(FEAT_MBYTE)
+  		im_on_window_switch(FALSE);
+- # endif
+  		return noErr;
+  	}
+      }
+--- 2029,2039 ----
+***************
+*** 2391,2397 ****
+  	}
+  	else
+  	{
+- #ifdef FEAT_MBYTE
+  	    /* Convert characters when needed (e.g., from MacRoman to latin1).
+  	     * This doesn't work for the NUL byte. */
+  	    if (input_conv.vc_type != CONV_NONE && key_char > 0)
+--- 2381,2386 ----
+***************
+*** 2421,2427 ****
+  		    string[len++] = key_char;
+  	    }
+  	    else
+- #endif
+  		string[len++] = key_char;
+  	}
+  
+--- 2410,2415 ----
+***************
+*** 3195,3206 ****
+      }
+  #endif
+  
+- /*
+- #ifdef FEAT_MBYTE
+-     set_option_value((char_u *)"encoding", 0L, (char_u *)"utf-8", 0);
+- #endif
+- */
+- 
+  #ifdef FEAT_GUI_TABLINE
+      /*
+       * Create the tabline
+--- 3183,3188 ----
+***************
+*** 3254,3263 ****
+  {
+      if (p_macatsui && gFontStyle)
+  	ATSUDisposeStyle(gFontStyle);
+- #ifdef FEAT_MBYTE
+      if (p_macatsui && gWideFontStyle)
+  	ATSUDisposeStyle(gWideFontStyle);
+- #endif
+  }
+  #endif
+  
+--- 3236,3243 ----
+***************
+*** 3430,3442 ****
+  	if (ATSUCreateStyle(&gFontStyle) != noErr)
+  	    gFontStyle = NULL;
+      }
+- #ifdef FEAT_MBYTE
+      if (p_macatsui && gWideFontStyle == NULL)
+      {
+  	if (ATSUCreateStyle(&gWideFontStyle) != noErr)
+  	    gWideFontStyle = NULL;
+      }
+- #endif
+  
+      p_macatsui_last = p_macatsui;
+  }
+--- 3410,3420 ----
+***************
+*** 3622,3628 ****
+  	    gFontStyle = NULL;
+  	}
+  
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    /* FIXME: we should use a more mbyte sensitive way to support
+--- 3600,3605 ----
+***************
+*** 3637,3643 ****
+  		gWideFontStyle = NULL;
+  	    }
+  	}
+- #endif
+      }
+  }
+  #endif
+--- 3614,3619 ----
+***************
+*** 3811,3817 ****
+      static void
+  draw_string_QD(int row, int col, char_u *s, int len, int flags)
+  {
+- #ifdef FEAT_MBYTE
+      char_u	*tofree = NULL;
+  
+      if (output_conv.vc_type != CONV_NONE)
+--- 3787,3792 ----
+***************
+*** 3820,3826 ****
+  	if (tofree != NULL)
+  	    s = tofree;
+      }
+- #endif
+  
+      /*
+       * On OS X, try using Quartz-style text antialiasing.
+--- 3795,3800 ----
+***************
+*** 3849,3855 ****
+  
+  	rc.left = FILL_X(col);
+  	rc.top = FILL_Y(row);
+- #ifdef FEAT_MBYTE
+  	/* Multibyte computation taken from gui_w32.c */
+  	if (has_mbyte)
+  	{
+--- 3823,3828 ----
+***************
+*** 3857,3864 ****
+  	    rc.right = FILL_X(col + mb_string2cells(s, len));
+  	}
+  	else
+! #endif
+! 	rc.right = FILL_X(col + len) + (col + len == Columns);
+  	rc.bottom = FILL_Y(row + 1);
+  	EraseRect(&rc);
+      }
+--- 3830,3836 ----
+  	    rc.right = FILL_X(col + mb_string2cells(s, len));
+  	}
+  	else
+! 	    rc.right = FILL_X(col + len) + (col + len == Columns);
+  	rc.bottom = FILL_Y(row + 1);
+  	EraseRect(&rc);
+      }
+***************
+*** 3918,3926 ****
+      if (flags & DRAW_UNDERC)
+  	draw_undercurl(flags, row, col, len);
+  
+- #ifdef FEAT_MBYTE
+      vim_free(tofree);
+- #endif
+  }
+  
+  #ifdef USE_ATSUI_DRAWING
+--- 3890,3896 ----
+***************
+*** 4007,4013 ****
+  	    useAntialias_cached = useAntialias;
+  	}
+  
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    int n, width_in_cell, last_width_in_cell;
+--- 3977,3982 ----
+***************
+*** 4069,4075 ****
+  	    ATSUDisposeTextLayout(textLayout);
+  	}
+  	else
+- #endif
+  	{
+  	    ATSUTextLayout textLayout;
+  
+--- 4038,4043 ----
+***************
+*** 4225,4234 ****
+      rc.left = FILL_X(gui.col);
+      rc.top = FILL_Y(gui.row);
+      rc.right = rc.left + gui.char_width;
+- #ifdef FEAT_MBYTE
+      if (mb_lefthalve(gui.row, gui.col))
+  	rc.right += gui.char_width;
+- #endif
+      rc.bottom = rc.top + gui.char_height;
+  
+      gui_mch_set_fg_color(color);
+--- 4193,4200 ----
+***************
+*** 4705,4715 ****
+       */
+      static long	 next_avail_id = 128;
+      long	 menu_after_me = 0; /* Default to the end */
+- #if defined(FEAT_MBYTE)
+      CFStringRef name;
+- #else
+-     char_u	*name;
+- #endif
+      short	 index;
+      vimmenu_T	*parent = menu->parent;
+      vimmenu_T	*brother = menu->next;
+--- 4671,4677 ----
+***************
+*** 4750,4761 ****
+  	 * OSStatus SetMenuTitle(MenuRef, ConstStr255Param title);
+  	 */
+  	menu->submenu_id = next_avail_id;
+- #if defined(FEAT_MBYTE)
+  	if (CreateNewMenu(menu->submenu_id, 0, (MenuRef *)&menu->submenu_handle) == noErr)
+  	    SetMenuTitleWithCFString((MenuRef)menu->submenu_handle, name);
+- #else
+- 	menu->submenu_handle = NewMenu(menu->submenu_id, name);
+- #endif
+  	next_avail_id++;
+      }
+  
+--- 4712,4719 ----
+***************
+*** 4784,4804 ****
+  	 * to avoid special character recognition by InsertMenuItem
+  	 */
+  	InsertMenuItem(parent->submenu_handle, "\p ", idx); /* afterItem */
+- #if defined(FEAT_MBYTE)
+  	SetMenuItemTextWithCFString(parent->submenu_handle, idx+1, name);
+- #else
+- 	SetMenuItemText(parent->submenu_handle, idx+1, name);
+- #endif
+  	SetItemCmd(parent->submenu_handle, idx+1, 0x1B);
+  	SetItemMark(parent->submenu_handle, idx+1, menu->submenu_id);
+  	InsertMenu(menu->submenu_handle, hierMenu);
+      }
+  
+- #if defined(FEAT_MBYTE)
+      CFRelease(name);
+- #else
+-     vim_free(name);
+- #endif
+  
+  #if 0
+      /* Done by Vim later on */
+--- 4742,4754 ----
+***************
+*** 4812,4822 ****
+      void
+  gui_mch_add_menu_item(vimmenu_T *menu, int idx)
+  {
+- #if defined(FEAT_MBYTE)
+      CFStringRef name;
+- #else
+-     char_u	*name;
+- #endif
+      vimmenu_T	*parent = menu->parent;
+      int		menu_inserted;
+  
+--- 4762,4768 ----
+***************
+*** 4912,4934 ****
+      if (!menu_inserted)
+  	InsertMenuItem(parent->submenu_handle, "\p ", idx); /* afterItem */
+      /* Set the menu item name. */
+- #if defined(FEAT_MBYTE)
+      SetMenuItemTextWithCFString(parent->submenu_handle, idx+1, name);
+- #else
+-     SetMenuItemText(parent->submenu_handle, idx+1, name);
+- #endif
+  
+  #if 0
+      /* Called by Vim */
+      DrawMenuBar();
+  #endif
+  
+- #if defined(FEAT_MBYTE)
+      CFRelease(name);
+- #else
+-     /* TODO: Can name be freed? */
+-     vim_free(name);
+- #endif
+  }
+  
+      void
+--- 4858,4871 ----
+***************
+*** 6242,6248 ****
+  #endif
+  }
+  
+! #if (defined(FEAT_MBYTE) && defined(USE_CARBONKEYHANDLER)) || defined(PROTO)
+  /*
+   * Input Method Control functions.
+   */
+--- 6179,6185 ----
+  #endif
+  }
+  
+! #if defined(USE_CARBONKEYHANDLER) || defined(PROTO)
+  /*
+   * Input Method Control functions.
+   */
+***************
+*** 6391,6398 ****
+      return im_is_active;
+  }
+  
+! #endif /* defined(FEAT_MBYTE) || defined(PROTO) */
+! 
+  
+  
+  
+--- 6328,6334 ----
+      return im_is_active;
+  }
+  
+! #endif
+  
+  
+  
+*** ../vim-8.1.0804/src/gui_photon.c	2019-01-13 23:38:33.395773275 +0100
+--- src/gui_photon.c	2019-01-24 14:55:37.770614257 +0100
+***************
+*** 513,525 ****
+  	if (special_keys[i].key_sym == 0)
+  	{
+  	    ch = PhTo8859_1(key);
+! 	    if (ch == -1
+! #ifdef FEAT_MBYTE
+! 		|| (enc_utf8 && ch > 127)
+! #endif
+! 		)
+  	    {
+- #ifdef FEAT_MBYTE
+  		len = PhKeyToMb(string, key);
+  		if (len > 0)
+  		{
+--- 513,520 ----
+  	if (special_keys[i].key_sym == 0)
+  	{
+  	    ch = PhTo8859_1(key);
+! 	    if (ch == -1 || (enc_utf8 && ch > 127))
+  	    {
+  		len = PhKeyToMb(string, key);
+  		if (len > 0)
+  		{
+***************
+*** 546,552 ****
+  		    return Pt_CONSUME;
+  		}
+  		len = 0;
+- #endif
+  		ch = key->key_cap;
+  		if (ch < 0xff)
+  		{
+--- 541,546 ----
+***************
+*** 1074,1080 ****
+  
+  /****************************************************************************/
+  
+- #ifdef FEAT_MBYTE
+      void
+  gui_ph_encoding_changed(int new_encoding)
+  {
+--- 1068,1073 ----
+***************
+*** 1100,1106 ****
+  
+      charset_translate = PxTranslateSet(charset_translate, charset);
+  }
+- #endif
+  
+  /****************************************************************************/
+  /****************************************************************************/
+--- 1093,1098 ----
+***************
+*** 2141,2151 ****
+      if (flags & DRAW_UNDERL)
+  	PgSetUnderline(gui.norm_pixel, Pg_TRANSPARENT, 0);
+  
+!     if (charset_translate != NULL
+! #ifdef FEAT_MBYTE
+! 	    && enc_utf8 == 0
+! #endif
+! 	   )
+      {
+  	int src_taken, dst_made;
+  
+--- 2133,2139 ----
+      if (flags & DRAW_UNDERL)
+  	PgSetUnderline(gui.norm_pixel, Pg_TRANSPARENT, 0);
+  
+!     if (charset_translate != NULL && enc_utf8 == 0)
+      {
+  	int src_taken, dst_made;
+  
+*** ../vim-8.1.0804/src/version.c	2019-01-24 13:58:05.821568951 +0100
+--- src/version.c	2019-01-24 15:03:57.587208227 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     805,
+  /**/
+
+-- 
+   An extraordinary TALL KNIGHT in all black (possibly John with Mike on his
+   shoulders) walks out from the dark trees.  He is extremely fierce and
+   gruesome countenance.  He walks towards KING ARTHUR and PATSY, who are
+   wazzing like mad.  (Salopian slang, meaning very scared.  almost to the
+   point of wetting oneself, e.g. before an important football match or
+   prior to a postering.  Salopian slang meaning a beating by the school
+   praeposters.  Sorry about the Salopian slant to this stage direction - Ed.)
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

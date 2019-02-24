@@ -1,0 +1,424 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0815
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0815
+Problem:    Dialog for file changed outside of Vim not tested.
+Solution:   Add a test.  Move FileChangedShell test.  Add 'L' flag to
+            feedkeys().
+Files:	    src/testdir/test_autocmd.vim, src/testdir/test_filechanged.vim,
+            src/testdir/Make_all.mak, src/evalfunc.c, runtime/doc/eval.txt
+
+
+*** ../vim-8.1.0814/src/testdir/test_autocmd.vim	2019-01-24 19:37:35.912390940 +0100
+--- src/testdir/test_autocmd.vim	2019-01-24 20:33:47.524044208 +0100
+***************
+*** 1386,1477 ****
+    bwipe!
+  endfunc
+  
+! func Test_FileChangedShell_reload()
+!   if !has('unix')
+!     return
+!   endif
+!   augroup testreload
+!     au FileChangedShell Xchanged let g:reason = v:fcs_reason | let v:fcs_choice = 'reload'
+!   augroup END
+!   new Xchanged
+!   call setline(1, 'reload this')
+!   write
+!   " Need to wait until the timestamp would change by at least a second.
+!   sleep 2
+!   silent !echo 'extra line' >>Xchanged
+!   checktime
+!   call assert_equal('changed', g:reason)
+!   call assert_equal(2, line('$'))
+!   call assert_equal('extra line', getline(2))
+! 
+!   " Only triggers once
+!   let g:reason = ''
+!   checktime
+!   call assert_equal('', g:reason)
+! 
+!   " When deleted buffer is not reloaded
+!   silent !rm Xchanged
+!   let g:reason = ''
+!   checktime
+!   call assert_equal('deleted', g:reason)
+!   call assert_equal(2, line('$'))
+!   call assert_equal('extra line', getline(2))
+! 
+!   " When recreated buffer is reloaded
+!   call setline(1, 'buffer is changed')
+!   silent !echo 'new line' >>Xchanged
+!   let g:reason = ''
+!   checktime
+!   call assert_equal('conflict', g:reason)
+!   call assert_equal(1, line('$'))
+!   call assert_equal('new line', getline(1))
+! 
+!   " Only mode changed
+!   silent !chmod +x Xchanged
+!   let g:reason = ''
+!   checktime
+!   call assert_equal('mode', g:reason)
+!   call assert_equal(1, line('$'))
+!   call assert_equal('new line', getline(1))
+! 
+!   " Only time changed
+!   sleep 2
+!   silent !touch Xchanged
+!   let g:reason = ''
+!   checktime
+!   call assert_equal('time', g:reason)
+!   call assert_equal(1, line('$'))
+!   call assert_equal('new line', getline(1))
+! 
+!   if has('persistent_undo')
+!     " With an undo file the reload can be undone and a change before the
+!     " reload.
+!     set undofile
+!     call setline(2, 'before write')
+!     write
+!     call setline(2, 'after write')
+!     sleep 2
+!     silent !echo 'different line' >>Xchanged
+!     let g:reason = ''
+!     checktime
+!     call assert_equal('conflict', g:reason)
+!     call assert_equal(3, line('$'))
+!     call assert_equal('before write', getline(2))
+!     call assert_equal('different line', getline(3))
+!     " undo the reload
+!     undo
+!     call assert_equal(2, line('$'))
+!     call assert_equal('after write', getline(2))
+!     " undo the change before reload
+!     undo
+!     call assert_equal(2, line('$'))
+!     call assert_equal('before write', getline(2))
+! 
+!     set noundofile
+!   endif
+! 
+! 
+!   au! testreload
+!   bwipe!
+!   call delete('Xchanged')
+! endfunc
+--- 1386,1389 ----
+    bwipe!
+  endfunc
+  
+! " FileChangedShell tested in test_filechanged.vim
+*** ../vim-8.1.0814/src/testdir/test_filechanged.vim	2019-01-24 21:53:43.128252985 +0100
+--- src/testdir/test_filechanged.vim	2019-01-24 21:49:33.022078243 +0100
+***************
+*** 0 ****
+--- 1,146 ----
++ " Tests for when a file was changed outside of Vim.
++ 
++ func Test_FileChangedShell_reload()
++   if !has('unix')
++     return
++   endif
++   augroup testreload
++     au FileChangedShell Xchanged_r let g:reason = v:fcs_reason | let v:fcs_choice = 'reload'
++   augroup END
++   new Xchanged_r
++   call setline(1, 'reload this')
++   write
++   " Need to wait until the timestamp would change by at least a second.
++   sleep 2
++   silent !echo 'extra line' >>Xchanged_r
++   checktime
++   call assert_equal('changed', g:reason)
++   call assert_equal(2, line('$'))
++   call assert_equal('extra line', getline(2))
++ 
++   " Only triggers once
++   let g:reason = ''
++   checktime
++   call assert_equal('', g:reason)
++ 
++   " When deleted buffer is not reloaded
++   silent !rm Xchanged_r
++   let g:reason = ''
++   checktime
++   call assert_equal('deleted', g:reason)
++   call assert_equal(2, line('$'))
++   call assert_equal('extra line', getline(2))
++ 
++   " When recreated buffer is reloaded
++   call setline(1, 'buffer is changed')
++   silent !echo 'new line' >>Xchanged_r
++   let g:reason = ''
++   checktime
++   call assert_equal('conflict', g:reason)
++   call assert_equal(1, line('$'))
++   call assert_equal('new line', getline(1))
++ 
++   " Only mode changed
++   silent !chmod +x Xchanged_r
++   let g:reason = ''
++   checktime
++   call assert_equal('mode', g:reason)
++   call assert_equal(1, line('$'))
++   call assert_equal('new line', getline(1))
++ 
++   " Only time changed
++   sleep 2
++   silent !touch Xchanged_r
++   let g:reason = ''
++   checktime
++   call assert_equal('time', g:reason)
++   call assert_equal(1, line('$'))
++   call assert_equal('new line', getline(1))
++ 
++   if has('persistent_undo')
++     " With an undo file the reload can be undone and a change before the
++     " reload.
++     set undofile
++     call setline(2, 'before write')
++     write
++     call setline(2, 'after write')
++     sleep 2
++     silent !echo 'different line' >>Xchanged_r
++     let g:reason = ''
++     checktime
++     call assert_equal('conflict', g:reason)
++     call assert_equal(3, line('$'))
++     call assert_equal('before write', getline(2))
++     call assert_equal('different line', getline(3))
++     " undo the reload
++     undo
++     call assert_equal(2, line('$'))
++     call assert_equal('after write', getline(2))
++     " undo the change before reload
++     undo
++     call assert_equal(2, line('$'))
++     call assert_equal('before write', getline(2))
++ 
++     set noundofile
++   endif
++ 
++   au! testreload
++   bwipe!
++   call delete('Xchanged_r')
++ endfunc
++ 
++ func Test_file_changed_dialog()
++   if !has('unix')
++     return
++   endif
++   au! FileChangedShell
++ 
++   new Xchanged_d
++   call setline(1, 'reload this')
++   write
++   " Need to wait until the timestamp would change by at least a second.
++   sleep 2
++   silent !echo 'extra line' >>Xchanged_d
++   call feedkeys('L', 'L')
++   checktime
++   call assert_match('W11:', v:warningmsg)
++   call assert_equal(2, line('$'))
++   call assert_equal('reload this', getline(1))
++   call assert_equal('extra line', getline(2))
++ 
++   " delete buffer, only shows an error, no prompt
++   silent !rm Xchanged_d
++   checktime
++   call assert_match('E211:', v:warningmsg)
++   call assert_equal(2, line('$'))
++   call assert_equal('extra line', getline(2))
++ 
++   " Recreate buffer and reload
++   call setline(1, 'buffer is changed')
++   silent !echo 'new line' >Xchanged_d
++   call feedkeys('L', 'L')
++   checktime
++   call assert_match('W12:', v:warningmsg)
++   call assert_equal(1, line('$'))
++   call assert_equal('new line', getline(1))
++ 
++   " Only mode changed, reload
++   silent !chmod +x Xchanged_d
++   call feedkeys('L', 'L')
++   checktime
++   call assert_match('W16:', v:warningmsg)
++   call assert_equal(1, line('$'))
++   call assert_equal('new line', getline(1))
++ 
++   " Only time changed, no prompt
++   sleep 2
++   silent !touch Xchanged_d
++   let v:warningmsg = ''
++   checktime
++   call assert_equal('', v:warningmsg)
++   call assert_equal(1, line('$'))
++   call assert_equal('new line', getline(1))
++ 
++   bwipe!
++   call delete('Xchanged_d')
++ endfunc
+*** ../vim-8.1.0814/src/testdir/Make_all.mak	2019-01-17 13:04:05.765227482 +0100
+--- src/testdir/Make_all.mak	2019-01-24 20:39:55.069040398 +0100
+***************
+*** 121,126 ****
+--- 121,127 ----
+  	test_feedkeys \
+  	test_file_perm \
+  	test_file_size \
++ 	test_filechanged \
+  	test_fileformat \
+  	test_filetype \
+  	test_filter_cmd \
+***************
+*** 316,321 ****
+--- 317,323 ----
+  	test_exit.res \
+  	test_farsi.res \
+  	test_file_size.res \
++ 	test_filechanged.res \
+  	test_find_complete.res \
+  	test_fixeol.res \
+  	test_fnameescape.res \
+*** ../vim-8.1.0814/src/evalfunc.c	2019-01-24 15:04:44.666887862 +0100
+--- src/evalfunc.c	2019-01-24 21:24:30.371463057 +0100
+***************
+*** 3674,3679 ****
+--- 3674,3680 ----
+      int		typed = FALSE;
+      int		execute = FALSE;
+      int		dangerous = FALSE;
++     int		lowlevel = FALSE;
+      char_u	*keys_esc;
+  
+      /* This is not allowed in the sandbox.  If the commands would still be
+***************
+*** 3697,3702 ****
+--- 3698,3704 ----
+  		case 'i': insert = TRUE; break;
+  		case 'x': execute = TRUE; break;
+  		case '!': dangerous = TRUE; break;
++ 		case 'L': lowlevel = TRUE; break;
+  	    }
+  	}
+      }
+***************
+*** 3708,3714 ****
+  	keys_esc = vim_strsave_escape_csi(keys);
+  	if (keys_esc != NULL)
+  	{
+! 	    ins_typebuf(keys_esc, (remap ? REMAP_YES : REMAP_NONE),
+  				  insert ? 0 : typebuf.tb_len, !typed, FALSE);
+  	    vim_free(keys_esc);
+  	    if (vgetc_busy
+--- 3710,3725 ----
+  	keys_esc = vim_strsave_escape_csi(keys);
+  	if (keys_esc != NULL)
+  	{
+! 	    if (lowlevel)
+! 	    {
+! #ifdef USE_INPUT_BUF
+! 		add_to_input_buf(keys, (int)STRLEN(keys));
+! #else
+! 		emsg(_("E980: lowlevel input not supported"));
+! #endif
+! 	    }
+! 	    else
+! 		ins_typebuf(keys_esc, (remap ? REMAP_YES : REMAP_NONE),
+  				  insert ? 0 : typebuf.tb_len, !typed, FALSE);
+  	    vim_free(keys_esc);
+  	    if (vgetc_busy
+*** ../vim-8.1.0814/runtime/doc/eval.txt	2019-01-23 21:14:59.165314597 +0100
+--- runtime/doc/eval.txt	2019-01-24 21:26:05.667078878 +0100
+***************
+*** 4084,4107 ****
+  feedkeys({string} [, {mode}])				*feedkeys()*
+  		Characters in {string} are queued for processing as if they
+  		come from a mapping or were typed by the user.
+  		By default the string is added to the end of the typeahead
+  		buffer, thus if a mapping is still being executed the
+  		characters come after them.  Use the 'i' flag to insert before
+  		other characters, they will be executed next, before any
+  		characters from a mapping.
+  		The function does not wait for processing of keys contained in
+  		{string}.
+  		To include special keys into {string}, use double-quotes
+  		and "\..." notation |expr-quote|. For example,
+  		feedkeys("\<CR>") simulates pressing of the <Enter> key. But
+  		feedkeys('\<CR>') pushes 5 characters.
+! 		If {mode} is absent, keys are remapped.
+  		{mode} is a String, which can contain these character flags:
+! 		'm'	Remap keys. This is default.
+  		'n'	Do not remap keys.
+  		't'	Handle keys as if typed; otherwise they are handled as
+  			if coming from a mapping.  This matters for undo,
+  			opening folds, etc.
+  		'i'	Insert the string instead of appending (see above).
+  		'x'	Execute commands until typeahead is empty.  This is
+  			similar to using ":normal!".  You can call feedkeys()
+--- 4110,4140 ----
+  feedkeys({string} [, {mode}])				*feedkeys()*
+  		Characters in {string} are queued for processing as if they
+  		come from a mapping or were typed by the user.
++ 
+  		By default the string is added to the end of the typeahead
+  		buffer, thus if a mapping is still being executed the
+  		characters come after them.  Use the 'i' flag to insert before
+  		other characters, they will be executed next, before any
+  		characters from a mapping.
++ 
+  		The function does not wait for processing of keys contained in
+  		{string}.
++ 
+  		To include special keys into {string}, use double-quotes
+  		and "\..." notation |expr-quote|. For example,
+  		feedkeys("\<CR>") simulates pressing of the <Enter> key. But
+  		feedkeys('\<CR>') pushes 5 characters.
+! 
+  		{mode} is a String, which can contain these character flags:
+! 		'm'	Remap keys. This is default.  If {mode} is absent,
+! 			keys are remapped.
+  		'n'	Do not remap keys.
+  		't'	Handle keys as if typed; otherwise they are handled as
+  			if coming from a mapping.  This matters for undo,
+  			opening folds, etc.
++ 		'L'	Lowlevel input.  Only works for Unix or when using the
++ 			GUI. Keys are used as if they were coming from the
++ 			terminal.  Other flags are not used.  *E980*
+  		'i'	Insert the string instead of appending (see above).
+  		'x'	Execute commands until typeahead is empty.  This is
+  			similar to using ":normal!".  You can call feedkeys()
+*** ../vim-8.1.0814/src/version.c	2019-01-24 20:30:49.333537878 +0100
+--- src/version.c	2019-01-24 21:50:25.757695053 +0100
+***************
+*** 790,792 ****
+  /**/
+!     814,
+  /**/
+--- 790,794 ----
+  /**/
+!     815,
+! /**/
+!     814,
+  /**/
+
+-- 
+You were lucky. We lived for three months in a brown paper bag in a 
+septic tank. We used to have to get up at six o'clock in the morning, 
+clean the bag, eat a crust of stale bread, go to work down mill for 
+fourteen hours a day week in-week out. When we got home, our Dad
+would thrash us to sleep with his belt!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

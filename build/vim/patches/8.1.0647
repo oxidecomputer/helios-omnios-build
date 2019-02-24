@@ -1,0 +1,326 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0647
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0647
+Problem:    MS-Windows: balloon_show() does not handle wide characters.
+Solution:   Use CreateWindowExW(). (Yasuhiro Matsumoto, closes #3708)
+Files:	    src/gui_w32.c
+
+
+*** ../vim-8.1.0646/src/gui_w32.c	2018-11-16 16:21:01.641310033 +0100
+--- src/gui_w32.c	2018-12-27 22:36:34.745105652 +0100
+***************
+*** 4367,4380 ****
+  
+  typedef struct tagTOOLINFOA_NEW
+  {
+! 	UINT cbSize;
+! 	UINT uFlags;
+! 	HWND hwnd;
+! 	UINT_PTR uId;
+! 	RECT rect;
+! 	HINSTANCE hinst;
+! 	LPSTR lpszText;
+! 	LPARAM lParam;
+  } TOOLINFO_NEW;
+  
+  typedef struct tagNMTTDISPINFO_NEW
+--- 4367,4380 ----
+  
+  typedef struct tagTOOLINFOA_NEW
+  {
+!     UINT       cbSize;
+!     UINT       uFlags;
+!     HWND       hwnd;
+!     UINT_PTR   uId;
+!     RECT       rect;
+!     HINSTANCE  hinst;
+!     LPSTR      lpszText;
+!     LPARAM     lParam;
+  } TOOLINFO_NEW;
+  
+  typedef struct tagNMTTDISPINFO_NEW
+***************
+*** 4387,4392 ****
+--- 4387,4418 ----
+      LPARAM     lParam;
+  } NMTTDISPINFO_NEW;
+  
++ #ifdef FEAT_MBYTE
++ typedef struct tagTOOLINFOW_NEW
++ {
++     UINT       cbSize;
++     UINT       uFlags;
++     HWND       hwnd;
++     UINT_PTR   uId;
++     RECT       rect;
++     HINSTANCE  hinst;
++     LPWSTR     lpszText;
++     LPARAM     lParam;
++     void       *lpReserved;
++ } TOOLINFOW_NEW;
++ 
++ typedef struct tagNMTTDISPINFOW_NEW
++ {
++     NMHDR      hdr;
++     LPWSTR     lpszText;
++     WCHAR      szText[80];
++     HINSTANCE  hinst;
++     UINT       uFlags;
++     LPARAM     lParam;
++ } NMTTDISPINFOW_NEW;
++ 
++ #endif
++ 
+  typedef HRESULT (WINAPI* DLLGETVERSIONPROC)(DLLVERSIONINFO *);
+  #ifndef TTM_SETMAXTIPWIDTH
+  # define TTM_SETMAXTIPWIDTH	(WM_USER+24)
+***************
+*** 5502,5507 ****
+--- 5528,5542 ----
+  	    if (RegisterClassW(&wndclassw) == 0)
+  		return FAIL;
+  	}
++ 
++ 	s_textArea = CreateWindowExW(
++ 	    0,
++ 	    szTextAreaClassW, L"Vim text area",
++ 	    WS_CHILD | WS_VISIBLE, 0, 0,
++ 	    100,				// Any value will do for now
++ 	    100,				// Any value will do for now
++ 	    s_hwnd, NULL,
++ 	    s_hinst, NULL);
+      }
+      else
+  #endif
+***************
+*** 5520,5534 ****
+  
+  	if (RegisterClass(&wndclass) == 0)
+  	    return FAIL;
+      }
+-     s_textArea = CreateWindowEx(
+- 	0,
+- 	szTextAreaClass, "Vim text area",
+- 	WS_CHILD | WS_VISIBLE, 0, 0,
+- 	100,				/* Any value will do for now */
+- 	100,				/* Any value will do for now */
+- 	s_hwnd, NULL,
+- 	s_hinst, NULL);
+  
+      if (s_textArea == NULL)
+  	return FAIL;
+--- 5555,5570 ----
+  
+  	if (RegisterClass(&wndclass) == 0)
+  	    return FAIL;
++ 
++ 	s_textArea = CreateWindowEx(
++ 	    0,
++ 	    szTextAreaClass, "Vim text area",
++ 	    WS_CHILD | WS_VISIBLE, 0, 0,
++ 	    100,				// Any value will do for now
++ 	    100,				// Any value will do for now
++ 	    s_hwnd, NULL,
++ 	    s_hinst, NULL);
+      }
+  
+      if (s_textArea == NULL)
+  	return FAIL;
+***************
+*** 6218,6226 ****
+      static void
+  draw_line(
+      int		x1,
+!     int	    	y1,
+!     int	    	x2,
+!     int	    	y2,
+      COLORREF	color)
+  {
+  #if defined(FEAT_DIRECTX)
+--- 6254,6262 ----
+      static void
+  draw_line(
+      int		x1,
+!     int		y1,
+!     int		x2,
+!     int		y2,
+      COLORREF	color)
+  {
+  #if defined(FEAT_DIRECTX)
+***************
+*** 6241,6247 ****
+      static void
+  set_pixel(
+      int		x,
+!     int	    	y,
+      COLORREF	color)
+  {
+  #if defined(FEAT_DIRECTX)
+--- 6277,6283 ----
+      static void
+  set_pixel(
+      int		x,
+!     int		y,
+      COLORREF	color)
+  {
+  #if defined(FEAT_DIRECTX)
+***************
+*** 6255,6261 ****
+      static void
+  fill_rect(
+      const RECT	*rcp,
+!     HBRUSH    	hbr,
+      COLORREF	color)
+  {
+  #if defined(FEAT_DIRECTX)
+--- 6291,6297 ----
+      static void
+  fill_rect(
+      const RECT	*rcp,
+!     HBRUSH	hbr,
+      COLORREF	color)
+  {
+  #if defined(FEAT_DIRECTX)
+***************
+*** 8745,8756 ****
+--- 8781,8875 ----
+      return multiline_tip;
+  }
+  
++ #ifdef FEAT_MBYTE
++     static void
++ make_tooltipw(BalloonEval *beval, char *text, POINT pt)
++ {
++     TOOLINFOW	*pti;
++     int		ToolInfoSize;
++     WCHAR	*tofree = NULL;
++ 
++     if (multiline_balloon_available() == TRUE)
++ 	ToolInfoSize = sizeof(TOOLINFOW_NEW);
++     else
++ 	ToolInfoSize = sizeof(TOOLINFOW);
++ 
++     pti = (TOOLINFOW *)alloc(ToolInfoSize);
++     if (pti == NULL)
++ 	return;
++ 
++     beval->balloon = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW,
++ 	    NULL, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
++ 	    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
++ 	    beval->target, NULL, s_hinst, NULL);
++ 
++     SetWindowPos(beval->balloon, HWND_TOPMOST, 0, 0, 0, 0,
++ 	    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
++ 
++     pti->cbSize = ToolInfoSize;
++     pti->uFlags = TTF_SUBCLASS;
++     pti->hwnd = beval->target;
++     pti->hinst = 0; // Don't use string resources
++     pti->uId = ID_BEVAL_TOOLTIP;
++ 
++     if (multiline_balloon_available() == TRUE)
++     {
++ 	RECT rect;
++ 	TOOLINFOW_NEW *ptin = (TOOLINFOW_NEW *)pti;
++ 	pti->lpszText = LPSTR_TEXTCALLBACKW;
++ 	tofree = enc_to_utf16((char_u*)text, NULL);
++ 	ptin->lParam = (LPARAM)tofree;
++ 	// switch multiline tooltips on
++ 	if (GetClientRect(s_textArea, &rect))
++ 	    SendMessageW(beval->balloon, TTM_SETMAXTIPWIDTH, 0,
++ 		    (LPARAM)rect.right);
++     }
++     else
++     {
++ 	// do this old way
++ 	tofree = enc_to_utf16((char_u*)text, NULL);
++ 	pti->lpszText = tofree;
++     }
++ 
++     // Limit ballooneval bounding rect to CursorPos neighbourhood.
++     pti->rect.left = pt.x - 3;
++     pti->rect.top = pt.y - 3;
++     pti->rect.right = pt.x + 3;
++     pti->rect.bottom = pt.y + 3;
++ 
++     SendMessageW(beval->balloon, TTM_ADDTOOLW, 0, (LPARAM)pti);
++     // Make tooltip appear sooner.
++     SendMessageW(beval->balloon, TTM_SETDELAYTIME, TTDT_INITIAL, 10);
++     // I've performed some tests and it seems the longest possible life time
++     // of tooltip is 30 seconds.
++     SendMessageW(beval->balloon, TTM_SETDELAYTIME, TTDT_AUTOPOP, 30000);
++     /*
++      * HACK: force tooltip to appear, because it'll not appear until
++      * first mouse move. D*mn M$
++      * Amazingly moving (2, 2) and then (-1, -1) the mouse doesn't move.
++      */
++     mouse_event(MOUSEEVENTF_MOVE, 2, 2, 0, 0);
++     mouse_event(MOUSEEVENTF_MOVE, (DWORD)-1, (DWORD)-1, 0, 0);
++     vim_free(pti);
++     if (tofree != NULL)
++ 	vim_free(tofree);
++ }
++ #endif
++ 
+      static void
+  make_tooltip(BalloonEval *beval, char *text, POINT pt)
+  {
+      TOOLINFO	*pti;
+      int		ToolInfoSize;
+  
++ #ifdef FEAT_MBYTE
++     if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
++     {
++ 	make_tooltipw(beval, text, pt);
++ 	return;
++     }
++ #endif
++ 
+      if (multiline_balloon_available() == TRUE)
+  	ToolInfoSize = sizeof(TOOLINFO_NEW);
+      else
+***************
+*** 8961,8966 ****
+--- 9080,9095 ----
+  		info->uFlags |= TTF_DI_SETITEM;
+  	    }
+  	    break;
++ #ifdef FEAT_MBYTE
++ 	case TTN_GETDISPINFOW:
++ 	    {
++ 		// if we get here then we have new common controls
++ 		NMTTDISPINFOW_NEW *info = (NMTTDISPINFOW_NEW *)pnmh;
++ 		info->lpszText = (LPWSTR)info->lParam;
++ 		info->uFlags |= TTF_DI_SETITEM;
++ 	    }
++ 	    break;
++ #endif
+  	}
+      }
+  }
+*** ../vim-8.1.0646/src/version.c	2018-12-27 22:10:57.797337989 +0100
+--- src/version.c	2018-12-27 22:42:39.585979851 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     647,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+60. As your car crashes through the guardrail on a mountain road, your first
+    instinct is to search for the "back" button.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

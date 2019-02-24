@@ -1,0 +1,140 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0910
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0910
+Problem:    Crash with tricky search pattern. (Kuang-che Wu)
+Solution:   Check for runnning out of memory. (closes #3950)
+Files:	    src/regexp_nfa.c, src/testdir/test_regexp_latin.vim
+
+
+*** ../vim-8.1.0909/src/regexp_nfa.c	2019-02-13 18:35:01.398292976 +0100
+--- src/regexp_nfa.c	2019-02-13 20:25:35.216595581 +0100
+***************
+*** 4449,4455 ****
+  	     * be (a lot) bigger than anticipated. */
+  	    if (l->n == l->len)
+  	    {
+! 		int newlen = l->len * 3 / 2 + 50;
+  
+  		if (subs != &temp_subs)
+  		{
+--- 4449,4456 ----
+  	     * be (a lot) bigger than anticipated. */
+  	    if (l->n == l->len)
+  	    {
+! 		int		newlen = l->len * 3 / 2 + 50;
+! 		nfa_thread_T	*newt;
+  
+  		if (subs != &temp_subs)
+  		{
+***************
+*** 4463,4470 ****
+  		    subs = &temp_subs;
+  		}
+  
+! 		/* TODO: check for vim_realloc() returning NULL. */
+! 		l->t = vim_realloc(l->t, newlen * sizeof(nfa_thread_T));
+  		l->len = newlen;
+  	    }
+  
+--- 4464,4477 ----
+  		    subs = &temp_subs;
+  		}
+  
+! 		newt = vim_realloc(l->t, newlen * sizeof(nfa_thread_T));
+! 		if (newt == NULL)
+! 		{
+! 		    // out of memory
+! 		    --depth;
+! 		    return NULL;
+! 		}
+! 		l->t = newt;
+  		l->len = newlen;
+  	    }
+  
+***************
+*** 4756,4762 ****
+       * addstate(). */
+      r = addstate(l, state, subs, pim, -listidx - ADDSTATE_HERE_OFFSET);
+      if (r == NULL)
+! 	return r;
+  
+      // when "*ip" was at the end of the list, nothing to do
+      if (listidx + 1 == tlen)
+--- 4763,4769 ----
+       * addstate(). */
+      r = addstate(l, state, subs, pim, -listidx - ADDSTATE_HERE_OFFSET);
+      if (r == NULL)
+! 	return NULL;
+  
+      // when "*ip" was at the end of the list, nothing to do
+      if (listidx + 1 == tlen)
+***************
+*** 4777,4788 ****
+  	{
+  	    /* not enough space to move the new states, reallocate the list
+  	     * and move the states to the right position */
+! 	    nfa_thread_T *newl;
+  
+! 	    l->len = l->len * 3 / 2 + 50;
+! 	    newl = (nfa_thread_T *)alloc(l->len * sizeof(nfa_thread_T));
+  	    if (newl == NULL)
+! 		return r;
+  	    mch_memmove(&(newl[0]),
+  		    &(l->t[0]),
+  		    sizeof(nfa_thread_T) * listidx);
+--- 4784,4796 ----
+  	{
+  	    /* not enough space to move the new states, reallocate the list
+  	     * and move the states to the right position */
+! 	    int		    newlen = l->len * 3 / 2 + 50;
+! 	    nfa_thread_T    *newl;
+  
+! 	    newl = (nfa_thread_T *)alloc(newlen * sizeof(nfa_thread_T));
+  	    if (newl == NULL)
+! 		return NULL;
+! 	    l->len = newlen;
+  	    mch_memmove(&(newl[0]),
+  		    &(l->t[0]),
+  		    sizeof(nfa_thread_T) * listidx);
+*** ../vim-8.1.0909/src/testdir/test_regexp_latin.vim	2019-02-12 23:05:41.743869435 +0100
+--- src/testdir/test_regexp_latin.vim	2019-02-13 20:29:42.795583999 +0100
+***************
+*** 90,92 ****
+--- 90,99 ----
+    let lnum = search('\v((){328}){389}')
+    call assert_equal(0, lnum)
+  endfunc
++ 
++ func Test_out_of_memory()
++   new
++   s/^/,n
++   " This will be slow...
++   call assert_fails('call search("\\v((n||<)+);")', 'E363:')
++ endfunc
+*** ../vim-8.1.0909/src/version.c	2019-02-13 19:23:04.734816702 +0100
+--- src/version.c	2019-02-13 20:30:21.391411496 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     910,
+  /**/
+
+-- 
+SOLDIER: Where did you get the coconuts?
+ARTHUR:  Through ... We found them.
+SOLDIER: Found them?  In Mercea.  The coconut's tropical!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

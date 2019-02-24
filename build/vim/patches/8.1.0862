@@ -1,0 +1,276 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0862
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0862
+Problem:    No verbose version of character classes.
+Solution:   Add [:ident:], [:keyword:] and [:fname:]. (Ozaki Kiichi,
+            closes #1373)
+Files:	    runtime/doc/pattern.txt, src/regexp.c, src/regexp_nfa.c,
+            src/testdir/test_regexp_utf8.vim
+
+
+*** ../vim-8.1.0861/runtime/doc/pattern.txt	2018-05-17 13:41:41.000000000 +0200
+--- runtime/doc/pattern.txt	2019-01-31 15:29:27.222082798 +0100
+***************
+*** 1110,1115 ****
+--- 1118,1126 ----
+  *[:tab:]*	  [:tab:]		the <Tab> character
+  *[:escape:]*	  [:escape:]		the <Esc> character
+  *[:backspace:]*	  [:backspace:]		the <BS> character
++ *[:ident:]*	  [:ident:]		identifier character (same as "\i")
++ *[:keyword:]*	  [:keyword:]		keyword character (same as "\k")
++ *[:fname:]*	  [:fname:]		file name character (same as "\f")
+  	  The brackets in character class expressions are additional to the
+  	  brackets delimiting a collection.  For example, the following is a
+  	  plausible pattern for a UNIX filename: "[-./[:alnum:]_~]\+" That is,
+*** ../vim-8.1.0861/src/regexp.c	2019-01-24 16:38:58.276712445 +0100
+--- src/regexp.c	2019-01-31 15:29:27.222082798 +0100
+***************
+*** 484,489 ****
+--- 484,495 ----
+  #define CLASS_BACKSPACE 14
+  	"escape:]",
+  #define CLASS_ESCAPE 15
++ 	"ident:]",
++ #define CLASS_IDENT 16
++ 	"keyword:]",
++ #define CLASS_KEYWORD 17
++ 	"fname:]",
++ #define CLASS_FNAME 18
+      };
+  #define CLASS_NONE 99
+      int i;
+***************
+*** 698,703 ****
+--- 704,710 ----
+  static int	read_limits(long *, long *);
+  static void	regtail(char_u *, char_u *);
+  static void	regoptail(char_u *, char_u *);
++ static int	reg_iswordc(int);
+  
+  static regengine_T bt_regengine;
+  static regengine_T nfa_regengine;
+***************
+*** 2545,2550 ****
+--- 2552,2572 ----
+  			    case CLASS_ESCAPE:
+  				regc('\033');
+  				break;
++ 			    case CLASS_IDENT:
++ 				for (cu = 1; cu <= 255; cu++)
++ 				    if (vim_isIDc(cu))
++ 					regmbc(cu);
++ 				break;
++ 			    case CLASS_KEYWORD:
++ 				for (cu = 1; cu <= 255; cu++)
++ 				    if (reg_iswordc(cu))
++ 					regmbc(cu);
++ 				break;
++ 			    case CLASS_FNAME:
++ 				for (cu = 1; cu <= 255; cu++)
++ 				    if (vim_isfilec(cu))
++ 					regmbc(cu);
++ 				break;
+  			}
+  		    }
+  		    else
+***************
+*** 3590,3595 ****
+--- 3612,3627 ----
+  #endif
+  
+  /*
++  * Return TRUE if character 'c' is included in 'iskeyword' option for
++  * "reg_buf" buffer.
++  */
++     static int
++ reg_iswordc(int c)
++ {
++     return vim_iswordc_buf(c, rex.reg_buf);
++ }
++ 
++ /*
+   * Get pointer to the line "lnum", which is relative to "reg_firstlnum".
+   */
+      static char_u *
+*** ../vim-8.1.0861/src/regexp_nfa.c	2019-01-24 16:38:58.276712445 +0100
+--- src/regexp_nfa.c	2019-01-31 15:29:27.222082798 +0100
+***************
+*** 226,232 ****
+      NFA_CLASS_TAB,
+      NFA_CLASS_RETURN,
+      NFA_CLASS_BACKSPACE,
+!     NFA_CLASS_ESCAPE
+  };
+  
+  /* Keep in sync with classchars. */
+--- 226,235 ----
+      NFA_CLASS_TAB,
+      NFA_CLASS_RETURN,
+      NFA_CLASS_BACKSPACE,
+!     NFA_CLASS_ESCAPE,
+!     NFA_CLASS_IDENT,
+!     NFA_CLASS_KEYWORD,
+!     NFA_CLASS_FNAME
+  };
+  
+  /* Keep in sync with classchars. */
+***************
+*** 1718,1723 ****
+--- 1721,1735 ----
+  				case CLASS_ESCAPE:
+  				    EMIT(NFA_CLASS_ESCAPE);
+  				    break;
++ 				case CLASS_IDENT:
++ 				    EMIT(NFA_CLASS_IDENT);
++ 				    break;
++ 				case CLASS_KEYWORD:
++ 				    EMIT(NFA_CLASS_KEYWORD);
++ 				    break;
++ 				case CLASS_FNAME:
++ 				    EMIT(NFA_CLASS_FNAME);
++ 				    break;
+  			    }
+  			    EMIT(NFA_CONCAT);
+  			    continue;
+***************
+*** 2555,2560 ****
+--- 2567,2575 ----
+  	case NFA_CLASS_RETURN:	STRCPY(code, "NFA_CLASS_RETURN"); break;
+  	case NFA_CLASS_BACKSPACE:   STRCPY(code, "NFA_CLASS_BACKSPACE"); break;
+  	case NFA_CLASS_ESCAPE:	STRCPY(code, "NFA_CLASS_ESCAPE"); break;
++ 	case NFA_CLASS_IDENT:	STRCPY(code, "NFA_CLASS_IDENT"); break;
++ 	case NFA_CLASS_KEYWORD:	STRCPY(code, "NFA_CLASS_KEYWORD"); break;
++ 	case NFA_CLASS_FNAME:	STRCPY(code, "NFA_CLASS_FNAME"); break;
+  
+  	case NFA_ANY:	STRCPY(code, "NFA_ANY"); break;
+  	case NFA_IDENT:	STRCPY(code, "NFA_IDENT"); break;
+***************
+*** 4846,4851 ****
+--- 4861,4878 ----
+  	    if (c == '\033')
+  		return OK;
+  	    break;
++ 	case NFA_CLASS_IDENT:
++ 	    if (vim_isIDc(c))
++ 		return OK;
++ 	    break;
++ 	case NFA_CLASS_KEYWORD:
++ 	    if (reg_iswordc(c))
++ 		return OK;
++ 	    break;
++ 	case NFA_CLASS_FNAME:
++ 	    if (vim_isfilec(c))
++ 		return OK;
++ 	    break;
+  
+  	default:
+  	    /* should not be here :P */
+*** ../vim-8.1.0861/src/testdir/test_regexp_utf8.vim	2019-01-24 17:59:35.139217458 +0100
+--- src/testdir/test_regexp_utf8.vim	2019-01-31 15:29:27.222082798 +0100
+***************
+*** 51,56 ****
+--- 51,62 ----
+    let tabchar = ''
+    let upperchars = ''
+    let xdigitchars = ''
++   let identchars = ''
++   let identchars1 = ''
++   let kwordchars = ''
++   let kwordchars1 = ''
++   let fnamechars = ''
++   let fnamechars1 = ''
+    let i = 1
+    while i <= 255
+      let c = nr2char(i)
+***************
+*** 102,107 ****
+--- 108,131 ----
+      if c =~ '[[:xdigit:]]'
+        let xdigitchars .= c
+      endif
++     if c =~ '[[:ident:]]'
++       let identchars .= c
++     endif
++     if c =~ '\i'
++       let identchars1 .= c
++     endif
++     if c =~ '[[:keyword:]]'
++       let kwordchars .= c
++     endif
++     if c =~ '\k'
++       let kwordchars1 .= c
++     endif
++     if c =~ '[[:fname:]]'
++       let fnamechars .= c
++     endif
++     if c =~ '\f'
++       let fnamechars1 .= c
++     endif
+      let i += 1
+    endwhile
+  
+***************
+*** 121,126 ****
+--- 145,181 ----
+    call assert_equal("\t\n\x0b\f\r ", spacechars)
+    call assert_equal("\t", tabchar)
+    call assert_equal('0123456789ABCDEFabcdef', xdigitchars)
++ 
++   if has('win32')
++     let identchars_ok = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz ¡¢£¤¥¦§µÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿ'
++     let kwordchars_ok = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyzµÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++   elseif has('ebcdic')
++     let identchars_ok = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz¬®µº¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++     let kwordchars_ok = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz¬®µº¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++   else
++     let identchars_ok = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyzµÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++     let kwordchars_ok = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyzµÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++   endif
++ 
++   if has('win32')
++     let fnamechars_ok = '!#$%+,-./0123456789:=@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]_abcdefghijklmnopqrstuvwxyz{}~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++   elseif has('amiga')
++     let fnamechars_ok = '$+,-./0123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++   elseif has('vms')
++     let fnamechars_ok = '#$%+,-./0123456789:;<>ABCDEFGHIJKLMNOPQRSTUVWXYZ[]_abcdefghijklmnopqrstuvwxyz~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++   elseif has('ebcdic')
++     let fnamechars_ok = '#$%+,-./=ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++   else
++     let fnamechars_ok = '#$%+,-./0123456789=ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz~ ¡¢£¤¥¦§¨©ª«¬­®¯°±²³´µ¶·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ'
++   endif
++ 
++   call assert_equal(identchars_ok, identchars)
++   call assert_equal(kwordchars_ok, kwordchars)
++   call assert_equal(fnamechars_ok, fnamechars)
++ 
++   call assert_equal(identchars1, identchars)
++   call assert_equal(kwordchars1, kwordchars)
++   call assert_equal(fnamechars1, fnamechars)
+  endfunc
+  
+  func Test_classes_re1()
+*** ../vim-8.1.0861/src/version.c	2019-01-31 14:43:15.567570578 +0100
+--- src/version.c	2019-01-31 15:33:06.200646685 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     862,
+  /**/
+
+-- 
+Did you ever stop to think...  and forget to start again?
+                                  -- Steven Wright
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,676 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0824
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0824
+Problem:    SunOS/Solaris has a problem with ttys.
+Solution:   Add mch_isatty() with extra handling for SunOS. (Ozaki Kiichi,
+            closes #3865)
+Files:	    src/auto/configure, src/channel.c, src/config.h.in,
+            src/configure.ac, src/os_unix.c, src/proto/pty.pro, src/pty.c,
+            src/terminal.c
+
+
+*** ../vim-8.1.0823/src/auto/configure	2019-01-24 17:59:35.135217476 +0100
+--- src/auto/configure	2019-01-26 14:57:08.963571107 +0100
+***************
+*** 11131,11137 ****
+  	unistd.h stropts.h errno.h sys/resource.h \
+  	sys/systeminfo.h locale.h sys/stream.h termios.h \
+  	libc.h sys/statfs.h poll.h sys/poll.h pwd.h \
+! 	utime.h sys/param.h libintl.h libgen.h \
+  	util/debug.h util/msg18n.h frame.h sys/acl.h \
+  	sys/access.h sys/sysinfo.h wchar.h wctype.h
+  do :
+--- 11131,11137 ----
+  	unistd.h stropts.h errno.h sys/resource.h \
+  	sys/systeminfo.h locale.h sys/stream.h termios.h \
+  	libc.h sys/statfs.h poll.h sys/poll.h pwd.h \
+! 	utime.h sys/param.h sys/ptms.h libintl.h libgen.h \
+  	util/debug.h util/msg18n.h frame.h sys/acl.h \
+  	sys/access.h sys/sysinfo.h wchar.h wctype.h
+  do :
+*** ../vim-8.1.0823/src/channel.c	2019-01-24 23:11:44.631650199 +0100
+--- src/channel.c	2019-01-26 14:56:30.315399239 +0100
+***************
+*** 1048,1054 ****
+  # if defined(UNIX)
+  	/* Do not end the job when all output channels are closed, wait until
+  	 * the job ended. */
+! 	if (isatty(in))
+  	    channel->ch_to_be_closed |= (1U << PART_IN);
+  # endif
+      }
+--- 1048,1054 ----
+  # if defined(UNIX)
+  	/* Do not end the job when all output channels are closed, wait until
+  	 * the job ended. */
+! 	if (mch_isatty(in))
+  	    channel->ch_to_be_closed |= (1U << PART_IN);
+  # endif
+      }
+*** ../vim-8.1.0823/src/config.h.in	2019-01-24 17:59:35.135217476 +0100
+--- src/config.h.in	2019-01-26 14:56:30.315399239 +0100
+***************
+*** 258,263 ****
+--- 258,264 ----
+  #undef HAVE_SYS_PARAM_H
+  #undef HAVE_SYS_POLL_H
+  #undef HAVE_SYS_PTEM_H
++ #undef HAVE_SYS_PTMS_H
+  #undef HAVE_SYS_RESOURCE_H
+  #undef HAVE_SYS_SELECT_H
+  #undef HAVE_SYS_STATFS_H
+*** ../vim-8.1.0823/src/configure.ac	2019-01-24 17:59:35.135217476 +0100
+--- src/configure.ac	2019-01-26 14:56:30.315399239 +0100
+***************
+*** 3265,3271 ****
+  	unistd.h stropts.h errno.h sys/resource.h \
+  	sys/systeminfo.h locale.h sys/stream.h termios.h \
+  	libc.h sys/statfs.h poll.h sys/poll.h pwd.h \
+! 	utime.h sys/param.h libintl.h libgen.h \
+  	util/debug.h util/msg18n.h frame.h sys/acl.h \
+  	sys/access.h sys/sysinfo.h wchar.h wctype.h)
+  
+--- 3265,3271 ----
+  	unistd.h stropts.h errno.h sys/resource.h \
+  	sys/systeminfo.h locale.h sys/stream.h termios.h \
+  	libc.h sys/statfs.h poll.h sys/poll.h pwd.h \
+! 	utime.h sys/param.h sys/ptms.h libintl.h libgen.h \
+  	util/debug.h util/msg18n.h frame.h sys/acl.h \
+  	sys/access.h sys/sysinfo.h wchar.h wctype.h)
+  
+*** ../vim-8.1.0823/src/os_unix.c	2019-01-24 16:38:58.272712472 +0100
+--- src/os_unix.c	2019-01-26 15:02:45.792035406 +0100
+***************
+*** 338,344 ****
+  }
+  
+  /* Why is NeXT excluded here (and not in os_unixx.h)? */
+! #if defined(ECHOE) && defined(ICANON) && (defined(HAVE_TERMIO_H) || defined(HAVE_TERMIOS_H)) && !defined(__NeXT__)
+  # define NEW_TTY_SYSTEM
+  #endif
+  
+--- 338,346 ----
+  }
+  
+  /* Why is NeXT excluded here (and not in os_unixx.h)? */
+! #if defined(ECHOE) && defined(ICANON) \
+!     && (defined(HAVE_TERMIO_H) || defined(HAVE_TERMIOS_H)) \
+!     && !defined(__NeXT__)
+  # define NEW_TTY_SYSTEM
+  #endif
+  
+***************
+*** 3448,3453 ****
+--- 3450,3507 ----
+  
+  #ifndef VMS
+  
++ /*
++  * Get the file descriptor to use for tty operations.
++  */
++     static int
++ get_tty_fd(int fd)
++ {
++     int		tty_fd = fd;
++ 
++ #if defined(HAVE_SVR4_PTYS) && defined(SUN_SYSTEM)
++     // On SunOS: Get the terminal parameters from "fd", or the slave device of
++     // "fd" when it is a master device.
++     if (mch_isatty(fd) > 1)
++     {
++ 	char *name;
++ 
++ 	name = ptsname(fd);
++ 	if (name == NULL)
++ 	    return -1;
++ 
++ 	tty_fd = open(name, O_RDONLY | O_NOCTTY | O_EXTRA, 0);
++ 	if (tty_fd < 0)
++ 	    return -1;
++     }
++ #endif
++     return tty_fd;
++ }
++ 
++     static int
++ mch_tcgetattr(int fd, void *term)
++ {
++     int		tty_fd;
++     int		retval = -1;
++ 
++     tty_fd = get_tty_fd(fd);
++     if (tty_fd >= 0)
++     {
++ #ifdef NEW_TTY_SYSTEM
++ # ifdef HAVE_TERMIOS_H
++ 	retval = tcgetattr(tty_fd, (struct termios *)term);
++ # else
++ 	retval = ioctl(tty_fd, TCGETA, (struct termio *)term);
++ # endif
++ #else
++ 	// for "old" tty systems
++ 	retval = ioctl(tty_fd, TIOCGETP, (struct sgttyb *)term);
++ #endif
++ 	if (tty_fd != fd)
++ 	    close(tty_fd);
++     }
++     return retval;
++ }
++ 
+      void
+  mch_settmode(int tmode)
+  {
+***************
+*** 3465,3475 ****
+      if (first)
+      {
+  	first = FALSE;
+! # if defined(HAVE_TERMIOS_H)
+! 	tcgetattr(read_cmd_fd, &told);
+! # else
+! 	ioctl(read_cmd_fd, TCGETA, &told);
+! # endif
+      }
+  
+      tnew = told;
+--- 3519,3525 ----
+      if (first)
+      {
+  	first = FALSE;
+! 	mch_tcgetattr(read_cmd_fd, &told);
+      }
+  
+      tnew = told;
+***************
+*** 3527,3533 ****
+      if (first)
+      {
+  	first = FALSE;
+! 	ioctl(read_cmd_fd, TIOCGETP, &ttybold);
+      }
+  
+      ttybnew = ttybold;
+--- 3577,3583 ----
+      if (first)
+      {
+  	first = FALSE;
+! 	mch_tcgetattr(read_cmd_fd, &ttybold);
+      }
+  
+      ttybnew = ttybold;
+***************
+*** 3587,3599 ****
+      struct termio keys;
+  # endif
+  
+!     if (
+! # if defined(HAVE_TERMIOS_H)
+! 	    tcgetattr(fd, &keys) != -1
+! # else
+! 	    ioctl(fd, TCGETA, &keys) != -1
+! # endif
+!        )
+      {
+  	info->backspace = keys.c_cc[VERASE];
+  	info->interrupt = keys.c_cc[VINTR];
+--- 3637,3643 ----
+      struct termio keys;
+  # endif
+  
+!     if (mch_tcgetattr(fd, &keys) != -1)
+      {
+  	info->backspace = keys.c_cc[VERASE];
+  	info->interrupt = keys.c_cc[VINTR];
+***************
+*** 3611,3617 ****
+      /* for "old" tty systems */
+      struct sgttyb keys;
+  
+!     if (ioctl(fd, TIOCGETP, &keys) != -1)
+      {
+  	info->backspace = keys.sg_erase;
+  	info->interrupt = keys.sg_kill;
+--- 3655,3661 ----
+      /* for "old" tty systems */
+      struct sgttyb keys;
+  
+!     if (mch_tcgetattr(fd, &keys) != -1)
+      {
+  	info->backspace = keys.sg_erase;
+  	info->interrupt = keys.sg_kill;
+***************
+*** 4070,4103 ****
+      int
+  mch_report_winsize(int fd, int rows, int cols)
+  {
+! # ifdef TIOCSWINSZ
+!     struct winsize	ws;
+  
+!     ws.ws_col = cols;
+!     ws.ws_row = rows;
+!     ws.ws_xpixel = cols * 5;
+!     ws.ws_ypixel = rows * 10;
+!     if (ioctl(fd, TIOCSWINSZ, &ws) == 0)
+      {
+! 	ch_log(NULL, "ioctl(TIOCSWINSZ) success");
+! 	return OK;
+!     }
+!     ch_log(NULL, "ioctl(TIOCSWINSZ) failed");
+! # else
+! #  ifdef TIOCSSIZE
+!     struct ttysize	ts;
+  
+!     ts.ts_cols = cols;
+!     ts.ts_lines = rows;
+!     if (ioctl(fd, TIOCSSIZE, &ws) == 0)
+!     {
+! 	ch_log(NULL, "ioctl(TIOCSSIZE) success");
+! 	return OK;
+!     }
+!     ch_log(NULL, "ioctl(TIOCSSIZE) failed");
+! #  endif
+  # endif
+!     return FAIL;
+  }
+  #endif
+  
+--- 4114,4148 ----
+      int
+  mch_report_winsize(int fd, int rows, int cols)
+  {
+!     int		tty_fd;
+!     int		retval = -1;
+  
+!     tty_fd = get_tty_fd(fd);
+!     if (tty_fd >= 0)
+      {
+! # if defined(TIOCSWINSZ)
+! 	struct winsize ws;
+  
+! 	ws.ws_col = cols;
+! 	ws.ws_row = rows;
+! 	ws.ws_xpixel = cols * 5;
+! 	ws.ws_ypixel = rows * 10;
+! 	retval = ioctl(tty_fd, TIOCSWINSZ, &ws);
+! 	ch_log(NULL, "ioctl(TIOCSWINSZ) %s",
+! 					  retval == 0 ? "success" : "failed");
+! # elif defined(TIOCSSIZE)
+! 	struct ttysize ts;
+! 
+! 	ts.ts_cols = cols;
+! 	ts.ts_lines = rows;
+! 	retval = ioctl(tty_fd, TIOCSSIZE, &ts);
+! 	ch_log(NULL, "ioctl(TIOCSSIZE) %s",
+! 					  retval == 0 ? "success" : "failed");
+  # endif
+! 	if (tty_fd != fd)
+! 	    close(tty_fd);
+!     }
+!     return retval == 0 ? OK : FAIL;
+  }
+  #endif
+  
+***************
+*** 4273,4279 ****
+  {
+      char	*tty_name;
+  
+!     *pty_master_fd = OpenPTY(&tty_name);	    /* open pty */
+      if (*pty_master_fd >= 0)
+      {
+  	/* Leaving out O_NOCTTY may lead to waitpid() always returning
+--- 4318,4324 ----
+  {
+      char	*tty_name;
+  
+!     *pty_master_fd = mch_openpty(&tty_name);	    // open pty
+      if (*pty_master_fd >= 0)
+      {
+  	/* Leaving out O_NOCTTY may lead to waitpid() always returning
+***************
+*** 4721,4727 ****
+  		{
+  		    /* push stream discipline modules */
+  		    if (options & SHELL_COOKED)
+! 			SetupSlavePTY(pty_slave_fd);
+  #  ifdef TIOCSCTTY
+  		    /* Try to become controlling tty (probably doesn't work,
+  		     * unless run by root) */
+--- 4766,4772 ----
+  		{
+  		    /* push stream discipline modules */
+  		    if (options & SHELL_COOKED)
+! 			setup_slavepty(pty_slave_fd);
+  #  ifdef TIOCSCTTY
+  		    /* Try to become controlling tty (probably doesn't work,
+  		     * unless run by root) */
+***************
+*** 5579,5585 ****
+  	if (pty_slave_fd >= 0)
+  	{
+  	    /* push stream discipline modules */
+! 	    SetupSlavePTY(pty_slave_fd);
+  #  ifdef TIOCSCTTY
+  	    /* Try to become controlling tty (probably doesn't work,
+  	     * unless run by root) */
+--- 5624,5630 ----
+  	if (pty_slave_fd >= 0)
+  	{
+  	    /* push stream discipline modules */
+! 	    setup_slavepty(pty_slave_fd);
+  #  ifdef TIOCSCTTY
+  	    /* Try to become controlling tty (probably doesn't work,
+  	     * unless run by root) */
+*** ../vim-8.1.0823/src/proto/pty.pro	2018-05-17 13:52:49.000000000 +0200
+--- src/proto/pty.pro	2019-01-26 15:12:08.822449336 +0100
+***************
+*** 1,4 ****
+  /* pty.c */
+! int SetupSlavePTY(int fd);
+! int OpenPTY(char **ttyn);
+  /* vim: set ft=c : */
+--- 1,5 ----
+  /* pty.c */
+! int setup_slavepty(int fd);
+! int mch_openpty(char **ttyn);
+! int mch_isatty(int fd);
+  /* vim: set ft=c : */
+*** ../vim-8.1.0823/src/pty.c	2018-09-30 21:43:17.203693237 +0200
+--- src/pty.c	2019-01-26 15:05:23.639798802 +0100
+***************
+*** 56,71 ****
+  #endif
+  
+  #if HAVE_STROPTS_H
+! #include <sys/types.h>
+! #ifdef sinix
+! #define buf_T __system_buf_t__
+! #endif
+! #include <stropts.h>
+! #ifdef sinix
+! #undef buf_T
+! #endif
+  # ifdef SUN_SYSTEM
+  #  include <sys/conf.h>
+  # endif
+  #endif
+  
+--- 56,74 ----
+  #endif
+  
+  #if HAVE_STROPTS_H
+! # include <sys/types.h>
+! # ifdef sinix
+! #  define buf_T __system_buf_t__
+! # endif
+! # include <stropts.h>
+! # ifdef sinix
+! #  undef buf_T
+! # endif
+  # ifdef SUN_SYSTEM
+  #  include <sys/conf.h>
++ #  if defined(HAVE_SYS_PTMS_H) && defined(HAVE_SVR4_PTYS)
++ #   include <sys/ptms.h>
++ #  endif
+  # endif
+  #endif
+  
+***************
+*** 155,165 ****
+   * pty on others.  Needs to be tuned...
+   */
+      int
+! SetupSlavePTY(int fd)
+  {
+      if (fd < 0)
+  	return 0;
+! #if defined(I_PUSH) && defined(HAVE_SVR4_PTYS) && !defined(sgi) && !defined(linux) && !defined(__osf__) && !defined(M_UNIX)
+  # if defined(HAVE_SYS_PTEM_H) || defined(hpux)
+      if (ioctl(fd, I_PUSH, "ptem") != 0)
+  	return -1;
+--- 158,169 ----
+   * pty on others.  Needs to be tuned...
+   */
+      int
+! setup_slavepty(int fd)
+  {
+      if (fd < 0)
+  	return 0;
+! #if defined(I_PUSH) && defined(HAVE_SVR4_PTYS) && !defined(sgi) \
+! 	&& !defined(linux) && !defined(__osf__) && !defined(M_UNIX)
+  # if defined(HAVE_SYS_PTEM_H) || defined(hpux)
+      if (ioctl(fd, I_PUSH, "ptem") != 0)
+  	return -1;
+***************
+*** 178,184 ****
+  #if defined(OSX) && !defined(PTY_DONE)
+  #define PTY_DONE
+      int
+! OpenPTY(char **ttyn)
+  {
+      int		f;
+      static char TtyName[32];
+--- 182,188 ----
+  #if defined(OSX) && !defined(PTY_DONE)
+  #define PTY_DONE
+      int
+! mch_openpty(char **ttyn)
+  {
+      int		f;
+      static char TtyName[32];
+***************
+*** 195,201 ****
+  	&& !defined(PTY_DONE)
+  #define PTY_DONE
+      int
+! OpenPTY(char **ttyn)
+  {
+      char	*m, *s;
+      int		f;
+--- 199,205 ----
+  	&& !defined(PTY_DONE)
+  #define PTY_DONE
+      int
+! mch_openpty(char **ttyn)
+  {
+      char	*m, *s;
+      int		f;
+***************
+*** 219,225 ****
+  #if defined(__sgi) && !defined(PTY_DONE)
+  #define PTY_DONE
+      int
+! OpenPTY(char **ttyn)
+  {
+      int f;
+      char *name;
+--- 223,229 ----
+  #if defined(__sgi) && !defined(PTY_DONE)
+  #define PTY_DONE
+      int
+! mch_openpty(char **ttyn)
+  {
+      int f;
+      char *name;
+***************
+*** 244,250 ****
+  #if defined(MIPS) && defined(HAVE_DEV_PTC) && !defined(PTY_DONE)
+  #define PTY_DONE
+      int
+! OpenPTY(char **ttyn)
+  {
+      int		f;
+      stat_T	buf;
+--- 248,254 ----
+  #if defined(MIPS) && defined(HAVE_DEV_PTC) && !defined(PTY_DONE)
+  #define PTY_DONE
+      int
+! mch_openpty(char **ttyn)
+  {
+      int		f;
+      stat_T	buf;
+***************
+*** 272,278 ****
+   * Same for Mac OS X Leopard (10.5). */
+  #define PTY_DONE
+      int
+! OpenPTY(char **ttyn)
+  {
+      int		f;
+      char	*m;
+--- 276,282 ----
+   * Same for Mac OS X Leopard (10.5). */
+  #define PTY_DONE
+      int
+! mch_openpty(char **ttyn)
+  {
+      int		f;
+      char	*m;
+***************
+*** 313,319 ****
+  #endif
+  
+      int
+! OpenPTY(char **ttyn)
+  {
+      int		f;
+      /* used for opening a new pty-pair: */
+--- 317,323 ----
+  #endif
+  
+      int
+! mch_openpty(char **ttyn)
+  {
+      int		f;
+      /* used for opening a new pty-pair: */
+***************
+*** 359,365 ****
+  # endif
+  
+      int
+! OpenPTY(char **ttyn)
+  {
+      char	*p, *q, *l, *d;
+      int		f;
+--- 363,369 ----
+  # endif
+  
+      int
+! mch_openpty(char **ttyn)
+  {
+      char	*p, *q, *l, *d;
+      int		f;
+***************
+*** 410,413 ****
+  }
+  #endif
+  
+! #endif /* FEAT_GUI || FEAT_TERMINAL */
+--- 414,443 ----
+  }
+  #endif
+  
+! /*
+!  * Call isatty(fd), except for SunOS where it's done differently.
+!  */
+!     int
+! mch_isatty(int fd)
+! {
+! # if defined(I_STR) && defined(HAVE_SYS_PTMS_H) && defined(HAVE_SVR4_PTYS) \
+! 	&& defined(SUN_SYSTEM)
+!     // On SunOS, isatty() for /dev/ptmx returns false or sometimes can hang up
+!     // in the inner ioctl(), and therefore first determine whether "fd" is a
+!     // master device.
+!     struct strioctl istr;
+! 
+!     istr.ic_cmd = ISPTM;
+!     istr.ic_timout = 0;
+!     istr.ic_dp = NULL;
+!     istr.ic_len = 0;
+! 
+!     if (ioctl(fd, I_STR, &istr) == 0)
+! 	// Trick: return 2 in order to advice the caller that "fd" is a master
+! 	// device. cf. src/os_unix.c:get_tty_fd()
+! 	return 2;
+! # endif
+!     return isatty(fd);
+! }
+! 
+! #endif /* FEAT_GUI || FEAT_JOB_CHANNEL */
+*** ../vim-8.1.0823/src/terminal.c	2019-01-20 15:30:36.897328669 +0100
+--- src/terminal.c	2019-01-26 14:56:30.319399259 +0100
+***************
+*** 873,879 ****
+      {
+  	int fd = term->tl_job->jv_channel->ch_part[parts[i]].ch_fd;
+  
+! 	if (isatty(fd))
+  	    return parts[i];
+      }
+  #endif
+--- 873,879 ----
+      {
+  	int fd = term->tl_job->jv_channel->ch_part[parts[i]].ch_fd;
+  
+! 	if (mch_isatty(fd))
+  	    return parts[i];
+      }
+  #endif
+***************
+*** 2182,2188 ****
+  	 * them for every typed character is a bit of overhead, but it's needed
+  	 * for the first character typed, e.g. when Vim starts in a shell.
+  	 */
+! 	if (isatty(tty_fd))
+  	{
+  	    ttyinfo_T info;
+  
+--- 2182,2188 ----
+  	 * them for every typed character is a bit of overhead, but it's needed
+  	 * for the first character typed, e.g. when Vim starts in a shell.
+  	 */
+! 	if (mch_isatty(tty_fd))
+  	{
+  	    ttyinfo_T info;
+  
+***************
+*** 5882,5888 ****
+  	for (part = PART_OUT; part < PART_COUNT; ++part)
+  	{
+  	    fd = term->tl_job->jv_channel->ch_part[part].ch_fd;
+! 	    if (isatty(fd))
+  		break;
+  	}
+  	if (part < PART_COUNT && mch_report_winsize(fd, rows, cols) == OK)
+--- 5882,5888 ----
+  	for (part = PART_OUT; part < PART_COUNT; ++part)
+  	{
+  	    fd = term->tl_job->jv_channel->ch_part[part].ch_fd;
+! 	    if (mch_isatty(fd))
+  		break;
+  	}
+  	if (part < PART_COUNT && mch_report_winsize(fd, rows, cols) == OK)
+*** ../vim-8.1.0823/src/version.c	2019-01-26 14:11:15.083587014 +0100
+--- src/version.c	2019-01-26 15:11:16.690665449 +0100
+***************
+*** 789,790 ****
+--- 789,792 ----
+  {   /* Add new patch number below this line */
++ /**/
++     824,
+  /**/
+
+-- 
+Veni, Vidi, Video -- I came, I saw, I taped what I saw.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

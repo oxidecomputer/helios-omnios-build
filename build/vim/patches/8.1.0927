@@ -1,0 +1,695 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0927
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0927
+Problem:    USE_CR is never defined.
+Solution:   Remove usage of USE_CR. (Ken Takata, closes #3958)
+Files:	    runtime/doc/options.txt, src/diff.c, src/evalfunc.c,
+            src/ex_cmds2.c, src/fileio.c, src/message.c, src/ops.c,
+            src/option.h, src/proto/ex_cmds2.pro, src/proto/fileio.pro,
+            src/tag.c
+
+*** ../vim-8.1.0926/runtime/doc/options.txt	2019-02-13 19:23:04.734816702 +0100
+--- runtime/doc/options.txt	2019-02-15 20:38:23.714261969 +0100
+***************
+*** 3106,3114 ****
+  	is read.
+  
+  					*'fileformat'* *'ff'*
+! 'fileformat' 'ff'	string (MS-DOS, MS-Windows, OS/2 default: "dos",
+! 				Unix default: "unix",
+! 				Macintosh default: "mac")
+  			local to buffer
+  			{not in Vi}
+  	This gives the <EOL> of the current buffer, which is used for
+--- 3134,3141 ----
+  	is read.
+  
+  					*'fileformat'* *'ff'*
+! 'fileformat' 'ff'	string (MS-Windows default: "dos",
+! 				Unix, macOS default: "unix")
+  			local to buffer
+  			{not in Vi}
+  	This gives the <EOL> of the current buffer, which is used for
+***************
+*** 3131,3139 ****
+  
+  					*'fileformats'* *'ffs'*
+  'fileformats' 'ffs'	string (default:
+! 				Vim+Vi	MS-DOS, MS-Windows OS/2: "dos,unix",
+! 				Vim	Unix: "unix,dos",
+! 				Vim	Mac: "mac,unix,dos",
+  				Vi	Cygwin: "unix,dos",
+  				Vi	others: "")
+  			global
+--- 3158,3165 ----
+  
+  					*'fileformats'* *'ffs'*
+  'fileformats' 'ffs'	string (default:
+! 				Vim+Vi	MS-Windows: "dos,unix",
+! 				Vim	Unix, macOS: "unix,dos",
+  				Vi	Cygwin: "unix,dos",
+  				Vi	others: "")
+  			global
+*** ../vim-8.1.0926/src/diff.c	2019-01-24 15:04:44.662887892 +0100
+--- src/diff.c	2019-02-15 20:40:16.937520634 +0100
+***************
+*** 90,99 ****
+  static int parse_diff_unified(char_u *line, linenr_T *lnum_orig, long *count_orig, linenr_T *lnum_new, long *count_new);
+  static int xdiff_out(void *priv, mmbuffer_t *mb, int nbuf);
+  
+- #ifndef USE_CR
+- # define tag_fgets vim_fgets
+- #endif
+- 
+  /*
+   * Called when deleting or unloading a buffer: No longer make a diff with it.
+   */
+--- 90,95 ----
+***************
+*** 996,1002 ****
+  		    for (;;)
+  		    {
+  			/* There must be a line that contains "1c1". */
+! 			if (tag_fgets(linebuf, LBUFLEN, fd))
+  			    break;
+  			if (STRNCMP(linebuf, "1c1", 3) == 0)
+  			    ok = TRUE;
+--- 992,998 ----
+  		    for (;;)
+  		    {
+  			/* There must be a line that contains "1c1". */
+! 			if (vim_fgets(linebuf, LBUFLEN, fd))
+  			    break;
+  			if (STRNCMP(linebuf, "1c1", 3) == 0)
+  			    ok = TRUE;
+***************
+*** 1604,1610 ****
+  	}
+  	else
+  	{
+! 	    if (tag_fgets(linebuf, LBUFLEN, fd))
+  		break;		// end of file
+  	    line = linebuf;
+  	}
+--- 1600,1606 ----
+  	}
+  	else
+  	{
+! 	    if (vim_fgets(linebuf, LBUFLEN, fd))
+  		break;		// end of file
+  	    line = linebuf;
+  	}
+***************
+*** 1626,1634 ****
+  	    else if ((STRNCMP(line, "@@ ", 3) == 0))
+  	       diffstyle = DIFF_UNIFIED;
+  	    else if ((STRNCMP(line, "--- ", 4) == 0)
+! 		    && (tag_fgets(linebuf, LBUFLEN, fd) == 0)
+  		    && (STRNCMP(line, "+++ ", 4) == 0)
+! 		    && (tag_fgets(linebuf, LBUFLEN, fd) == 0)
+  		    && (STRNCMP(line, "@@ ", 3) == 0))
+  		diffstyle = DIFF_UNIFIED;
+  	    else
+--- 1622,1630 ----
+  	    else if ((STRNCMP(line, "@@ ", 3) == 0))
+  	       diffstyle = DIFF_UNIFIED;
+  	    else if ((STRNCMP(line, "--- ", 4) == 0)
+! 		    && (vim_fgets(linebuf, LBUFLEN, fd) == 0)
+  		    && (STRNCMP(line, "+++ ", 4) == 0)
+! 		    && (vim_fgets(linebuf, LBUFLEN, fd) == 0)
+  		    && (STRNCMP(line, "@@ ", 3) == 0))
+  		diffstyle = DIFF_UNIFIED;
+  	    else
+*** ../vim-8.1.0926/src/evalfunc.c	2019-02-14 12:56:31.686115921 +0100
+--- src/evalfunc.c	2019-02-15 20:38:23.714261969 +0100
+***************
+*** 13431,13450 ****
+      else
+      {
+  	res = get_cmd_output(tv_get_string(&argvars[0]), infile, flags, NULL);
+! #ifdef USE_CR
+! 	/* translate <CR> into <NL> */
+! 	if (res != NULL)
+! 	{
+! 	    char_u	*s;
+! 
+! 	    for (s = res; *s; ++s)
+! 	    {
+! 		if (*s == CAR)
+! 		    *s = NL;
+! 	    }
+! 	}
+! #else
+! # ifdef USE_CRNL
+  	/* translate <CR><NL> into <NL> */
+  	if (res != NULL)
+  	{
+--- 13431,13437 ----
+      else
+      {
+  	res = get_cmd_output(tv_get_string(&argvars[0]), infile, flags, NULL);
+! #ifdef USE_CRNL
+  	/* translate <CR><NL> into <NL> */
+  	if (res != NULL)
+  	{
+***************
+*** 13459,13465 ****
+  	    }
+  	    *d = NUL;
+  	}
+- # endif
+  #endif
+  	rettv->vval.v_string = res;
+  	res = NULL;
+--- 13446,13451 ----
+*** ../vim-8.1.0926/src/ex_cmds2.c	2019-01-24 15:54:17.782847030 +0100
+--- src/ex_cmds2.c	2019-02-15 20:38:23.718261942 +0100
+***************
+*** 1359,1365 ****
+  	    did_throw = FALSE;
+  	    current_exception = NULL;
+  	    save_vimvars(&vvsave);
+! 
+  	    timer->tr_firing = TRUE;
+  	    timer_callback(timer);
+  	    timer->tr_firing = FALSE;
+--- 1359,1365 ----
+  	    did_throw = FALSE;
+  	    current_exception = NULL;
+  	    save_vimvars(&vvsave);
+! ch_log(NULL, "calling timer callback");
+  	    timer->tr_firing = TRUE;
+  	    timer_callback(timer);
+  	    timer->tr_firing = FALSE;
+***************
+*** 4243,4249 ****
+      FILE	*fp;		/* opened file for sourcing */
+      char_u      *nextline;      /* if not NULL: line that was read ahead */
+      int		finished;	/* ":finish" used */
+! #if defined(USE_CRNL) || defined(USE_CR)
+      int		fileformat;	/* EOL_UNKNOWN, EOL_UNIX or EOL_DOS */
+      int		error;		/* TRUE if LF found after CR-LF */
+  #endif
+--- 4243,4249 ----
+      FILE	*fp;		/* opened file for sourcing */
+      char_u      *nextline;      /* if not NULL: line that was read ahead */
+      int		finished;	/* ":finish" used */
+! #ifdef USE_CRNL
+      int		fileformat;	/* EOL_UNKNOWN, EOL_UNIX or EOL_DOS */
+      int		error;		/* TRUE if LF found after CR-LF */
+  #endif
+***************
+*** 4465,4479 ****
+      cookie.error = FALSE;
+  #endif
+  
+- #ifdef USE_CR
+-     /* If no automatic file format: Set default to CR. */
+-     if (*p_ffs == NUL)
+- 	cookie.fileformat = EOL_MAC;
+-     else
+- 	cookie.fileformat = EOL_UNKNOWN;
+-     cookie.error = FALSE;
+- #endif
+- 
+      cookie.nextline = NULL;
+      cookie.finished = FALSE;
+  
+--- 4465,4470 ----
+***************
+*** 4768,4826 ****
+  
+  #endif
+  
+- #if defined(USE_CR) || defined(PROTO)
+- 
+- # if defined(__MSL__) && (__MSL__ >= 22)
+- /*
+-  * Newer version of the Metrowerks library handle DOS and UNIX files
+-  * without help.
+-  * Test with earlier versions, MSL 2.2 is the library supplied with
+-  * Codewarrior Pro 2.
+-  */
+-     char *
+- fgets_cr(char *s, int n, FILE *stream)
+- {
+-     return fgets(s, n, stream);
+- }
+- # else
+- /*
+-  * Version of fgets() which also works for lines ending in a <CR> only
+-  * (Macintosh format).
+-  * For older versions of the Metrowerks library.
+-  * At least CodeWarrior 9 needed this code.
+-  */
+-     char *
+- fgets_cr(char *s, int n, FILE *stream)
+- {
+-     int	c = 0;
+-     int char_read = 0;
+- 
+-     while (!feof(stream) && c != '\r' && c != '\n' && char_read < n - 1)
+-     {
+- 	c = fgetc(stream);
+- 	s[char_read++] = c;
+- 	/* If the file is in DOS format, we need to skip a NL after a CR.  I
+- 	 * thought it was the other way around, but this appears to work... */
+- 	if (c == '\n')
+- 	{
+- 	    c = fgetc(stream);
+- 	    if (c != '\r')
+- 		ungetc(c, stream);
+- 	}
+-     }
+- 
+-     s[char_read] = 0;
+-     if (char_read == 0)
+- 	return NULL;
+- 
+-     if (feof(stream) && char_read == 1)
+- 	return NULL;
+- 
+-     return s;
+- }
+- # endif
+- #endif
+- 
+  /*
+   * Get one full line from a sourced file.
+   * Called by do_cmdline() when it's called from do_source().
+--- 4759,4764 ----
+***************
+*** 4954,4962 ****
+  #ifdef USE_CRNL
+      int			has_cr;		/* CR-LF found */
+  #endif
+- #ifdef USE_CR
+-     char_u		*scan;
+- #endif
+      int			have_read = FALSE;
+  
+      /* use a growarray to store the sourced line */
+--- 4892,4897 ----
+***************
+*** 4973,4990 ****
+  	    break;
+  	buf = (char_u *)ga.ga_data;
+  
+! #ifdef USE_CR
+! 	if (sp->fileformat == EOL_MAC)
+! 	{
+! 	    if (fgets_cr((char *)buf + ga.ga_len, ga.ga_maxlen - ga.ga_len,
+  							      sp->fp) == NULL)
+! 		break;
+! 	}
+! 	else
+! #endif
+! 	    if (fgets((char *)buf + ga.ga_len, ga.ga_maxlen - ga.ga_len,
+! 							      sp->fp) == NULL)
+! 		break;
+  	len = ga.ga_len + (int)STRLEN(buf + ga.ga_len);
+  #ifdef USE_CRNL
+  	/* Ignore a trailing CTRL-Z, when in Dos mode.	Only recognize the
+--- 4908,4916 ----
+  	    break;
+  	buf = (char_u *)ga.ga_data;
+  
+! 	if (fgets((char *)buf + ga.ga_len, ga.ga_maxlen - ga.ga_len,
+  							      sp->fp) == NULL)
+! 	    break;
+  	len = ga.ga_len + (int)STRLEN(buf + ga.ga_len);
+  #ifdef USE_CRNL
+  	/* Ignore a trailing CTRL-Z, when in Dos mode.	Only recognize the
+***************
+*** 4998,5031 ****
+  	}
+  #endif
+  
+- #ifdef USE_CR
+- 	/* If the read doesn't stop on a new line, and there's
+- 	 * some CR then we assume a Mac format */
+- 	if (sp->fileformat == EOL_UNKNOWN)
+- 	{
+- 	    if (buf[len - 1] != '\n' && vim_strchr(buf, '\r') != NULL)
+- 		sp->fileformat = EOL_MAC;
+- 	    else
+- 		sp->fileformat = EOL_UNIX;
+- 	}
+- 
+- 	if (sp->fileformat == EOL_MAC)
+- 	{
+- 	    scan = vim_strchr(buf, '\r');
+- 
+- 	    if (scan != NULL)
+- 	    {
+- 		*scan = '\n';
+- 		if (*(scan + 1) != 0)
+- 		{
+- 		    *(scan + 1) = 0;
+- 		    fseek(sp->fp, (long)(scan - buf - len + 1), SEEK_CUR);
+- 		}
+- 	    }
+- 	    len = STRLEN(buf);
+- 	}
+- #endif
+- 
+  	have_read = TRUE;
+  	ga.ga_len = len;
+  
+--- 4924,4929 ----
+*** ../vim-8.1.0926/src/fileio.c	2019-02-14 12:56:31.682115940 +0100
+--- src/fileio.c	2019-02-15 20:38:23.718261942 +0100
+***************
+*** 5216,5229 ****
+  	return TRUE;
+      }
+  #endif
+- #ifndef USE_CR
+      if (eol_type == EOL_MAC)
+      {
+  	STRCAT(IObuff, shortmess(SHM_TEXT) ? _("[mac]") : _("[mac format]"));
+  	return TRUE;
+      }
+! #endif
+! #if defined(USE_CRNL) || defined(USE_CR)
+      if (eol_type == EOL_UNIX)
+      {
+  	STRCAT(IObuff, shortmess(SHM_TEXT) ? _("[unix]") : _("[unix format]"));
+--- 5216,5227 ----
+  	return TRUE;
+      }
+  #endif
+      if (eol_type == EOL_MAC)
+      {
+  	STRCAT(IObuff, shortmess(SHM_TEXT) ? _("[mac]") : _("[mac format]"));
+  	return TRUE;
+      }
+! #ifdef USE_CRNL
+      if (eol_type == EOL_UNIX)
+      {
+  	STRCAT(IObuff, shortmess(SHM_TEXT) ? _("[unix]") : _("[unix format]"));
+***************
+*** 6359,6369 ****
+      char	tbuf[FGETS_SIZE];
+  
+      buf[size - 2] = NUL;
+- #ifdef USE_CR
+-     eof = fgets_cr((char *)buf, size, fp);
+- #else
+      eof = fgets((char *)buf, size, fp);
+- #endif
+      if (buf[size - 2] != NUL && buf[size - 2] != '\n')
+      {
+  	buf[size - 1] = NUL;	    /* Truncate the line */
+--- 6357,6363 ----
+***************
+*** 6372,6428 ****
+  	do
+  	{
+  	    tbuf[FGETS_SIZE - 2] = NUL;
+- #ifdef USE_CR
+- 	    vim_ignoredp = fgets_cr((char *)tbuf, FGETS_SIZE, fp);
+- #else
+  	    vim_ignoredp = fgets((char *)tbuf, FGETS_SIZE, fp);
+- #endif
+  	} while (tbuf[FGETS_SIZE - 2] != NUL && tbuf[FGETS_SIZE - 2] != '\n');
+      }
+      return (eof == NULL);
+  }
+  
+- #if defined(USE_CR) || defined(PROTO)
+- /*
+-  * Like vim_fgets(), but accept any line terminator: CR, CR-LF or LF.
+-  * Returns TRUE for end-of-file.
+-  * Only used for the Mac, because it's much slower than vim_fgets().
+-  */
+-     int
+- tag_fgets(char_u *buf, int size, FILE *fp)
+- {
+-     int		i = 0;
+-     int		c;
+-     int		eof = FALSE;
+- 
+-     for (;;)
+-     {
+- 	c = fgetc(fp);
+- 	if (c == EOF)
+- 	{
+- 	    eof = TRUE;
+- 	    break;
+- 	}
+- 	if (c == '\r')
+- 	{
+- 	    /* Always store a NL for end-of-line. */
+- 	    if (i < size - 1)
+- 		buf[i++] = '\n';
+- 	    c = fgetc(fp);
+- 	    if (c != '\n')	/* Macintosh format: single CR. */
+- 		ungetc(c, fp);
+- 	    break;
+- 	}
+- 	if (i < size - 1)
+- 	    buf[i++] = c;
+- 	if (c == '\n')
+- 	    break;
+-     }
+-     buf[i] = NUL;
+-     return eof;
+- }
+- #endif
+- 
+  /*
+   * rename() only works if both files are on the same file system, this
+   * function will (attempts to?) copy the file across if rename fails -- webb
+--- 6366,6377 ----
+*** ../vim-8.1.0926/src/message.c	2019-02-14 20:55:05.983776869 +0100
+--- src/message.c	2019-02-15 20:38:23.718261942 +0100
+***************
+*** 2590,2599 ****
+  		memcpy(buf, p, n);
+  		if (!info_message)
+  		    buf[n++] = CAR;
+! #ifdef USE_CR
+! 		else
+! #endif
+! 		    buf[n++] = NL;
+  		buf[n++] = NUL;
+  		if (info_message)   // informative message, not an error
+  		    mch_msg((char *)buf);
+--- 2590,2596 ----
+  		memcpy(buf, p, n);
+  		if (!info_message)
+  		    buf[n++] = CAR;
+! 		buf[n++] = NL;
+  		buf[n++] = NUL;
+  		if (info_message)   // informative message, not an error
+  		    mch_msg((char *)buf);
+*** ../vim-8.1.0926/src/ops.c	2019-01-26 17:28:22.232599086 +0100
+--- src/ops.c	2019-02-15 20:38:23.718261942 +0100
+***************
+*** 6577,6587 ****
+  #ifdef USE_CRNL
+  	    p[i++] = '\r';
+  #endif
+- #ifdef USE_CR
+- 	    p[i] = '\r';
+- #else
+  	    p[i] = '\n';
+- #endif
+  	    lnum++;
+  	    j = -1;
+  	}
+--- 6577,6583 ----
+*** ../vim-8.1.0926/src/option.h	2019-02-08 12:46:03.588784187 +0100
+--- src/option.h	2019-02-15 20:38:23.718261942 +0100
+***************
+*** 50,70 ****
+  # define DFLT_FFS_VI	"dos,unix"	/* also autodetect in compatible mode */
+  # define DFLT_TEXTAUTO	TRUE
+  #else
+! # ifdef USE_CR
+! #  define DFLT_FF	"mac"
+! #  define DFLT_FFS_VIM	"mac,unix,dos"
+! #  define DFLT_FFS_VI	"mac,unix,dos"
+! #  define DFLT_TEXTAUTO	TRUE
+  # else
+! #  define DFLT_FF	"unix"
+! #  define DFLT_FFS_VIM	"unix,dos"
+! #  ifdef __CYGWIN__
+! #   define DFLT_FFS_VI	"unix,dos"	/* Cygwin always needs file detection */
+! #   define DFLT_TEXTAUTO TRUE
+! #  else
+! #   define DFLT_FFS_VI	""
+! #   define DFLT_TEXTAUTO FALSE
+! #  endif
+  # endif
+  #endif
+  
+--- 50,63 ----
+  # define DFLT_FFS_VI	"dos,unix"	/* also autodetect in compatible mode */
+  # define DFLT_TEXTAUTO	TRUE
+  #else
+! # define DFLT_FF	"unix"
+! # define DFLT_FFS_VIM	"unix,dos"
+! # ifdef __CYGWIN__
+! #  define DFLT_FFS_VI	"unix,dos"	/* Cygwin always needs file detection */
+! #  define DFLT_TEXTAUTO TRUE
+  # else
+! #  define DFLT_FFS_VI	""
+! #  define DFLT_TEXTAUTO FALSE
+  # endif
+  #endif
+  
+*** ../vim-8.1.0926/src/proto/ex_cmds2.pro	2018-05-17 13:52:34.000000000 +0200
+--- src/proto/ex_cmds2.pro	2019-02-15 20:38:23.718261942 +0100
+***************
+*** 93,99 ****
+  void scriptnames_slash_adjust(void);
+  char_u *get_scriptname(scid_T id);
+  void free_scriptnames(void);
+- char *fgets_cr(char *s, int n, FILE *stream);
+  char_u *getsourceline(int c, void *cookie, int indent);
+  void script_line_start(void);
+  void script_line_exec(void);
+--- 93,98 ----
+*** ../vim-8.1.0926/src/proto/fileio.pro	2019-02-14 12:56:31.682115940 +0100
+--- src/proto/fileio.pro	2019-02-15 20:38:23.718261942 +0100
+***************
+*** 18,24 ****
+  char_u *modname(char_u *fname, char_u *ext, int prepend_dot);
+  char_u *buf_modname(int shortname, char_u *fname, char_u *ext, int prepend_dot);
+  int vim_fgets(char_u *buf, int size, FILE *fp);
+- int tag_fgets(char_u *buf, int size, FILE *fp);
+  int vim_rename(char_u *from, char_u *to);
+  int check_timestamps(int focus);
+  int buf_check_timestamp(buf_T *buf, int focus);
+--- 18,23 ----
+*** ../vim-8.1.0926/src/tag.c	2019-02-13 21:19:09.503999092 +0100
+--- src/tag.c	2019-02-15 20:39:52.869677988 +0100
+***************
+*** 1146,1159 ****
+  	msg_puts("\n>");
+  }
+  
+- /* When not using a CR for line separator, use vim_fgets() to read tag lines.
+-  * For the Mac use tag_fgets().  It can handle any line separator, but is much
+-  * slower than vim_fgets().
+-  */
+- #ifndef USE_CR
+- # define tag_fgets vim_fgets
+- #endif
+- 
+  #ifdef FEAT_TAG_BINS
+  /*
+   * Compare two strings, for length "len", ignoring case the ASCII way.
+--- 1146,1151 ----
+***************
+*** 1654,1660 ****
+  		/* Adjust the search file offset to the correct position */
+  		search_info.curr_offset_used = search_info.curr_offset;
+  		vim_fseek(fp, search_info.curr_offset, SEEK_SET);
+! 		eof = tag_fgets(lbuf, LSIZE, fp);
+  		if (!eof && search_info.curr_offset != 0)
+  		{
+  		    /* The explicit cast is to work around a bug in gcc 3.4.2
+--- 1646,1652 ----
+  		/* Adjust the search file offset to the correct position */
+  		search_info.curr_offset_used = search_info.curr_offset;
+  		vim_fseek(fp, search_info.curr_offset, SEEK_SET);
+! 		eof = vim_fgets(lbuf, LSIZE, fp);
+  		if (!eof && search_info.curr_offset != 0)
+  		{
+  		    /* The explicit cast is to work around a bug in gcc 3.4.2
+***************
+*** 1666,1678 ****
+  			vim_fseek(fp, search_info.low_offset, SEEK_SET);
+  			search_info.curr_offset = search_info.low_offset;
+  		    }
+! 		    eof = tag_fgets(lbuf, LSIZE, fp);
+  		}
+  		/* skip empty and blank lines */
+  		while (!eof && vim_isblankline(lbuf))
+  		{
+  		    search_info.curr_offset = vim_ftell(fp);
+! 		    eof = tag_fgets(lbuf, LSIZE, fp);
+  		}
+  		if (eof)
+  		{
+--- 1658,1670 ----
+  			vim_fseek(fp, search_info.low_offset, SEEK_SET);
+  			search_info.curr_offset = search_info.low_offset;
+  		    }
+! 		    eof = vim_fgets(lbuf, LSIZE, fp);
+  		}
+  		/* skip empty and blank lines */
+  		while (!eof && vim_isblankline(lbuf))
+  		{
+  		    search_info.curr_offset = vim_ftell(fp);
+! 		    eof = vim_fgets(lbuf, LSIZE, fp);
+  		}
+  		if (eof)
+  		{
+***************
+*** 1698,1704 ****
+  			eof = cs_fgets(lbuf, LSIZE);
+  		    else
+  #endif
+! 			eof = tag_fgets(lbuf, LSIZE, fp);
+  		} while (!eof && vim_isblankline(lbuf));
+  
+  		if (eof)
+--- 1690,1696 ----
+  			eof = cs_fgets(lbuf, LSIZE);
+  		    else
+  #endif
+! 			eof = vim_fgets(lbuf, LSIZE, fp);
+  		} while (!eof && vim_isblankline(lbuf));
+  
+  		if (eof)
+***************
+*** 1763,1769 ****
+  	    {
+  		is_etag = 1;		/* in case at the start */
+  		state = TS_LINEAR;
+! 		if (!tag_fgets(ebuf, LSIZE, fp))
+  		{
+  		    for (p = ebuf; *p && *p != ','; p++)
+  			;
+--- 1755,1761 ----
+  	    {
+  		is_etag = 1;		/* in case at the start */
+  		state = TS_LINEAR;
+! 		if (!vim_fgets(ebuf, LSIZE, fp))
+  		{
+  		    for (p = ebuf; *p && *p != ','; p++)
+  			;
+*** ../vim-8.1.0926/src/version.c	2019-02-15 20:14:56.740255481 +0100
+--- src/version.c	2019-02-15 21:05:12.754653589 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     927,
+  /**/
+
+-- 
+Mrs Abbott: I'm a paediatrician.
+     Basil: Feet?
+Mrs Abbott: Children.
+     Sybil: Oh, Basil!
+     Basil: Well, children have feet, don't they? That's how they move
+            around, my dear. You must take a look next time, it's most
+            interesting.                               (Fawlty Towers)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

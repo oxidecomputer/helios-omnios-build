@@ -1,0 +1,272 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0619
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0619
+Problem:    :echomsg and :echoerr do not handle List and Dict like :echo does.
+            (Daniel Hahler)
+Solution:   Be more tolerant about the expression result type.
+Files:	    src/eval.c, src/proto/eval.pro, src/evalfunc.c,
+            src/proto/evalfunc.pro, runtime/doc/eval.txt,
+            src/testdir/test_messages.vim, src/message.c
+
+
+*** ../vim-8.1.0618/src/eval.c	2018-12-21 16:04:16.312437516 +0100
+--- src/eval.c	2018-12-22 12:25:00.231184150 +0100
+***************
+*** 7163,7168 ****
+--- 7163,7192 ----
+  }
+  
+  /*
++  * Turn a typeval into a string.  Similar to tv_get_string_buf() but uses
++  * string() on Dict, List, etc.
++  */
++     char_u *
++ tv_stringify(typval_T *varp, char_u *buf)
++ {
++     if (varp->v_type == VAR_LIST
++ 	    || varp->v_type == VAR_DICT
++ 	    || varp->v_type == VAR_FUNC
++ 	    || varp->v_type == VAR_PARTIAL
++ 	    || varp->v_type == VAR_FLOAT)
++     {
++ 	typval_T tmp;
++ 
++ 	f_string(varp, &tmp);
++ 	tv_get_string_buf(&tmp, buf);
++ 	clear_tv(varp);
++ 	*varp = tmp;
++ 	return tmp.vval.v_string;
++     }
++     return tv_get_string_buf(varp, buf);
++ }
++ 
++ /*
+   * Find variable "name" in the list of variables.
+   * Return a pointer to it if found, NULL if not found.
+   * Careful: "a:0" variables don't have a name.
+***************
+*** 8142,8148 ****
+  
+  	if (!eap->skip)
+  	{
+! 	    p = tv_get_string(&rettv);
+  	    len = (int)STRLEN(p);
+  	    if (ga_grow(&ga, len + 2) == FAIL)
+  	    {
+--- 8166,8177 ----
+  
+  	if (!eap->skip)
+  	{
+! 	    char_u   buf[NUMBUFLEN];
+! 
+! 	    if (eap->cmdidx == CMD_execute)
+! 		p = tv_get_string_buf(&rettv, buf);
+! 	    else
+! 		p = tv_stringify(&rettv, buf);
+  	    len = (int)STRLEN(p);
+  	    if (ga_grow(&ga, len + 2) == FAIL)
+  	    {
+*** ../vim-8.1.0618/src/proto/eval.pro	2018-12-21 16:04:16.312437516 +0100
+--- src/proto/eval.pro	2018-12-22 12:17:39.702552883 +0100
+***************
+*** 89,94 ****
+--- 89,95 ----
+  char_u *tv_get_string_buf(typval_T *varp, char_u *buf);
+  char_u *tv_get_string_chk(typval_T *varp);
+  char_u *tv_get_string_buf_chk(typval_T *varp, char_u *buf);
++ char_u *tv_stringify(typval_T *varp, char_u *buf);
+  dictitem_T *find_var(char_u *name, hashtab_T **htp, int no_autoload);
+  dictitem_T *find_var_in_ht(hashtab_T *ht, int htname, char_u *varname, int no_autoload);
+  hashtab_T *find_var_ht(char_u *name, char_u **varname);
+*** ../vim-8.1.0618/src/evalfunc.c	2018-12-21 16:04:16.316437487 +0100
+--- src/evalfunc.c	2018-12-22 12:18:56.357958445 +0100
+***************
+*** 396,402 ****
+  #endif
+  static void f_strgetchar(typval_T *argvars, typval_T *rettv);
+  static void f_stridx(typval_T *argvars, typval_T *rettv);
+- static void f_string(typval_T *argvars, typval_T *rettv);
+  static void f_strlen(typval_T *argvars, typval_T *rettv);
+  static void f_strcharpart(typval_T *argvars, typval_T *rettv);
+  static void f_strpart(typval_T *argvars, typval_T *rettv);
+--- 396,401 ----
+***************
+*** 12475,12481 ****
+  /*
+   * "string()" function
+   */
+!     static void
+  f_string(typval_T *argvars, typval_T *rettv)
+  {
+      char_u	*tofree;
+--- 12474,12480 ----
+  /*
+   * "string()" function
+   */
+!     void
+  f_string(typval_T *argvars, typval_T *rettv)
+  {
+      char_u	*tofree;
+*** ../vim-8.1.0618/src/proto/evalfunc.pro	2018-05-17 13:52:33.000000000 +0200
+--- src/proto/evalfunc.pro	2018-12-22 12:19:00.705924858 +0100
+***************
+*** 9,14 ****
+--- 9,15 ----
+  void mzscheme_call_vim(char_u *name, typval_T *args, typval_T *rettv);
+  float_T vim_round(float_T f);
+  long do_searchpair(char_u *spat, char_u *mpat, char_u *epat, int dir, typval_T *skip, int flags, pos_T *match_pos, linenr_T lnum_stop, long time_limit);
++ void f_string(typval_T *argvars, typval_T *rettv);
+  char_u *get_callback(typval_T *arg, partial_T **pp);
+  void free_callback(char_u *callback, partial_T *partial);
+  /* vim: set ft=c : */
+*** ../vim-8.1.0618/runtime/doc/eval.txt	2018-12-21 15:16:57.475579814 +0100
+--- runtime/doc/eval.txt	2018-12-22 13:13:03.694052571 +0100
+***************
+*** 9214,9220 ****
+  		error with try/catch cannot be used (because it skips over
+  		following code).
+  		{expr} is used literally, not as a pattern.
+! 		There is currently no way to revert this.
+  
+  test_null_channel()					*test_null_channel()*
+  		Return a Channel that is null. Only useful for testing.
+--- 9233,9240 ----
+  		error with try/catch cannot be used (because it skips over
+  		following code).
+  		{expr} is used literally, not as a pattern.
+! 		When the {expr} is the string "RESET" then the list of ignored
+! 		errors is made empty.
+  
+  test_null_channel()					*test_null_channel()*
+  		Return a Channel that is null. Only useful for testing.
+***************
+*** 10978,10985 ****
+  			The parsing works slightly different from |:echo|,
+  			more like |:execute|.  All the expressions are first
+  			evaluated and concatenated before echoing anything.
+! 			The expressions must evaluate to a Number or String, a
+! 			Dictionary or List causes an error.
+  			Uses the highlighting set by the |:echohl| command.
+  			Example: >
+  		:echomsg "It's a Zizzer Zazzer Zuzz, as you can plainly see."
+--- 11000,11007 ----
+  			The parsing works slightly different from |:echo|,
+  			more like |:execute|.  All the expressions are first
+  			evaluated and concatenated before echoing anything.
+! 			If expressions does not evaluate to a Number or
+! 			String, string() is used to turn it into a string.
+  			Uses the highlighting set by the |:echohl| command.
+  			Example: >
+  		:echomsg "It's a Zizzer Zazzer Zuzz, as you can plainly see."
+***************
+*** 10990,10996 ****
+  			message in the |message-history|.  When used in a
+  			script or function the line number will be added.
+  			Spaces are placed between the arguments as with the
+! 			:echo command.  When used inside a try conditional,
+  			the message is raised as an error exception instead
+  			(see |try-echoerr|).
+  			Example: >
+--- 11012,11018 ----
+  			message in the |message-history|.  When used in a
+  			script or function the line number will be added.
+  			Spaces are placed between the arguments as with the
+! 			|:echomsg| command.  When used inside a try conditional,
+  			the message is raised as an error exception instead
+  			(see |try-echoerr|).
+  			Example: >
+*** ../vim-8.1.0618/src/testdir/test_messages.vim	2018-12-02 14:55:04.904731741 +0100
+--- src/testdir/test_messages.vim	2018-12-22 13:16:02.344747032 +0100
+***************
+*** 1,4 ****
+! " Tests for :messages
+  
+  function Test_messages()
+    let oldmore = &more
+--- 1,4 ----
+! " Tests for :messages, :echomsg, :echoerr
+  
+  function Test_messages()
+    let oldmore = &more
+***************
+*** 64,66 ****
+--- 64,94 ----
+    call feedkeys(":message \<C-A>\<C-B>\"\<CR>", 'tx')
+    call assert_equal('"message clear', @:)
+  endfunc
++ 
++ func Test_echomsg()
++   call assert_equal("\nhello", execute(':echomsg "hello"'))
++   call assert_equal("\n", execute(':echomsg ""'))
++   call assert_equal("\n12345", execute(':echomsg 12345'))
++   call assert_equal("\n[]", execute(':echomsg []'))
++   call assert_equal("\n[1, 2, 3]", execute(':echomsg [1, 2, 3]'))
++   call assert_equal("\n{}", execute(':echomsg {}'))
++   call assert_equal("\n{'a': 1, 'b': 2}", execute(':echomsg {"a": 1, "b": 2}'))
++   if has('float')
++     call assert_equal("\n1.23", execute(':echomsg 1.23'))
++   endif
++   call assert_match("function('<lambda>\\d*')", execute(':echomsg {-> 1234}'))
++ endfunc
++ 
++ func Test_echoerr()
++   call test_ignore_error('IgNoRe')
++   call assert_equal("\nIgNoRe hello", execute(':echoerr "IgNoRe hello"'))
++   call assert_equal("\n12345 IgNoRe", execute(':echoerr 12345 "IgNoRe"'))
++   call assert_equal("\n[1, 2, 'IgNoRe']", execute(':echoerr [1, 2, "IgNoRe"]'))
++   call assert_equal("\n{'IgNoRe': 2, 'a': 1}", execute(':echoerr {"a": 1, "IgNoRe": 2}'))
++   if has('float')
++     call assert_equal("\n1.23 IgNoRe", execute(':echoerr 1.23 "IgNoRe"'))
++   endif
++   call test_ignore_error('<lambda>')
++   call assert_match("function('<lambda>\\d*')", execute(':echoerr {-> 1234}'))
++   call test_ignore_error('RESET')
++ endfunc
+*** ../vim-8.1.0618/src/message.c	2018-12-21 16:04:16.316437487 +0100
+--- src/message.c	2018-12-22 13:13:16.209961171 +0100
+***************
+*** 553,559 ****
+      if (ignore_error_list.ga_itemsize == 0)
+  	ga_init2(&ignore_error_list, sizeof(char_u *), 1);
+  
+!     ga_add_string(&ignore_error_list, error);
+  }
+  
+      static int
+--- 553,562 ----
+      if (ignore_error_list.ga_itemsize == 0)
+  	ga_init2(&ignore_error_list, sizeof(char_u *), 1);
+  
+!     if (STRCMP("RESET", error) == 0)
+! 	ga_clear_strings(&ignore_error_list);
+!     else
+! 	ga_add_string(&ignore_error_list, error);
+  }
+  
+      static int
+*** ../vim-8.1.0618/src/version.c	2018-12-21 20:55:18.892739645 +0100
+--- src/version.c	2018-12-22 13:16:38.876479919 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     619,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+38. You wake up at 3 a.m. to go to the bathroom and stop and check your e-mail
+    on the way back to bed.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

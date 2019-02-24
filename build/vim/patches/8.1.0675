@@ -1,0 +1,670 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0675
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0675
+Problem:    Text property column is screen columns is not practical.
+Solution:   Use byte values for the column.
+Files:	    src/structs.h, src/textprop.c, src/proto/textprop.pro,
+            runtime/doc/eval.txt, runtime/doc/textprop.txt,
+            src/testdir/test_textprop.vim,
+            src/testdir/dumps/Test_textprop_01.dump
+
+
+*** ../vim-8.1.0674/src/structs.h	2018-12-29 20:04:36.257512068 +0100
+--- src/structs.h	2019-01-01 18:32:54.838693737 +0100
+***************
+*** 705,711 ****
+   */
+  typedef struct textprop_S
+  {
+!     colnr_T	tp_col;		// start column (one based)
+      colnr_T	tp_len;		// length in bytes
+      int		tp_id;		// identifier
+      int		tp_type;	// property type
+--- 705,711 ----
+   */
+  typedef struct textprop_S
+  {
+!     colnr_T	tp_col;		// start column (one based, in bytes)
+      colnr_T	tp_len;		// length in bytes
+      int		tp_id;		// identifier
+      int		tp_type;	// property type
+*** ../vim-8.1.0674/src/textprop.c	2018-12-28 23:22:36.270750732 +0100
+--- src/textprop.c	2019-01-01 18:56:37.259319158 +0100
+***************
+*** 17,24 ****
+   * Text properties have a type, which can be used to specify highlighting.
+   *
+   * TODO:
+!  * - Perhaps we only need TP_FLAG_CONT_NEXT ?
+!  * - Adjust text property column and length when text is inserted/deleted
+   * - Add an arrray for global_proptypes, to quickly lookup a prop type by ID
+   * - Add an arrray for b_proptypes, to quickly lookup a prop type by ID
+   * - Checking the text length to detect text properties is slow.  Use a flag in
+--- 17,24 ----
+   * Text properties have a type, which can be used to specify highlighting.
+   *
+   * TODO:
+!  * - Adjust text property column and length when text is inserted/deleted.
+!  * - Perhaps we only need TP_FLAG_CONT_NEXT and can drop TP_FLAG_CONT_PREV?
+   * - Add an arrray for global_proptypes, to quickly lookup a prop type by ID
+   * - Add an arrray for b_proptypes, to quickly lookup a prop type by ID
+   * - Checking the text length to detect text properties is slow.  Use a flag in
+***************
+*** 198,209 ****
+      {
+  	long length = dict_get_number(dict, (char_u *)"length");
+  
+! 	if (length < 1 || end_lnum > start_lnum)
+  	{
+  	    EMSG2(_(e_invargval), "length");
+  	    return;
+  	}
+! 	end_col = start_col + length - 1;
+      }
+      else if (dict_find(dict, (char_u *)"end_col", -1) != NULL)
+      {
+--- 198,209 ----
+      {
+  	long length = dict_get_number(dict, (char_u *)"length");
+  
+! 	if (length < 0 || end_lnum > start_lnum)
+  	{
+  	    EMSG2(_(e_invargval), "length");
+  	    return;
+  	}
+! 	end_col = start_col + length;
+      }
+      else if (dict_find(dict, (char_u *)"end_col", -1) != NULL)
+      {
+***************
+*** 260,272 ****
+  	}
+  
+  	if (lnum == end_lnum)
+! 	    length = end_col - col + 1;
+  	else
+  	    length = textlen - col + 1;
+  	if (length > (long)textlen)
+! 	    length = textlen;  // can include the end-of-line
+! 	if (length < 1)
+! 	    length = 1;
+  
+  	// Allocate the new line with space for the new proprety.
+  	newtext = alloc(buf->b_ml.ml_line_len + sizeof(textprop_T));
+--- 260,272 ----
+  	}
+  
+  	if (lnum == end_lnum)
+! 	    length = end_col - col;
+  	else
+  	    length = textlen - col + 1;
+  	if (length > (long)textlen)
+! 	    length = textlen;	// can include the end-of-line
+! 	if (length < 0)
+! 	    length = 0;		// zero-width property
+  
+  	// Allocate the new line with space for the new proprety.
+  	newtext = alloc(buf->b_ml.ml_line_len + sizeof(textprop_T));
+***************
+*** 912,915 ****
+--- 912,925 ----
+      buf->b_proptypes = NULL;
+  }
+  
++ /*
++  * Adjust the columns of text properties in line "lnum" after position "col" to
++  * shift by "bytes_added" (can be negative).
++  */
++     void
++ adjust_prop_columns(linenr_T lnum UNUSED, colnr_T col UNUSED, int bytes_added UNUSED)
++ {
++     // TODO
++ }
++ 
+  #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.0674/src/proto/textprop.pro	2018-12-25 23:15:41.795966567 +0100
+--- src/proto/textprop.pro	2019-01-01 18:48:26.811215254 +0100
+***************
+*** 13,16 ****
+--- 13,17 ----
+  void f_prop_type_list(typval_T *argvars, typval_T *rettv);
+  void clear_global_prop_types(void);
+  void clear_buf_prop_types(buf_T *buf);
++ void adjust_prop_columns(linenr_T lnum, colnr_T col, int bytes_added);
+  /* vim: set ft=c : */
+*** ../vim-8.1.0674/runtime/doc/eval.txt	2018-12-27 23:44:34.793953506 +0100
+--- runtime/doc/eval.txt	2019-01-01 19:43:11.660184779 +0100
+***************
+*** 2309,2315 ****
+  prop_find({props} [, {direction}])
+  				Dict	search for a text property
+  prop_list({lnum} [, {props})  	List	text properties in {lnum}
+! prop_remove({props} [, {lnum} [, {lnum_end}]])
+  				Number	remove a text property
+  prop_type_add({name}, {props})	none	define a new property type
+  prop_type_change({name}, {props})
+--- 2323,2329 ----
+  prop_find({props} [, {direction}])
+  				Dict	search for a text property
+  prop_list({lnum} [, {props})  	List	text properties in {lnum}
+! prop_remove({props} [, {lnum} [, {lnum-end}]])
+  				Number	remove a text property
+  prop_type_add({name}, {props})	none	define a new property type
+  prop_type_change({name}, {props})
+***************
+*** 6673,6703 ****
+  <
+  						*prop_add()* *E965*
+  prop_add({lnum}, {col}, {props})
+! 		Attach a text property at position {lnum}, {col}.  Use one for
+! 		the first column.
+  		If {lnum} is invalid an error is given. *E966*
+  		If {col} is invalid an error is given. *E964*
+  
+  		{props} is a dictionary with these fields:
+! 			"length"   - length of text in characters, can only be
+! 				     used for a property that does not
+! 				     continue in another line
+! 			"end_lnum" - line number for end of text
+! 			"end_col"  - last column of the text; not used when
+! 				     "length" is present
+! 			"bufnr"	   - buffer to add the property to; when
+! 				     omitted the current buffer is used
+! 			"id"	   - user defined ID for the property; when
+! 				     omitted zero is used
+! 			"type"	   - name of the text property type
+  		All fields except "type" are optional.
+  
+  		It is an error when both "length" and "end_lnum" or "end_col"
+! 		are passed.  Either use "length" or "end_col" for a property
+  		within one line, or use "end_lnum" and "end_col" for a
+  		property that spans more than one line.
+! 		When neither "length" nor "end_col" are passed the property
+! 		will apply to one character.
+  		The property can end exactly at the last character of the
+  		text, or just after it.  In the last case, if text is appended
+  		to the line, the text property size will increase, also when
+--- 6689,6721 ----
+  <
+  						*prop_add()* *E965*
+  prop_add({lnum}, {col}, {props})
+! 		Attach a text property at position {lnum}, {col}.  {col} is
+! 		counted in bytes, use one for the first column.
+  		If {lnum} is invalid an error is given. *E966*
+  		If {col} is invalid an error is given. *E964*
+  
+  		{props} is a dictionary with these fields:
+! 		   length	length of text in bytes, can only be used
+! 				for a property that does not continue in
+! 				another line; can be zero
+! 		   end_lnum	line number for the end of text
+! 		   end_col	column just after the text; not used when "length"
+! 				is present; when {col} and "end_col" are equal
+! 				this is a zero-width text property
+! 		   bufnr	buffer to add the property to; when omitted
+! 		   		the current buffer is used
+! 		   id		user defined ID for the property; when omitted
+! 				zero is used
+! 		   type		name of the text property type
+  		All fields except "type" are optional.
+  
+  		It is an error when both "length" and "end_lnum" or "end_col"
+! 		are given.  Either use "length" or "end_col" for a property
+  		within one line, or use "end_lnum" and "end_col" for a
+  		property that spans more than one line.
+! 		When neither "length" nor "end_col" are given the property
+! 		will be zero-width.  That means it will not be highlighted but
+! 		will move with the text, as a kind of mark.
+  		The property can end exactly at the last character of the
+  		text, or just after it.  In the last case, if text is appended
+  		to the line, the text property size will increase, also when
+***************
+*** 6724,6742 ****
+  prop_find({props} [, {direction}])
+  		NOT IMPLEMENTED YET
+  		Search for a text property as specified with {props}:
+! 			"id"		property with this ID
+! 			"type"		property with this type name
+! 			"bufnr	        buffer to search in; when present a
+! 					start position with "lnum" and "col"
+! 					must be given; when omitted the
+! 					current buffer is used
+! 			"lnum"		start in this line (when omitted start
+! 					at the cursor)
+! 			"col"		start at this column (when omitted
+! 					and "lnum" is given: use column 1,
+! 					otherwise start at the cursor)
+! 			"skipstart"	do not look for a match at the start
+! 					position
+  
+  		{direction} can be "f" for forward and "b" for backward.  When
+  		omitted forward search is performed.
+--- 6742,6760 ----
+  prop_find({props} [, {direction}])
+  		NOT IMPLEMENTED YET
+  		Search for a text property as specified with {props}:
+! 		   id		property with this ID
+! 		   type		property with this type name
+! 		   bufnr	buffer to search in; when present a
+! 				start position with "lnum" and "col"
+! 				must be given; when omitted the
+! 				current buffer is used
+! 		   lnum"	start in this line (when omitted start
+! 				at the cursor)
+! 		   col		start at this column (when omitted
+! 				and "lnum" is given: use column 1,
+! 				otherwise start at the cursor)
+! 		   skipstart	do not look for a match at the start
+! 				position
+  
+  		{direction} can be "f" for forward and "b" for backward.  When
+  		omitted forward search is performed.
+***************
+*** 6756,6768 ****
+  
+  		The properties are ordered by starting column and priority.
+  		Each property is a Dict with these entries:
+! 			"col"		starting column
+! 			"length"	length in bytes
+! 			"id"		property ID
+! 			"type"		name of the property type, omitted if
+! 					the type was deleted
+! 			"start"		when TRUE property starts in this line
+! 			"end"		when TRUE property ends in this line
+  
+  		When "start" is zero the property started in a previous line,
+  		the current one is a continuation.
+--- 6774,6787 ----
+  
+  		The properties are ordered by starting column and priority.
+  		Each property is a Dict with these entries:
+! 		   col		starting column
+! 		   length	length in bytes, one more if line break is
+! 				included
+! 		   id		property ID
+! 		   type		name of the property type, omitted if
+! 				the type was deleted
+! 		   start	when TRUE property starts in this line
+! 		   end		when TRUE property ends in this line
+  
+  		When "start" is zero the property started in a previous line,
+  		the current one is a continuation.
+***************
+*** 6773,6791 ****
+  
+  
+  						*prop_remove()* *E968*
+! prop_remove({props} [, {lnum} [, {lnum_end}]])
+  		Remove a matching text property from line {lnum}.  When
+! 		{lnum_end} is given, remove matching text properties from line
+! 		{lnum} to {lnum_end} (inclusive).
+  		When {lnum} is omitted remove matching text properties from
+  		all lines.
+  
+  		{props} is a dictionary with these fields:
+! 			"id"    - remove text properties with this ID
+! 			"type"  - remove text properties with this type name
+! 			"bufnr" - use this buffer instead of the current one
+! 			"all"   - when TRUE remove all matching text
+! 				  properties, not just the first one
+  		A property matches when either "id" or "type" matches.
+  
+  		Returns the number of properties that were removed.
+--- 6792,6810 ----
+  
+  
+  						*prop_remove()* *E968*
+! prop_remove({props} [, {lnum} [, {lnum-end}]])
+  		Remove a matching text property from line {lnum}.  When
+! 		{lnum-end} is given, remove matching text properties from line
+! 		{lnum} to {lnum-end} (inclusive).
+  		When {lnum} is omitted remove matching text properties from
+  		all lines.
+  
+  		{props} is a dictionary with these fields:
+! 		   id		remove text properties with this ID
+! 		   type		remove text properties with this type name
+! 		   bufnr	use this buffer instead of the current one
+! 		   all		when TRUE remove all matching text properties,
+! 				not just the first one
+  		A property matches when either "id" or "type" matches.
+  
+  		Returns the number of properties that were removed.
+***************
+*** 6797,6818 ****
+  		Add a text property type {name}.  If a property type with this
+  		name already exists an error is given.
+  		{props} is a dictionary with these optional fields:
+! 			"bufnr"	      - define the property only for this
+! 					buffer; this avoids name collisions and
+! 					automatically clears the property types
+! 					when the buffer is deleted.
+! 			"highlight"   - name of highlight group to use
+! 			"priority"    - when a character has multiple text
+! 					properties the one with the highest
+! 					priority will be used; negative values
+! 					can be used, the default priority is
+! 					zero
+! 			"start_incl"  - when TRUE inserts at the start
+! 					position will be included in the text
+! 					property
+! 			"end_incl"    - when TRUE inserts at the end
+! 					position will be included in the text
+! 					property
+  
+  		See |text-properties| for information about text properties.
+  
+--- 6816,6834 ----
+  		Add a text property type {name}.  If a property type with this
+  		name already exists an error is given.
+  		{props} is a dictionary with these optional fields:
+! 		   bufnr	define the property only for this buffer; this
+! 				avoids name collisions and automatically
+! 				clears the property types when the buffer is
+! 				deleted.
+! 		   highlight	name of highlight group to use
+! 		   priority	when a character has multiple text
+! 				properties the one with the highest priority
+! 				will be used; negative values can be used, the
+! 				default priority is zero
+! 		   start_incl	when TRUE inserts at the start position will
+! 				be included in the text property
+! 		   end_incl	when TRUE inserts at the end position will be
+! 				included in the text property
+  
+  		See |text-properties| for information about text properties.
+  
+*** ../vim-8.1.0674/runtime/doc/textprop.txt	2018-12-13 22:17:52.869941530 +0100
+--- runtime/doc/textprop.txt	2018-12-30 22:07:01.985153172 +0100
+***************
+*** 1,4 ****
+! *textprop.txt*  For Vim version 8.1.  Last change: 2018 Dec 13
+  
+  
+  		  VIM REFERENCE MANUAL    by Bram Moolenaar
+--- 1,4 ----
+! *textprop.txt*  For Vim version 8.1.  Last change: 2018 Dec 30
+  
+  
+  		  VIM REFERENCE MANUAL    by Bram Moolenaar
+***************
+*** 70,79 ****
+  
+  	The number 123 is smaller than 4567.
+  
+! To highlight the numbers: >
+  	call prop_type_add('number', {'highlight': 'Constant'})
+! 	call prop_add(11, 12, {'length': 3, 'type': 'number})
+! 	call prop_add(11, 32, {'length': 4, 'type': 'number})
+  
+  Setting "start_incl" and "end_incl" is useful when white space surrounds the
+  text, e.g. for a function name.  Using false is useful when the text starts
+--- 70,82 ----
+  
+  	The number 123 is smaller than 4567.
+  
+! To highlight the numbers in this text: >
+  	call prop_type_add('number', {'highlight': 'Constant'})
+! 	call prop_add(11, 12, {'length': 3, 'type': 'number'})
+! 	call prop_add(11, 32, {'length': 4, 'type': 'number'})
+! 
+! Try inserting or deleting lines above the text, you will see that the text
+! properties stick to the text, thus the line number is adjusted as needed.
+  
+  Setting "start_incl" and "end_incl" is useful when white space surrounds the
+  text, e.g. for a function name.  Using false is useful when the text starts
+***************
+*** 86,92 ****
+  	      ^^^^^^	     property with start_incl and end_incl not set
+  
+  Nevertheless, when text is inserted or deleted the text may need to be parsed
+! and the text properties updated.  But this can be done asynchrnously.
+  
+  ==============================================================================
+  2. Functions						*text-prop-functions*
+--- 89,95 ----
+  	      ^^^^^^	     property with start_incl and end_incl not set
+  
+  Nevertheless, when text is inserted or deleted the text may need to be parsed
+! and the text properties updated.  But this can be done asynchronously.
+  
+  ==============================================================================
+  2. Functions						*text-prop-functions*
+***************
+*** 103,113 ****
+  Manipulating text properties:
+  
+  prop_add({lnum}, {col}, {props})  	add a text property
+! prop_clear({lnum} [, {lnum_end} [, {bufnr}]])
+  					remove all text properties
+  prop_find({props} [, {direction}])	search for a text property
+  prop_list({lnum} [, {props})  		text properties in {lnum}
+! prop_remove({props} [, {lnum} [, {lnum_end}]])
+  					remove a text property
+  
+  
+--- 106,116 ----
+  Manipulating text properties:
+  
+  prop_add({lnum}, {col}, {props})  	add a text property
+! prop_clear({lnum} [, {lnum-end} [, {bufnr}]])
+  					remove all text properties
+  prop_find({props} [, {direction}])	search for a text property
+  prop_list({lnum} [, {props})  		text properties in {lnum}
+! prop_remove({props} [, {lnum} [, {lnum-end}]])
+  					remove a text property
+  
+  
+*** ../vim-8.1.0674/src/testdir/test_textprop.vim	2018-12-31 20:05:50.779224516 +0100
+--- src/testdir/test_textprop.vim	2019-01-01 19:39:24.906080572 +0100
+***************
+*** 7,12 ****
+--- 7,14 ----
+  
+  source screendump.vim
+  
++ " test length zero
++ 
+  func Test_proptype_global()
+    call prop_type_add('comment', {'highlight': 'Directory', 'priority': 123, 'start_incl': 1, 'end_incl': 1})
+    let proptypes = prop_type_list()
+***************
+*** 112,117 ****
+--- 114,125 ----
+    1del
+    call assert_equal(s:expected_props, prop_list(1))
+  
++   " Prop without length or end column is zero length
++   call prop_clear(1)
++   call prop_add(1, 5, {'type': 'two'})
++   let expected = [{'col': 5, 'length': 0, 'type': 'two', 'id': 0, 'start': 1, 'end': 1}]
++   call assert_equal(expected, prop_list(1))
++ 
+    call DeletePropTypes()
+    bwipe!
+  endfunc
+***************
+*** 220,226 ****
+    call assert_equal([expect1], prop_list(1))
+    let expect2 = {'col': 1, 'length': 10, 'type': 'comment', 'start': 0, 'end': 0, 'id': 0}
+    call assert_equal([expect2], prop_list(2))
+!   let expect3 = {'col': 1, 'length': 5, 'type': 'comment', 'start': 0, 'end': 1, 'id': 0}
+    call assert_equal([expect3], prop_list(3))
+    call prop_clear(1, 3)
+  
+--- 228,234 ----
+    call assert_equal([expect1], prop_list(1))
+    let expect2 = {'col': 1, 'length': 10, 'type': 'comment', 'start': 0, 'end': 0, 'id': 0}
+    call assert_equal([expect2], prop_list(2))
+!   let expect3 = {'col': 1, 'length': 4, 'type': 'comment', 'start': 0, 'end': 1, 'id': 0}
+    call assert_equal([expect3], prop_list(3))
+    call prop_clear(1, 3)
+  
+***************
+*** 236,265 ****
+  
+    bwipe!
+  
+!   " Test deleting the first line with a prop.
+    call Setup_three_line_prop()
+    let expect2 = {'col': 4, 'length': 4, 'type': 'comment', 'start': 1, 'end': 0, 'id': 0}
+    call assert_equal([expect2], prop_list(2))
+    2del
+-   let expect_short = {'col': 2, 'length': 1, 'type': 'comment', 'start': 1, 'end': 1, 'id': 0}
+    call assert_equal([expect_short], prop_list(1))
+    let expect2 = {'col': 1, 'length': 6, 'type': 'comment', 'start': 1, 'end': 0, 'id': 0}
+    call assert_equal([expect2], prop_list(2))
+    bwipe!
+  
+!   " Test deleting the last line with a prop.
+    call Setup_three_line_prop()
+    let expect3 = {'col': 1, 'length': 6, 'type': 'comment', 'start': 0, 'end': 0, 'id': 0}
+    call assert_equal([expect3], prop_list(3))
+!   let expect4 = {'col': 1, 'length': 5, 'type': 'comment', 'start': 0, 'end': 1, 'id': 0}
+    call assert_equal([expect4], prop_list(4))
+    4del
+!   let expect3 = {'col': 1, 'length': 6, 'type': 'comment', 'start': 0, 'end': 1, 'id': 0}
+    call assert_equal([expect3], prop_list(3))
+    call assert_equal([expect_short], prop_list(4))
+    bwipe!
+  
+!   " Test appending a line below the text prop start.
+    call Setup_three_line_prop()
+    let expect2 = {'col': 4, 'length': 4, 'type': 'comment', 'start': 1, 'end': 0, 'id': 0}
+    call assert_equal([expect2], prop_list(2))
+--- 244,274 ----
+  
+    bwipe!
+  
+!   " Test deleting the first line of a multi-line prop.
+    call Setup_three_line_prop()
++   let expect_short = {'col': 2, 'length': 1, 'type': 'comment', 'start': 1, 'end': 1, 'id': 0}
++   call assert_equal([expect_short], prop_list(1))
+    let expect2 = {'col': 4, 'length': 4, 'type': 'comment', 'start': 1, 'end': 0, 'id': 0}
+    call assert_equal([expect2], prop_list(2))
+    2del
+    call assert_equal([expect_short], prop_list(1))
+    let expect2 = {'col': 1, 'length': 6, 'type': 'comment', 'start': 1, 'end': 0, 'id': 0}
+    call assert_equal([expect2], prop_list(2))
+    bwipe!
+  
+!   " Test deleting the last line of a multi-line prop.
+    call Setup_three_line_prop()
+    let expect3 = {'col': 1, 'length': 6, 'type': 'comment', 'start': 0, 'end': 0, 'id': 0}
+    call assert_equal([expect3], prop_list(3))
+!   let expect4 = {'col': 1, 'length': 4, 'type': 'comment', 'start': 0, 'end': 1, 'id': 0}
+    call assert_equal([expect4], prop_list(4))
+    4del
+!   let expect3.end = 1
+    call assert_equal([expect3], prop_list(3))
+    call assert_equal([expect_short], prop_list(4))
+    bwipe!
+  
+!   " Test appending a line below the multi-line text prop start.
+    call Setup_three_line_prop()
+    let expect2 = {'col': 4, 'length': 4, 'type': 'comment', 'start': 1, 'end': 0, 'id': 0}
+    call assert_equal([expect2], prop_list(2))
+***************
+*** 287,308 ****
+  
+  " screenshot test with textprop highlighting
+  funct Test_textprop_screenshots()
+!   if !CanRunVimInTerminal()
+      return
+    endif
+    call writefile([
+! 	\ "call setline(1, ['One two', 'Number 123 and then 4567.', 'Three'])",
+  	\ "hi NumberProp ctermfg=blue",
+  	\ "hi LongProp ctermbg=yellow",
+  	\ "call prop_type_add('number', {'highlight': 'NumberProp'})",
+  	\ "call prop_type_add('long', {'highlight': 'LongProp'})",
+  	\ "call prop_add(1, 4, {'end_lnum': 3, 'end_col': 3, 'type': 'long'})",
+! 	\ "call prop_add(2, 8, {'length': 3, 'type': 'number'})",
+! 	\ "call prop_add(2, 21, {'length': 4, 'type': 'number'})",
+  	\ "set number",
+  	\ "set spell",
+  	\], 'XtestProp')
+!   let buf = RunVimInTerminal('-S XtestProp', {})
+    call VerifyScreenDump(buf, 'Test_textprop_01', {})
+  
+    " clean up
+--- 296,318 ----
+  
+  " screenshot test with textprop highlighting
+  funct Test_textprop_screenshots()
+!   if !CanRunVimInTerminal() || &encoding != 'utf-8'
+      return
+    endif
+    call writefile([
+! 	\ "call setline(1, ['One two', 'Numbér 123 änd thœn 4¾7.', 'Three'])",
+  	\ "hi NumberProp ctermfg=blue",
+  	\ "hi LongProp ctermbg=yellow",
+  	\ "call prop_type_add('number', {'highlight': 'NumberProp'})",
+  	\ "call prop_type_add('long', {'highlight': 'LongProp'})",
+  	\ "call prop_add(1, 4, {'end_lnum': 3, 'end_col': 3, 'type': 'long'})",
+! 	\ "call prop_add(2, 9, {'length': 3, 'type': 'number'})",
+! 	\ "call prop_add(2, 24, {'length': 4, 'type': 'number'})",
+  	\ "set number",
++ 	\ "hi clear SpellBad",
+  	\ "set spell",
+  	\], 'XtestProp')
+!   let buf = RunVimInTerminal('-S XtestProp', {'rows': 6})
+    call VerifyScreenDump(buf, 'Test_textprop_01', {})
+  
+    " clean up
+*** ../vim-8.1.0674/src/testdir/dumps/Test_textprop_01.dump	2018-12-31 14:34:00.466438581 +0100
+--- src/testdir/dumps/Test_textprop_01.dump	2019-01-01 19:29:48.618878036 +0100
+***************
+*** 1,20 ****
+  | +0#af5f00255#ffffff0@1|1| >O+0#0000000&|n|e| +0&#ffff4012|t|w|o| +0&#ffffff0@63
+! | +0#af5f00255&@1|2| |N+0#0000000#ffff4012|u|m|b|e|r| |1+0#4040ff13&|2|3| +0#0000000&|a|n|d| |t|h|e|n| |4+0#4040ff13&|5|6|7|.+0#0000000&| +0&#ffffff0@45
+! | +0#af5f00255&@1|3| |T+0#0000000#ffff4012|h|r|e+0&#ffffff0@1| @65
+  |~+0#4040ff13&| @73
+  |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+- |~| @73
+  | +0#0000000&@56|1|,|1| @10|A|l@1| 
+--- 1,6 ----
+  | +0#af5f00255#ffffff0@1|1| >O+0#0000000&|n|e| +0&#ffff4012|t|w|o| +0&#ffffff0@63
+! | +0#af5f00255&@1|2| |N+0#0000000#ffff4012|u|m|b|é|r| |1+0#4040ff13&|2|3| +0#0000000&|ä|n|d| |t|h|œ|n| |4+0#4040ff13&|¾|7|.+0#0000000&| +0&#ffffff0@46
+! | +0#af5f00255&@1|3| |T+0#0000000#ffff4012|h|r+0&#ffffff0|e@1| @65
+  |~+0#4040ff13&| @73
+  |~| @73
+  | +0#0000000&@56|1|,|1| @10|A|l@1| 
+*** ../vim-8.1.0674/src/version.c	2019-01-01 15:15:43.165078543 +0100
+--- src/version.c	2019-01-01 18:30:12.944106089 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     675,
+  /**/
+
+-- 
+From "know your smileys":
+ :-D	Big smile
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,131 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0849
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0849
+Problem:    Cursorline highlight is not always updated.
+Solution:   Set w_last_cursorline when redrawing.  Fix resetting cursor flags
+            when using the popup menu.
+Files:	    src/screen.c, src/popupmnu.c, src/testdir/test_highlight.vim,
+            src/testdir/dumps/Test_cursorline_yank_01.dump
+
+
+*** ../vim-8.1.0848/src/screen.c	2019-01-26 17:28:22.232599086 +0100
+--- src/screen.c	2019-01-30 21:37:50.308437559 +0100
+***************
+*** 3712,3717 ****
+--- 3712,3718 ----
+      {
+  	line_attr = HL_ATTR(HLF_CUL);
+  	area_highlighting = TRUE;
++ 	wp->w_last_cursorline = wp->w_cursor.lnum;
+      }
+  #endif
+  
+*** ../vim-8.1.0848/src/popupmnu.c	2019-01-17 21:09:02.045706371 +0100
+--- src/popupmnu.c	2019-01-30 21:21:51.161694814 +0100
+***************
+*** 368,374 ****
+      // Update the cursor position to be able to compute the popup menu
+      // position.  The cursor line length may have changed because of the
+      // inserted completion.
+!     curwin->w_valid &= VALID_CROW|VALID_CHEIGHT;
+      validate_cursor();
+  }
+  
+--- 368,374 ----
+      // Update the cursor position to be able to compute the popup menu
+      // position.  The cursor line length may have changed because of the
+      // inserted completion.
+!     curwin->w_valid &= ~(VALID_CROW|VALID_CHEIGHT);
+      validate_cursor();
+  }
+  
+*** ../vim-8.1.0848/src/testdir/test_highlight.vim	2019-01-09 23:00:57.997176121 +0100
+--- src/testdir/test_highlight.vim	2019-01-30 21:36:18.289017109 +0100
+***************
+*** 1,6 ****
+--- 1,7 ----
+  " Tests for ":highlight" and highlighting.
+  
+  source view_util.vim
++ source screendump.vim
+  
+  func Test_highlight()
+    " basic test if ":highlight" doesn't crash
+***************
+*** 129,138 ****
+  endfunc
+  
+  func Test_highlight_eol_with_cursorline_vertsplit()
+-   if !has('vertsplit')
+-     return
+-   endif
+- 
+    let [hiCursorLine, hi_ul, hi_bg] = HiCursorLine()
+  
+    call NewWindow('topleft 5', 5)
+--- 130,135 ----
+***************
+*** 533,535 ****
+--- 530,554 ----
+    set t_Co=0
+    redraw
+  endfunc
++ 
++ func Test_cursorline_after_yank()
++   if !CanRunVimInTerminal()
++     return
++   endif
++ 
++   call writefile([
++ 	\ 'set cul rnu',
++ 	\ 'call setline(1, ["","1","2","3",""])',
++ 	\ ], 'Xtest_cursorline_yank')
++   let buf = RunVimInTerminal('-S Xtest_cursorline_yank', {'rows': 8})
++   call term_wait(buf)
++   call term_sendkeys(buf, "Gy3k")
++   call term_wait(buf)
++   call term_sendkeys(buf, "jj")
++ 
++   call VerifyScreenDump(buf, 'Test_cursorline_yank_01', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('Xtest_cursorline_yank')
++ endfunc
+*** ../vim-8.1.0848/src/testdir/dumps/Test_cursorline_yank_01.dump	2019-01-30 21:40:03.087583983 +0100
+--- src/testdir/dumps/Test_cursorline_yank_01.dump	2019-01-30 21:37:58.852383208 +0100
+***************
+*** 0 ****
+--- 1,8 ----
++ | +0#af5f00255#ffffff0@1|3| | +0#0000000&@70
++ | +0#af5f00255&@1|2| |1+0#0000000&| @69
++ | +0#af5f00255&@1|1| |2+0#0000000&| @69
++ | +0#af5f00255&@1|0| >3+8#0000000&| @69
++ | +0#af5f00255&@1|1| | +0#0000000&@70
++ |~+0#4040ff13&| @73
++ |~| @73
++ |4+0#0000000&| |l|i|n|e|s| |y|a|n|k|e|d| @42|4|,|1| @10|A|l@1| 
+*** ../vim-8.1.0848/src/version.c	2019-01-30 21:00:05.867377219 +0100
+--- src/version.c	2019-01-30 21:39:38.139745728 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     849,
+  /**/
+
+-- 
+5 out of 4 people have trouble with fractions.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

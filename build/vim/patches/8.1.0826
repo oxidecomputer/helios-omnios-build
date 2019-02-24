@@ -1,0 +1,3149 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0826
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0826
+Problem:    Too many #ifdefs.
+Solution:   Graduate FEAT_VIRTUALEDIT.  Adds about 10Kbyte to the code.
+Files:	    src/buffer.c, src/charset.c, src/edit.c, src/eval.c,
+            src/evalfunc.c, src/ex_cmds.c, src/ex_docmd.c, src/feature.h,
+            src/globals.h, src/gui.c, src/if_py_both.h, src/macros.h,
+            src/mark.c, src/mbyte.c, src/memline.c, src/menu.c, src/misc1.c,
+            src/misc2.c, src/move.c, src/netbeans.c, src/normal.c, src/ops.c,
+            src/option.c, src/option.h, src/screen.c, src/search.c,
+            src/spell.c, src/structs.h, src/tag.c, src/ui.c, src/undo.c,
+            src/userfunc.c, src/version.c, src/vim.h, src/window.c
+
+
+*** ../vim-8.1.0825/src/buffer.c	2019-01-24 15:04:44.662887892 +0100
+--- src/buffer.c	2019-01-26 16:53:13.030607118 +0100
+***************
+*** 1729,1737 ****
+      /* Cursor on first line by default. */
+      curwin->w_cursor.lnum = 1;
+      curwin->w_cursor.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;
+- #endif
+      curwin->w_set_curswant = TRUE;
+      curwin->w_topline_was_set = FALSE;
+  
+--- 1729,1735 ----
+***************
+*** 2333,2341 ****
+  	{
+  	    curwin->w_cursor.col = col;
+  	    check_cursor_col();
+- #ifdef FEAT_VIRTUALEDIT
+  	    curwin->w_cursor.coladd = 0;
+- #endif
+  	    curwin->w_set_curswant = TRUE;
+  	}
+  	return OK;
+--- 2331,2337 ----
+***************
+*** 2363,2371 ****
+      {
+  	curwin->w_cursor.col = fpos->col;
+  	check_cursor_col();
+- #ifdef FEAT_VIRTUALEDIT
+  	curwin->w_cursor.coladd = 0;
+- #endif
+  	curwin->w_set_curswant = TRUE;
+      }
+  }
+--- 2359,2365 ----
+***************
+*** 2958,2964 ****
+  buflist_findfpos(buf_T *buf)
+  {
+      wininfo_T	*wip;
+!     static pos_T no_position = INIT_POS_T(1, 0, 0);
+  
+      wip = find_wininfo(buf, FALSE);
+      if (wip != NULL)
+--- 2952,2958 ----
+  buflist_findfpos(buf_T *buf)
+  {
+      wininfo_T	*wip;
+!     static pos_T no_position = {1, 0, 0};
+  
+      wip = find_wininfo(buf, FALSE);
+      if (wip != NULL)
+***************
+*** 3955,3963 ****
+  	// Line may have changed since checking the cursor column, or the lnum
+  	// was adjusted above.
+  	wp->w_cursor.col = (colnr_T)len;
+- #ifdef FEAT_VIRTUALEDIT
+  	wp->w_cursor.coladd = 0;
+- #endif
+  	byteval = 0;
+      }
+      else
+--- 3949,3955 ----
+*** ../vim-8.1.0825/src/charset.c	2019-01-24 15:54:17.794846944 +0100
+--- src/charset.c	2019-01-26 16:53:46.770374525 +0100
+***************
+*** 1365,1381 ****
+      colnr_T	vcol;
+  
+      curwin->w_p_list = FALSE;
+- #ifdef FEAT_VIRTUALEDIT
+      if (posp->coladd)
+  	getvvcol(curwin, posp, NULL, &vcol, NULL);
+      else
+- #endif
+  	getvcol(curwin, posp, NULL, &vcol, NULL);
+      curwin->w_p_list = list_save;
+      return vcol;
+  }
+  
+- #if defined(FEAT_VIRTUALEDIT) || defined(PROTO)
+  /*
+   * Get virtual column in virtual mode.
+   */
+--- 1365,1378 ----
+***************
+*** 1425,1431 ****
+      else
+  	getvcol(wp, pos, start, cursor, end);
+  }
+- #endif
+  
+  /*
+   * Get the leftmost and rightmost virtual column of pos1 and pos2.
+--- 1422,1427 ----
+*** ../vim-8.1.0825/src/edit.c	2019-01-25 22:29:54.139821894 +0100
+--- src/edit.c	2019-01-26 16:55:18.241740105 +0100
+***************
+*** 1072,1085 ****
+  		break;
+  	    ins_ctrl_o();
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	    /* don't move the cursor left when 'virtualedit' has "onemore". */
+  	    if (ve_flags & VE_ONEMORE)
+  	    {
+  		ins_at_eol = FALSE;
+  		nomove = TRUE;
+  	    }
+- #endif
+  	    count = 0;
+  	    goto doESCkey;
+  
+--- 1072,1083 ----
+***************
+*** 7125,7138 ****
+  	    {
+  		if (gchar_cursor() != NUL)
+  		    inc_cursor();
+! #ifdef FEAT_VIRTUALEDIT
+! 		/* If the cursor is still at the same character, also keep
+! 		 * the "coladd". */
+  		if (gchar_cursor() == NUL
+  			&& curwin->w_cursor.lnum == tpos.lnum
+  			&& curwin->w_cursor.col == tpos.col)
+  		    curwin->w_cursor.coladd = tpos.coladd;
+- #endif
+  	    }
+  	}
+  
+--- 7123,7134 ----
+  	    {
+  		if (gchar_cursor() != NUL)
+  		    inc_cursor();
+! 		// If the cursor is still at the same character, also keep
+! 		// the "coladd".
+  		if (gchar_cursor() == NUL
+  			&& curwin->w_cursor.lnum == tpos.lnum
+  			&& curwin->w_cursor.col == tpos.col)
+  		    curwin->w_cursor.coladd = tpos.coladd;
+  	    }
+  	}
+  
+***************
+*** 7182,7190 ****
+  		if (VIsual.col > len)
+  		{
+  		    VIsual.col = len;
+- #ifdef FEAT_VIRTUALEDIT
+  		    VIsual.coladd = 0;
+- #endif
+  		}
+  	    }
+  	}
+--- 7178,7184 ----
+***************
+*** 7293,7301 ****
+      else
+      {
+  	curwin->w_cursor.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+  	curwin->w_cursor.coladd = 0;
+- #endif
+  
+  	if (flags & (BL_WHITE | BL_SOL))
+  	{
+--- 7287,7293 ----
+***************
+*** 7323,7329 ****
+      char_u	*ptr;
+      int		l;
+  
+- #ifdef FEAT_VIRTUALEDIT
+      if (virtual_active())
+      {
+  	pos_T	prevpos = curwin->w_cursor;
+--- 7315,7320 ----
+***************
+*** 7338,7344 ****
+  	return (prevpos.col != curwin->w_cursor.col
+  		    || prevpos.coladd != curwin->w_cursor.coladd) ? OK : FAIL;
+      }
+- #endif
+  
+      ptr = ml_get_cursor();
+      if (*ptr == NUL)
+--- 7329,7334 ----
+***************
+*** 7351,7361 ****
+  
+      /* move "l" bytes right, but don't end up on the NUL, unless 'virtualedit'
+       * contains "onemore". */
+!     if (ptr[l] == NUL
+! #ifdef FEAT_VIRTUALEDIT
+! 	    && (ve_flags & VE_ONEMORE) == 0
+! #endif
+! 	    )
+  	return FAIL;
+      curwin->w_cursor.col += l;
+  
+--- 7341,7347 ----
+  
+      /* move "l" bytes right, but don't end up on the NUL, unless 'virtualedit'
+       * contains "onemore". */
+!     if (ptr[l] == NUL && (ve_flags & VE_ONEMORE) == 0)
+  	return FAIL;
+      curwin->w_cursor.col += l;
+  
+***************
+*** 7366,7383 ****
+      int
+  oneleft(void)
+  {
+- #ifdef FEAT_VIRTUALEDIT
+      if (virtual_active())
+      {
+! # ifdef FEAT_LINEBREAK
+  	int width;
+! # endif
+  	int v = getviscol();
+  
+  	if (v == 0)
+  	    return FAIL;
+  
+! # ifdef FEAT_LINEBREAK
+  	/* We might get stuck on 'showbreak', skip over it. */
+  	width = 1;
+  	for (;;)
+--- 7352,7368 ----
+      int
+  oneleft(void)
+  {
+      if (virtual_active())
+      {
+! #ifdef FEAT_LINEBREAK
+  	int width;
+! #endif
+  	int v = getviscol();
+  
+  	if (v == 0)
+  	    return FAIL;
+  
+! #ifdef FEAT_LINEBREAK
+  	/* We might get stuck on 'showbreak', skip over it. */
+  	width = 1;
+  	for (;;)
+***************
+*** 7391,7399 ****
+  		break;
+  	    ++width;
+  	}
+! # else
+  	coladvance(v - 1);
+! # endif
+  
+  	if (curwin->w_cursor.coladd == 1)
+  	{
+--- 7376,7384 ----
+  		break;
+  	    ++width;
+  	}
+! #else
+  	coladvance(v - 1);
+! #endif
+  
+  	if (curwin->w_cursor.coladd == 1)
+  	{
+***************
+*** 7409,7415 ****
+  	curwin->w_set_curswant = TRUE;
+  	return OK;
+      }
+- #endif
+  
+      if (curwin->w_cursor.col == 0)
+  	return FAIL;
+--- 7394,7399 ----
+***************
+*** 8665,8674 ****
+       */
+      if (!nomove
+  	    && (curwin->w_cursor.col != 0
+! #ifdef FEAT_VIRTUALEDIT
+! 		|| curwin->w_cursor.coladd > 0
+! #endif
+! 	       )
+  	    && (restart_edit == NUL
+  		   || (gchar_cursor() == NUL && !VIsual_active))
+  #ifdef FEAT_RIGHTLEFT
+--- 8649,8655 ----
+       */
+      if (!nomove
+  	    && (curwin->w_cursor.col != 0
+! 		|| curwin->w_cursor.coladd > 0)
+  	    && (restart_edit == NUL
+  		   || (gchar_cursor() == NUL && !VIsual_active))
+  #ifdef FEAT_RIGHTLEFT
+***************
+*** 8676,8682 ****
+  #endif
+  				      )
+      {
+- #ifdef FEAT_VIRTUALEDIT
+  	if (curwin->w_cursor.coladd > 0 || ve_flags == VE_ALL)
+  	{
+  	    oneleft();
+--- 8657,8662 ----
+***************
+*** 8684,8690 ****
+  		++curwin->w_cursor.coladd;
+  	}
+  	else
+- #endif
+  	{
+  	    --curwin->w_cursor.col;
+  	    /* Correct cursor for multi-byte character. */
+--- 8664,8669 ----
+***************
+*** 8874,8884 ****
+  	restart_edit = 'R';
+      else
+  	restart_edit = 'I';
+- #ifdef FEAT_VIRTUALEDIT
+      if (virtual_active())
+  	ins_at_eol = FALSE;	/* cursor always keeps its column */
+      else
+- #endif
+  	ins_at_eol = (gchar_cursor() == NUL);
+  }
+  
+--- 8853,8861 ----
+***************
+*** 9040,9046 ****
+  	inc_cursor();
+  #endif
+  
+- #ifdef FEAT_VIRTUALEDIT
+      /* Virtualedit:
+       *	BACKSPACE_CHAR eats a virtual space
+       *	BACKSPACE_WORD eats all coladd
+--- 9017,9022 ----
+***************
+*** 9060,9066 ****
+  	}
+  	curwin->w_cursor.coladd = 0;
+      }
+- #endif
+  
+      /*
+       * Delete newline!
+--- 9036,9041 ----
+***************
+*** 9744,9752 ****
+      if (c == K_C_HOME)
+  	curwin->w_cursor.lnum = 1;
+      curwin->w_cursor.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;
+- #endif
+      curwin->w_curswant = 0;
+      start_arrow(&tpos);
+  }
+--- 9719,9725 ----
+***************
+*** 9797,9817 ****
+  	foldOpenCursor();
+  #endif
+      undisplay_dollar();
+!     if (gchar_cursor() != NUL
+! #ifdef FEAT_VIRTUALEDIT
+! 	    || virtual_active()
+! #endif
+! 	    )
+      {
+  	start_arrow_with_change(&curwin->w_cursor, end_change);
+  	if (!end_change)
+  	    AppendCharToRedobuff(K_RIGHT);
+  	curwin->w_set_curswant = TRUE;
+- #ifdef FEAT_VIRTUALEDIT
+  	if (virtual_active())
+  	    oneright();
+  	else
+- #endif
+  	{
+  	    if (has_mbyte)
+  		curwin->w_cursor.col += (*mb_ptr2len)(ml_get_cursor());
+--- 9770,9784 ----
+  	foldOpenCursor();
+  #endif
+      undisplay_dollar();
+!     if (gchar_cursor() != NUL || virtual_active())
+      {
+  	start_arrow_with_change(&curwin->w_cursor, end_change);
+  	if (!end_change)
+  	    AppendCharToRedobuff(K_RIGHT);
+  	curwin->w_set_curswant = TRUE;
+  	if (virtual_active())
+  	    oneright();
+  	else
+  	{
+  	    if (has_mbyte)
+  		curwin->w_cursor.col += (*mb_ptr2len)(ml_get_cursor());
+***************
+*** 10268,10279 ****
+       * in open_line().
+       */
+  
+- #ifdef FEAT_VIRTUALEDIT
+      /* Put cursor on NUL if on the last char and coladd is 1 (happens after
+       * CTRL-O). */
+      if (virtual_active() && curwin->w_cursor.coladd > 0)
+  	coladvance(getviscol());
+- #endif
+  
+  #ifdef FEAT_RIGHTLEFT
+  # ifdef FEAT_FKMAP
+--- 10235,10244 ----
+*** ../vim-8.1.0825/src/eval.c	2019-01-25 20:48:29.381157353 +0100
+--- src/eval.c	2019-01-26 16:55:31.845645313 +0100
+***************
+*** 6207,6218 ****
+  	    return NULL;	/* invalid column number */
+  	--pos.col;
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	/* Get the virtual offset.  Defaults to zero. */
+  	pos.coladd = list_find_nr(l, 2L, &error);
+  	if (error)
+  	    pos.coladd = 0;
+- #endif
+  
+  	return &pos;
+      }
+--- 6207,6216 ----
+***************
+*** 6236,6244 ****
+  	return pp;
+      }
+  
+- #ifdef FEAT_VIRTUALEDIT
+      pos.coladd = 0;
+- #endif
+  
+      if (name[0] == 'w' && dollar_lnum)
+      {
+--- 6234,6240 ----
+***************
+*** 6323,6335 ****
+  	return FAIL;
+      posp->col = n;
+  
+- #ifdef FEAT_VIRTUALEDIT
+      n = list_find_nr(l, i, NULL);	/* off */
+      if (n < 0)
+  	posp->coladd = 0;
+      else
+  	posp->coladd = n;
+- #endif
+  
+      if (curswantp != NULL)
+  	*curswantp = list_find_nr(l, i + 1, NULL);  /* curswant */
+--- 6319,6329 ----
+*** ../vim-8.1.0825/src/evalfunc.c	2019-01-24 21:57:11.574719854 +0100
+--- src/evalfunc.c	2019-01-26 16:56:16.065336486 +0100
+***************
+*** 2517,2523 ****
+  	else
+  	{
+  	    col = fp->col + 1;
+- #ifdef FEAT_VIRTUALEDIT
+  	    /* col(".") when the cursor is on the NUL at the end of the line
+  	     * because of "coladd" can be seen as an extra column. */
+  	    if (virtual_active() && fp == &curwin->w_cursor)
+--- 2517,2522 ----
+***************
+*** 2533,2539 ****
+  			col += l;
+  		}
+  	    }
+- #endif
+  	}
+      }
+      rettv->vval.v_number = col;
+--- 2532,2537 ----
+***************
+*** 2838,2846 ****
+  f_cursor(typval_T *argvars, typval_T *rettv)
+  {
+      long	line, col;
+- #ifdef FEAT_VIRTUALEDIT
+      long	coladd = 0;
+- #endif
+      int		set_curswant = TRUE;
+  
+      rettv->vval.v_number = -1;
+--- 2836,2842 ----
+***************
+*** 2856,2864 ****
+  	}
+  	line = pos.lnum;
+  	col = pos.col;
+- #ifdef FEAT_VIRTUALEDIT
+  	coladd = pos.coladd;
+- #endif
+  	if (curswant >= 0)
+  	{
+  	    curwin->w_curswant = curswant - 1;
+--- 2852,2858 ----
+***************
+*** 2869,2892 ****
+      {
+  	line = tv_get_lnum(argvars);
+  	col = (long)tv_get_number_chk(&argvars[1], NULL);
+- #ifdef FEAT_VIRTUALEDIT
+  	if (argvars[2].v_type != VAR_UNKNOWN)
+  	    coladd = (long)tv_get_number_chk(&argvars[2], NULL);
+- #endif
+      }
+!     if (line < 0 || col < 0
+! #ifdef FEAT_VIRTUALEDIT
+! 			    || coladd < 0
+! #endif
+! 	    )
+  	return;		/* type error; errmsg already given */
+      if (line > 0)
+  	curwin->w_cursor.lnum = line;
+      if (col > 0)
+  	curwin->w_cursor.col = col - 1;
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = coladd;
+- #endif
+  
+      /* Make sure the cursor is in a valid position. */
+      check_cursor();
+--- 2863,2878 ----
+      {
+  	line = tv_get_lnum(argvars);
+  	col = (long)tv_get_number_chk(&argvars[1], NULL);
+  	if (argvars[2].v_type != VAR_UNKNOWN)
+  	    coladd = (long)tv_get_number_chk(&argvars[2], NULL);
+      }
+!     if (line < 0 || col < 0 || coladd < 0)
+  	return;		/* type error; errmsg already given */
+      if (line > 0)
+  	curwin->w_cursor.lnum = line;
+      if (col > 0)
+  	curwin->w_cursor.col = col - 1;
+      curwin->w_cursor.coladd = coladd;
+  
+      /* Make sure the cursor is in a valid position. */
+      check_cursor();
+***************
+*** 4810,4818 ****
+  	    return;
+  	dict_add_number(d, "lnum", (long)buf->b_changelist[i].lnum);
+  	dict_add_number(d, "col", (long)buf->b_changelist[i].col);
+- # ifdef FEAT_VIRTUALEDIT
+  	dict_add_number(d, "coladd", (long)buf->b_changelist[i].coladd);
+- # endif
+      }
+  #endif
+  }
+--- 4796,4802 ----
+***************
+*** 5304,5312 ****
+  	    return;
+  	dict_add_number(d, "lnum", (long)wp->w_jumplist[i].fmark.mark.lnum);
+  	dict_add_number(d, "col", (long)wp->w_jumplist[i].fmark.mark.col);
+- # ifdef FEAT_VIRTUALEDIT
+  	dict_add_number(d, "coladd", (long)wp->w_jumplist[i].fmark.mark.coladd);
+- # endif
+  	dict_add_number(d, "bufnr", (long)wp->w_jumplist[i].fmark.fnum);
+  	if (wp->w_jumplist[i].fname != NULL)
+  	    dict_add_string(d, "filename", wp->w_jumplist[i].fname);
+--- 5288,5294 ----
+***************
+*** 5483,5492 ****
+  	list_append_number(l, (fp != NULL)
+  		     ? (varnumber_T)(fp->col == MAXCOL ? MAXCOL : fp->col + 1)
+  							    : (varnumber_T)0);
+! 	list_append_number(l,
+! #ifdef FEAT_VIRTUALEDIT
+! 				(fp != NULL) ? (varnumber_T)fp->coladd :
+! #endif
+  							      (varnumber_T)0);
+  	if (getcurpos)
+  	{
+--- 5465,5471 ----
+  	list_append_number(l, (fp != NULL)
+  		     ? (varnumber_T)(fp->col == MAXCOL ? MAXCOL : fp->col + 1)
+  							    : (varnumber_T)0);
+! 	list_append_number(l, (fp != NULL) ? (varnumber_T)fp->coladd :
+  							      (varnumber_T)0);
+  	if (getcurpos)
+  	{
+***************
+*** 6574,6582 ****
+  	"viminfo",
+  #endif
+  	"vertsplit",
+- #ifdef FEAT_VIRTUALEDIT
+  	"virtualedit",
+- #endif
+  	"visual",
+  	"visualextra",
+  	"vreplace",
+--- 6553,6559 ----
+***************
+*** 14611,14620 ****
+  	    curwin->w_cursor.lnum = (linenr_T)dict_get_number(dict, (char_u *)"lnum");
+  	if (dict_find(dict, (char_u *)"col", -1) != NULL)
+  	    curwin->w_cursor.col = (colnr_T)dict_get_number(dict, (char_u *)"col");
+- #ifdef FEAT_VIRTUALEDIT
+  	if (dict_find(dict, (char_u *)"coladd", -1) != NULL)
+  	    curwin->w_cursor.coladd = (colnr_T)dict_get_number(dict, (char_u *)"coladd");
+- #endif
+  	if (dict_find(dict, (char_u *)"curswant", -1) != NULL)
+  	{
+  	    curwin->w_curswant = (colnr_T)dict_get_number(dict, (char_u *)"curswant");
+--- 14588,14595 ----
+***************
+*** 14661,14669 ****
+  
+      dict_add_number(dict, "lnum", (long)curwin->w_cursor.lnum);
+      dict_add_number(dict, "col", (long)curwin->w_cursor.col);
+- #ifdef FEAT_VIRTUALEDIT
+      dict_add_number(dict, "coladd", (long)curwin->w_cursor.coladd);
+- #endif
+      update_curswant();
+      dict_add_number(dict, "curswant", (long)curwin->w_curswant);
+  
+--- 14636,14642 ----
+*** ../vim-8.1.0825/src/ex_cmds.c	2019-01-24 15:04:44.666887862 +0100
+--- src/ex_cmds.c	2019-01-26 16:56:25.545270146 +0100
+***************
+*** 4332,4340 ****
+  		/* 'sol' is off: Use last known column. */
+  		curwin->w_cursor.col = solcol;
+  		check_cursor_col();
+- #ifdef FEAT_VIRTUALEDIT
+  		curwin->w_cursor.coladd = 0;
+- #endif
+  		curwin->w_set_curswant = TRUE;
+  	    }
+  	    else
+--- 4332,4338 ----
+*** ../vim-8.1.0825/src/ex_docmd.c	2019-01-24 15:54:17.782847030 +0100
+--- src/ex_docmd.c	2019-01-26 16:56:43.125146996 +0100
+***************
+*** 4650,4658 ****
+  			pos.col = MAXCOL;
+  		    else
+  			pos.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+  		    pos.coladd = 0;
+- #endif
+  		    if (searchit(curwin, curbuf, &pos, NULL,
+  				*cmd == '?' ? BACKWARD : FORWARD,
+  				(char_u *)"", 1L, SEARCH_MSG,
+--- 4650,4656 ----
+***************
+*** 9421,9429 ****
+      oa.end.lnum = eap->line2;
+      oa.line_count = eap->line2 - eap->line1 + 1;
+      oa.motion_type = MLINE;
+- #ifdef FEAT_VIRTUALEDIT
+      virtual_op = FALSE;
+- #endif
+      if (eap->cmdidx != CMD_yank)	/* position cursor for undo */
+      {
+  	setpcmark();
+--- 9419,9425 ----
+***************
+*** 9460,9468 ****
+  	    op_shift(&oa, FALSE, eap->amount);
+  	    break;
+      }
+- #ifdef FEAT_VIRTUALEDIT
+      virtual_op = MAYBE;
+- #endif
+      ex_may_print(eap);
+  }
+  
+--- 9456,9462 ----
+*** ../vim-8.1.0825/src/feature.h	2019-01-24 18:20:14.436543394 +0100
+--- src/feature.h	2019-01-26 17:08:35.436071531 +0100
+***************
+*** 199,208 ****
+  
+  /*
+   * +virtualedit		'virtualedit' option and its implementation
+   */
+- #ifdef FEAT_NORMAL
+- # define FEAT_VIRTUALEDIT
+- #endif
+  
+  /*
+   * +cmdline_info	'showcmd' and 'ruler' options.
+--- 199,206 ----
+  
+  /*
+   * +virtualedit		'virtualedit' option and its implementation
++  *			Now always included.
+   */
+  
+  /*
+   * +cmdline_info	'showcmd' and 'ruler' options.
+*** ../vim-8.1.0825/src/globals.h	2019-01-26 16:20:44.264683546 +0100
+--- src/globals.h	2019-01-26 17:08:47.047987932 +0100
+***************
+*** 771,777 ****
+  
+  EXTERN pos_T	saved_cursor		/* w_cursor before formatting text. */
+  #ifdef DO_INIT
+! 	= INIT_POS_T(0, 0, 0)
+  #endif
+  	;
+  
+--- 771,777 ----
+  
+  EXTERN pos_T	saved_cursor		/* w_cursor before formatting text. */
+  #ifdef DO_INIT
+! 	= {0, 0, 0}
+  #endif
+  	;
+  
+***************
+*** 1066,1072 ****
+  EXTERN int	did_cursorhold INIT(= FALSE); /* set when CursorHold t'gerd */
+  EXTERN pos_T	last_cursormoved	      /* for CursorMoved event */
+  # ifdef DO_INIT
+! 			= INIT_POS_T(0, 0, 0)
+  # endif
+  			;
+  
+--- 1066,1072 ----
+  EXTERN int	did_cursorhold INIT(= FALSE); /* set when CursorHold t'gerd */
+  EXTERN pos_T	last_cursormoved	      /* for CursorMoved event */
+  # ifdef DO_INIT
+! 			= {0, 0, 0}
+  # endif
+  			;
+  
+***************
+*** 1335,1345 ****
+  EXTERN char	pseps[2] INIT(= {'\\' COMMA 0});
+  #endif
+  
+- #ifdef FEAT_VIRTUALEDIT
+  /* Set to TRUE when an operator is being executed with virtual editing, MAYBE
+   * when no operator is being executed, FALSE otherwise. */
+  EXTERN int	virtual_op INIT(= MAYBE);
+- #endif
+  
+  #ifdef FEAT_SYN_HL
+  /* Display tick, incremented for each call to update_screen() */
+--- 1335,1343 ----
+*** ../vim-8.1.0825/src/gui.c	2019-01-24 15:04:44.670887836 +0100
+--- src/gui.c	2019-01-26 16:56:48.273110907 +0100
+***************
+*** 4599,4612 ****
+  	longest_lnum = gui_find_longest_lnum();
+  	max = scroll_line_len(longest_lnum);
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	if (virtual_active())
+  	{
+  	    /* May move the cursor even further to the right. */
+  	    if (curwin->w_virtcol >= (colnr_T)max)
+  		max = curwin->w_virtcol;
+  	}
+- #endif
+  
+  #ifndef SCROLL_PAST_END
+  	max += curwin->w_width - 1;
+--- 4599,4610 ----
+*** ../vim-8.1.0825/src/if_py_both.h	2019-01-24 17:18:37.599462306 +0100
+--- src/if_py_both.h	2019-01-26 17:08:58.951902215 +0100
+***************
+*** 4033,4041 ****
+  	self->win->w_cursor.lnum = lnum;
+  	self->win->w_cursor.col = col;
+  	self->win->w_set_curswant = TRUE;
+- #ifdef FEAT_VIRTUALEDIT
+  	self->win->w_cursor.coladd = 0;
+- #endif
+  	/* When column is out of range silently correct it. */
+  	check_cursor_col_win(self->win);
+  
+--- 4033,4039 ----
+*** ../vim-8.1.0825/src/macros.h	2019-01-24 17:18:37.599462306 +0100
+--- src/macros.h	2019-01-26 17:09:21.635738827 +0100
+***************
+*** 21,47 ****
+  /*
+   * Position comparisons
+   */
+! #ifdef FEAT_VIRTUALEDIT
+! # define LT_POS(a, b) (((a).lnum != (b).lnum) \
+  		   ? (a).lnum < (b).lnum \
+  		   : (a).col != (b).col \
+  		       ? (a).col < (b).col \
+  		       : (a).coladd < (b).coladd)
+! # define LT_POSP(a, b) (((a)->lnum != (b)->lnum) \
+  		   ? (a)->lnum < (b)->lnum \
+  		   : (a)->col != (b)->col \
+  		       ? (a)->col < (b)->col \
+  		       : (a)->coladd < (b)->coladd)
+! # define EQUAL_POS(a, b) (((a).lnum == (b).lnum) && ((a).col == (b).col) && ((a).coladd == (b).coladd))
+! # define CLEAR_POS(a) {(a)->lnum = 0; (a)->col = 0; (a)->coladd = 0;}
+! #else
+! # define LT_POS(a, b) (((a).lnum != (b).lnum) \
+! 		   ? ((a).lnum < (b).lnum) : ((a).col < (b).col))
+! # define LT_POSP(a, b) (((a)->lnum != (b)->lnum) \
+! 		   ? ((a)->lnum < (b)->lnum) : ((a)->col < (b)->col))
+! # define EQUAL_POS(a, b) (((a).lnum == (b).lnum) && ((a).col == (b).col))
+! # define CLEAR_POS(a) {(a)->lnum = 0; (a)->col = 0;}
+! #endif
+  
+  #define LTOREQ_POS(a, b) (LT_POS(a, b) || EQUAL_POS(a, b))
+  
+--- 21,38 ----
+  /*
+   * Position comparisons
+   */
+! #define LT_POS(a, b) (((a).lnum != (b).lnum) \
+  		   ? (a).lnum < (b).lnum \
+  		   : (a).col != (b).col \
+  		       ? (a).col < (b).col \
+  		       : (a).coladd < (b).coladd)
+! #define LT_POSP(a, b) (((a)->lnum != (b)->lnum) \
+  		   ? (a)->lnum < (b)->lnum \
+  		   : (a)->col != (b)->col \
+  		       ? (a)->col < (b)->col \
+  		       : (a)->coladd < (b)->coladd)
+! #define EQUAL_POS(a, b) (((a).lnum == (b).lnum) && ((a).col == (b).col) && ((a).coladd == (b).coladd))
+! #define CLEAR_POS(a) {(a)->lnum = 0; (a)->col = 0; (a)->coladd = 0;}
+  
+  #define LTOREQ_POS(a, b) (LT_POS(a, b) || EQUAL_POS(a, b))
+  
+*** ../vim-8.1.0825/src/mark.c	2019-01-19 17:43:03.417449145 +0100
+--- src/mark.c	2019-01-26 16:57:22.132873211 +0100
+***************
+*** 414,422 ****
+  		pos_copy.col = 0;
+  	    else
+  		pos_copy.col = MAXCOL;
+- #ifdef FEAT_VIRTUALEDIT
+  	    pos_copy.coladd = 0;
+- #endif
+  	}
+      }
+      else if (ASCII_ISLOWER(c))		/* normal named mark */
+--- 414,420 ----
+***************
+*** 651,659 ****
+      buf->b_op_end.lnum = 0;
+      buf->b_last_cursor.lnum = 1;	/* '" mark cleared */
+      buf->b_last_cursor.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+      buf->b_last_cursor.coladd = 0;
+- #endif
+      buf->b_last_insert.lnum = 0;	/* '^ mark cleared */
+      buf->b_last_change.lnum = 0;	/* '. mark cleared */
+  #ifdef FEAT_JUMPLIST
+--- 649,655 ----
+***************
+*** 1052,1058 ****
+      linenr_T	*lp;
+      win_T	*win;
+      tabpage_T	*tab;
+!     static pos_T initpos = INIT_POS_T(1, 0, 0);
+  
+      if (line2 < line1 && amount_after == 0L)	    /* nothing to do */
+  	return;
+--- 1048,1054 ----
+      linenr_T	*lp;
+      win_T	*win;
+      tabpage_T	*tab;
+!     static pos_T initpos = {1, 0, 0};
+  
+      if (line2 < line1 && amount_after == 0L)	    /* nothing to do */
+  	return;
+***************
+*** 1451,1459 ****
+  	    fm->fmark.mark.lnum = getdigits(&str);
+  	    str = skipwhite(str);
+  	    fm->fmark.mark.col = getdigits(&str);
+- #ifdef FEAT_VIRTUALEDIT
+  	    fm->fmark.mark.coladd = 0;
+- #endif
+  	    fm->fmark.fnum = 0;
+  	    str = skipwhite(str);
+  	    vim_free(fm->fname);
+--- 1447,1453 ----
+***************
+*** 1641,1649 ****
+  	{
+  	    fm->fmark.mark.lnum = lnum;
+  	    fm->fmark.mark.col = col;
+- #ifdef FEAT_VIRTUALEDIT
+  	    fm->fmark.mark.coladd = 0;
+- #endif
+  	    fm->fmark.fnum = 0;
+  	    vim_free(fm->fname);
+  	    if (vp[4].bv_allocated)
+--- 1635,1641 ----
+***************
+*** 2146,2154 ****
+  	}
+  	vim_free(str);
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	pos.coladd = 0;
+- #endif
+  	while (!(eof = viminfo_readline(virp)) && line[0] == TAB)
+  	{
+  	    if (load_marks)
+--- 2138,2144 ----
+*** ../vim-8.1.0825/src/mbyte.c	2019-01-24 15:54:17.790846972 +0100
+--- src/mbyte.c	2019-01-26 16:57:48.512687656 +0100
+***************
+*** 3994,4002 ****
+  	convert_setup(&vimconv, p_enc, curbuf->b_p_fenc);
+      }
+  
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;
+- #endif
+      for (;;)
+      {
+  	p = ml_get_cursor();
+--- 3994,4000 ----
+***************
+*** 4118,4135 ****
+  {
+      char_u	*p;
+  
+!     if (lp->col > 0
+! #ifdef FEAT_VIRTUALEDIT
+! 	    || lp->coladd > 1
+! #endif
+! 	    )
+      {
+  	p = ml_get_buf(buf, lp->lnum, FALSE);
+  	if (*p == NUL || (int)STRLEN(p) < lp->col)
+  	    lp->col = 0;
+  	else
+  	    lp->col -= (*mb_head_off)(p, p + lp->col);
+- #ifdef FEAT_VIRTUALEDIT
+  	/* Reset "coladd" when the cursor would be on the right half of a
+  	 * double-wide character. */
+  	if (lp->coladd == 1
+--- 4116,4128 ----
+  {
+      char_u	*p;
+  
+!     if (lp->col > 0 || lp->coladd > 1)
+      {
+  	p = ml_get_buf(buf, lp->lnum, FALSE);
+  	if (*p == NUL || (int)STRLEN(p) < lp->col)
+  	    lp->col = 0;
+  	else
+  	    lp->col -= (*mb_head_off)(p, p + lp->col);
+  	/* Reset "coladd" when the cursor would be on the right half of a
+  	 * double-wide character. */
+  	if (lp->coladd == 1
+***************
+*** 4137,4143 ****
+  		&& vim_isprintc((*mb_ptr2char)(p + lp->col))
+  		&& ptr2cells(p + lp->col) > 1)
+  	    lp->coladd = 0;
+- #endif
+      }
+  }
+  
+--- 4130,4135 ----
+*** ../vim-8.1.0825/src/memline.c	2019-01-24 15:54:17.790846972 +0100
+--- src/memline.c	2019-01-26 16:57:59.360611264 +0100
+***************
+*** 5667,5675 ****
+      {
+  	curwin->w_cursor.lnum = lnum;
+  	curwin->w_cursor.col = (colnr_T)boff;
+- # ifdef FEAT_VIRTUALEDIT
+  	curwin->w_cursor.coladd = 0;
+- # endif
+  	curwin->w_set_curswant = TRUE;
+      }
+      check_cursor();
+--- 5667,5673 ----
+*** ../vim-8.1.0825/src/menu.c	2019-01-19 19:54:17.141981393 +0100
+--- src/menu.c	2019-01-26 16:58:09.392540578 +0100
+***************
+*** 2318,2326 ****
+  		curwin->w_cursor.col = 1;
+  		tpos.lnum = eap->line2;
+  		tpos.col = MAXCOL;
+- #ifdef FEAT_VIRTUALEDIT
+  		tpos.coladd = 0;
+- #endif
+  	    }
+  
+  	    /* Activate visual mode */
+--- 2318,2324 ----
+*** ../vim-8.1.0825/src/misc1.c	2019-01-24 15:54:17.790846972 +0100
+--- src/misc1.c	2019-01-26 16:58:37.044345517 +0100
+***************
+*** 622,630 ****
+  	{
+  	    pos.lnum = lnum;
+  	    pos.col = (colnr_T)(*regmatch.endp - ml_get(lnum));
+- #ifdef FEAT_VIRTUALEDIT
+  	    pos.coladd = 0;
+- #endif
+  	}
+  	vim_regfree(regmatch.regprog);
+      }
+--- 622,628 ----
+***************
+*** 1708,1716 ****
+  	changed_lines(curwin->w_cursor.lnum, 0, curwin->w_cursor.lnum, 1L);
+  
+      curwin->w_cursor.col = newcol;
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;
+- #endif
+  
+  #if defined(FEAT_LISP) || defined(FEAT_CINDENT)
+      /*
+--- 1706,1712 ----
+***************
+*** 1781,1789 ****
+  
+  	/* Insert new stuff into line again */
+  	curwin->w_cursor.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+  	curwin->w_cursor.coladd = 0;
+- #endif
+  	ins_bytes(p_extra);	/* will call changed_bytes() */
+  	vim_free(p_extra);
+  	next_line = NULL;
+--- 1777,1783 ----
+***************
+*** 2354,2364 ****
+      linenr_T	lnum = curwin->w_cursor.lnum;
+      int		i;
+  
+- #ifdef FEAT_VIRTUALEDIT
+      /* Break tabs if needed. */
+      if (virtual_active() && curwin->w_cursor.coladd > 0)
+  	coladvance_force(getviscol());
+- #endif
+  
+      col = curwin->w_cursor.col;
+      oldp = ml_get(lnum);
+--- 2348,2356 ----
+***************
+*** 2499,2508 ****
+      colnr_T	col;
+      linenr_T	lnum = curwin->w_cursor.lnum;
+  
+- #ifdef FEAT_VIRTUALEDIT
+      if (virtual_active() && curwin->w_cursor.coladd > 0)
+  	coladvance_force(getviscol());
+- #endif
+  
+      col = curwin->w_cursor.col;
+      oldp = ml_get(lnum);
+--- 2491,2498 ----
+***************
+*** 2637,2651 ****
+  	 * unless "restart_edit" is set or 'virtualedit' contains "onemore".
+  	 */
+  	if (col > 0 && fixpos && restart_edit == 0
+! #ifdef FEAT_VIRTUALEDIT
+! 					      && (ve_flags & VE_ONEMORE) == 0
+! #endif
+! 					      )
+  	{
+  	    --curwin->w_cursor.col;
+- #ifdef FEAT_VIRTUALEDIT
+  	    curwin->w_cursor.coladd = 0;
+- #endif
+  	    if (has_mbyte)
+  		curwin->w_cursor.col -=
+  			    (*mb_head_off)(oldp, oldp + curwin->w_cursor.col);
+--- 2627,2636 ----
+  	 * unless "restart_edit" is set or 'virtualedit' contains "onemore".
+  	 */
+  	if (col > 0 && fixpos && restart_edit == 0
+! 					      && (ve_flags & VE_ONEMORE) == 0)
+  	{
+  	    --curwin->w_cursor.col;
+  	    curwin->w_cursor.coladd = 0;
+  	    if (has_mbyte)
+  		curwin->w_cursor.col -=
+  			    (*mb_head_off)(oldp, oldp + curwin->w_cursor.col);
+*** ../vim-8.1.0825/src/misc2.c	2019-01-24 15:54:17.790846972 +0100
+--- src/misc2.c	2019-01-26 17:00:00.739753344 +0100
+***************
+*** 16,22 ****
+  
+  static char_u	*ff_expand_buffer = NULL; /* used for expanding filenames */
+  
+- #if defined(FEAT_VIRTUALEDIT) || defined(PROTO)
+  static int coladvance2(pos_T *pos, int addspaces, int finetune, colnr_T wcol);
+  
+  /*
+--- 16,21 ----
+***************
+*** 67,73 ****
+      }
+      return rc;
+  }
+- #endif
+  
+  /*
+   * Get the screen position of character col with a coladd in the cursor line.
+--- 66,71 ----
+***************
+*** 80,88 ****
+  
+      pos.lnum = curwin->w_cursor.lnum;
+      pos.col = col;
+- #ifdef FEAT_VIRTUALEDIT
+      pos.coladd = coladd;
+- #endif
+      getvvcol(curwin, &pos, &x, NULL, NULL);
+      return (int)x;
+  }
+--- 78,84 ----
+***************
+*** 119,125 ****
+      int
+  getvpos(pos_T *pos, colnr_T wcol)
+  {
+- #ifdef FEAT_VIRTUALEDIT
+      return coladvance2(pos, FALSE, virtual_active(), wcol);
+  }
+  
+--- 115,120 ----
+***************
+*** 130,136 ****
+      int		finetune,	/* change char offset for the exact column */
+      colnr_T	wcol)		/* column to move to */
+  {
+- #endif
+      int		idx;
+      char_u	*ptr;
+      char_u	*line;
+--- 125,130 ----
+***************
+*** 144,153 ****
+      one_more = (State & INSERT)
+  		    || restart_edit != NUL
+  		    || (VIsual_active && *p_sel != 'o')
+! #ifdef FEAT_VIRTUALEDIT
+! 		    || ((ve_flags & VE_ONEMORE) && wcol < MAXCOL)
+! #endif
+! 		    ;
+      line = ml_get_buf(curbuf, pos->lnum, FALSE);
+  
+      if (wcol >= MAXCOL)
+--- 138,144 ----
+      one_more = (State & INSERT)
+  		    || restart_edit != NUL
+  		    || (VIsual_active && *p_sel != 'o')
+! 		    || ((ve_flags & VE_ONEMORE) && wcol < MAXCOL) ;
+      line = ml_get_buf(curbuf, pos->lnum, FALSE);
+  
+      if (wcol >= MAXCOL)
+***************
+*** 155,172 ****
+  	    idx = (int)STRLEN(line) - 1 + one_more;
+  	    col = wcol;
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	    if ((addspaces || finetune) && !VIsual_active)
+  	    {
+  		curwin->w_curswant = linetabsize(line) + one_more;
+  		if (curwin->w_curswant > 0)
+  		    --curwin->w_curswant;
+  	    }
+- #endif
+      }
+      else
+      {
+- #ifdef FEAT_VIRTUALEDIT
+  	int width = curwin->w_width - win_col_off(curwin);
+  
+  	if (finetune
+--- 146,160 ----
+***************
+*** 188,194 ****
+  		wcol = (csize / width + 1) * width - 1;
+  	    }
+  	}
+- #endif
+  
+  	ptr = line;
+  	while (col <= wcol && *ptr != NUL)
+--- 176,181 ----
+***************
+*** 219,225 ****
+  	    col -= csize;
+  	}
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	if (virtual_active()
+  		&& addspaces
+  		&& ((col != wcol && col != wcol + 1) || csize > 1))
+--- 206,211 ----
+***************
+*** 283,289 ****
+  		col += correct;
+  	    }
+  	}
+- #endif
+      }
+  
+      if (idx < 0)
+--- 269,274 ----
+***************
+*** 291,297 ****
+      else
+  	pos->col = idx;
+  
+- #ifdef FEAT_VIRTUALEDIT
+      pos->coladd = 0;
+  
+      if (finetune)
+--- 276,281 ----
+***************
+*** 318,324 ****
+  	    col += b;
+  	}
+      }
+- #endif
+  
+      /* prevent from moving onto a trail byte */
+      if (has_mbyte)
+--- 302,307 ----
+***************
+*** 364,372 ****
+  		return ((p[l] != NUL) ? 0 : 2);
+  	    }
+  	    lp->col++;
+- #ifdef FEAT_VIRTUALEDIT
+  	    lp->coladd = 0;
+- #endif
+  	    return ((p[1] != NUL) ? 0 : 2);
+  	}
+      }
+--- 347,353 ----
+***************
+*** 374,382 ****
+      {
+  	lp->col = 0;
+  	lp->lnum++;
+- #ifdef FEAT_VIRTUALEDIT
+  	lp->coladd = 0;
+- #endif
+  	return 1;
+      }
+      return -1;
+--- 355,361 ----
+***************
+*** 412,420 ****
+  {
+      char_u	*p;
+  
+- #ifdef FEAT_VIRTUALEDIT
+      lp->coladd = 0;
+- #endif
+      if (lp->col == MAXCOL)
+      {
+  	/* past end of line */
+--- 391,397 ----
+***************
+*** 574,583 ****
+  check_cursor_col_win(win_T *win)
+  {
+      colnr_T len;
+- #ifdef FEAT_VIRTUALEDIT
+      colnr_T oldcol = win->w_cursor.col;
+      colnr_T oldcoladd = win->w_cursor.col + win->w_cursor.coladd;
+- #endif
+  
+      len = (colnr_T)STRLEN(ml_get_buf(win->w_buffer, win->w_cursor.lnum, FALSE));
+      if (len == 0)
+--- 551,558 ----
+***************
+*** 590,598 ****
+  	 * - 'virtualedit' is set */
+  	if ((State & INSERT) || restart_edit
+  		|| (VIsual_active && *p_sel != 'o')
+- #ifdef FEAT_VIRTUALEDIT
+  		|| (ve_flags & VE_ONEMORE)
+- #endif
+  		|| virtual_active())
+  	    win->w_cursor.col = len;
+  	else
+--- 565,571 ----
+***************
+*** 606,612 ****
+      else if (win->w_cursor.col < 0)
+  	win->w_cursor.col = 0;
+  
+- #ifdef FEAT_VIRTUALEDIT
+      /* If virtual editing is on, we can leave the cursor on the old position,
+       * only we must set it to virtual.  But don't do it when at the end of the
+       * line. */
+--- 579,584 ----
+***************
+*** 634,640 ****
+  	    /* avoid weird number when there is a miscalculation or overflow */
+  	    win->w_cursor.coladd = 0;
+      }
+- #endif
+  }
+  
+  /*
+--- 606,611 ----
+***************
+*** 2172,2178 ****
+  #endif
+  
+  /*
+!  * Concatenate a string to a growarray which contains characters.
+   * When "s" is NULL does not do anything.
+   * Note: Does NOT copy the NUL at the end!
+   */
+--- 2143,2149 ----
+  #endif
+  
+  /*
+!  * Concatenate a string to a growarray which contains bytes.
+   * When "s" is NULL does not do anything.
+   * Note: Does NOT copy the NUL at the end!
+   */
+*** ../vim-8.1.0825/src/move.c	2019-01-24 15:54:17.790846972 +0100
+--- src/move.c	2019-01-26 17:00:19.695618884 +0100
+***************
+*** 508,524 ****
+      }
+      else if (wp->w_cursor.col != wp->w_valid_cursor.col
+  	     || wp->w_leftcol != wp->w_valid_leftcol
+! #ifdef FEAT_VIRTUALEDIT
+! 	     || wp->w_cursor.coladd != wp->w_valid_cursor.coladd
+! #endif
+! 	     )
+      {
+  	wp->w_valid &= ~(VALID_WROW|VALID_WCOL|VALID_VIRTCOL);
+  	wp->w_valid_cursor.col = wp->w_cursor.col;
+  	wp->w_valid_leftcol = wp->w_leftcol;
+- #ifdef FEAT_VIRTUALEDIT
+  	wp->w_valid_cursor.coladd = wp->w_cursor.coladd;
+- #endif
+      }
+  }
+  
+--- 508,519 ----
+      }
+      else if (wp->w_cursor.col != wp->w_valid_cursor.col
+  	     || wp->w_leftcol != wp->w_valid_leftcol
+! 	     || wp->w_cursor.coladd != wp->w_valid_cursor.coladd)
+      {
+  	wp->w_valid &= ~(VALID_WROW|VALID_WCOL|VALID_VIRTCOL);
+  	wp->w_valid_cursor.col = wp->w_cursor.col;
+  	wp->w_valid_leftcol = wp->w_leftcol;
+  	wp->w_valid_cursor.coladd = wp->w_cursor.coladd;
+      }
+  }
+  
+***************
+*** 2800,2808 ****
+  {
+      linenr_T	line = curwin->w_cursor.lnum;
+      colnr_T	col = curwin->w_cursor.col;
+- # ifdef FEAT_VIRTUALEDIT
+      colnr_T	coladd = curwin->w_cursor.coladd;
+- # endif
+      colnr_T	curswant = curwin->w_curswant;
+      int		set_curswant = curwin->w_set_curswant;
+      win_T	*old_curwin = curwin;
+--- 2795,2801 ----
+***************
+*** 2829,2837 ****
+  # endif
+  		curwin->w_cursor.lnum = line;
+  	    curwin->w_cursor.col = col;
+- # ifdef FEAT_VIRTUALEDIT
+  	    curwin->w_cursor.coladd = coladd;
+- # endif
+  	    curwin->w_curswant = curswant;
+  	    curwin->w_set_curswant = set_curswant;
+  
+--- 2822,2828 ----
+*** ../vim-8.1.0825/src/netbeans.c	2019-01-19 17:43:03.413449172 +0100
+--- src/netbeans.c	2019-01-26 17:00:33.087523823 +0100
+***************
+*** 3344,3352 ****
+  
+      pos.lnum = 0;
+      pos.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+      pos.coladd = 0;
+- #endif
+  
+      if (!(buf->b_ml.ml_flags & ML_EMPTY))
+      {
+--- 3344,3350 ----
+***************
+*** 3378,3386 ****
+  	mypos.lnum = (linenr_T)off;
+  	++*argp;
+  	mypos.col = strtol((char *)*argp, (char **)argp, 10);
+- #ifdef FEAT_VIRTUALEDIT
+  	mypos.coladd = 0;
+- #endif
+  	return &mypos;
+      }
+      return off2pos(buf, off);
+--- 3376,3382 ----
+*** ../vim-8.1.0825/src/normal.c	2019-01-24 15:54:17.794846944 +0100
+--- src/normal.c	2019-01-26 17:02:50.254547145 +0100
+***************
+*** 1340,1348 ****
+      static colnr_T  redo_VIsual_vcol;	    /* number of cols or end column */
+      static long	    redo_VIsual_count;	    /* count for Visual operator */
+      static int	    redo_VIsual_arg;	    /* extra argument */
+- #ifdef FEAT_VIRTUALEDIT
+      int		    include_line_break = FALSE;
+- #endif
+  
+  #if defined(FEAT_CLIPBOARD)
+      /*
+--- 1340,1346 ----
+***************
+*** 1527,1546 ****
+  	    /* If 'selection' is "exclusive", backup one character for
+  	     * charwise selections. */
+  	    else if (VIsual_mode == 'v')
+! 	    {
+! # ifdef FEAT_VIRTUALEDIT
+! 		include_line_break =
+! # endif
+! 		    unadjust_for_sel();
+! 	    }
+  
+  	    oap->start = VIsual;
+  	    if (VIsual_mode == 'V')
+  	    {
+  		oap->start.col = 0;
+- # ifdef FEAT_VIRTUALEDIT
+  		oap->start.coladd = 0;
+- # endif
+  	    }
+  	}
+  
+--- 1525,1537 ----
+  	    /* If 'selection' is "exclusive", backup one character for
+  	     * charwise selections. */
+  	    else if (VIsual_mode == 'v')
+! 		include_line_break = unadjust_for_sel();
+  
+  	    oap->start = VIsual;
+  	    if (VIsual_mode == 'V')
+  	    {
+  		oap->start.col = 0;
+  		oap->start.coladd = 0;
+  	    }
+  	}
+  
+***************
+*** 1590,1599 ****
+  	check_pos(curwin->w_buffer, &oap->end);
+  	oap->line_count = oap->end.lnum - oap->start.lnum + 1;
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	/* Set "virtual_op" before resetting VIsual_active. */
+  	virtual_op = virtual_active();
+- #endif
+  
+  	if (VIsual_active || redo_VIsual_busy)
+  	{
+--- 1581,1588 ----
+***************
+*** 1685,1694 ****
+  	    {
+  		oap->motion_type = MCHAR;
+  		if (VIsual_mode != Ctrl_V && *ml_get_pos(&(oap->end)) == NUL
+! #ifdef FEAT_VIRTUALEDIT
+! 			&& (include_line_break || !virtual_op)
+! #endif
+! 			)
+  		{
+  		    oap->inclusive = FALSE;
+  		    /* Try to include the newline, unless it's an operator
+--- 1674,1680 ----
+  	    {
+  		oap->motion_type = MCHAR;
+  		if (VIsual_mode != Ctrl_V && *ml_get_pos(&(oap->end)) == NUL
+! 			&& (include_line_break || !virtual_op))
+  		{
+  		    oap->inclusive = FALSE;
+  		    /* Try to include the newline, unless it's an operator
+***************
+*** 1699,1707 ****
+  		    {
+  			++oap->end.lnum;
+  			oap->end.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+  			oap->end.coladd = 0;
+- #endif
+  			++oap->line_count;
+  		    }
+  		}
+--- 1685,1691 ----
+***************
+*** 1759,1768 ****
+  			|| (oap->op_type == OP_YANK
+  			    && gchar_pos(&oap->end) == NUL))
+  		    && EQUAL_POS(oap->start, oap->end)
+! #ifdef FEAT_VIRTUALEDIT
+! 		    && !(virtual_op && oap->start.coladd != oap->end.coladd)
+! #endif
+! 		    );
+  	/*
+  	 * For delete, change and yank, it's an error to operate on an
+  	 * empty region, when 'E' included in 'cpoptions' (Vi compatible).
+--- 1743,1749 ----
+  			|| (oap->op_type == OP_YANK
+  			    && gchar_pos(&oap->end) == NUL))
+  		    && EQUAL_POS(oap->start, oap->end)
+! 		    && !(virtual_op && oap->start.coladd != oap->end.coladd));
+  	/*
+  	 * For delete, change and yank, it's an error to operate on an
+  	 * empty region, when 'E' included in 'cpoptions' (Vi compatible).
+***************
+*** 2097,2105 ****
+  	default:
+  	    clearopbeep(oap);
+  	}
+- #ifdef FEAT_VIRTUALEDIT
+  	virtual_op = MAYBE;
+- #endif
+  	if (!gui_yank)
+  	{
+  	    /*
+--- 2078,2084 ----
+***************
+*** 2198,2206 ****
+  {
+  #ifdef FEAT_EVAL
+      typval_T	argv[2];
+- # ifdef FEAT_VIRTUALEDIT
+      int		save_virtual_op = virtual_op;
+- # endif
+  
+      if (*p_opfunc == NUL)
+  	emsg(_("E774: 'operatorfunc' is empty"));
+--- 2177,2183 ----
+***************
+*** 2222,2238 ****
+  	    argv[0].vval.v_string = (char_u *)"char";
+  	argv[1].v_type = VAR_UNKNOWN;
+  
+- # ifdef FEAT_VIRTUALEDIT
+  	/* Reset virtual_op so that 'virtualedit' can be changed in the
+  	 * function. */
+  	virtual_op = MAYBE;
+- # endif
+  
+  	(void)call_func_retnr(p_opfunc, 1, argv);
+  
+- # ifdef FEAT_VIRTUALEDIT
+  	virtual_op = save_virtual_op;
+- # endif
+      }
+  #else
+      emsg(_("E775: Eval feature not available"));
+--- 2199,2211 ----
+***************
+*** 3290,3299 ****
+  #ifdef FEAT_EVAL
+      curbuf->b_visual_mode_eval = VIsual_mode;
+  #endif
+- #ifdef FEAT_VIRTUALEDIT
+      if (!virtual_active())
+  	curwin->w_cursor.coladd = 0;
+- #endif
+      may_clear_cmdline();
+  
+      adjust_cursor_eol();
+--- 3263,3270 ----
+***************
+*** 5944,5957 ****
+      cap->oap->inclusive = FALSE;
+      past_line = (VIsual_active && *p_sel != 'o');
+  
+- #ifdef FEAT_VIRTUALEDIT
+      /*
+       * In virtual edit mode, there's no such thing as "past_line", as lines
+       * are (theoretically) infinitely long.
+       */
+      if (virtual_active())
+  	past_line = 0;
+- #endif
+  
+      for (n = cap->count1; n > 0; --n)
+      {
+--- 5915,5926 ----
+***************
+*** 5983,5991 ****
+  		{
+  		    ++curwin->w_cursor.lnum;
+  		    curwin->w_cursor.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+  		    curwin->w_cursor.coladd = 0;
+- #endif
+  		    curwin->w_set_curswant = TRUE;
+  		    cap->oap->inclusive = FALSE;
+  		}
+--- 5952,5958 ----
+***************
+*** 6007,6017 ****
+  	else if (past_line)
+  	{
+  	    curwin->w_set_curswant = TRUE;
+- #ifdef FEAT_VIRTUALEDIT
+  	    if (virtual_active())
+  		oneright();
+  	    else
+- #endif
+  	    {
+  		if (has_mbyte)
+  		    curwin->w_cursor.col +=
+--- 5974,5982 ----
+***************
+*** 6242,6254 ****
+  {
+      cap->oap->motion_type = MCHAR;
+      cap->oap->inclusive = TRUE;
+- #ifdef FEAT_VIRTUALEDIT
+      /* In virtual mode when off the edge of a line and an operator
+       * is pending (whew!) keep the cursor where it is.
+       * Otherwise, send it to the end of the line. */
+      if (!virtual_active() || gchar_cursor() != NUL
+  					       || cap->oap->op_type == OP_NOP)
+- #endif
+  	curwin->w_curswant = MAXCOL;	/* so we stay at the end */
+      if (cursor_down((long)(cap->count1 - 1),
+  					 cap->oap->op_type == OP_NOP) == FAIL)
+--- 6207,6217 ----
+***************
+*** 6341,6349 ****
+      {
+  	if (i == 2)
+  	    cap->oap->motion_type = MLINE;
+- #ifdef FEAT_VIRTUALEDIT
+  	curwin->w_cursor.coladd = 0;
+- #endif
+  #ifdef FEAT_FOLDING
+  	if (cap->oap->op_type == OP_NOP && (fdo_flags & FDO_SEARCH) && KeyTyped)
+  	    foldOpenCursor();
+--- 6304,6310 ----
+***************
+*** 6378,6384 ****
+      else
+      {
+  	curwin->w_set_curswant = TRUE;
+- #ifdef FEAT_VIRTUALEDIT
+  	/* Include a Tab for "tx" and for "dfx". */
+  	if (gchar_cursor() == TAB && virtual_active() && cap->arg == FORWARD
+  		&& (t_cmd || cap->oap->op_type != OP_NOP))
+--- 6339,6344 ----
+***************
+*** 6390,6396 ****
+  	}
+  	else
+  	    curwin->w_cursor.coladd = 0;
+- #endif
+  	adjust_for_sel(cap);
+  #ifdef FEAT_FOLDING
+  	if ((fdo_flags & FDO_HOR) && KeyTyped && cap->oap->op_type == OP_NOP)
+--- 6350,6355 ----
+***************
+*** 6406,6412 ****
+      static void
+  nv_brackets(cmdarg_T *cap)
+  {
+!     pos_T	new_pos = INIT_POS_T(0, 0, 0);
+      pos_T	prev_pos;
+      pos_T	*pos = NULL;	    /* init for GCC */
+      pos_T	old_pos;	    /* cursor position before command */
+--- 6365,6371 ----
+      static void
+  nv_brackets(cmdarg_T *cap)
+  {
+!     pos_T	new_pos = {0, 0, 0};
+      pos_T	prev_pos;
+      pos_T	*pos = NULL;	    /* init for GCC */
+      pos_T	old_pos;	    /* cursor position before command */
+***************
+*** 6418,6426 ****
+      cap->oap->motion_type = MCHAR;
+      cap->oap->inclusive = FALSE;
+      old_pos = curwin->w_cursor;
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;    // TODO: don't do this for an error.
+- #endif
+  
+  #ifdef FEAT_SEARCHPATH
+      /*
+--- 6377,6383 ----
+***************
+*** 6815,6823 ****
+  	    setpcmark();
+  	    curwin->w_cursor = *pos;
+  	    curwin->w_set_curswant = TRUE;
+- #ifdef FEAT_VIRTUALEDIT
+  	    curwin->w_cursor.coladd = 0;
+- #endif
+  	    adjust_for_sel(cap);
+  	}
+      }
+--- 6772,6778 ----
+***************
+*** 6849,6857 ****
+      {
+  	/* Don't leave the cursor on the NUL past end of line. */
+  	adjust_cursor(cap->oap);
+- #ifdef FEAT_VIRTUALEDIT
+  	curwin->w_cursor.coladd = 0;
+- #endif
+  #ifdef FEAT_FOLDING
+  	if ((fdo_flags & FDO_BLOCK) && KeyTyped && cap->oap->op_type == OP_NOP)
+  	    foldOpenCursor();
+--- 6804,6810 ----
+***************
+*** 6887,6895 ****
+  	clearopbeep(cap->oap);
+      else
+      {
+- #ifdef FEAT_VIRTUALEDIT
+  	curwin->w_cursor.coladd = 0;
+- #endif
+  #ifdef FEAT_FOLDING
+  	if ((fdo_flags & FDO_BLOCK) && KeyTyped && cap->oap->op_type == OP_NOP)
+  	    foldOpenCursor();
+--- 6840,6846 ----
+***************
+*** 6991,6997 ****
+  	return;
+      }
+  
+- #ifdef FEAT_VIRTUALEDIT
+      /* Break tabs, etc. */
+      if (virtual_active())
+      {
+--- 6942,6947 ----
+***************
+*** 7006,7012 ****
+  	else if (gchar_cursor() == TAB)
+  	    coladvance_force(getviscol());
+      }
+- #endif
+  
+      /* Abort if not enough characters to replace. */
+      ptr = ml_get_cursor();
+--- 6956,6961 ----
+***************
+*** 7172,7182 ****
+  	    ++curwin->w_curswant;
+  	coladvance(curwin->w_curswant);
+  	if (curwin->w_cursor.col == old_cursor.col
+- #ifdef FEAT_VIRTUALEDIT
+  		&& (!virtual_active()
+! 		    || curwin->w_cursor.coladd == old_cursor.coladd)
+! #endif
+! 		)
+  	{
+  	    curwin->w_cursor.lnum = VIsual.lnum;
+  	    if (old_cursor.lnum <= VIsual.lnum && *p_sel == 'e')
+--- 7121,7128 ----
+  	    ++curwin->w_curswant;
+  	coladvance(curwin->w_curswant);
+  	if (curwin->w_cursor.col == old_cursor.col
+  		&& (!virtual_active()
+! 		    || curwin->w_cursor.coladd == old_cursor.coladd))
+  	{
+  	    curwin->w_cursor.lnum = VIsual.lnum;
+  	    if (old_cursor.lnum <= VIsual.lnum && *p_sel == 'e')
+***************
+*** 7218,7227 ****
+  	    emsg(_(e_modifiable));
+  	else
+  	{
+- #ifdef FEAT_VIRTUALEDIT
+  	    if (virtual_active())
+  		coladvance(getviscol());
+- #endif
+  	    invoke_edit(cap, FALSE, cap->arg ? 'V' : 'R', FALSE);
+  	}
+      }
+--- 7164,7171 ----
+***************
+*** 7249,7258 ****
+  		cap->extra_char = get_literal();
+  	    stuffcharReadbuff(cap->extra_char);
+  	    stuffcharReadbuff(ESC);
+- #ifdef FEAT_VIRTUALEDIT
+  	    if (virtual_active())
+  		coladvance(getviscol());
+- #endif
+  	    invoke_edit(cap, TRUE, 'v', FALSE);
+  	}
+      }
+--- 7193,7200 ----
+***************
+*** 7524,7534 ****
+      else
+  	nv_cursormark(cap, cap->arg, pos);
+  
+- #ifdef FEAT_VIRTUALEDIT
+      /* May need to clear the coladd that a mark includes. */
+      if (!virtual_active())
+  	curwin->w_cursor.coladd = 0;
+- #endif
+      check_cursor_col();
+  #ifdef FEAT_FOLDING
+      if (cap->oap->op_type == OP_NOP
+--- 7466,7474 ----
+***************
+*** 7761,7776 ****
+      VIsual_mode = c;
+      VIsual_active = TRUE;
+      VIsual_reselect = TRUE;
+! #ifdef FEAT_VIRTUALEDIT
+!     /* Corner case: the 0 position in a tab may change when going into
+!      * virtualedit.  Recalculate curwin->w_cursor to avoid bad hilighting.
+!      */
+      if (c == Ctrl_V && (ve_flags & VE_BLOCK) && gchar_cursor() == TAB)
+      {
+  	validate_virtcol();
+  	coladvance(curwin->w_virtcol);
+      }
+- #endif
+      VIsual = curwin->w_cursor;
+  
+  #ifdef FEAT_FOLDING
+--- 7701,7714 ----
+      VIsual_mode = c;
+      VIsual_active = TRUE;
+      VIsual_reselect = TRUE;
+! 
+!     // Corner case: the 0 position in a tab may change when going into
+!     // virtualedit.  Recalculate curwin->w_cursor to avoid bad hilighting.
+      if (c == Ctrl_V && (ve_flags & VE_BLOCK) && gchar_cursor() == TAB)
+      {
+  	validate_virtcol();
+  	coladvance(curwin->w_virtcol);
+      }
+      VIsual = curwin->w_cursor;
+  
+  #ifdef FEAT_FOLDING
+***************
+*** 8212,8221 ****
+  	    i = (int)STRLEN(ml_get_curline());
+  	    if (curwin->w_cursor.col > (colnr_T)i)
+  	    {
+- #ifdef FEAT_VIRTUALEDIT
+  		if (virtual_active())
+  		    curwin->w_cursor.coladd += curwin->w_cursor.col - i;
+- #endif
+  		curwin->w_cursor.col = i;
+  	    }
+  	}
+--- 8150,8157 ----
+***************
+*** 8773,8782 ****
+       */
+      if (curwin->w_cursor.col > 0 && gchar_cursor() == NUL
+  		&& (!VIsual_active || *p_sel == 'o')
+! #ifdef FEAT_VIRTUALEDIT
+! 		&& !virtual_active() && (ve_flags & VE_ONEMORE) == 0
+! #endif
+! 		)
+      {
+  	--curwin->w_cursor.col;
+  	/* prevent cursor from moving on the trail byte */
+--- 8709,8715 ----
+       */
+      if (curwin->w_cursor.col > 0 && gchar_cursor() == NUL
+  		&& (!VIsual_active || *p_sel == 'o')
+! 		&& !virtual_active() && (ve_flags & VE_ONEMORE) == 0)
+      {
+  	--curwin->w_cursor.col;
+  	/* prevent cursor from moving on the trail byte */
+***************
+*** 8837,8847 ****
+  	    pp = &curwin->w_cursor;
+  	else
+  	    pp = &VIsual;
+- #ifdef FEAT_VIRTUALEDIT
+  	if (pp->coladd > 0)
+  	    --pp->coladd;
+  	else
+- #endif
+  	if (pp->col > 0)
+  	{
+  	    --pp->col;
+--- 8770,8778 ----
+***************
+*** 9077,9083 ****
+  	{
+  	    case 'A':	/* "A"ppend after the line */
+  		curwin->w_set_curswant = TRUE;
+- #ifdef FEAT_VIRTUALEDIT
+  		if (ve_flags == VE_ALL)
+  		{
+  		    int save_State = State;
+--- 9008,9013 ----
+***************
+*** 9089,9095 ****
+  		    State = save_State;
+  		}
+  		else
+- #endif
+  		    curwin->w_cursor.col += (colnr_T)STRLEN(ml_get_cursor());
+  		break;
+  
+--- 9019,9024 ----
+***************
+*** 9108,9114 ****
+  		/* FALLTHROUGH */
+  
+  	    case 'a':	/* "a"ppend is like "i"nsert on the next character. */
+- #ifdef FEAT_VIRTUALEDIT
+  		/* increment coladd when in virtual space, increment the
+  		 * column otherwise, also to append after an unprintable char */
+  		if (virtual_active()
+--- 9037,9042 ----
+***************
+*** 9116,9129 ****
+  			    || *ml_get_cursor() == NUL
+  			    || *ml_get_cursor() == TAB))
+  		    curwin->w_cursor.coladd++;
+! 		else
+! #endif
+! 		if (*ml_get_cursor() != NUL)
+  		    inc_cursor();
+  		break;
+  	}
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	if (curwin->w_cursor.coladd && cap->cmdchar != 'A')
+  	{
+  	    int save_State = State;
+--- 9044,9054 ----
+  			    || *ml_get_cursor() == NUL
+  			    || *ml_get_cursor() == TAB))
+  		    curwin->w_cursor.coladd++;
+! 		else if (*ml_get_cursor() != NUL)
+  		    inc_cursor();
+  		break;
+  	}
+  
+  	if (curwin->w_cursor.coladd && cap->cmdchar != 'A')
+  	{
+  	    int save_State = State;
+***************
+*** 9134,9140 ****
+  	    coladvance(getviscol());
+  	    State = save_State;
+  	}
+- #endif
+  
+  	invoke_edit(cap, FALSE, cap->cmdchar, FALSE);
+      }
+--- 9059,9064 ----
+*** ../vim-8.1.0825/src/ops.c	2019-01-24 15:54:17.794846944 +0100
+--- src/ops.c	2019-01-26 17:05:11.897533838 +0100
+***************
+*** 1802,1813 ****
+  	 * It's an error to operate on an empty region, when 'E' included in
+  	 * 'cpoptions' (Vi compatible).
+  	 */
+- #ifdef FEAT_VIRTUALEDIT
+  	if (virtual_op)
+  	    /* Virtual editing: Nothing gets deleted, but we set the '[ and ']
+  	     * marks as if it happened. */
+  	    goto setmarks;
+- #endif
+  	if (vim_strchr(p_cpo, CPO_EMPTYREGION) != NULL)
+  	    beep_flush();
+  	return OK;
+--- 1802,1811 ----
+***************
+*** 1909,1917 ****
+  	    if (lnum == curwin->w_cursor.lnum)
+  	    {
+  		curwin->w_cursor.col = bd.textcol + bd.startspaces;
+- # ifdef FEAT_VIRTUALEDIT
+  		curwin->w_cursor.coladd = 0;
+- # endif
+  	    }
+  
+  	    /* n == number of chars deleted
+--- 1907,1913 ----
+***************
+*** 1979,1985 ****
+      }
+      else
+      {
+- #ifdef FEAT_VIRTUALEDIT
+  	if (virtual_op)
+  	{
+  	    int		endcol = 0;
+--- 1975,1980 ----
+***************
+*** 2016,2022 ****
+  		curwin->w_cursor = oap->start;
+  	    }
+  	}
+- #endif
+  
+  	if (oap->line_count == 1)	/* delete characters within one line */
+  	{
+--- 2011,2016 ----
+***************
+*** 2032,2038 ****
+  
+  	    n = oap->end.col - oap->start.col + 1 - !oap->inclusive;
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	    if (virtual_op)
+  	    {
+  		/* fix up things for virtualedit-delete:
+--- 2026,2031 ----
+***************
+*** 2053,2059 ****
+  		if (gchar_cursor() != NUL)
+  		    curwin->w_cursor.coladd = 0;
+  	    }
+- #endif
+  	    (void)del_bytes((long)n, !virtual_op,
+  			    oap->op_type == OP_DELETE && !oap->is_VIsual);
+  	}
+--- 2046,2051 ----
+***************
+*** 2084,2092 ****
+  
+      msgmore(curbuf->b_ml.ml_line_count - old_lcount);
+  
+- #ifdef FEAT_VIRTUALEDIT
+  setmarks:
+- #endif
+      if (oap->block_mode)
+      {
+  	curbuf->b_op_end.lnum = oap->end.lnum;
+--- 2076,2082 ----
+***************
+*** 2183,2189 ****
+  	     * If we split a TAB, it may be replaced by several characters.
+  	     * Thus the number of characters may increase!
+  	     */
+- #ifdef FEAT_VIRTUALEDIT
+  	    /* If the range starts in virtual space, count the initial
+  	     * coladd offset as part of "startspaces" */
+  	    if (virtual_op && bd.is_short && *bd.textstart == NUL)
+--- 2173,2178 ----
+***************
+*** 2196,2210 ****
+  		n = bd.startspaces;
+  	    }
+  	    else
+- #endif
+  		/* allow for pre spaces */
+  		n = (bd.startspaces ? bd.start_char_vcols - 1 : 0);
+  
+  	    /* allow for post spp */
+  	    n += (bd.endspaces
+- #ifdef FEAT_VIRTUALEDIT
+  		    && !bd.is_oneChar
+- #endif
+  		    && bd.end_char_vcols > 0) ? bd.end_char_vcols - 1 : 0;
+  	    /* Figure out how many characters to replace. */
+  	    numc = oap->end_vcol - oap->start_vcol + 1;
+--- 2185,2196 ----
+***************
+*** 2311,2317 ****
+  		}
+  		else
+  		{
+- #ifdef FEAT_VIRTUALEDIT
+  		    if (n == TAB)
+  		    {
+  			int end_vcol = 0;
+--- 2297,2302 ----
+***************
+*** 2327,2337 ****
+  			if (curwin->w_cursor.lnum == oap->end.lnum)
+  			    getvpos(&oap->end, end_vcol);
+  		    }
+- #endif
+  		    PBYTE(curwin->w_cursor, c);
+  		}
+  	    }
+- #ifdef FEAT_VIRTUALEDIT
+  	    else if (virtual_op && curwin->w_cursor.lnum == oap->end.lnum)
+  	    {
+  		int virtcols = oap->end.coladd;
+--- 2312,2320 ----
+***************
+*** 2355,2361 ****
+  		       break;
+  		}
+  	    }
+- #endif
+  
+  	    /* Advance to next character, stop at the end of the file. */
+  	    if (inc_cursor() == -1)
+--- 2338,2343 ----
+***************
+*** 2609,2615 ****
+  
+      if (oap->block_mode)
+      {
+- #ifdef FEAT_VIRTUALEDIT
+  	/* When 'virtualedit' is used, need to insert the extra spaces before
+  	 * doing block_prep().  When only "block" is used, virtual edit is
+  	 * already disabled, but still need it when calling
+--- 2591,2596 ----
+***************
+*** 2627,2633 ****
+  		--curwin->w_cursor.col;
+  	    ve_flags = old_ve_flags;
+  	}
+- #endif
+  	/* Get the info about the block before entering the text */
+  	block_prep(oap, &bd, oap->start.lnum, TRUE);
+  	/* Get indent information */
+--- 2608,2613 ----
+***************
+*** 2641,2651 ****
+  
+      if (oap->op_type == OP_APPEND)
+      {
+! 	if (oap->block_mode
+! #ifdef FEAT_VIRTUALEDIT
+! 		&& curwin->w_cursor.coladd == 0
+! #endif
+! 	   )
+  	{
+  	    /* Move the cursor to the character right of the block. */
+  	    curwin->w_set_curswant = TRUE;
+--- 2621,2627 ----
+  
+      if (oap->op_type == OP_APPEND)
+      {
+! 	if (oap->block_mode && curwin->w_cursor.coladd == 0)
+  	{
+  	    /* Move the cursor to the character right of the block. */
+  	    curwin->w_set_curswant = TRUE;
+***************
+*** 2715,2759 ****
+  						  && !bd.is_MAX && !did_indent)
+  	{
+  	    if (oap->op_type == OP_INSERT
+! 		    && oap->start.col
+! #ifdef FEAT_VIRTUALEDIT
+! 			    + oap->start.coladd
+! #endif
+  			!= curbuf->b_op_start_orig.col
+! #ifdef FEAT_VIRTUALEDIT
+! 			    + curbuf->b_op_start_orig.coladd
+! #endif
+! 			)
+  	    {
+  		int t = getviscol2(curbuf->b_op_start_orig.col,
+! #ifdef FEAT_VIRTUALEDIT
+! 					      curbuf->b_op_start_orig.coladd
+! #else
+! 					      0
+! #endif
+! 					      );
+  		oap->start.col = curbuf->b_op_start_orig.col;
+  		pre_textlen -= t - oap->start_vcol;
+  		oap->start_vcol = t;
+  	    }
+  	    else if (oap->op_type == OP_APPEND
+! 		      && oap->end.col
+! #ifdef FEAT_VIRTUALEDIT
+! 			    + oap->end.coladd
+! #endif
+  			>= curbuf->b_op_start_orig.col
+! #ifdef FEAT_VIRTUALEDIT
+! 			    + curbuf->b_op_start_orig.coladd
+! #endif
+! 			)
+  	    {
+  		int t = getviscol2(curbuf->b_op_start_orig.col,
+! #ifdef FEAT_VIRTUALEDIT
+! 					      curbuf->b_op_start_orig.coladd
+! #else
+! 					      0
+! #endif
+! 					      );
+  		oap->start.col = curbuf->b_op_start_orig.col;
+  		/* reset pre_textlen to the value of OP_INSERT */
+  		pre_textlen += bd.textlen;
+--- 2691,2713 ----
+  						  && !bd.is_MAX && !did_indent)
+  	{
+  	    if (oap->op_type == OP_INSERT
+! 		    && oap->start.col + oap->start.coladd
+  			!= curbuf->b_op_start_orig.col
+! 					      + curbuf->b_op_start_orig.coladd)
+  	    {
+  		int t = getviscol2(curbuf->b_op_start_orig.col,
+! 					      curbuf->b_op_start_orig.coladd);
+  		oap->start.col = curbuf->b_op_start_orig.col;
+  		pre_textlen -= t - oap->start_vcol;
+  		oap->start_vcol = t;
+  	    }
+  	    else if (oap->op_type == OP_APPEND
+! 		      && oap->end.col + oap->end.coladd
+  			>= curbuf->b_op_start_orig.col
+! 					      + curbuf->b_op_start_orig.coladd)
+  	    {
+  		int t = getviscol2(curbuf->b_op_start_orig.col,
+! 					      curbuf->b_op_start_orig.coladd);
+  		oap->start.col = curbuf->b_op_start_orig.col;
+  		/* reset pre_textlen to the value of OP_INSERT */
+  		pre_textlen += bd.textlen;
+***************
+*** 2865,2876 ****
+      /* skip blank lines too */
+      if (oap->block_mode)
+      {
+- #ifdef FEAT_VIRTUALEDIT
+  	/* Add spaces before getting the current line length. */
+  	if (virtual_op && (curwin->w_cursor.coladd > 0
+  						    || gchar_cursor() == NUL))
+  	    coladvance_force(getviscol());
+- #endif
+  	firstline = ml_get(oap->start.lnum);
+  	pre_textlen = (long)STRLEN(firstline);
+  	pre_indent = (long)getwhitecols(firstline);
+--- 2819,2828 ----
+***************
+*** 2916,2922 ****
+  		    block_prep(oap, &bd, linenr, TRUE);
+  		    if (!bd.is_short || virtual_op)
+  		    {
+- #ifdef FEAT_VIRTUALEDIT
+  			pos_T vpos;
+  
+  			/* If the block starts in virtual space, count the
+--- 2868,2873 ----
+***************
+*** 2928,2949 ****
+  			}
+  			else
+  			    vpos.coladd = 0;
+- #endif
+  			oldp = ml_get(linenr);
+  			newp = alloc_check((unsigned)(STRLEN(oldp)
+! #ifdef FEAT_VIRTUALEDIT
+! 							+ vpos.coladd
+! #endif
+! 							      + ins_len + 1));
+  			if (newp == NULL)
+  			    continue;
+  			/* copy up to block start */
+  			mch_memmove(newp, oldp, (size_t)bd.textcol);
+  			offset = bd.textcol;
+- #ifdef FEAT_VIRTUALEDIT
+  			vim_memset(newp + offset, ' ', (size_t)vpos.coladd);
+  			offset += vpos.coladd;
+- #endif
+  			mch_memmove(newp + offset, ins_text, (size_t)ins_len);
+  			offset += ins_len;
+  			oldp += bd.textcol;
+--- 2879,2894 ----
+  			}
+  			else
+  			    vpos.coladd = 0;
+  			oldp = ml_get(linenr);
+  			newp = alloc_check((unsigned)(STRLEN(oldp)
+! 						 + vpos.coladd + ins_len + 1));
+  			if (newp == NULL)
+  			    continue;
+  			/* copy up to block start */
+  			mch_memmove(newp, oldp, (size_t)bd.textcol);
+  			offset = bd.textcol;
+  			vim_memset(newp + offset, ' ', (size_t)vpos.coladd);
+  			offset += vpos.coladd;
+  			mch_memmove(newp + offset, ins_text, (size_t)ins_len);
+  			offset += ins_len;
+  			oldp += bd.textcol;
+***************
+*** 3148,3157 ****
+  	    case MCHAR:
+  		{
+  		    colnr_T startcol = 0, endcol = MAXCOL;
+- #ifdef FEAT_VIRTUALEDIT
+  		    int is_oneChar = FALSE;
+  		    colnr_T cs, ce;
+! #endif
+  		    p = ml_get(lnum);
+  		    bd.startspaces = 0;
+  		    bd.endspaces = 0;
+--- 3093,3101 ----
+  	    case MCHAR:
+  		{
+  		    colnr_T startcol = 0, endcol = MAXCOL;
+  		    int is_oneChar = FALSE;
+  		    colnr_T cs, ce;
+! 
+  		    p = ml_get(lnum);
+  		    bd.startspaces = 0;
+  		    bd.endspaces = 0;
+***************
+*** 3159,3165 ****
+  		    if (lnum == oap->start.lnum)
+  		    {
+  			startcol = oap->start.col;
+- #ifdef FEAT_VIRTUALEDIT
+  			if (virtual_op)
+  			{
+  			    getvcol(curwin, &oap->start, &cs, NULL, &ce);
+--- 3103,3108 ----
+***************
+*** 3172,3184 ****
+  				startcol++;
+  			    }
+  			}
+- #endif
+  		    }
+  
+  		    if (lnum == oap->end.lnum)
+  		    {
+  			endcol = oap->end.col;
+- #ifdef FEAT_VIRTUALEDIT
+  			if (virtual_op)
+  			{
+  			    getvcol(curwin, &oap->end, &cs, NULL, &ce);
+--- 3115,3125 ----
+***************
+*** 3205,3219 ****
+  				}
+  			    }
+  			}
+- #endif
+  		    }
+  		    if (endcol == MAXCOL)
+  			endcol = (colnr_T)STRLEN(p);
+! 		    if (startcol > endcol
+! #ifdef FEAT_VIRTUALEDIT
+! 			    || is_oneChar
+! #endif
+! 			    )
+  			bd.textlen = 0;
+  		    else
+  		    {
+--- 3146,3155 ----
+  				}
+  			    }
+  			}
+  		    }
+  		    if (endcol == MAXCOL)
+  			endcol = (colnr_T)STRLEN(p);
+! 		    if (startcol > endcol || is_oneChar)
+  			bd.textlen = 0;
+  		    else
+  		    {
+***************
+*** 3661,3667 ****
+  
+      yanklen = (int)STRLEN(y_array[0]);
+  
+- #ifdef FEAT_VIRTUALEDIT
+      if (ve_flags == VE_ALL && y_type == MCHAR)
+      {
+  	if (gchar_cursor() == TAB)
+--- 3597,3602 ----
+***************
+*** 3687,3693 ****
+  	else if (curwin->w_cursor.coladd > 0 || gchar_cursor() == NUL)
+  	    coladvance_force(getviscol() + (dir == FORWARD));
+      }
+- #endif
+  
+      lnum = curwin->w_cursor.lnum;
+      col = curwin->w_cursor.col;
+--- 3622,3627 ----
+***************
+*** 3702,3728 ****
+  
+  	if (dir == FORWARD && c != NUL)
+  	{
+- #ifdef FEAT_VIRTUALEDIT
+  	    if (ve_flags == VE_ALL)
+  		getvcol(curwin, &curwin->w_cursor, &col, NULL, &endcol2);
+  	    else
+- #endif
+  		getvcol(curwin, &curwin->w_cursor, NULL, NULL, &col);
+  
+  	    if (has_mbyte)
+  		/* move to start of next multi-byte character */
+  		curwin->w_cursor.col += (*mb_ptr2len)(ml_get_cursor());
+  	    else
+- #ifdef FEAT_VIRTUALEDIT
+  	    if (c != TAB || ve_flags != VE_ALL)
+- #endif
+  		++curwin->w_cursor.col;
+  	    ++col;
+  	}
+  	else
+  	    getvcol(curwin, &curwin->w_cursor, &col, NULL, &endcol2);
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	col += curwin->w_cursor.coladd;
+  	if (ve_flags == VE_ALL
+  		&& (curwin->w_cursor.coladd > 0
+--- 3636,3657 ----
+***************
+*** 3741,3747 ****
+  	    }
+  	}
+  	curwin->w_cursor.coladd = 0;
+- #endif
+  	bd.textcol = 0;
+  	for (i = 0; i < y_size; ++i)
+  	{
+--- 3670,3675 ----
+***************
+*** 3850,3858 ****
+  	/* adjust '] mark */
+  	curbuf->b_op_end.lnum = curwin->w_cursor.lnum - 1;
+  	curbuf->b_op_end.col = bd.textcol + totlen - 1;
+- # ifdef FEAT_VIRTUALEDIT
+  	curbuf->b_op_end.coladd = 0;
+- # endif
+  	if (flags & PUT_CURSEND)
+  	{
+  	    colnr_T len;
+--- 3778,3784 ----
+***************
+*** 4144,4158 ****
+  {
+      if (curwin->w_cursor.col > 0
+  	    && gchar_cursor() == NUL
+- #ifdef FEAT_VIRTUALEDIT
+  	    && (ve_flags & VE_ONEMORE) == 0
+- #endif
+  	    && !(restart_edit || (State & INSERT)))
+      {
+  	/* Put the cursor on the last character in the line. */
+  	dec_cursor();
+  
+- #ifdef FEAT_VIRTUALEDIT
+  	if (ve_flags == VE_ALL)
+  	{
+  	    colnr_T	    scol, ecol;
+--- 4070,4081 ----
+***************
+*** 4161,4167 ****
+  	    getvcol(curwin, &curwin->w_cursor, &scol, NULL, &ecol);
+  	    curwin->w_cursor.coladd = ecol - scol + 1;
+  	}
+- #endif
+      }
+  }
+  
+--- 4084,4089 ----
+***************
+*** 4704,4712 ****
+  		    (vim_strchr(p_cpo, CPO_JOINCOL) != NULL ? currsize : col);
+      check_cursor_col();
+  
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;
+- #endif
+      curwin->w_set_curswant = TRUE;
+  
+  theend:
+--- 4626,4632 ----
+***************
+*** 7394,7406 ****
+  		switch (VIsual_mode)
+  		{
+  		    case Ctrl_V:
+- #ifdef FEAT_VIRTUALEDIT
+  			virtual_op = virtual_active();
+- #endif
+  			block_prep(&oparg, &bd, lnum, 0);
+- #ifdef FEAT_VIRTUALEDIT
+  			virtual_op = MAYBE;
+- #endif
+  			s = bd.textstart;
+  			len = (long)bd.textlen;
+  			break;
+--- 7314,7322 ----
+*** ../vim-8.1.0825/src/option.c	2019-01-24 20:30:49.329537911 +0100
+--- src/option.c	2019-01-26 17:05:29.437408083 +0100
+***************
+*** 2939,2951 ****
+  			    SCTX_INIT},
+      {"virtualedit", "ve",   P_STRING|P_ONECOMMA|P_NODUP|P_VI_DEF
+  							    |P_VIM|P_CURSWANT,
+- #ifdef FEAT_VIRTUALEDIT
+  			    (char_u *)&p_ve, PV_NONE,
+  			    {(char_u *)"", (char_u *)""}
+- #else
+- 			    (char_u *)NULL, PV_NONE,
+- 			    {(char_u *)0L, (char_u *)0L}
+- #endif
+  			    SCTX_INIT},
+      {"visualbell",  "vb",   P_BOOL|P_VI_DEF,
+  			    (char_u *)&p_vb, PV_NONE,
+--- 2939,2946 ----
+***************
+*** 5526,5534 ****
+  #endif
+      (void)opt_strings_flags(p_dy, p_dy_values, &dy_flags, TRUE);
+      (void)opt_strings_flags(p_tc, p_tc_values, &tc_flags, FALSE);
+- #ifdef FEAT_VIRTUALEDIT
+      (void)opt_strings_flags(p_ve, p_ve_values, &ve_flags, TRUE);
+- #endif
+  #if defined(FEAT_MOUSE) && (defined(UNIX) || defined(VMS))
+      (void)opt_strings_flags(p_ttym, p_ttym_values, &ttym_flags, FALSE);
+  #endif
+--- 5521,5527 ----
+***************
+*** 7374,7380 ****
+      }
+  #endif
+  
+- #ifdef FEAT_VIRTUALEDIT
+      /* 'virtualedit' */
+      else if (varp == &p_ve)
+      {
+--- 7367,7372 ----
+***************
+*** 7388,7394 ****
+  	    coladvance(curwin->w_virtcol);
+  	}
+      }
+- #endif
+  
+  #if defined(FEAT_CSCOPE) && defined(FEAT_QUICKFIX)
+      else if (varp == &p_csqf)
+--- 7380,7385 ----
+*** ../vim-8.1.0825/src/option.h	2019-01-24 17:18:37.599462306 +0100
+--- src/option.h	2019-01-26 17:09:57.939477219 +0100
+***************
+*** 908,924 ****
+  EXTERN unsigned	vop_flags;	/* uses SSOP_ flags */
+  #endif
+  EXTERN int	p_vb;		/* 'visualbell' */
+- #ifdef FEAT_VIRTUALEDIT
+  EXTERN char_u	*p_ve;		/* 'virtualedit' */
+  EXTERN unsigned ve_flags;
+! # ifdef IN_OPTION_C
+  static char *(p_ve_values[]) = {"block", "insert", "all", "onemore", NULL};
+- # endif
+- # define VE_BLOCK	5	/* includes "all" */
+- # define VE_INSERT	6	/* includes "all" */
+- # define VE_ALL		4
+- # define VE_ONEMORE	8
+  #endif
+  EXTERN long	p_verbose;	/* 'verbose' */
+  #ifdef IN_OPTION_C
+  char_u	*p_vfile = (char_u *)""; /* used before options are initialized */
+--- 908,922 ----
+  EXTERN unsigned	vop_flags;	/* uses SSOP_ flags */
+  #endif
+  EXTERN int	p_vb;		/* 'visualbell' */
+  EXTERN char_u	*p_ve;		/* 'virtualedit' */
+  EXTERN unsigned ve_flags;
+! #ifdef IN_OPTION_C
+  static char *(p_ve_values[]) = {"block", "insert", "all", "onemore", NULL};
+  #endif
++ #define VE_BLOCK	5	/* includes "all" */
++ #define VE_INSERT	6	/* includes "all" */
++ #define VE_ALL		4
++ #define VE_ONEMORE	8
+  EXTERN long	p_verbose;	/* 'verbose' */
+  #ifdef IN_OPTION_C
+  char_u	*p_vfile = (char_u *)""; /* used before options are initialized */
+*** ../vim-8.1.0825/src/screen.c	2019-01-25 22:29:54.139821894 +0100
+--- src/screen.c	2019-01-26 17:06:13.673090691 +0100
+***************
+*** 1622,1635 ****
+  	    if (VIsual_mode == Ctrl_V)
+  	    {
+  		colnr_T	    fromc, toc;
+! #if defined(FEAT_VIRTUALEDIT) && defined(FEAT_LINEBREAK)
+  		int	    save_ve_flags = ve_flags;
+  
+  		if (curwin->w_p_lbr)
+  		    ve_flags = VE_ALL;
+  #endif
+  		getvcols(wp, &VIsual, &curwin->w_cursor, &fromc, &toc);
+! #if defined(FEAT_VIRTUALEDIT) && defined(FEAT_LINEBREAK)
+  		ve_flags = save_ve_flags;
+  #endif
+  		++toc;
+--- 1622,1635 ----
+  	    if (VIsual_mode == Ctrl_V)
+  	    {
+  		colnr_T	    fromc, toc;
+! #if defined(FEAT_LINEBREAK)
+  		int	    save_ve_flags = ve_flags;
+  
+  		if (curwin->w_p_lbr)
+  		    ve_flags = VE_ALL;
+  #endif
+  		getvcols(wp, &VIsual, &curwin->w_cursor, &fromc, &toc);
+! #if defined(FEAT_LINEBREAK)
+  		ve_flags = save_ve_flags;
+  #endif
+  		++toc;
+***************
+*** 3342,3352 ****
+  		}
+  		if (VIsual_mode != 'V' && lnum == bot->lnum)
+  		{
+! 		    if (*p_sel == 'e' && bot->col == 0
+! #ifdef FEAT_VIRTUALEDIT
+! 			    && bot->coladd == 0
+! #endif
+! 		       )
+  		    {
+  			fromcol = -10;
+  			tocol = MAXCOL;
+--- 3342,3348 ----
+  		}
+  		if (VIsual_mode != 'V' && lnum == bot->lnum)
+  		{
+! 		    if (*p_sel == 'e' && bot->col == 0 && bot->coladd == 0)
+  		    {
+  			fromcol = -10;
+  			tocol = MAXCOL;
+***************
+*** 3545,3553 ****
+  #ifdef FEAT_SYN_HL
+  	     wp->w_p_cuc || draw_color_col ||
+  #endif
+- #ifdef FEAT_VIRTUALEDIT
+  	     virtual_active() ||
+- #endif
+  	     (VIsual_active && wp->w_buffer == curwin->w_buffer)))
+  	{
+  	    vcol = v;
+--- 3541,3547 ----
+***************
+*** 5033,5046 ****
+  		       )
+  #endif
+  		    {
+- #ifdef FEAT_VIRTUALEDIT
+  			/* In virtualedit, visual selections may extend
+  			 * beyond end of line. */
+  			if (area_highlighting && virtual_active()
+  				&& tocol != MAXCOL && vcol < tocol)
+  			    n_extra = 0;
+  			else
+- #endif
+  			{
+  			    p_extra = at_end_str;
+  			    n_extra = 1;
+--- 5027,5038 ----
+***************
+*** 5107,5113 ****
+  		    }
+  		    mb_utf8 = FALSE;	/* don't draw as UTF-8 */
+  		}
+- #ifdef FEAT_VIRTUALEDIT
+  		else if (VIsual_active
+  			 && (VIsual_mode == Ctrl_V
+  			     || VIsual_mode == 'v')
+--- 5099,5104 ----
+***************
+*** 5115,5129 ****
+  			 && tocol != MAXCOL
+  			 && vcol < tocol
+  			 && (
+! # ifdef FEAT_RIGHTLEFT
+  			    wp->w_p_rl ? (col >= 0) :
+! # endif
+  			    (col < wp->w_width)))
+  		{
+  		    c = ' ';
+  		    --ptr;	    /* put it back at the NUL */
+  		}
+- #endif
+  #if defined(LINE_ATTR)
+  		else if ((
+  # ifdef FEAT_DIFF
+--- 5106,5119 ----
+  			 && tocol != MAXCOL
+  			 && vcol < tocol
+  			 && (
+! #ifdef FEAT_RIGHTLEFT
+  			    wp->w_p_rl ? (col >= 0) :
+! #endif
+  			    (col < wp->w_width)))
+  		{
+  		    c = ' ';
+  		    --ptr;	    /* put it back at the NUL */
+  		}
+  #if defined(LINE_ATTR)
+  		else if ((
+  # ifdef FEAT_DIFF
+***************
+*** 10866,10874 ****
+  	    || wp->w_cursor.lnum != wp->w_ru_cursor.lnum
+  	    || wp->w_cursor.col != wp->w_ru_cursor.col
+  	    || wp->w_virtcol != wp->w_ru_virtcol
+- #ifdef FEAT_VIRTUALEDIT
+  	    || wp->w_cursor.coladd != wp->w_ru_cursor.coladd
+- #endif
+  	    || wp->w_topline != wp->w_ru_topline
+  	    || wp->w_buffer->b_ml.ml_line_count != wp->w_ru_line_count
+  #ifdef FEAT_DIFF
+--- 10856,10862 ----
+*** ../vim-8.1.0825/src/search.c	2019-01-24 17:18:37.591462362 +0100
+--- src/search.c	2019-01-26 17:06:44.472869513 +0100
+***************
+*** 1029,1039 ****
+  			    end_pos->col = endpos.col;
+  			}
+  		    }
+- #ifdef FEAT_VIRTUALEDIT
+  		    pos->coladd = 0;
+  		    if (end_pos != NULL)
+  			end_pos->coladd = 0;
+- #endif
+  		    found = 1;
+  		    first_match = FALSE;
+  
+--- 1029,1037 ----
+***************
+*** 1919,1927 ****
+  #endif
+  
+      pos = curwin->w_cursor;
+- #ifdef FEAT_VIRTUALEDIT
+      pos.coladd = 0;
+- #endif
+      linep = ml_get(pos.lnum);
+  
+      cpo_match = (vim_strchr(p_cpo, CPO_MATCH) != NULL);
+--- 1917,1923 ----
+***************
+*** 3027,3035 ****
+      int		i;
+      int		last_line;
+  
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;
+- #endif
+      cls_bigword = bigword;
+      while (--count >= 0)
+      {
+--- 3023,3029 ----
+***************
+*** 3094,3102 ****
+  {
+      int		sclass;	    /* starting class */
+  
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;
+- #endif
+      cls_bigword = bigword;
+      while (--count >= 0)
+      {
+--- 3088,3094 ----
+***************
+*** 3163,3171 ****
+  {
+      int		sclass;	    /* starting class */
+  
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;
+- #endif
+      cls_bigword = bigword;
+      while (--count >= 0)
+      {
+--- 3155,3161 ----
+***************
+*** 3233,3241 ****
+      int		sclass;	    /* starting class */
+      int		i;
+  
+- #ifdef FEAT_VIRTUALEDIT
+      curwin->w_cursor.coladd = 0;
+- #endif
+      cls_bigword = bigword;
+      while (--count >= 0)
+      {
+--- 3223,3229 ----
+*** ../vim-8.1.0825/src/spell.c	2019-01-24 17:18:37.591462362 +0100
+--- src/spell.c	2019-01-26 17:06:53.100807527 +0100
+***************
+*** 1652,1660 ****
+  			    found_one = TRUE;
+  			    found_pos.lnum = lnum;
+  			    found_pos.col = (int)(p - buf);
+- #ifdef FEAT_VIRTUALEDIT
+  			    found_pos.coladd = 0;
+- #endif
+  			    if (dir == FORWARD)
+  			    {
+  				/* No need to search further. */
+--- 1652,1658 ----
+*** ../vim-8.1.0825/src/structs.h	2019-01-24 17:59:35.135217476 +0100
+--- src/structs.h	2019-01-26 17:10:06.495415544 +0100
+***************
+*** 21,50 ****
+  #endif
+  
+  /*
+!  * position in file or buffer
+   */
+  typedef struct
+  {
+!     linenr_T	lnum;	/* line number */
+!     colnr_T	col;	/* column number */
+! #ifdef FEAT_VIRTUALEDIT
+!     colnr_T	coladd;
+! #endif
+  } pos_T;
+  
+- #ifdef FEAT_VIRTUALEDIT
+- # define INIT_POS_T(l, c, ca) {l, c, ca}
+- #else
+- # define INIT_POS_T(l, c, ca) {l, c}
+- #endif
+  
+  /*
+   * Same, but without coladd.
+   */
+  typedef struct
+  {
+!     linenr_T	lnum;	/* line number */
+!     colnr_T	col;	/* column number */
+  } lpos_T;
+  
+  /*
+--- 21,43 ----
+  #endif
+  
+  /*
+!  * Position in file or buffer.
+   */
+  typedef struct
+  {
+!     linenr_T	lnum;	// line number
+!     colnr_T	col;	// column number
+!     colnr_T	coladd; // extra virtual column
+  } pos_T;
+  
+  
+  /*
+   * Same, but without coladd.
+   */
+  typedef struct
+  {
+!     linenr_T	lnum;	// line number
+!     colnr_T	col;	// column number
+  } lpos_T;
+  
+  /*
+***************
+*** 395,403 ****
+      u_entry_T	*uh_entry;	/* pointer to first entry */
+      u_entry_T	*uh_getbot_entry; /* pointer to where ue_bot must be set */
+      pos_T	uh_cursor;	/* cursor position before saving */
+- #ifdef FEAT_VIRTUALEDIT
+      long	uh_cursor_vcol;
+- #endif
+      int		uh_flags;	/* see below */
+      pos_T	uh_namedm[NMARKS];	/* marks before undo/after redo */
+      visualinfo_T uh_visual;	/* Visual areas before undo/after redo */
+--- 388,394 ----
+*** ../vim-8.1.0825/src/tag.c	2019-01-24 17:18:37.595462334 +0100
+--- src/tag.c	2019-01-26 16:50:03.575895716 +0100
+***************
+*** 85,91 ****
+   * Tag for preview window is remembered separately, to avoid messing up the
+   * normal tagstack.
+   */
+! static taggy_T ptag_entry = {NULL, {INIT_POS_T(0, 0, 0), 0}, 0, 0};
+  #endif
+  
+  /*
+--- 85,91 ----
+   * Tag for preview window is remembered separately, to avoid messing up the
+   * normal tagstack.
+   */
+! static taggy_T ptag_entry = {NULL, {{0, 0, 0}, 0}, 0, 0};
+  #endif
+  
+  /*
+*** ../vim-8.1.0825/src/ui.c	2019-01-24 17:18:37.595462334 +0100
+--- src/ui.c	2019-01-26 17:07:03.456733114 +0100
+***************
+*** 3184,3192 ****
+  
+      if (mpos->col > 0)
+  	--mpos->col;
+- #ifdef FEAT_VIRTUALEDIT
+      mpos->coladd = 0;
+- #endif
+      return IN_BUFFER;
+  }
+  #endif
+--- 3184,3190 ----
+*** ../vim-8.1.0825/src/undo.c	2019-01-19 17:43:03.429449066 +0100
+--- src/undo.c	2019-01-26 17:07:37.328489616 +0100
+***************
+*** 548,559 ****
+  	uhp->uh_entry = NULL;
+  	uhp->uh_getbot_entry = NULL;
+  	uhp->uh_cursor = curwin->w_cursor;	/* save cursor pos. for undo */
+- #ifdef FEAT_VIRTUALEDIT
+  	if (virtual_active() && curwin->w_cursor.coladd > 0)
+  	    uhp->uh_cursor_vcol = getviscol();
+  	else
+  	    uhp->uh_cursor_vcol = -1;
+- #endif
+  
+  	/* save changed and buffer empty flag for undo */
+  	uhp->uh_flags = (curbuf->b_changed ? UH_CHANGED : 0) +
+--- 548,557 ----
+***************
+*** 1250,1260 ****
+      put_header_ptr(bi, uhp->uh_alt_prev.ptr);
+      undo_write_bytes(bi, uhp->uh_seq, 4);
+      serialize_pos(bi, uhp->uh_cursor);
+- #ifdef FEAT_VIRTUALEDIT
+      undo_write_bytes(bi, (long_u)uhp->uh_cursor_vcol, 4);
+- #else
+-     undo_write_bytes(bi, (long_u)0, 4);
+- #endif
+      undo_write_bytes(bi, (long_u)uhp->uh_flags, 2);
+      /* Assume NMARKS will stay the same. */
+      for (i = 0; i < NMARKS; ++i)
+--- 1248,1254 ----
+***************
+*** 1309,1319 ****
+  	return NULL;
+      }
+      unserialize_pos(bi, &uhp->uh_cursor);
+- #ifdef FEAT_VIRTUALEDIT
+      uhp->uh_cursor_vcol = undo_read_4c(bi);
+- #else
+-     (void)undo_read_4c(bi);
+- #endif
+      uhp->uh_flags = undo_read_2c(bi);
+      for (i = 0; i < NMARKS; ++i)
+  	unserialize_pos(bi, &uhp->uh_namedm[i]);
+--- 1303,1309 ----
+***************
+*** 1458,1468 ****
+  {
+      undo_write_bytes(bi, (long_u)pos.lnum, 4);
+      undo_write_bytes(bi, (long_u)pos.col, 4);
+- #ifdef FEAT_VIRTUALEDIT
+      undo_write_bytes(bi, (long_u)pos.coladd, 4);
+- #else
+-     undo_write_bytes(bi, (long_u)0, 4);
+- #endif
+  }
+  
+  /*
+--- 1448,1454 ----
+***************
+*** 1477,1489 ****
+      pos->col = undo_read_4c(bi);
+      if (pos->col < 0)
+  	pos->col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+      pos->coladd = undo_read_4c(bi);
+      if (pos->coladd < 0)
+  	pos->coladd = 0;
+- #else
+-     (void)undo_read_4c(bi);
+- #endif
+  }
+  
+  /*
+--- 1463,1471 ----
+***************
+*** 2855,2866 ****
+  	if (curhead->uh_cursor.lnum == curwin->w_cursor.lnum)
+  	{
+  	    curwin->w_cursor.col = curhead->uh_cursor.col;
+- #ifdef FEAT_VIRTUALEDIT
+  	    if (virtual_active() && curhead->uh_cursor_vcol >= 0)
+  		coladvance((colnr_T)curhead->uh_cursor_vcol);
+  	    else
+  		curwin->w_cursor.coladd = 0;
+- #endif
+  	}
+  	else
+  	    beginline(BL_SOL | BL_FIX);
+--- 2837,2846 ----
+***************
+*** 2872,2880 ****
+  	 * check_cursor() will move the cursor to the last line.  Move it to
+  	 * the first column here. */
+  	curwin->w_cursor.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+  	curwin->w_cursor.coladd = 0;
+- #endif
+      }
+  
+      /* Make sure the cursor is on an existing line and column. */
+--- 2852,2858 ----
+*** ../vim-8.1.0825/src/userfunc.c	2019-01-23 23:00:27.425682956 +0100
+--- src/userfunc.c	2019-01-26 17:07:50.264396582 +0100
+***************
+*** 3178,3186 ****
+  	    }
+  	    curwin->w_cursor.lnum = lnum;
+  	    curwin->w_cursor.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+  	    curwin->w_cursor.coladd = 0;
+- #endif
+  	}
+  	arg = startarg;
+  	if (get_func_tv(name, (int)STRLEN(name), &rettv, &arg,
+--- 3178,3184 ----
+*** ../vim-8.1.0825/src/version.c	2019-01-26 16:20:44.264683546 +0100
+--- src/version.c	2019-01-26 17:26:58.193155997 +0100
+***************
+*** 695,705 ****
+  	"-vartabs",
+  #endif
+  	"+vertsplit",
+- #ifdef FEAT_VIRTUALEDIT
+  	"+virtualedit",
+- #else
+- 	"-virtualedit",
+- #endif
+  	"+visual",
+  	"+visualextra",
+  #ifdef FEAT_VIMINFO
+--- 695,701 ----
+*** ../vim-8.1.0825/src/vim.h	2019-01-24 23:11:44.635650160 +0100
+--- src/vim.h	2019-01-26 17:10:40.183172636 +0100
+***************
+*** 2136,2147 ****
+  
+  #include "globals.h"	    /* global variables and messages */
+  
+- #ifndef FEAT_VIRTUALEDIT
+- # define getvvcol(w, p, s, c, e) getvcol((w), (p), (s), (c), (e))
+- # define virtual_active() FALSE
+- # define virtual_op FALSE
+- #endif
+- 
+  /*
+   * If console dialog not supported, but GUI dialog is, use the GUI one.
+   */
+--- 2136,2141 ----
+*** ../vim-8.1.0825/src/window.c	2019-01-24 17:18:37.599462306 +0100
+--- src/window.c	2019-01-26 17:08:16.564207364 +0100
+***************
+*** 3439,3447 ****
+      wp->w_lines_valid = 0;
+      wp->w_cursor.lnum = 1;
+      wp->w_curswant = wp->w_cursor.col = 0;
+- #ifdef FEAT_VIRTUALEDIT
+      wp->w_cursor.coladd = 0;
+- #endif
+      wp->w_pcmark.lnum = 1;	/* pcmark not cleared but set to line 1 */
+      wp->w_pcmark.col = 0;
+      wp->w_prev_pcmark.lnum = 0;
+--- 3439,3445 ----
+***************
+*** 4418,4427 ****
+      curwin = wp;
+      curbuf = wp->w_buffer;
+      check_cursor();
+- #ifdef FEAT_VIRTUALEDIT
+      if (!virtual_active())
+  	curwin->w_cursor.coladd = 0;
+- #endif
+      changed_line_abv_curs();	/* assume cursor position needs updating */
+  
+      if (curwin->w_localdir != NULL)
+--- 4416,4423 ----
+*** ../vim-8.1.0825/src/version.c	2019-01-26 16:20:44.264683546 +0100
+--- src/version.c	2019-01-26 17:26:58.193155997 +0100
+***************
+*** 789,790 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     826,
+  /**/
+
+-- 
+GUARD #1:  Where'd you get the coconut?
+ARTHUR:    We found them.
+GUARD #1:  Found them?  In Mercea?  The coconut's tropical!
+ARTHUR:    What do you mean?
+GUARD #1:  Well, this is a temperate zone.
+                                  The Quest for the Holy Grail (Monty Python)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

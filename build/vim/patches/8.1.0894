@@ -1,0 +1,453 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0894
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0894
+Problem:    MS-Windows: resolve() does not return a reparse point.
+Solution:   Improve resolve(). (Yasuhiro Matsumoto, closes #3896)
+Files:	    runtime/doc/eval.txt, src/buffer.c, src/evalfunc.c,
+            src/os_mswin.c, src/proto/os_mswin.pro,
+            src/testdir/test_functions.vim
+
+
+*** ../vim-8.1.0893/runtime/doc/eval.txt	2019-02-08 12:46:03.584784210 +0100
+--- runtime/doc/eval.txt	2019-02-10 23:05:41.630790837 +0100
+***************
+*** 7330,7335 ****
+--- 7385,7393 ----
+  resolve({filename})					*resolve()* *E655*
+  		On MS-Windows, when {filename} is a shortcut (a .lnk file),
+  		returns the path the shortcut points to in a simplified form.
++ 		When {filename} is a symbolic link or junction point, return
++ 		the full path to the target. If the target of junction is
++ 		removed, return {filename}.
+  		On Unix, repeat resolving symbolic links in all path
+  		components of {filename} and return the simplified result.
+  		To cope with link cycles, resolving of symbolic links is
+*** ../vim-8.1.0893/src/buffer.c	2019-02-05 21:23:00.600559169 +0100
+--- src/buffer.c	2019-02-10 23:05:41.630790837 +0100
+***************
+*** 4847,4853 ****
+  	char_u  *rfname;
+  
+  	// If the file name is a shortcut file, use the file it links to.
+! 	rfname = mch_resolve_shortcut(*ffname);
+  	if (rfname != NULL)
+  	{
+  	    vim_free(*ffname);
+--- 4847,4853 ----
+  	char_u  *rfname;
+  
+  	// If the file name is a shortcut file, use the file it links to.
+! 	rfname = mch_resolve_path(*ffname, FALSE);
+  	if (rfname != NULL)
+  	{
+  	    vim_free(*ffname);
+*** ../vim-8.1.0893/src/evalfunc.c	2019-02-10 22:58:58.976414779 +0100
+--- src/evalfunc.c	2019-02-10 23:05:41.630790837 +0100
+***************
+*** 9912,9918 ****
+      {
+  	char_u	*v = NULL;
+  
+! 	v = mch_resolve_shortcut(p);
+  	if (v != NULL)
+  	    rettv->vval.v_string = v;
+  	else
+--- 9912,9918 ----
+      {
+  	char_u	*v = NULL;
+  
+! 	v = mch_resolve_path(p, TRUE);
+  	if (v != NULL)
+  	    rettv->vval.v_string = v;
+  	else
+*** ../vim-8.1.0893/src/os_mswin.c	2019-01-24 16:38:58.272712472 +0100
+--- src/os_mswin.c	2019-02-10 23:12:31.960522594 +0100
+***************
+*** 1823,1835 ****
+  #  include <shlobj.h>
+  # endif
+  
+  /*
+   * When "fname" is the name of a shortcut (*.lnk) resolve the file it points
+   * to and return that name in allocated memory.
+   * Otherwise NULL is returned.
+   */
+!     char_u *
+! mch_resolve_shortcut(char_u *fname)
+  {
+      HRESULT		hr;
+      IShellLink		*psl = NULL;
+--- 1823,2003 ----
+  #  include <shlobj.h>
+  # endif
+  
++ typedef enum _FILE_INFO_BY_HANDLE_CLASS_ {
++   FileBasicInfo_,
++   FileStandardInfo_,
++   FileNameInfo_,
++   FileRenameInfo_,
++   FileDispositionInfo_,
++   FileAllocationInfo_,
++   FileEndOfFileInfo_,
++   FileStreamInfo_,
++   FileCompressionInfo_,
++   FileAttributeTagInfo_,
++   FileIdBothDirectoryInfo_,
++   FileIdBothDirectoryRestartInfo_,
++   FileIoPriorityHintInfo_,
++   FileRemoteProtocolInfo_,
++   FileFullDirectoryInfo_,
++   FileFullDirectoryRestartInfo_,
++   FileStorageInfo_,
++   FileAlignmentInfo_,
++   FileIdInfo_,
++   FileIdExtdDirectoryInfo_,
++   FileIdExtdDirectoryRestartInfo_,
++   FileDispositionInfoEx_,
++   FileRenameInfoEx_,
++   MaximumFileInfoByHandleClass_
++ } FILE_INFO_BY_HANDLE_CLASS_;
++ 
++ typedef struct _FILE_NAME_INFO_ {
++   DWORD FileNameLength;
++   WCHAR FileName[1];
++ } FILE_NAME_INFO_;
++ 
++ typedef BOOL (WINAPI *pfnGetFileInformationByHandleEx)(
++ 	HANDLE				hFile,
++ 	FILE_INFO_BY_HANDLE_CLASS_	FileInformationClass,
++ 	LPVOID				lpFileInformation,
++ 	DWORD				dwBufferSize);
++ static pfnGetFileInformationByHandleEx pGetFileInformationByHandleEx = NULL;
++ 
++ typedef BOOL (WINAPI *pfnGetVolumeInformationByHandleW)(
++ 	HANDLE	hFile,
++ 	LPWSTR	lpVolumeNameBuffer,
++ 	DWORD	nVolumeNameSize,
++ 	LPDWORD	lpVolumeSerialNumber,
++ 	LPDWORD	lpMaximumComponentLength,
++ 	LPDWORD	lpFileSystemFlags,
++ 	LPWSTR	lpFileSystemNameBuffer,
++ 	DWORD	nFileSystemNameSize);
++ static pfnGetVolumeInformationByHandleW pGetVolumeInformationByHandleW = NULL;
++ 
++     char_u *
++ resolve_reparse_point(char_u *fname)
++ {
++     HANDLE	    h = INVALID_HANDLE_VALUE;
++     DWORD	    size;
++     char_u	    *rfname = NULL;
++     FILE_NAME_INFO_ *nameinfo = NULL;
++     WCHAR	    buff[MAX_PATH], *volnames = NULL;
++     HANDLE	    hv;
++     DWORD	    snfile, snfind;
++     static BOOL	    loaded = FALSE;
++ 
++     if (pGetFileInformationByHandleEx == NULL ||
++ 	    pGetVolumeInformationByHandleW == NULL)
++     {
++ 	HMODULE hmod = GetModuleHandle("kernel32.dll");
++ 
++ 	if (loaded == TRUE)
++ 	    return NULL;
++ 	pGetFileInformationByHandleEx = (pfnGetFileInformationByHandleEx)
++ 		GetProcAddress(hmod, "GetFileInformationByHandleEx");
++ 	pGetVolumeInformationByHandleW = (pfnGetVolumeInformationByHandleW)
++ 		GetProcAddress(hmod, "GetVolumeInformationByHandleW");
++ 	loaded = TRUE;
++ 	if (pGetFileInformationByHandleEx == NULL ||
++ 		pGetVolumeInformationByHandleW == NULL)
++ 	    return NULL;
++     }
++ 
++     if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
++     {
++ 	WCHAR	*p;
++ 
++ 	p = enc_to_utf16(fname, NULL);
++ 	if (p == NULL)
++ 	    goto fail;
++ 
++ 	if ((GetFileAttributesW(p) & FILE_ATTRIBUTE_REPARSE_POINT) == 0)
++ 	{
++ 	    vim_free(p);
++ 	    goto fail;
++ 	}
++ 
++ 	h = CreateFileW(p, 0, 0, NULL, OPEN_EXISTING,
++ 		FILE_FLAG_BACKUP_SEMANTICS, NULL);
++ 	vim_free(p);
++     }
++     else
++     {
++ 	if ((GetFileAttributes((char*) fname) &
++ 		    FILE_ATTRIBUTE_REPARSE_POINT) == 0)
++ 	    goto fail;
++ 
++ 	h = CreateFile((char*) fname, 0, 0, NULL, OPEN_EXISTING,
++ 		FILE_FLAG_BACKUP_SEMANTICS, NULL);
++     }
++ 
++     if (h == INVALID_HANDLE_VALUE)
++ 	goto fail;
++ 
++     size = sizeof(FILE_NAME_INFO_) + sizeof(WCHAR) * (MAX_PATH - 1);
++     nameinfo = (FILE_NAME_INFO_*)alloc(size + sizeof(WCHAR));
++     if (nameinfo == NULL)
++ 	goto fail;
++ 
++     if (!pGetFileInformationByHandleEx(h, FileNameInfo_, nameinfo, size))
++ 	goto fail;
++ 
++     nameinfo->FileName[nameinfo->FileNameLength / sizeof(WCHAR)] = 0;
++ 
++     if (!pGetVolumeInformationByHandleW(
++ 	    h, NULL, 0, &snfile, NULL, NULL, NULL, 0))
++ 	goto fail;
++ 
++     hv = FindFirstVolumeW(buff, MAX_PATH);
++     if (hv == INVALID_HANDLE_VALUE)
++ 	goto fail;
++ 
++     do {
++ 	GetVolumeInformationW(
++ 		buff, NULL, 0, &snfind, NULL, NULL, NULL, 0);
++ 	if (snfind == snfile)
++ 	    break;
++     } while (FindNextVolumeW(hv, buff, MAX_PATH));
++ 
++     FindVolumeClose(hv);
++ 
++     if (snfind != snfile)
++ 	goto fail;
++ 
++     size = 0;
++     if (!GetVolumePathNamesForVolumeNameW(buff, NULL, 0, &size) &&
++ 	    GetLastError() != ERROR_MORE_DATA)
++ 	goto fail;
++ 
++     volnames = (WCHAR*)alloc(size * sizeof(WCHAR));
++     if (!GetVolumePathNamesForVolumeNameW(buff, volnames, size,
++ 		&size))
++ 	goto fail;
++ 
++     wcscpy(buff, volnames);
++     if (nameinfo->FileName[0] == '\\')
++ 	wcscat(buff, nameinfo->FileName + 1);
++     else
++ 	wcscat(buff, nameinfo->FileName);
++     rfname = utf16_to_enc(buff, NULL);
++ 
++ fail:
++     if (h != INVALID_HANDLE_VALUE)
++ 	CloseHandle(h);
++     if (nameinfo != NULL)
++ 	vim_free(nameinfo);
++     if (volnames != NULL)
++ 	vim_free(volnames);
++ 
++     return rfname;
++ }
++ 
+  /*
+   * When "fname" is the name of a shortcut (*.lnk) resolve the file it points
+   * to and return that name in allocated memory.
+   * Otherwise NULL is returned.
+   */
+!     static char_u *
+! resolve_shortcut(char_u *fname)
+  {
+      HRESULT		hr;
+      IShellLink		*psl = NULL;
+***************
+*** 1937,1942 ****
+--- 2105,2120 ----
+      CoUninitialize();
+      return rfname;
+  }
++ 
++     char_u *
++ mch_resolve_path(char_u *fname, int reparse_point)
++ {
++     char_u  *path = resolve_shortcut(fname);
++ 
++     if (path == NULL && reparse_point)
++ 	path = resolve_reparse_point(fname);
++     return path;
++ }
+  #endif
+  
+  #if (defined(FEAT_EVAL) && !defined(FEAT_GUI)) || defined(PROTO)
+*** ../vim-8.1.0893/src/proto/os_mswin.pro	2018-05-17 13:53:03.000000000 +0200
+--- src/proto/os_mswin.pro	2019-02-10 23:05:41.634790818 +0100
+***************
+*** 37,43 ****
+  void mch_print_set_font(int iBold, int iItalic, int iUnderline);
+  void mch_print_set_bg(long_u bgcol);
+  void mch_print_set_fg(long_u fgcol);
+! char_u *mch_resolve_shortcut(char_u *fname);
+  void win32_set_foreground(void);
+  void serverInitMessaging(void);
+  void serverSetName(char_u *name);
+--- 37,43 ----
+  void mch_print_set_font(int iBold, int iItalic, int iUnderline);
+  void mch_print_set_bg(long_u bgcol);
+  void mch_print_set_fg(long_u fgcol);
+! char_u *mch_resolve_path(char_u *fname, int reparse_point);
+  void win32_set_foreground(void);
+  void serverInitMessaging(void);
+  void serverSetName(char_u *name);
+*** ../vim-8.1.0893/src/testdir/test_functions.vim	2019-02-08 23:09:43.257123080 +0100
+--- src/testdir/test_functions.vim	2019-02-10 23:05:41.634790818 +0100
+***************
+*** 188,194 ****
+    call assert_fails('call strftime("%Y", [])', 'E745:')
+  endfunc
+  
+! func Test_resolve()
+    if !has('unix')
+      return
+    endif
+--- 188,194 ----
+    call assert_fails('call strftime("%Y", [])', 'E745:')
+  endfunc
+  
+! func Test_resolve_unix()
+    if !has('unix')
+      return
+    endif
+***************
+*** 234,239 ****
+--- 234,336 ----
+    call delete('Xlink1')
+  endfunc
+  
++ func s:normalize_fname(fname)
++   let ret = substitute(a:fname, '\', '/', 'g')
++   let ret = substitute(ret, '//', '/', 'g')
++   let ret = tolower(ret)
++ endfunc
++ 
++ func Test_resolve_win32()
++   if !has('win32')
++     return
++   endif
++ 
++   " test for shortcut file
++   if executable('cscript')
++     new Xfile
++     wq
++     call writefile([
++     \ 'Set fs = CreateObject("Scripting.FileSystemObject")',
++     \ 'Set ws = WScript.CreateObject("WScript.Shell")',
++     \ 'Set shortcut = ws.CreateShortcut("Xlink.lnk")',
++     \ 'shortcut.TargetPath = fs.BuildPath(ws.CurrentDirectory, "Xfile")', 
++     \ 'shortcut.Save'
++     \], 'link.vbs')
++     silent !cscript link.vbs
++     call delete('link.vbs')
++     call assert_equal(s:normalize_fname(getcwd() . '\Xfile'), s:normalize_fname(resolve('./Xlink.lnk')))
++     call delete('Xfile')
++ 
++     call assert_equal(s:normalize_fname(getcwd() . '\Xfile'), s:normalize_fname(resolve('./Xlink.lnk')))
++     call delete('Xlink.lnk')
++   else
++     echomsg 'skipped test for shortcut file'
++   endif
++ 
++   " remove files
++   call delete('Xlink')
++   call delete('Xdir', 'd')
++   call delete('Xfile')
++ 
++   " test for symbolic link to a file
++   new Xfile
++   wq
++   silent !mklink Xlink Xfile
++   if !v:shell_error
++     call assert_equal(s:normalize_fname(getcwd() . '\Xfile'), s:normalize_fname(resolve('./Xlink')))
++     call delete('Xlink')
++   else
++     echomsg 'skipped test for symbolic link to a file'
++   endif
++   call delete('Xfile')
++ 
++   " test for junction to a directory
++   call mkdir('Xdir')
++   silent !mklink /J Xlink Xdir
++   if !v:shell_error
++     call assert_equal(s:normalize_fname(getcwd() . '\Xdir'), s:normalize_fname(resolve(getcwd() . '/Xlink')))
++ 
++     call delete('Xdir', 'd')
++ 
++     " test for junction already removed
++     call assert_equal(s:normalize_fname(getcwd() . '\Xlink'), s:normalize_fname(resolve(getcwd() . '/Xlink')))
++     call delete('Xlink')
++   else
++     echomsg 'skipped test for junction to a directory'
++     call delete('Xdir', 'd')
++   endif
++ 
++   " test for symbolic link to a directory
++   call mkdir('Xdir')
++   silent !mklink /D Xlink Xdir
++   if !v:shell_error
++     call assert_equal(s:normalize_fname(getcwd() . '\Xdir'), s:normalize_fname(resolve(getcwd() . '/Xlink')))
++ 
++     call delete('Xdir', 'd')
++ 
++     " test for symbolic link already removed
++     call assert_equal(s:normalize_fname(getcwd() . '\Xlink'), s:normalize_fname(resolve(getcwd() . '/Xlink')))
++     call delete('Xlink')
++   else
++     echomsg 'skipped test for symbolic link to a directory'
++     call delete('Xdir', 'd')
++   endif
++ 
++   " test for buffer name
++   new Xfile
++   wq
++   silent !mklink Xlink Xfile
++   if !v:shell_error
++     edit Xlink
++     call assert_equal('Xlink', bufname('%'))
++     call delete('Xlink')
++     bw!
++   else
++     echomsg 'skipped test for buffer name'
++   endif
++   call delete('Xfile')
++ endfunc
++ 
+  func Test_simplify()
+    call assert_equal('',            simplify(''))
+    call assert_equal('/',           simplify('/'))
+*** ../vim-8.1.0893/src/version.c	2019-02-10 23:04:07.111243690 +0100
+--- src/version.c	2019-02-10 23:07:43.138163286 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     894,
+  /**/
+
+-- 
+ERIC IDLE PLAYED: THE DEAD COLLECTOR, MR BINT (A VILLAGE NE'ER-DO -WELL VERY
+                  KEEN ON BURNING WITCHES), SIR ROBIN, THE GUARD WHO DOESN'T
+                  HICOUGH BUT TRIES TO GET THINGS STRAIGHT, CONCORDE (SIR
+                  LAUNCELOT'S TRUSTY STEED), ROGER THE SHRUBBER (A SHRUBBER),
+                  BROTHER MAYNARD
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

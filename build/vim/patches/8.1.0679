@@ -1,0 +1,262 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0679
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0679
+Problem:    Sign functions do not take buffer argument as documented.
+Solution:   Use get_buf_tv(). (Yegappan Lakshmanan, closes #3755)
+Files:	    src/evalfunc.c, src/testdir/test_signs.vim
+
+
+*** ../vim-8.1.0678/src/evalfunc.c	2019-01-01 13:20:05.940711222 +0100
+--- src/evalfunc.c	2019-01-02 13:37:14.702974769 +0100
+***************
+*** 11365,11371 ****
+      if (argvars[0].v_type != VAR_UNKNOWN)
+      {
+  	// get signs placed in this buffer
+! 	buf = find_buffer(&argvars[0]);
+  	if (buf == NULL)
+  	{
+  	    EMSG2(_("E158: Invalid buffer name: %s"),
+--- 11365,11371 ----
+      if (argvars[0].v_type != VAR_UNKNOWN)
+      {
+  	// get signs placed in this buffer
+! 	buf = get_buf_tv(&argvars[0], FALSE);
+  	if (buf == NULL)
+  	{
+  	    EMSG2(_("E158: Invalid buffer name: %s"),
+***************
+*** 11457,11463 ****
+  	goto cleanup;
+  
+      // Buffer to place the sign
+!     buf = find_buffer(&argvars[3]);
+      if (buf == NULL)
+      {
+  	EMSG2(_("E158: Invalid buffer name: %s"), tv_get_string(&argvars[2]));
+--- 11457,11463 ----
+  	goto cleanup;
+  
+      // Buffer to place the sign
+!     buf = get_buf_tv(&argvars[3], FALSE);
+      if (buf == NULL)
+      {
+  	EMSG2(_("E158: Invalid buffer name: %s"), tv_get_string(&argvars[2]));
+***************
+*** 11566,11572 ****
+  
+  	if ((di = dict_find(dict, (char_u *)"buffer", -1)) != NULL)
+  	{
+! 	    buf = find_buffer(&di->di_tv);
+  	    if (buf == NULL)
+  	    {
+  		EMSG2(_("E158: Invalid buffer name: %s"),
+--- 11566,11572 ----
+  
+  	if ((di = dict_find(dict, (char_u *)"buffer", -1)) != NULL)
+  	{
+! 	    buf = get_buf_tv(&di->di_tv, FALSE);
+  	    if (buf == NULL)
+  	    {
+  		EMSG2(_("E158: Invalid buffer name: %s"),
+*** ../vim-8.1.0678/src/testdir/test_signs.vim	2018-12-31 22:02:24.077890554 +0100
+--- src/testdir/test_signs.vim	2019-01-02 13:37:14.702974769 +0100
+***************
+*** 32,38 ****
+    " current window if the buffer is displayed there.
+    let bn = bufnr('%')
+    let wn = winnr()
+!   exe 'sign place 41 line=3 name=Sign1 buffer=' . bn 
+    1
+    bot split
+    exe 'sign jump 41 buffer=' . bufnr('%')
+--- 32,38 ----
+    " current window if the buffer is displayed there.
+    let bn = bufnr('%')
+    let wn = winnr()
+!   exe 'sign place 41 line=3 name=Sign1 buffer=' . bn
+    1
+    bot split
+    exe 'sign jump 41 buffer=' . bufnr('%')
+***************
+*** 77,83 ****
+    sign unplace
+    let a=execute('sign place')
+    call assert_equal("\n--- Signs ---\n", a)
+!   
+    " Try again to unplace sign on current line, it should fail this time.
+    call assert_fails('sign unplace', 'E159:')
+  
+--- 77,83 ----
+    sign unplace
+    let a=execute('sign place')
+    call assert_equal("\n--- Signs ---\n", a)
+! 
+    " Try again to unplace sign on current line, it should fail this time.
+    call assert_fails('sign unplace', 'E159:')
+  
+***************
+*** 386,396 ****
+    call assert_equal([{'bufnr' : bufnr(''), 'signs' :
+  	      \ [{'id' : 10, 'group' : '', 'lnum' : 20, 'name' : 'sign1',
+  	      \ 'priority' : 10}]}],
+! 	      \ sign_getplaced('Xsign', {'lnum' : 20}))
+    call assert_equal([{'bufnr' : bufnr(''), 'signs' :
+  	      \ [{'id' : 10, 'group' : '', 'lnum' : 20, 'name' : 'sign1',
+  	      \ 'priority' : 10}]}],
+! 	      \ sign_getplaced('Xsign', {'id' : 10}))
+  
+    " Tests for invalid arguments to sign_place()
+    call assert_fails('call sign_place([], "", "mySign", 1)', 'E745:')
+--- 386,396 ----
+    call assert_equal([{'bufnr' : bufnr(''), 'signs' :
+  	      \ [{'id' : 10, 'group' : '', 'lnum' : 20, 'name' : 'sign1',
+  	      \ 'priority' : 10}]}],
+! 	      \ sign_getplaced('%', {'lnum' : 20}))
+    call assert_equal([{'bufnr' : bufnr(''), 'signs' :
+  	      \ [{'id' : 10, 'group' : '', 'lnum' : 20, 'name' : 'sign1',
+  	      \ 'priority' : 10}]}],
+! 	      \ sign_getplaced('', {'id' : 10}))
+  
+    " Tests for invalid arguments to sign_place()
+    call assert_fails('call sign_place([], "", "mySign", 1)', 'E745:')
+***************
+*** 407,413 ****
+  	      \ {"lnum" : 30})', 'E730:')
+    call assert_fails('call sign_place(5, "", "sign1", "abcxyz.xxx",
+  	      \ {"lnum" : 10})', 'E158:')
+!   call assert_fails('call sign_place(5, "", "sign1", "", {"lnum" : 10})',
+  	      \ 'E158:')
+    call assert_fails('call sign_place(5, "", "sign1", [], {"lnum" : 10})',
+  	      \ 'E158:')
+--- 407,413 ----
+  	      \ {"lnum" : 30})', 'E730:')
+    call assert_fails('call sign_place(5, "", "sign1", "abcxyz.xxx",
+  	      \ {"lnum" : 10})', 'E158:')
+!   call assert_fails('call sign_place(5, "", "sign1", "@", {"lnum" : 10})',
+  	      \ 'E158:')
+    call assert_fails('call sign_place(5, "", "sign1", [], {"lnum" : 10})',
+  	      \ 'E158:')
+***************
+*** 429,435 ****
+  	      \ 'priority' : 10}]}],
+  	      \ sign_getplaced())
+    call assert_fails("call sign_getplaced('dummy.sign')", 'E158:')
+!   call assert_fails('call sign_getplaced("")', 'E158:')
+    call assert_fails('call sign_getplaced(-1)', 'E158:')
+    call assert_fails('call sign_getplaced("Xsign", [])', 'E715:')
+    call assert_equal([{'bufnr' : bufnr(''), 'signs' : []}],
+--- 429,435 ----
+  	      \ 'priority' : 10}]}],
+  	      \ sign_getplaced())
+    call assert_fails("call sign_getplaced('dummy.sign')", 'E158:')
+!   call assert_fails('call sign_getplaced("&")', 'E158:')
+    call assert_fails('call sign_getplaced(-1)', 'E158:')
+    call assert_fails('call sign_getplaced("Xsign", [])', 'E715:')
+    call assert_equal([{'bufnr' : bufnr(''), 'signs' : []}],
+***************
+*** 451,457 ****
+    call assert_fails("call sign_unplace('',
+  	      \ {'id' : 20, 'buffer' : 'buffer.c'})", 'E158:')
+    call assert_fails("call sign_unplace('',
+! 	      \ {'id' : 20, 'buffer' : ''})", 'E158:')
+    call assert_fails("call sign_unplace('g1',
+  	      \ {'id' : 20, 'buffer' : 200})", 'E158:')
+    call assert_fails("call sign_unplace('g1', 'mySign')", 'E715:')
+--- 451,457 ----
+    call assert_fails("call sign_unplace('',
+  	      \ {'id' : 20, 'buffer' : 'buffer.c'})", 'E158:')
+    call assert_fails("call sign_unplace('',
+! 	      \ {'id' : 20, 'buffer' : '&'})", 'E158:')
+    call assert_fails("call sign_unplace('g1',
+  	      \ {'id' : 20, 'buffer' : 200})", 'E158:')
+    call assert_fails("call sign_unplace('g1', 'mySign')", 'E715:')
+***************
+*** 1186,1188 ****
+--- 1186,1247 ----
+    enew | only
+    call delete("Xsign")
+  endfunc
++ 
++ " Test for auto-adjusting the line number of a placed sign.
++ func Test_sign_lnum_adjust()
++   enew! | only!
++ 
++   sign define sign1 text=#> linehl=Comment
++   call setline(1, ['A', 'B', 'C', 'D'])
++   exe 'sign place 5 line=3 name=sign1 buffer=' . bufnr('')
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal(3, l[0].signs[0].lnum)
++ 
++   " Add some lines before the sign and check the sign line number
++   call append(2, ['AA', 'AB', 'AC'])
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal(6, l[0].signs[0].lnum)
++ 
++   " Delete some lines before the sign and check the sign line number
++   call deletebufline('%', 1, 2)
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal(4, l[0].signs[0].lnum)
++ 
++   sign unplace * group=*
++   sign undefine sign1
++   enew!
++ endfunc
++ 
++ " Test for changing the type of a placed sign
++ func Test_sign_change_type()
++   enew! | only!
++ 
++   sign define sign1 text=#> linehl=Comment
++   sign define sign2 text=@@ linehl=Comment
++ 
++   call setline(1, ['A', 'B', 'C', 'D'])
++   exe 'sign place 4 line=3 name=sign1 buffer=' . bufnr('')
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal('sign1', l[0].signs[0].name)
++   exe 'sign place 4 name=sign2 buffer=' . bufnr('')
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal('sign2', l[0].signs[0].name)
++   call sign_place(4, '', 'sign1', '')
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal('sign1', l[0].signs[0].name)
++ 
++   exe 'sign place 4 group=g1 line=4 name=sign1 buffer=' . bufnr('')
++   let l = sign_getplaced(bufnr(''), {'group' : 'g1'})
++   call assert_equal('sign1', l[0].signs[0].name)
++   exe 'sign place 4 group=g1 name=sign2 buffer=' . bufnr('')
++   let l = sign_getplaced(bufnr(''), {'group' : 'g1'})
++   call assert_equal('sign2', l[0].signs[0].name)
++   call sign_place(4, 'g1', 'sign1', '')
++   let l = sign_getplaced(bufnr(''), {'group' : 'g1'})
++   call assert_equal('sign1', l[0].signs[0].name)
++ 
++   sign unplace * group=*
++   sign undefine sign1
++   sign undefine sign2
++   enew!
++ endfunc
+*** ../vim-8.1.0678/src/version.c	2019-01-02 00:02:07.607556145 +0100
+--- src/version.c	2019-01-02 13:39:21.357897656 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     679,
+  /**/
+
+-- 
+A fool learns from his mistakes, a wise man from someone else's.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

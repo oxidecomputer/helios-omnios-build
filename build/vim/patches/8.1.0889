@@ -1,0 +1,112 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0889
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0889
+Problem:    MS-Windows: a channel write may hang.
+Solution:   Check for WriteFile() not writing anything. (Yasuhiro Matsumoto,
+            closes #3920)
+Files:	    src/channel.c, src/testdir/test_channel.vim,
+            src/testdir/test_channel_pipe.py
+
+
+*** ../vim-8.1.0888/src/channel.c	2019-02-08 12:46:03.584784210 +0100
+--- src/channel.c	2019-02-10 22:23:11.048518527 +0100
+***************
+*** 91,99 ****
+  	    size = MAX_NAMED_PIPE_SIZE;
+  	else
+  	    size = (DWORD)todo;
+! 	// If the pipe overflows while the job does not read the data, WriteFile
+! 	// will block forever. This abandons the write.
+  	memset(&ov, 0, sizeof(ov));
+  	if (!WriteFile(h, buf + done, size, &nwrite, &ov))
+  	{
+  	    DWORD err = GetLastError();
+--- 91,100 ----
+  	    size = MAX_NAMED_PIPE_SIZE;
+  	else
+  	    size = (DWORD)todo;
+! 	// If the pipe overflows while the job does not read the data,
+! 	// WriteFile() will block forever. This abandons the write.
+  	memset(&ov, 0, sizeof(ov));
++ 	nwrite = 0;
+  	if (!WriteFile(h, buf + done, size, &nwrite, &ov))
+  	{
+  	    DWORD err = GetLastError();
+***************
+*** 104,109 ****
+--- 105,114 ----
+  		return -1;
+  	    FlushFileBuffers(h);
+  	}
++ 	else if (nwrite == 0)
++ 	    // WriteFile() returns TRUE but did not write anything. This causes
++ 	    // a hang, so bail out.
++ 	    break;
+  	todo -= nwrite;
+  	done += nwrite;
+      }
+*** ../vim-8.1.0888/src/testdir/test_channel.vim	2019-01-31 15:52:05.269907631 +0100
+--- src/testdir/test_channel.vim	2019-02-10 22:16:00.363647792 +0100
+***************
+*** 2003,2008 ****
+--- 2003,2022 ----
+    endtry
+  endfunc
+  
++ func Test_no_hang_windows()
++   if !has('job') || !has('win32')
++     return
++   endif
++ 
++   try
++     let job = job_start(s:python . " test_channel_pipe.py busy",
++           \ {'mode': 'raw', 'drop': 'never', 'noblock': 0})
++     call assert_fails('call ch_sendraw(job, repeat("X", 80000))', 'E631:')
++   finally
++     call job_stop(job)
++   endtry
++ endfunc
++ 
+  func Test_job_exitval_and_termsig()
+    if !has('unix')
+      return
+*** ../vim-8.1.0888/src/testdir/test_channel_pipe.py	2019-01-24 23:11:44.635650160 +0100
+--- src/testdir/test_channel_pipe.py	2019-02-10 22:16:00.363647792 +0100
+***************
+*** 18,23 ****
+--- 18,26 ----
+              print(sys.argv[1], end='')
+              sys.stdout.flush()
+              sys.exit(0)
++         elif sys.argv[1].startswith("busy"):
++             time.sleep(100)
++             sys.exit(0)
+          else:
+              print(sys.argv[1])
+              sys.stdout.flush()
+*** ../vim-8.1.0888/src/version.c	2019-02-10 22:14:24.184352831 +0100
+--- src/version.c	2019-02-10 22:17:35.942949889 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     889,
+  /**/
+
+-- 
+   [The rest of the ARMY stand around looking at a loss.]
+INSPECTOR END OF FILM: (picks up megaphone) All right!  Clear off!  Go on!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

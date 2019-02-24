@@ -1,0 +1,201 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0909
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0909
+Problem:    MS-Windows: using ConPTY even though it is not stable.
+Solution:   When ConPTY version is unstable, prefer using winpty. (Ken Takata,
+            closes #3949)
+Files:	    runtime/doc/options.txt, src/os_win32.c, src/proto/os_win32.pro,
+            src/terminal.c
+
+
+*** ../vim-8.1.0908/runtime/doc/options.txt	2019-02-08 12:46:03.584784210 +0100
+--- runtime/doc/options.txt	2019-02-13 19:18:15.951910806 +0100
+***************
+*** 8067,8078 ****
+  	window.
+  
+  	Possible values are:
+! 	    ""		use ConPTY if possible, winpty otherwise
+  	    "winpty"	use winpty, fail if not supported
+  	    "conpty"	use |ConPTY|, fail if not supported
+  
+! 	|ConPTY| support depends on the platform (Windows 10 October 2018
+! 	edition).  winpty support needs to be installed.  If neither is
+  	supported then you cannot open a terminal window.
+  
+  						*'terse'* *'noterse'*
+--- 8112,8125 ----
+  	window.
+  
+  	Possible values are:
+! 	    ""		use ConPTY if it is stable, winpty otherwise
+  	    "winpty"	use winpty, fail if not supported
+  	    "conpty"	use |ConPTY|, fail if not supported
+  
+! 	|ConPTY| support depends on the platform.  Windows 10 October 2018
+! 	Update is the first version that supports ConPTY, however it is still
+! 	considered unstable.  ConPTY might become stable in the next release
+! 	of Windows 10.  winpty support needs to be installed.  If neither is
+  	supported then you cannot open a terminal window.
+  
+  						*'terse'* *'noterse'*
+*** ../vim-8.1.0908/src/os_win32.c	2019-02-03 14:52:42.505867463 +0100
+--- src/os_win32.c	2019-02-13 19:18:15.955910793 +0100
+***************
+*** 187,192 ****
+--- 187,194 ----
+  static int win32_set_archive(char_u *name);
+  
+  static int vtp_working = 0;
++ static int conpty_working = 0;
++ static int conpty_stable = 0;
+  static void vtp_flag_init();
+  
+  #ifndef FEAT_GUI_W32
+***************
+*** 7638,7646 ****
+  
+  /*
+   * Support for pseudo-console (ConPTY) was added in windows 10
+!  * version 1809 (October 2018 update).
+   */
+! #define CONPTY_FIRST_SUPPORT_BUILD MAKE_VER(10, 0, 17763)
+  
+      static void
+  vtp_flag_init(void)
+--- 7640,7649 ----
+  
+  /*
+   * Support for pseudo-console (ConPTY) was added in windows 10
+!  * version 1809 (October 2018 update).  However, that version is unstable.
+   */
+! #define CONPTY_FIRST_SUPPORT_BUILD  MAKE_VER(10, 0, 17763)
+! #define CONPTY_STABLE_BUILD	    MAKE_VER(10, 0, 32767)  // T.B.D.
+  
+      static void
+  vtp_flag_init(void)
+***************
+*** 7659,7668 ****
+  	vtp_working = 0;
+  #endif
+  
+- #ifdef FEAT_GUI_W32
+      if (ver >= CONPTY_FIRST_SUPPORT_BUILD)
+! 	vtp_working = 1;
+! #endif
+  
+  }
+  
+--- 7662,7671 ----
+  	vtp_working = 0;
+  #endif
+  
+      if (ver >= CONPTY_FIRST_SUPPORT_BUILD)
+! 	conpty_working = 1;
+!     if (ver >= CONPTY_STABLE_BUILD)
+! 	conpty_stable = 1;
+  
+  }
+  
+***************
+*** 7878,7880 ****
+--- 7881,7895 ----
+  {
+      return vtp_working;
+  }
++ 
++     int
++ has_conpty_working(void)
++ {
++     return conpty_working;
++ }
++ 
++     int
++ is_conpty_stable(void)
++ {
++     return conpty_stable;
++ }
+*** ../vim-8.1.0908/src/proto/os_win32.pro	2018-05-17 13:53:03.000000000 +0200
+--- src/proto/os_win32.pro	2019-02-13 19:18:15.955910793 +0100
+***************
+*** 70,76 ****
+  void fix_arg_enc(void);
+  int mch_setenv(char *var, char *value, int x);
+  void control_console_color_rgb(void);
+- int has_vtp_working(void);
+  int use_vtp(void);
+  int is_term_win32(void);
+  /* vim: set ft=c : */
+--- 70,78 ----
+  void fix_arg_enc(void);
+  int mch_setenv(char *var, char *value, int x);
+  void control_console_color_rgb(void);
+  int use_vtp(void);
+  int is_term_win32(void);
++ int has_vtp_working(void);
++ int has_conpty_working(void);
++ int is_conpty_stable(void);
+  /* vim: set ft=c : */
+*** ../vim-8.1.0908/src/terminal.c	2019-02-12 21:46:43.157342193 +0100
+--- src/terminal.c	2019-02-13 19:18:15.955910793 +0100
+***************
+*** 5521,5527 ****
+      if (handled)
+  	return result;
+  
+!     if (!has_vtp_working())
+      {
+  	handled = TRUE;
+  	result = FAIL;
+--- 5521,5527 ----
+      if (handled)
+  	return result;
+  
+!     if (!has_conpty_working())
+      {
+  	handled = TRUE;
+  	result = FAIL;
+***************
+*** 6139,6145 ****
+  
+      if (tty_type == NUL)
+      {
+! 	if (has_conpty)
+  	    use_conpty = TRUE;
+  	else if (has_winpty)
+  	    use_winpty = TRUE;
+--- 6139,6145 ----
+  
+      if (tty_type == NUL)
+      {
+! 	if (has_conpty && (is_conpty_stable() || !has_winpty))
+  	    use_conpty = TRUE;
+  	else if (has_winpty)
+  	    use_winpty = TRUE;
+*** ../vim-8.1.0908/src/version.c	2019-02-13 18:35:01.398292976 +0100
+--- src/version.c	2019-02-13 19:19:29.675659670 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     909,
+  /**/
+
+-- 
+SOLDIER: What?  Ridden on a horse?
+ARTHUR:  Yes!
+SOLDIER: You're using coconuts!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

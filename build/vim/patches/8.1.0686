@@ -1,0 +1,102 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0686
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0686
+Problem:    When 'y' is in 'cpoptions' yanking for the clipboard changes redo.
+Solution:   Do not use the 'y' flag when "gui_yank" is TRUE. (Andy Massimino,
+            closes #3760)
+Files:	    src/normal.c
+
+
+*** ../vim-8.1.0685/src/normal.c	2018-12-27 23:44:34.797953474 +0100
+--- src/normal.c	2019-01-03 22:44:19.691216710 +0100
+***************
+*** 1326,1332 ****
+  #endif
+  
+  /*
+!  * Handle an operator after visual mode or when the movement is finished
+   */
+      void
+  do_pending_operator(cmdarg_T *cap, int old_col, int gui_yank)
+--- 1326,1333 ----
+  #endif
+  
+  /*
+!  * Handle an operator after Visual mode or when the movement is finished.
+!  * "gui_yank" is true when yanking text for the clipboard.
+   */
+      void
+  do_pending_operator(cmdarg_T *cap, int old_col, int gui_yank)
+***************
+*** 1372,1377 ****
+--- 1373,1382 ----
+       */
+      if ((finish_op || VIsual_active) && oap->op_type != OP_NOP)
+      {
++ 	// Yank can be redone when 'y' is in 'cpoptions', but not when yanking
++ 	// for the clipboard.
++ 	int	redo_yank = vim_strchr(p_cpo, CPO_YANK) != NULL && !gui_yank;
++ 
+  #ifdef FEAT_LINEBREAK
+  	/* Avoid a problem with unwanted linebreaks in block mode. */
+  	if (curwin->w_p_lbr)
+***************
+*** 1407,1413 ****
+  
+  	/* Only redo yank when 'y' flag is in 'cpoptions'. */
+  	/* Never redo "zf" (define fold). */
+! 	if ((vim_strchr(p_cpo, CPO_YANK) != NULL || oap->op_type != OP_YANK)
+  		&& ((!VIsual_active || oap->motion_force)
+  		    /* Also redo Operator-pending Visual mode mappings */
+  		    || (VIsual_active && cap->cmdchar == ':'
+--- 1412,1418 ----
+  
+  	/* Only redo yank when 'y' flag is in 'cpoptions'. */
+  	/* Never redo "zf" (define fold). */
+! 	if ((redo_yank || oap->op_type != OP_YANK)
+  		&& ((!VIsual_active || oap->motion_force)
+  		    /* Also redo Operator-pending Visual mode mappings */
+  		    || (VIsual_active && cap->cmdchar == ':'
+***************
+*** 1628,1634 ****
+  	    }
+  
+  	    /* can't redo yank (unless 'y' is in 'cpoptions') and ":" */
+! 	    if ((vim_strchr(p_cpo, CPO_YANK) != NULL || oap->op_type != OP_YANK)
+  		    && oap->op_type != OP_COLON
+  #ifdef FEAT_FOLDING
+  		    && oap->op_type != OP_FOLD
+--- 1633,1639 ----
+  	    }
+  
+  	    /* can't redo yank (unless 'y' is in 'cpoptions') and ":" */
+! 	    if ((redo_yank || oap->op_type != OP_YANK)
+  		    && oap->op_type != OP_COLON
+  #ifdef FEAT_FOLDING
+  		    && oap->op_type != OP_FOLD
+*** ../vim-8.1.0685/src/version.c	2019-01-03 22:19:22.231686171 +0100
+--- src/version.c	2019-01-03 22:49:06.824825954 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     686,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+100. The most exciting sporting events you noticed during summer 1996
+    was Netscape vs. Microsoft.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

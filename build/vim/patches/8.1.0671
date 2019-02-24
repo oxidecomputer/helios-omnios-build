@@ -1,0 +1,209 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.06
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0671
+Problem:    Cursor in the wrong column after auto-formatting.
+Solution:   Check for deleting more spaces than adding. (closes #3748)
+Files:	    src/ops.c, src/testdir/test_textformat.vim, src/mark.c,
+            src/proto/mark.pro, src/misc1.c
+
+
+*** ../vim-8.1.0670/src/ops.c	2018-11-22 03:07:30.948596188 +0100
+--- src/ops.c	2018-12-31 23:28:36.009220367 +0100
+***************
+*** 4707,4712 ****
+--- 4707,4714 ----
+       */
+      for (t = count - 1; ; --t)
+      {
++ 	int spaces_removed;
++ 
+  	cend -= currsize;
+  	mch_memmove(cend, curr, (size_t)currsize);
+  	if (spaces[t] > 0)
+***************
+*** 4714,4721 ****
+  	    cend -= spaces[t];
+  	    vim_memset(cend, ' ', (size_t)(spaces[t]));
+  	}
+  	mark_col_adjust(curwin->w_cursor.lnum + t, (colnr_T)0, (linenr_T)-t,
+! 			 (long)(cend - newp + spaces[t] - (curr - curr_start)));
+  	if (t == 0)
+  	    break;
+  	curr = curr_start = ml_get((linenr_T)(curwin->w_cursor.lnum + t - 1));
+--- 4716,4728 ----
+  	    cend -= spaces[t];
+  	    vim_memset(cend, ' ', (size_t)(spaces[t]));
+  	}
++ 
++ 	// If deleting more spaces than adding, the cursor moves no more than
++ 	// what is added if it is inside these spaces.
++ 	spaces_removed = (curr - curr_start) - spaces[t];
++ 
+  	mark_col_adjust(curwin->w_cursor.lnum + t, (colnr_T)0, (linenr_T)-t,
+! 			 (long)(cend - newp - spaces_removed), spaces_removed);
+  	if (t == 0)
+  	    break;
+  	curr = curr_start = ml_get((linenr_T)(curwin->w_cursor.lnum + t - 1));
+***************
+*** 5225,5231 ****
+  		{
+  		    (void)del_bytes((long)next_leader_len, FALSE, FALSE);
+  		    mark_col_adjust(curwin->w_cursor.lnum, (colnr_T)0, 0L,
+! 						      (long)-next_leader_len);
+  		} else
+  #endif
+  		    if (second_indent > 0)  /* the "leader" for FO_Q_SECOND */
+--- 5232,5238 ----
+  		{
+  		    (void)del_bytes((long)next_leader_len, FALSE, FALSE);
+  		    mark_col_adjust(curwin->w_cursor.lnum, (colnr_T)0, 0L,
+! 						      (long)-next_leader_len, 0);
+  		} else
+  #endif
+  		    if (second_indent > 0)  /* the "leader" for FO_Q_SECOND */
+***************
+*** 5236,5242 ****
+  		    {
+  			(void)del_bytes(indent, FALSE, FALSE);
+  			mark_col_adjust(curwin->w_cursor.lnum,
+! 					       (colnr_T)0, 0L, (long)-indent);
+  		    }
+  		}
+  		curwin->w_cursor.lnum--;
+--- 5243,5249 ----
+  		    {
+  			(void)del_bytes(indent, FALSE, FALSE);
+  			mark_col_adjust(curwin->w_cursor.lnum,
+! 					       (colnr_T)0, 0L, (long)-indent, 0);
+  		    }
+  		}
+  		curwin->w_cursor.lnum--;
+*** ../vim-8.1.0670/src/testdir/test_textformat.vim	2018-01-31 19:23:08.000000000 +0100
+--- src/testdir/test_textformat.vim	2018-12-31 23:53:25.517721631 +0100
+***************
+*** 450,454 ****
+--- 450,465 ----
+  	      \ ], getline(1, '$'))
+  
+    unmap gg
++   set tw&
+    enew!
+  endfunc
++ 
++ func Test_format_list_auto()
++   new
++   call setline(1, ['1. abc', '2. def', '3.  ghi'])
++   set fo=tan ai bs=2
++   call feedkeys("3G0lli\<BS>\<BS>x\<Esc>", 'tx')
++   call assert_equal('2. defx ghi', getline(2))
++   bwipe!
++   set fo& ai& bs&
++ endfunc
+*** ../vim-8.1.0670/src/mark.c	2018-10-25 13:31:33.829906902 +0200
+--- src/mark.c	2018-12-31 23:31:10.716045773 +0100
+***************
+*** 1211,1216 ****
+--- 1211,1218 ----
+  	    posp->lnum += lnum_amount; \
+  	    if (col_amount < 0 && posp->col <= (colnr_T)-col_amount) \
+  		posp->col = 0; \
++ 	    else if (posp->col < spaces_removed) \
++ 		posp->col = col_amount + spaces_removed; \
+  	    else \
+  		posp->col += col_amount; \
+  	} \
+***************
+*** 1220,1232 ****
+   * Adjust marks in line "lnum" at column "mincol" and further: add
+   * "lnum_amount" to the line number and add "col_amount" to the column
+   * position.
+   */
+      void
+  mark_col_adjust(
+      linenr_T	lnum,
+      colnr_T	mincol,
+      long	lnum_amount,
+!     long	col_amount)
+  {
+      int		i;
+      int		fnum = curbuf->b_fnum;
+--- 1222,1237 ----
+   * Adjust marks in line "lnum" at column "mincol" and further: add
+   * "lnum_amount" to the line number and add "col_amount" to the column
+   * position.
++  * "spaces_removed" is the number of spaces that were removed, matters when the
++  * cursor is inside them.
+   */
+      void
+  mark_col_adjust(
+      linenr_T	lnum,
+      colnr_T	mincol,
+      long	lnum_amount,
+!     long	col_amount,
+!     int		spaces_removed)
+  {
+      int		i;
+      int		fnum = curbuf->b_fnum;
+*** ../vim-8.1.0670/src/proto/mark.pro	2018-05-17 13:52:43.000000000 +0200
+--- src/proto/mark.pro	2018-12-31 23:24:07.791228166 +0100
+***************
+*** 21,27 ****
+  void ex_changes(exarg_T *eap);
+  void mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after);
+  void mark_adjust_nofold(linenr_T line1, linenr_T line2, long amount, long amount_after);
+! void mark_col_adjust(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_amount);
+  void cleanup_jumplist(win_T *wp, int loadfiles);
+  void copy_jumplist(win_T *from, win_T *to);
+  void free_jumplist(win_T *wp);
+--- 21,27 ----
+  void ex_changes(exarg_T *eap);
+  void mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after);
+  void mark_adjust_nofold(linenr_T line1, linenr_T line2, long amount, long amount_after);
+! void mark_col_adjust(linenr_T lnum, colnr_T mincol, long lnum_amount, long col_amount, int spaces_removed);
+  void cleanup_jumplist(win_T *wp, int loadfiles);
+  void copy_jumplist(win_T *from, win_T *to);
+  void free_jumplist(win_T *wp);
+*** ../vim-8.1.0670/src/misc1.c	2018-12-30 11:38:49.933270875 +0100
+--- src/misc1.c	2018-12-31 23:24:32.519045003 +0100
+***************
+*** 1705,1711 ****
+  		if (flags & OPENLINE_MARKFIX)
+  		    mark_col_adjust(curwin->w_cursor.lnum,
+  					 curwin->w_cursor.col + less_cols_off,
+! 							1L, (long)-less_cols);
+  	    }
+  	    else
+  		changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
+--- 1705,1711 ----
+  		if (flags & OPENLINE_MARKFIX)
+  		    mark_col_adjust(curwin->w_cursor.lnum,
+  					 curwin->w_cursor.col + less_cols_off,
+! 						      1L, (long)-less_cols, 0);
+  	    }
+  	    else
+  		changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
+*** ../vim-8.1.0670/src/version.c	2018-12-31 22:09:53.106187962 +0100
+--- src/version.c	2018-12-31 23:56:32.647983178 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     671,
+  /**/
+
+-- 
+You can't have everything.  Where would you put it?
+		-- Steven Wright
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

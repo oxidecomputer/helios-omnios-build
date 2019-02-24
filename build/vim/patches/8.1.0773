@@ -1,0 +1,285 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0773
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0773
+Problem:    Not all crypt code is tested.
+Solution:   Disable unused crypt code.  Add more test coverage.
+Files:	    src/structs.h, src/crypt.c, src/testdir/test_crypt.vim,
+            src/proto/crypt.pro, src/fileio.c
+
+
+*** ../vim-8.1.0772/src/structs.h	2019-01-13 23:38:33.411773162 +0100
+--- src/structs.h	2019-01-18 22:24:31.023802649 +0100
+***************
+*** 1940,1945 ****
+--- 1940,1949 ----
+  # define CRYPT_M_BF	1
+  # define CRYPT_M_BF2	2
+  # define CRYPT_M_COUNT	3 /* number of crypt methods */
++ 
++ // Currently all crypt methods work inplace.  If one is added that isn't then
++ // define this.
++ //  # define CRYPT_NOT_INPLACE 1
+  #endif
+  
+  
+*** ../vim-8.1.0772/src/crypt.c	2019-01-13 23:38:33.379773390 +0100
+--- src/crypt.c	2019-01-18 22:30:47.648948055 +0100
+***************
+*** 34,40 ****
+--- 34,42 ----
+      char    *magic;	/* magic bytes stored in file header */
+      int	    salt_len;	/* length of salt, or 0 when not using salt */
+      int	    seed_len;	/* length of seed, or 0 when not using salt */
++ #ifdef CRYPT_NOT_INPLACE
+      int	    works_inplace; /* encryption/decryption can be done in-place */
++ #endif
+      int	    whole_undofile; /* whole undo file is encrypted */
+  
+      /* Optional function pointer for a self-test. */
+***************
+*** 80,86 ****
+--- 82,90 ----
+  	"VimCrypt~01!",
+  	0,
+  	0,
++ #ifdef CRYPT_NOT_INPLACE
+  	TRUE,
++ #endif
+  	FALSE,
+  	NULL,
+  	crypt_zip_init,
+***************
+*** 95,101 ****
+--- 99,107 ----
+  	"VimCrypt~02!",
+  	8,
+  	8,
++ #ifdef CRYPT_NOT_INPLACE
+  	TRUE,
++ #endif
+  	FALSE,
+  	blowfish_self_test,
+  	crypt_blowfish_init,
+***************
+*** 110,116 ****
+--- 116,124 ----
+  	"VimCrypt~03!",
+  	8,
+  	8,
++ #ifdef CRYPT_NOT_INPLACE
+  	TRUE,
++ #endif
+  	TRUE,
+  	blowfish_self_test,
+  	crypt_blowfish_init,
+***************
+*** 167,172 ****
+--- 175,181 ----
+      return -1;
+  }
+  
++ #ifdef CRYPT_NOT_INPLACE
+  /*
+   * Return TRUE if the crypt method for "method_nr" can be done in-place.
+   */
+***************
+*** 175,180 ****
+--- 184,190 ----
+  {
+      return cryptmethods[state->method_nr].works_inplace;
+  }
++ #endif
+  
+  /*
+   * Get the crypt method for buffer "buf" as a number.
+***************
+*** 366,371 ****
+--- 376,382 ----
+      vim_free(state);
+  }
+  
++ #ifdef CRYPT_NOT_INPLACE
+  /*
+   * Encode "from[len]" and store the result in a newly allocated buffer, which
+   * is stored in "newptr".
+***************
+*** 422,427 ****
+--- 433,439 ----
+      method->decode_fn(state, ptr, len, *newptr);
+      return len;
+  }
++ #endif
+  
+  /*
+   * Encrypting "from[len]" into "to[len]".
+***************
+*** 436,441 ****
+--- 448,454 ----
+      cryptmethods[state->method_nr].encode_fn(state, from, len, to);
+  }
+  
++ #if 0  // unused
+  /*
+   * decrypting "from[len]" into "to[len]".
+   */
+***************
+*** 448,453 ****
+--- 461,467 ----
+  {
+      cryptmethods[state->method_nr].decode_fn(state, from, len, to);
+  }
++ #endif
+  
+  /*
+   * Simple inplace encryption, modifies "buf[len]" in place.
+*** ../vim-8.1.0772/src/testdir/test_crypt.vim	2016-09-26 20:10:53.000000000 +0200
+--- src/testdir/test_crypt.vim	2019-01-18 22:44:26.374673632 +0100
+***************
+*** 34,39 ****
+--- 34,40 ----
+  	\ 'line 3 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx']
+    call setline(1, text)
+    call feedkeys(":X\<CR>foobar\<CR>foobar\<CR>", 'xt')
++   call assert_equal('*****', &key)
+    w!
+    bwipe!
+    call feedkeys(":split Xtest.txt\<CR>foobar\<CR>", 'xt')
+***************
+*** 81,83 ****
+--- 82,113 ----
+  func Test_uncrypt_blowfish2()
+    call Uncrypt_stable('blowfish', "VimCrypt~03!\u001e\u00d1N\u00e3;\u00d3\u00c0\u00a0^C)\u0004\u00f7\u007f.\u00b6\u00abF\u000eS\u0019\u00e0\u008b6\u00d2[T\u00cb\u00a7\u0085\u00d8\u00be9\u000b\u00812\u000bQ\u00b3\u00cc@\u0097\u000f\u00df\u009a\u00adIv\u00aa.\u00d8\u00c9\u00ee\u009e`\u00bd$\u00af%\u00d0", "barburp", ["abcdefghijklmnopqrstuvwxyz", "!@#$%^&*()_+=-`~"])
+  endfunc
++ 
++ func Test_uncrypt_unknown_method()
++   split Xuncrypt_unknown.txt
++   set bin noeol key= fenc=latin1
++   call setline(1, "VimCrypt~93!\u001e\u00d1")
++   w!
++   bwipe!
++   set nobin
++   call assert_fails(":split Xuncrypt_unknown.txt", 'E821:')
++ 
++   bwipe!
++   call delete('Xuncrypt_unknown.txt')
++   set key=
++ endfunc
++ 
++ func Test_crypt_key_mismatch()
++   set cryptmethod=blowfish
++ 
++   split Xtest.txt
++   call setline(1, 'nothing')
++   call feedkeys(":X\<CR>foobar\<CR>nothing\<CR>", 'xt')
++   call assert_match("Keys don't match!", execute(':2messages'))
++   call assert_equal('', &key)
++   call feedkeys("\<CR>\<CR>", 'xt')
++ 
++   set cryptmethod&
++   bwipe!
++ endfunc
++ 
+*** ../vim-8.1.0772/src/proto/crypt.pro	2018-05-17 13:52:30.000000000 +0200
+--- src/proto/crypt.pro	2019-01-18 22:30:53.692902061 +0100
+***************
+*** 1,7 ****
+  /* crypt.c */
+  int crypt_method_nr_from_name(char_u *name);
+  int crypt_method_nr_from_magic(char *ptr, int len);
+- int crypt_works_inplace(cryptstate_T *state);
+  int crypt_get_method_nr(buf_T *buf);
+  int crypt_whole_undofile(int method_nr);
+  int crypt_get_header_len(int method_nr);
+--- 1,6 ----
+***************
+*** 12,21 ****
+  cryptstate_T *crypt_create_from_file(FILE *fp, char_u *key);
+  cryptstate_T *crypt_create_for_writing(int method_nr, char_u *key, char_u **header, int *header_len);
+  void crypt_free_state(cryptstate_T *state);
+- long crypt_encode_alloc(cryptstate_T *state, char_u *from, size_t len, char_u **newptr);
+- long crypt_decode_alloc(cryptstate_T *state, char_u *ptr, long len, char_u **newptr);
+  void crypt_encode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+- void crypt_decode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+  void crypt_encode_inplace(cryptstate_T *state, char_u *buf, size_t len);
+  void crypt_decode_inplace(cryptstate_T *state, char_u *buf, size_t len);
+  void crypt_free_key(char_u *key);
+--- 11,17 ----
+*** ../vim-8.1.0772/src/fileio.c	2019-01-17 17:13:25.920984090 +0100
+--- src/fileio.c	2019-01-18 22:29:52.729365786 +0100
+***************
+*** 1381,1389 ****
+--- 1381,1392 ----
+  		if (cryptkey != NULL && curbuf->b_cryptstate != NULL
+  								   && size > 0)
+  		{
++ # ifdef CRYPT_NOT_INPLACE
+  		    if (crypt_works_inplace(curbuf->b_cryptstate))
+  		    {
++ # endif
+  			crypt_decode_inplace(curbuf->b_cryptstate, ptr, size);
++ # ifdef CRYPT_NOT_INPLACE
+  		    }
+  		    else
+  		    {
+***************
+*** 1434,1439 ****
+--- 1437,1443 ----
+  			}
+  			size = decrypted_size;
+  		    }
++ # endif
+  		}
+  #endif
+  
+***************
+*** 5768,5776 ****
+--- 5772,5783 ----
+      {
+  	/* Encrypt the data. Do it in-place if possible, otherwise use an
+  	 * allocated buffer. */
++ # ifdef CRYPT_NOT_INPLACE
+  	if (crypt_works_inplace(ip->bw_buffer->b_cryptstate))
+  	{
++ # endif
+  	    crypt_encode_inplace(ip->bw_buffer->b_cryptstate, buf, len);
++ # ifdef CRYPT_NOT_INPLACE
+  	}
+  	else
+  	{
+***************
+*** 5783,5788 ****
+--- 5790,5796 ----
+  	    vim_free(outbuf);
+  	    return (wlen < len) ? FAIL : OK;
+  	}
++ # endif
+      }
+  #endif
+  
+*** ../vim-8.1.0772/src/version.c	2019-01-18 22:01:39.017406155 +0100
+--- src/version.c	2019-01-18 22:47:51.817096630 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     773,
+  /**/
+
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+247. You use www.switchboard.com instead of dialing 411 and 555-12-12
+     for directory assistance.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

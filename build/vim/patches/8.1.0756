@@ -1,0 +1,88 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0756
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0756
+Problem:    copy() does not make a copy of a Blob.
+Solution:   Make a copy.
+Files:	    src/eval.c, src/testdir/test_blob.vim
+
+
+*** ../vim-8.1.0755/src/eval.c	2019-01-15 20:19:36.739904461 +0100
+--- src/eval.c	2019-01-15 22:41:46.940261209 +0100
+***************
+*** 8198,8204 ****
+  	case VAR_SPECIAL:
+  	case VAR_JOB:
+  	case VAR_CHANNEL:
+- 	case VAR_BLOB:
+  	    copy_tv(from, to);
+  	    break;
+  	case VAR_LIST:
+--- 8198,8203 ----
+***************
+*** 8217,8222 ****
+--- 8216,8236 ----
+  	    if (to->vval.v_list == NULL)
+  		ret = FAIL;
+  	    break;
++ 	case VAR_BLOB:
++ 	    to->v_type = VAR_BLOB;
++ 	    if (from->vval.v_blob == NULL)
++ 		to->vval.v_blob = NULL;
++ 	    else if (rettv_blob_alloc(to) == FAIL)
++ 		ret = FAIL;
++ 	    else
++ 	    {
++ 		int  len = from->vval.v_blob->bv_ga.ga_len;
++ 
++ 		to->vval.v_blob->bv_ga.ga_data =
++ 			    vim_memsave(from->vval.v_blob->bv_ga.ga_data, len);
++ 		to->vval.v_blob->bv_ga.ga_len = len;
++ 	    }
++ 	    break;
+  	case VAR_DICT:
+  	    to->v_type = VAR_DICT;
+  	    to->v_lock = 0;
+*** ../vim-8.1.0755/src/testdir/test_blob.vim	2019-01-15 22:16:37.414340200 +0100
+--- src/testdir/test_blob.vim	2019-01-15 22:34:42.983215061 +0100
+***************
+*** 112,118 ****
+--- 112,125 ----
+  
+    call assert_false(b1 is b2)
+    let b2 = b1
++   call assert_true(b1 == b2)
+    call assert_true(b1 is b2)
++   let b2 = copy(b1)
++   call assert_true(b1 == b2)
++   call assert_false(b1 is b2)
++   let b2 = b1[:]
++   call assert_true(b1 == b2)
++   call assert_false(b1 is b2)
+  
+    call assert_fails('let x = b1 > b2')
+    call assert_fails('let x = b1 < b2')
+*** ../vim-8.1.0755/src/version.c	2019-01-15 22:16:37.418340170 +0100
+--- src/version.c	2019-01-15 22:43:53.431371171 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     756,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+217. Your sex life has drastically improved...so what if it's only cyber-sex!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

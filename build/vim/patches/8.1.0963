@@ -1,0 +1,99 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0963
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0963
+Problem:    Illegal memory access when using 'incsearch'.
+Solution:   Reset highlight_match when changing text. (closes #4022)
+Files:	    src/testdir/test_search.vim, src/misc1.c,
+            src/testdir/dumps/Test_incsearch_change_01.dump
+
+
+*** ../vim-8.1.0962/src/testdir/test_search.vim	2019-01-24 17:59:35.139217458 +0100
+--- src/testdir/test_search.vim	2019-02-21 16:07:35.842336038 +0100
+***************
+*** 981,986 ****
+--- 981,1010 ----
+    call delete('Xis_subst_script')
+  endfunc
+  
++ func Test_incsearch_with_change()
++   if !has('timers') || !exists('+incsearch') || !CanRunVimInTerminal()
++     return
++   endif
++ 
++   call writefile([
++ 	\ 'set incsearch hlsearch scrolloff=0',
++ 	\ 'call setline(1, ["one", "two ------ X", "three"])',
++ 	\ 'call timer_start(200, { _ -> setline(2, "x")})',
++ 	\ ], 'Xis_change_script')
++   let buf = RunVimInTerminal('-S Xis_change_script', {'rows': 9, 'cols': 70})
++   " Give Vim a chance to redraw to get rid of the spaces in line 2 caused by
++   " the 'ambiwidth' check.
++   sleep 100m
++ 
++   " Highlight X, it will be deleted by the timer callback.
++   call term_sendkeys(buf, ':%s/X')
++   call VerifyScreenDump(buf, 'Test_incsearch_change_01', {})
++   call term_sendkeys(buf, "\<Esc>")
++ 
++   call StopVimInTerminal(buf)
++   call delete('Xis_change_script')
++ endfunc
++ 
+  " Similar to Test_incsearch_substitute_dump() for :sort
+  func Test_incsearch_sort_dump()
+    if !exists('+incsearch')
+*** ../vim-8.1.0962/src/misc1.c	2019-02-17 17:44:36.215875493 +0100
+--- src/misc1.c	2019-02-21 16:17:56.586907659 +0100
+***************
+*** 2854,2859 ****
+--- 2854,2864 ----
+  	changed_int();
+      }
+      ++CHANGEDTICK(curbuf);
++ 
++ #ifdef FEAT_SEARCH_EXTRA
++     // If a pattern is highlighted, the position may now be invalid.
++     highlight_match = FALSE;
++ #endif
+  }
+  
+  /*
+*** ../vim-8.1.0962/src/testdir/dumps/Test_incsearch_change_01.dump	2019-02-21 16:20:53.053943804 +0100
+--- src/testdir/dumps/Test_incsearch_change_01.dump	2019-02-21 16:07:47.146272743 +0100
+***************
+*** 0 ****
+--- 1,9 ----
++ |o+0&#ffffff0|n|e| @66
++ |x+1&&| +0&&@68
++ |t|h|r|e@1| @64
++ |~+0#4040ff13&| @68
++ |~| @68
++ |~| @68
++ |~| @68
++ |~| @68
++ |:+0#0000000&|%|s|/|X> @64
+*** ../vim-8.1.0962/src/version.c	2019-02-21 13:34:01.801327590 +0100
+--- src/version.c	2019-02-21 15:58:49.013231419 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     963,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+4. Your eyeglasses have a web site burned in on them.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

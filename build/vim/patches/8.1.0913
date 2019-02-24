@@ -1,0 +1,117 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0913
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0913
+Problem:    CI crashes when running out of memory.
+Solution:   Apply 'maxmempattern' also to new regexp engine.
+Files:	    src/regexp_nfa.c
+
+
+*** ../vim-8.1.0912/src/regexp_nfa.c	2019-02-13 20:31:46.883018311 +0100
+--- src/regexp_nfa.c	2019-02-13 21:44:45.862165702 +0100
+***************
+*** 4445,4457 ****
+  		    goto skip_add;
+  	    }
+  
+! 	    /* When there are backreferences or PIMs the number of states may
+! 	     * be (a lot) bigger than anticipated. */
+  	    if (l->n == l->len)
+  	    {
+  		int		newlen = l->len * 3 / 2 + 50;
+  		nfa_thread_T	*newt;
+  
+  		if (subs != &temp_subs)
+  		{
+  		    /* "subs" may point into the current array, need to make a
+--- 4445,4464 ----
+  		    goto skip_add;
+  	    }
+  
+! 	    // When there are backreferences or PIMs the number of states may
+! 	    // be (a lot) bigger than anticipated.
+  	    if (l->n == l->len)
+  	    {
+  		int		newlen = l->len * 3 / 2 + 50;
++ 		size_t		newsize = newlen * sizeof(nfa_thread_T);
+  		nfa_thread_T	*newt;
+  
++ 		if ((long)(newsize >> 10) >= p_mmp)
++ 		{
++ 		    emsg(_(e_maxmempat));
++ 		    --depth;
++ 		    return NULL;
++ 		}
+  		if (subs != &temp_subs)
+  		{
+  		    /* "subs" may point into the current array, need to make a
+***************
+*** 4464,4470 ****
+  		    subs = &temp_subs;
+  		}
+  
+! 		newt = vim_realloc(l->t, newlen * sizeof(nfa_thread_T));
+  		if (newt == NULL)
+  		{
+  		    // out of memory
+--- 4471,4477 ----
+  		    subs = &temp_subs;
+  		}
+  
+! 		newt = vim_realloc(l->t, newsize);
+  		if (newt == NULL)
+  		{
+  		    // out of memory
+***************
+*** 4785,4793 ****
+  	    /* not enough space to move the new states, reallocate the list
+  	     * and move the states to the right position */
+  	    int		    newlen = l->len * 3 / 2 + 50;
+  	    nfa_thread_T    *newl;
+  
+! 	    newl = (nfa_thread_T *)alloc(newlen * sizeof(nfa_thread_T));
+  	    if (newl == NULL)
+  		return NULL;
+  	    l->len = newlen;
+--- 4792,4806 ----
+  	    /* not enough space to move the new states, reallocate the list
+  	     * and move the states to the right position */
+  	    int		    newlen = l->len * 3 / 2 + 50;
++ 	    size_t	    newsize = newlen * sizeof(nfa_thread_T);
+  	    nfa_thread_T    *newl;
+  
+! 	    if ((long)(newsize >> 10) >= p_mmp)
+! 	    {
+! 		emsg(_(e_maxmempat));
+! 		return NULL;
+! 	    }
+! 	    newl = (nfa_thread_T *)alloc(newsize);
+  	    if (newl == NULL)
+  		return NULL;
+  	    l->len = newlen;
+*** ../vim-8.1.0912/src/version.c	2019-02-13 21:22:09.550765502 +0100
+--- src/version.c	2019-02-13 21:43:29.994642679 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     913,
+  /**/
+
+-- 
+SECOND SOLDIER: It could be carried by an African swallow!
+FIRST SOLDIER:  Oh  yes! An African swallow maybe ... but not a European
+                swallow. that's my point.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

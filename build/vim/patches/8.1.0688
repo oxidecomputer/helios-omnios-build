@@ -1,0 +1,896 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0688
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0688
+Problem:    Text properties are not restored by undo.
+Solution:   Also save text properties for undo.
+Files:	    src/structs.h, src/undo.c, src/memline.c, src/proto/memline.pro
+
+
+*** ../vim-8.1.0687/src/structs.h	2019-01-01 19:47:17.854123944 +0100
+--- src/structs.h	2019-01-04 00:16:36.240809643 +0100
+***************
+*** 347,352 ****
+--- 347,360 ----
+   * structures used for undo
+   */
+  
++ // One line saved for undo.  After the NUL terminated text there might be text
++ // properties, thus ul_len can be larger than STRLEN(ul_line) + 1.
++ typedef struct {
++     char_u	*ul_line;	// text of the line
++     long	ul_len;		// length of the line including NUL, plus text
++ 				// properties
++ } undoline_T;
++ 
+  typedef struct u_entry u_entry_T;
+  typedef struct u_header u_header_T;
+  struct u_entry
+***************
+*** 355,361 ****
+      linenr_T	ue_top;		/* number of line above undo block */
+      linenr_T	ue_bot;		/* number of line below undo block */
+      linenr_T	ue_lcount;	/* linecount when u_save called */
+!     char_u	**ue_array;	/* array of lines in undo block */
+      long	ue_size;	/* number of lines in ue_array */
+  #ifdef U_DEBUG
+      int		ue_magic;	/* magic number to check allocation */
+--- 363,369 ----
+      linenr_T	ue_top;		/* number of line above undo block */
+      linenr_T	ue_bot;		/* number of line below undo block */
+      linenr_T	ue_lcount;	/* linecount when u_save called */
+!     undoline_T	*ue_array;	/* array of lines in undo block */
+      long	ue_size;	/* number of lines in ue_array */
+  #ifdef U_DEBUG
+      int		ue_magic;	/* magic number to check allocation */
+***************
+*** 2167,2173 ****
+      /*
+       * variables for "U" command in undo.c
+       */
+!     char_u	*b_u_line_ptr;	/* saved line for "U" command */
+      linenr_T	b_u_line_lnum;	/* line number of line in u_line */
+      colnr_T	b_u_line_colnr;	/* optional column number */
+  
+--- 2175,2181 ----
+      /*
+       * variables for "U" command in undo.c
+       */
+!     undoline_T	b_u_line_ptr;	/* saved line for "U" command */
+      linenr_T	b_u_line_lnum;	/* line number of line in u_line */
+      colnr_T	b_u_line_colnr;	/* optional column number */
+  
+*** ../vim-8.1.0687/src/undo.c	2018-09-30 21:43:17.207693209 +0200
+--- src/undo.c	2019-01-04 14:57:06.670029116 +0100
+***************
+*** 125,131 ****
+  #endif
+  
+  #define U_ALLOC_LINE(size) lalloc((long_u)(size), FALSE)
+- static char_u *u_save_line(linenr_T);
+  
+  /* used in undo_end() to report number of added and deleted lines */
+  static long	u_newcount, u_oldcount;
+--- 125,130 ----
+***************
+*** 353,358 ****
+--- 352,379 ----
+  }
+  
+  /*
++  * u_save_line(): save an allocated copy of line "lnum" into "ul".
++  * Returns FAIL when out of memory.
++  */
++     static int
++ u_save_line(undoline_T *ul, linenr_T lnum)
++ {
++     char_u *line = ml_get(lnum);
++ 
++     if (curbuf->b_ml.ml_line_len == 0)
++     {
++ 	ul->ul_len = 1;
++ 	ul->ul_line = vim_strsave((char_u *)"");
++     }
++     else
++     {
++ 	ul->ul_len = curbuf->b_ml.ml_line_len;
++ 	ul->ul_line = vim_memsave(line, ul->ul_len);
++     }
++     return ul->ul_line == NULL ? FAIL : OK;
++ }
++ 
++ /*
+   * Common code for various ways to save text before a change.
+   * "top" is the line above the first changed line.
+   * "bot" is the line below the last changed line.
+***************
+*** 664,671 ****
+  
+      if (size > 0)
+      {
+! 	if ((uep->ue_array = (char_u **)U_ALLOC_LINE(
+! 					    sizeof(char_u *) * size)) == NULL)
+  	{
+  	    u_freeentry(uep, 0L);
+  	    goto nomem;
+--- 685,692 ----
+  
+      if (size > 0)
+      {
+! 	if ((uep->ue_array = (undoline_T *)U_ALLOC_LINE(
+! 					   sizeof(undoline_T) * size)) == NULL)
+  	{
+  	    u_freeentry(uep, 0L);
+  	    goto nomem;
+***************
+*** 678,684 ****
+  		u_freeentry(uep, i);
+  		return FAIL;
+  	    }
+! 	    if ((uep->ue_array[i] = u_save_line(lnum++)) == NULL)
+  	    {
+  		u_freeentry(uep, i);
+  		goto nomem;
+--- 699,705 ----
+  		u_freeentry(uep, i);
+  		return FAIL;
+  	    }
+! 	    if (u_save_line(&uep->ue_array[i], lnum++) == FAIL)
+  	    {
+  		u_freeentry(uep, i);
+  		goto nomem;
+***************
+*** 1111,1116 ****
+--- 1132,1139 ----
+  	    vim_free(ptr);
+  	    return NULL;
+  	}
++ 	// In case there are text properties there already is a NUL, but
++ 	// checking for that is more expensive than just adding a dummy byte.
+  	ptr[len] = NUL;
+  #ifdef FEAT_CRYPT
+  	if (bi->bi_state != NULL && bi->bi_buffer == NULL)
+***************
+*** 1126,1132 ****
+      static int
+  serialize_header(bufinfo_T *bi, char_u *hash)
+  {
+!     int		len;
+      buf_T	*buf = bi->bi_buf;
+      FILE	*fp = bi->bi_fp;
+      char_u	time_buf[8];
+--- 1149,1155 ----
+      static int
+  serialize_header(bufinfo_T *bi, char_u *hash)
+  {
+!     long	len;
+      buf_T	*buf = bi->bi_buf;
+      FILE	*fp = bi->bi_fp;
+      char_u	time_buf[8];
+***************
+*** 1148,1154 ****
+  					  buf->b_p_key, &header, &header_len);
+  	if (bi->bi_state == NULL)
+  	    return FAIL;
+! 	len = (int)fwrite(header, (size_t)header_len, (size_t)1, fp);
+  	vim_free(header);
+  	if (len != 1)
+  	{
+--- 1171,1177 ----
+  					  buf->b_p_key, &header, &header_len);
+  	if (bi->bi_state == NULL)
+  	    return FAIL;
+! 	len = (long)fwrite(header, (size_t)header_len, (size_t)1, fp);
+  	vim_free(header);
+  	if (len != 1)
+  	{
+***************
+*** 1181,1189 ****
+  
+      /* buffer-specific data */
+      undo_write_bytes(bi, (long_u)buf->b_ml.ml_line_count, 4);
+!     len = buf->b_u_line_ptr != NULL ? (int)STRLEN(buf->b_u_line_ptr) : 0;
+      undo_write_bytes(bi, (long_u)len, 4);
+!     if (len > 0 && fwrite_crypt(bi, buf->b_u_line_ptr, (size_t)len) == FAIL)
+  	return FAIL;
+      undo_write_bytes(bi, (long_u)buf->b_u_line_lnum, 4);
+      undo_write_bytes(bi, (long_u)buf->b_u_line_colnr, 4);
+--- 1204,1213 ----
+  
+      /* buffer-specific data */
+      undo_write_bytes(bi, (long_u)buf->b_ml.ml_line_count, 4);
+!     len = buf->b_u_line_ptr.ul_line == NULL
+! 				       ? 0 : STRLEN(buf->b_u_line_ptr.ul_line);
+      undo_write_bytes(bi, (long_u)len, 4);
+!     if (len > 0 && fwrite_crypt(bi, buf->b_u_line_ptr.ul_line, (size_t)len) == FAIL)
+  	return FAIL;
+      undo_write_bytes(bi, (long_u)buf->b_u_line_lnum, 4);
+      undo_write_bytes(bi, (long_u)buf->b_u_line_colnr, 4);
+***************
+*** 1360,1369 ****
+      undo_write_bytes(bi, (long_u)uep->ue_size, 4);
+      for (i = 0; i < uep->ue_size; ++i)
+      {
+! 	len = STRLEN(uep->ue_array[i]);
+  	if (undo_write_bytes(bi, (long_u)len, 4) == FAIL)
+  	    return FAIL;
+! 	if (len > 0 && fwrite_crypt(bi, uep->ue_array[i], len) == FAIL)
+  	    return FAIL;
+      }
+      return OK;
+--- 1384,1395 ----
+      undo_write_bytes(bi, (long_u)uep->ue_size, 4);
+      for (i = 0; i < uep->ue_size; ++i)
+      {
+! 	// Text is written without the text properties, since we cannot restore
+! 	// the text property types.
+! 	len = STRLEN(uep->ue_array[i].ul_line);
+  	if (undo_write_bytes(bi, (long_u)len, 4) == FAIL)
+  	    return FAIL;
+! 	if (len > 0 && fwrite_crypt(bi, uep->ue_array[i].ul_line, len) == FAIL)
+  	    return FAIL;
+      }
+      return OK;
+***************
+*** 1374,1380 ****
+  {
+      int		i;
+      u_entry_T	*uep;
+!     char_u	**array = NULL;
+      char_u	*line;
+      int		line_len;
+  
+--- 1400,1406 ----
+  {
+      int		i;
+      u_entry_T	*uep;
+!     undoline_T	*array = NULL;
+      char_u	*line;
+      int		line_len;
+  
+***************
+*** 1392,1404 ****
+      if (uep->ue_size > 0)
+      {
+  	if (uep->ue_size < LONG_MAX / (int)sizeof(char_u *))
+! 	    array = (char_u **)U_ALLOC_LINE(sizeof(char_u *) * uep->ue_size);
+  	if (array == NULL)
+  	{
+  	    *error = TRUE;
+  	    return uep;
+  	}
+! 	vim_memset(array, 0, sizeof(char_u *) * uep->ue_size);
+      }
+      uep->ue_array = array;
+  
+--- 1418,1430 ----
+      if (uep->ue_size > 0)
+      {
+  	if (uep->ue_size < LONG_MAX / (int)sizeof(char_u *))
+! 	    array = (undoline_T *)U_ALLOC_LINE(sizeof(undoline_T) * uep->ue_size);
+  	if (array == NULL)
+  	{
+  	    *error = TRUE;
+  	    return uep;
+  	}
+! 	vim_memset(array, 0, sizeof(undoline_T) * uep->ue_size);
+      }
+      uep->ue_array = array;
+  
+***************
+*** 1417,1423 ****
+  	    *error = TRUE;
+  	    return uep;
+  	}
+! 	array[i] = line;
+      }
+      return uep;
+  }
+--- 1443,1450 ----
+  	    *error = TRUE;
+  	    return uep;
+  	}
+! 	array[i].ul_line = line;
+! 	array[i].ul_len = line_len + 1;
+      }
+      return uep;
+  }
+***************
+*** 1610,1616 ****
+  
+      /* If there is no undo information at all, quit here after deleting any
+       * existing undo file. */
+!     if (buf->b_u_numhead == 0 && buf->b_u_line_ptr == NULL)
+      {
+  	if (p_verbose > 0)
+  	    verb_msg((char_u *)_("Skipping undo file write, nothing to undo"));
+--- 1637,1643 ----
+  
+      /* If there is no undo information at all, quit here after deleting any
+       * existing undo file. */
+!     if (buf->b_u_numhead == 0 && buf->b_u_line_ptr.ul_line == NULL)
+      {
+  	if (p_verbose > 0)
+  	    verb_msg((char_u *)_("Skipping undo file write, nothing to undo"));
+***************
+*** 1771,1777 ****
+      char_u	*file_name;
+      FILE	*fp;
+      long	version, str_len;
+!     char_u	*line_ptr = NULL;
+      linenr_T	line_lnum;
+      colnr_T	line_colnr;
+      linenr_T	line_count;
+--- 1798,1804 ----
+      char_u	*file_name;
+      FILE	*fp;
+      long	version, str_len;
+!     undoline_T	line_ptr;
+      linenr_T	line_lnum;
+      colnr_T	line_colnr;
+      linenr_T	line_count;
+***************
+*** 1798,1803 ****
+--- 1825,1833 ----
+      bufinfo_T	bi;
+  
+      vim_memset(&bi, 0, sizeof(bi));
++     line_ptr.ul_len = 0;
++     line_ptr.ul_line = NULL;
++ 
+      if (name == NULL)
+      {
+  	file_name = u_get_undo_file_name(curbuf->b_ffname, TRUE);
+***************
+*** 1917,1923 ****
+      if (str_len < 0)
+  	goto error;
+      if (str_len > 0)
+! 	line_ptr = read_string_decrypt(&bi, str_len);
+      line_lnum = (linenr_T)undo_read_4c(&bi);
+      line_colnr = (colnr_T)undo_read_4c(&bi);
+      if (line_lnum < 0 || line_colnr < 0)
+--- 1947,1956 ----
+      if (str_len < 0)
+  	goto error;
+      if (str_len > 0)
+!     {
+! 	line_ptr.ul_line = read_string_decrypt(&bi, str_len);
+! 	line_ptr.ul_len = str_len + 1;
+!     }
+      line_lnum = (linenr_T)undo_read_4c(&bi);
+      line_colnr = (colnr_T)undo_read_4c(&bi);
+      if (line_lnum < 0 || line_colnr < 0)
+***************
+*** 2098,2104 ****
+      goto theend;
+  
+  error:
+!     vim_free(line_ptr);
+      if (uhp_table != NULL)
+      {
+  	for (i = 0; i < num_read_uhps; i++)
+--- 2131,2137 ----
+      goto theend;
+  
+  error:
+!     vim_free(line_ptr.ul_line);
+      if (uhp_table != NULL)
+      {
+  	for (i = 0; i < num_read_uhps; i++)
+***************
+*** 2596,2602 ****
+      static void
+  u_undoredo(int undo)
+  {
+!     char_u	**newarray = NULL;
+      linenr_T	oldsize;
+      linenr_T	newsize;
+      linenr_T	top, bot;
+--- 2629,2635 ----
+      static void
+  u_undoredo(int undo)
+  {
+!     undoline_T	*newarray = NULL;
+      linenr_T	oldsize;
+      linenr_T	newsize;
+      linenr_T	top, bot;
+***************
+*** 2669,2676 ****
+  		 * undoing auto-formatting puts the cursor in the previous
+  		 * line. */
+  		for (i = 0; i < newsize && i < oldsize; ++i)
+! 		    if (STRCMP(uep->ue_array[i], ml_get(top + 1 + i)) != 0)
+  			break;
+  		if (i == newsize && newlnum == MAXLNUM && uep->ue_next == NULL)
+  		{
+  		    newlnum = top;
+--- 2702,2714 ----
+  		 * undoing auto-formatting puts the cursor in the previous
+  		 * line. */
+  		for (i = 0; i < newsize && i < oldsize; ++i)
+! 		{
+! 		    char_u *p = ml_get(top + 1 + i);
+! 
+! 		    if (curbuf->b_ml.ml_line_len != uep->ue_array[i].ul_len
+! 			    || memcmp(uep->ue_array[i].ul_line, p, curbuf->b_ml.ml_line_len) != 0)
+  			break;
++ 		}
+  		if (i == newsize && newlnum == MAXLNUM && uep->ue_next == NULL)
+  		{
+  		    newlnum = top;
+***************
+*** 2689,2698 ****
+  	/* delete the lines between top and bot and save them in newarray */
+  	if (oldsize > 0)
+  	{
+! 	    if ((newarray = (char_u **)U_ALLOC_LINE(
+! 					 sizeof(char_u *) * oldsize)) == NULL)
+  	    {
+! 		do_outofmem_msg((long_u)(sizeof(char_u *) * oldsize));
+  		/*
+  		 * We have messed up the entry list, repair is impossible.
+  		 * we have to free the rest of the list.
+--- 2727,2736 ----
+  	/* delete the lines between top and bot and save them in newarray */
+  	if (oldsize > 0)
+  	{
+! 	    if ((newarray = (undoline_T *)U_ALLOC_LINE(
+! 					sizeof(undoline_T) * oldsize)) == NULL)
+  	    {
+! 		do_outofmem_msg((long_u)(sizeof(undoline_T) * oldsize));
+  		/*
+  		 * We have messed up the entry list, repair is impossible.
+  		 * we have to free the rest of the list.
+***************
+*** 2709,2715 ****
+  	    for (lnum = bot - 1, i = oldsize; --i >= 0; --lnum)
+  	    {
+  		/* what can we do when we run out of memory? */
+! 		if ((newarray[i] = u_save_line(lnum)) == NULL)
+  		    do_outofmem_msg((long_u)0);
+  		/* remember we deleted the last line in the buffer, and a
+  		 * dummy empty line will be inserted */
+--- 2747,2753 ----
+  	    for (lnum = bot - 1, i = oldsize; --i >= 0; --lnum)
+  	    {
+  		/* what can we do when we run out of memory? */
+! 		if (u_save_line(&newarray[i], lnum) == FAIL)
+  		    do_outofmem_msg((long_u)0);
+  		/* remember we deleted the last line in the buffer, and a
+  		 * dummy empty line will be inserted */
+***************
+*** 2726,2740 ****
+  	{
+  	    for (lnum = top, i = 0; i < newsize; ++i, ++lnum)
+  	    {
+! 		/*
+! 		 * If the file is empty, there is an empty line 1 that we
+! 		 * should get rid of, by replacing it with the new line
+! 		 */
+  		if (empty_buffer && lnum == 0)
+! 		    ml_replace((linenr_T)1, uep->ue_array[i], TRUE);
+  		else
+! 		    ml_append(lnum, uep->ue_array[i], (colnr_T)0, FALSE);
+! 		vim_free(uep->ue_array[i]);
+  	    }
+  	    vim_free((char_u *)uep->ue_array);
+  	}
+--- 2764,2776 ----
+  	{
+  	    for (lnum = top, i = 0; i < newsize; ++i, ++lnum)
+  	    {
+! 		// If the file is empty, there is an empty line 1 that we
+! 		// should get rid of, by replacing it with the new line.
+  		if (empty_buffer && lnum == 0)
+! 		    ml_replace_len((linenr_T)1, uep->ue_array[i].ul_line, uep->ue_array[i].ul_len, TRUE, TRUE);
+  		else
+! 		    ml_append(lnum, uep->ue_array[i].ul_line, (colnr_T)uep->ue_array[i].ul_len, FALSE);
+! 		vim_free(uep->ue_array[i].ul_line);
+  	    }
+  	    vim_free((char_u *)uep->ue_array);
+  	}
+***************
+*** 3172,3184 ****
+  
+      for (lnum = 1; lnum < curbuf->b_ml.ml_line_count
+  					      && lnum <= uep->ue_size; ++lnum)
+! 	if (STRCMP(ml_get_buf(curbuf, lnum, FALSE),
+! 						uep->ue_array[lnum - 1]) != 0)
+  	{
+  	    CLEAR_POS(&(uhp->uh_cursor));
+  	    uhp->uh_cursor.lnum = lnum;
+  	    return;
+  	}
+      if (curbuf->b_ml.ml_line_count != uep->ue_size)
+      {
+  	/* lines added or deleted at the end, put the cursor there */
+--- 3208,3224 ----
+  
+      for (lnum = 1; lnum < curbuf->b_ml.ml_line_count
+  					      && lnum <= uep->ue_size; ++lnum)
+!     {
+! 	char_u *p = ml_get_buf(curbuf, lnum, FALSE);
+! 
+! 	if (uep->ue_array[lnum - 1].ul_len != curbuf->b_ml.ml_line_len
+! 		|| memcmp(p, uep->ue_array[lnum - 1].ul_line, uep->ue_array[lnum - 1].ul_len) != 0)
+  	{
+  	    CLEAR_POS(&(uhp->uh_cursor));
+  	    uhp->uh_cursor.lnum = lnum;
+  	    return;
+  	}
++     }
+      if (curbuf->b_ml.ml_line_count != uep->ue_size)
+      {
+  	/* lines added or deleted at the end, put the cursor there */
+***************
+*** 3383,3389 ****
+  u_freeentry(u_entry_T *uep, long n)
+  {
+      while (n > 0)
+! 	vim_free(uep->ue_array[--n]);
+      vim_free((char_u *)uep->ue_array);
+  #ifdef U_DEBUG
+      uep->ue_magic = 0;
+--- 3423,3429 ----
+  u_freeentry(u_entry_T *uep, long n)
+  {
+      while (n > 0)
+! 	vim_free(uep->ue_array[--n].ul_line);
+      vim_free((char_u *)uep->ue_array);
+  #ifdef U_DEBUG
+      uep->ue_magic = 0;
+***************
+*** 3400,3411 ****
+      buf->b_u_newhead = buf->b_u_oldhead = buf->b_u_curhead = NULL;
+      buf->b_u_synced = TRUE;
+      buf->b_u_numhead = 0;
+!     buf->b_u_line_ptr = NULL;
+      buf->b_u_line_lnum = 0;
+  }
+  
+  /*
+!  * save the line "lnum" for the "U" command
+   */
+      void
+  u_saveline(linenr_T lnum)
+--- 3440,3452 ----
+      buf->b_u_newhead = buf->b_u_oldhead = buf->b_u_curhead = NULL;
+      buf->b_u_synced = TRUE;
+      buf->b_u_numhead = 0;
+!     buf->b_u_line_ptr.ul_line = NULL;
+!     buf->b_u_line_ptr.ul_len = 0;
+      buf->b_u_line_lnum = 0;
+  }
+  
+  /*
+!  * Save the line "lnum" for the "U" command.
+   */
+      void
+  u_saveline(linenr_T lnum)
+***************
+*** 3420,3426 ****
+  	curbuf->b_u_line_colnr = curwin->w_cursor.col;
+      else
+  	curbuf->b_u_line_colnr = 0;
+!     if ((curbuf->b_u_line_ptr = u_save_line(lnum)) == NULL)
+  	do_outofmem_msg((long_u)0);
+  }
+  
+--- 3461,3467 ----
+  	curbuf->b_u_line_colnr = curwin->w_cursor.col;
+      else
+  	curbuf->b_u_line_colnr = 0;
+!     if (u_save_line(&curbuf->b_u_line_ptr, lnum) == FAIL)
+  	do_outofmem_msg((long_u)0);
+  }
+  
+***************
+*** 3431,3439 ****
+      void
+  u_clearline(void)
+  {
+!     if (curbuf->b_u_line_ptr != NULL)
+      {
+! 	VIM_CLEAR(curbuf->b_u_line_ptr);
+  	curbuf->b_u_line_lnum = 0;
+      }
+  }
+--- 3472,3481 ----
+      void
+  u_clearline(void)
+  {
+!     if (curbuf->b_u_line_ptr.ul_line != NULL)
+      {
+! 	VIM_CLEAR(curbuf->b_u_line_ptr.ul_line);
+! 	curbuf->b_u_line_ptr.ul_len = 0;
+  	curbuf->b_u_line_lnum = 0;
+      }
+  }
+***************
+*** 3447,3478 ****
+      void
+  u_undoline(void)
+  {
+!     colnr_T t;
+!     char_u  *oldp;
+  
+      if (undo_off)
+  	return;
+  
+!     if (curbuf->b_u_line_ptr == NULL
+  			|| curbuf->b_u_line_lnum > curbuf->b_ml.ml_line_count)
+      {
+  	beep_flush();
+  	return;
+      }
+  
+!     /* first save the line for the 'u' command */
+      if (u_savecommon(curbuf->b_u_line_lnum - 1,
+  		       curbuf->b_u_line_lnum + 1, (linenr_T)0, FALSE) == FAIL)
+  	return;
+!     oldp = u_save_line(curbuf->b_u_line_lnum);
+!     if (oldp == NULL)
+      {
+  	do_outofmem_msg((long_u)0);
+  	return;
+      }
+!     ml_replace(curbuf->b_u_line_lnum, curbuf->b_u_line_ptr, TRUE);
+      changed_bytes(curbuf->b_u_line_lnum, 0);
+-     vim_free(curbuf->b_u_line_ptr);
+      curbuf->b_u_line_ptr = oldp;
+  
+      t = curbuf->b_u_line_colnr;
+--- 3489,3518 ----
+      void
+  u_undoline(void)
+  {
+!     colnr_T	t;
+!     undoline_T  oldp;
+  
+      if (undo_off)
+  	return;
+  
+!     if (curbuf->b_u_line_ptr.ul_line == NULL
+  			|| curbuf->b_u_line_lnum > curbuf->b_ml.ml_line_count)
+      {
+  	beep_flush();
+  	return;
+      }
+  
+!     // first save the line for the 'u' command
+      if (u_savecommon(curbuf->b_u_line_lnum - 1,
+  		       curbuf->b_u_line_lnum + 1, (linenr_T)0, FALSE) == FAIL)
+  	return;
+!     if (u_save_line(&oldp, curbuf->b_u_line_lnum) == FAIL)
+      {
+  	do_outofmem_msg((long_u)0);
+  	return;
+      }
+!     ml_replace_len(curbuf->b_u_line_lnum, curbuf->b_u_line_ptr.ul_line, curbuf->b_u_line_ptr.ul_len, TRUE, FALSE);
+      changed_bytes(curbuf->b_u_line_lnum, 0);
+      curbuf->b_u_line_ptr = oldp;
+  
+      t = curbuf->b_u_line_colnr;
+***************
+*** 3491,3507 ****
+  {
+      while (buf->b_u_oldhead != NULL)
+  	u_freeheader(buf, buf->b_u_oldhead, NULL);
+!     vim_free(buf->b_u_line_ptr);
+! }
+! 
+! /*
+!  * u_save_line(): allocate memory and copy line 'lnum' into it.
+!  * Returns NULL when out of memory.
+!  */
+!     static char_u *
+! u_save_line(linenr_T lnum)
+! {
+!     return vim_strsave(ml_get(lnum));
+  }
+  
+  /*
+--- 3531,3537 ----
+  {
+      while (buf->b_u_oldhead != NULL)
+  	u_freeheader(buf, buf->b_u_oldhead, NULL);
+!     vim_free(buf->b_u_line_ptr.ul_line);
+  }
+  
+  /*
+*** ../vim-8.1.0687/src/memline.c	2019-01-03 21:55:28.441763295 +0100
+--- src/memline.c	2019-01-04 12:26:05.397062087 +0100
+***************
+*** 3217,3227 ****
+  
+      if (line != NULL)
+  	len = (colnr_T)STRLEN(line);
+!     return ml_replace_len(lnum, line, len, copy);
+  }
+  
+      int
+! ml_replace_len(linenr_T lnum, char_u *line_arg, colnr_T len_arg, int copy)
+  {
+      char_u *line = line_arg;
+      colnr_T len = len_arg;
+--- 3217,3238 ----
+  
+      if (line != NULL)
+  	len = (colnr_T)STRLEN(line);
+!     return ml_replace_len(lnum, line, len, FALSE, copy);
+  }
+  
++ /*
++  * Replace a line for the current buffer.  Like ml_replace() with:
++  * "len_arg" is the length of the text, excluding NUL.
++  * If "has_props" is TRUE then "line_arg" includes the text properties and
++  * "len_arg" includes the NUL of the text.
++  */
+      int
+! ml_replace_len(
+! 	linenr_T    lnum,
+! 	char_u	    *line_arg,
+! 	colnr_T	    len_arg,
+! 	int	    has_props,
+! 	int	    copy)
+  {
+      char_u *line = line_arg;
+      colnr_T len = len_arg;
+***************
+*** 3233,3240 ****
+      if (curbuf->b_ml.ml_mfp == NULL && open_buffer(FALSE, NULL, 0) == FAIL)
+  	return FAIL;
+  
+!     if (copy && (line = vim_strnsave(line, len)) == NULL) /* allocate memory */
+! 	return FAIL;
+  #ifdef FEAT_NETBEANS_INTG
+      if (netbeans_active())
+      {
+--- 3244,3264 ----
+      if (curbuf->b_ml.ml_mfp == NULL && open_buffer(FALSE, NULL, 0) == FAIL)
+  	return FAIL;
+  
+!     if (!has_props)
+! 	++len;  // include the NUL after the text
+!     if (copy)
+!     {
+! 	// copy the line to allocated memory
+! #ifdef FEAT_TEXT_PROP
+! 	if (has_props)
+! 	    line = vim_memsave(line, len);
+! 	else
+! #endif
+! 	    line = vim_strnsave(line, len - 1);
+! 	if (line == NULL)
+! 	    return FAIL;
+!     }
+! 
+  #ifdef FEAT_NETBEANS_INTG
+      if (netbeans_active())
+      {
+***************
+*** 3249,3262 ****
+  	curbuf->b_ml.ml_flags &= ~ML_LINE_DIRTY;
+  
+  #ifdef FEAT_TEXT_PROP
+! 	if (curbuf->b_has_textprop)
+  	    // Need to fetch the old line to copy over any text properties.
+  	    ml_get_buf(curbuf, lnum, TRUE);
+  #endif
+      }
+  
+  #ifdef FEAT_TEXT_PROP
+!     if (curbuf->b_has_textprop)
+      {
+  	size_t	oldtextlen = STRLEN(curbuf->b_ml.ml_line_ptr) + 1;
+  
+--- 3273,3286 ----
+  	curbuf->b_ml.ml_flags &= ~ML_LINE_DIRTY;
+  
+  #ifdef FEAT_TEXT_PROP
+! 	if (curbuf->b_has_textprop && !has_props)
+  	    // Need to fetch the old line to copy over any text properties.
+  	    ml_get_buf(curbuf, lnum, TRUE);
+  #endif
+      }
+  
+  #ifdef FEAT_TEXT_PROP
+!     if (curbuf->b_has_textprop && !has_props)
+      {
+  	size_t	oldtextlen = STRLEN(curbuf->b_ml.ml_line_ptr) + 1;
+  
+***************
+*** 3266,3276 ****
+  	    size_t textproplen = curbuf->b_ml.ml_line_len - oldtextlen;
+  
+  	    // Need to copy over text properties, stored after the text.
+! 	    newline = alloc(len + 1 + (int)textproplen);
+  	    if (newline != NULL)
+  	    {
+! 		mch_memmove(newline, line, len + 1);
+! 		mch_memmove(newline + len + 1, curbuf->b_ml.ml_line_ptr + oldtextlen, textproplen);
+  		vim_free(line);
+  		line = newline;
+  		len += (colnr_T)textproplen;
+--- 3290,3300 ----
+  	    size_t textproplen = curbuf->b_ml.ml_line_len - oldtextlen;
+  
+  	    // Need to copy over text properties, stored after the text.
+! 	    newline = alloc(len + (int)textproplen);
+  	    if (newline != NULL)
+  	    {
+! 		mch_memmove(newline, line, len);
+! 		mch_memmove(newline + len, curbuf->b_ml.ml_line_ptr + oldtextlen, textproplen);
+  		vim_free(line);
+  		line = newline;
+  		len += (colnr_T)textproplen;
+***************
+*** 3279,3289 ****
+      }
+  #endif
+  
+!     if (curbuf->b_ml.ml_flags & ML_LINE_DIRTY) /* same line allocated */
+! 	vim_free(curbuf->b_ml.ml_line_ptr);	    /* free it */
+  
+      curbuf->b_ml.ml_line_ptr = line;
+!     curbuf->b_ml.ml_line_len = len + 1;
+      curbuf->b_ml.ml_line_lnum = lnum;
+      curbuf->b_ml.ml_flags = (curbuf->b_ml.ml_flags | ML_LINE_DIRTY) & ~ML_EMPTY;
+  
+--- 3303,3313 ----
+      }
+  #endif
+  
+!     if (curbuf->b_ml.ml_flags & ML_LINE_DIRTY)	// same line allocated
+! 	vim_free(curbuf->b_ml.ml_line_ptr);	// free it
+  
+      curbuf->b_ml.ml_line_ptr = line;
+!     curbuf->b_ml.ml_line_len = len;
+      curbuf->b_ml.ml_line_lnum = lnum;
+      curbuf->b_ml.ml_flags = (curbuf->b_ml.ml_flags | ML_LINE_DIRTY) & ~ML_EMPTY;
+  
+*** ../vim-8.1.0687/src/proto/memline.pro	2018-12-13 22:17:52.877941474 +0100
+--- src/proto/memline.pro	2019-01-04 12:01:57.866003664 +0100
+***************
+*** 24,30 ****
+  int ml_append(linenr_T lnum, char_u *line, colnr_T len, int newfile);
+  int ml_append_buf(buf_T *buf, linenr_T lnum, char_u *line, colnr_T len, int newfile);
+  int ml_replace(linenr_T lnum, char_u *line, int copy);
+! int ml_replace_len(linenr_T lnum, char_u *line_arg, colnr_T len_arg, int copy);
+  int ml_delete(linenr_T lnum, int message);
+  void ml_setmarked(linenr_T lnum);
+  linenr_T ml_firstmarked(void);
+--- 24,30 ----
+  int ml_append(linenr_T lnum, char_u *line, colnr_T len, int newfile);
+  int ml_append_buf(buf_T *buf, linenr_T lnum, char_u *line, colnr_T len, int newfile);
+  int ml_replace(linenr_T lnum, char_u *line, int copy);
+! int ml_replace_len(linenr_T lnum, char_u *line_arg, colnr_T len_arg, int has_props, int copy);
+  int ml_delete(linenr_T lnum, int message);
+  void ml_setmarked(linenr_T lnum);
+  linenr_T ml_firstmarked(void);
+*** ../vim-8.1.0687/src/version.c	2019-01-03 23:10:28.338798991 +0100
+--- src/version.c	2019-01-03 23:49:46.821265249 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     688,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+102. When filling out your driver's license application, you give
+     your IP address.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

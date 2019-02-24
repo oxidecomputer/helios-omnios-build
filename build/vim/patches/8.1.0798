@@ -1,0 +1,217 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0798
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0798
+Problem:    Changing a blob while iterating over it works strangely.
+Solution:   Make a copy of the Blob before iterating.
+Files:	    src/blob.c, src/proto/blob.pro, src/eval.c,
+            src/testdir/test_blob.vim
+
+
+*** ../vim-8.1.0797/src/blob.c	2019-01-17 16:32:49.465289104 +0100
+--- src/blob.c	2019-01-23 21:47:19.587282840 +0100
+***************
+*** 57,62 ****
+--- 57,84 ----
+  	++b->bv_refcount;
+  }
+  
++     int
++ blob_copy(typval_T *from, typval_T *to)
++ {
++     int	    ret = OK;
++ 
++     to->v_type = VAR_BLOB;
++     if (from->vval.v_blob == NULL)
++ 	to->vval.v_blob = NULL;
++     else if (rettv_blob_alloc(to) == FAIL)
++ 	ret = FAIL;
++     else
++     {
++ 	int  len = from->vval.v_blob->bv_ga.ga_len;
++ 
++ 	if (len > 0)
++ 	    to->vval.v_blob->bv_ga.ga_data =
++ 			    vim_memsave(from->vval.v_blob->bv_ga.ga_data, len);
++ 	to->vval.v_blob->bv_ga.ga_len = len;
++     }
++     return ret;
++ }
++ 
+      void
+  blob_free(blob_T *b)
+  {
+*** ../vim-8.1.0797/src/proto/blob.pro	2019-01-13 17:48:00.994125660 +0100
+--- src/proto/blob.pro	2019-01-23 21:26:04.464036293 +0100
+***************
+*** 2,7 ****
+--- 2,8 ----
+  blob_T *blob_alloc(void);
+  int rettv_blob_alloc(typval_T *rettv);
+  void rettv_blob_set(typval_T *rettv, blob_T *b);
++ int blob_copy(typval_T *from, typval_T *to);
+  void blob_free(blob_T *b);
+  void blob_unref(blob_T *b);
+  long blob_len(blob_T *b);
+*** ../vim-8.1.0797/src/eval.c	2019-01-19 17:43:03.405449224 +0100
+--- src/eval.c	2019-01-23 21:41:36.389748231 +0100
+***************
+*** 2587,2593 ****
+      char_u	*expr;
+      typval_T	tv;
+      list_T	*l;
+-     blob_T	*b;
+  
+      *errp = TRUE;	/* default: there is an error */
+  
+--- 2587,2592 ----
+***************
+*** 2632,2647 ****
+  	    }
+  	    else if (tv.v_type == VAR_BLOB)
+  	    {
+! 		b = tv.vval.v_blob;
+! 		if (b == NULL)
+! 		    clear_tv(&tv);
+! 		else
+  		{
+! 		    // No need to increment the refcount, it's already set for
+! 		    // the blob being used in "tv".
+! 		    fi->fi_blob = b;
+! 		    fi->fi_bi = 0;
+  		}
+  	    }
+  	    else
+  	    {
+--- 2631,2647 ----
+  	    }
+  	    else if (tv.v_type == VAR_BLOB)
+  	    {
+! 		fi->fi_bi = 0;
+! 		if (tv.vval.v_blob != NULL)
+  		{
+! 		    typval_T btv;
+! 
+! 		    // Make a copy, so that the iteration still works when the
+! 		    // blob is changed.
+! 		    blob_copy(&tv, &btv);
+! 		    fi->fi_blob = btv.vval.v_blob;
+  		}
++ 		clear_tv(&tv);
+  	    }
+  	    else
+  	    {
+***************
+*** 8076,8082 ****
+  /*
+   * Copy the values from typval_T "from" to typval_T "to".
+   * When needed allocates string or increases reference count.
+!  * Does not make a copy of a list or dict but copies the reference!
+   * It is OK for "from" and "to" to point to the same item.  This is used to
+   * make a copy later.
+   */
+--- 8076,8082 ----
+  /*
+   * Copy the values from typval_T "from" to typval_T "to".
+   * When needed allocates string or increases reference count.
+!  * Does not make a copy of a list, blob or dict but copies the reference!
+   * It is OK for "from" and "to" to point to the same item.  This is used to
+   * make a copy later.
+   */
+***************
+*** 8216,8234 ****
+  		ret = FAIL;
+  	    break;
+  	case VAR_BLOB:
+! 	    to->v_type = VAR_BLOB;
+! 	    if (from->vval.v_blob == NULL)
+! 		to->vval.v_blob = NULL;
+! 	    else if (rettv_blob_alloc(to) == FAIL)
+! 		ret = FAIL;
+! 	    else
+! 	    {
+! 		int  len = from->vval.v_blob->bv_ga.ga_len;
+! 
+! 		to->vval.v_blob->bv_ga.ga_data =
+! 			    vim_memsave(from->vval.v_blob->bv_ga.ga_data, len);
+! 		to->vval.v_blob->bv_ga.ga_len = len;
+! 	    }
+  	    break;
+  	case VAR_DICT:
+  	    to->v_type = VAR_DICT;
+--- 8216,8222 ----
+  		ret = FAIL;
+  	    break;
+  	case VAR_BLOB:
+! 	    ret = blob_copy(from, to);
+  	    break;
+  	case VAR_DICT:
+  	    to->v_type = VAR_DICT;
+*** ../vim-8.1.0797/src/testdir/test_blob.vim	2019-01-22 22:20:13.374961397 +0100
+--- src/testdir/test_blob.vim	2019-01-23 21:35:46.092132992 +0100
+***************
+*** 154,159 ****
+--- 154,160 ----
+      call assert_equal(i, byte)
+      let i += 1
+    endfor
++     call assert_equal(4, i)
+  
+    let blob = 0z00
+    call remove(blob, 0)
+***************
+*** 161,166 ****
+--- 162,180 ----
+    for byte in blob
+      call assert_error('loop over empty blob')
+    endfor
++ 
++   let blob = 0z0001020304
++   let i = 0
++   for byte in blob
++     call assert_equal(i, byte)
++     if i == 1
++       call remove(blob, 0)
++     elseif i == 3
++       call remove(blob, 3)
++     endif
++     let i += 1
++   endfor
++   call assert_equal(5, i)
+  endfunc
+  
+  func Test_blob_concatenate()
+*** ../vim-8.1.0797/src/version.c	2019-01-23 21:14:59.165314597 +0100
+--- src/version.c	2019-01-23 21:55:35.247616635 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     798,
+  /**/
+
+
+-- 
+       When danger reared its ugly head,
+       He bravely turned his tail and fled
+       Yes, Brave Sir Robin turned about
+       And gallantly he chickened out
+       Bravely taking to his feet
+       He beat a very brave retreat
+       Bravest of the brave Sir Robin
+       Petrified of being dead
+       Soiled his pants then brave Sir Robin
+       Turned away and fled.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

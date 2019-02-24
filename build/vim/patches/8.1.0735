@@ -1,0 +1,3392 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0735
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0735
+Problem:    Cannot handle binary data.
+Solution:   Add the Blob type. (Yasuhiro Matsumoto, closes #3638)
+Files:	    runtime/doc/eval.txt, runtime/doc/if_perl.txt,
+            runtime/doc/if_ruby.txt, src/Make_cyg_ming.mak, src/Make_mvc.mak,
+            src/Makefile, src/blob.c, src/channel.c, src/eval.c,
+            src/evalfunc.c, src/if_perl.xs, src/if_py_both.h, src/if_python.c,
+            src/if_python3.c, src/if_ruby.c, src/json.c, src/netbeans.c,
+            src/proto.h, src/proto/blob.pro, src/proto/channel.pro,
+            src/structs.h, src/testdir/Make_all.mak, src/vim.h, src/globals.h,
+            src/testdir/test_blob.vim, src/testdir/test_channel.vim
+
+
+*** ../vim-8.1.0734/runtime/doc/eval.txt	2019-01-12 14:24:22.627597552 +0100
+--- runtime/doc/eval.txt	2019-01-12 22:41:51.485097473 +0100
+***************
+*** 72,77 ****
+--- 72,81 ----
+  
+  Channel		Used for a channel, see |ch_open()|. *Channel* *Channels*
+  
++ Blob		Binary Large Object. Stores any sequence of bytes. *Blob*
++ 		Example: 0zFF00ED015DAF
++ 		0z is an empty Blob.
++ 
+  The Number and String types are converted automatically, depending on how they
+  are used.
+  
+***************
+*** 124,130 ****
+  A List, Dictionary or Float is not a Number or String, thus evaluate to FALSE.
+  
+  		*E745* *E728* *E703* *E729* *E730* *E731* *E908* *E910* *E913*
+! List, Dictionary, Funcref, Job and Channel types are not automatically
+  converted.
+  
+  							*E805* *E806* *E808*
+--- 128,135 ----
+  A List, Dictionary or Float is not a Number or String, thus evaluate to FALSE.
+  
+  		*E745* *E728* *E703* *E729* *E730* *E731* *E908* *E910* *E913*
+! 		*E974* *E975* *E976*
+! List, Dictionary, Funcref, Job, Channel and Blob types are not automatically
+  converted.
+  
+  							*E805* *E806* *E808*
+***************
+*** 1010,1015 ****
+--- 1022,1033 ----
+  	:let l = mylist[4:4]		" List with one item
+  	:let l = mylist[:]		" shallow copy of a List
+  
++ If expr8 is a |Blob| this results in a new |Blob| with the bytes in the
++ indexes expr1a and expr1b, inclusive.  Examples: >
++ 	:let b = 0zDEADBEEF
++ 	:let bs = b[1:2]		" 0zADBE
++ 	:let bs = b[]			" copy ov 0zDEADBEEF
++ 
+  Using expr8[expr1] or expr8[expr1a : expr1b] on a |Funcref| results in an
+  error.
+  
+***************
+*** 1145,1150 ****
+--- 1167,1180 ----
+  Note that "\000" and "\x00" force the end of the string.
+  
+  
++ blob-literal				*blob-literal* *E973* *E977* *E978*
++ ------------
++ 
++ Hexadecimal starting with 0z or 0Z, with an arbitrary number of bytes.
++ The sequence must be an even number of hex characters.  Example: >
++ 	:let b = 0zFF00ED015DAF
++ 
++ 
+  literal-string						*literal-string* *E115*
+  ---------------
+  'string'		string constant			*expr-'*
+***************
+*** 1898,1903 ****
+--- 1930,1937 ----
+  v:t_number	Value of Number type.  Read-only.  See: |type()|
+  					*v:t_string* *t_string-variable*
+  v:t_string	Value of String type.  Read-only.  See: |type()|
++ 					*v:t_blob* *t_blob-variable*
++ v:t_blob	Value of Blob type.  Read-only.  See: |type()|
+  
+  				*v:termresponse* *termresponse-variable*
+  v:termresponse	The escape sequence returned by the terminal for the |t_RV|
+***************
+*** 2080,2091 ****
+  ch_open({address} [, {options}])
+  				Channel	open a channel to {address}
+  ch_read({handle} [, {options}]) String	read from {handle}
+  ch_readraw({handle} [, {options}])
+  				String	read raw from {handle}
+  ch_sendexpr({handle}, {expr} [, {options}])
+  				any	send {expr} over JSON {handle}
+! ch_sendraw({handle}, {string} [, {options}])
+! 				any	send {string} over raw {handle}
+  ch_setoptions({handle}, {options})
+  				none	set options for {handle}
+  ch_status({handle} [, {options}])
+--- 2115,2128 ----
+  ch_open({address} [, {options}])
+  				Channel	open a channel to {address}
+  ch_read({handle} [, {options}]) String	read from {handle}
++ ch_readblob({handle} [, {options}])
++ 				Blob	read Blob from {handle}
+  ch_readraw({handle} [, {options}])
+  				String	read raw from {handle}
+  ch_sendexpr({handle}, {expr} [, {options}])
+  				any	send {expr} over JSON {handle}
+! ch_sendraw({handle}, {expr} [, {options}])
+! 				any	send {expr} over raw {handle}
+  ch_setoptions({handle}, {options})
+  				none	set options for {handle}
+  ch_status({handle} [, {options}])
+***************
+*** 2225,2232 ****
+  hostname()			String	name of the machine Vim is running on
+  iconv({expr}, {from}, {to})	String	convert encoding of {expr}
+  indent({lnum})			Number	indent of line {lnum}
+! index({list}, {expr} [, {start} [, {ic}]])
+! 				Number	index in {list} where {expr} appears
+  input({prompt} [, {text} [, {completion}]])
+  				String	get input from the user
+  inputdialog({prompt} [, {text} [, {completion}]])
+--- 2262,2269 ----
+  hostname()			String	name of the machine Vim is running on
+  iconv({expr}, {from}, {to})	String	convert encoding of {expr}
+  indent({lnum})			Number	indent of line {lnum}
+! index({object}, {expr} [, {start} [, {ic}]])
+! 				Number	index in {object} where {expr} appears
+  input({prompt} [, {text} [, {completion}]])
+  				String	get input from the user
+  inputdialog({prompt} [, {text} [, {completion}]])
+***************
+*** 2235,2241 ****
+  inputrestore()			Number	restore typeahead
+  inputsave()			Number	save and clear typeahead
+  inputsecret({prompt} [, {text}]) String	like input() but hiding the text
+! insert({list}, {item} [, {idx}]) List	insert {item} in {list} [before {idx}]
+  invert({expr})			Number	bitwise invert
+  isdirectory({directory})	Number	|TRUE| if {directory} is a directory
+  islocked({expr})		Number	|TRUE| if {expr} is locked
+--- 2272,2278 ----
+  inputrestore()			Number	restore typeahead
+  inputsave()			Number	save and clear typeahead
+  inputsecret({prompt} [, {text}]) String	like input() but hiding the text
+! insert({object}, {item} [, {idx}]) List	insert {item} in {object} [before {idx}]
+  invert({expr})			Number	bitwise invert
+  isdirectory({directory})	Number	|TRUE| if {directory} is a directory
+  islocked({expr})		Number	|TRUE| if {expr} is locked
+***************
+*** 2325,2331 ****
+  pyxeval({expr})			any	evaluate |python_x| expression
+  range({expr} [, {max} [, {stride}]])
+  				List	items from {expr} to {max}
+! readfile({fname} [, {binary} [, {max}]])
+  				List	get list of lines from file {fname}
+  reg_executing()			String	get the executing register name
+  reg_recording()			String	get the recording register name
+--- 2362,2368 ----
+  pyxeval({expr})			any	evaluate |python_x| expression
+  range({expr} [, {max} [, {stride}]])
+  				List	items from {expr} to {max}
+! readfile({fname} [, {type} [, {max}]])
+  				List	get list of lines from file {fname}
+  reg_executing()			String	get the executing register name
+  reg_recording()			String	get the recording register name
+***************
+*** 2541,2548 ****
+  winsaveview()			Dict	save view of current window
+  winwidth({nr})			Number	width of window {nr}
+  wordcount()			Dict	get byte/char/word statistics
+! writefile({list}, {fname} [, {flags}])
+! 				Number	write list of lines to file {fname}
+  xor({expr}, {expr})		Number	bitwise XOR
+  
+  
+--- 2577,2584 ----
+  winsaveview()			Dict	save view of current window
+  winwidth({nr})			Number	width of window {nr}
+  wordcount()			Dict	get byte/char/word statistics
+! writefile({object}, {fname} [, {flags}])
+! 				Number	write |Blob| or |List| of lines to file
+  xor({expr}, {expr})		Number	bitwise XOR
+  
+  
+***************
+*** 3185,3190 ****
+--- 3222,3232 ----
+  		See |channel-more|.
+  		{only available when compiled with the |+channel| feature}
+  
++ ch_readblob({handle} [, {options}])			*ch_readblob()*
++ 		Like ch_read() but reads binary data and returns a Blob.
++ 		See |channel-more|.
++ 		{only available when compiled with the |+channel| feature}
++ 
+  ch_readraw({handle} [, {options}])			*ch_readraw()*
+  		Like ch_read() but for a JS and JSON channel does not decode
+  		the message.  For a NL channel it does not block waiting for
+***************
+*** 3201,3208 ****
+  
+  		{only available when compiled with the |+channel| feature}
+  
+! ch_sendraw({handle}, {string} [, {options}])		*ch_sendraw()*
+! 		Send {string} over {handle}.
+  		Works like |ch_sendexpr()|, but does not encode the request or
+  		decode the response.  The caller is responsible for the
+  		correct contents.  Also does not add a newline for a channel
+--- 3243,3250 ----
+  
+  		{only available when compiled with the |+channel| feature}
+  
+! ch_sendraw({handle}, {expr} [, {options}])		*ch_sendraw()*
+! 		Send string or Blob {expr} over {handle}.
+  		Works like |ch_sendexpr()|, but does not encode the request or
+  		decode the response.  The caller is responsible for the
+  		correct contents.  Also does not add a newline for a channel
+***************
+*** 5355,5371 ****
+  		When {lnum} is invalid -1 is returned.
+  
+  
+! index({list}, {expr} [, {start} [, {ic}]])			*index()*
+! 		Return the lowest index in |List| {list} where the item has a
+! 		value equal to {expr}.  There is no automatic conversion, so
+! 		the String "4" is different from the Number 4.  And the number
+! 		4 is different from the Float 4.0.  The value of 'ignorecase'
+! 		is not used here, case always matters.
+  		If {start} is given then start looking at the item with index
+  		{start} (may be negative for an item relative to the end).
+  		When {ic} is given and it is |TRUE|, ignore case.  Otherwise
+  		case must match.
+! 		-1 is returned when {expr} is not found in {list}.
+  		Example: >
+  			:let idx = index(words, "the")
+  			:if index(numbers, 123) >= 0
+--- 5403,5423 ----
+  		When {lnum} is invalid -1 is returned.
+  
+  
+! index({object}, {expr} [, {start} [, {ic}]])			*index()*
+! 		If {object} is a |List| return the lowest index where the item
+! 		has a value equal to {expr}.  There is no automatic
+! 		conversion, so the String "4" is different from the Number 4.
+! 		And the number 4 is different from the Float 4.0.  The value
+! 		of 'ignorecase' is not used here, case always matters.
+! 
+! 		If {object} is |Blob| return the lowest index where the byte
+! 		value is equal to {expr}.
+! 
+  		If {start} is given then start looking at the item with index
+  		{start} (may be negative for an item relative to the end).
+  		When {ic} is given and it is |TRUE|, ignore case.  Otherwise
+  		case must match.
+! 		-1 is returned when {expr} is not found in {object}.
+  		Example: >
+  			:let idx = index(words, "the")
+  			:if index(numbers, 123) >= 0
+***************
+*** 5471,5483 ****
+  		typed on the command-line in response to the issued prompt.
+  		NOTE: Command-line completion is not supported.
+  
+! insert({list}, {item} [, {idx}])			*insert()*
+! 		Insert {item} at the start of |List| {list}.
+  		If {idx} is specified insert {item} before the item with index
+  		{idx}.  If {idx} is zero it goes before the first item, just
+  		like omitting {idx}.  A negative {idx} is also possible, see
+  		|list-index|.  -1 inserts just before the last item.
+! 		Returns the resulting |List|.  Examples: >
+  			:let mylist = insert([2, 3, 5], 1)
+  			:call insert(mylist, 4, -1)
+  			:call insert(mylist, 6, len(mylist))
+--- 5523,5538 ----
+  		typed on the command-line in response to the issued prompt.
+  		NOTE: Command-line completion is not supported.
+  
+! insert({object}, {item} [, {idx}])			*insert()*
+! 		When {object} is a |List| or a |Blob| insert {item} at the start
+! 		of it.
+! 
+  		If {idx} is specified insert {item} before the item with index
+  		{idx}.  If {idx} is zero it goes before the first item, just
+  		like omitting {idx}.  A negative {idx} is also possible, see
+  		|list-index|.  -1 inserts just before the last item.
+! 
+! 		Returns the resulting |List| or |Blob|.  Examples: >
+  			:let mylist = insert([2, 3, 5], 1)
+  			:call insert(mylist, 4, -1)
+  			:call insert(mylist, 6, len(mylist))
+***************
+*** 5743,5748 ****
+--- 5798,5804 ----
+  					used recursively: []
+  		   Dict			as an object (possibly null); when
+  					used recursively: {}
++ 		   Blob			as an array of the individual bytes
+  		   v:false		"false"
+  		   v:true		"true"
+  		   v:none		"null"
+***************
+*** 6923,6938 ****
+  			range(2, 0)		" error!
+  <
+  							*readfile()*
+! readfile({fname} [, {binary} [, {max}]])
+  		Read file {fname} and return a |List|, each line of the file
+  		as an item.  Lines are broken at NL characters.  Macintosh
+  		files separated with CR will result in a single long line
+  		(unless a NL appears somewhere).
+  		All NUL characters are replaced with a NL character.
+! 		When {binary} contains "b" binary mode is used:
+  		- When the last line ends in a NL an extra empty list item is
+  		  added.
+  		- No CR characters are removed.
+  		Otherwise:
+  		- CR characters that appear before a NL are removed.
+  		- Whether the last line ends in a NL or not does not matter.
+--- 6983,7000 ----
+  			range(2, 0)		" error!
+  <
+  							*readfile()*
+! readfile({fname} [, {type} [, {max}]])
+  		Read file {fname} and return a |List|, each line of the file
+  		as an item.  Lines are broken at NL characters.  Macintosh
+  		files separated with CR will result in a single long line
+  		(unless a NL appears somewhere).
+  		All NUL characters are replaced with a NL character.
+! 		When {type} contains "b" binary mode is used:
+  		- When the last line ends in a NL an extra empty list item is
+  		  added.
+  		- No CR characters are removed.
++ 		When {type} contains "B" a |Blob| is returned with the binary
++ 		data of the file unmodified.
+  		Otherwise:
+  		- CR characters that appear before a NL are removed.
+  		- Whether the last line ends in a NL or not does not matter.
+***************
+*** 7108,7113 ****
+--- 7170,7185 ----
+  		Example: >
+  			:echo "last item: " . remove(mylist, -1)
+  			:call remove(mylist, 0, 9)
++ remove({blob}, {idx} [, {end}])
++ 		Without {end}: Remove the byte at {idx} from |Blob| {blob} and
++ 		return the byte.
++ 		With {end}: Remove bytes from {idx} to {end} (inclusive) and
++ 		return a |Blob| with these bytes.  When {idx} points to the same
++ 		byte as {end} a |Blob| with one byte is returned.  When {end}
++ 		points to a byte before {idx} this is an error.
++ 		Example: >
++ 			:echo "last byte: " . remove(myblob, -1)
++ 			:call remove(mylist, 0, 9)
+  remove({dict}, {key})
+  		Remove the entry from {dict} with key {key}.  Example: >
+  			:echo "removed " . remove(dict, "one")
+***************
+*** 7148,7156 ****
+  		path name) and also keeps a trailing path separator.
+  
+  							*reverse()*
+! reverse({list})	Reverse the order of items in {list} in-place.  Returns
+! 		{list}.
+! 		If you want a list to remain unmodified make a copy first: >
+  			:let revlist = reverse(copy(mylist))
+  
+  round({expr})							*round()*
+--- 7220,7230 ----
+  		path name) and also keeps a trailing path separator.
+  
+  							*reverse()*
+! reverse({object})
+! 		Reverse the order of items in {object} in-place.
+! 		{object} can be a |List| or a |Blob|.
+! 		Returns {object}.
+! 		If you want an object to remain unmodified make a copy first: >
+  			:let revlist = reverse(copy(mylist))
+  
+  round({expr})							*round()*
+***************
+*** 9490,9495 ****
+--- 9568,9574 ----
+  			None	    7  |v:t_none| (v:null and v:none)
+  			Job	    8  |v:t_job|
+  			Channel	    9  |v:t_channel|
++ 			Blob	   10  |v:t_blob|
+  		For backward compatibility, this method can be used: >
+  			:if type(myvar) == type(0)
+  			:if type(myvar) == type("")
+***************
+*** 9837,9850 ****
+  
+  
+  							*writefile()*
+! writefile({list}, {fname} [, {flags}])
+! 		Write |List| {list} to file {fname}.  Each list item is
+! 		separated with a NL.  Each list item must be a String or
+! 		Number.
+  		When {flags} contains "b" then binary mode is used: There will
+  		not be a NL after the last list item.  An empty item at the
+  		end does cause the last line in the file to end in a NL.
+  
+  		When {flags} contains "a" then append mode is used, lines are
+  		appended to the file: >
+  			:call writefile(["foo"], "event.log", "a")
+--- 9916,9932 ----
+  
+  
+  							*writefile()*
+! writefile({object}, {fname} [, {flags}])
+! 		When {object} is a |List| write it to file {fname}.  Each list
+! 		item is separated with a NL.  Each list item must be a String
+! 		or Number.
+  		When {flags} contains "b" then binary mode is used: There will
+  		not be a NL after the last list item.  An empty item at the
+  		end does cause the last line in the file to end in a NL.
+  
++ 		When {object} is a |Blob| write the bytes to file {fname}
++ 		unmodified.
++ 
+  		When {flags} contains "a" then append mode is used, lines are
+  		appended to the file: >
+  			:call writefile(["foo"], "event.log", "a")
+***************
+*** 10546,10552 ****
+  			This cannot be used to set a byte in a String.  You
+  			can do that like this: >
+  				:let var = var[0:2] . 'X' . var[4:]
+! <
+  							*E711* *E719*
+  :let {var-name}[{idx1}:{idx2}] = {expr1}		*E708* *E709* *E710*
+  			Set a sequence of items in a |List| to the result of
+--- 10629,10638 ----
+  			This cannot be used to set a byte in a String.  You
+  			can do that like this: >
+  				:let var = var[0:2] . 'X' . var[4:]
+! <			When {var-name} is a |Blob| then {idx} can be the
+! 			length of the blob, in which case one byte is
+! 			appended.
+! 
+  							*E711* *E719*
+  :let {var-name}[{idx1}:{idx2}] = {expr1}		*E708* *E709* *E710*
+  			Set a sequence of items in a |List| to the result of
+*** ../vim-8.1.0734/runtime/doc/if_perl.txt	2018-05-17 13:41:41.000000000 +0200
+--- runtime/doc/if_perl.txt	2019-01-12 18:52:14.238595885 +0100
+***************
+*** 190,195 ****
+--- 191,199 ----
+  			A |List| is turned into a string by joining the items
+  			and inserting line breaks.
+  
++ 							*perl-Blob*
++ VIM::Blob({expr})	Return Blob literal string 0zXXXX from scalar value.
++ 
+  							*perl-SetHeight*
+  Window->SetHeight({height})
+  			Sets the Window height to {height}, within screen
+*** ../vim-8.1.0734/runtime/doc/if_ruby.txt	2018-07-28 17:29:15.757096343 +0200
+--- runtime/doc/if_ruby.txt	2019-01-12 18:52:14.238595885 +0100
+***************
+*** 110,115 ****
+--- 110,119 ----
+  Vim::message({msg})
+  	Displays the message {msg}.
+  
++ 							*ruby-blob*
++ Vim::blob({arg})
++ 	Return Blob literal string from {arg}.
++ 
+  							*ruby-set_option*
+  Vim::set_option({arg})
+  	Sets a vim option.  {arg} can be any argument that the ":set" command
+*** ../vim-8.1.0734/src/Make_cyg_ming.mak	2019-01-12 16:10:47.415360504 +0100
+--- src/Make_cyg_ming.mak	2019-01-12 18:52:14.238595885 +0100
+***************
+*** 696,701 ****
+--- 696,702 ----
+  OBJ = \
+  	$(OUTDIR)/arabic.o \
+  	$(OUTDIR)/beval.o \
++ 	$(OUTDIR)/blob.o \
+  	$(OUTDIR)/blowfish.o \
+  	$(OUTDIR)/buffer.o \
+  	$(OUTDIR)/charset.o \
+*** ../vim-8.1.0734/src/Make_mvc.mak	2019-01-12 16:10:47.415360504 +0100
+--- src/Make_mvc.mak	2019-01-12 18:52:14.238595885 +0100
+***************
+*** 701,706 ****
+--- 701,707 ----
+  OBJ = \
+  	$(OUTDIR)\arabic.obj \
+  	$(OUTDIR)\beval.obj \
++ 	$(OUTDIR)\blob.obj \
+  	$(OUTDIR)\blowfish.obj \
+  	$(OUTDIR)\buffer.obj \
+  	$(OUTDIR)\charset.obj \
+***************
+*** 1346,1351 ****
+--- 1347,1354 ----
+  
+  $(OUTDIR)/beval.obj:	$(OUTDIR) beval.c  $(INCL)
+  
++ $(OUTDIR)/blob.obj:	$(OUTDIR) blob.c  $(INCL)
++ 
+  $(OUTDIR)/blowfish.obj:	$(OUTDIR) blowfish.c  $(INCL)
+  
+  $(OUTDIR)/buffer.obj:	$(OUTDIR) buffer.c  $(INCL)
+***************
+*** 1616,1621 ****
+--- 1619,1625 ----
+  # End Custom Build
+  proto.h: \
+  	proto/arabic.pro \
++ 	proto/blob.pro \
+  	proto/blowfish.pro \
+  	proto/buffer.pro \
+  	proto/charset.pro \
+*** ../vim-8.1.0734/src/Makefile	2019-01-12 16:10:47.415360504 +0100
+--- src/Makefile	2019-01-12 18:52:14.238595885 +0100
+***************
+*** 1577,1582 ****
+--- 1579,1585 ----
+  BASIC_SRC = \
+  	arabic.c \
+  	beval.c \
++ 	blob.c \
+  	blowfish.c \
+  	buffer.c \
+  	charset.c \
+***************
+*** 1693,1698 ****
+--- 1696,1702 ----
+  	objects/arabic.o \
+  	objects/beval.o \
+  	objects/buffer.o \
++ 	objects/blob.o \
+  	objects/blowfish.o \
+  	objects/crypt.o \
+  	objects/crypt_zip.o \
+***************
+*** 2943,2948 ****
+--- 2947,2955 ----
+  objects/arabic.o: arabic.c
+  	$(CCC) -o $@ arabic.c
+  
++ objects/blob.o: blob.c
++ 	$(CCC) -o $@ blob.c
++ 
+  objects/blowfish.o: blowfish.c
+  	$(CCC) -o $@ blowfish.c
+  
+***************
+*** 3395,3400 ****
+--- 3402,3411 ----
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+   proto.h globals.h farsi.h arabic.h
++ objects/blob.o: blob.c vim.h protodef.h auto/config.h feature.h os_unix.h \
++  auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
++  proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
++  proto.h globals.h farsi.h arabic.h
+  objects/blowfish.o: blowfish.c vim.h protodef.h auto/config.h feature.h os_unix.h \
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+*** ../vim-8.1.0734/src/blob.c	2019-01-12 22:40:58.041219177 +0100
+--- src/blob.c	2019-01-12 20:30:51.295186522 +0100
+***************
+*** 0 ****
+--- 1,167 ----
++ /* vi:set ts=8 sts=4 sw=4 noet:
++  *
++  * VIM - Vi IMproved	by Bram Moolenaar
++  *
++  * Do ":help uganda"  in Vim to read copying and usage conditions.
++  * Do ":help credits" in Vim to see a list of people who contributed.
++  * See README.txt for an overview of the Vim source code.
++  */
++ 
++ /*
++  * blob.c: Blob support by Yasuhiro Matsumoto
++  */
++ 
++ #include "vim.h"
++ 
++ #if defined(FEAT_EVAL) || defined(PROTO)
++ 
++ /*
++  * Allocate an empty blob.
++  * Caller should take care of the reference count.
++  */
++     blob_T *
++ blob_alloc(void)
++ {
++     blob_T *blob = (blob_T *)alloc_clear(sizeof(blob_T));
++ 
++     if (blob != NULL)
++ 	ga_init2(&blob->bv_ga, 1, 100);
++     return blob;
++ }
++ 
++ /*
++  * Allocate an empty blob for a return value, with reference count set.
++  * Returns OK or FAIL.
++  */
++     int
++ rettv_blob_alloc(typval_T *rettv)
++ {
++     blob_T	*b = blob_alloc();
++ 
++     if (b == NULL)
++ 	return FAIL;
++ 
++     rettv_blob_set(rettv, b);
++     return OK;
++ }
++ 
++ /*
++  * Set a blob as the return value.
++  */
++     void
++ rettv_blob_set(typval_T *rettv, blob_T *b)
++ {
++     rettv->v_type = VAR_BLOB;
++     rettv->vval.v_blob = b;
++     if (b != NULL)
++ 	++b->bv_refcount;
++ }
++ 
++     void
++ blob_free(blob_T *b)
++ {
++     ga_clear(&b->bv_ga);
++     vim_free(b);
++ }
++ 
++ /*
++  * Unreference a blob: decrement the reference count and free it when it
++  * becomes zero.
++  */
++     void
++ blob_unref(blob_T *b)
++ {
++     if (b != NULL && --b->bv_refcount <= 0)
++ 	blob_free(b);
++ }
++ 
++ /*
++  * Get the length of data.
++  */
++     long
++ blob_len(blob_T *b)
++ {
++     if (b == NULL)
++ 	return 0L;
++     return b->bv_ga.ga_len;
++ }
++ 
++ /*
++  * Get byte "idx" in blob "b".
++  * Caller must check that "idx" is valid.
++  */
++     char_u
++ blob_get(blob_T *b, int idx)
++ {
++     return ((char_u*)b->bv_ga.ga_data)[idx];
++ }
++ 
++ /*
++  * Store one byte "c" in blob "b" at "idx".
++  * Caller must make sure that "idx" is valid.
++  */
++     void
++ blob_set(blob_T *b, int idx, char_u c)
++ {
++     ((char_u*)b->bv_ga.ga_data)[idx] = c;
++ }
++ 
++ /*
++  * Return TRUE when two blobs have exactly the same values.
++  */
++     int
++ blob_equal(
++     blob_T	*b1,
++     blob_T	*b2)
++ {
++     int i;
++ 
++     if (b1 == NULL || b2 == NULL)
++ 	return FALSE;
++     if (b1 == b2)
++ 	return TRUE;
++     if (blob_len(b1) != blob_len(b2))
++ 	return FALSE;
++ 
++     for (i = 0; i < b1->bv_ga.ga_len; i++)
++ 	if (blob_get(b1, i) != blob_get(b2, i)) return FALSE;
++     return TRUE;
++ }
++ 
++ /*
++  * Read "blob" from file "fd".
++  * Return OK or FAIL.
++  */
++     int
++ read_blob(FILE *fd, blob_T *blob)
++ {
++     struct stat	st;
++ 
++     if (fstat(fileno(fd), &st) < 0)
++ 	return FAIL;
++     if (ga_grow(&blob->bv_ga, st.st_size) == FAIL)
++ 	return FAIL;
++     blob->bv_ga.ga_len = st.st_size;
++     if (fread(blob->bv_ga.ga_data, 1, blob->bv_ga.ga_len, fd)
++ 						  < (size_t)blob->bv_ga.ga_len)
++ 	return FAIL;
++     return OK;
++ }
++ 
++ /*
++  * Write "blob" to file "fd".
++  * Return OK or FAIL.
++  */
++     int
++ write_blob(FILE *fd, blob_T *blob)
++ {
++     if (fwrite(blob->bv_ga.ga_data, 1, blob->bv_ga.ga_len, fd)
++ 						  < (size_t)blob->bv_ga.ga_len)
++     {
++ 	EMSG(_(e_write));
++ 	return FAIL;
++     }
++     return OK;
++ }
++ 
++ #endif /* defined(FEAT_EVAL) */
+*** ../vim-8.1.0734/src/channel.c	2019-01-05 00:02:52.045705776 +0100
+--- src/channel.c	2019-01-12 20:58:35.124077325 +0100
+***************
+*** 1665,1671 ****
+   * Returns NULL if there is nothing.
+   */
+      char_u *
+! channel_get(channel_T *channel, ch_part_T part)
+  {
+      readq_T *head = &channel->ch_part[part].ch_head;
+      readq_T *node = head->rq_next;
+--- 1665,1671 ----
+   * Returns NULL if there is nothing.
+   */
+      char_u *
+! channel_get(channel_T *channel, ch_part_T part, int *outlen)
+  {
+      readq_T *head = &channel->ch_part[part].ch_head;
+      readq_T *node = head->rq_next;
+***************
+*** 1673,1678 ****
+--- 1673,1680 ----
+  
+      if (node == NULL)
+  	return NULL;
++     if (outlen != NULL)
++ 	*outlen += node->rq_buflen;
+      /* dispose of the node but keep the buffer */
+      p = node->rq_buffer;
+      head->rq_next = node->rq_next;
+***************
+*** 1689,1695 ****
+   * Replaces NUL bytes with NL.
+   */
+      static char_u *
+! channel_get_all(channel_T *channel, ch_part_T part)
+  {
+      readq_T *head = &channel->ch_part[part].ch_head;
+      readq_T *node = head->rq_next;
+--- 1691,1697 ----
+   * Replaces NUL bytes with NL.
+   */
+      static char_u *
+! channel_get_all(channel_T *channel, ch_part_T part, int *outlen)
+  {
+      readq_T *head = &channel->ch_part[part].ch_head;
+      readq_T *node = head->rq_next;
+***************
+*** 1699,1705 ****
+  
+      /* If there is only one buffer just get that one. */
+      if (head->rq_next == NULL || head->rq_next->rq_next == NULL)
+! 	return channel_get(channel, part);
+  
+      /* Concatenate everything into one buffer. */
+      for (node = head->rq_next; node != NULL; node = node->rq_next)
+--- 1701,1707 ----
+  
+      /* If there is only one buffer just get that one. */
+      if (head->rq_next == NULL || head->rq_next->rq_next == NULL)
+! 	return channel_get(channel, part, outlen);
+  
+      /* Concatenate everything into one buffer. */
+      for (node = head->rq_next; node != NULL; node = node->rq_next)
+***************
+*** 1718,1727 ****
+      /* Free all buffers */
+      do
+      {
+! 	p = channel_get(channel, part);
+  	vim_free(p);
+      } while (p != NULL);
+  
+      /* turn all NUL into NL */
+      while (len > 0)
+      {
+--- 1720,1735 ----
+      /* Free all buffers */
+      do
+      {
+! 	p = channel_get(channel, part, NULL);
+  	vim_free(p);
+      } while (p != NULL);
+  
++     if (outlen != NULL)
++     {
++ 	*outlen += len;
++ 	return res;
++     }
++ 
+      /* turn all NUL into NL */
+      while (len > 0)
+      {
+***************
+*** 1893,1899 ****
+  {
+      channel_T	*channel = (channel_T *)reader->js_cookie;
+      ch_part_T	part = reader->js_cookie_arg;
+!     char_u	*next = channel_get(channel, part);
+      int		keeplen;
+      int		addlen;
+      char_u	*p;
+--- 1901,1907 ----
+  {
+      channel_T	*channel = (channel_T *)reader->js_cookie;
+      ch_part_T	part = reader->js_cookie_arg;
+!     char_u	*next = channel_get(channel, part, NULL);
+      int		keeplen;
+      int		addlen;
+      char_u	*p;
+***************
+*** 1942,1948 ****
+      if (channel_peek(channel, part) == NULL)
+  	return FALSE;
+  
+!     reader.js_buf = channel_get(channel, part);
+      reader.js_used = 0;
+      reader.js_fill = channel_fill;
+      reader.js_cookie = channel;
+--- 1950,1956 ----
+      if (channel_peek(channel, part) == NULL)
+  	return FALSE;
+  
+!     reader.js_buf = channel_get(channel, part, NULL);
+      reader.js_used = 0;
+      reader.js_fill = channel_fill;
+      reader.js_cookie = channel;
+***************
+*** 2475,2481 ****
+  {
+      char_u *msg;
+  
+!     while ((msg = channel_get(channel, part)) != NULL)
+      {
+  	ch_log(channel, "Dropping message '%s'", (char *)msg);
+  	vim_free(msg);
+--- 2483,2489 ----
+  {
+      char_u *msg;
+  
+!     while ((msg = channel_get(channel, part, NULL)) != NULL)
+      {
+  	ch_log(channel, "Dropping message '%s'", (char *)msg);
+  	vim_free(msg);
+***************
+*** 2639,2645 ****
+  	    if (nl + 1 == buf + node->rq_buflen)
+  	    {
+  		/* get the whole buffer, drop the NL */
+! 		msg = channel_get(channel, part);
+  		*nl = NUL;
+  	    }
+  	    else
+--- 2647,2653 ----
+  	    if (nl + 1 == buf + node->rq_buflen)
+  	    {
+  		/* get the whole buffer, drop the NL */
+! 		msg = channel_get(channel, part, NULL);
+  		*nl = NUL;
+  	    }
+  	    else
+***************
+*** 2655,2661 ****
+  	    /* For a raw channel we don't know where the message ends, just
+  	     * get everything we have.
+  	     * Convert NUL to NL, the internal representation. */
+! 	    msg = channel_get_all(channel, part);
+  	}
+  
+  	if (msg == NULL)
+--- 2663,2669 ----
+  	    /* For a raw channel we don't know where the message ends, just
+  	     * get everything we have.
+  	     * Convert NUL to NL, the internal representation. */
+! 	    msg = channel_get_all(channel, part, NULL);
+  	}
+  
+  	if (msg == NULL)
+***************
+*** 3007,3013 ****
+      cbq_T   *cb_head = &ch_part->ch_cb_head;
+  
+      while (channel_peek(channel, part) != NULL)
+! 	vim_free(channel_get(channel, part));
+  
+      while (cb_head->cq_next != NULL)
+      {
+--- 3015,3021 ----
+      cbq_T   *cb_head = &ch_part->ch_cb_head;
+  
+      while (channel_peek(channel, part) != NULL)
+! 	vim_free(channel_get(channel, part, NULL));
+  
+      while (cb_head->cq_next != NULL)
+      {
+***************
+*** 3381,3387 ****
+   * Returns NULL in case of error or timeout.
+   */
+      static char_u *
+! channel_read_block(channel_T *channel, ch_part_T part, int timeout, int raw)
+  {
+      char_u	*buf;
+      char_u	*msg;
+--- 3389,3396 ----
+   * Returns NULL in case of error or timeout.
+   */
+      static char_u *
+! channel_read_block(
+! 	channel_T *channel, ch_part_T part, int timeout, int raw, int *outlen)
+  {
+      char_u	*buf;
+      char_u	*msg;
+***************
+*** 3422,3430 ****
+      }
+  
+      /* We have a complete message now. */
+!     if (mode == MODE_RAW)
+      {
+! 	msg = channel_get_all(channel, part);
+      }
+      else
+      {
+--- 3431,3439 ----
+      }
+  
+      /* We have a complete message now. */
+!     if (mode == MODE_RAW || outlen != NULL)
+      {
+! 	msg = channel_get_all(channel, part, outlen);
+      }
+      else
+      {
+***************
+*** 3441,3452 ****
+  	if (nl == NULL)
+  	{
+  	    /* must be a closed channel with missing NL */
+! 	    msg = channel_get(channel, part);
+  	}
+  	else if (nl + 1 == buf + node->rq_buflen)
+  	{
+  	    /* get the whole buffer */
+! 	    msg = channel_get(channel, part);
+  	    *nl = NUL;
+  	}
+  	else
+--- 3450,3461 ----
+  	if (nl == NULL)
+  	{
+  	    /* must be a closed channel with missing NL */
+! 	    msg = channel_get(channel, part, NULL);
+  	}
+  	else if (nl + 1 == buf + node->rq_buflen)
+  	{
+  	    /* get the whole buffer */
+! 	    msg = channel_get(channel, part, NULL);
+  	    *nl = NUL;
+  	}
+  	else
+***************
+*** 3554,3560 ****
+   * Common for ch_read() and ch_readraw().
+   */
+      void
+! common_channel_read(typval_T *argvars, typval_T *rettv, int raw)
+  {
+      channel_T	*channel;
+      ch_part_T	part = PART_COUNT;
+--- 3563,3569 ----
+   * Common for ch_read() and ch_readraw().
+   */
+      void
+! common_channel_read(typval_T *argvars, typval_T *rettv, int raw, int blob)
+  {
+      channel_T	*channel;
+      ch_part_T	part = PART_COUNT;
+***************
+*** 3585,3593 ****
+  	if (opt.jo_set & JO_TIMEOUT)
+  	    timeout = opt.jo_timeout;
+  
+! 	if (raw || mode == MODE_RAW || mode == MODE_NL)
+  	    rettv->vval.v_string = channel_read_block(channel, part,
+! 								 timeout, raw);
+  	else
+  	{
+  	    if (opt.jo_set & JO_ID)
+--- 3594,3625 ----
+  	if (opt.jo_set & JO_TIMEOUT)
+  	    timeout = opt.jo_timeout;
+  
+! 	if (blob)
+! 	{
+! 	    int	    outlen = 0;
+! 	    char_u  *p = channel_read_block(channel, part,
+! 						       timeout, TRUE, &outlen);
+! 	    if (p != NULL)
+! 	    {
+! 		blob_T	*b = blob_alloc();
+! 
+! 		if (b != NULL)
+! 		{
+! 		    b->bv_ga.ga_len = outlen;
+! 		    if (ga_grow(&b->bv_ga, outlen) == FAIL)
+! 			blob_free(b);
+! 		    else
+! 		    {
+! 			memcpy(b->bv_ga.ga_data, p, outlen);
+! 			rettv_blob_set(rettv, b);
+! 		    }
+! 		}
+! 		vim_free(p);
+! 	    }
+! 	}
+! 	else if (raw || mode == MODE_RAW || mode == MODE_NL)
+  	    rettv->vval.v_string = channel_read_block(channel, part,
+! 							 timeout, raw, NULL);
+  	else
+  	{
+  	    if (opt.jo_set & JO_ID)
+***************
+*** 3905,3910 ****
+--- 3937,3943 ----
+  send_common(
+  	typval_T    *argvars,
+  	char_u	    *text,
++ 	int	    len,
+  	int	    id,
+  	int	    eval,
+  	jobopt_T    *opt,
+***************
+*** 3938,3944 ****
+  				       opt->jo_callback, opt->jo_partial, id);
+      }
+  
+!     if (channel_send(channel, part_send, text, (int)STRLEN(text), fun) == OK
+  						  && opt->jo_callback == NULL)
+  	return channel;
+      return NULL;
+--- 3971,3977 ----
+  				       opt->jo_callback, opt->jo_partial, id);
+      }
+  
+!     if (channel_send(channel, part_send, text, len, fun) == OK
+  						  && opt->jo_callback == NULL)
+  	return channel;
+      return NULL;
+***************
+*** 3982,3988 ****
+      if (text == NULL)
+  	return;
+  
+!     channel = send_common(argvars, text, id, eval, &opt,
+  			    eval ? "ch_evalexpr" : "ch_sendexpr", &part_read);
+      vim_free(text);
+      if (channel != NULL && eval)
+--- 4015,4021 ----
+      if (text == NULL)
+  	return;
+  
+!     channel = send_common(argvars, text, (int)STRLEN(text), id, eval, &opt,
+  			    eval ? "ch_evalexpr" : "ch_sendexpr", &part_read);
+      vim_free(text);
+      if (channel != NULL && eval)
+***************
+*** 4014,4019 ****
+--- 4047,4053 ----
+  {
+      char_u	buf[NUMBUFLEN];
+      char_u	*text;
++     int		len;
+      channel_T	*channel;
+      ch_part_T	part_read;
+      jobopt_T    opt;
+***************
+*** 4023,4030 ****
+      rettv->v_type = VAR_STRING;
+      rettv->vval.v_string = NULL;
+  
+!     text = tv_get_string_buf(&argvars[1], buf);
+!     channel = send_common(argvars, text, 0, eval, &opt,
+  			      eval ? "ch_evalraw" : "ch_sendraw", &part_read);
+      if (channel != NULL && eval)
+      {
+--- 4057,4073 ----
+      rettv->v_type = VAR_STRING;
+      rettv->vval.v_string = NULL;
+  
+!     if (argvars[1].v_type == VAR_BLOB)
+!     {
+! 	text = argvars[1].vval.v_blob->bv_ga.ga_data;
+! 	len = argvars[1].vval.v_blob->bv_ga.ga_len;
+!     }
+!     else
+!     {
+! 	text = tv_get_string_buf(&argvars[1], buf);
+! 	len = STRLEN(text);
+!     }
+!     channel = send_common(argvars, text, len, 0, eval, &opt,
+  			      eval ? "ch_evalraw" : "ch_sendraw", &part_read);
+      if (channel != NULL && eval)
+      {
+***************
+*** 4033,4039 ****
+  	else
+  	    timeout = channel_get_timeout(channel, part_read);
+  	rettv->vval.v_string = channel_read_block(channel, part_read,
+! 								timeout, TRUE);
+      }
+      free_job_options(&opt);
+  }
+--- 4076,4082 ----
+  	else
+  	    timeout = channel_get_timeout(channel, part_read);
+  	rettv->vval.v_string = channel_read_block(channel, part_read,
+! 							timeout, TRUE, NULL);
+      }
+      free_job_options(&opt);
+  }
+*** ../vim-8.1.0734/src/eval.c	2018-12-22 13:27:59.115503998 +0100
+--- src/eval.c	2019-01-12 22:02:53.262933357 +0100
+***************
+*** 78,83 ****
+--- 78,85 ----
+      int		fi_varcount;	/* nr of variables in the list */
+      listwatch_T	fi_lw;		/* keep an eye on the item used. */
+      list_T	*fi_list;	/* list being used */
++     int		fi_bi;		/* index of blob */
++     blob_T	*fi_blob;	/* blob being used */
+  } forinfo_T;
+  
+  
+***************
+*** 187,192 ****
+--- 189,195 ----
+      {VV_NAME("t_none",		 VAR_NUMBER), VV_RO},
+      {VV_NAME("t_job",		 VAR_NUMBER), VV_RO},
+      {VV_NAME("t_channel",	 VAR_NUMBER), VV_RO},
++     {VV_NAME("t_blob",		 VAR_NUMBER), VV_RO},
+      {VV_NAME("termrfgresp",	 VAR_STRING), VV_RO},
+      {VV_NAME("termrbgresp",	 VAR_STRING), VV_RO},
+      {VV_NAME("termu7resp",	 VAR_STRING), VV_RO},
+***************
+*** 202,207 ****
+--- 205,211 ----
+  #define vv_str		vv_di.di_tv.vval.v_string
+  #define vv_list		vv_di.di_tv.vval.v_list
+  #define vv_dict		vv_di.di_tv.vval.v_dict
++ #define vv_blob		vv_di.di_tv.vval.v_blob
+  #define vv_tv		vv_di.di_tv
+  
+  static dictitem_T	vimvars_var;		/* variable used for v: */
+***************
+*** 338,343 ****
+--- 342,348 ----
+      set_vim_var_nr(VV_TYPE_NONE,    VAR_TYPE_NONE);
+      set_vim_var_nr(VV_TYPE_JOB,     VAR_TYPE_JOB);
+      set_vim_var_nr(VV_TYPE_CHANNEL, VAR_TYPE_CHANNEL);
++     set_vim_var_nr(VV_TYPE_BLOB,    VAR_TYPE_BLOB);
+  
+      set_reg_var(0);  /* default for v:register is not 0 but '"' */
+  
+***************
+*** 1918,1927 ****
+      {
+  	if (!(lp->ll_tv->v_type == VAR_LIST && lp->ll_tv->vval.v_list != NULL)
+  		&& !(lp->ll_tv->v_type == VAR_DICT
+! 					   && lp->ll_tv->vval.v_dict != NULL))
+  	{
+  	    if (!quiet)
+! 		EMSG(_("E689: Can only index a List or Dictionary"));
+  	    return NULL;
+  	}
+  	if (lp->ll_range)
+--- 1923,1934 ----
+      {
+  	if (!(lp->ll_tv->v_type == VAR_LIST && lp->ll_tv->vval.v_list != NULL)
+  		&& !(lp->ll_tv->v_type == VAR_DICT
+! 					   && lp->ll_tv->vval.v_dict != NULL)
+! 		&& !(lp->ll_tv->v_type == VAR_BLOB
+! 					   && lp->ll_tv->vval.v_blob != NULL))
+  	{
+  	    if (!quiet)
+! 		EMSG(_("E689: Can only index a List, Dictionary or Blob"));
+  	    return NULL;
+  	}
+  	if (lp->ll_range)
+***************
+*** 1974,1984 ****
+  		    clear_tv(&var1);
+  		    return NULL;
+  		}
+! 		if (rettv != NULL && (rettv->v_type != VAR_LIST
+! 					       || rettv->vval.v_list == NULL))
+  		{
+  		    if (!quiet)
+! 			EMSG(_("E709: [:] requires a List value"));
+  		    clear_tv(&var1);
+  		    return NULL;
+  		}
+--- 1981,1994 ----
+  		    clear_tv(&var1);
+  		    return NULL;
+  		}
+! 		if (rettv != NULL
+! 			&& !(rettv->v_type == VAR_LIST
+! 			    || rettv->vval.v_list != NULL)
+! 			&& !(rettv->v_type == VAR_BLOB
+! 			    || rettv->vval.v_blob != NULL))
+  		{
+  		    if (!quiet)
+! 			EMSG(_("E709: [:] requires a List or Blob value"));
+  		    clear_tv(&var1);
+  		    return NULL;
+  		}
+***************
+*** 2097,2102 ****
+--- 2107,2139 ----
+  	    clear_tv(&var1);
+  	    lp->ll_tv = &lp->ll_di->di_tv;
+  	}
++ 	else if (lp->ll_tv->v_type == VAR_BLOB)
++ 	{
++ 	    /*
++ 	     * Get the number and item for the only or first index of the List.
++ 	     */
++ 	    if (empty1)
++ 		lp->ll_n1 = 0;
++ 	    else
++ 		// is number or string
++ 		lp->ll_n1 = (long)tv_get_number(&var1);
++ 	    clear_tv(&var1);
++ 
++ 	    if (lp->ll_n1 < 0
++ 		    || lp->ll_n1 > blob_len(lp->ll_tv->vval.v_blob))
++ 	    {
++ 		if (!quiet)
++ 		    EMSGN(_(e_listidx), lp->ll_n1);
++ 		return NULL;
++ 	    }
++ 	    if (lp->ll_range && !lp->ll_empty2)
++ 	    {
++ 		lp->ll_n2 = (long)tv_get_number(&var2);
++ 		clear_tv(&var2);
++ 	    }
++ 	    lp->ll_blob = lp->ll_tv->vval.v_blob;
++ 	    lp->ll_tv = NULL;
++ 	}
+  	else
+  	{
+  	    /*
+***************
+*** 2201,2207 ****
+      {
+  	cc = *endp;
+  	*endp = NUL;
+! 	if (op != NULL && *op != '=')
+  	{
+  	    typval_T tv;
+  
+--- 2238,2289 ----
+      {
+  	cc = *endp;
+  	*endp = NUL;
+! 	if (lp->ll_blob != NULL)
+! 	{
+! 	    int	    error = FALSE, val;
+! 	    if (op != NULL && *op != '=')
+! 	    {
+! 		EMSG2(_(e_letwrong), op);
+! 		return;
+! 	    }
+! 
+! 	    if (lp->ll_range && rettv->v_type == VAR_BLOB)
+! 	    {
+! 		int	i;
+! 
+! 		if (blob_len(rettv->vval.v_blob) != blob_len(lp->ll_blob))
+! 		{
+! 		    EMSG(_("E972: Blob value has more items than target"));
+! 		    return;
+! 		}
+! 
+! 		for (i = lp->ll_n1; i <= lp->ll_n2; i++)
+! 		    blob_set(lp->ll_blob, i,
+! 			    blob_get(rettv->vval.v_blob, i));
+! 	    }
+! 	    else
+! 	    {
+! 		val = (int)tv_get_number_chk(rettv, &error);
+! 		if (!error)
+! 		{
+! 		    garray_T *gap = &lp->ll_blob->bv_ga;
+! 
+! 		    // Allow for appending a byte.  Setting a byte beyond
+! 		    // the end is an error otherwise.
+! 		    if (lp->ll_n1 < gap->ga_len
+! 			    || (lp->ll_n1 == gap->ga_len
+! 				&& ga_grow(&lp->ll_blob->bv_ga, 1) == OK))
+! 		    {
+! 			blob_set(lp->ll_blob, lp->ll_n1, val);
+! 			if (lp->ll_n1 == gap->ga_len)
+! 			    ++gap->ga_len;
+! 		    }
+! 		    else
+! 			EMSG(_(e_invrange));
+! 		}
+! 	    }
+! 	}
+! 	else if (op != NULL && *op != '=')
+  	{
+  	    typval_T tv;
+  
+***************
+*** 2352,2357 ****
+--- 2434,2453 ----
+  	    case VAR_CHANNEL:
+  		break;
+  
++ 	    case VAR_BLOB:
++ 		if (*op != '+' || tv2->v_type != VAR_BLOB)
++ 		    break;
++ 		// BLOB += BLOB
++ 		if (tv1->vval.v_blob != NULL && tv2->vval.v_blob != NULL)
++ 		{
++ 		    blob_T  *b1 = tv1->vval.v_blob;
++ 		    blob_T  *b2 = tv2->vval.v_blob;
++ 		    int	i, len = blob_len(b2);
++ 		    for (i = 0; i < len; i++)
++ 			ga_append(&b1->bv_ga, blob_get(b2, i));
++ 		}
++ 		return OK;
++ 
+  	    case VAR_LIST:
+  		if (*op != '+' || tv2->v_type != VAR_LIST)
+  		    break;
+***************
+*** 2451,2456 ****
+--- 2547,2553 ----
+      char_u	*expr;
+      typval_T	tv;
+      list_T	*l;
++     blob_T	*b;
+  
+      *errp = TRUE;	/* default: there is an error */
+  
+***************
+*** 2476,2499 ****
+  	*errp = FALSE;
+  	if (!skip)
+  	{
+! 	    l = tv.vval.v_list;
+! 	    if (tv.v_type != VAR_LIST)
+  	    {
+! 		EMSG(_(e_listreq));
+! 		clear_tv(&tv);
+  	    }
+! 	    else if (l == NULL)
+  	    {
+! 		/* a null list is like an empty list: do nothing */
+! 		clear_tv(&tv);
+  	    }
+  	    else
+  	    {
+! 		/* No need to increment the refcount, it's already set for the
+! 		 * list being used in "tv". */
+! 		fi->fi_list = l;
+! 		list_add_watch(l, &fi->fi_lw);
+! 		fi->fi_lw.lw_item = l->lv_first;
+  	    }
+  	}
+      }
+--- 2573,2610 ----
+  	*errp = FALSE;
+  	if (!skip)
+  	{
+! 	    if (tv.v_type == VAR_LIST)
+  	    {
+! 		l = tv.vval.v_list;
+! 		if (l == NULL)
+! 		{
+! 		    // a null list is like an empty list: do nothing
+! 		    clear_tv(&tv);
+! 		}
+! 		else
+! 		{
+! 		    // No need to increment the refcount, it's already set for
+! 		    // the list being used in "tv".
+! 		    fi->fi_list = l;
+! 		    list_add_watch(l, &fi->fi_lw);
+! 		    fi->fi_lw.lw_item = l->lv_first;
+! 		}
+  	    }
+! 	    else if (tv.v_type == VAR_BLOB)
+  	    {
+! 		b = tv.vval.v_blob;
+! 		if (b == NULL)
+! 		    clear_tv(&tv);
+! 		else
+! 		{
+! 		    fi->fi_blob = b;
+! 		    fi->fi_bi = 0;
+! 		}
+  	    }
+  	    else
+  	    {
+! 		EMSG(_(e_listreq));
+! 		clear_tv(&tv);
+  	    }
+  	}
+      }
+***************
+*** 2516,2521 ****
+--- 2627,2646 ----
+      int		result;
+      listitem_T	*item;
+  
++     if (fi->fi_blob != NULL)
++     {
++ 	typval_T	tv;
++ 
++ 	if (fi->fi_bi >= blob_len(fi->fi_blob))
++ 	    return FALSE;
++ 	tv.v_type = VAR_NUMBER;
++ 	tv.v_lock = VAR_FIXED;
++ 	tv.vval.v_number = blob_get(fi->fi_blob, fi->fi_bi);
++ 	++fi->fi_bi;
++ 	return ex_let_vars(arg, &tv, TRUE,
++ 			      fi->fi_semicolon, fi->fi_varcount, NULL) == OK;
++     }
++ 
+      item = fi->fi_lw.lw_item;
+      if (item == NULL)
+  	result = FALSE;
+***************
+*** 2955,2960 ****
+--- 3080,3086 ----
+      list_T	*l;
+      listitem_T	*li;
+      dict_T	*d;
++     blob_T	*b;
+      hashitem_T	*hi;
+      int		todo;
+  
+***************
+*** 2986,2991 ****
+--- 3112,3126 ----
+  	case VAR_CHANNEL:
+  	    break;
+  
++ 	case VAR_BLOB:
++ 	    if ((b = tv->vval.v_blob) != NULL)
++ 	    {
++ 		if (lock)
++ 		    b->bv_lock |= VAR_LOCKED;
++ 		else
++ 		    b->bv_lock &= ~VAR_LOCKED;
++ 	    }
++ 	    break;
+  	case VAR_LIST:
+  	    if ((l = tv->vval.v_list) != NULL)
+  	    {
+***************
+*** 3609,3615 ****
+  	if (op != '+' && op != '-' && op != '.')
+  	    break;
+  
+! 	if ((op != '+' || rettv->v_type != VAR_LIST)
+  #ifdef FEAT_FLOAT
+  		&& (op == '.' || rettv->v_type != VAR_FLOAT)
+  #endif
+--- 3744,3751 ----
+  	if (op != '+' && op != '-' && op != '.')
+  	    break;
+  
+! 	if ((op != '+' || (rettv->v_type != VAR_LIST
+! 						 && rettv->v_type != VAR_BLOB))
+  #ifdef FEAT_FLOAT
+  		&& (op == '.' || rettv->v_type != VAR_FLOAT)
+  #endif
+***************
+*** 3659,3664 ****
+--- 3795,3819 ----
+  		rettv->v_type = VAR_STRING;
+  		rettv->vval.v_string = p;
+  	    }
++ 	    else if (op == '+' && rettv->v_type == VAR_BLOB
++ 						   && var2.v_type == VAR_BLOB)
++ 	    {
++ 		blob_T  *b1 = rettv->vval.v_blob;
++ 		blob_T  *b2 = var2.vval.v_blob;
++ 		blob_T	*b = blob_alloc();
++ 		int	i;
++ 
++ 		if (b != NULL)
++ 		{
++ 		    for (i = 0; i < blob_len(b1); i++)
++ 			ga_append(&b->bv_ga, blob_get(b1, i));
++ 		    for (i = 0; i < blob_len(b2); i++)
++ 			ga_append(&b->bv_ga, blob_get(b2, i));
++ 
++ 		    clear_tv(rettv);
++ 		    rettv_blob_set(rettv, b);
++ 		}
++ 	    }
+  	    else if (op == '+' && rettv->v_type == VAR_LIST
+  						   && var2.v_type == VAR_LIST)
+  	    {
+***************
+*** 3921,3926 ****
+--- 4076,4082 ----
+  /*
+   * Handle sixth level expression:
+   *  number		number constant
++  *  0zFFFFFFFF		Blob constant
+   *  "string"		string constant
+   *  'string'		literal string constant
+   *  &option-name	option value
+***************
+*** 4027,4033 ****
+--- 4183,4220 ----
+  		}
+  		else
+  #endif
++ 		if (**arg == '0' && ((*arg)[1] == 'z' || (*arg)[1] == 'Z'))
+  		{
++ 		    char_u  *bp;
++ 		    blob_T  *blob;
++ 
++ 		    // Blob constant: 0z0123456789abcdef
++ 		    if (evaluate)
++ 			blob = blob_alloc();
++ 		    for (bp = *arg + 2; vim_isxdigit(bp[0]); bp += 2)
++ 		    {
++ 			if (!vim_isxdigit(bp[1]))
++ 			{
++ 			    EMSG(_("E973: Blob literal should have an even number of hex characters'"));
++ 			    vim_free(blob);
++ 			    ret = FAIL;
++ 			    break;
++ 			}
++ 			if (blob != NULL)
++ 			    ga_append(&blob->bv_ga,
++ 					 (hex2nr(*bp) << 4) + hex2nr(*(bp+1)));
++ 		    }
++ 		    if (blob != NULL)
++ 		    {
++ 			++blob->bv_refcount;
++ 			rettv->v_type = VAR_BLOB;
++ 			rettv->vval.v_blob = blob;
++ 		    }
++ 		    *arg = bp;
++ 		}
++ 		else
++ 		{
++ 		    // decimal, hex or octal number
+  		    vim_str2nr(*arg, NULL, &len, STR2NR_ALL, &n, NULL, 0);
+  		    *arg += len;
+  		    if (evaluate)
+***************
+*** 4263,4268 ****
+--- 4450,4456 ----
+  {
+      int		empty1 = FALSE, empty2 = FALSE;
+      typval_T	var1, var2;
++     long	i;
+      long	n1, n2 = 0;
+      long	len = -1;
+      int		range = FALSE;
+***************
+*** 4297,4302 ****
+--- 4485,4491 ----
+  	case VAR_NUMBER:
+  	case VAR_LIST:
+  	case VAR_DICT:
++ 	case VAR_BLOB:
+  	    break;
+      }
+  
+***************
+*** 4439,4444 ****
+--- 4628,4694 ----
+  		rettv->vval.v_string = s;
+  		break;
+  
++ 	    case VAR_BLOB:
++ 		len = blob_len(rettv->vval.v_blob);
++ 		if (range)
++ 		{
++ 		    // The resulting variable is a substring.  If the indexes
++ 		    // are out of range the result is empty.
++ 		    if (n1 < 0)
++ 		    {
++ 			n1 = len + n1;
++ 			if (n1 < 0)
++ 			    n1 = 0;
++ 		    }
++ 		    if (n2 < 0)
++ 			n2 = len + n2;
++ 		    else if (n2 >= len)
++ 			n2 = len - 1;
++ 		    if (n1 >= len || n2 < 0 || n1 > n2)
++ 		    {
++ 			clear_tv(rettv);
++ 			rettv->v_type = VAR_BLOB;
++ 			rettv->vval.v_blob = NULL;
++ 		    }
++ 		    else
++ 		    {
++ 			blob_T  *blob = blob_alloc();
++ 
++ 			if (blob != NULL)
++ 			{
++ 			    if (ga_grow(&blob->bv_ga, n2 - n1 + 1) == FAIL)
++ 			    {
++ 				blob_free(blob);
++ 				return FAIL;
++ 			    }
++ 			    blob->bv_ga.ga_len = n2 - n1 + 1;
++ 			    for (i = n1; i <= n2; i++)
++ 				blob_set(blob, i - n1,
++ 					      blob_get(rettv->vval.v_blob, i));
++ 
++ 			    clear_tv(rettv);
++ 			    rettv_blob_set(rettv, blob);
++ 			}
++ 		    }
++ 		}
++ 		else
++ 		{
++ 		    // The resulting variable is a string of a single
++ 		    // character.  If the index is too big or negative the
++ 		    // result is empty.
++ 		    if (n1 < len && n1 >= 0)
++ 		    {
++ 			int v = (int)blob_get(rettv->vval.v_blob, n1);
++ 
++ 			clear_tv(rettv);
++ 			rettv->v_type = VAR_NUMBER;
++ 			rettv->vval.v_number = v;
++ 		    }
++ 		    else
++ 			EMSGN(_(e_blobidx), n1);
++ 		}
++ 		break;
++ 
+  	    case VAR_LIST:
+  		len = list_len(rettv->vval.v_list);
+  		if (n1 < 0)
+***************
+*** 4970,4975 ****
+--- 5220,5228 ----
+  	    --recursive_cnt;
+  	    return r;
+  
++ 	case VAR_BLOB:
++ 	    return blob_equal(tv1->vval.v_blob, tv2->vval.v_blob);
++ 
+  	case VAR_NUMBER:
+  	    return tv1->vval.v_number == tv2->vval.v_number;
+  
+***************
+*** 5602,5607 ****
+--- 5855,5890 ----
+  		break;
+  	    }
+  
++ 	case VAR_BLOB:
++ 	    if (tv->vval.v_blob == NULL)
++ 	    {
++ 		*tofree = NULL;
++ 		r = (char_u *)"[]";
++ 	    }
++ 	    else
++ 	    {
++ 		blob_T	    *b;
++ 		int	    i;
++ 		garray_T    ga;
++ 
++ 		// Store bytes in the growarray.
++ 		ga_init2(&ga, 1, 4000);
++ 		b = tv->vval.v_blob;
++ 		ga_append(&ga, '[');
++ 		for (i = 0; i < blob_len(b); i++)
++ 		{
++ 		    if (i > 0)
++ 			ga_concat(&ga, (char_u *)",");
++ 		    vim_snprintf((char *)numbuf, NUMBUFLEN, "0x%02X",
++ 			    (int)blob_get(b, i));
++ 		    ga_concat(&ga, numbuf);
++ 		}
++ 		ga_append(&ga, ']');
++ 		*tofree = ga.ga_data;
++ 		r = *tofree;
++ 	    }
++ 	    break;
++ 
+  	case VAR_LIST:
+  	    if (tv->vval.v_list == NULL)
+  	    {
+***************
+*** 6841,6846 ****
+--- 7124,7132 ----
+  	    case VAR_PARTIAL:
+  		partial_unref(varp->vval.v_partial);
+  		break;
++ 	    case VAR_BLOB:
++ 		blob_unref(varp->vval.v_blob);
++ 		break;
+  	    case VAR_LIST:
+  		list_unref(varp->vval.v_list);
+  		break;
+***************
+*** 6887,6892 ****
+--- 7173,7182 ----
+  		partial_unref(varp->vval.v_partial);
+  		varp->vval.v_partial = NULL;
+  		break;
++ 	    case VAR_BLOB:
++ 		blob_unref(varp->vval.v_blob);
++ 		varp->vval.v_blob = NULL;
++ 		break;
+  	    case VAR_LIST:
+  		list_unref(varp->vval.v_list);
+  		varp->vval.v_list = NULL;
+***************
+*** 6990,6995 ****
+--- 7280,7288 ----
+  	    EMSG(_("E913: Using a Channel as a Number"));
+  	    break;
+  #endif
++ 	case VAR_BLOB:
++ 	    EMSG(_("E974: Using a Blob as a Number"));
++ 	    break;
+  	case VAR_UNKNOWN:
+  	    internal_error("tv_get_number(UNKNOWN)");
+  	    break;
+***************
+*** 7037,7042 ****
+--- 7330,7338 ----
+  	    EMSG(_("E914: Using a Channel as a Float"));
+  	    break;
+  # endif
++ 	case VAR_BLOB:
++ 	    EMSG(_("E975: Using a Blob as a Float"));
++ 	    break;
+  	case VAR_UNKNOWN:
+  	    internal_error("tv_get_float(UNKNOWN)");
+  	    break;
+***************
+*** 7113,7118 ****
+--- 7409,7417 ----
+  	case VAR_SPECIAL:
+  	    STRCPY(buf, get_var_special_name(varp->vval.v_number));
+  	    return buf;
++         case VAR_BLOB:
++ 	    EMSG(_("E976: using Blob as a String"));
++ 	    break;
+  	case VAR_JOB:
+  #ifdef FEAT_JOB_CHANNEL
+  	    {
+***************
+*** 7805,7810 ****
+--- 8104,8118 ----
+  		++to->vval.v_partial->pt_refcount;
+  	    }
+  	    break;
++ 	case VAR_BLOB:
++ 	    if (from->vval.v_blob == NULL)
++ 		to->vval.v_blob = NULL;
++ 	    else
++ 	    {
++ 		to->vval.v_blob = from->vval.v_blob;
++ 		++to->vval.v_blob->bv_refcount;
++ 	    }
++ 	    break;
+  	case VAR_LIST:
+  	    if (from->vval.v_list == NULL)
+  		to->vval.v_list = NULL;
+***************
+*** 7863,7868 ****
+--- 8171,8177 ----
+  	case VAR_SPECIAL:
+  	case VAR_JOB:
+  	case VAR_CHANNEL:
++ 	case VAR_BLOB:
+  	    copy_tv(from, to);
+  	    break;
+  	case VAR_LIST:
+***************
+*** 8601,8606 ****
+--- 8910,8916 ----
+  #endif
+  		case 'D': type = VAR_DICT; break;
+  		case 'L': type = VAR_LIST; break;
++ 		case 'B': type = VAR_BLOB; break;
+  		case 'X': type = VAR_SPECIAL; break;
+  	    }
+  
+***************
+*** 8608,8614 ****
+  	    if (tab != NULL)
+  	    {
+  		tv.v_type = type;
+! 		if (type == VAR_STRING || type == VAR_DICT || type == VAR_LIST)
+  		    tv.vval.v_string = viminfo_readstring(virp,
+  				       (int)(tab - virp->vir_line + 1), TRUE);
+  #ifdef FEAT_FLOAT
+--- 8918,8925 ----
+  	    if (tab != NULL)
+  	    {
+  		tv.v_type = type;
+! 		if (type == VAR_STRING || type == VAR_DICT ||
+! 			type == VAR_LIST || type == VAR_BLOB)
+  		    tv.vval.v_string = viminfo_readstring(virp,
+  				       (int)(tab - virp->vir_line + 1), TRUE);
+  #ifdef FEAT_FLOAT
+***************
+*** 8617,8623 ****
+  #endif
+  		else
+  		    tv.vval.v_number = atol((char *)tab + 1);
+! 		if (type == VAR_DICT || type == VAR_LIST)
+  		{
+  		    typval_T *etv = eval_expr(tv.vval.v_string, NULL);
+  
+--- 8928,8934 ----
+  #endif
+  		else
+  		    tv.vval.v_number = atol((char *)tab + 1);
+! 		if (type == VAR_DICT || type == VAR_LIST || type == VAR_BLOB)
+  		{
+  		    typval_T *etv = eval_expr(tv.vval.v_string, NULL);
+  
+***************
+*** 8640,8646 ****
+  
+  		if (tv.v_type == VAR_STRING)
+  		    vim_free(tv.vval.v_string);
+! 		else if (tv.v_type == VAR_DICT || tv.v_type == VAR_LIST)
+  		    clear_tv(&tv);
+  	    }
+  	}
+--- 8951,8958 ----
+  
+  		if (tv.v_type == VAR_STRING)
+  		    vim_free(tv.vval.v_string);
+! 		else if (tv.v_type == VAR_DICT || tv.v_type == VAR_LIST ||
+! 			tv.v_type == VAR_BLOB)
+  		    clear_tv(&tv);
+  	    }
+  	}
+***************
+*** 8684,8689 ****
+--- 8996,9002 ----
+  		    case VAR_FLOAT:  s = "FLO"; break;
+  		    case VAR_DICT:   s = "DIC"; break;
+  		    case VAR_LIST:   s = "LIS"; break;
++ 		    case VAR_BLOB:   s = "BLO"; break;
+  		    case VAR_SPECIAL: s = "XPL"; break;
+  
+  		    case VAR_UNKNOWN:
+***************
+*** 9250,9255 ****
+--- 9563,9595 ----
+  	    * it means TRUE. */
+  	n1 = (type == TYPE_NEQUAL);
+      }
++     else if (typ1->v_type == VAR_BLOB || typ2->v_type == VAR_BLOB)
++     {
++ 	if (type_is)
++ 	{
++ 	    n1 = (typ1->v_type == typ2->v_type
++ 			    && typ1->vval.v_blob == typ2->vval.v_blob);
++ 	    if (type == TYPE_NEQUAL)
++ 		n1 = !n1;
++ 	}
++ 	else if (typ1->v_type != typ2->v_type
++ 		|| (type != TYPE_EQUAL && type != TYPE_NEQUAL))
++ 	{
++ 	    if (typ1->v_type != typ2->v_type)
++ 		EMSG(_("E977: Can only compare Blob with Blob"));
++ 	    else
++ 		EMSG(_(e_invalblob));
++ 	    clear_tv(typ1);
++ 	    return FAIL;
++ 	}
++ 	else
++ 	{
++ 	    // Compare two Blobs for being equal or unequal.
++ 	    n1 = blob_equal(typ1->vval.v_blob, typ2->vval.v_blob);
++ 	    if (type == TYPE_NEQUAL)
++ 		n1 = !n1;
++ 	}
++     }
+      else if (typ1->v_type == VAR_LIST || typ2->v_type == VAR_LIST)
+      {
+  	if (type_is)
+***************
+*** 10278,10283 ****
+--- 10618,10624 ----
+      dict_T	*d = NULL;
+      typval_T	save_val;
+      typval_T	save_key;
++     blob_T	*b = NULL;
+      int		rem;
+      int		todo;
+      char_u	*ermsg = (char_u *)(map ? "map()" : "filter()");
+***************
+*** 10286,10292 ****
+      int		save_did_emsg;
+      int		idx = 0;
+  
+!     if (argvars[0].v_type == VAR_LIST)
+      {
+  	if ((l = argvars[0].vval.v_list) == NULL
+  	      || (!map && tv_check_lock(l->lv_lock, arg_errmsg, TRUE)))
+--- 10627,10638 ----
+      int		save_did_emsg;
+      int		idx = 0;
+  
+!     if (argvars[0].v_type == VAR_BLOB)
+!     {
+! 	if ((b = argvars[0].vval.v_blob) == NULL)
+! 	    return;
+!     }
+!     else if (argvars[0].v_type == VAR_LIST)
+      {
+  	if ((l = argvars[0].vval.v_list) == NULL
+  	      || (!map && tv_check_lock(l->lv_lock, arg_errmsg, TRUE)))
+***************
+*** 10353,10358 ****
+--- 10699,10735 ----
+  	    }
+  	    hash_unlock(ht);
+  	}
++ 	else if (argvars[0].v_type == VAR_BLOB)
++ 	{
++ 	    int		i;
++ 	    typval_T	tv;
++ 
++ 	    vimvars[VV_KEY].vv_type = VAR_NUMBER;
++ 	    for (i = 0; i < b->bv_ga.ga_len; i++)
++ 	    {
++ 		tv.v_type = VAR_NUMBER;
++ 		tv.vval.v_number = blob_get(b, i);
++ 		vimvars[VV_KEY].vv_nr = idx;
++ 		if (filter_map_one(&tv, expr, map, &rem) == FAIL || did_emsg)
++ 		    break;
++ 		if (tv.v_type != VAR_NUMBER)
++ 		{
++ 		    EMSG(_(e_invalblob));
++ 		    return;
++ 		}
++ 		tv.v_type = VAR_NUMBER;
++ 		blob_set(b, i, tv.vval.v_number);
++ 		if (!map && rem)
++ 		{
++ 		    char_u *p = (char_u *)argvars[0].vval.v_blob->bv_ga.ga_data;
++ 
++ 		    mch_memmove(p + idx, p + i + 1,
++ 					      (size_t)b->bv_ga.ga_len - i - 1);
++ 		    --b->bv_ga.ga_len;
++ 		    --i;
++ 		}
++ 	    }
++ 	}
+  	else
+  	{
+  	    vimvars[VV_KEY].vv_type = VAR_NUMBER;
+*** ../vim-8.1.0734/src/evalfunc.c	2019-01-12 13:50:27.712026891 +0100
+--- src/evalfunc.c	2019-01-12 22:21:55.631440482 +0100
+***************
+*** 96,101 ****
+--- 96,102 ----
+  static void f_ch_logfile(typval_T *argvars, typval_T *rettv);
+  static void f_ch_open(typval_T *argvars, typval_T *rettv);
+  static void f_ch_read(typval_T *argvars, typval_T *rettv);
++ static void f_ch_readblob(typval_T *argvars, typval_T *rettv);
+  static void f_ch_readraw(typval_T *argvars, typval_T *rettv);
+  static void f_ch_sendexpr(typval_T *argvars, typval_T *rettv);
+  static void f_ch_sendraw(typval_T *argvars, typval_T *rettv);
+***************
+*** 570,575 ****
+--- 571,577 ----
+      {"ch_logfile",	1, 2, f_ch_logfile},
+      {"ch_open",		1, 2, f_ch_open},
+      {"ch_read",		1, 2, f_ch_read},
++     {"ch_readblob",	1, 2, f_ch_readblob},
+      {"ch_readraw",	1, 2, f_ch_readraw},
+      {"ch_sendexpr",	2, 3, f_ch_sendexpr},
+      {"ch_sendraw",	2, 3, f_ch_sendraw},
+***************
+*** 1237,1242 ****
+--- 1239,1245 ----
+  f_add(typval_T *argvars, typval_T *rettv)
+  {
+      list_T	*l;
++     blob_T	*b;
+  
+      rettv->vval.v_number = 1; /* Default: Failed */
+      if (argvars[0].v_type == VAR_LIST)
+***************
+*** 1247,1252 ****
+--- 1250,1265 ----
+  		&& list_append_tv(l, &argvars[1]) == OK)
+  	    copy_tv(&argvars[0], rettv);
+      }
++     else if (argvars[0].v_type == VAR_BLOB)
++     {
++ 	if ((b = argvars[0].vval.v_blob) != NULL
++ 		&& !tv_check_lock(b->bv_lock,
++ 					 (char_u *)N_("add() argument"), TRUE))
++ 	{
++ 	    ga_append(&b->bv_ga, (char_u)tv_get_number(&argvars[1]));
++ 	    copy_tv(&argvars[0], rettv);
++ 	}
++     }
+      else
+  	EMSG(_(e_listreq));
+  }
+***************
+*** 2309,2315 ****
+      static void
+  f_ch_read(typval_T *argvars, typval_T *rettv)
+  {
+!     common_channel_read(argvars, rettv, FALSE);
+  }
+  
+  /*
+--- 2322,2337 ----
+      static void
+  f_ch_read(typval_T *argvars, typval_T *rettv)
+  {
+!     common_channel_read(argvars, rettv, FALSE, FALSE);
+! }
+! 
+! /*
+!  * "ch_readblob()" function
+!  */
+!     static void
+! f_ch_readblob(typval_T *argvars, typval_T *rettv)
+! {
+!     common_channel_read(argvars, rettv, TRUE, TRUE);
+  }
+  
+  /*
+***************
+*** 2318,2324 ****
+      static void
+  f_ch_readraw(typval_T *argvars, typval_T *rettv)
+  {
+!     common_channel_read(argvars, rettv, TRUE);
+  }
+  
+  /*
+--- 2340,2346 ----
+      static void
+  f_ch_readraw(typval_T *argvars, typval_T *rettv)
+  {
+!     common_channel_read(argvars, rettv, TRUE, FALSE);
+  }
+  
+  /*
+***************
+*** 3170,3175 ****
+--- 3192,3203 ----
+  	    n = argvars[0].vval.v_number != VVAL_TRUE;
+  	    break;
+  
++ 	case VAR_BLOB:
++ 	    n = argvars[0].vval.v_blob == NULL
++ 		|| argvars[0].vval.v_blob->bv_ga.ga_data == NULL
++ 		|| argvars[0].vval.v_blob->bv_ga.ga_len == 0;
++ 	    break;
++ 
+  	case VAR_JOB:
+  #ifdef FEAT_JOB_CHANNEL
+  	    n = argvars[0].vval.v_job == NULL
+***************
+*** 4365,4371 ****
+      dict_T	*d;
+      typval_T	*tv = NULL;
+  
+!     if (argvars[0].v_type == VAR_LIST)
+      {
+  	if ((l = argvars[0].vval.v_list) != NULL)
+  	{
+--- 4393,4413 ----
+      dict_T	*d;
+      typval_T	*tv = NULL;
+  
+!     if (argvars[0].v_type == VAR_BLOB)
+!     {
+! 	int error = FALSE;
+! 	int idx = tv_get_number_chk(&argvars[1], &error);
+! 
+! 	if (!error)
+! 	{
+! 	    rettv->v_type = VAR_NUMBER;
+! 	    if (idx >= blob_len(argvars[0].vval.v_blob))
+! 		EMSGN(_(e_blobidx), idx);
+! 	    else
+! 		rettv->vval.v_number = blob_get(argvars[0].vval.v_blob, idx);
+! 	}
+!     }
+!     else if (argvars[0].v_type == VAR_LIST)
+      {
+  	if ((l = argvars[0].vval.v_list) != NULL)
+  	{
+***************
+*** 6965,6987 ****
+  {
+      list_T	*l;
+      listitem_T	*item;
+      long	idx = 0;
+      int		ic = FALSE;
+  
+      rettv->vval.v_number = -1;
+!     if (argvars[0].v_type != VAR_LIST)
+      {
+  	EMSG(_(e_listreq));
+  	return;
+      }
+      l = argvars[0].vval.v_list;
+      if (l != NULL)
+      {
+  	item = l->lv_first;
+  	if (argvars[2].v_type != VAR_UNKNOWN)
+  	{
+- 	    int		error = FALSE;
+- 
+  	    /* Start at specified item.  Use the cached index that list_find()
+  	     * sets, so that a negative number also works. */
+  	    item = list_find(l, (long)tv_get_number_chk(&argvars[2], &error));
+--- 7007,7056 ----
+  {
+      list_T	*l;
+      listitem_T	*item;
++     blob_T	*b;
+      long	idx = 0;
+      int		ic = FALSE;
++     int		error = FALSE;
+  
+      rettv->vval.v_number = -1;
+!     if (argvars[0].v_type == VAR_BLOB)
+!     {
+! 	typval_T	tv;
+! 	int		start = 0;
+! 
+! 	if (argvars[2].v_type != VAR_UNKNOWN)
+! 	{
+! 	    start = tv_get_number_chk(&argvars[2], &error);
+! 	    if (error)
+! 		return;
+! 	}
+! 	b = argvars[0].vval.v_blob;
+! 	if (b == NULL)
+! 	    return;
+! 	for (idx = start; idx < blob_len(b); ++idx)
+! 	{
+! 	    tv.v_type = VAR_NUMBER;
+! 	    tv.vval.v_number = blob_get(b, idx);
+! 	    if (tv_equal(&tv, &argvars[1], ic, FALSE))
+! 	    {
+! 		rettv->vval.v_number = idx;
+! 		return;
+! 	    }
+! 	}
+! 	return;
+!     }
+!     else if (argvars[0].v_type != VAR_LIST)
+      {
+  	EMSG(_(e_listreq));
+  	return;
+      }
++ 
+      l = argvars[0].vval.v_list;
+      if (l != NULL)
+      {
+  	item = l->lv_first;
+  	if (argvars[2].v_type != VAR_UNKNOWN)
+  	{
+  	    /* Start at specified item.  Use the cached index that list_find()
+  	     * sets, so that a negative number also works. */
+  	    item = list_find(l, (long)tv_get_number_chk(&argvars[2], &error));
+***************
+*** 7160,7169 ****
+      list_T	*l;
+      int		error = FALSE;
+  
+!     if (argvars[0].v_type != VAR_LIST)
+  	EMSG2(_(e_listarg), "insert()");
+!     else if ((l = argvars[0].vval.v_list) != NULL
+! 	    && !tv_check_lock(l->lv_lock, (char_u *)N_("insert() argument"), TRUE))
+      {
+  	if (argvars[2].v_type != VAR_UNKNOWN)
+  	    before = (long)tv_get_number_chk(&argvars[2], &error);
+--- 7229,7273 ----
+      list_T	*l;
+      int		error = FALSE;
+  
+!     if (argvars[0].v_type == VAR_BLOB)
+!     {
+! 	int	    val, len;
+! 	char_u	    *p;
+! 
+! 	len = blob_len(argvars[0].vval.v_blob);
+! 	if (argvars[2].v_type != VAR_UNKNOWN)
+! 	{
+! 	    before = (long)tv_get_number_chk(&argvars[2], &error);
+! 	    if (error)
+! 		return;		// type error; errmsg already given
+! 	    if (before < 0 || before > len)
+! 	    {
+! 		EMSG2(_(e_invarg2), tv_get_string(&argvars[2]));
+! 		return;
+! 	    }
+! 	}
+! 	val = tv_get_number_chk(&argvars[1], &error);
+! 	if (error)
+! 	    return;
+! 	if (val < 0 || val > 255)
+! 	{
+! 	    EMSG2(_(e_invarg2), tv_get_string(&argvars[1]));
+! 	    return;
+! 	}
+! 
+! 	if (ga_grow(&argvars[0].vval.v_blob->bv_ga, 1) == FAIL)
+! 	    return;
+! 	p = (char_u *)argvars[0].vval.v_blob->bv_ga.ga_data;
+! 	mch_memmove(p + before + 1, p + before, (size_t)len - before);
+! 	*(p + before) = val;
+! 	++argvars[0].vval.v_blob->bv_ga.ga_len;
+! 
+! 	copy_tv(&argvars[0], rettv);
+!     }
+!     else if (argvars[0].v_type != VAR_LIST)
+  	EMSG2(_(e_listarg), "insert()");
+!     else if ((l = argvars[0].vval.v_list) != NULL && !tv_check_lock(l->lv_lock,
+! 				      (char_u *)N_("insert() argument"), TRUE))
+      {
+  	if (argvars[2].v_type != VAR_UNKNOWN)
+  	    before = (long)tv_get_number_chk(&argvars[2], &error);
+***************
+*** 7527,7532 ****
+--- 7631,7639 ----
+  	    rettv->vval.v_number = (varnumber_T)STRLEN(
+  					       tv_get_string(&argvars[0]));
+  	    break;
++ 	case VAR_BLOB:
++ 	    rettv->vval.v_number = blob_len(argvars[0].vval.v_blob);
++ 	    break;
+  	case VAR_LIST:
+  	    rettv->vval.v_number = list_len(argvars[0].vval.v_list);
+  	    break;
+***************
+*** 8926,8931 ****
+--- 9033,9039 ----
+  f_readfile(typval_T *argvars, typval_T *rettv)
+  {
+      int		binary = FALSE;
++     int		blob = FALSE;
+      int		failed = FALSE;
+      char_u	*fname;
+      FILE	*fd;
+***************
+*** 8944,8955 ****
+      {
+  	if (STRCMP(tv_get_string(&argvars[1]), "b") == 0)
+  	    binary = TRUE;
+  	if (argvars[2].v_type != VAR_UNKNOWN)
+  	    maxline = (long)tv_get_number(&argvars[2]);
+      }
+  
+!     if (rettv_list_alloc(rettv) == FAIL)
+! 	return;
+  
+      /* Always open the file in binary mode, library functions have a mind of
+       * their own about CR-LF conversion. */
+--- 9052,9074 ----
+      {
+  	if (STRCMP(tv_get_string(&argvars[1]), "b") == 0)
+  	    binary = TRUE;
++ 	if (STRCMP(tv_get_string(&argvars[1]), "B") == 0)
++ 	    blob = TRUE;
++ 
+  	if (argvars[2].v_type != VAR_UNKNOWN)
+  	    maxline = (long)tv_get_number(&argvars[2]);
+      }
+  
+!     if (blob)
+!     {
+! 	if (rettv_blob_alloc(rettv) == FAIL)
+! 	    return;
+!     }
+!     else
+!     {
+! 	if (rettv_list_alloc(rettv) == FAIL)
+! 	    return;
+!     }
+  
+      /* Always open the file in binary mode, library functions have a mind of
+       * their own about CR-LF conversion. */
+***************
+*** 8960,8965 ****
+--- 9079,9095 ----
+  	return;
+      }
+  
++     if (blob)
++     {
++ 	if (read_blob(fd, rettv->vval.v_blob) == FAIL)
++ 	{
++ 	    EMSG("cannot read file");
++ 	    blob_free(rettv->vval.v_blob);
++ 	}
++ 	fclose(fd);
++ 	return;
++     }
++ 
+      while (cnt < maxline || maxline < 0)
+      {
+  	readlen = (int)fread(buf, 1, io_size, fd);
+***************
+*** 9555,9560 ****
+--- 9685,9691 ----
+      dict_T	*d;
+      dictitem_T	*di;
+      char_u	*arg_errmsg = (char_u *)N_("remove() argument");
++     int		error = FALSE;
+  
+      if (argvars[0].v_type == VAR_DICT)
+      {
+***************
+*** 9579,9594 ****
+  	    }
+  	}
+      }
+      else if (argvars[0].v_type != VAR_LIST)
+  	EMSG2(_(e_listdictarg), "remove()");
+      else if ((l = argvars[0].vval.v_list) != NULL
+! 	    && !tv_check_lock(l->lv_lock, arg_errmsg, TRUE))
+      {
+- 	int	    error = FALSE;
+- 
+  	idx = (long)tv_get_number_chk(&argvars[1], &error);
+  	if (error)
+! 	    ;		/* type error: do nothing, errmsg already given */
+  	else if ((item = list_find(l, idx)) == NULL)
+  	    EMSGN(_(e_listidx), idx);
+  	else
+--- 9710,9785 ----
+  	    }
+  	}
+      }
++     else if (argvars[0].v_type == VAR_BLOB)
++     {
++ 	idx = (long)tv_get_number_chk(&argvars[1], &error);
++ 	if (!error)
++ 	{
++ 	    blob_T  *b = argvars[0].vval.v_blob;
++ 	    int	    len = blob_len(b);
++ 	    char_u  *p;
++ 
++ 	    if (idx < 0)
++ 		// count from the end
++ 		idx = len + idx;
++ 	    if (idx < 0 || idx >= len)
++ 	    {
++ 		EMSGN(_(e_blobidx), idx);
++ 		return;
++ 	    }
++ 	    if (argvars[2].v_type == VAR_UNKNOWN)
++ 	    {
++ 		// Remove one item, return its value.
++ 		p = (char_u *)b->bv_ga.ga_data;
++ 		rettv->vval.v_number = (varnumber_T) *(p + idx);
++ 		mch_memmove(p + idx, p + idx + 1, (size_t)len - idx - 1);
++ 		--b->bv_ga.ga_len;
++ 	    }
++ 	    else
++ 	    {
++ 		blob_T  *blob;
++ 
++ 		// Remove range of items, return list with values.
++ 		end = (long)tv_get_number_chk(&argvars[2], &error);
++ 		if (error)
++ 		    return;
++ 		if (end < 0)
++ 		    // count from the end
++ 		    end = len + end;
++ 		if (end >= len || idx > end)
++ 		{
++ 		    EMSGN(_(e_blobidx), end);
++ 		    return;
++ 		}
++ 		blob = blob_alloc();
++ 		if (blob == NULL)
++ 		    return;
++ 		blob->bv_ga.ga_len = end - idx + 1;
++ 		if (ga_grow(&blob->bv_ga, end - idx + 1) == FAIL)
++ 		{
++ 		    vim_free(blob);
++ 		    return;
++ 		}
++ 		p = (char_u *)b->bv_ga.ga_data;
++ 		mch_memmove((char_u *)blob->bv_ga.ga_data, p + idx,
++ 						      (size_t)(end - idx + 1));
++ 		++blob->bv_refcount;
++ 		rettv->v_type = VAR_BLOB;
++ 		rettv->vval.v_blob = blob;
++ 
++ 		mch_memmove(p + idx, p + end + 1, (size_t)(len - end));
++ 		b->bv_ga.ga_len -= end - idx + 1;
++ 	    }
++ 	}
++     }
+      else if (argvars[0].v_type != VAR_LIST)
+  	EMSG2(_(e_listdictarg), "remove()");
+      else if ((l = argvars[0].vval.v_list) != NULL
+! 			       && !tv_check_lock(l->lv_lock, arg_errmsg, TRUE))
+      {
+  	idx = (long)tv_get_number_chk(&argvars[1], &error);
+  	if (error)
+! 	    ;		// type error: do nothing, errmsg already given
+  	else if ((item = list_find(l, idx)) == NULL)
+  	    EMSGN(_(e_listidx), idx);
+  	else
+***************
+*** 9602,9611 ****
+  	    }
+  	    else
+  	    {
+! 		/* Remove range of items, return list with values. */
+  		end = (long)tv_get_number_chk(&argvars[2], &error);
+  		if (error)
+! 		    ;		/* type error: do nothing */
+  		else if ((item2 = list_find(l, end)) == NULL)
+  		    EMSGN(_(e_listidx), end);
+  		else
+--- 9793,9802 ----
+  	    }
+  	    else
+  	    {
+! 		// Remove range of items, return list with values.
+  		end = (long)tv_get_number_chk(&argvars[2], &error);
+  		if (error)
+! 		    ;		// type error: do nothing
+  		else if ((item2 = list_find(l, end)) == NULL)
+  		    EMSGN(_(e_listidx), end);
+  		else
+***************
+*** 9912,9917 ****
+--- 10103,10124 ----
+      list_T	*l;
+      listitem_T	*li, *ni;
+  
++     if (argvars[0].v_type == VAR_BLOB)
++     {
++ 	blob_T	*b = argvars[0].vval.v_blob;
++ 	int	i, len = blob_len(b);
++ 
++ 	for (i = 0; i < len / 2; i++)
++ 	{
++ 	    int tmp = blob_get(b, i);
++ 
++ 	    blob_set(b, i, blob_get(b, len - i - 1));
++ 	    blob_set(b, len - i - 1, tmp);
++ 	}
++ 	rettv_blob_set(rettv, b);
++ 	return;
++     }
++ 
+      if (argvars[0].v_type != VAR_LIST)
+  	EMSG2(_(e_listarg), "reverse()");
+      else if ((l = argvars[0].vval.v_list) != NULL
+***************
+*** 14198,14203 ****
+--- 14405,14411 ----
+  	     break;
+  	case VAR_JOB:     n = VAR_TYPE_JOB; break;
+  	case VAR_CHANNEL: n = VAR_TYPE_CHANNEL; break;
++ 	case VAR_BLOB:    n = VAR_TYPE_BLOB; break;
+  	case VAR_UNKNOWN:
+  	     internal_error("f_type(UNKNOWN)");
+  	     n = -1;
+***************
+*** 14556,14578 ****
+      FILE	*fd;
+      int		ret = 0;
+      listitem_T	*li;
+!     list_T	*list;
+  
+      rettv->vval.v_number = -1;
+      if (check_restricted() || check_secure())
+  	return;
+  
+!     if (argvars[0].v_type != VAR_LIST)
+      {
+! 	EMSG2(_(e_listarg), "writefile()");
+! 	return;
+      }
+!     list = argvars[0].vval.v_list;
+!     if (list == NULL)
+! 	return;
+!     for (li = list->lv_first; li != NULL; li = li->li_next)
+! 	if (tv_get_string_chk(&li->li_tv) == NULL)
+  	    return;
+  
+      if (argvars[2].v_type != VAR_UNKNOWN)
+      {
+--- 14764,14796 ----
+      FILE	*fd;
+      int		ret = 0;
+      listitem_T	*li;
+!     list_T	*list = NULL;
+!     blob_T	*blob = NULL;
+  
+      rettv->vval.v_number = -1;
+      if (check_restricted() || check_secure())
+  	return;
+  
+!     if (argvars[0].v_type == VAR_LIST)
+      {
+! 	list = argvars[0].vval.v_list;
+! 	if (list == NULL)
+! 	    return;
+! 	for (li = list->lv_first; li != NULL; li = li->li_next)
+! 	    if (tv_get_string_chk(&li->li_tv) == NULL)
+! 		return;
+      }
+!     else if (argvars[0].v_type == VAR_BLOB)
+!     {
+! 	blob = argvars[0].vval.v_blob;
+! 	if (blob == NULL)
+  	    return;
++     }
++     else
++     {
++ 	EMSG2(_(e_invarg2), "writefile()");
++ 	return;
++     }
+  
+      if (argvars[2].v_type != VAR_UNKNOWN)
+      {
+***************
+*** 14604,14609 ****
+--- 14822,14839 ----
+  	EMSG2(_(e_notcreate), *fname == NUL ? (char_u *)_("<empty>") : fname);
+  	ret = -1;
+      }
++     else if (blob)
++     {
++ 	if (write_blob(fd, blob) == FAIL)
++ 	    ret = -1;
++ #ifdef HAVE_FSYNC
++ 	else if (do_fsync)
++ 	    // Ignore the error, the user wouldn't know what to do about it.
++ 	    // May happen for a device.
++ 	    vim_ignored = fsync(fileno(fd));
++ #endif
++ 	fclose(fd);
++     }
+      else
+      {
+  	if (write_list(fd, list, binary) == FAIL)
+*** ../vim-8.1.0734/src/if_perl.xs	2018-09-21 14:01:23.148405740 +0200
+--- src/if_perl.xs	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 236,241 ****
+--- 236,242 ----
+  # else
+  #  define Perl_sv_2pv dll_Perl_sv_2pv
+  # endif
++ # define Perl_sv_2pvbyte dll_Perl_sv_2pvbyte
+  # define Perl_sv_bless dll_Perl_sv_bless
+  # if (PERL_REVISION == 5) && (PERL_VERSION >= 8)
+  #  define Perl_sv_catpvn_flags dll_Perl_sv_catpvn_flags
+***************
+*** 388,393 ****
+--- 389,395 ----
+  # else
+  static char* (*Perl_sv_2pv)(pTHX_ SV*, STRLEN*);
+  # endif
++ static char* (*Perl_sv_2pvbyte)(pTHX_ SV*, STRLEN*);
+  static SV* (*Perl_sv_bless)(pTHX_ SV*, HV*);
+  # if (PERL_REVISION == 5) && (PERL_VERSION >= 8)
+  static void (*Perl_sv_catpvn_flags)(pTHX_ SV* , const char*, STRLEN, I32);
+***************
+*** 543,548 ****
+--- 545,551 ----
+  # else
+      {"Perl_sv_2pv", (PERL_PROC*)&Perl_sv_2pv},
+  # endif
++     {"Perl_sv_2pvbyte", (PERL_PROC*)&Perl_sv_2pvbyte},
+  # ifdef PERL589_OR_LATER
+      {"Perl_sv_2iv_flags", (PERL_PROC*)&Perl_sv_2iv_flags},
+      {"Perl_newXS_flags", (PERL_PROC*)&Perl_newXS_flags},
+***************
+*** 1556,1561 ****
+--- 1559,1585 ----
+  	    vim_free(value);
+  	}
+  
++ SV*
++ Blob(SV* sv)
++     PREINIT:
++     STRLEN  len;
++     char    *s;
++     int	    i;
++     char    buf[3];
++     SV*	    newsv;
++ 
++     CODE:
++     s = SvPVbyte(sv, len);
++     newsv = newSVpv("0z", 2);
++     for (i = 0; i < len; i++)
++     {
++ 	sprintf(buf, "%02X", s[i]);
++ 	sv_catpvn(newsv, buf, 2);
++     }
++     RETVAL = newsv;
++     OUTPUT:
++     RETVAL
++ 
+  void
+  Buffers(...)
+  
+*** ../vim-8.1.0734/src/if_py_both.h	2018-12-23 13:36:36.671194499 +0100
+--- src/if_py_both.h	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 867,872 ****
+--- 867,876 ----
+  	}
+  	return ret;
+      }
++     else if (our_tv->v_type == VAR_BLOB)
++ 	ret = PyBytes_FromStringAndSize(
++ 		(char*) our_tv->vval.v_blob->bv_ga.ga_data,
++ 		(Py_ssize_t) our_tv->vval.v_blob->bv_ga.ga_len);
+      else
+      {
+  	Py_INCREF(Py_None);
+***************
+*** 6394,6399 ****
+--- 6398,6407 ----
+  				tv->vval.v_partial->pt_argc, argv,
+  				tv->vval.v_partial->pt_dict,
+  				tv->vval.v_partial->pt_auto);
++ 	case VAR_BLOB:
++ 	    return PyBytes_FromStringAndSize(
++ 		(char*) tv->vval.v_blob->bv_ga.ga_data,
++ 		(Py_ssize_t) tv->vval.v_blob->bv_ga.ga_len);
+  	case VAR_UNKNOWN:
+  	case VAR_CHANNEL:
+  	case VAR_JOB:
+*** ../vim-8.1.0734/src/if_python.c	2018-03-29 18:08:42.000000000 +0200
+--- src/if_python.c	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 1575,1580 ****
+--- 1575,1581 ----
+  	case VAR_SPECIAL:
+  	case VAR_JOB:
+  	case VAR_CHANNEL:
++ 	case VAR_BLOB:
+  	    break;
+      }
+  }
+*** ../vim-8.1.0734/src/if_python3.c	2018-09-30 21:43:17.195693290 +0200
+--- src/if_python3.c	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 232,237 ****
+--- 232,239 ----
+  # endif
+  # undef PyBytes_FromString
+  # define PyBytes_FromString py3_PyBytes_FromString
++ # undef PyBytes_FromStringAndSize
++ # define PyBytes_FromStringAndSize py3_PyBytes_FromStringAndSize
+  # define PyFloat_FromDouble py3_PyFloat_FromDouble
+  # define PyFloat_AsDouble py3_PyFloat_AsDouble
+  # define PyObject_GenericGetAttr py3_PyObject_GenericGetAttr
+***************
+*** 394,399 ****
+--- 396,402 ----
+  static char* (*py3_PyBytes_AsString)(PyObject *bytes);
+  static int (*py3_PyBytes_AsStringAndSize)(PyObject *bytes, char **buffer, Py_ssize_t *length);
+  static PyObject* (*py3_PyBytes_FromString)(char *str);
++ static PyObject* (*py3_PyBytes_FromStringAndSize)(char *str, Py_ssize_t length);
+  static PyObject* (*py3_PyFloat_FromDouble)(double num);
+  static double (*py3_PyFloat_AsDouble)(PyObject *);
+  static PyObject* (*py3_PyObject_GenericGetAttr)(PyObject *obj, PyObject *name);
+***************
+*** 559,564 ****
+--- 562,568 ----
+      {"PyBytes_AsString", (PYTHON_PROC*)&py3_PyBytes_AsString},
+      {"PyBytes_AsStringAndSize", (PYTHON_PROC*)&py3_PyBytes_AsStringAndSize},
+      {"PyBytes_FromString", (PYTHON_PROC*)&py3_PyBytes_FromString},
++     {"PyBytes_FromStringAndSize", (PYTHON_PROC*)&py3_PyBytes_FromStringAndSize},
+      {"PyFloat_FromDouble", (PYTHON_PROC*)&py3_PyFloat_FromDouble},
+      {"PyFloat_AsDouble", (PYTHON_PROC*)&py3_PyFloat_AsDouble},
+      {"PyObject_GenericGetAttr", (PYTHON_PROC*)&py3_PyObject_GenericGetAttr},
+***************
+*** 1680,1685 ****
+--- 1684,1690 ----
+  	case VAR_SPECIAL:
+  	case VAR_JOB:
+  	case VAR_CHANNEL:
++ 	case VAR_BLOB:
+  	    break;
+      }
+  }
+*** ../vim-8.1.0734/src/if_ruby.c	2019-01-08 20:29:29.339909743 +0100
+--- src/if_ruby.c	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 51,56 ****
+--- 51,57 ----
+  #  define rb_cFloat		(*dll_rb_cFloat)
+  # endif
+  # define rb_cNilClass		(*dll_rb_cNilClass)
++ # define rb_cString		(*dll_rb_cString)
+  # define rb_cSymbol		(*dll_rb_cSymbol)
+  # define rb_cTrueClass		(*dll_rb_cTrueClass)
+  # if defined(DYNAMIC_RUBY_VER) && DYNAMIC_RUBY_VER >= 18
+***************
+*** 219,224 ****
+--- 220,226 ----
+   */
+  # define rb_assoc_new			dll_rb_assoc_new
+  # define rb_cObject			(*dll_rb_cObject)
++ # define rb_class_new_instance		dll_rb_class_new_instance
+  # define rb_check_type			dll_rb_check_type
+  # ifdef USE_TYPEDDATA
+  #  define rb_check_typeddata		dll_rb_check_typeddata
+***************
+*** 365,372 ****
+--- 367,376 ----
+  # endif
+  VALUE *dll_rb_cNilClass;
+  static VALUE *dll_rb_cObject;
++ VALUE *dll_rb_cString;
+  VALUE *dll_rb_cSymbol;
+  VALUE *dll_rb_cTrueClass;
++ static VALUE (*dll_rb_class_new_instance) (int,VALUE*,VALUE);
+  static void (*dll_rb_check_type) (VALUE,int);
+  # ifdef USE_TYPEDDATA
+  static void *(*dll_rb_check_typeddata) (VALUE,const rb_data_type_t *);
+***************
+*** 579,586 ****
+--- 583,592 ----
+  # endif
+      {"rb_cNilClass", (RUBY_PROC*)&dll_rb_cNilClass},
+      {"rb_cObject", (RUBY_PROC*)&dll_rb_cObject},
++     {"rb_cString", (RUBY_PROC*)&dll_rb_cString},
+      {"rb_cSymbol", (RUBY_PROC*)&dll_rb_cSymbol},
+      {"rb_cTrueClass", (RUBY_PROC*)&dll_rb_cTrueClass},
++     {"rb_class_new_instance", (RUBY_PROC*)&dll_rb_class_new_instance},
+      {"rb_check_type", (RUBY_PROC*)&dll_rb_check_type},
+  # ifdef USE_TYPEDDATA
+      {"rb_check_typeddata", (RUBY_PROC*)&dll_rb_check_typeddata},
+***************
+*** 1164,1170 ****
+  	    result = Qtrue;
+  	else if (tv->vval.v_number == VVAL_FALSE)
+  	    result = Qfalse;
+!     } /* else return Qnil; */
+  
+      return result;
+  }
+--- 1170,1182 ----
+  	    result = Qtrue;
+  	else if (tv->vval.v_number == VVAL_FALSE)
+  	    result = Qfalse;
+!     }
+!     else if (tv->v_type == VAR_BLOB)
+!     {
+! 	result = rb_str_new(tv->vval.v_blob->bv_ga.ga_data,
+! 		tv->vval.v_blob->bv_ga.ga_len);
+!     }
+!     /* else return Qnil; */
+  
+      return result;
+  }
+***************
+*** 1242,1247 ****
+--- 1254,1272 ----
+      return buf;
+  }
+  
++ static VALUE vim_blob(VALUE self UNUSED, VALUE str)
++ {
++     VALUE result = rb_str_new("0z", 2);
++     char    buf[4];
++     int	i;
++     for (i = 0; i < RSTRING_LEN(str); i++)
++     {
++ 	sprintf(buf, "%02X", RSTRING_PTR(str)[i]);
++ 	rb_str_concat(result, rb_str_new_cstr(buf));
++     }
++     return result;
++ }
++ 
+  static VALUE buffer_s_current(void)
+  {
+      return buffer_new(curbuf);
+***************
+*** 1662,1667 ****
+--- 1687,1693 ----
+      rb_define_module_function(mVIM, "set_option", vim_set_option, 1);
+      rb_define_module_function(mVIM, "command", vim_command, 1);
+      rb_define_module_function(mVIM, "evaluate", vim_evaluate, 1);
++     rb_define_module_function(mVIM, "blob", vim_blob, 1);
+  
+      eDeletedBufferError = rb_define_class_under(mVIM, "DeletedBufferError",
+  						rb_eStandardError);
+*** ../vim-8.1.0734/src/json.c	2019-01-12 14:24:22.627597552 +0100
+--- src/json.c	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 195,202 ****
+--- 195,204 ----
+  {
+      char_u	numbuf[NUMBUFLEN];
+      char_u	*res;
++     blob_T	*b;
+      list_T	*l;
+      dict_T	*d;
++     int		i;
+  
+      switch (val->v_type)
+      {
+***************
+*** 233,238 ****
+--- 235,259 ----
+  	    EMSG(_(e_invarg));
+  	    return FAIL;
+  
++ 	case VAR_BLOB:
++ 	    b = val->vval.v_blob;
++ 	    if (b == NULL || b->bv_ga.ga_len == 0)
++ 		ga_concat(gap, (char_u *)"[]");
++ 	    else
++ 	    {
++ 		ga_append(gap, '[');
++ 		for (i = 0; i < b->bv_ga.ga_len; i++)
++ 		{
++ 		    if (i > 0)
++ 			ga_concat(gap, (char_u *)",");
++ 		    vim_snprintf((char *)numbuf, NUMBUFLEN, "%d",
++ 			    (int)blob_get(b, i));
++ 		    ga_concat(gap, numbuf);
++ 		}
++ 		ga_append(gap, ']');
++ 	    }
++ 	    break;
++ 
+  	case VAR_LIST:
+  	    l = val->vval.v_list;
+  	    if (l == NULL)
+*** ../vim-8.1.0734/src/netbeans.c	2018-12-29 18:53:07.843607433 +0100
+--- src/netbeans.c	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 404,410 ****
+  	if (*p == NUL)
+  	{
+  	    own_node = TRUE;
+! 	    buffer = channel_get(nb_channel, PART_SOCK);
+  	    /* "node" is now invalid! */
+  	}
+  	else
+--- 404,410 ----
+  	if (*p == NUL)
+  	{
+  	    own_node = TRUE;
+! 	    buffer = channel_get(nb_channel, PART_SOCK, NULL);
+  	    /* "node" is now invalid! */
+  	}
+  	else
+*** ../vim-8.1.0734/src/proto.h	2019-01-01 13:20:05.940711222 +0100
+--- src/proto.h	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 88,93 ****
+--- 88,94 ----
+  # include "hashtab.pro"
+  # include "json.pro"
+  # include "list.pro"
++ # include "blob.pro"
+  # include "main.pro"
+  # include "mark.pro"
+  # include "memfile.pro"
+*** ../vim-8.1.0734/src/proto/blob.pro	2019-01-12 22:40:58.105219042 +0100
+--- src/proto/blob.pro	2019-01-12 20:31:31.262919660 +0100
+***************
+*** 0 ****
+--- 1,13 ----
++ /* blob.c */
++ blob_T *blob_alloc(void);
++ int rettv_blob_alloc(typval_T *rettv);
++ void rettv_blob_set(typval_T *rettv, blob_T *b);
++ void blob_free(blob_T *b);
++ void blob_unref(blob_T *b);
++ long blob_len(blob_T *b);
++ char_u blob_get(blob_T *b, int idx);
++ void blob_set(blob_T *b, int idx, char_u c);
++ int blob_equal(blob_T *b1, blob_T *b2);
++ int read_blob(FILE *fd, blob_T *blob);
++ int write_blob(FILE *fd, blob_T *blob);
++ /* vim: set ft=c : */
+*** ../vim-8.1.0734/src/proto/channel.pro	2018-12-14 21:31:58.008319718 +0100
+--- src/proto/channel.pro	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 18,24 ****
+  void channel_write_new_lines(buf_T *buf);
+  readq_T *channel_peek(channel_T *channel, ch_part_T part);
+  char_u *channel_first_nl(readq_T *node);
+! char_u *channel_get(channel_T *channel, ch_part_T part);
+  void channel_consume(channel_T *channel, ch_part_T part, int len);
+  int channel_collapse(channel_T *channel, ch_part_T part, int want_nl);
+  int channel_can_write_to(channel_T *channel);
+--- 18,24 ----
+  void channel_write_new_lines(buf_T *buf);
+  readq_T *channel_peek(channel_T *channel, ch_part_T part);
+  char_u *channel_first_nl(readq_T *node);
+! char_u *channel_get(channel_T *channel, ch_part_T part, int *outlen);
+  void channel_consume(channel_T *channel, ch_part_T part, int len);
+  int channel_collapse(channel_T *channel, ch_part_T part, int want_nl);
+  int channel_can_write_to(channel_T *channel);
+***************
+*** 30,36 ****
+  void channel_close_in(channel_T *channel);
+  void channel_clear(channel_T *channel);
+  void channel_free_all(void);
+! void common_channel_read(typval_T *argvars, typval_T *rettv, int raw);
+  channel_T *channel_fd2channel(sock_T fd, ch_part_T *partp);
+  void channel_handle_events(int only_keep_open);
+  int channel_any_keep_open(void);
+--- 30,36 ----
+  void channel_close_in(channel_T *channel);
+  void channel_clear(channel_T *channel);
+  void channel_free_all(void);
+! void common_channel_read(typval_T *argvars, typval_T *rettv, int raw, int blob);
+  channel_T *channel_fd2channel(sock_T fd, ch_part_T *partp);
+  void channel_handle_events(int only_keep_open);
+  int channel_any_keep_open(void);
+*** ../vim-8.1.0734/src/structs.h	2019-01-04 15:09:52.918373097 +0100
+--- src/structs.h	2019-01-12 18:56:15.668991755 +0100
+***************
+*** 1251,1256 ****
+--- 1251,1257 ----
+  typedef struct listvar_S list_T;
+  typedef struct dictvar_S dict_T;
+  typedef struct partial_S partial_T;
++ typedef struct blobvar_S blob_T;
+  
+  typedef struct jobvar_S job_T;
+  typedef struct readq_S readq_T;
+***************
+*** 1272,1277 ****
+--- 1273,1279 ----
+      VAR_SPECIAL, // "v_number" is used
+      VAR_JOB,	 // "v_job" is used
+      VAR_CHANNEL, // "v_channel" is used
++     VAR_BLOB,	 // "v_blob" is used
+  } vartype_T;
+  
+  /*
+***************
+*** 1295,1300 ****
+--- 1297,1303 ----
+  	job_T		*v_job;		/* job value (can be NULL!) */
+  	channel_T	*v_channel;	/* channel value (can be NULL!) */
+  #endif
++ 	blob_T		*v_blob;	/* blob value (can be NULL!) */
+      }		vval;
+  } typval_T;
+  
+***************
+*** 1401,1406 ****
+--- 1404,1419 ----
+      dict_T	*dv_used_prev;	/* previous dict in used dicts list */
+  };
+  
++ /*
++  * Structure to hold info about a blob.
++  */
++ struct blobvar_S
++ {
++     garray_T	bv_ga;		// growarray with the data
++     int		bv_refcount;	// reference count
++     char	bv_lock;	// zero, VAR_LOCKED, VAR_FIXED
++ };
++ 
+  #if defined(FEAT_EVAL) || defined(PROTO)
+  typedef struct funccall_S funccall_T;
+  
+***************
+*** 3526,3531 ****
+--- 3539,3545 ----
+      dict_T	*ll_dict;	/* The Dictionary or NULL */
+      dictitem_T	*ll_di;		/* The dictitem or NULL */
+      char_u	*ll_newkey;	/* New key for Dict in alloc. mem or NULL. */
++     blob_T	*ll_blob;	/* The Blob or NULL */
+  } lval_T;
+  
+  /* Structure used to save the current state.  Used when executing Normal mode
+*** ../vim-8.1.0734/src/testdir/Make_all.mak	2019-01-12 13:25:42.633479785 +0100
+--- src/testdir/Make_all.mak	2019-01-12 18:54:17.729776157 +0100
+***************
+*** 73,78 ****
+--- 73,79 ----
+  	test_backspace_opt \
+  	test_backup \
+  	test_behave \
++ 	test_blob \
+  	test_blockedit \
+  	test_breakindent \
+  	test_bufline \
+***************
+*** 283,288 ****
+--- 284,290 ----
+  	test_autocmd.res \
+  	test_autoload.res \
+  	test_backspace_opt.res \
++ 	test_blob.res \
+  	test_blockedit.res \
+  	test_breakindent.res \
+  	test_bufwintabinfo.res \
+*** ../vim-8.1.0734/src/vim.h	2019-01-12 13:25:42.633479785 +0100
+--- src/vim.h	2019-01-12 18:52:14.242595860 +0100
+***************
+*** 1994,2006 ****
+  #define VV_TYPE_NONE	78
+  #define VV_TYPE_JOB	79
+  #define VV_TYPE_CHANNEL	80
+! #define VV_TERMRFGRESP	81
+! #define VV_TERMRBGRESP	82
+! #define VV_TERMU7RESP	83
+! #define VV_TERMSTYLERESP 84
+! #define VV_TERMBLINKRESP 85
+! #define VV_EVENT	86
+! #define VV_LEN		87	/* number of v: vars */
+  
+  /* used for v_number in VAR_SPECIAL */
+  #define VVAL_FALSE	0L
+--- 1994,2007 ----
+  #define VV_TYPE_NONE	78
+  #define VV_TYPE_JOB	79
+  #define VV_TYPE_CHANNEL	80
+! #define VV_TYPE_BLOB	81
+! #define VV_TERMRFGRESP	82
+! #define VV_TERMRBGRESP	83
+! #define VV_TERMU7RESP	84
+! #define VV_TERMSTYLERESP 85
+! #define VV_TERMBLINKRESP 86
+! #define VV_EVENT	87
+! #define VV_LEN		88	/* number of v: vars */
+  
+  /* used for v_number in VAR_SPECIAL */
+  #define VVAL_FALSE	0L
+***************
+*** 2019,2024 ****
+--- 2020,2026 ----
+  #define VAR_TYPE_NONE	    7
+  #define VAR_TYPE_JOB	    8
+  #define VAR_TYPE_CHANNEL    9
++ #define VAR_TYPE_BLOB	    10
+  
+  #ifdef FEAT_CLIPBOARD
+  
+*** ../vim-8.1.0734/src/globals.h	2019-01-06 13:10:46.324499127 +0100
+--- src/globals.h	2019-01-12 19:44:10.389888679 +0100
+***************
+*** 1524,1529 ****
+--- 1524,1531 ----
+  EXTERN char_u e_emptykey[]	INIT(= N_("E713: Cannot use empty key for Dictionary"));
+  EXTERN char_u e_dictreq[]	INIT(= N_("E715: Dictionary required"));
+  EXTERN char_u e_listidx[]	INIT(= N_("E684: list index out of range: %ld"));
++ EXTERN char_u e_blobidx[]	INIT(= N_("E979: Blob index out of range: %ld"));
++ EXTERN char_u e_invalblob[]	INIT(= N_("E978: Invalid operation for Blob"));
+  EXTERN char_u e_toomanyarg[]	INIT(= N_("E118: Too many arguments for function: %s"));
+  EXTERN char_u e_dictkey[]	INIT(= N_("E716: Key not present in Dictionary: %s"));
+  EXTERN char_u e_listreq[]	INIT(= N_("E714: List required"));
+*** ../vim-8.1.0734/src/testdir/test_blob.vim	2019-01-12 22:40:58.129218991 +0100
+--- src/testdir/test_blob.vim	2019-01-12 22:24:32.278412344 +0100
+***************
+*** 0 ****
+--- 1,179 ----
++ " Tests for the Blob types
++ 
++ func TearDown()
++   " Run garbage collection after every test
++   call test_garbagecollect_now()
++ endfunc
++ 
++ " Tests for Blob type
++ 
++ " Blob creation from constant
++ func Test_blob_create()
++   let b = 0zDEADBEEF
++   call assert_equal(v:t_blob, type(b))
++   call assert_equal(4, len(b))
++   call assert_equal(0xDE, b[0])
++   call assert_equal(0xAD, b[1])
++   call assert_equal(0xBE, b[2])
++   call assert_equal(0xEF, b[3])
++   call assert_fails('let x = b[4]')
++ 
++   call assert_equal(0xDE, get(b, 0))
++   call assert_equal(0xEF, get(b, 3))
++   call assert_fails('let x = get(b, 4)')
++ endfunc
++ 
++ " assignment to a blob
++ func Test_blob_assign()
++   let b = 0zDEADBEEF
++   let b2 = b[1:2]
++   call assert_equal(0zADBE, b2)
++ 
++   let bcopy = b[:]
++   call assert_equal(b, bcopy)
++   call assert_false(b is bcopy)
++ endfunc
++ 
++ func Test_blob_to_string()
++   let b = 0zDEADBEEF
++   call assert_equal('[0xDE,0xAD,0xBE,0xEF]', string(b))
++   call remove(b, 0, 3)
++   call assert_equal('[]', string(b))
++ endfunc
++ 
++ func Test_blob_compare()
++   let b1 = 0z0011
++   let b2 = 0z1100
++   call assert_false(b1 == b2)
++   call assert_true(b1 != b2)
++   call assert_true(b1 == 0z0011)
++ 
++   call assert_false(b1 is b2)
++   let b2 = b1
++   call assert_true(b1 is b2)
++ 
++   call assert_fails('let x = b1 > b2')
++   call assert_fails('let x = b1 < b2')
++   call assert_fails('let x = b1 - b2')
++   call assert_fails('let x = b1 / b2')
++   call assert_fails('let x = b1 * b2')
++ endfunc
++ 
++ " test for range assign
++ func Test_blob_range_assign()
++   let b = 0z00
++   let b[1] = 0x11
++   let b[2] = 0x22
++   call assert_equal(0z001122, b)
++   call assert_fails('let b[4] = 0x33')
++ endfunc
++ 
++ func Test_blob_for_loop()
++   let blob = 0z00010203
++   let i = 0
++   for byte in blob
++     call assert_equal(i, byte)
++     let i += 1
++   endfor
++ 
++   let blob = 0z00
++   call remove(blob, 0)
++   call assert_equal(0, len(blob))
++   for byte in blob
++     call assert_error('loop over empty blob')
++   endfor
++ endfunc
++ 
++ func Test_blob_concatenate()
++   let b = 0z0011
++   let b += 0z2233
++   call assert_equal(0z00112233, b)
++ 
++   call assert_fails('let b += "a"')
++   call assert_fails('let b += 88')
++ 
++   let b = 0zDEAD + 0zBEEF
++   call assert_equal(0zDEADBEEF, b)
++ endfunc
++ 
++ " Test removing items in blob
++ func Test_blob_func_remove()
++   " Test removing 1 element
++   let b = 0zDEADBEEF
++   call assert_equal(0xDE, remove(b, 0))
++   call assert_equal(0zADBEEF, b)
++ 
++   let b = 0zDEADBEEF
++   call assert_equal(0xEF, remove(b, -1))
++   call assert_equal(0zDEADBE, b)
++ 
++   let b = 0zDEADBEEF
++   call assert_equal(0xAD, remove(b, 1))
++   call assert_equal(0zDEBEEF, b)
++ 
++   " Test removing range of element(s)
++   let b = 0zDEADBEEF
++   call assert_equal(0zBE, remove(b, 2, 2))
++   call assert_equal(0zDEADEF, b)
++ 
++   let b = 0zDEADBEEF
++   call assert_equal(0zADBE, remove(b, 1, 2))
++   call assert_equal(0zDEEF, b)
++ 
++   " Test invalid cases
++   let b = 0zDEADBEEF
++   call assert_fails("call remove(b, 5)", 'E979:')
++   call assert_fails("call remove(b, 1, 5)", 'E979:')
++   call assert_fails("call remove(b, 3, 2)", 'E979:')
++   call assert_fails("call remove(1, 0)", 'E712:')
++   call assert_fails("call remove(b, b)", 'E974:')
++ endfunc
++ 
++ func Test_blob_read_write()
++   let b = 0zDEADBEEF
++   call writefile(b, 'Xblob')
++   let br = readfile('Xblob', 'B')
++   call assert_equal(b, br)
++   call delete('Xblob')
++ endfunc
++ 
++ " filter() item in blob
++ func Test_blob_filter()
++   let b = 0zDEADBEEF
++   call filter(b, 'v:val != 0xEF')
++   call assert_equal(0zDEADBE, b)
++ endfunc
++ 
++ " map() item in blob
++ func Test_blob_map()
++   let b = 0zDEADBEEF
++   call map(b, 'v:val + 1')
++   call assert_equal(0zDFAEBFF0, b)
++ endfunc
++ 
++ func Test_blob_index()
++   call assert_equal(2, index(0zDEADBEEF, 0xBE))
++   call assert_equal(-1, index(0zDEADBEEF, 0))
++ endfunc
++ 
++ func Test_blob_insert()
++   let b = 0zDEADBEEF
++   call insert(b, 0x33)
++   call assert_equal(0z33DEADBEEF, b)
++ 
++   let b = 0zDEADBEEF
++   call insert(b, 0x33, 2)
++   call assert_equal(0zDEAD33BEEF, b)
++ endfunc
++ 
++ func Test_blob_reverse()
++   call assert_equal(0zEFBEADDE, reverse(0zDEADBEEF))
++   call assert_equal(0zBEADDE, reverse(0zDEADBE))
++   call assert_equal(0zADDE, reverse(0zDEAD))
++   call assert_equal(0zDE, reverse(0zDE))
++ endfunc
++ 
++ func Test_blob_json_encode()
++   call assert_equal('[222,173,190,239]', json_encode(0zDEADBEEF))
++   call assert_equal('[]', json_encode(0z))
++ endfunc
+*** ../vim-8.1.0734/src/testdir/test_channel.vim	2019-01-09 22:24:46.568161097 +0100
+--- src/testdir/test_channel.vim	2019-01-12 21:27:24.348531499 +0100
+***************
+*** 516,521 ****
+--- 516,566 ----
+    call assert_equal(1, found)
+  endfunc
+  
++ func Test_raw_pipe_blob()
++   if !has('job')
++     return
++   endif
++   call ch_log('Test_raw_pipe_blob()')
++   " Add a dummy close callback to avoid that messages are dropped when calling
++   " ch_canread().
++   " Also test the non-blocking option.
++   let job = job_start(s:python . " test_channel_pipe.py",
++ 	\ {'mode': 'raw', 'drop': 'never', 'noblock': 1})
++   call assert_equal(v:t_job, type(job))
++   call assert_equal("run", job_status(job))
++ 
++   call assert_equal("open", ch_status(job))
++   call assert_equal("open", ch_status(job), {"part": "out"})
++ 
++   try
++     " Create a blob with the echo command and write it.
++     let blob = 0z00
++     let cmd = "echo something\n"
++     for i in range(0, len(cmd) - 1)
++       let blob[i] = char2nr(cmd[i])
++     endfor
++     call assert_equal(len(cmd), len(blob))
++     call ch_sendraw(job, blob)
++ 
++     " Read a blob with the reply.
++     let msg = ch_readblob(job)
++     let expected = 'something'
++     for i in range(0, len(expected) - 1)
++       call assert_equal(char2nr(expected[i]), msg[i])
++     endfor
++ 
++     let reply = ch_evalraw(job, "quit\n", {'timeout': 100})
++     call assert_equal("Goodbye!\n", substitute(reply, "\r", "", 'g'))
++   finally
++     call job_stop(job)
++   endtry
++ 
++   let g:Ch_job = job
++   call WaitForAssert({-> assert_equal("dead", job_status(g:Ch_job))})
++   let info = job_info(job)
++   call assert_equal("dead", info.status)
++ endfunc
++ 
+  func Test_nl_pipe()
+    if !has('job')
+      return
+*** ../vim-8.1.0734/src/version.c	2019-01-12 16:29:26.327986331 +0100
+--- src/version.c	2019-01-12 18:48:53.379924473 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     735,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+180. You maintain more than six e-mail addresses.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

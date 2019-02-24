@@ -1,0 +1,193 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0710
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0710
+Problem:    When using timers may wait for job exit quite long.
+Solution:   Return from ui_wait_for_chars_or_timer() when a job or channel
+            needs to be handled. (Ozaki Kiichi, closes #3783)
+Files:	    src/ui.c, src/testdir/test_channel.vim
+
+
+*** ../vim-8.1.0709/src/ui.c	2018-11-26 21:19:08.045334122 +0100
+--- src/ui.c	2019-01-09 22:23:58.532511473 +0100
+***************
+*** 205,211 ****
+      return retval;
+  }
+  
+! #if defined(FEAT_TIMERS) || defined(PROT)
+  /*
+   * Wait for a timer to fire or "wait_func" to return non-zero.
+   * Returns OK when something was read.
+--- 205,211 ----
+      return retval;
+  }
+  
+! #if defined(FEAT_TIMERS) || defined(PROTO)
+  /*
+   * Wait for a timer to fire or "wait_func" to return non-zero.
+   * Returns OK when something was read.
+***************
+*** 221,235 ****
+      int	    due_time;
+      long    remaining = wtime;
+      int	    tb_change_cnt = typebuf.tb_change_cnt;
+  
+!     /* When waiting very briefly don't trigger timers. */
+      if (wtime >= 0 && wtime < 10L)
+  	return wait_func(wtime, NULL, ignore_input);
+  
+      while (wtime < 0 || remaining > 0)
+      {
+! 	/* Trigger timers and then get the time in wtime until the next one is
+! 	 * due.  Wait up to that time. */
+  	due_time = check_due_timer();
+  	if (typebuf.tb_change_cnt != tb_change_cnt)
+  	{
+--- 221,238 ----
+      int	    due_time;
+      long    remaining = wtime;
+      int	    tb_change_cnt = typebuf.tb_change_cnt;
++ # ifdef FEAT_JOB_CHANNEL
++     int	    brief_wait = TRUE;
++ # endif
+  
+!     // When waiting very briefly don't trigger timers.
+      if (wtime >= 0 && wtime < 10L)
+  	return wait_func(wtime, NULL, ignore_input);
+  
+      while (wtime < 0 || remaining > 0)
+      {
+! 	// Trigger timers and then get the time in wtime until the next one is
+! 	// due.  Wait up to that time.
+  	due_time = check_due_timer();
+  	if (typebuf.tb_change_cnt != tb_change_cnt)
+  	{
+***************
+*** 238,248 ****
+  	}
+  	if (due_time <= 0 || (wtime > 0 && due_time > remaining))
+  	    due_time = remaining;
+  	if (wait_func(due_time, interrupted, ignore_input))
+  	    return OK;
+! 	if (interrupted != NULL && *interrupted)
+! 	    /* Nothing available, but need to return so that side effects get
+! 	     * handled, such as handling a message on a channel. */
+  	    return FAIL;
+  	if (wtime > 0)
+  	    remaining -= due_time;
+--- 241,268 ----
+  	}
+  	if (due_time <= 0 || (wtime > 0 && due_time > remaining))
+  	    due_time = remaining;
++ # ifdef FEAT_JOB_CHANNEL
++ 	if ((due_time < 0 || due_time > 10L)
++ #  ifdef FEAT_GUI
++ 		&& !gui.in_use
++ #  endif
++ 		&& (has_pending_job() || channel_any_readahead()))
++ 	{
++ 	    // There is a pending job or channel, should return soon in order
++ 	    // to handle them ASAP.  Do check for input briefly.
++ 	    due_time = 10L;
++ 	    brief_wait = TRUE;
++ 	}
++ # endif
+  	if (wait_func(due_time, interrupted, ignore_input))
+  	    return OK;
+! 	if ((interrupted != NULL && *interrupted)
+! # ifdef FEAT_JOB_CHANNEL
+! 		|| brief_wait
+! # endif
+! 		)
+! 	    // Nothing available, but need to return so that side effects get
+! 	    // handled, such as handling a message on a channel.
+  	    return FAIL;
+  	if (wtime > 0)
+  	    remaining -= due_time;
+***************
+*** 252,258 ****
+  #endif
+  
+  /*
+!  * return non-zero if a character is available
+   */
+      int
+  ui_char_avail(void)
+--- 272,278 ----
+  #endif
+  
+  /*
+!  * Return non-zero if a character is available.
+   */
+      int
+  ui_char_avail(void)
+*** ../vim-8.1.0709/src/testdir/test_channel.vim	2019-01-05 00:35:17.298497431 +0100
+--- src/testdir/test_channel.vim	2019-01-09 22:22:45.001047737 +0100
+***************
+*** 1893,1895 ****
+--- 1893,1932 ----
+    call assert_inrange(200, 1000, elapsed)
+    call job_stop(job)
+  endfunc
++ 
++ func Test_job_start_in_timer()
++   if !has('job') || !has('timers')
++     return
++   endif
++ 
++   func OutCb(chan, msg)
++   endfunc
++ 
++   func ExitCb(job, status)
++     let g:val = 1
++     call Resume()
++   endfunc
++ 
++   func TimerCb(timer)
++     if has('win32')
++       let cmd = ['cmd', '/c', 'echo.']
++     else
++       let cmd = ['echo']
++     endif
++     let g:job = job_start(cmd, {'out_cb': 'OutCb', 'exit_cb': 'ExitCb'})
++     call substitute(repeat('a', 100000), '.', '', 'g')
++   endfunc
++ 
++   " We should be interrupted before 'updatetime' elapsed.
++   let g:val = 0
++   call timer_start(1, 'TimerCb')
++   let elapsed = Standby(&ut)
++   call assert_inrange(1, &ut / 2, elapsed)
++   call job_stop(g:job)
++ 
++   delfunc OutCb
++   delfunc ExitCb
++   delfunc TimerCb
++   unlet! g:val
++   unlet! g:job
++ endfunc
+*** ../vim-8.1.0709/src/version.c	2019-01-09 21:47:26.356341693 +0100
+--- src/version.c	2019-01-09 22:24:17.488373212 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     710,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+138. You develop a liking for cold coffee.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

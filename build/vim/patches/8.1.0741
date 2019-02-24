@@ -1,0 +1,292 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0741
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0741
+Problem:    Viminfo with Blob is not tested.
+Solution:   Extend the viminfo test.  Fix reading a blob.  Fixed storing a
+            special variable value.
+Files:	    src/testdir/test_viminfo.vim, src/eval.c, src/blob.c,
+            src/proto/blob.pro
+
+
+*** ../vim-8.1.0740/src/testdir/test_viminfo.vim	2017-08-30 20:45:28.000000000 +0200
+--- src/testdir/test_viminfo.vim	2019-01-13 17:13:36.651426379 +0100
+***************
+*** 39,52 ****
+--- 39,74 ----
+    " store a really long list, so line wrapping will occur in viminfo file
+    let test_list = range(1,100)
+    let g:MY_GLOBAL_LIST = test_list
++   let test_blob = 0z00112233445566778899aabbccddeeff
++   let g:MY_GLOBAL_BLOB = test_blob
++   let test_false = v:false
++   let g:MY_GLOBAL_FALSE = test_false
++   let test_true = v:true
++   let g:MY_GLOBAL_TRUE = test_true
++   let test_null = v:null
++   let g:MY_GLOBAL_NULL = test_null
++   let test_none = v:none
++   let g:MY_GLOBAL_NONE = test_none
++ 
+    set viminfo='100,<50,s10,h,!,nviminfo
+    wv! Xviminfo
++ 
+    unlet g:MY_GLOBAL_DICT
+    unlet g:MY_GLOBAL_LIST
++   unlet g:MY_GLOBAL_BLOB
++   unlet g:MY_GLOBAL_FALSE
++   unlet g:MY_GLOBAL_TRUE
++   unlet g:MY_GLOBAL_NULL
++   unlet g:MY_GLOBAL_NONE
+  
+    rv! Xviminfo
+    call assert_equal(test_dict, g:MY_GLOBAL_DICT)
+    call assert_equal(test_list, g:MY_GLOBAL_LIST)
++   call assert_equal(test_blob, g:MY_GLOBAL_BLOB)
++   call assert_equal(test_false, g:MY_GLOBAL_FALSE)
++   call assert_equal(test_true, g:MY_GLOBAL_TRUE)
++   call assert_equal(test_null, g:MY_GLOBAL_NULL)
++   call assert_equal(test_none, g:MY_GLOBAL_NONE)
+  
+    call delete('Xviminfo')
+    set viminfo-=!
+*** ../vim-8.1.0740/src/eval.c	2019-01-13 16:46:18.807309467 +0100
+--- src/eval.c	2019-01-13 17:45:45.167029149 +0100
+***************
+*** 5882,5914 ****
+  	    }
+  
+  	case VAR_BLOB:
+! 	    if (tv->vval.v_blob == NULL)
+! 	    {
+! 		*tofree = NULL;
+! 		r = (char_u *)"[]";
+! 	    }
+! 	    else
+! 	    {
+! 		blob_T	    *b;
+! 		int	    i;
+! 		garray_T    ga;
+! 
+! 		// Store bytes in the growarray.
+! 		ga_init2(&ga, 1, 4000);
+! 		b = tv->vval.v_blob;
+! 		ga_append(&ga, '[');
+! 		for (i = 0; i < blob_len(b); i++)
+! 		{
+! 		    if (i > 0)
+! 			ga_concat(&ga, (char_u *)",");
+! 		    vim_snprintf((char *)numbuf, NUMBUFLEN, "0x%02X",
+! 			    (int)blob_get(b, i));
+! 		    ga_concat(&ga, numbuf);
+! 		}
+! 		ga_append(&ga, ']');
+! 		*tofree = ga.ga_data;
+! 		r = *tofree;
+! 	    }
+  	    break;
+  
+  	case VAR_LIST:
+--- 5882,5888 ----
+  	    }
+  
+  	case VAR_BLOB:
+! 	    r = blob2string(tv->vval.v_blob, tofree, numbuf);
+  	    break;
+  
+  	case VAR_LIST:
+***************
+*** 8948,8955 ****
+  	    if (tab != NULL)
+  	    {
+  		tv.v_type = type;
+! 		if (type == VAR_STRING || type == VAR_DICT ||
+! 			type == VAR_LIST || type == VAR_BLOB)
+  		    tv.vval.v_string = viminfo_readstring(virp,
+  				       (int)(tab - virp->vir_line + 1), TRUE);
+  #ifdef FEAT_FLOAT
+--- 8922,8929 ----
+  	    if (tab != NULL)
+  	    {
+  		tv.v_type = type;
+! 		if (type == VAR_STRING || type == VAR_DICT
+! 			|| type == VAR_LIST || type == VAR_BLOB)
+  		    tv.vval.v_string = viminfo_readstring(virp,
+  				       (int)(tab - virp->vir_line + 1), TRUE);
+  #ifdef FEAT_FLOAT
+***************
+*** 8958,8964 ****
+  #endif
+  		else
+  		    tv.vval.v_number = atol((char *)tab + 1);
+! 		if (type == VAR_DICT || type == VAR_LIST || type == VAR_BLOB)
+  		{
+  		    typval_T *etv = eval_expr(tv.vval.v_string, NULL);
+  
+--- 8932,8938 ----
+  #endif
+  		else
+  		    tv.vval.v_number = atol((char *)tab + 1);
+! 		if (type == VAR_DICT || type == VAR_LIST)
+  		{
+  		    typval_T *etv = eval_expr(tv.vval.v_string, NULL);
+  
+***************
+*** 8973,8978 ****
+--- 8947,8966 ----
+  			vim_free(etv);
+  		    }
+  		}
++ 		else if (type == VAR_BLOB)
++ 		{
++ 		    blob_T *blob = string2blob(tv.vval.v_string);
++ 
++ 		    if (blob == NULL)
++ 			// Failed to parse back the blob, use it as a string.
++ 			tv.v_type = VAR_STRING;
++ 		    else
++ 		    {
++ 			vim_free(tv.vval.v_string);
++ 			tv.v_type = VAR_BLOB;
++ 			tv.vval.v_blob = blob;
++ 		    }
++ 		}
+  
+  		/* when in a function use global variables */
+  		save_funccal(&funccal_entry);
+***************
+*** 9037,9043 ****
+  				     continue;
+  		}
+  		fprintf(fp, "!%s\t%s\t", this_var->di_key, s);
+! 		p = echo_string(&this_var->di_tv, &tofree, numbuf, 0);
+  		if (p != NULL)
+  		    viminfo_writestring(fp, p);
+  		vim_free(tofree);
+--- 9025,9039 ----
+  				     continue;
+  		}
+  		fprintf(fp, "!%s\t%s\t", this_var->di_key, s);
+! 		if (this_var->di_tv.v_type == VAR_SPECIAL)
+! 		{
+! 		    sprintf((char *)numbuf, "%ld",
+! 					  (long)this_var->di_tv.vval.v_number);
+! 		    p = numbuf;
+! 		    tofree = NULL;
+! 		}
+! 		else
+! 		    p = echo_string(&this_var->di_tv, &tofree, numbuf, 0);
+  		if (p != NULL)
+  		    viminfo_writestring(fp, p);
+  		vim_free(tofree);
+*** ../vim-8.1.0740/src/blob.c	2019-01-13 15:15:54.392762879 +0100
+--- src/blob.c	2019-01-13 17:42:19.000391564 +0100
+***************
+*** 167,170 ****
+--- 167,237 ----
+      return OK;
+  }
+  
++ /*
++  * Convert a blob to a readable form: "[0x11,0x34]"
++  */
++     char_u *
++ blob2string(blob_T *blob, char_u **tofree, char_u *numbuf)
++ {
++     int		i;
++     garray_T    ga;
++ 
++     if (blob == NULL)
++     {
++ 	*tofree = NULL;
++ 	return (char_u *)"[]";
++     }
++ 
++     // Store bytes in the growarray.
++     ga_init2(&ga, 1, 4000);
++     ga_append(&ga, '[');
++     for (i = 0; i < blob_len(blob); i++)
++     {
++ 	if (i > 0)
++ 	    ga_concat(&ga, (char_u *)",");
++ 	vim_snprintf((char *)numbuf, NUMBUFLEN, "0x%02X", (int)blob_get(blob, i));
++ 	ga_concat(&ga, numbuf);
++     }
++     ga_append(&ga, ']');
++     *tofree = ga.ga_data;
++     return *tofree;
++ }
++ 
++ /*
++  * Convert a string variable, in the format of blob2string(), to a blob.
++  * Return NULL when conversion failed.
++  */
++     blob_T *
++ string2blob(char_u *str)
++ {
++     blob_T  *blob = blob_alloc();
++     char_u  *s = str;
++ 
++     if (*s != '[')
++ 	goto failed;
++     s = skipwhite(s + 1);
++     while (*s != ']')
++     {
++ 	if (s[0] != '0' || s[1] != 'x'
++ 				 || !vim_isxdigit(s[2]) || !vim_isxdigit(s[3]))
++ 	    goto failed;
++ 	ga_append(&blob->bv_ga, (hex2nr(s[2]) << 4) + hex2nr(s[3]));
++ 	s += 4;
++ 	if (*s == ',')
++ 	    s = skipwhite(s + 1);
++ 	else if (*s != ']')
++ 	    goto failed;
++     }
++     s = skipwhite(s + 1);
++     if (*s != NUL)
++ 	goto failed;  // text after final ']'
++ 
++     ++blob->bv_refcount;
++     return blob;
++ 
++ failed:
++     blob_free(blob);
++     return NULL;
++ }
++ 
+  #endif /* defined(FEAT_EVAL) */
+*** ../vim-8.1.0740/src/proto/blob.pro	2019-01-12 22:47:01.264088074 +0100
+--- src/proto/blob.pro	2019-01-13 17:34:42.075344422 +0100
+***************
+*** 10,13 ****
+--- 10,15 ----
+  int blob_equal(blob_T *b1, blob_T *b2);
+  int read_blob(FILE *fd, blob_T *blob);
+  int write_blob(FILE *fd, blob_T *blob);
++ char_u *blob2string(blob_T *blob, char_u **tofree, char_u *numbuf);
++ blob_T *string2blob(char_u *str);
+  /* vim: set ft=c : */
+*** ../vim-8.1.0740/src/version.c	2019-01-13 16:46:18.807309467 +0100
+--- src/version.c	2019-01-13 17:47:30.098331505 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     741,
+  /**/
+
+-- 
+What is the difference between a professional and an amateur?
+The ark was built by an amateur; professionals gave us the Titanic.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,209 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0840
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0840
+Problem:    getchar(0) never returns a character in the terminal.
+Solution:   Call wait_func() at least once.
+Files:	    src/ui.c, src/testdir/test_timers.vim, src/gui_gtk_x11.c,
+            src/gui_w32.c, src/gui_photon.c, src/gui_x11.c
+
+
+*** ../vim-8.1.0839/src/ui.c	2019-01-27 17:08:29.075488494 +0100
+--- src/ui.c	2019-01-28 22:07:04.502261772 +0100
+***************
+*** 272,277 ****
+--- 272,278 ----
+  {
+      int		len;
+      int		interrupted = FALSE;
++     int		did_call_wait_func = FALSE;
+      int		did_start_blocking = FALSE;
+      long	wait_time;
+      long	elapsed_time = 0;
+***************
+*** 313,319 ****
+  	    elapsed_time = ELAPSED_FUNC(start_tv);
+  #endif
+  	    wait_time -= elapsed_time;
+! 	    if (wait_time <= 0)
+  	    {
+  		if (wtime >= 0)
+  		    // no character available within "wtime"
+--- 314,324 ----
+  	    elapsed_time = ELAPSED_FUNC(start_tv);
+  #endif
+  	    wait_time -= elapsed_time;
+! 
+! 	    // If the waiting time is now zero or less, we timed out.  However,
+! 	    // loop at least once to check for characters and events.  Matters
+! 	    // when "wtime" is zero.
+! 	    if (wait_time <= 0 && did_call_wait_func)
+  	    {
+  		if (wtime >= 0)
+  		    // no character available within "wtime"
+***************
+*** 374,379 ****
+--- 379,385 ----
+  
+  	// Wait for a character to be typed or another event, such as the winch
+  	// signal or an event on the monitored file descriptors.
++ 	did_call_wait_func = TRUE;
+  	if (wait_func(wait_time, &interrupted, FALSE))
+  	{
+  	    // If input was put directly in typeahead buffer bail out here.
+*** ../vim-8.1.0839/src/testdir/test_timers.vim	2018-05-12 15:38:17.000000000 +0200
+--- src/testdir/test_timers.vim	2019-01-28 22:00:53.365008615 +0100
+***************
+*** 250,255 ****
+--- 250,265 ----
+    call timer_stop(intr)
+  endfunc
+  
++ func Test_getchar_zero()
++   call timer_start(20, {id -> feedkeys('x', 'L')})
++   let c = 0
++   while c == 0
++     let c = getchar(0)
++     sleep 10m
++   endwhile
++   call assert_equal('x', nr2char(c))
++ endfunc
++ 
+  func Test_ex_mode()
+    " Function with an empty line.
+    func Foo(...)
+*** ../vim-8.1.0839/src/gui_gtk_x11.c	2019-01-20 15:30:36.885328746 +0100
+--- src/gui_gtk_x11.c	2019-01-28 22:15:59.338866293 +0100
+***************
+*** 6317,6326 ****
+  
+      timed_out = FALSE;
+  
+!     /* this timeout makes sure that we will return if no characters arrived in
+!      * time */
+!     if (wtime > 0)
+! 	timer = timeout_add(wtime, input_timer_cb, &timed_out);
+      else
+  	timer = 0;
+  
+--- 6317,6327 ----
+  
+      timed_out = FALSE;
+  
+!     // This timeout makes sure that we will return if no characters arrived in
+!     // time. If "wtime" is zero just use one.
+!     if (wtime >= 0)
+! 	timer = timeout_add(wtime <= 0 ? 1L : wtime,
+! 						   input_timer_cb, &timed_out);
+      else
+  	timer = 0;
+  
+*** ../vim-8.1.0839/src/gui_w32.c	2019-01-24 16:27:41.693254193 +0100
+--- src/gui_w32.c	2019-01-28 22:18:22.097933790 +0100
+***************
+*** 2097,2108 ****
+  
+      s_timed_out = FALSE;
+  
+!     if (wtime > 0)
+      {
+! 	/* Don't do anything while processing a (scroll) message. */
+  	if (s_busy_processing)
+  	    return FAIL;
+! 	s_wait_timer = (UINT)SetTimer(NULL, 0, (UINT)wtime,
+  							 (TIMERPROC)_OnTimer);
+      }
+  
+--- 2097,2110 ----
+  
+      s_timed_out = FALSE;
+  
+!     if (wtime >= 0)
+      {
+! 	// Don't do anything while processing a (scroll) message.
+  	if (s_busy_processing)
+  	    return FAIL;
+! 
+! 	// When called with "wtime" zero, just want one msec.
+! 	s_wait_timer = (UINT)SetTimer(NULL, 0, (UINT)(wtime == 0 ? 1 : wtime),
+  							 (TIMERPROC)_OnTimer);
+      }
+  
+*** ../vim-8.1.0839/src/gui_photon.c	2019-01-24 15:04:44.674887811 +0100
+--- src/gui_photon.c	2019-01-28 22:18:06.798034897 +0100
+***************
+*** 1344,1351 ****
+  {
+      is_timeout = FALSE;
+  
+!     if (wtime > 0)
+! 	PtSetResource(gui_ph_timer_timeout, Pt_ARG_TIMER_INITIAL, wtime, 0);
+  
+      while (1)
+      {
+--- 1344,1352 ----
+  {
+      is_timeout = FALSE;
+  
+!     if (wtime >= 0)
+! 	PtSetResource(gui_ph_timer_timeout, Pt_ARG_TIMER_INITIAL,
+! 						    wtime == 0 ? 1 : wtime, 0);
+  
+      while (1)
+      {
+*** ../vim-8.1.0839/src/gui_x11.c	2019-01-24 15:54:17.786847003 +0100
+--- src/gui_x11.c	2019-01-28 22:19:23.197527600 +0100
+***************
+*** 2683,2691 ****
+  
+      timed_out = FALSE;
+  
+!     if (wtime > 0)
+! 	timer = XtAppAddTimeOut(app_context, (long_u)wtime, gui_x11_timer_cb,
+! 								  &timed_out);
+  #ifdef FEAT_JOB_CHANNEL
+      /* If there is a channel with the keep_open flag we need to poll for input
+       * on them. */
+--- 2683,2692 ----
+  
+      timed_out = FALSE;
+  
+!     if (wtime >= 0)
+! 	timer = XtAppAddTimeOut(app_context,
+! 				(long_u)(wtime == 0 ? 1L : wtime),
+! 						 gui_x11_timer_cb, &timed_out);
+  #ifdef FEAT_JOB_CHANNEL
+      /* If there is a channel with the keep_open flag we need to poll for input
+       * on them. */
+*** ../vim-8.1.0839/src/version.c	2019-01-28 20:19:01.679054801 +0100
+--- src/version.c	2019-01-28 22:31:32.836488283 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     840,
+  /**/
+
+-- 
+A poem:                read aloud:
+
+<> !*''#               Waka waka bang splat tick tick hash,
+^"`$$-                 Caret quote back-tick dollar dollar dash,
+!*=@$_                 Bang splat equal at dollar under-score,
+%*<> ~#4               Percent splat waka waka tilde number four,
+&[]../                 Ampersand bracket bracket dot dot slash,
+|{,,SYSTEM HALTED      Vertical-bar curly-bracket comma comma CRASH.
+
+Fred Bremmer and Steve Kroese (Calvin College & Seminary of Grand Rapids, MI.)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

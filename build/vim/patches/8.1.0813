@@ -1,0 +1,131 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0813
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0813
+Problem:    FileChangedShell not sufficiently tested.
+Solution:   Add a more comprehensive test case.
+Files:	    src/testdir/test_autocmd.vim
+
+
+*** ../vim-8.1.0812/src/testdir/test_autocmd.vim	2019-01-09 23:00:57.997176121 +0100
+--- src/testdir/test_autocmd.vim	2019-01-24 19:35:28.881281300 +0100
+***************
+*** 1385,1387 ****
+--- 1385,1477 ----
+    call delete('Xchanged.txt')
+    bwipe!
+  endfunc
++ 
++ func Test_FileChangedShell_reload()
++   if !has('unix')
++     return
++   endif
++   augroup testreload
++     au FileChangedShell Xchanged let g:reason = v:fcs_reason | let v:fcs_choice = 'reload'
++   augroup END
++   new Xchanged
++   call setline(1, 'reload this')
++   write
++   " Need to wait until the timestamp would change by at least a second.
++   sleep 2
++   silent !echo 'extra line' >>Xchanged
++   checktime
++   call assert_equal('changed', g:reason)
++   call assert_equal(2, line('$'))
++   call assert_equal('extra line', getline(2))
++ 
++   " Only triggers once
++   let g:reason = ''
++   checktime
++   call assert_equal('', g:reason)
++ 
++   " When deleted buffer is not reloaded
++   silent !rm Xchanged
++   let g:reason = ''
++   checktime
++   call assert_equal('deleted', g:reason)
++   call assert_equal(2, line('$'))
++   call assert_equal('extra line', getline(2))
++ 
++   " When recreated buffer is reloaded
++   call setline(1, 'buffer is changed')
++   silent !echo 'new line' >>Xchanged
++   let g:reason = ''
++   checktime
++   call assert_equal('conflict', g:reason)
++   call assert_equal(1, line('$'))
++   call assert_equal('new line', getline(1))
++ 
++   " Only mode changed
++   silent !chmod +x Xchanged
++   let g:reason = ''
++   checktime
++   call assert_equal('mode', g:reason)
++   call assert_equal(1, line('$'))
++   call assert_equal('new line', getline(1))
++ 
++   " Only time changed
++   sleep 2
++   silent !touch Xchanged
++   let g:reason = ''
++   checktime
++   call assert_equal('time', g:reason)
++   call assert_equal(1, line('$'))
++   call assert_equal('new line', getline(1))
++ 
++   if has('persistent_undo')
++     " With an undo file the reload can be undone and a change before the
++     " reload.
++     set undofile
++     call setline(2, 'before write')
++     write
++     call setline(2, 'after write')
++     sleep 2
++     silent !echo 'different line' >>Xchanged
++     let g:reason = ''
++     checktime
++     call assert_equal('conflict', g:reason)
++     call assert_equal(3, line('$'))
++     call assert_equal('before write', getline(2))
++     call assert_equal('different line', getline(3))
++     " undo the reload
++     undo
++     call assert_equal(2, line('$'))
++     call assert_equal('after write', getline(2))
++     " undo the change before reload
++     undo
++     call assert_equal(2, line('$'))
++     call assert_equal('before write', getline(2))
++ 
++     set noundofile
++   endif
++ 
++ 
++   au! testreload
++   bwipe!
++   call delete('Xchanged')
++ endfunc
+*** ../vim-8.1.0812/src/version.c	2019-01-24 18:20:14.436543394 +0100
+--- src/version.c	2019-01-24 19:36:50.824706620 +0100
+***************
+*** 789,790 ****
+--- 789,792 ----
+  {   /* Add new patch number below this line */
++ /**/
++     813,
+  /**/
+
+-- 
+You were lucky to have a LAKE! There were a hundred and sixty of
+us living in a small shoebox in the middle of the road.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

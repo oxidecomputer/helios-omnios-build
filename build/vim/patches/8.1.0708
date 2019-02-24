@@ -1,0 +1,173 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0708
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0708
+Problem:    Third argument for redrawWinline() is always FALSE.
+Solution:   Drop the argument. (neovim #9479)
+Files:	    src/edit.c, src/move.c, src/screen.c, src/proto/screen.pro
+
+
+*** ../vim-8.1.0707/src/edit.c	2019-01-06 17:44:34.304621294 +0100
+--- src/edit.c	2019-01-09 20:49:07.042640158 +0100
+***************
+*** 1955,1961 ****
+  	if (pc_status == PC_STATUS_RIGHT)
+  	    ++curwin->w_wcol;
+  	if (pc_status == PC_STATUS_RIGHT || pc_status == PC_STATUS_LEFT)
+! 	    redrawWinline(curwin, curwin->w_cursor.lnum, FALSE);
+  	else
+  #endif
+  	    screen_puts(pc_bytes, pc_row - msg_scrolled, pc_col, pc_attr);
+--- 1955,1961 ----
+  	if (pc_status == PC_STATUS_RIGHT)
+  	    ++curwin->w_wcol;
+  	if (pc_status == PC_STATUS_RIGHT || pc_status == PC_STATUS_LEFT)
+! 	    redrawWinline(curwin, curwin->w_cursor.lnum);
+  	else
+  #endif
+  	    screen_puts(pc_bytes, pc_row - msg_scrolled, pc_col, pc_attr);
+***************
+*** 2006,2012 ****
+      if (dollar_vcol >= 0)
+      {
+  	dollar_vcol = -1;
+! 	redrawWinline(curwin, curwin->w_cursor.lnum, FALSE);
+      }
+  }
+  
+--- 2006,2012 ----
+      if (dollar_vcol >= 0)
+      {
+  	dollar_vcol = -1;
+! 	redrawWinline(curwin, curwin->w_cursor.lnum);
+      }
+  }
+  
+***************
+*** 7074,7080 ****
+  	linenr_T	lnum = spell_redraw_lnum;
+  
+  	spell_redraw_lnum = 0;
+! 	redrawWinline(curwin, lnum, FALSE);
+      }
+  }
+  
+--- 7074,7080 ----
+  	linenr_T	lnum = spell_redraw_lnum;
+  
+  	spell_redraw_lnum = 0;
+! 	redrawWinline(curwin, lnum);
+      }
+  }
+  
+*** ../vim-8.1.0707/src/move.c	2018-11-24 14:27:36.988474753 +0100
+--- src/move.c	2019-01-09 20:49:22.266468754 +0100
+***************
+*** 153,160 ****
+  		// "w_last_cursorline" may be outdated, worst case we redraw
+  		// too much.  This is optimized for moving the cursor around in
+  		// the current window.
+! 		redrawWinline(wp, wp->w_last_cursorline, FALSE);
+! 		redrawWinline(wp, wp->w_cursor.lnum, FALSE);
+  		redraw_win_later(wp, VALID);
+  	    }
+  	    else
+--- 153,160 ----
+  		// "w_last_cursorline" may be outdated, worst case we redraw
+  		// too much.  This is optimized for moving the cursor around in
+  		// the current window.
+! 		redrawWinline(wp, wp->w_last_cursorline);
+! 		redrawWinline(wp, wp->w_cursor.lnum);
+  		redraw_win_later(wp, VALID);
+  	    }
+  	    else
+*** ../vim-8.1.0707/src/screen.c	2019-01-08 22:02:36.044297306 +0100
+--- src/screen.c	2019-01-09 20:49:59.438056453 +0100
+***************
+*** 492,519 ****
+      void
+  redrawWinline(
+      win_T	*wp,
+!     linenr_T	lnum,
+!     int		invalid UNUSED)	/* window line height is invalid now */
+  {
+- #ifdef FEAT_FOLDING
+-     int		i;
+- #endif
+- 
+      if (wp->w_redraw_top == 0 || wp->w_redraw_top > lnum)
+  	wp->w_redraw_top = lnum;
+      if (wp->w_redraw_bot == 0 || wp->w_redraw_bot < lnum)
+  	wp->w_redraw_bot = lnum;
+      redraw_win_later(wp, VALID);
+- 
+- #ifdef FEAT_FOLDING
+-     if (invalid)
+-     {
+- 	/* A w_lines[] entry for this lnum has become invalid. */
+- 	i = find_wl_entry(wp, lnum);
+- 	if (i >= 0)
+- 	    wp->w_lines[i].wl_valid = FALSE;
+-     }
+- #endif
+  }
+  
+      void
+--- 492,504 ----
+      void
+  redrawWinline(
+      win_T	*wp,
+!     linenr_T	lnum)
+  {
+      if (wp->w_redraw_top == 0 || wp->w_redraw_top > lnum)
+  	wp->w_redraw_top = lnum;
+      if (wp->w_redraw_bot == 0 || wp->w_redraw_bot < lnum)
+  	wp->w_redraw_bot = lnum;
+      redraw_win_later(wp, VALID);
+  }
+  
+      void
+*** ../vim-8.1.0707/src/proto/screen.pro	2019-01-08 22:02:36.044297306 +0100
+--- src/proto/screen.pro	2019-01-09 20:50:15.181884364 +0100
+***************
+*** 8,14 ****
+  void redraw_buf_and_status_later(buf_T *buf, int type);
+  int redraw_asap(int type);
+  void redraw_after_callback(int call_update_screen);
+! void redrawWinline(win_T *wp, linenr_T lnum, int invalid);
+  void reset_updating_screen(int may_resize_shell);
+  void update_curbuf(int type);
+  int update_screen(int type_arg);
+--- 8,14 ----
+  void redraw_buf_and_status_later(buf_T *buf, int type);
+  int redraw_asap(int type);
+  void redraw_after_callback(int call_update_screen);
+! void redrawWinline(win_T *wp, linenr_T lnum);
+  void reset_updating_screen(int may_resize_shell);
+  void update_curbuf(int type);
+  int update_screen(int type_arg);
+*** ../vim-8.1.0707/src/version.c	2019-01-08 23:07:21.309386047 +0100
+--- src/version.c	2019-01-09 20:50:27.605749582 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     708,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+136. You decide to stay in a low-paying job teaching just for the
+     free Internet access.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

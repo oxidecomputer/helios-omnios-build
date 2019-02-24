@@ -1,0 +1,169 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0974
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0974
+Problem:    Cannot switch from terminal window to previous tabpage.
+Solution:   Make CTRL-W gT move to previous tabpage.
+Files:	    src/window.c, src/testdir/test_terminal.vim,
+            runtime/doc/terminal.txt
+
+
+*** ../vim-8.1.0973/src/window.c	2019-02-22 16:09:06.578746015 +0100
+--- src/window.c	2019-02-22 17:39:19.674664417 +0100
+***************
+*** 87,96 ****
+  #endif
+      char_u	cbuf[40];
+  
+!     if (Prenum == 0)
+! 	Prenum1 = 1;
+!     else
+! 	Prenum1 = Prenum;
+  
+  #ifdef FEAT_CMDWIN
+  # define CHECK_CMDWIN \
+--- 87,93 ----
+  #endif
+      char_u	cbuf[40];
+  
+!     Prenum1 = Prenum == 0 ? 1 : Prenum;
+  
+  #ifdef FEAT_CMDWIN
+  # define CHECK_CMDWIN \
+***************
+*** 588,593 ****
+--- 585,594 ----
+  			goto_tabpage((int)Prenum);
+  			break;
+  
++ 		    case 'T':	    // CTRL-W gT: go to previous tab page
++ 			goto_tabpage(-(int)Prenum1);
++ 			break;
++ 
+  		    default:
+  			beep_flush();
+  			break;
+*** ../vim-8.1.0973/src/testdir/test_terminal.vim	2019-02-22 16:09:06.578746015 +0100
+--- src/testdir/test_terminal.vim	2019-02-22 17:51:42.925520407 +0100
+***************
+*** 1569,1578 ****
+  endfunc
+  
+  func Test_terminal_termwinkey()
+    call assert_equal(1, winnr('$'))
+    let thiswin = win_getid()
+-   tabnew
+-   tabnext
+  
+    let buf = Run_shell_in_terminal({})
+    let termwin = bufwinid(buf)
+--- 1569,1582 ----
+  endfunc
+  
+  func Test_terminal_termwinkey()
++   " make three tabpages, terminal in the middle
++   0tabnew
++   tabnext
++   tabnew
++   tabprev
+    call assert_equal(1, winnr('$'))
++   call assert_equal(2, tabpagenr())
+    let thiswin = win_getid()
+  
+    let buf = Run_shell_in_terminal({})
+    let termwin = bufwinid(buf)
+***************
+*** 1582,1592 ****
+    call feedkeys("\<C-W>w", 'tx')
+    call assert_equal(termwin, win_getid())
+  
+-   let tnr = tabpagenr()
+    call feedkeys("\<C-L>gt", "xt")
+!   call assert_notequal(tnr, tabpagenr())
+    tabnext
+!   call assert_equal(tnr, tabpagenr())
+    call assert_equal(termwin, win_getid())
+  
+    let job = term_getjob(buf)
+--- 1586,1601 ----
+    call feedkeys("\<C-W>w", 'tx')
+    call assert_equal(termwin, win_getid())
+  
+    call feedkeys("\<C-L>gt", "xt")
+!   call assert_equal(3, tabpagenr())
+!   tabprev
+!   call assert_equal(2, tabpagenr())
+!   call assert_equal(termwin, win_getid())
+! 
+!   call feedkeys("\<C-L>gT", "xt")
+!   call assert_equal(1, tabpagenr())
+    tabnext
+!   call assert_equal(2, tabpagenr())
+    call assert_equal(termwin, win_getid())
+  
+    let job = term_getjob(buf)
+***************
+*** 1596,1601 ****
+--- 1605,1612 ----
+    set termwinkey&
+    tabnext
+    tabclose
++   tabprev
++   tabclose
+  endfunc
+  
+  func Test_terminal_out_err()
+*** ../vim-8.1.0973/runtime/doc/terminal.txt	2019-02-22 16:09:06.578746015 +0100
+--- runtime/doc/terminal.txt	2019-02-22 17:41:35.569722575 +0100
+***************
+*** 44,50 ****
+  
+  {Vi does not have any of these commands}
+  {only available when compiled with the |+terminal| feature}
+! The terminal feature requires the |+multi_byte|, |+job| and |+channel| features.
+  
+  ==============================================================================
+  1. Basic use						*terminal-use*
+--- 44,50 ----
+  
+  {Vi does not have any of these commands}
+  {only available when compiled with the |+terminal| feature}
+! The terminal feature requires the |+job| and |+channel| features.
+  
+  ==============================================================================
+  1. Basic use						*terminal-use*
+***************
+*** 81,86 ****
+--- 81,87 ----
+  			evaluating an expression.
+  	CTRL-W CTRL-C	ends the job, see below |t_CTRL-W_CTRL-C|
+  	CTRL-W gt	go to next tabpage, same as `gt`
++ 	CTRL-W gT	go to previous tabpage, same as `gT`
+  
+  See option 'termwinkey' for specifying another key instead of CTRL-W that
+  will work like CTRL-W.  However, typing 'termwinkey' twice sends 'termwinkey'
+*** ../vim-8.1.0973/src/version.c	2019-02-22 17:26:57.739029029 +0100
+--- src/version.c	2019-02-22 17:52:10.157342450 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     974,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+17. You turn on your intercom when leaving the room so you can hear if new
+    e-mail arrives.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

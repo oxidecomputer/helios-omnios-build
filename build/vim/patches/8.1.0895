@@ -1,0 +1,134 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0895
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0895 (after 8.1.0879)
+Problem:    MS-Windows: dealing with temp name encoding not quite right.
+Solution:   Use more wide functions. (Ken Takata, closes #3921)
+Files:	    src/fileio.c
+
+
+*** ../vim-8.1.0894/src/fileio.c	2019-02-08 14:41:27.007922657 +0100
+--- src/fileio.c	2019-02-10 23:25:09.355719242 +0100
+***************
+*** 7322,7327 ****
+--- 7322,7329 ----
+  {
+  #ifdef USE_TMPNAM
+      char_u	itmp[L_tmpnam];	/* use tmpnam() */
++ #elif defined(WIN3264)
++     WCHAR	itmp[TEMPNAMELEN];
+  #else
+      char_u	itmp[TEMPNAMELEN];
+  #endif
+***************
+*** 7443,7493 ****
+  #else /* TEMPDIRNAMES */
+  
+  # ifdef WIN3264
+!     char	szTempFile[_MAX_PATH + 1];
+!     char	buf4[4];
+      char_u	*retval;
+      char_u	*p;
+  
+!     STRCPY(itmp, "");
+!     if (GetTempPath(_MAX_PATH, szTempFile) == 0)
+      {
+! 	szTempFile[0] = '.';	/* GetTempPath() failed, use current dir */
+! 	szTempFile[1] = NUL;
+      }
+!     strcpy(buf4, "VIM");
+      buf4[2] = extra_char;   /* make it "VIa", "VIb", etc. */
+!     if (GetTempFileName(szTempFile, buf4, 0, (LPSTR)itmp) == 0)
+  	return NULL;
+      if (!keep)
+! 	/* GetTempFileName() will create the file, we don't want that */
+! 	(void)DeleteFile((LPSTR)itmp);
+  
+!     /* Backslashes in a temp file name cause problems when filtering with
+!      * "sh".  NOTE: This also checks 'shellcmdflag' to help those people who
+!      * didn't set 'shellslash'. */
+!     retval = vim_strsave(itmp);
+      if (*p_shcf == '-' || p_ssl)
+  	for (p = retval; *p; ++p)
+  	    if (*p == '\\')
+  		*p = '/';
+- 
+- #if defined(WIN3264)
+-     if (enc_utf8)
+-     {
+- 	int	len;
+- 	char_u  *pp = NULL;
+- 
+- 	// Convert from active codepage to UTF-8 since mch_call_shell()
+- 	// converts command-line to wide string from encoding.
+- 	acp_to_enc(retval, (int)STRLEN(retval), &pp, &len);
+- 	if (pp != NULL)
+- 	{
+- 	    vim_free(retval);
+- 	    return pp;
+- 	}
+-     }
+- #endif
+- 
+      return retval;
+  
+  # else /* WIN3264 */
+--- 7445,7477 ----
+  #else /* TEMPDIRNAMES */
+  
+  # ifdef WIN3264
+!     WCHAR	wszTempFile[_MAX_PATH + 1];
+!     WCHAR	buf4[4];
+      char_u	*retval;
+      char_u	*p;
+  
+!     wcscpy(itmp, L"");
+!     if (GetTempPathW(_MAX_PATH, wszTempFile) == 0)
+      {
+! 	wszTempFile[0] = L'.';	// GetTempPathW() failed, use current dir
+! 	wszTempFile[1] = NUL;
+      }
+!     wcscpy(buf4, L"VIM");
+      buf4[2] = extra_char;   /* make it "VIa", "VIb", etc. */
+!     if (GetTempFileNameW(wszTempFile, buf4, 0, itmp) == 0)
+  	return NULL;
+      if (!keep)
+! 	// GetTempFileName() will create the file, we don't want that
+! 	(void)DeleteFileW(itmp);
+  
+!     // Backslashes in a temp file name cause problems when filtering with
+!     // "sh".  NOTE: This also checks 'shellcmdflag' to help those people who
+!     // didn't set 'shellslash'.
+!     retval = utf16_to_enc(itmp, NULL);
+      if (*p_shcf == '-' || p_ssl)
+  	for (p = retval; *p; ++p)
+  	    if (*p == '\\')
+  		*p = '/';
+      return retval;
+  
+  # else /* WIN3264 */
+*** ../vim-8.1.0894/src/version.c	2019-02-10 23:18:49.038187525 +0100
+--- src/version.c	2019-02-10 23:25:57.095404785 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     895,
+  /**/
+
+-- 
+NEIL INNES PLAYED: THE FIRST SELF-DESTRUCTIVE MONK, ROBIN'S LEAST FAVORITE
+                   MINSTREL, THE PAGE CRUSHED BY A RABBIT, THE OWNER OF A DUCK
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

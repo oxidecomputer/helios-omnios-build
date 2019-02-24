@@ -1,0 +1,742 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0632
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0632
+Problem:    Using sign group names is inefficient.
+Solution:   Store group names in a hash table and use a reference to them.
+            Also remove unnecessary use of ":exe" from the tests.  (Yegappan
+            Lakshmanan, closes #3715)
+Files:	    src/buffer.c, src/ex_cmds.c, src/structs.h,
+            src/testdir/test_signs.vim
+
+
+*** ../vim-8.1.0631/src/buffer.c	2018-12-21 15:16:57.475579814 +0100
+--- src/buffer.c	2018-12-24 20:15:59.744514267 +0100
+***************
+*** 5865,5870 ****
+--- 5865,5937 ----
+  #endif
+  
+  #if defined(FEAT_SIGNS) || defined(PROTO)
++ static hashtab_T	sg_table;	// sign group (signgroup_T) hashtable
++ 
++ /*
++  * A new sign in group 'groupname' is added. If the group is not present,
++  * create it. Otherwise reference the group.
++  */
++     static signgroup_T *
++ sign_group_ref(char_u *groupname)
++ {
++     static int		initialized = FALSE;
++     hash_T		hash;
++     hashitem_T		*hi;
++     signgroup_T		*group;
++ 
++     if (!initialized)
++     {
++ 	initialized = TRUE;
++ 	hash_init(&sg_table);
++     }
++ 
++     hash = hash_hash(groupname);
++     hi = hash_lookup(&sg_table, groupname, hash);
++     if (HASHITEM_EMPTY(hi))
++     {
++ 	// new group
++ 	group = (signgroup_T *)alloc(
++ 		(unsigned)(sizeof(signgroup_T) + STRLEN(groupname)));
++ 	if (group == NULL)
++ 	    return NULL;
++ 	STRCPY(group->sg_name, groupname);
++ 	group->refcount = 1;
++ 	hash_add_item(&sg_table, hi, group->sg_name, hash);
++     }
++     else
++     {
++ 	// existing group
++ 	group = HI2SG(hi);
++ 	group->refcount++;
++     }
++ 
++     return group;
++ }
++ 
++ /*
++  * A sign in group 'groupname' is removed. If all the signs in this group are
++  * removed, then remove the group.
++  */
++     static void
++ sign_group_unref(char_u *groupname)
++ {
++     hashitem_T		*hi;
++     signgroup_T		*group;
++ 
++     hi = hash_find(&sg_table, groupname);
++     if (!HASHITEM_EMPTY(hi))
++     {
++ 	group = HI2SG(hi);
++ 	group->refcount--;
++ 	if (group->refcount == 0)
++ 	{
++ 	    // All the signs in this group are removed
++ 	    hash_remove(&sg_table, hi);
++ 	    vim_free(group);
++ 	}
++     }
++ }
++ 
+  /*
+   * Insert a new sign into the signlist for buffer 'buf' between the 'prev' and
+   * 'next' signs.
+***************
+*** 5890,5896 ****
+  	newsign->lnum = lnum;
+  	newsign->typenr = typenr;
+  	if (group != NULL)
+! 	    newsign->group = vim_strsave(group);
+  	else
+  	    newsign->group = NULL;
+  	newsign->priority = prio;
+--- 5957,5970 ----
+  	newsign->lnum = lnum;
+  	newsign->typenr = typenr;
+  	if (group != NULL)
+! 	{
+! 	    newsign->group = sign_group_ref(group);
+! 	    if (newsign->group == NULL)
+! 	    {
+! 		vim_free(newsign);
+! 		return;
+! 	    }
+! 	}
+  	else
+  	    newsign->group = NULL;
+  	newsign->priority = prio;
+***************
+*** 5959,5965 ****
+      return ((group != NULL && STRCMP(group, "*") == 0) ||
+  	    (group == NULL && sign->group == NULL) ||
+  	    (group != NULL && sign->group != NULL &&
+! 					STRCMP(group, sign->group) == 0));
+  }
+  
+  /*
+--- 6033,6039 ----
+      return ((group != NULL && STRCMP(group, "*") == 0) ||
+  	    (group == NULL && sign->group == NULL) ||
+  	    (group != NULL && sign->group != NULL &&
+! 				STRCMP(group, sign->group->sg_name) == 0));
+  }
+  
+  /*
+***************
+*** 5974,5980 ****
+  	return NULL;
+      dict_add_number(d, "id", sign->id);
+      dict_add_string(d, "group", (sign->group == NULL) ?
+! 						(char_u *)"" : sign->group);
+      dict_add_number(d, "lnum", sign->lnum);
+      dict_add_string(d, "name", sign_typenr2name(sign->typenr));
+      dict_add_number(d, "priority", sign->priority);
+--- 6048,6054 ----
+  	return NULL;
+      dict_add_number(d, "id", sign->id);
+      dict_add_string(d, "group", (sign->group == NULL) ?
+! 					(char_u *)"" : sign->group->sg_name);
+      dict_add_number(d, "lnum", sign->lnum);
+      dict_add_string(d, "name", sign_typenr2name(sign->typenr));
+      dict_add_number(d, "priority", sign->priority);
+***************
+*** 5989,5995 ****
+  buf_addsign(
+      buf_T	*buf,		// buffer to store sign in
+      int		id,		// sign ID
+!     char_u	*group,		// sign group
+      int		prio,		// sign priority
+      linenr_T	lnum,		// line number which gets the mark
+      int		typenr)		// typenr of sign we are adding
+--- 6063,6069 ----
+  buf_addsign(
+      buf_T	*buf,		// buffer to store sign in
+      int		id,		// sign ID
+!     char_u	*groupname,	// sign group
+      int		prio,		// sign priority
+      linenr_T	lnum,		// line number which gets the mark
+      int		typenr)		// typenr of sign we are adding
+***************
+*** 6001,6007 ****
+      FOR_ALL_SIGNS_IN_BUF(buf)
+      {
+  	if (lnum == sign->lnum && id == sign->id &&
+! 		sign_in_group(sign, group))
+  	{
+  	    // Update an existing sign
+  	    sign->typenr = typenr;
+--- 6075,6081 ----
+      FOR_ALL_SIGNS_IN_BUF(buf)
+      {
+  	if (lnum == sign->lnum && id == sign->id &&
+! 		sign_in_group(sign, groupname))
+  	{
+  	    // Update an existing sign
+  	    sign->typenr = typenr;
+***************
+*** 6009,6022 ****
+  	}
+  	else if (lnum < sign->lnum)
+  	{
+! 	    insert_sign_by_lnum_prio(buf, prev, id, group, prio, lnum, typenr);
+  	    return;
+  	}
+  	prev = sign;
+      }
+  
+!     insert_sign_by_lnum_prio(buf, prev, id, group, prio, lnum, typenr);
+! 
+      return;
+  }
+  
+--- 6083,6096 ----
+  	}
+  	else if (lnum < sign->lnum)
+  	{
+! 	    insert_sign_by_lnum_prio(buf, prev, id, groupname, prio,
+! 								lnum, typenr);
+  	    return;
+  	}
+  	prev = sign;
+      }
+  
+!     insert_sign_by_lnum_prio(buf, prev, id, groupname, prio, lnum, typenr);
+      return;
+  }
+  
+***************
+*** 6106,6112 ****
+  	    if (next != NULL)
+  		next->prev = sign->prev;
+  	    lnum = sign->lnum;
+! 	    vim_free(sign->group);
+  	    vim_free(sign);
+  	    // Check whether only one sign needs to be deleted
+  	    if (group == NULL || (*group != '*' && id != 0))
+--- 6180,6187 ----
+  	    if (next != NULL)
+  		next->prev = sign->prev;
+  	    lnum = sign->lnum;
+! 	    if (sign->group != NULL)
+! 		sign_group_unref(sign->group->sg_name);
+  	    vim_free(sign);
+  	    // Check whether only one sign needs to be deleted
+  	    if (group == NULL || (*group != '*' && id != 0))
+***************
+*** 6269,6275 ****
+  	    *lastp = next;
+  	    if (next != NULL)
+  		next->prev = sign->prev;
+! 	    vim_free(sign->group);
+  	    vim_free(sign);
+  	}
+  	else
+--- 6344,6351 ----
+  	    *lastp = next;
+  	    if (next != NULL)
+  		next->prev = sign->prev;
+! 	    if (sign->group != NULL)
+! 		sign_group_unref(sign->group->sg_name);
+  	    vim_free(sign);
+  	}
+  	else
+***************
+*** 6317,6326 ****
+  	}
+  	FOR_ALL_SIGNS_IN_BUF(buf)
+  	{
+  	    if (!sign_in_group(sign, sign_group))
+  		continue;
+  	    if (sign->group != NULL)
+! 		vim_snprintf(group, BUFSIZ, "  group=%s", sign->group);
+  	    else
+  		group[0] = '\0';
+  	    vim_snprintf(lbuf, BUFSIZ, _("    line=%ld  id=%d%s  name=%s "
+--- 6393,6405 ----
+  	}
+  	FOR_ALL_SIGNS_IN_BUF(buf)
+  	{
++ 	    if (got_int)
++ 		break;
+  	    if (!sign_in_group(sign, sign_group))
+  		continue;
+  	    if (sign->group != NULL)
+! 		vim_snprintf(group, BUFSIZ, "  group=%s",
+! 							sign->group->sg_name);
+  	    else
+  		group[0] = '\0';
+  	    vim_snprintf(lbuf, BUFSIZ, _("    line=%ld  id=%d%s  name=%s "
+*** ../vim-8.1.0631/src/ex_cmds.c	2018-12-21 16:04:16.320437461 +0100
+--- src/ex_cmds.c	2018-12-24 20:15:59.744514267 +0100
+***************
+*** 8180,8186 ****
+  	{
+  	    EMSG2(_("E158: Invalid buffer name: %s"), arg);
+  	}
+! 	else if (id <= 0 && !(idx == SIGNCMD_UNPLACE && id == -2))
+  	{
+  	    if ((group == NULL) && (lnum >= 0 || sign_name != NULL))
+  		EMSG(_(e_invarg));
+--- 8180,8186 ----
+  	{
+  	    EMSG2(_("E158: Invalid buffer name: %s"), arg);
+  	}
+! 	else if (id <= 0 && idx == SIGNCMD_PLACE)
+  	{
+  	    if ((group == NULL) && (lnum >= 0 || sign_name != NULL))
+  		EMSG(_(e_invarg));
+*** ../vim-8.1.0631/src/structs.h	2018-12-24 00:22:35.739150151 +0100
+--- src/structs.h	2018-12-24 20:15:59.744514267 +0100
+***************
+*** 733,738 ****
+--- 733,749 ----
+  
+  
+  #if defined(FEAT_SIGNS) || defined(PROTO)
++ // Sign group
++ typedef struct signgroup_S
++ {
++     short_u	refcount;		// number of signs in this group
++     char_u	sg_name[1];		// sign group name
++ } signgroup_T;
++ 
++ // Macros to get the sign group structure from the group name
++ #define SGN_KEY_OFF	offsetof(signgroup_T, sg_name)
++ #define HI2SG(hi)	((signgroup_T *)((hi)->hi_key - SGN_KEY_OFF))
++ 
+  typedef struct signlist signlist_T;
+  
+  struct signlist
+***************
+*** 740,746 ****
+      int		id;		/* unique identifier for each placed sign */
+      linenr_T	lnum;		/* line number which has this sign */
+      int		typenr;		/* typenr of sign */
+!     char_u	*group;		/* sign group */
+      int		priority;	/* priority for highlighting */
+      signlist_T	*next;		/* next signlist entry */
+      signlist_T  *prev;		/* previous entry -- for easy reordering */
+--- 751,757 ----
+      int		id;		/* unique identifier for each placed sign */
+      linenr_T	lnum;		/* line number which has this sign */
+      int		typenr;		/* typenr of sign */
+!     signgroup_T	*group;		/* sign group */
+      int		priority;	/* priority for highlighting */
+      signlist_T	*next;		/* next signlist entry */
+      signlist_T  *prev;		/* previous entry -- for easy reordering */
+*** ../vim-8.1.0631/src/testdir/test_signs.vim	2018-12-21 15:16:57.483579762 +0100
+--- src/testdir/test_signs.vim	2018-12-24 20:15:59.744514267 +0100
+***************
+*** 59,65 ****
+    redraw
+  
+    " Check that we can't change sign.
+!   call assert_fails("exe 'sign place 40 name=Sign1 buffer=' . bufnr('%')", 'E885:')
+  
+    " Check placed signs
+    let a=execute('sign place')
+--- 59,65 ----
+    redraw
+  
+    " Check that we can't change sign.
+!   call assert_fails("sign place 40 name=Sign1 buffer=" . bufnr('%'), 'E885:')
+  
+    " Check placed signs
+    let a=execute('sign place')
+***************
+*** 68,74 ****
+    " Unplace the sign and try jumping to it again should fail.
+    sign unplace 41
+    1
+!   call assert_fails("exe 'sign jump 41 buffer=' . bufnr('%')", 'E157:')
+    call assert_equal('a', getline('.'))
+  
+    " Unplace sign on current line.
+--- 68,74 ----
+    " Unplace the sign and try jumping to it again should fail.
+    sign unplace 41
+    1
+!   call assert_fails("sign jump 41 buffer=" . bufnr('%'), 'E157:')
+    call assert_equal('a', getline('.'))
+  
+    " Unplace sign on current line.
+***************
+*** 132,148 ****
+    sign undefine Sign4
+  
+    " Error cases
+!   call assert_fails("exe 'sign place abc line=3 name=Sign1 buffer=' . bufnr('%')", 'E474:')
+!   call assert_fails("exe 'sign unplace abc name=Sign1 buffer=' . bufnr('%')", 'E474:')
+!   call assert_fails("exe 'sign place 1abc line=3 name=Sign1 buffer=' . bufnr('%')", 'E474:')
+!   call assert_fails("exe 'sign unplace 2abc name=Sign1 buffer=' . bufnr('%')", 'E474:')
+    call assert_fails("sign unplace 2 *", 'E474:')
+!   call assert_fails("exe 'sign place 1 line=3 name=Sign1 buffer=' . bufnr('%') a", 'E488:')
+!   call assert_fails("exe 'sign place name=Sign1 buffer=' . bufnr('%')", 'E474:')
+!   call assert_fails("exe 'sign place line=10 buffer=' . bufnr('%')", 'E474:')
+!   call assert_fails("exe 'sign unplace 2 line=10 buffer=' . bufnr('%')", 'E474:')
+!   call assert_fails("exe 'sign unplace 2 name=Sign1 buffer=' . bufnr('%')", 'E474:')
+!   call assert_fails("exe 'sign place 2 line=3 buffer=' . bufnr('%')", 'E474:')
+    call assert_fails("sign place 2", 'E474:')
+    call assert_fails("sign place abc", 'E474:')
+    call assert_fails("sign place 5 line=3", 'E474:')
+--- 132,153 ----
+    sign undefine Sign4
+  
+    " Error cases
+!   call assert_fails("sign place abc line=3 name=Sign1 buffer=" .
+! 			  \ bufnr('%'), 'E474:')
+!   call assert_fails("sign unplace abc name=Sign1 buffer=" .
+! 			  \ bufnr('%'), 'E474:')
+!   call assert_fails("sign place 1abc line=3 name=Sign1 buffer=" .
+! 			  \ bufnr('%'), 'E474:')
+!   call assert_fails("sign unplace 2abc name=Sign1 buffer=" .
+! 			  \ bufnr('%'), 'E474:')
+    call assert_fails("sign unplace 2 *", 'E474:')
+!   call assert_fails("sign place 1 line=3 name=Sign1 buffer=" .
+! 			  \ bufnr('%') . " a", 'E488:')
+!   call assert_fails("sign place name=Sign1 buffer=" . bufnr('%'), 'E474:')
+!   call assert_fails("sign place line=10 buffer=" . bufnr('%'), 'E474:')
+!   call assert_fails("sign unplace 2 line=10 buffer=" . bufnr('%'), 'E474:')
+!   call assert_fails("sign unplace 2 name=Sign1 buffer=" . bufnr('%'), 'E474:')
+!   call assert_fails("sign place 2 line=3 buffer=" . bufnr('%'), 'E474:')
+    call assert_fails("sign place 2", 'E474:')
+    call assert_fails("sign place abc", 'E474:')
+    call assert_fails("sign place 5 line=3", 'E474:')
+***************
+*** 157,163 ****
+    sign undefine Sign1
+    sign undefine Sign2
+    sign undefine Sign3
+!   call assert_fails("exe 'sign place 41 line=3 name=Sign1 buffer=' . bufnr('%')", 'E155:')
+  endfunc
+  
+  " Undefining placed sign is not recommended.
+--- 162,169 ----
+    sign undefine Sign1
+    sign undefine Sign2
+    sign undefine Sign3
+!   call assert_fails("sign place 41 line=3 name=Sign1 buffer=" .
+! 			  \ bufnr('%'), 'E155:')
+  endfunc
+  
+  " Undefining placed sign is not recommended.
+***************
+*** 236,268 ****
+    call assert_fails('sign place 1 buffer=999', 'E158:')
+    call assert_fails('sign define Sign2 text=', 'E239:')
+    " Non-numeric identifier for :sign place
+!   call assert_fails("exe 'sign place abc line=3 name=Sign1 buffer=' . bufnr('%')", 'E474:')
+    " Non-numeric identifier for :sign unplace
+!   call assert_fails("exe 'sign unplace abc name=Sign1 buffer=' . bufnr('%')", 'E474:')
+    " Number followed by an alphabet as sign identifier for :sign place
+!   call assert_fails("exe 'sign place 1abc line=3 name=Sign1 buffer=' . bufnr('%')", 'E474:')
+    " Number followed by an alphabet as sign identifier for :sign unplace
+!   call assert_fails("exe 'sign unplace 2abc name=Sign1 buffer=' . bufnr('%')", 'E474:')
+    " Sign identifier and '*' for :sign unplace
+    call assert_fails("sign unplace 2 *", 'E474:')
+    " Trailing characters after buffer number for :sign place
+!   call assert_fails("exe 'sign place 1 line=3 name=Sign1 buffer=' . bufnr('%') . 'xxx'", 'E488:')
+    " Trailing characters after buffer number for :sign unplace
+!   call assert_fails("exe 'sign unplace 1 buffer=' . bufnr('%') . 'xxx'", 'E488:')
+!   call assert_fails("exe 'sign unplace * buffer=' . bufnr('%') . 'xxx'", 'E488:')
+    call assert_fails("sign unplace 1 xxx", 'E474:')
+    call assert_fails("sign unplace * xxx", 'E474:')
+    call assert_fails("sign unplace xxx", 'E474:')
+    " Placing a sign without line number
+!   call assert_fails("exe 'sign place name=Sign1 buffer=' . bufnr('%')", 'E474:')
+    " Placing a sign without sign name
+!   call assert_fails("exe 'sign place line=10 buffer=' . bufnr('%')", 'E474:')
+    " Unplacing a sign with line number
+!   call assert_fails("exe 'sign unplace 2 line=10 buffer=' . bufnr('%')", 'E474:')
+    " Unplacing a sign with sign name
+!   call assert_fails("exe 'sign unplace 2 name=Sign1 buffer=' . bufnr('%')", 'E474:')
+    " Placing a sign without sign name
+!   call assert_fails("exe 'sign place 2 line=3 buffer=' . bufnr('%')", 'E474:')
+    " Placing a sign with only sign identifier
+    call assert_fails("sign place 2", 'E474:')
+    " Placing a sign with only a name
+--- 242,274 ----
+    call assert_fails('sign place 1 buffer=999', 'E158:')
+    call assert_fails('sign define Sign2 text=', 'E239:')
+    " Non-numeric identifier for :sign place
+!   call assert_fails("sign place abc line=3 name=Sign1 buffer=" . bufnr('%'), 'E474:')
+    " Non-numeric identifier for :sign unplace
+!   call assert_fails("sign unplace abc name=Sign1 buffer=" . bufnr('%'), 'E474:')
+    " Number followed by an alphabet as sign identifier for :sign place
+!   call assert_fails("sign place 1abc line=3 name=Sign1 buffer=" . bufnr('%'), 'E474:')
+    " Number followed by an alphabet as sign identifier for :sign unplace
+!   call assert_fails("sign unplace 2abc name=Sign1 buffer=" . bufnr('%'), 'E474:')
+    " Sign identifier and '*' for :sign unplace
+    call assert_fails("sign unplace 2 *", 'E474:')
+    " Trailing characters after buffer number for :sign place
+!   call assert_fails("sign place 1 line=3 name=Sign1 buffer=" . bufnr('%') . 'xxx', 'E488:')
+    " Trailing characters after buffer number for :sign unplace
+!   call assert_fails("sign unplace 1 buffer=" . bufnr('%') . 'xxx', 'E488:')
+!   call assert_fails("sign unplace * buffer=" . bufnr('%') . 'xxx', 'E488:')
+    call assert_fails("sign unplace 1 xxx", 'E474:')
+    call assert_fails("sign unplace * xxx", 'E474:')
+    call assert_fails("sign unplace xxx", 'E474:')
+    " Placing a sign without line number
+!   call assert_fails("sign place name=Sign1 buffer=" . bufnr('%'), 'E474:')
+    " Placing a sign without sign name
+!   call assert_fails("sign place line=10 buffer=" . bufnr('%'), 'E474:')
+    " Unplacing a sign with line number
+!   call assert_fails("sign unplace 2 line=10 buffer=" . bufnr('%'), 'E474:')
+    " Unplacing a sign with sign name
+!   call assert_fails("sign unplace 2 name=Sign1 buffer=" . bufnr('%'), 'E474:')
+    " Placing a sign without sign name
+!   call assert_fails("sign place 2 line=3 buffer=" . bufnr('%'), 'E474:')
+    " Placing a sign with only sign identifier
+    call assert_fails("sign place 2", 'E474:')
+    " Placing a sign with only a name
+***************
+*** 574,597 ****
+    call sign_unplace('*')
+  
+    " Test for :sign command and groups
+!   exe 'sign place 5 line=10 name=sign1 file=' . fname
+!   exe 'sign place 5 group=g1 line=10 name=sign1 file=' . fname
+!   exe 'sign place 5 group=g2 line=10 name=sign1 file=' . fname
+  
+    " Test for :sign place group={group} file={fname}
+!   let a = execute('sign place file=' . fname)
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n    line=10  id=5  name=sign1 priority=10\n", a)
+  
+!   let a = execute('sign place group=g2 file=' . fname)
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n    line=10  id=5  group=g2  name=sign1 priority=10\n", a)
+  
+!   let a = execute('sign place group=* file=' . fname)
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+  	      \ "    line=10  id=5  group=g2  name=sign1 priority=10\n" .
+  	      \ "    line=10  id=5  group=g1  name=sign1 priority=10\n" .
+  	      \ "    line=10  id=5  name=sign1 priority=10\n", a)
+  
+!   let a = execute('sign place group=xyz file=' . fname)
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n", a)
+  
+    call sign_unplace('*')
+--- 580,603 ----
+    call sign_unplace('*')
+  
+    " Test for :sign command and groups
+!   sign place 5 line=10 name=sign1 file=Xsign
+!   sign place 5 group=g1 line=10 name=sign1 file=Xsign
+!   sign place 5 group=g2 line=10 name=sign1 file=Xsign
+  
+    " Test for :sign place group={group} file={fname}
+!   let a = execute('sign place file=Xsign')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n    line=10  id=5  name=sign1 priority=10\n", a)
+  
+!   let a = execute('sign place group=g2 file=Xsign')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n    line=10  id=5  group=g2  name=sign1 priority=10\n", a)
+  
+!   let a = execute('sign place group=* file=Xsign')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+  	      \ "    line=10  id=5  group=g2  name=sign1 priority=10\n" .
+  	      \ "    line=10  id=5  group=g1  name=sign1 priority=10\n" .
+  	      \ "    line=10  id=5  name=sign1 priority=10\n", a)
+  
+!   let a = execute('sign place group=xyz file=Xsign')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n", a)
+  
+    call sign_unplace('*')
+***************
+*** 624,645 ****
+  	      \ "    line=12  id=5  group=g2  name=sign1 priority=10\n", a)
+  
+    " Test for :sign unplace
+!   exe 'sign unplace 5 group=g2 file=' . fname
+    call assert_equal([], sign_getplaced(bnum, {'group' : 'g2'})[0].signs)
+  
+    exe 'sign unplace 5 group=g1 buffer=' . bnum
+    call assert_equal([], sign_getplaced(bnum, {'group' : 'g1'})[0].signs)
+  
+!   exe 'sign unplace 5 group=xy file=' . fname
+    call assert_equal(1, len(sign_getplaced(bnum, {'group' : '*'})[0].signs))
+  
+    " Test for removing all the signs. Place the signs again for this test
+!   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
+!   exe 'sign place 5 group=g2 line=12 name=sign1 file=' . fname
+!   exe 'sign place 6 line=20 name=sign1 file=' . fname
+!   exe 'sign place 6 group=g1 line=21 name=sign1 file=' . fname
+!   exe 'sign place 6 group=g2 line=22 name=sign1 file=' . fname
+!   exe 'sign unplace 5 group=* file=' . fname
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+  	      \ "    line=20  id=6  name=sign1 priority=10\n" .
+--- 630,651 ----
+  	      \ "    line=12  id=5  group=g2  name=sign1 priority=10\n", a)
+  
+    " Test for :sign unplace
+!   sign unplace 5 group=g2 file=Xsign
+    call assert_equal([], sign_getplaced(bnum, {'group' : 'g2'})[0].signs)
+  
+    exe 'sign unplace 5 group=g1 buffer=' . bnum
+    call assert_equal([], sign_getplaced(bnum, {'group' : 'g1'})[0].signs)
+  
+!   sign unplace 5 group=xy file=Xsign
+    call assert_equal(1, len(sign_getplaced(bnum, {'group' : '*'})[0].signs))
+  
+    " Test for removing all the signs. Place the signs again for this test
+!   sign place 5 group=g1 line=11 name=sign1 file=Xsign
+!   sign place 5 group=g2 line=12 name=sign1 file=Xsign
+!   sign place 6 line=20 name=sign1 file=Xsign
+!   sign place 6 group=g1 line=21 name=sign1 file=Xsign
+!   sign place 6 group=g2 line=22 name=sign1 file=Xsign
+!   sign unplace 5 group=* file=Xsign
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+  	      \ "    line=20  id=6  name=sign1 priority=10\n" .
+***************
+*** 647,663 ****
+  	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
+  
+    " Remove all the signs from the global group
+!   exe 'sign unplace * file=' . fname
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+  	      \ "    line=21  id=6  group=g1  name=sign1 priority=10\n" .
+  	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
+  
+    " Remove all the signs from a particular group
+!   exe 'sign place 5 line=10 name=sign1 file=' . fname
+!   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
+!   exe 'sign place 5 group=g2 line=12 name=sign1 file=' . fname
+!   exe 'sign unplace * group=g1 file=' . fname
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+  	      \ "    line=10  id=5  name=sign1 priority=10\n" .
+--- 653,669 ----
+  	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
+  
+    " Remove all the signs from the global group
+!   sign unplace * file=Xsign
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+  	      \ "    line=21  id=6  group=g1  name=sign1 priority=10\n" .
+  	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
+  
+    " Remove all the signs from a particular group
+!   sign place 5 line=10 name=sign1 file=Xsign
+!   sign place 5 group=g1 line=11 name=sign1 file=Xsign
+!   sign place 5 group=g2 line=12 name=sign1 file=Xsign
+!   sign unplace * group=g1 file=Xsign
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+  	      \ "    line=10  id=5  name=sign1 priority=10\n" .
+***************
+*** 665,690 ****
+  	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
+  
+    " Remove all the signs from all the groups in a file
+!   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
+!   exe 'sign place 6 line=20 name=sign1 file=' . fname
+!   exe 'sign place 6 group=g1 line=21 name=sign1 file=' . fname
+!   exe 'sign unplace * group=* file=' . fname
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\n", a)
+  
+    " Remove a particular sign id in a group from all the files
+!   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
+    sign unplace 5 group=g1
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\n", a)
+  
+    " Remove a particular sign id in all the groups from all the files
+!   exe 'sign place 5 line=10 name=sign1 file=' . fname
+!   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
+!   exe 'sign place 5 group=g2 line=12 name=sign1 file=' . fname
+!   exe 'sign place 6 line=20 name=sign1 file=' . fname
+!   exe 'sign place 6 group=g1 line=21 name=sign1 file=' . fname
+!   exe 'sign place 6 group=g2 line=22 name=sign1 file=' . fname
+    sign unplace 5 group=*
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+--- 671,696 ----
+  	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
+  
+    " Remove all the signs from all the groups in a file
+!   sign place 5 group=g1 line=11 name=sign1 file=Xsign
+!   sign place 6 line=20 name=sign1 file=Xsign
+!   sign place 6 group=g1 line=21 name=sign1 file=Xsign
+!   sign unplace * group=* file=Xsign
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\n", a)
+  
+    " Remove a particular sign id in a group from all the files
+!   sign place 5 group=g1 line=11 name=sign1 file=Xsign
+    sign unplace 5 group=g1
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\n", a)
+  
+    " Remove a particular sign id in all the groups from all the files
+!   sign place 5 line=10 name=sign1 file=Xsign
+!   sign place 5 group=g1 line=11 name=sign1 file=Xsign
+!   sign place 5 group=g2 line=12 name=sign1 file=Xsign
+!   sign place 6 line=20 name=sign1 file=Xsign
+!   sign place 6 group=g1 line=21 name=sign1 file=Xsign
+!   sign place 6 group=g2 line=22 name=sign1 file=Xsign
+    sign unplace 5 group=*
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+***************
+*** 693,706 ****
+  	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
+  
+    " Remove all the signs from all the groups in all the files
+!   exe 'sign place 5 line=10 name=sign1 file=' . fname
+!   exe 'sign place 5 group=g1 line=11 name=sign1 file=' . fname
+    sign unplace * group=*
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\n", a)
+  
+    " Error cases
+!   call assert_fails("exe 'sign place 3 group= name=sign1 buffer=' . bnum", 'E474:')
+  
+    call delete("Xsign")
+    call sign_unplace('*')
+--- 699,712 ----
+  	      \ "    line=22  id=6  group=g2  name=sign1 priority=10\n", a)
+  
+    " Remove all the signs from all the groups in all the files
+!   sign place 5 line=10 name=sign1 file=Xsign
+!   sign place 5 group=g1 line=11 name=sign1 file=Xsign
+    sign unplace * group=*
+    let a = execute('sign place group=*')
+    call assert_equal("\n--- Signs ---\n", a)
+  
+    " Error cases
+!   call assert_fails("sign place 3 group= name=sign1 buffer=" . bnum, 'E474:')
+  
+    call delete("Xsign")
+    call sign_unplace('*')
+*** ../vim-8.1.0631/src/version.c	2018-12-24 19:15:15.551304134 +0100
+--- src/version.c	2018-12-24 20:18:15.011404035 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     632,
+  /**/
+
+-- 
+The future isn't what it used to be.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

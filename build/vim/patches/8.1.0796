@@ -1,0 +1,98 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0796
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0796
+Problem:    MS-Windows 7: problem with named pipe on channel.
+Solution:   Put back the disconnect/connect calls. (Yasuhiro Matsumoto,
+            closes #3833)
+Files:	    src/channel.c, src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.0795/src/channel.c	2019-01-20 15:30:36.881328770 +0100
+--- src/channel.c	2019-01-22 22:44:08.765530220 +0100
+***************
+*** 3181,3187 ****
+  
+  	    if (r && nread > 0)
+  		return CW_READY;
+! 	    if (r == 0)
+  		return CW_ERROR;
+  
+  	    /* perhaps write some buffer lines */
+--- 3181,3193 ----
+  
+  	    if (r && nread > 0)
+  		return CW_READY;
+! 
+! 	    if (channel->ch_named_pipe)
+! 	    {
+! 		DisconnectNamedPipe((HANDLE)fd);
+! 		ConnectNamedPipe((HANDLE)fd, NULL);
+! 	    }
+! 	    else if (r == 0)
+  		return CW_ERROR;
+  
+  	    /* perhaps write some buffer lines */
+***************
+*** 3813,3819 ****
+--- 3819,3834 ----
+  	if (part == PART_SOCK)
+  	    res = sock_write(fd, (char *)buf, len);
+  	else
++ 	{
+  	    res = fd_write(fd, (char *)buf, len);
++ #ifdef WIN32
++ 	    if (channel->ch_named_pipe && res < 0)
++ 	    {
++ 		DisconnectNamedPipe((HANDLE)fd);
++ 		ConnectNamedPipe((HANDLE)fd, NULL);
++ 	    }
++ #endif
++ 	}
+  	if (res < 0 && (errno == EWOULDBLOCK
+  #ifdef EAGAIN
+  			|| errno == EAGAIN
+*** ../vim-8.1.0795/src/testdir/test_terminal.vim	2019-01-20 18:25:50.313911236 +0100
+--- src/testdir/test_terminal.vim	2019-01-22 22:46:17.424241336 +0100
+***************
+*** 644,651 ****
+  
+  func Test_terminal_no_cmd()
+    " Does not work on Mac.
+!   " Todo: make this work on Win32 again
+!   if has('mac') || has('win32')
+      return
+    endif
+    let buf = term_start('NONE', {})
+--- 644,650 ----
+  
+  func Test_terminal_no_cmd()
+    " Does not work on Mac.
+!   if has('mac')
+      return
+    endif
+    let buf = term_start('NONE', {})
+*** ../vim-8.1.0795/src/version.c	2019-01-22 22:54:56.215326924 +0100
+--- src/version.c	2019-01-22 23:00:59.380030846 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     796,
+  /**/
+
+-- 
+Facepalm statement #5: "Petrol getting more expensive?  Not for me, I'm always
+tanking for 20 dollars"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

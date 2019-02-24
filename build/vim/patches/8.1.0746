@@ -1,0 +1,171 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0746
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0746
+Problem:    Highlighting not updated with conceal and 'cursorline'. (Jason
+            Franklin)
+Solution:   Do not use a zero line number.  Check if 'conceallevel' is set for
+            the current window.
+Files:	    src/main.c, src/testdir/test_conceal.vim,
+            src/testdir/dumps/Test_conceal_cul_01.dump,
+            src/testdir/dumps/Test_conceal_cul_02.dump,
+            src/testdir/dumps/Test_conceal_cul_03.dump
+
+
+*** ../vim-8.1.0745/src/main.c	2019-01-13 23:38:33.399773248 +0100
+--- src/main.c	2019-01-14 21:45:31.710209272 +0100
+***************
+*** 1170,1175 ****
+--- 1170,1179 ----
+  	    // locked, this would be a good time to handle the drop.
+  	    handle_any_postponed_drop();
+  #endif
++ #ifdef FEAT_CONCEAL
++ 	    if (curwin->w_p_cole == 0)
++ 		conceal_update_lines = FALSE;
++ #endif
+  
+  	    /* Trigger CursorMoved if the cursor moved. */
+  	    if (!finish_op && (
+***************
+*** 1201,1206 ****
+--- 1205,1211 ----
+  			|| need_cursor_line_redraw))
+  	    {
+  		if (conceal_old_cursor_line != conceal_new_cursor_line
++ 			&& conceal_old_cursor_line != 0
+  			&& conceal_old_cursor_line
+  						<= curbuf->b_ml.ml_line_count)
+  		    redrawWinline(curwin, conceal_old_cursor_line);
+*** ../vim-8.1.0745/src/testdir/test_conceal.vim	2019-01-11 20:12:57.066876963 +0100
+--- src/testdir/test_conceal.vim	2019-01-14 21:23:37.893598209 +0100
+***************
+*** 109,111 ****
+--- 109,136 ----
+    call StopVimInTerminal(buf)
+    call delete('XTest_conceal')
+  endfunc
++ 
++ func Test_conceal_with_cursorline()
++   " Opens a help window, where 'conceal' is set, switches to the other window
++   " where 'cursorline' needs to be updated when the cursor moves.
++   call writefile([
++ 	\ 'set cursorline',
++ 	\ 'normal othis is a test',
++ 	\ 'new',
++ 	\ 'call setline(1, ["one", "two", "three", "four", "five"])',
++ 	\ 'set ft=help',
++ 	\ 'normal M',
++ 	\ ], 'XTest_conceal_cul')
++   let buf = RunVimInTerminal('-S XTest_conceal_cul', {})
++   call VerifyScreenDump(buf, 'Test_conceal_cul_01', {})
++ 
++   call term_sendkeys(buf, ":wincmd w\r")
++   call VerifyScreenDump(buf, 'Test_conceal_cul_02', {})
++ 
++   call term_sendkeys(buf, "k")
++   call VerifyScreenDump(buf, 'Test_conceal_cul_03', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XTest_conceal_cul')
++ endfunc
+*** ../vim-8.1.0745/src/testdir/dumps/Test_conceal_cul_01.dump	2019-01-14 21:51:11.119470557 +0100
+--- src/testdir/dumps/Test_conceal_cul_01.dump	2019-01-14 21:23:48.357499581 +0100
+***************
+*** 0 ****
+--- 1,20 ----
++ |o+0&#ffffff0|n|e| @71
++ |t|w|o| @71
++ >t+8&&|h|r|e@1| @69
++ |f+0&&|o|u|r| @70
++ |f|i|v|e| @70
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+3#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|3|,|1| @11|A|l@1
++ | +0&&@74
++ |t+8&&|h|i|s| |i|s| |a| |t|e|s|t| @60
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|2|,|1|4| @10|A|l@1
++ | +0&&@74
+*** ../vim-8.1.0745/src/testdir/dumps/Test_conceal_cul_02.dump	2019-01-14 21:51:11.123470550 +0100
+--- src/testdir/dumps/Test_conceal_cul_02.dump	2019-01-14 21:23:49.409489680 +0100
+***************
+*** 0 ****
+--- 1,20 ----
++ |o+0&#ffffff0|n|e| @71
++ |t|w|o| @71
++ |t+8&&|h|r|e@1| @69
++ |f+0&&|o|u|r| @70
++ |f|i|v|e| @70
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|3|,|1| @11|A|l@1
++ | +0&&@74
++ |t+8&&|h|i|s| |i|s| |a| |t|e|s>t| @60
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+3#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|2|,|1|4| @10|A|l@1
++ |:+0&&|w|i|n|c|m|d| |w| @65
+*** ../vim-8.1.0745/src/testdir/dumps/Test_conceal_cul_03.dump	2019-01-14 21:51:11.123470550 +0100
+--- src/testdir/dumps/Test_conceal_cul_03.dump	2019-01-14 21:45:41.326129187 +0100
+***************
+*** 0 ****
+--- 1,20 ----
++ |o+0&#ffffff0|n|e| @71
++ |t|w|o| @71
++ |t+8&&|h|r|e@1| @69
++ |f+0&&|o|u|r| @70
++ |f|i|v|e| @70
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|3|,|1| @11|A|l@1
++ > +8&&@74
++ |t+0&&|h|i|s| |i|s| |a| |t|e|s|t| @60
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+3#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|1|,|0|-|1| @9|A|l@1
++ |:+0&&|w|i|n|c|m|d| |w| @65
+*** ../vim-8.1.0745/src/version.c	2019-01-14 20:16:37.203631334 +0100
+--- src/version.c	2019-01-14 21:13:42.611178585 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     746,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+202. You're amazed to find out Spam is a food.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

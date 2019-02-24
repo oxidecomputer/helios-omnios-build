@@ -1,0 +1,96 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0755
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0755
+Problem:    Error message for get() on a Blob with invalid index.
+Solution:   Return an empty Blob, like get() on a List does.
+Files:	    src/evalfunc.c, src/testdir/test_blob.vim
+
+
+*** ../vim-8.1.0754/src/evalfunc.c	2019-01-15 20:19:36.743904434 +0100
+--- src/evalfunc.c	2019-01-15 22:13:20.055796887 +0100
+***************
+*** 4408,4417 ****
+  	if (!error)
+  	{
+  	    rettv->v_type = VAR_NUMBER;
+! 	    if (idx >= blob_len(argvars[0].vval.v_blob))
+! 		semsg(_(e_blobidx), idx);
+  	    else
+  		rettv->vval.v_number = blob_get(argvars[0].vval.v_blob, idx);
+  	}
+      }
+      else if (argvars[0].v_type == VAR_LIST)
+--- 4408,4422 ----
+  	if (!error)
+  	{
+  	    rettv->v_type = VAR_NUMBER;
+! 	    if (idx < 0)
+! 		idx = blob_len(argvars[0].vval.v_blob) + idx;
+! 	    if (idx < 0 || idx >= blob_len(argvars[0].vval.v_blob))
+! 		rettv->vval.v_number = -1;
+  	    else
++ 	    {
+  		rettv->vval.v_number = blob_get(argvars[0].vval.v_blob, idx);
++ 		tv = rettv;
++ 	    }
+  	}
+      }
+      else if (argvars[0].v_type == VAR_LIST)
+*** ../vim-8.1.0754/src/testdir/test_blob.vim	2019-01-13 19:10:28.959419929 +0100
+--- src/testdir/test_blob.vim	2019-01-15 22:15:19.930912344 +0100
+***************
+*** 20,26 ****
+  
+    call assert_equal(0xDE, get(b, 0))
+    call assert_equal(0xEF, get(b, 3))
+-   call assert_fails('let x = get(b, 4)')
+  
+    call assert_fails('let b = 0z1', 'E973:')
+    call assert_fails('let b = 0z1x', 'E973:')
+--- 20,25 ----
+***************
+*** 79,84 ****
+--- 78,95 ----
+    call assert_equal(0z, b[5:6])
+  endfunc
+  
++ func Test_blob_get()
++   let b = 0z0011223344
++   call assert_equal(0x00, get(b, 0))
++   call assert_equal(0x22, get(b, 2, 999))
++   call assert_equal(0x44, get(b, 4))
++   call assert_equal(0x44, get(b, -1))
++   call assert_equal(-1, get(b, 5))
++   call assert_equal(999, get(b, 5, 999))
++   call assert_equal(-1, get(b, -8))
++   call assert_equal(999, get(b, -8, 999))
++ endfunc
++ 
+  func Test_blob_to_string()
+    let b = 0zDEADBEEF
+    call assert_equal('[0xDE,0xAD,0xBE,0xEF]', string(b))
+*** ../vim-8.1.0754/src/version.c	2019-01-15 21:12:53.602254042 +0100
+--- src/version.c	2019-01-15 22:15:52.206674053 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     755,
+  /**/
+
+-- 
+'Psychologist' -- Someone who looks at everyone else when
+an attractive woman enters the room.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

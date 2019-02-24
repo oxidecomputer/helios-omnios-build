@@ -1,0 +1,90 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0603
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0603
+Problem:    The :stop command is not tested.
+Solution:   Test :stop using a terminal window.
+Files:	    src/testdir/test_terminal.vim, src/testdir/shared.vim
+
+
+*** ../vim-8.1.0602/src/testdir/test_terminal.vim	2018-11-12 21:42:20.678152930 +0100
+--- src/testdir/test_terminal.vim	2018-12-16 16:04:12.505230125 +0100
+***************
+*** 1683,1685 ****
+--- 1683,1716 ----
+  
+    call delete('Xfile')
+  endfunc
++ 
++ func Test_stop_in_terminal()
++   " We can't expect this to work on all systems, just test on Linux for now.
++   if !has('unix') || system('uname') !~ 'Linux'
++     return
++   endif
++   term /bin/sh
++   let bufnr = bufnr('')
++   call WaitForAssert({-> assert_equal('running', term_getstatus(bufnr))})
++   let lastrow = term_getsize(bufnr)[0]
++ 
++   call term_sendkeys(bufnr, GetVimCommandClean() . "\r")
++   call term_sendkeys(bufnr, ":echo 'ready'\r")
++   call WaitForAssert({-> assert_match('ready', Get_terminal_text(bufnr, lastrow))})
++ 
++   call term_sendkeys(bufnr, ":stop\r")
++   " Not sure where "Stopped" shows up, assume in the first three lines.
++   call WaitForAssert({-> assert_match('Stopped',
++ 	\ Get_terminal_text(bufnr, 1) . 
++ 	\ Get_terminal_text(bufnr, 2) . 
++ 	\ Get_terminal_text(bufnr, 3))})
++ 
++   call term_sendkeys(bufnr, "fg\r")
++   call term_sendkeys(bufnr, ":echo 'back again'\r")
++   call WaitForAssert({-> assert_match('back again', Get_terminal_text(bufnr, lastrow))})
++ 
++   call term_sendkeys(bufnr, ":quit\r")
++   call term_wait(bufnr)
++   call Stop_shell_in_terminal(bufnr)
++   exe bufnr . 'bwipe'
++ endfunc
+*** ../vim-8.1.0602/src/testdir/shared.vim	2018-10-12 22:15:06.589268192 +0200
+--- src/testdir/shared.vim	2018-12-16 15:54:32.008715839 +0100
+***************
+*** 345,347 ****
+--- 345,357 ----
+    let job = term_getjob(a:buf)
+    call WaitFor({-> job_status(job) == "dead"})
+  endfunc
++ 
++ " Gets the text of a terminal line, using term_scrape()
++ func Get_terminal_text(bufnr, row)
++   let list = term_scrape(a:bufnr, a:row)
++   let text = ''
++   for item in list
++     let text .= item.chars
++   endfor
++   return text
++ endfunc
+*** ../vim-8.1.0602/src/version.c	2018-12-16 15:37:58.870807584 +0100
+--- src/version.c	2018-12-16 16:15:28.029084965 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     603,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+27. You refer to your age as 3.x.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

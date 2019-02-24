@@ -1,0 +1,252 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0814
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0814
+Problem:    :mksession cannot handle a very long 'runtimepath'. (Timothy
+            Madden)
+Solution:   Expand each part separately, instead of the whole option at once.
+            (Christian Brabandt, closes #3466)
+Files:	    src/option.c, src/testdir/test_mksession.vim
+
+
+*** ../vim-8.1.0813/src/option.c	2019-01-24 15:54:17.794846944 +0100
+--- src/option.c	2019-01-24 20:23:14.225567873 +0100
+***************
+*** 3243,3249 ****
+  static void showoptions(int all, int opt_flags);
+  static int optval_default(struct vimoption *, char_u *varp);
+  static void showoneopt(struct vimoption *, int opt_flags);
+! static int put_setstring(FILE *fd, char *cmd, char *name, char_u **valuep, int expand);
+  static int put_setnum(FILE *fd, char *cmd, char *name, long *valuep);
+  static int put_setbool(FILE *fd, char *cmd, char *name, int value);
+  static int  istermoption(struct vimoption *);
+--- 3243,3249 ----
+  static void showoptions(int all, int opt_flags);
+  static int optval_default(struct vimoption *, char_u *varp);
+  static void showoneopt(struct vimoption *, int opt_flags);
+! static int put_setstring(FILE *fd, char *cmd, char *name, char_u **valuep, long_u flags);
+  static int put_setnum(FILE *fd, char *cmd, char *name, long *valuep);
+  static int put_setbool(FILE *fd, char *cmd, char *name, int value);
+  static int  istermoption(struct vimoption *);
+***************
+*** 10297,10303 ****
+  			do_endif = TRUE;
+  		    }
+  		    if (put_setstring(fd, cmd, p->fullname, (char_u **)varp,
+! 					  (p->flags & P_EXPAND) != 0) == FAIL)
+  			return FAIL;
+  		    if (do_endif)
+  		    {
+--- 10297,10303 ----
+  			do_endif = TRUE;
+  		    }
+  		    if (put_setstring(fd, cmd, p->fullname, (char_u **)varp,
+! 							     p->flags) == FAIL)
+  			return FAIL;
+  		    if (do_endif)
+  		    {
+***************
+*** 10319,10332 ****
+      int
+  makefoldset(FILE *fd)
+  {
+!     if (put_setstring(fd, "setlocal", "fdm", &curwin->w_p_fdm, FALSE) == FAIL
+  # ifdef FEAT_EVAL
+! 	    || put_setstring(fd, "setlocal", "fde", &curwin->w_p_fde, FALSE)
+  								       == FAIL
+  # endif
+! 	    || put_setstring(fd, "setlocal", "fmr", &curwin->w_p_fmr, FALSE)
+  								       == FAIL
+! 	    || put_setstring(fd, "setlocal", "fdi", &curwin->w_p_fdi, FALSE)
+  								       == FAIL
+  	    || put_setnum(fd, "setlocal", "fdl", &curwin->w_p_fdl) == FAIL
+  	    || put_setnum(fd, "setlocal", "fml", &curwin->w_p_fml) == FAIL
+--- 10319,10332 ----
+      int
+  makefoldset(FILE *fd)
+  {
+!     if (put_setstring(fd, "setlocal", "fdm", &curwin->w_p_fdm, 0) == FAIL
+  # ifdef FEAT_EVAL
+! 	    || put_setstring(fd, "setlocal", "fde", &curwin->w_p_fde, 0)
+  								       == FAIL
+  # endif
+! 	    || put_setstring(fd, "setlocal", "fmr", &curwin->w_p_fmr, 0)
+  								       == FAIL
+! 	    || put_setstring(fd, "setlocal", "fdi", &curwin->w_p_fdi, 0)
+  								       == FAIL
+  	    || put_setnum(fd, "setlocal", "fdl", &curwin->w_p_fdl) == FAIL
+  	    || put_setnum(fd, "setlocal", "fml", &curwin->w_p_fml) == FAIL
+***************
+*** 10345,10354 ****
+      char	*cmd,
+      char	*name,
+      char_u	**valuep,
+!     int		expand)
+  {
+      char_u	*s;
+!     char_u	*buf;
+  
+      if (fprintf(fd, "%s %s=", cmd, name) < 0)
+  	return FAIL;
+--- 10345,10356 ----
+      char	*cmd,
+      char	*name,
+      char_u	**valuep,
+!     long_u	flags)
+  {
+      char_u	*s;
+!     char_u	*buf = NULL;
+!     char_u	*part = NULL;
+!     char_u	*p;
+  
+      if (fprintf(fd, "%s %s=", cmd, name) < 0)
+  	return FAIL;
+***************
+*** 10364,10375 ****
+  		if (put_escstr(fd, str2special(&s, FALSE), 2) == FAIL)
+  		    return FAIL;
+  	}
+! 	else if (expand)
+  	{
+! 	    buf = alloc(MAXPATHL);
+  	    if (buf == NULL)
+! 		return FAIL;
+! 	    home_replace(NULL, *valuep, buf, MAXPATHL, FALSE);
+  	    if (put_escstr(fd, buf, 2) == FAIL)
+  	    {
+  		vim_free(buf);
+--- 10366,10411 ----
+  		if (put_escstr(fd, str2special(&s, FALSE), 2) == FAIL)
+  		    return FAIL;
+  	}
+! 	// expand the option value, replace $HOME by ~
+! 	else if ((flags & P_EXPAND) != 0)
+  	{
+! 	    int  size = (int)STRLEN(*valuep) + 1;
+! 
+! 	    // replace home directory in the whole option value into "buf"
+! 	    buf = alloc(size);
+  	    if (buf == NULL)
+! 		goto fail;
+! 	    home_replace(NULL, *valuep, buf, size, FALSE);
+! 
+! 	    // If the option value is longer than MAXPATHL, we need to append
+! 	    // earch comma separated part of the option separately, so that it
+! 	    // can be expanded when read back.
+! 	    if (size >= MAXPATHL && (flags & P_COMMA) != 0
+! 					   && vim_strchr(*valuep, ',') != NULL)
+! 	    {
+! 		part = alloc(size);
+! 		if (part == NULL)
+! 		    goto fail;
+! 
+! 		// write line break to clear the option, e.g. ':set rtp='
+! 		if (put_eol(fd) == FAIL)
+! 		    goto fail;
+! 
+! 		p = buf;
+! 		while (*p != NUL)
+! 		{
+! 		    // for each comma separated option part, append value to
+! 		    // the option, :set rtp+=value
+! 		    if (fprintf(fd, "%s %s+=", cmd, name) < 0)
+! 			goto fail;
+! 		    (void)copy_option_part(&p, part, size,  ",");
+! 		    if (put_escstr(fd, part, 2) == FAIL || put_eol(fd) == FAIL)
+! 			goto fail;
+! 		}
+! 		vim_free(buf);
+! 		vim_free(part);
+! 		return OK;
+! 	    }
+  	    if (put_escstr(fd, buf, 2) == FAIL)
+  	    {
+  		vim_free(buf);
+***************
+*** 10383,10388 ****
+--- 10419,10428 ----
+      if (put_eol(fd) < 0)
+  	return FAIL;
+      return OK;
++ fail:
++     vim_free(buf);
++     vim_free(part);
++     return FAIL;
+  }
+  
+      static int
+*** ../vim-8.1.0813/src/testdir/test_mksession.vim	2019-01-24 15:57:25.321532574 +0100
+--- src/testdir/test_mksession.vim	2019-01-24 19:56:04.503236163 +0100
+***************
+*** 3,9 ****
+  set encoding=latin1
+  scriptencoding latin1
+  
+! if !has('multi_byte') || !has('mksession')
+    finish
+  endif
+  
+--- 3,9 ----
+  set encoding=latin1
+  scriptencoding latin1
+  
+! if !has('mksession')
+    finish
+  endif
+  
+***************
+*** 126,131 ****
+--- 126,154 ----
+    call delete('Xtest_mks_winheight.out')
+  endfunc
+  
++ func Test_mksession_rtp()
++   new
++   let _rtp=&rtp
++   " Make a real long (invalid) runtimepath value,
++   " that should exceed PATH_MAX (hopefully)
++   let newrtp=&rtp.',~'.repeat('/foobar', 1000)
++   let newrtp.=",".expand("$HOME")."/.vim"
++   let &rtp=newrtp
++ 
++   " determine expected value
++   let expected=split(&rtp, ',')
++   let expected = map(expected, '"set runtimepath+=".v:val')
++   let expected = ['set runtimepath='] + expected
++   let expected = map(expected, {v,w -> substitute(w, $HOME, "~", "g")})
++ 
++   mksession! Xtest_mks.out
++   let &rtp=_rtp
++   let li = filter(readfile('Xtest_mks.out'), 'v:val =~# "runtimepath"')
++   call assert_equal(expected, li)
++ 
++   call delete('Xtest_mks.out')
++ endfunc
++ 
+  func Test_mksession_arglist()
+    argdel *
+    next file1 file2 file3 file4
+*** ../vim-8.1.0813/src/version.c	2019-01-24 19:37:35.912390940 +0100
+--- src/version.c	2019-01-24 20:30:18.569799280 +0100
+***************
+*** 789,790 ****
+--- 789,792 ----
+  {   /* Add new patch number below this line */
++ /**/
++     814,
+  /**/
+
+-- 
+Yah, well, we had to carve our electrons out of driftwood we'd
+find.  In the winter.  Uphill.  Both ways.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

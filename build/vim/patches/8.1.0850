@@ -1,0 +1,116 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0850
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0850
+Problem:    Test for 'backupskip' is not correct.
+Solution:   Split the option in parts and use expand(). (Michael Soyka)
+Files:	    src/testdir/test_options.vim
+
+
+*** ../vim-8.1.0849/src/testdir/test_options.vim	2019-01-09 23:00:58.001176090 +0100
+--- src/testdir/test_options.vim	2019-01-30 21:48:05.460371410 +0100
+***************
+*** 75,83 ****
+  endfunc
+  
+  func Test_filetype_valid()
+-   if !has('autocmd')
+-     return
+-   endif
+    set ft=valid_name
+    call assert_equal("valid_name", &filetype)
+    set ft=valid-name
+--- 75,80 ----
+***************
+*** 349,365 ****
+  endfunc
+  
+  func Test_backupskip()
+    if has("mac")
+!     call assert_match('/private/tmp/\*', &bsk)
+    elseif has("unix")
+!     call assert_match('/tmp/\*', &bsk)
+    endif
+  
+!   let bskvalue = substitute(&bsk, '\\', '/', 'g')
+!   for var in  ['$TEMPDIR', '$TMP', '$TEMP']
+      if exists(var)
+        let varvalue = substitute(expand(var), '\\', '/', 'g')
+!       call assert_match(varvalue . '/\=\*', bskvalue)
+      endif
+    endfor
+  endfunc
+--- 346,394 ----
+  endfunc
+  
+  func Test_backupskip()
++   " Option 'backupskip' may contain several comma-separated path
++   " specifications if one or more of the environment variables TMPDIR, TMP,
++   " or TEMP is defined.  To simplify testing, convert the string value into a
++   " list.
++   let bsklist = split(&bsk, ',')
++ 
+    if has("mac")
+!     let found = (index(bsklist, '/private/tmp/*') >= 0)
+!     call assert_true(found, '/private/tmp not in option bsk: ' . &bsk)
+    elseif has("unix")
+!     let found = (index(bsklist, '/tmp/*') >= 0)
+!     call assert_true(found, '/tmp not in option bsk: ' . &bsk)
+!   endif
+! 
+!   " If our test platform is Windows, the path(s) in option bsk will use
+!   " backslash for the path separator and the components could be in short
+!   " (8.3) format.  As such, we need to replace the backslashes with forward
+!   " slashes and convert the path components to long format.  The expand()
+!   " function will do this but it cannot handle comma-separated paths.  This is
+!   " why bsk was converted from a string into a list of strings above.
+!   "
+!   " One final complication is that the wildcard "/*" is at the end of each
+!   " path and so expand() might return a list of matching files.  To prevent
+!   " this, we need to remove the wildcard before calling expand() and then
+!   " append it afterwards.
+!   if has('win32')
+!     let item_nbr = 0
+!     while item_nbr < len(bsklist)
+!       let path_spec = bsklist[item_nbr]
+!       let path_spec = strcharpart(path_spec, 0, strlen(path_spec)-2)
+!       let path_spec = substitute(expand(path_spec), '\\', '/', 'g')
+!       let bsklist[item_nbr] = path_spec . '/*'
+!       let item_nbr += 1
+!     endwhile
+    endif
+  
+!   " Option bsk will also include these environment variables if defined.
+!   " If they're defined, verify they appear in the option value.
+!   for var in  ['$TMPDIR', '$TMP', '$TEMP']
+      if exists(var)
+        let varvalue = substitute(expand(var), '\\', '/', 'g')
+!       let found = (index(bsklist, varvalue.'/*') >= 0)
+!       call assert_true(found, var . ' not in option bsk: ' . &bsk)
+      endif
+    endfor
+  endfunc
+*** ../vim-8.1.0849/src/version.c	2019-01-30 21:40:58.943219829 +0100
+--- src/version.c	2019-01-30 21:50:23.027435521 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     850,
+  /**/
+
+-- 
+The early bird gets the worm. If you want something else for
+breakfast, get up later.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

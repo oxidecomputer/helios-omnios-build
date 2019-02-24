@@ -1,0 +1,124 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0921
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0921
+Problem:    Terminal test sometimes fails; using memory after free.
+Solution:   Fee memory a bit later.  Add test to cover this.  Disable flaky
+            screenshot test. (closes #3956)
+Files:	    src/terminal.c, src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.0920/src/terminal.c	2019-02-14 21:21:34.414883327 +0100
+--- src/terminal.c	2019-02-14 22:49:37.140257786 +0100
+***************
+*** 4735,4741 ****
+  		    p2 += len2;
+  		    /* TODO: handle different width */
+  		}
+- 		vim_free(line1);
+  
+  		while (col < width)
+  		{
+--- 4735,4740 ----
+***************
+*** 4753,4758 ****
+--- 4752,4759 ----
+  		    }
+  		    ++col;
+  		}
++ 
++ 		vim_free(line1);
+  	    }
+  	    if (add_empty_scrollback(term, &term->tl_default_color,
+  						 term->tl_top_diff_rows) == OK)
+*** ../vim-8.1.0920/src/testdir/test_terminal.vim	2019-02-14 21:21:34.414883327 +0100
+--- src/testdir/test_terminal.vim	2019-02-14 23:22:46.984586183 +0100
+***************
+*** 317,332 ****
+  	\ ], 'XTest_postponed')
+    let buf = RunVimInTerminal('-S XTest_postponed', {})
+    " Check that the Xtext lines are displayed and in Terminal-Normal mode
+!   call VerifyScreenDump(buf, 'Test_terminal_01', {})
+  
+    silent !echo 'one more line' >>Xtext
+    " Sceen will not change, move cursor to get a different dump
+    call term_sendkeys(buf, "k")
+!   call VerifyScreenDump(buf, 'Test_terminal_02', {})
+  
+    " Back to Terminal-Job mode, text will scroll and show the extra line.
+    call term_sendkeys(buf, "a")
+!   call VerifyScreenDump(buf, 'Test_terminal_03', {})
+  
+    call term_wait(buf)
+    call term_sendkeys(buf, "\<C-C>")
+--- 317,338 ----
+  	\ ], 'XTest_postponed')
+    let buf = RunVimInTerminal('-S XTest_postponed', {})
+    " Check that the Xtext lines are displayed and in Terminal-Normal mode
+!   call term_wait(buf)
+!   " TODO: this sometimes fails
+!   "call VerifyScreenDump(buf, 'Test_terminal_01', {})
+  
+    silent !echo 'one more line' >>Xtext
+    " Sceen will not change, move cursor to get a different dump
+    call term_sendkeys(buf, "k")
+!   call term_wait(buf)
+!   " TODO: this sometimes fails
+!   "call VerifyScreenDump(buf, 'Test_terminal_02', {})
+  
+    " Back to Terminal-Job mode, text will scroll and show the extra line.
+    call term_sendkeys(buf, "a")
+!   call term_wait(buf)
+!   " TODO: this sometimes fails
+!   "call VerifyScreenDump(buf, 'Test_terminal_03', {})
+  
+    call term_wait(buf)
+    call term_sendkeys(buf, "\<C-C>")
+***************
+*** 339,344 ****
+--- 345,362 ----
+    call delete('Xtext')
+  endfunc
+  
++ " Run diff on two dumps with different size.
++ func Test_terminal_dumpdiff_size()
++   call assert_equal(1, winnr('$'))
++   call term_dumpdiff('dumps/Test_incsearch_search_01.dump', 'dumps/Test_popup_command_01.dump')
++   call assert_equal(2, winnr('$'))
++   call assert_match('Test_incsearch_search_01.dump', getline(10))
++   call assert_match('      +++++$', getline(11))
++   call assert_match('Test_popup_command_01.dump', getline(31))
++   call assert_equal(repeat('+', 75), getline(30))
++   quit
++ endfunc
++ 
+  func Test_terminal_size()
+    let cmd = Get_cat_123_cmd()
+  
+*** ../vim-8.1.0920/src/version.c	2019-02-14 21:21:34.414883327 +0100
+--- src/version.c	2019-02-14 23:21:21.813257592 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     921,
+  /**/
+
+-- 
+DENNIS: Oh, very nice. King, eh!  I expect you've got a palace and fine
+        clothes and courtiers and plenty of food.  And how d'you get that?  By
+        exploiting the workers! By hanging on to outdated imperialist dogma
+        which perpetuates the social and economic differences in our society!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

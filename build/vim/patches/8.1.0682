@@ -1,0 +1,290 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0682
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0682
+Problem:    Text properties are not adjusted when backspacing replaced text.
+Solution:   Keep text properties on text restored in replace mode.
+Files:	    src/edit.c, src/textprop.c,  src/globals.h,
+            src/testdir/test_textprop.vim
+
+
+*** ../vim-8.1.0681/src/edit.c	2019-01-02 18:00:22.639279766 +0100
+--- src/edit.c	2019-01-02 23:33:44.586707292 +0100
+***************
+*** 7962,7967 ****
+--- 7962,7978 ----
+      cc = replace_pop();
+      if (cc > 0)
+      {
++ #ifdef FEAT_TEXT_PROP
++ 	size_t	len_before;
++ 
++ 	if (curbuf->b_has_textprop)
++ 	{
++ 	    // Do not adjust text properties for individual delete and insert
++ 	    // operations, do it afterwards on the resulting text.
++ 	    len_before = STRLEN(ml_get_curline());
++ 	    ++text_prop_frozen;
++ 	}
++ #endif
+  	if (State & VREPLACE_FLAG)
+  	{
+  	    /* Get the number of screen cells used by the character we are
+***************
+*** 8012,8019 ****
+  	    curwin->w_cursor.col -= ins_len;
+  	}
+  
+! 	/* mark the buffer as changed and prepare for displaying */
+  	changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
+      }
+      else if (cc == 0)
+  	(void)del_char_after_col(limit_col);
+--- 8023,8041 ----
+  	    curwin->w_cursor.col -= ins_len;
+  	}
+  
+! 	// mark the buffer as changed and prepare for displaying
+  	changed_bytes(curwin->w_cursor.lnum, curwin->w_cursor.col);
++ 
++ #ifdef FEAT_TEXT_PROP
++ 	if (curbuf->b_has_textprop)
++ 	{
++ 	    size_t len_now = STRLEN(ml_get_curline());
++ 
++ 	    --text_prop_frozen;
++ 	    adjust_prop_columns(curwin->w_cursor.lnum, curwin->w_cursor.col,
++ 						  (int)(len_now - len_before));
++ 	}
++ #endif
+      }
+      else if (cc == 0)
+  	(void)del_char_after_col(limit_col);
+*** ../vim-8.1.0681/src/textprop.c	2019-01-02 00:02:07.607556145 +0100
+--- src/textprop.c	2019-01-02 23:38:12.916624592 +0100
+***************
+*** 920,960 ****
+   * Called is expected to check b_has_textprop and "bytes_added" being non-zero.
+   */
+      void
+! adjust_prop_columns(linenr_T lnum, colnr_T col, int bytes_added)
+  {
+      int		proplen;
+      char_u	*props;
+      textprop_T	tmp_prop;
+      proptype_T  *pt;
+      int		dirty = FALSE;
+!     int		i;
+  
+      proplen = get_text_props(curbuf, lnum, &props, TRUE);
+      if (proplen == 0)
+  	return;
+  
+!     for (i = 0; i < proplen; ++i)
+      {
+! 	mch_memmove(&tmp_prop, props + i * sizeof(textprop_T),
+  							   sizeof(textprop_T));
+  	pt = text_prop_type_by_id(curbuf, tmp_prop.tp_type);
+  
+! 	if (tmp_prop.tp_col >= col + (pt != NULL && (pt->pt_flags & PT_FLAG_INS_START_INCL) ? 2 : 1))
+  	{
+  	    tmp_prop.tp_col += bytes_added;
+  	    dirty = TRUE;
+  	}
+! 	else if (tmp_prop.tp_col + tmp_prop.tp_len > col + (pt != NULL && (pt->pt_flags & PT_FLAG_INS_END_INCL) ? 0 : 1))
+  	{
+  	    tmp_prop.tp_len += bytes_added;
+  	    dirty = TRUE;
+  	}
+! 	if (dirty)
+! 	{
+! 	    curbuf->b_ml.ml_flags |= ML_LINE_DIRTY;
+! 	    mch_memmove(props + i * sizeof(textprop_T), &tmp_prop,
+  							   sizeof(textprop_T));
+! 	}
+      }
+  }
+  
+--- 920,978 ----
+   * Called is expected to check b_has_textprop and "bytes_added" being non-zero.
+   */
+      void
+! adjust_prop_columns(
+! 	linenr_T    lnum,
+! 	colnr_T	    col,
+! 	int	    bytes_added)
+  {
+      int		proplen;
+      char_u	*props;
+      textprop_T	tmp_prop;
+      proptype_T  *pt;
+      int		dirty = FALSE;
+!     int		ri, wi;
+!     size_t	textlen;
+! 
+!     if (text_prop_frozen > 0)
+! 	return;
+  
+      proplen = get_text_props(curbuf, lnum, &props, TRUE);
+      if (proplen == 0)
+  	return;
++     textlen = curbuf->b_ml.ml_line_len - proplen * sizeof(textprop_T);
+  
+!     wi = 0; // write index
+!     for (ri = 0; ri < proplen; ++ri)
+      {
+! 	mch_memmove(&tmp_prop, props + ri * sizeof(textprop_T),
+  							   sizeof(textprop_T));
+  	pt = text_prop_type_by_id(curbuf, tmp_prop.tp_type);
+  
+! 	if (bytes_added > 0
+! 		? (tmp_prop.tp_col >= col + (pt != NULL && (pt->pt_flags & PT_FLAG_INS_START_INCL) ? 2 : 1))
+! 		: (tmp_prop.tp_col > col + 1))
+  	{
+  	    tmp_prop.tp_col += bytes_added;
+  	    dirty = TRUE;
+  	}
+! 	else if (tmp_prop.tp_len > 0
+! 		&& tmp_prop.tp_col + tmp_prop.tp_len > col
+! 			+ ((pt != NULL && (pt->pt_flags & PT_FLAG_INS_END_INCL))
+! 								      ? 0 : 1))
+  	{
+  	    tmp_prop.tp_len += bytes_added;
+  	    dirty = TRUE;
++ 	    if (tmp_prop.tp_len <= 0)
++ 		continue;  // drop this text property
+  	}
+! 	mch_memmove(props + wi * sizeof(textprop_T), &tmp_prop,
+  							   sizeof(textprop_T));
+! 	++wi;
+!     }
+!     if (dirty)
+!     {
+! 	curbuf->b_ml.ml_flags |= ML_LINE_DIRTY;
+! 	curbuf->b_ml.ml_line_len = textlen + wi * sizeof(textprop_T);
+      }
+  }
+  
+*** ../vim-8.1.0681/src/globals.h	2018-12-28 17:01:55.307292166 +0100
+--- src/globals.h	2019-01-02 23:34:48.578210818 +0100
+***************
+*** 1658,1663 ****
+--- 1658,1667 ----
+  EXTERN int ctrl_break_was_pressed INIT(= FALSE);
+  #endif
+  
++ #ifdef FEAT_TEXT_PROP
++ EXTERN int text_prop_frozen INIT(= 0);
++ #endif
++ 
+  /*
+   * Optional Farsi support.  Include it here, so EXTERN and INIT are defined.
+   */
+*** ../vim-8.1.0681/src/testdir/test_textprop.vim	2019-01-02 18:00:22.639279766 +0100
+--- src/testdir/test_textprop.vim	2019-01-02 23:40:51.275394461 +0100
+***************
+*** 145,150 ****
+--- 145,163 ----
+    bwipe!
+  endfunc
+  
++ func SetupOneLine()
++   call setline(1, 'xonex xtwoxx')
++   call AddPropTypes()
++   call prop_add(1, 2, {'length': 3, 'id': 11, 'type': 'one'})
++   call prop_add(1, 8, {'length': 3, 'id': 12, 'type': 'two'})
++   let expected = [
++ 	\ {'col': 2, 'length': 3, 'id': 11, 'type': 'one', 'start': 1, 'end': 1},
++ 	\ {'col': 8, 'length': 3, 'id': 12, 'type': 'two', 'start': 1, 'end': 1},
++ 	\]
++   call assert_equal(expected, prop_list(1))
++   return expected
++ endfunc
++ 
+  func Test_prop_add_remove_buf()
+    new
+    let bufnr = bufnr('')
+***************
+*** 180,194 ****
+  func Test_prop_backspace()
+    new
+    set bs=2
+!   call setline(1, 'xonex xtwoxx')
+!   call AddPropTypes()
+!   call prop_add(1, 2, {'length': 3, 'id': 11, 'type': 'one'})
+!   call prop_add(1, 8, {'length': 3, 'id': 12, 'type': 'two'})
+!   let expected = [
+! 	\ {'col': 2, 'length': 3, 'id': 11, 'type': 'one', 'start': 1, 'end': 1},
+! 	\ {'col': 8, 'length': 3, 'id': 12, 'type': 'two', 'start': 1, 'end': 1},
+! 	\]
+!   call assert_equal(expected, prop_list(1))
+  
+    exe "normal 0li\<BS>\<Esc>fxli\<BS>\<Esc>"
+    call assert_equal('one xtwoxx', getline(1))
+--- 193,199 ----
+  func Test_prop_backspace()
+    new
+    set bs=2
+!   let expected = SetupOneLine() " 'xonex xtwoxx'
+  
+    exe "normal 0li\<BS>\<Esc>fxli\<BS>\<Esc>"
+    call assert_equal('one xtwoxx', getline(1))
+***************
+*** 197,202 ****
+--- 202,233 ----
+    call assert_equal(expected, prop_list(1))
+  
+    call DeletePropTypes()
++   bwipe!
++   set bs&
++ endfunc
++ 
++ func Test_prop_replace()
++   new
++   set bs=2
++   let expected = SetupOneLine() " 'xonex xtwoxx'
++ 
++   exe "normal 0Ryyy\<Esc>"
++   call assert_equal('yyyex xtwoxx', getline(1))
++   call assert_equal(expected, prop_list(1))
++ 
++   exe "normal ftRyy\<BS>"
++   call assert_equal('yyyex xywoxx', getline(1))
++   call assert_equal(expected, prop_list(1))
++ 
++   exe "normal 0fwRyy\<BS>"
++   call assert_equal('yyyex xyyoxx', getline(1))
++   call assert_equal(expected, prop_list(1))
++ 
++   exe "normal 0foRyy\<BS>\<BS>"
++   call assert_equal('yyyex xyyoxx', getline(1))
++   call assert_equal(expected, prop_list(1))
++ 
++   call DeletePropTypes()
+    bwipe!
+    set bs&
+  endfunc
+*** ../vim-8.1.0681/src/version.c	2019-01-02 18:00:22.643279731 +0100
+--- src/version.c	2019-01-02 20:08:26.854766257 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     682,
+  /**/
+
+-- 
+From "know your smileys":
+ :-| :-|   Deja' vu!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

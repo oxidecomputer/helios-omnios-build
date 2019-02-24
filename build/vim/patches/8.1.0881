@@ -1,0 +1,474 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0881
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0881
+Problem:    Can execute shell commands in rvim through interfaces.
+Solution:   Disable using interfaces in restricted mode. Allow for writing
+            file with writefile(), histadd() and a few others.
+Files:	    runtime/doc/starting.txt, src/if_perl.xs, src/if_cmds.h,
+            src/ex_cmds.c, src/ex_docmd.c, src/evalfunc.c,
+            src/testdir/test_restricted.vim, src/testdir/Make_all.mak
+
+
+*** ../vim-8.1.0880/runtime/doc/starting.txt	2018-05-17 13:42:03.000000000 +0200
+--- runtime/doc/starting.txt	2019-02-08 13:56:44.035120636 +0100
+***************
+*** 248,259 ****
+  		changes and writing.
+  		{not in Vi}
+  
+! 						*-Z* *restricted-mode* *E145*
+  -Z		Restricted mode.  All commands that make use of an external
+  		shell are disabled.  This includes suspending with CTRL-Z,
+! 		":sh", filtering, the system() function, backtick expansion,
+! 		delete(), rename(), mkdir(), writefile(), libcall(),
+! 		job_start(), etc.
+  		{not in Vi}
+  
+  							*-g*
+--- 248,265 ----
+  		changes and writing.
+  		{not in Vi}
+  
+! 					*-Z* *restricted-mode* *E145* *E981*
+  -Z		Restricted mode.  All commands that make use of an external
+  		shell are disabled.  This includes suspending with CTRL-Z,
+! 		":sh", filtering, the system() function, backtick expansion
+! 		and libcall().
+! 		Also disallowed are delete(), rename(), mkdir(), job_start(),
+! 		etc.
+! 		Interfaces, such as Python, Ruby and Lua, are also disabled,
+! 		since they could be used to execute shell commands.  Perl uses
+! 		the Safe module.
+! 		Note that the user may still find a loophole to execute a
+! 		shell command, it has only been made difficult.
+  		{not in Vi}
+  
+  							*-g*
+*** ../vim-8.1.0880/src/if_perl.xs	2019-01-19 17:43:03.413449172 +0100
+--- src/if_perl.xs	2019-02-08 13:27:55.445028617 +0100
+***************
+*** 971,976 ****
+--- 971,977 ----
+  #ifdef DYNAMIC_PERL
+  static char *e_noperl = N_("Sorry, this command is disabled: the Perl library could not be loaded.");
+  #endif
++ static char *e_perlsandbox = N_("E299: Perl evaluation forbidden in sandbox without the Safe module");
+  
+  /*
+   * ":perl"
+***************
+*** 1019,1031 ****
+  	vim_free(script);
+      }
+  
+! #ifdef HAVE_SANDBOX
+!     if (sandbox)
+      {
+  	safe = perl_get_sv("VIM::safe", FALSE);
+  # ifndef MAKE_TEST  /* avoid a warning for unreachable code */
+  	if (safe == NULL || !SvTRUE(safe))
+! 	    emsg(_("E299: Perl evaluation forbidden in sandbox without the Safe module"));
+  	else
+  # endif
+  	{
+--- 1020,1031 ----
+  	vim_free(script);
+      }
+  
+!     if (sandbox || secure)
+      {
+  	safe = perl_get_sv("VIM::safe", FALSE);
+  # ifndef MAKE_TEST  /* avoid a warning for unreachable code */
+  	if (safe == NULL || !SvTRUE(safe))
+! 	    emsg(_(e_perlsandbox));
+  	else
+  # endif
+  	{
+***************
+*** 1037,1043 ****
+  	}
+      }
+      else
+- #endif
+  	perl_eval_sv(sv, G_DISCARD | G_NOARGS);
+  
+      SvREFCNT_dec(sv);
+--- 1037,1042 ----
+***************
+*** 1298,1310 ****
+  	ENTER;
+  	SAVETMPS;
+  
+! #ifdef HAVE_SANDBOX
+! 	if (sandbox)
+  	{
+  	    safe = get_sv("VIM::safe", FALSE);
+  # ifndef MAKE_TEST  /* avoid a warning for unreachable code */
+  	    if (safe == NULL || !SvTRUE(safe))
+! 		emsg(_("E299: Perl evaluation forbidden in sandbox without the Safe module"));
+  	    else
+  # endif
+  	    {
+--- 1297,1308 ----
+  	ENTER;
+  	SAVETMPS;
+  
+! 	if (sandbox || secure)
+  	{
+  	    safe = get_sv("VIM::safe", FALSE);
+  # ifndef MAKE_TEST  /* avoid a warning for unreachable code */
+  	    if (safe == NULL || !SvTRUE(safe))
+! 		emsg(_(e_perlsandbox));
+  	    else
+  # endif
+  	    {
+***************
+*** 1320,1326 ****
+  	    }
+  	}
+  	else
+- #endif /* HAVE_SANDBOX */
+  	    sv = eval_pv((char *)str, 0);
+  
+  	if (sv) {
+--- 1318,1323 ----
+*** ../vim-8.1.0880/src/ex_cmds.c	2019-01-31 18:26:05.734803539 +0100
+--- src/ex_cmds.c	2019-02-08 14:09:30.838943884 +0100
+***************
+*** 4775,4781 ****
+  {
+      if (restricted)
+      {
+! 	emsg(_("E145: Shell commands not allowed in rvim"));
+  	return TRUE;
+      }
+      return FALSE;
+--- 4775,4781 ----
+  {
+      if (restricted)
+      {
+! 	emsg(_("E145: Shell commands and some functionality not allowed in rvim"));
+  	return TRUE;
+      }
+      return FALSE;
+*** ../vim-8.1.0880/src/ex_docmd.c	2019-01-31 18:26:05.734803539 +0100
+--- src/ex_docmd.c	2019-02-08 13:21:20.959437381 +0100
+***************
+*** 2007,2017 ****
+  #ifdef HAVE_SANDBOX
+  	if (sandbox != 0 && !(ea.argt & SBOXOK))
+  	{
+! 	    /* Command not allowed in sandbox. */
+  	    errormsg = _(e_sandbox);
+  	    goto doend;
+  	}
+  #endif
+  	if (!curbuf->b_p_ma && (ea.argt & MODIFY))
+  	{
+  	    /* Command not allowed in non-'modifiable' buffer */
+--- 2007,2022 ----
+  #ifdef HAVE_SANDBOX
+  	if (sandbox != 0 && !(ea.argt & SBOXOK))
+  	{
+! 	    // Command not allowed in sandbox.
+  	    errormsg = _(e_sandbox);
+  	    goto doend;
+  	}
+  #endif
++ 	if (restricted != 0 && (ea.argt & RESTRICT))
++ 	{
++ 	    errormsg = _("E981: Command not allowed in rvim");
++ 	    goto doend;
++ 	}
+  	if (!curbuf->b_p_ma && (ea.argt & MODIFY))
+  	{
+  	    /* Command not allowed in non-'modifiable' buffer */
+*** ../vim-8.1.0880/src/evalfunc.c	2019-02-03 14:52:42.501867485 +0100
+--- src/evalfunc.c	2019-02-08 14:14:33.345334906 +0100
+***************
+*** 6817,6823 ****
+  #endif
+  
+      rettv->vval.v_number = FALSE;
+!     if (check_restricted() || check_secure())
+  	return;
+  #ifdef FEAT_CMDHIST
+      str = tv_get_string_chk(&argvars[0]);	/* NULL on type error */
+--- 6817,6823 ----
+  #endif
+  
+      rettv->vval.v_number = FALSE;
+!     if (check_secure())
+  	return;
+  #ifdef FEAT_CMDHIST
+      str = tv_get_string_chk(&argvars[0]);	/* NULL on type error */
+***************
+*** 7898,7903 ****
+--- 7898,7906 ----
+      char_u	*str;
+      char_u	buf[NUMBUFLEN];
+  
++     if (check_restricted() || check_secure())
++ 	return;
++ 
+      str = tv_get_string_buf(&argvars[0], buf);
+      do_luaeval(str, argvars + 1, rettv);
+  }
+***************
+*** 8644,8649 ****
+--- 8647,8654 ----
+      char_u	*str;
+      char_u	buf[NUMBUFLEN];
+  
++     if (check_restricted() || check_secure())
++ 	return;
+      str = tv_get_string_buf(&argvars[0], buf);
+      do_mzeval(str, rettv);
+  }
+***************
+*** 8932,8937 ****
+--- 8937,8945 ----
+      char_u	*str;
+      char_u	buf[NUMBUFLEN];
+  
++     if (check_restricted() || check_secure())
++ 	return;
++ 
+      if (p_pyx == 0)
+  	p_pyx = 3;
+  
+***************
+*** 8950,8955 ****
+--- 8958,8966 ----
+      char_u	*str;
+      char_u	buf[NUMBUFLEN];
+  
++     if (check_restricted() || check_secure())
++ 	return;
++ 
+      if (p_pyx == 0)
+  	p_pyx = 2;
+  
+***************
+*** 8965,8970 ****
+--- 8976,8984 ----
+      static void
+  f_pyxeval(typval_T *argvars, typval_T *rettv)
+  {
++     if (check_restricted() || check_secure())
++ 	return;
++ 
+  # if defined(FEAT_PYTHON) && defined(FEAT_PYTHON3)
+      init_pyxversion();
+      if (p_pyx == 2)
+***************
+*** 10819,10825 ****
+      typval_T	*varp;
+      char_u	nbuf[NUMBUFLEN];
+  
+!     if (check_restricted() || check_secure())
+  	return;
+      (void)tv_get_number(&argvars[0]);	    /* issue errmsg if type error */
+      varname = tv_get_string_chk(&argvars[1]);
+--- 10833,10839 ----
+      typval_T	*varp;
+      char_u	nbuf[NUMBUFLEN];
+  
+!     if (check_secure())
+  	return;
+      (void)tv_get_number(&argvars[0]);	    /* issue errmsg if type error */
+      varname = tv_get_string_chk(&argvars[1]);
+***************
+*** 11341,11347 ****
+  
+      rettv->vval.v_number = 0;
+  
+!     if (check_restricted() || check_secure())
+  	return;
+  
+      tp = find_tabpage((int)tv_get_number_chk(&argvars[0], NULL));
+--- 11355,11361 ----
+  
+      rettv->vval.v_number = 0;
+  
+!     if (check_secure())
+  	return;
+  
+      tp = find_tabpage((int)tv_get_number_chk(&argvars[0], NULL));
+***************
+*** 14714,14720 ****
+      blob_T	*blob = NULL;
+  
+      rettv->vval.v_number = -1;
+!     if (check_restricted() || check_secure())
+  	return;
+  
+      if (argvars[0].v_type == VAR_LIST)
+--- 14728,14734 ----
+      blob_T	*blob = NULL;
+  
+      rettv->vval.v_number = -1;
+!     if (check_secure())
+  	return;
+  
+      if (argvars[0].v_type == VAR_LIST)
+*** ../vim-8.1.0880/src/testdir/test_restricted.vim	2019-02-08 14:31:57.351438282 +0100
+--- src/testdir/test_restricted.vim	2019-02-08 14:26:17.361387453 +0100
+***************
+*** 0 ****
+--- 1,107 ----
++ " Test for "rvim" or "vim -Z"
++ 
++ source shared.vim
++ 
++ func Test_restricted()
++   let cmd = GetVimCommand('Xrestricted')
++   if cmd == ''
++     return
++   endif
++ 
++   call writefile([
++ 	\ "silent !ls",
++ 	\ "call writefile([v:errmsg], 'Xrestrout')",
++ 	\ "qa!",
++ 	\ ], 'Xrestricted')
++   call system(cmd . ' -Z')
++   call assert_match('E145:', join(readfile('Xrestrout')))
++ 
++   call delete('Xrestricted')
++   call delete('Xrestrout')
++ endfunc
++ 
++ func Run_restricted_test(ex_cmd, error)
++   let cmd = GetVimCommand('Xrestricted')
++   if cmd == ''
++     return
++   endif
++ 
++   call writefile([
++ 	\ a:ex_cmd,
++ 	\ "call writefile([v:errmsg], 'Xrestrout')",
++ 	\ "qa!",
++ 	\ ], 'Xrestricted')
++   call system(cmd . ' -Z')
++   call assert_match(a:error, join(readfile('Xrestrout')))
++ 
++   call delete('Xrestricted')
++   call delete('Xrestrout')
++ endfunc
++ 
++ func Test_restricted_lua()
++   if !has('lua')
++     throw 'Skipped: Lua is not supported'
++   endif
++   call Run_restricted_test('lua print("Hello, Vim!")', 'E981:')
++   call Run_restricted_test('luado return "hello"', 'E981:')
++   call Run_restricted_test('luafile somefile', 'E981:')
++   call Run_restricted_test('call luaeval("expression")', 'E145:')
++ endfunc
++ 
++ func Test_restricted_mzscheme()
++   if !has('mzscheme')
++     throw 'Skipped: MzScheme is not supported'
++   endif
++   call Run_restricted_test('mzscheme statement', 'E981:')
++   call Run_restricted_test('mzfile somefile', 'E981:')
++   call Run_restricted_test('call mzeval("expression")', 'E145:')
++ endfunc
++ 
++ func Test_restricted_perl()
++   if !has('perl')
++     throw 'Skipped: Perl is not supported'
++   endif
++   " TODO: how to make Safe mode fail?
++   " call Run_restricted_test('perl system("ls")', 'E981:')
++   " call Run_restricted_test('perldo system("hello")', 'E981:')
++   " call Run_restricted_test('perlfile somefile', 'E981:')
++   " call Run_restricted_test('call perleval("system(\"ls\")")', 'E145:')
++ endfunc
++ 
++ func Test_restricted_python()
++   if !has('python')
++     throw 'Skipped: Python is not supported'
++   endif
++   call Run_restricted_test('python print "hello"', 'E981:')
++   call Run_restricted_test('pydo return "hello"', 'E981:')
++   call Run_restricted_test('pyfile somefile', 'E981:')
++   call Run_restricted_test('call pyeval("expression")', 'E145:')
++ endfunc
++ 
++ func Test_restricted_python3()
++   if !has('python3')
++     throw 'Skipped: Python3 is not supported'
++   endif
++   call Run_restricted_test('py3 print "hello"', 'E981:')
++   call Run_restricted_test('py3do return "hello"', 'E981:')
++   call Run_restricted_test('py3file somefile', 'E981:')
++   call Run_restricted_test('call py3eval("expression")', 'E145:')
++ endfunc
++ 
++ func Test_restricted_ruby()
++   if !has('ruby')
++     throw 'Skipped: Ruby is not supported'
++   endif
++   call Run_restricted_test('ruby print "Hello"', 'E981:')
++   call Run_restricted_test('rubydo print "Hello"', 'E981:')
++   call Run_restricted_test('rubyfile somefile', 'E981:')
++ endfunc
++ 
++ func Test_restricted_tcl()
++   if !has('tcl')
++     throw 'Skipped: Tcl is not supported'
++   endif
++   call Run_restricted_test('tcl puts "Hello"', 'E981:')
++   call Run_restricted_test('tcldo puts "Hello"', 'E981:')
++   call Run_restricted_test('tclfile somefile', 'E981:')
++ endfunc
+*** ../vim-8.1.0880/src/testdir/Make_all.mak	2019-01-24 22:42:14.949304772 +0100
+--- src/testdir/Make_all.mak	2019-02-08 13:37:16.649924127 +0100
+***************
+*** 213,218 ****
+--- 213,219 ----
+  	test_regexp_utf8 \
+  	test_registers \
+  	test_reltime \
++ 	test_restricted \
+  	test_retab \
+  	test_ruby \
+  	test_scriptnames \
+***************
+*** 375,380 ****
+--- 376,382 ----
+  	test_quotestar.res \
+  	test_regex_char_classes.res \
+  	test_registers.res \
++ 	test_restricted.res \
+  	test_retab.res \
+  	test_ruby.res \
+  	test_scriptnames.res \
+*** ../vim-8.1.0880/src/version.c	2019-02-08 12:46:03.588784187 +0100
+--- src/version.c	2019-02-08 14:32:06.151387661 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     881,
+  /**/
+
+-- 
+A parent can be arrested if his child cannot hold back a burp during a church
+service.
+		[real standing law in Nebraska, United States of America]
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

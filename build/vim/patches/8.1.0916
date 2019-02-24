@@ -1,0 +1,175 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0916
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0916
+Problem:    With Python 3.7 "find_module" is not made available.
+Solution:   Also add "find_module" with Python 3.7. (Joel Frederico,
+            closes #3954)
+Files:	    src/if_py_both.h
+
+
+*** ../vim-8.1.0915/src/if_py_both.h	2019-01-26 17:28:22.224599141 +0100
+--- src/if_py_both.h	2019-02-14 13:25:06.212496505 +0100
+***************
+*** 87,95 ****
+  #if PY_VERSION_HEX >= 0x030700f0
+  static PyObject *py_find_spec;
+  #else
+- static PyObject *py_find_module;
+  static PyObject *py_load_module;
+  #endif
+  
+  static PyObject *VimError;
+  
+--- 87,95 ----
+  #if PY_VERSION_HEX >= 0x030700f0
+  static PyObject *py_find_spec;
+  #else
+  static PyObject *py_load_module;
+  #endif
++ static PyObject *py_find_module;
+  
+  static PyObject *VimError;
+  
+***************
+*** 759,765 ****
+  	sprintf(buf, "%ld", (long)our_tv->vval.v_number);
+  	ret = PyString_FromString((char *)buf);
+      }
+! # ifdef FEAT_FLOAT
+      else if (our_tv->v_type == VAR_FLOAT)
+      {
+  	char buf[NUMBUFLEN];
+--- 759,765 ----
+  	sprintf(buf, "%ld", (long)our_tv->vval.v_number);
+  	ret = PyString_FromString((char *)buf);
+      }
+! #ifdef FEAT_FLOAT
+      else if (our_tv->v_type == VAR_FLOAT)
+      {
+  	char buf[NUMBUFLEN];
+***************
+*** 767,773 ****
+  	sprintf(buf, "%f", our_tv->vval.v_float);
+  	ret = PyString_FromString((char *)buf);
+      }
+! # endif
+      else if (our_tv->v_type == VAR_LIST)
+      {
+  	list_T		*list = our_tv->vval.v_list;
+--- 767,773 ----
+  	sprintf(buf, "%f", our_tv->vval.v_float);
+  	ret = PyString_FromString((char *)buf);
+      }
+! #endif
+      else if (our_tv->v_type == VAR_LIST)
+      {
+  	list_T		*list = our_tv->vval.v_list;
+***************
+*** 6093,6110 ****
+  
+      sprintf(hexBuf, "%p", (void *)obj);
+  
+! # ifdef PY_USE_CAPSULE
+      capsule = PyDict_GetItemString(lookup_dict, hexBuf);
+! # else
+      capsule = (PyObject *)PyDict_GetItemString(lookup_dict, hexBuf);
+! # endif
+      if (capsule == NULL)
+      {
+! # ifdef PY_USE_CAPSULE
+  	capsule = PyCapsule_New(tv, NULL, NULL);
+! # else
+  	capsule = PyCObject_FromVoidPtr(tv, NULL);
+! # endif
+  	if (PyDict_SetItemString(lookup_dict, hexBuf, capsule))
+  	{
+  	    Py_DECREF(capsule);
+--- 6093,6110 ----
+  
+      sprintf(hexBuf, "%p", (void *)obj);
+  
+! #ifdef PY_USE_CAPSULE
+      capsule = PyDict_GetItemString(lookup_dict, hexBuf);
+! #else
+      capsule = (PyObject *)PyDict_GetItemString(lookup_dict, hexBuf);
+! #endif
+      if (capsule == NULL)
+      {
+! #ifdef PY_USE_CAPSULE
+  	capsule = PyCapsule_New(tv, NULL, NULL);
+! #else
+  	capsule = PyCObject_FromVoidPtr(tv, NULL);
+! #endif
+  	if (PyDict_SetItemString(lookup_dict, hexBuf, capsule))
+  	{
+  	    Py_DECREF(capsule);
+***************
+*** 6130,6140 ****
+      {
+  	typval_T	*v;
+  
+! # ifdef PY_USE_CAPSULE
+  	v = PyCapsule_GetPointer(capsule, NULL);
+! # else
+  	v = PyCObject_AsVoidPtr(capsule);
+! # endif
+  	copy_tv(v, tv);
+      }
+      return 0;
+--- 6130,6140 ----
+      {
+  	typval_T	*v;
+  
+! #ifdef PY_USE_CAPSULE
+  	v = PyCapsule_GetPointer(capsule, NULL);
+! #else
+  	v = PyCObject_AsVoidPtr(capsule);
+! #endif
+  	copy_tv(v, tv);
+      }
+      return 0;
+***************
+*** 6921,6926 ****
+--- 6921,6933 ----
+  	return -1;
+      }
+  
++     if ((py_find_module = PyObject_GetAttrString(cls, "find_module")))
++     {
++ 	// find_module() is deprecated, this may stop working in some later
++ 	// version.
++         ADD_OBJECT(m, "_find_module", py_find_module);
++     }
++ 
+      Py_DECREF(imp);
+  
+      ADD_OBJECT(m, "_find_spec", py_find_spec);
+*** ../vim-8.1.0915/src/version.c	2019-02-14 12:56:31.686115921 +0100
+--- src/version.c	2019-02-14 13:28:20.831490442 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     916,
+  /**/
+
+-- 
+CART DRIVER: Bring out your dead!
+   There are legs stick out of windows and doors.  Two MEN are fighting in the
+   mud - covered from head to foot in it.  Another MAN is on his hands in
+   knees shovelling mud into his mouth.  We just catch sight of a MAN falling
+   into a well.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

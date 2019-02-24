@@ -1,0 +1,194 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0837
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0837
+Problem:    Timer interrupting cursorhold and mapping not tested.
+Solution:   Add tests with timers. (Ozaki Kiichi, closes #3871)
+Files:	    src/testdir/test_autocmd.vim, src/testdir/test_mapping.vim
+
+
+*** ../vim-8.1.0836/src/testdir/test_autocmd.vim	2019-01-24 21:57:11.574719854 +0100
+--- src/testdir/test_autocmd.vim	2019-01-27 22:30:22.173169702 +0100
+***************
+*** 32,37 ****
+--- 32,59 ----
+      call timer_start(100, 'ExitInsertMode')
+      call feedkeys('a', 'x!')
+      call assert_equal(1, g:triggered)
++     unlet g:triggered
++     au! CursorHoldI
++     set updatetime&
++   endfunc
++ 
++   func Test_cursorhold_insert_with_timer_interrupt()
++     if !has('job')
++       return
++     endif
++     " Need to move the cursor.
++     call feedkeys("ggG", "xt")
++ 
++     " Confirm the timer invoked in exit_cb of the job doesn't disturb
++     " CursorHoldI event.
++     let g:triggered = 0
++     au CursorHoldI * let g:triggered += 1
++     set updatetime=500
++     call job_start(has('win32') ? 'cmd /c echo:' : 'echo',
++           \ {'exit_cb': {j, s -> timer_start(1000, 'ExitInsertMode')}})
++     call feedkeys('a', 'x!')
++     call assert_equal(1, g:triggered)
++     unlet g:triggered
+      au! CursorHoldI
+      set updatetime&
+    endfunc
+***************
+*** 44,49 ****
+--- 66,72 ----
+      " CursorHoldI does not trigger after CTRL-X
+      call feedkeys("a\<C-X>", 'x!')
+      call assert_equal(0, g:triggered)
++     unlet g:triggered
+      au! CursorHoldI
+      set updatetime&
+    endfunc
+***************
+*** 452,458 ****
+  endfunc
+  
+  func Test_OptionSet()
+!   if !has("eval") || !has("autocmd") || !exists("+autochdir")
+      return
+    endif
+  
+--- 475,481 ----
+  endfunc
+  
+  func Test_OptionSet()
+!   if !has("eval") || !exists("+autochdir")
+      return
+    endif
+  
+***************
+*** 595,601 ****
+  
+  func Test_OptionSet_diffmode()
+    call test_override('starting', 1)
+!   " 18: Changing an option when enetering diff mode
+    new
+    au OptionSet diff :let &l:cul=v:option_new
+  
+--- 618,624 ----
+  
+  func Test_OptionSet_diffmode()
+    call test_override('starting', 1)
+!   " 18: Changing an option when entering diff mode
+    new
+    au OptionSet diff :let &l:cul=v:option_new
+  
+*** ../vim-8.1.0836/src/testdir/test_mapping.vim	2019-01-24 17:59:35.139217458 +0100
+--- src/testdir/test_mapping.vim	2019-01-27 22:30:22.173169702 +0100
+***************
+*** 1,5 ****
+--- 1,7 ----
+  " Tests for mappings and abbreviations
+  
++ source shared.vim
++ 
+  func Test_abbreviation()
+    " abbreviation with 0x80 should work
+    inoreab чкпр   vim
+***************
+*** 169,174 ****
+--- 171,179 ----
+  endfunc
+  
+  func Test_map_timeout()
++   if !has('timers')
++     return
++   endif
+    nnoremap aaaa :let got_aaaa = 1<CR>
+    nnoremap bb :let got_bb = 1<CR>
+    nmap b aaa
+***************
+*** 178,184 ****
+      call feedkeys("\<Esc>", "t")
+    endfunc
+    set timeout timeoutlen=200
+!   call timer_start(300, 'ExitInsert')
+    " After the 'b' Vim waits for another character to see if it matches 'bb'.
+    " When it times out it is expanded to "aaa", but there is no wait for
+    " "aaaa".  Can't check that reliably though.
+--- 183,189 ----
+      call feedkeys("\<Esc>", "t")
+    endfunc
+    set timeout timeoutlen=200
+!   let timer = timer_start(300, 'ExitInsert')
+    " After the 'b' Vim waits for another character to see if it matches 'bb'.
+    " When it times out it is expanded to "aaa", but there is no wait for
+    " "aaaa".  Can't check that reliably though.
+***************
+*** 193,198 ****
+--- 198,236 ----
+    nunmap b
+    set timeoutlen&
+    delfunc ExitInsert
++   call timer_stop(timer)
++ endfunc
++ 
++ func Test_map_timeout_with_timer_interrupt()
++   if !has('job') || !has('timers')
++     return
++   endif
++ 
++   " Confirm the timer invoked in exit_cb of the job doesn't disturb mapped key
++   " sequence.
++   new
++   let g:val = 0
++   nnoremap \12 :let g:val = 1<CR>
++   nnoremap \123 :let g:val = 2<CR>
++   set timeout timeoutlen=1000
++ 
++   func ExitCb(job, status)
++     let g:timer = timer_start(1, {_ -> feedkeys("3\<Esc>", 't')})
++   endfunc
++ 
++   call job_start([&shell, &shellcmdflag, 'echo'], {'exit_cb': 'ExitCb'})
++   call feedkeys('\12', 'xt!')
++   call assert_equal(2, g:val)
++ 
++   bwipe!
++   nunmap \12
++   nunmap \123
++   set timeoutlen&
++   call WaitFor({-> exists('g:timer')})
++   call timer_stop(g:timer)
++   unlet g:timer
++   unlet g:val
++   delfunc ExitCb
+  endfunc
+  
+  func Test_abbreviation_CR()
+*** ../vim-8.1.0836/src/version.c	2019-01-27 20:43:38.135329194 +0100
+--- src/version.c	2019-01-27 22:31:38.552579694 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     837,
+  /**/
+
+-- 
+A computer programmer is a device for turning requirements into
+undocumented features.  It runs on cola, pizza and Dilbert cartoons.
+					Bram Moolenaar
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

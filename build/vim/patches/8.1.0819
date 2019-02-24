@@ -1,0 +1,223 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0819
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0819
+Problem:    A failed assert with a long string is hard to read.
+Solution:   Shorten the assert message.
+Files:	    src/eval.c, src/testdir/test_assert.vim
+
+
+*** ../vim-8.1.0818/src/eval.c	2019-01-24 15:04:44.666887862 +0100
+--- src/eval.c	2019-01-25 20:41:03.215252969 +0100
+***************
+*** 9495,9508 ****
+  }
+  
+  /*
+   * Append "str" to "gap", escaping unprintable characters.
+   * Changes NL to \n, CR to \r, etc.
+   */
+      static void
+! ga_concat_esc(garray_T *gap, char_u *str)
+  {
+      char_u  *p;
+      char_u  buf[NUMBUFLEN];
+  
+      if (str == NULL)
+      {
+--- 9495,9548 ----
+  }
+  
+  /*
++  * Append "p[clen]" to "gap", escaping unprintable characters.
++  * Changes NL to \n, CR to \r, etc.
++  */
++     static void
++ ga_concat_esc(garray_T *gap, char_u *p, int clen)
++ {
++     char_u  buf[NUMBUFLEN];
++ 
++     if (clen > 1)
++     {
++ 	mch_memmove(buf, p, clen);
++ 	buf[clen] = NUL;
++ 	ga_concat(gap, buf);
++     }
++     else switch (*p)
++     {
++ 	case BS: ga_concat(gap, (char_u *)"\\b"); break;
++ 	case ESC: ga_concat(gap, (char_u *)"\\e"); break;
++ 	case FF: ga_concat(gap, (char_u *)"\\f"); break;
++ 	case NL: ga_concat(gap, (char_u *)"\\n"); break;
++ 	case TAB: ga_concat(gap, (char_u *)"\\t"); break;
++ 	case CAR: ga_concat(gap, (char_u *)"\\r"); break;
++ 	case '\\': ga_concat(gap, (char_u *)"\\\\"); break;
++ 	default:
++ 		   if (*p < ' ')
++ 		   {
++ 		       vim_snprintf((char *)buf, NUMBUFLEN, "\\x%02x", *p);
++ 		       ga_concat(gap, buf);
++ 		   }
++ 		   else
++ 		       ga_append(gap, *p);
++ 		   break;
++     }
++ }
++ 
++ /*
+   * Append "str" to "gap", escaping unprintable characters.
+   * Changes NL to \n, CR to \r, etc.
+   */
+      static void
+! ga_concat_shorten_esc(garray_T *gap, char_u *str)
+  {
+      char_u  *p;
++     char_u  *s;
++     int	    c;
++     int	    clen;
+      char_u  buf[NUMBUFLEN];
++     int	    same_len;
+  
+      if (str == NULL)
+      {
+***************
+*** 9511,9535 ****
+      }
+  
+      for (p = str; *p != NUL; ++p)
+! 	switch (*p)
+  	{
+! 	    case BS: ga_concat(gap, (char_u *)"\\b"); break;
+! 	    case ESC: ga_concat(gap, (char_u *)"\\e"); break;
+! 	    case FF: ga_concat(gap, (char_u *)"\\f"); break;
+! 	    case NL: ga_concat(gap, (char_u *)"\\n"); break;
+! 	    case TAB: ga_concat(gap, (char_u *)"\\t"); break;
+! 	    case CAR: ga_concat(gap, (char_u *)"\\r"); break;
+! 	    case '\\': ga_concat(gap, (char_u *)"\\\\"); break;
+! 	    default:
+! 		if (*p < ' ')
+! 		{
+! 		    vim_snprintf((char *)buf, NUMBUFLEN, "\\x%02x", *p);
+! 		    ga_concat(gap, buf);
+! 		}
+! 		else
+! 		    ga_append(gap, *p);
+! 		break;
+  	}
+  }
+  
+  /*
+--- 9551,9579 ----
+      }
+  
+      for (p = str; *p != NUL; ++p)
+!     {
+! 	same_len = 1;
+! 	s = p;
+! 	c = mb_ptr2char_adv(&s);
+! 	clen = s - p;
+! 	while (*s != NUL && c == mb_ptr2char(s))
+  	{
+! 	    ++same_len;
+! 	    s += clen;
+  	}
++ 	if (same_len > 20)
++ 	{
++ 	    ga_concat(gap, (char_u *)"\\[");
++ 	    ga_concat_esc(gap, p, clen);
++ 	    ga_concat(gap, (char_u *)" occurs ");
++ 	    vim_snprintf((char *)buf, NUMBUFLEN, "%d", same_len);
++ 	    ga_concat(gap, buf);
++ 	    ga_concat(gap, (char_u *)" times]");
++ 	    p = s - 1;
++ 	}
++ 	else
++ 	    ga_concat_esc(gap, p, clen);
++     }
+  }
+  
+  /*
+***************
+*** 9562,9572 ****
+  	ga_concat(gap, (char_u *)"Expected ");
+      if (exp_str == NULL)
+      {
+! 	ga_concat_esc(gap, tv2string(exp_tv, &tofree, numbuf, 0));
+  	vim_free(tofree);
+      }
+      else
+! 	ga_concat_esc(gap, exp_str);
+      if (atype != ASSERT_NOTEQUAL)
+      {
+  	if (atype == ASSERT_MATCH)
+--- 9606,9616 ----
+  	ga_concat(gap, (char_u *)"Expected ");
+      if (exp_str == NULL)
+      {
+! 	ga_concat_shorten_esc(gap, tv2string(exp_tv, &tofree, numbuf, 0));
+  	vim_free(tofree);
+      }
+      else
+! 	ga_concat_shorten_esc(gap, exp_str);
+      if (atype != ASSERT_NOTEQUAL)
+      {
+  	if (atype == ASSERT_MATCH)
+***************
+*** 9575,9581 ****
+  	    ga_concat(gap, (char_u *)" does match ");
+  	else
+  	    ga_concat(gap, (char_u *)" but got ");
+! 	ga_concat_esc(gap, tv2string(got_tv, &tofree, numbuf, 0));
+  	vim_free(tofree);
+      }
+  }
+--- 9619,9625 ----
+  	    ga_concat(gap, (char_u *)" does match ");
+  	else
+  	    ga_concat(gap, (char_u *)" but got ");
+! 	ga_concat_shorten_esc(gap, tv2string(got_tv, &tofree, numbuf, 0));
+  	vim_free(tofree);
+      }
+  }
+*** ../vim-8.1.0818/src/testdir/test_assert.vim	2018-10-07 20:14:53.091279680 +0200
+--- src/testdir/test_assert.vim	2019-01-25 20:47:28.113426333 +0100
+***************
+*** 31,36 ****
+--- 31,40 ----
+    call assert_equal(1, assert_equal('bar', s))
+    call assert_match("Expected 'bar' but got 'foo'", v:errors[0])
+    call remove(v:errors, 0)
++ 
++   call assert_equal('XxxxxxxxxxxxxxxxxxxxxxX', 'XyyyyyyyyyyyyyyyyyyyyyyyyyX')
++   call assert_match("Expected 'X\\\\\\[x occurs 21 times]X' but got 'X\\\\\\[y occurs 25 times]X'", v:errors[0])
++   call remove(v:errors, 0)
+  endfunc
+  
+  func Test_assert_equalfile()
+*** ../vim-8.1.0818/src/version.c	2019-01-24 23:11:44.635650160 +0100
+--- src/version.c	2019-01-25 20:33:02.042881289 +0100
+***************
+*** 789,790 ****
+--- 789,792 ----
+  {   /* Add new patch number below this line */
++ /**/
++     819,
+  /**/
+
+-- 
+   LAUNCELOT leaps into SHOT with a mighty cry and runs the GUARD through and
+   hacks him to the floor.  Blood.  Swashbuckling music (perhaps).
+   LAUNCELOT races through into the castle screaming.
+SECOND SENTRY: Hey!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,1685 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0870
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0870
+Problem:    Vim doesn't use the new ConPTY support in Windows 10.
+Solution:   Use ConPTY support, if available. (Nobuhiro Takasaki, closes #3794)
+Files:	    runtime/doc/eval.txt, runtime/doc/options.txt,
+            runtime/doc/terminal.txt, src/channel.c, src/evalfunc.c,
+            src/globals.h, src/option.c, src/option.h, src/os_win32.c,
+            src/proto/terminal.pro, src/structs.h, src/terminal.c,
+            src/testdir/gen_opt_test.vim, src/testdir/test_autocmd.vim,
+            src/testdir/test_mksession.vim, src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.0869/runtime/doc/eval.txt	2019-01-31 15:52:05.265907656 +0100
+--- runtime/doc/eval.txt	2019-02-03 13:52:16.589856140 +0100
+***************
+*** 9410,9415 ****
+--- 9469,9478 ----
+  		   "ansi_colors"     A list of 16 color names or hex codes
+  				     defining the ANSI palette used in GUI
+  				     color modes.  See |g:terminal_ansi_colors|.
++ 		   "term_mode"	     (MS-Windows only): Specify which pty to
++ 				     use:
++ 					"winpty": Use winpty
++ 					"conpty": Use ConPTY (if available)
+  
+  		{only available when compiled with the |+terminal| feature}
+  
+***************
+*** 10126,10133 ****
+--- 10190,10199 ----
+  cmdline_info		Compiled with 'showcmd' and 'ruler' support.
+  comments		Compiled with |'comments'| support.
+  compatible		Compiled to be very Vi compatible.
++ conpty			Platform where |ConPTY| can be used.
+  cryptv			Compiled with encryption support |encryption|.
+  cscope			Compiled with |cscope| support.
++ cursorbind		Compiled with |cursorbind| (always true)
+  debug			Compiled with "DEBUG" defined.
+  dialog_con		Compiled with console dialog support.
+  dialog_gui		Compiled with GUI dialog support.
+*** ../vim-8.1.0869/runtime/doc/options.txt	2019-01-31 18:26:05.730803572 +0100
+--- runtime/doc/options.txt	2019-02-03 14:35:38.054496226 +0100
+***************
+*** 8009,8014 ****
+--- 8054,8076 ----
+  	Note that the "cterm" attributes are still used, not the "gui" ones.
+  	NOTE: This option is reset when 'compatible' is set.
+  
++ 						*'termmode'* *'tmod'*
++ 'termmode' 'tmod'	string  (default "")
++ 			local to window
++ 			{not in Vi, MS-Windows only}
++ 	Whether the window uses winpty or |ConPTY| as the virtual console.
++ 	When set before opening the terminal, it influences what pty is used.
++ 	When opening the terminal it will be set to the actually used pty.
++ 
++ 	Possible values are:
++ 	    ""		use ConPTY if possible, winpty otherwise
++ 	    "winpty"	use winpty, fail if not supported
++ 	    "conpty"	use |ConPTY|, fail if not supported
++ 
++ 	|ConPTY| support depends on the platform (Windows 10 October 2018
++ 	edition).  winpty support needs to be installed.  If neither is
++ 	supported then you cannot open a terminal window.
++ 
+  						*'termwinscroll'* *'twsl'*
+  'termwinscroll' 'twsl'	number	(default 10000)
+  			local to buffer
+*** ../vim-8.1.0869/runtime/doc/terminal.txt	2018-10-19 22:35:04.885189994 +0200
+--- runtime/doc/terminal.txt	2019-02-03 13:53:49.233271142 +0100
+***************
+*** 228,234 ****
+  					for Python "++eof=exit()".  Special
+  					codes can be used like with `:map`,
+  					e.g. "<C-Z>" for CTRL-Z.
+! 
+  			If you want to use more options use the |term_start()|
+  			function.
+  			If you want to split the window vertically, use: >
+--- 228,235 ----
+  					for Python "++eof=exit()".  Special
+  					codes can be used like with `:map`,
+  					e.g. "<C-Z>" for CTRL-Z.
+! 			++winpty	Use winpty as the virtual console.
+! 			++conpty	Use |ConPTY| as the virtual console.
+  			If you want to use more options use the |term_start()|
+  			function.
+  			If you want to split the window vertically, use: >
+***************
+*** 410,415 ****
+--- 411,423 ----
+  to point to the right file, if needed.  If you have both the 32-bit and 64-bit
+  version, rename to winpty32.dll and winpty64.dll to match the way Vim was
+  build.
++ 							*ConPTY*
++ On more recent versions of MS-Windows 10 (beginning with the "October 2018
++ Update"), winpty is no longer required. On those versions, |:terminal| will use
++ Windows' built-in support for hosting terminal applications, "ConPTY".  When
++ ConPTY is in use, there may be rendering artifacts regarding ambiguous-width
++ characters. If you encounter any such issues, set 'termmode' to winpty (which
++ you then must have instlled).
+  
+  Environment variables are used to pass information to the running job:
+      VIM_SERVERNAME	v:servername
+*** ../vim-8.1.0869/src/channel.c	2019-01-31 15:52:05.265907656 +0100
+--- src/channel.c	2019-02-03 14:13:11.701910368 +0100
+***************
+*** 1720,1730 ****
+      char_u  *res;
+      char_u  *p;
+  
+!     /* If there is only one buffer just get that one. */
+!     if (head->rq_next == NULL || head->rq_next->rq_next == NULL)
+! 	return channel_get(channel, part, outlen);
+! 
+!     /* Concatenate everything into one buffer. */
+      for (node = head->rq_next; node != NULL; node = node->rq_next)
+  	len += node->rq_buflen;
+      res = lalloc(len + 1, TRUE);
+--- 1720,1726 ----
+      char_u  *res;
+      char_u  *p;
+  
+!     // Concatenate everything into one buffer.
+      for (node = head->rq_next; node != NULL; node = node->rq_next)
+  	len += node->rq_buflen;
+      res = lalloc(len + 1, TRUE);
+***************
+*** 1738,1744 ****
+      }
+      *p = NUL;
+  
+!     /* Free all buffers */
+      do
+      {
+  	p = channel_get(channel, part, NULL);
+--- 1734,1740 ----
+      }
+      *p = NUL;
+  
+!     // Free all buffers
+      do
+      {
+  	p = channel_get(channel, part, NULL);
+***************
+*** 1747,1762 ****
+  
+      if (outlen != NULL)
+      {
+  	*outlen += len;
+  	return res;
+      }
+  
+!     /* turn all NUL into NL */
+!     while (len > 0)
+      {
+! 	--len;
+! 	if (res[len] == NUL)
+! 	    res[len] = NL;
+      }
+  
+      return res;
+--- 1743,1779 ----
+  
+      if (outlen != NULL)
+      {
++ 	// Returning the length, keep NUL characters.
+  	*outlen += len;
+  	return res;
+      }
+  
+!     // Turn all NUL into NL, so that the result can be used as a string.
+!     p = res;
+!     while (p < res + len)
+      {
+! 	if (*p == NUL)
+! 	    *p = NL;
+! #ifdef WIN32
+! 	else if (*p == 0x1b)
+! 	{
+! 	    // crush the escape sequence OSC 0/1/2: ESC ]0;
+! 	    if (p + 3 < res + len
+! 		    && p[1] == ']'
+! 		    && (p[2] == '0' || p[2] == '1' || p[2] == '2')
+! 		    && p[3] == ';')
+! 	    {
+! 		// '\a' becomes a NL
+! 	        while (p < res + (len - 1) && *p != '\a')
+! 		    ++p;
+! 		// BEL is zero width characters, suppress display mistake
+! 		// ConPTY (after 10.0.18317) requires advance checking
+! 		if (p[-1] == NUL)
+! 		    p[-1] = 0x07;
+! 	    }
+! 	}
+! #endif
+! 	++p;
+      }
+  
+      return res;
+***************
+*** 4330,4336 ****
+  	    channel = first_channel;
+  	    continue;
+  	}
+! 	if (channel->ch_to_be_freed)
+  	{
+  	    channel_free(channel);
+  	    /* channel has been freed, start over */
+--- 4347,4353 ----
+  	    channel = first_channel;
+  	    continue;
+  	}
+! 	if (channel->ch_to_be_freed || channel->ch_killing)
+  	{
+  	    channel_free(channel);
+  	    /* channel has been freed, start over */
+***************
+*** 4930,4935 ****
+--- 4947,4974 ----
+  		opt->jo_set2 |= JO2_TERM_KILL;
+  		opt->jo_term_kill = tv_get_string_chk(item);
+  	    }
++ 	    else if (STRCMP(hi->hi_key, "term_mode") == 0)
++ 	    {
++ 		char_u *p;
++ 
++ 		if (!(supported2 & JO2_TERM_MODE))
++ 		    break;
++ 		opt->jo_set2 |= JO2_TERM_MODE;
++ 		p = tv_get_string_chk(item);
++ 		if (p == NULL)
++ 		{
++ 		    semsg(_(e_invargval), "term_mode");
++ 		    return FAIL;
++ 		}
++ 		// Allow empty string, "winpty", "conpty".
++ 		if (!(*p == NUL || STRCMP(p, "winpty") == 0
++ 					          || STRCMP(p, "conpty") == 0))
++ 		{
++ 		    semsg(_(e_invargval), "term_mode");
++ 		    return FAIL;
++ 		}
++ 		opt->jo_term_mode = p[0];
++ 	    }
+  # if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS)
+  	    else if (STRCMP(hi->hi_key, "ansi_colors") == 0)
+  	    {
+***************
+*** 5440,5445 ****
+--- 5479,5494 ----
+  	channel_need_redraw = TRUE;
+      }
+  
++     if (job->jv_channel != NULL
++ 	 && job->jv_channel->ch_anonymous_pipe && !job->jv_channel->ch_killing)
++     {
++ 	++safe_to_invoke_callback;
++ 	channel_free_contents(job->jv_channel);
++ 	job->jv_channel->ch_job = NULL;
++ 	job->jv_channel = NULL;
++ 	--safe_to_invoke_callback;
++     }
++ 
+      // Do not free the job in case the close callback of the associated channel
+      // isn't invoked yet and may get information by job_info().
+      if (job->jv_refcount == 0 && !job_channel_still_useful(job))
+*** ../vim-8.1.0869/src/evalfunc.c	2019-01-30 22:01:36.982854408 +0100
+--- src/evalfunc.c	2019-02-03 13:46:59.595853343 +0100
+***************
+*** 6738,6743 ****
+--- 6738,6747 ----
+  	else if (STRICMP(name, "terminal") == 0)
+  	    n = terminal_enabled();
+  #endif
++ #if defined(FEAT_TERMINAL) && defined(WIN3264)
++ 	else if (STRICMP(name, "conpty") == 0)
++ 	    n = use_conpty();
++ #endif
+      }
+  
+      rettv->vval.v_number = n;
+*** ../vim-8.1.0869/src/globals.h	2019-01-26 17:28:22.224599141 +0100
+--- src/globals.h	2019-02-03 13:46:59.595853343 +0100
+***************
+*** 1432,1438 ****
+  	|| defined(DYNAMIC_ICONV) \
+  	|| defined(DYNAMIC_GETTEXT) \
+  	|| defined(DYNAMIC_MZSCHEME) \
+! 	|| defined(DYNAMIC_LUA)
+  EXTERN char e_loadlib[]	INIT(= N_("E370: Could not load library %s"));
+  EXTERN char e_loadfunc[]	INIT(= N_("E448: Could not load library function %s"));
+  #endif
+--- 1432,1439 ----
+  	|| defined(DYNAMIC_ICONV) \
+  	|| defined(DYNAMIC_GETTEXT) \
+  	|| defined(DYNAMIC_MZSCHEME) \
+! 	|| defined(DYNAMIC_LUA) \
+! 	|| defined(FEAT_TERMINAL)
+  EXTERN char e_loadlib[]	INIT(= N_("E370: Could not load library %s"));
+  EXTERN char e_loadfunc[]	INIT(= N_("E448: Could not load library function %s"));
+  #endif
+*** ../vim-8.1.0869/src/option.c	2019-01-31 18:26:05.738803509 +0100
+--- src/option.c	2019-02-03 14:16:43.164569746 +0100
+***************
+*** 253,258 ****
+--- 253,259 ----
+  # define PV_TWK		OPT_WIN(WV_TWK)
+  # define PV_TWS		OPT_WIN(WV_TWS)
+  # define PV_TWSL	OPT_BUF(BV_TWSL)
++ # define PV_TMOD	OPT_WIN(WV_TMOD)
+  #endif
+  #ifdef FEAT_SIGNS
+  # define PV_SCL		OPT_WIN(WV_SCL)
+***************
+*** 2700,2705 ****
+--- 2701,2715 ----
+  			    {(char_u *)FALSE, (char_u *)FALSE}
+  #endif
+  			    SCTX_INIT},
++     {"termmode", "tmod",    P_STRING|P_ALLOCED|P_VI_DEF,
++ #ifdef FEAT_TERMINAL
++ 			    (char_u *)VAR_WIN, PV_TMOD,
++ 			    {(char_u *)"", (char_u *)NULL}
++ #else
++ 			    (char_u *)NULL, PV_NONE,
++ 			    {(char_u *)NULL, (char_u *)0L}
++ #endif
++ 			    SCTX_INIT},
+      {"termwinkey", "twk",   P_STRING|P_ALLOCED|P_RWIN|P_VI_DEF,
+  #ifdef FEAT_TERMINAL
+  			    (char_u *)VAR_WIN, PV_TWK,
+***************
+*** 3208,3213 ****
+--- 3218,3226 ----
+  #ifdef FEAT_SIGNS
+  static char *(p_scl_values[]) = {"yes", "no", "auto", NULL};
+  #endif
++ #ifdef FEAT_TERMINAL
++ static char *(p_tmod_values[]) = {"winpty", "conpty", "", NULL};
++ #endif
+  
+  static void set_options_default(int opt_flags);
+  static void set_string_default_esc(char *name, char_u *val, int escape);
+***************
+*** 3661,3667 ****
+  	    {
+  		char	buf[50];
+  
+! 		sprintf(buf, "cp%ld", (long)GetConsoleCP());
+  		p_tenc = vim_strsave((char_u *)buf);
+  		if (p_tenc != NULL)
+  		{
+--- 3674,3685 ----
+  	    {
+  		char	buf[50];
+  
+! 		/* Win32 console: In ConPTY, GetConsoleCP() returns zero.
+! 		 * Use an alternative value. */
+! 		if (GetConsoleCP() == 0)
+! 		    sprintf(buf, "cp%ld", (long)GetACP());
+! 		else
+! 		    sprintf(buf, "cp%ld", (long)GetConsoleCP());
+  		p_tenc = vim_strsave((char_u *)buf);
+  		if (p_tenc != NULL)
+  		{
+***************
+*** 7468,7481 ****
+  #endif
+  
+  #ifdef FEAT_TERMINAL
+!     /* 'termwinkey' */
+      else if (varp == &curwin->w_p_twk)
+      {
+  	if (*curwin->w_p_twk != NUL
+  				  && string_to_key(curwin->w_p_twk, TRUE) == 0)
+  	    errmsg = e_invarg;
+      }
+!     /* 'termwinsize' */
+      else if (varp == &curwin->w_p_tws)
+      {
+  	if (*curwin->w_p_tws != NUL)
+--- 7486,7499 ----
+  #endif
+  
+  #ifdef FEAT_TERMINAL
+!     // 'termwinkey'
+      else if (varp == &curwin->w_p_twk)
+      {
+  	if (*curwin->w_p_twk != NUL
+  				  && string_to_key(curwin->w_p_twk, TRUE) == 0)
+  	    errmsg = e_invarg;
+      }
+!     // 'termwinsize'
+      else if (varp == &curwin->w_p_tws)
+      {
+  	if (*curwin->w_p_tws != NUL)
+***************
+*** 7487,7492 ****
+--- 7505,7516 ----
+  		errmsg = e_invarg;
+  	}
+      }
++     // 'termmode'
++     else if (varp == &curwin->w_p_tmod)
++     {
++ 	if (check_opt_strings(*varp, p_tmod_values, FALSE) != OK)
++ 	    errmsg = e_invarg;
++     }
+  #endif
+  
+  #ifdef FEAT_VARTABS
+***************
+*** 8838,8844 ****
+  	if (!has_vtp_working())
+  	{
+  	    p_tgc = 0;
+! 	    return (char_u*)N_("E954: 24-bit colors are not supported on this environment");
+  	}
+  	if (is_term_win32())
+  	    swap_tcap();
+--- 8862,8868 ----
+  	if (!has_vtp_working())
+  	{
+  	    p_tgc = 0;
+! 	    return N_("E954: 24-bit colors are not supported on this environment");
+  	}
+  	if (is_term_win32())
+  	    swap_tcap();
+***************
+*** 10928,10933 ****
+--- 10952,10958 ----
+  	case PV_TWK:    return (char_u *)&(curwin->w_p_twk);
+  	case PV_TWS:    return (char_u *)&(curwin->w_p_tws);
+  	case PV_TWSL:	return (char_u *)&(curbuf->b_p_twsl);
++ 	case PV_TMOD:	return (char_u *)&(curwin->w_p_tmod);
+  #endif
+  
+  	case PV_AI:	return (char_u *)&(curbuf->b_p_ai);
+***************
+*** 11128,11133 ****
+--- 11153,11159 ----
+  #ifdef FEAT_TERMINAL
+      to->wo_twk = vim_strsave(from->wo_twk);
+      to->wo_tws = vim_strsave(from->wo_tws);
++     to->wo_tmod = vim_strsave(from->wo_tmod);
+  #endif
+  #ifdef FEAT_FOLDING
+      to->wo_fdc = from->wo_fdc;
+***************
+*** 11198,11203 ****
+--- 11224,11230 ----
+  #ifdef FEAT_TERMINAL
+      check_string_option(&wop->wo_twk);
+      check_string_option(&wop->wo_tws);
++     check_string_option(&wop->wo_tmod);
+  #endif
+  #ifdef FEAT_LINEBREAK
+      check_string_option(&wop->wo_briopt);
+***************
+*** 11241,11246 ****
+--- 11268,11274 ----
+  #ifdef FEAT_TERMINAL
+      clear_string_option(&wop->wo_twk);
+      clear_string_option(&wop->wo_tws);
++     clear_string_option(&wop->wo_tmod);
+  #endif
+  }
+  
+*** ../vim-8.1.0869/src/option.h	2019-01-31 18:26:05.738803509 +0100
+--- src/option.h	2019-02-03 13:46:59.599853319 +0100
+***************
+*** 1112,1117 ****
+--- 1112,1118 ----
+  #ifdef FEAT_TERMINAL
+      , WV_TWK
+      , WV_TWS
++     , WV_TMOD
+  #endif
+      , WV_CRBIND
+  #ifdef FEAT_LINEBREAK
+*** ../vim-8.1.0869/src/os_win32.c	2019-01-24 23:11:44.631650199 +0100
+--- src/os_win32.c	2019-02-03 13:46:59.599853319 +0100
+***************
+*** 186,193 ****
+  static int win32_setattrs(char_u *name, int attrs);
+  static int win32_set_archive(char_u *name);
+  
+- #ifndef FEAT_GUI_W32
+  static int vtp_working = 0;
+  static void vtp_init();
+  static void vtp_exit();
+  static int vtp_printf(char *format, ...);
+--- 186,195 ----
+  static int win32_setattrs(char_u *name, int attrs);
+  static int win32_set_archive(char_u *name);
+  
+  static int vtp_working = 0;
++ static void vtp_flag_init();
++ 
++ #ifndef FEAT_GUI_W32
+  static void vtp_init();
+  static void vtp_exit();
+  static int vtp_printf(char *format, ...);
+***************
+*** 247,252 ****
+--- 249,255 ----
+  typedef BOOL (WINAPI *PfnSetConsoleScreenBufferInfoEx)(HANDLE, PDYN_CONSOLE_SCREEN_BUFFER_INFOEX);
+  static PfnSetConsoleScreenBufferInfoEx pSetConsoleScreenBufferInfoEx;
+  static BOOL has_csbiex = FALSE;
++ #endif
+  
+  /*
+   * Get version number including build number
+***************
+*** 276,282 ****
+      return ver;
+  }
+  
+! 
+  /*
+   * Version of ReadConsoleInput() that works with IME.
+   * Works around problems on Windows 8.
+--- 279,285 ----
+      return ver;
+  }
+  
+! #ifndef FEAT_GUI_W32
+  /*
+   * Version of ReadConsoleInput() that works with IME.
+   * Works around problems on Windows 8.
+***************
+*** 1508,1516 ****
+  	/* Wait forever. */
+  	dwEndTime = INFINITE;
+  
+!     /* We need to loop until the end of the time period, because
+!      * we might get multiple unusable mouse events in that time.
+!      */
+      for (;;)
+      {
+  	// Only process messages when waiting.
+--- 1511,1518 ----
+  	/* Wait forever. */
+  	dwEndTime = INFINITE;
+  
+!     // We need to loop until the end of the time period, because
+!     // we might get multiple unusable mouse events in that time.
+      for (;;)
+      {
+  	// Only process messages when waiting.
+***************
+*** 2175,2180 ****
+--- 2177,2184 ----
+  #ifdef FEAT_CLIPBOARD
+      win_clip_init();
+  #endif
++ 
++     vtp_flag_init();
+  }
+  
+  
+***************
+*** 2675,2680 ****
+--- 2679,2685 ----
+      win_clip_init();
+  #endif
+  
++     vtp_flag_init();
+      vtp_init();
+  }
+  
+***************
+*** 5683,5689 ****
+--- 5688,5698 ----
+      {
+  	/* deadly signal */
+  	if (job->jv_job_object != NULL)
++ 	{
++ 	    if (job->jv_channel != NULL && job->jv_channel->ch_anonymous_pipe)
++ 		job->jv_channel->ch_killing = TRUE;
+  	    return TerminateJobObject(job->jv_job_object, 0) ? OK : FAIL;
++ 	}
+  	return terminate_all(job->jv_proc_info.hProcess, 0) ? OK : FAIL;
+      }
+  
+***************
+*** 7621,7651 ****
+      return 0;
+  }
+  
+- #ifndef FEAT_GUI_W32
+- 
+  /*
+   * Support for 256 colors and 24-bit colors was added in Windows 10
+   * version 1703 (Creators update).
+   */
+! # define VTP_FIRST_SUPPORT_BUILD MAKE_VER(10, 0, 15063)
+  
+      static void
+  vtp_init(void)
+  {
+-     DWORD   ver, mode;
+      HMODULE hKerneldll;
+      DYN_CONSOLE_SCREEN_BUFFER_INFOEX csbi;
+  # ifdef FEAT_TERMGUICOLORS
+      COLORREF fg, bg;
+  # endif
+  
+-     ver = get_build_number();
+-     vtp_working = (ver >= VTP_FIRST_SUPPORT_BUILD) ? 1 : 0;
+-     GetConsoleMode(g_hConOut, &mode);
+-     mode |= (ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+-     if (SetConsoleMode(g_hConOut, mode) == 0)
+- 	vtp_working = 0;
+- 
+      /* Use functions supported from Vista */
+      hKerneldll = GetModuleHandle("kernel32.dll");
+      if (hKerneldll != NULL)
+--- 7630,7682 ----
+      return 0;
+  }
+  
+  /*
+   * Support for 256 colors and 24-bit colors was added in Windows 10
+   * version 1703 (Creators update).
+   */
+! #define VTP_FIRST_SUPPORT_BUILD MAKE_VER(10, 0, 15063)
+! 
+! /*
+!  * Support for pseudo-console (ConPTY) was added in windows 10
+!  * version 1809 (October 2018 update).
+!  */
+! #define CONPTY_FIRST_SUPPORT_BUILD MAKE_VER(10, 0, 17763)
+! 
+!     static void
+! vtp_flag_init(void)
+! {
+!     DWORD   ver = get_build_number();
+! #ifndef FEAT_GUI_W32
+!     DWORD   mode;
+!     HANDLE  out;
+! 
+!     out = GetStdHandle(STD_OUTPUT_HANDLE);
+! 
+!     vtp_working = (ver >= VTP_FIRST_SUPPORT_BUILD) ? 1 : 0;
+!     GetConsoleMode(out, &mode);
+!     mode |= (ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+!     if (SetConsoleMode(out, mode) == 0)
+! 	vtp_working = 0;
+! #endif
+! 
+! #ifdef FEAT_GUI_W32
+!     if (ver >= CONPTY_FIRST_SUPPORT_BUILD)
+! 	vtp_working = 1;
+! #endif
+! 
+! }
+! 
+! #ifndef FEAT_GUI_W32
+  
+      static void
+  vtp_init(void)
+  {
+      HMODULE hKerneldll;
+      DYN_CONSOLE_SCREEN_BUFFER_INFOEX csbi;
+  # ifdef FEAT_TERMGUICOLORS
+      COLORREF fg, bg;
+  # endif
+  
+      /* Use functions supported from Vista */
+      hKerneldll = GetModuleHandle("kernel32.dll");
+      if (hKerneldll != NULL)
+***************
+*** 7829,7840 ****
+  }
+  
+      int
+- has_vtp_working(void)
+- {
+-     return vtp_working;
+- }
+- 
+-     int
+  use_vtp(void)
+  {
+      return USE_VTP;
+--- 7860,7865 ----
+***************
+*** 7847,7849 ****
+--- 7872,7880 ----
+  }
+  
+  #endif
++ 
++     int
++ has_vtp_working(void)
++ {
++     return vtp_working;
++ }
+*** ../vim-8.1.0869/src/proto/terminal.pro	2019-01-29 22:29:03.550799929 +0100
+--- src/proto/terminal.pro	2019-02-03 13:46:59.599853319 +0100
+***************
+*** 57,60 ****
+--- 57,62 ----
+  void term_send_eof(channel_T *ch);
+  job_T *term_getjob(term_T *term);
+  int terminal_enabled(void);
++ void term_free_conpty(term_T *term);
++ int use_conpty(void);
+  /* vim: set ft=c : */
+*** ../vim-8.1.0869/src/structs.h	2019-01-31 18:26:05.738803509 +0100
+--- src/structs.h	2019-02-03 14:13:33.145774428 +0100
+***************
+*** 282,287 ****
+--- 282,289 ----
+  # define w_p_twk w_onebuf_opt.wo_twk	/* 'termwinkey' */
+      char_u	*wo_tws;
+  # define w_p_tws w_onebuf_opt.wo_tws	/* 'termwinsize' */
++     char_u	*wo_tmod;
++ # define w_p_tmod w_onebuf_opt.wo_tmod	/* 'termmode' */
+  #endif
+  
+  #ifdef FEAT_EVAL
+***************
+*** 1728,1740 ****
+      int		ch_keep_open;	/* do not close on read error */
+      int		ch_nonblock;
+  
+!     job_T	*ch_job;	/* Job that uses this channel; this does not
+! 				 * count as a reference to avoid a circular
+! 				 * reference, the job refers to the channel. */
+!     int		ch_job_killed;	/* TRUE when there was a job and it was killed
+! 				 * or we know it died. */
+  
+!     int		ch_refcount;	/* reference count */
+      int		ch_copyID;
+  };
+  
+--- 1730,1744 ----
+      int		ch_keep_open;	/* do not close on read error */
+      int		ch_nonblock;
+  
+!     job_T	*ch_job;	// Job that uses this channel; this does not
+! 				// count as a reference to avoid a circular
+! 				// reference, the job refers to the channel.
+!     int		ch_job_killed;	// TRUE when there was a job and it was killed
+! 				// or we know it died.
+!     int		ch_anonymous_pipe;  // ConPTY
+!     int		ch_killing;	    // TerminateJobObject() was called
+  
+!     int		ch_refcount;	// reference count
+      int		ch_copyID;
+  };
+  
+***************
+*** 1787,1792 ****
+--- 1791,1797 ----
+  #define JO2_NORESTORE	    0x2000	/* "norestore" */
+  #define JO2_TERM_KILL	    0x4000	/* "term_kill" */
+  #define JO2_ANSI_COLORS	    0x8000	/* "ansi_colors" */
++ #define JO2_TERM_MODE	    0x10000	/* "term_mode" */
+  
+  #define JO_MODE_ALL	(JO_MODE + JO_IN_MODE + JO_OUT_MODE + JO_ERR_MODE)
+  #define JO_CB_ALL \
+***************
+*** 1859,1864 ****
+--- 1864,1870 ----
+  # if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS)
+      long_u	jo_ansi_colors[16];
+  # endif
++     int		jo_term_mode;	    // first character of "term_mode"
+  #endif
+  } jobopt_T;
+  
+*** ../vim-8.1.0869/src/terminal.c	2019-01-29 23:06:50.097182305 +0100
+--- src/terminal.c	2019-02-03 14:48:39.219131609 +0100
+***************
+*** 65,70 ****
+--- 65,87 ----
+      cellattr_T	sb_fill_attr;	/* for short line */
+  } sb_line_T;
+  
++ #ifdef WIN3264
++ # ifndef HPCON
++ #  define HPCON VOID*
++ # endif
++ # ifndef EXTENDED_STARTUPINFO_PRESENT
++ #  define EXTENDED_STARTUPINFO_PRESENT 0x00080000
++ # endif
++ # ifndef PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE
++ #  define PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE 0x00020016
++ # endif
++ typedef struct _DYN_STARTUPINFOEXW
++ {
++     STARTUPINFOW StartupInfo;
++     LPPROC_THREAD_ATTRIBUTE_LIST lpAttributeList;
++ } DYN_STARTUPINFOEXW, *PDYN_STARTUPINFOEXW;
++ #endif
++ 
+  /* typedef term_T in structs.h */
+  struct terminal_S {
+      term_T	*tl_next;
+***************
+*** 92,101 ****
+--- 109,123 ----
+      char_u	*tl_opencmd;
+      char_u	*tl_eof_chars;
+  
++     char_u	*tl_arg0_cmd;	// To format the status bar
++ 
+  #ifdef WIN3264
+      void	*tl_winpty_config;
+      void	*tl_winpty;
+  
++     HPCON	tl_conpty;
++     DYN_STARTUPINFOEXW tl_siex;	// Structure that always needs to be hold
++ 
+      FILE	*tl_out_fd;
+  #endif
+  #if defined(FEAT_SESSION)
+***************
+*** 147,152 ****
+--- 169,179 ----
+  /* Terminal active in terminal_loop(). */
+  static term_T *in_terminal_loop = NULL;
+  
++ #ifdef WIN3264
++ static BOOL has_winpty = FALSE;
++ static BOOL has_conpty = FALSE;
++ #endif
++ 
+  #define MAX_ROW 999999	    /* used for tl_dirty_row_end to update all rows */
+  #define KEY_BUF_LEN 200
+  
+***************
+*** 715,720 ****
+--- 742,757 ----
+  	    vim_free(buf);
+  	    *p = ' ';
+  	}
++ 	else if ((int)(p - cmd) == 6 && STRNICMP(cmd, "winpty", 6) == 0)
++ 	{
++ 	    opt.jo_set2 |= JO2_TERM_MODE;
++ 	    opt.jo_term_mode = 'w';
++ 	}
++ 	else if ((int)(p - cmd) == 6 && STRNICMP(cmd, "conpty", 6) == 0)
++ 	{
++ 	    opt.jo_set2 |= JO2_TERM_MODE;
++ 	    opt.jo_term_mode = 'c';
++ 	}
+  	else
+  	{
+  	    if (*p)
+***************
+*** 771,776 ****
+--- 808,818 ----
+      if (fprintf(fd, "terminal ++curwin ++cols=%d ++rows=%d ",
+  		term->tl_cols, term->tl_rows) < 0)
+  	return FAIL;
++ #ifdef WIN3264
++     if (*wp->w_p_tmod != NUL)
++ 	if (fprintf(fd, "++%s ", wp->w_p_tmod) < 0)
++ 	    return FAIL;
++ #endif
+      if (term->tl_command != NULL && fputs((char *)term->tl_command, fd) < 0)
+  	return FAIL;
+  
+***************
+*** 871,876 ****
+--- 913,919 ----
+  	vim_free(term->tl_status_text);
+  	vim_free(term->tl_opencmd);
+  	vim_free(term->tl_eof_chars);
++ 	vim_free(term->tl_arg0_cmd);
+  #ifdef WIN3264
+  	if (term->tl_out_fd != NULL)
+  	    fclose(term->tl_out_fd);
+***************
+*** 2639,2648 ****
+      {
+  	case VTERM_PROP_TITLE:
+  	    vim_free(term->tl_title);
+! 	    /* a blank title isn't useful, make it empty, so that "running" is
+! 	     * displayed */
+  	    if (*skipwhite((char_u *)value->string) == NUL)
+  		term->tl_title = NULL;
+  #ifdef WIN3264
+  	    else if (!enc_utf8 && enc_codepage > 0)
+  	    {
+--- 2682,2699 ----
+      {
+  	case VTERM_PROP_TITLE:
+  	    vim_free(term->tl_title);
+! 	    // a blank title isn't useful, make it empty, so that "running" is
+! 	    // displayed
+  	    if (*skipwhite((char_u *)value->string) == NUL)
+  		term->tl_title = NULL;
++ 	    // Same as blank
++ 	    else if (term->tl_arg0_cmd != NULL
++ 		    && STRNCMP(term->tl_arg0_cmd, (char_u *)value->string,
++ 					  (int)STRLEN(term->tl_arg0_cmd)) == 0)
++ 		term->tl_title = NULL;
++ 	    // Empty corrupted data of winpty
++ 	    else if (STRNCMP("  - ", (char_u *)value->string, 4) == 0)
++ 		term->tl_title = NULL;
+  #ifdef WIN3264
+  	    else if (!enc_utf8 && enc_codepage > 0)
+  	    {
+***************
+*** 5318,5324 ****
+  		    + JO2_TERM_COLS + JO2_TERM_ROWS + JO2_VERTICAL + JO2_CURWIN
+  		    + JO2_CWD + JO2_ENV + JO2_EOF_CHARS
+  		    + JO2_NORESTORE + JO2_TERM_KILL
+! 		    + JO2_ANSI_COLORS) == FAIL)
+  	return;
+  
+      buf = term_start(&argvars[0], NULL, &opt, 0);
+--- 5369,5375 ----
+  		    + JO2_TERM_COLS + JO2_TERM_ROWS + JO2_VERTICAL + JO2_CURWIN
+  		    + JO2_CWD + JO2_ENV + JO2_EOF_CHARS
+  		    + JO2_NORESTORE + JO2_TERM_KILL
+! 		    + JO2_ANSI_COLORS + JO2_TERM_MODE) == FAIL)
+  	return;
+  
+      buf = term_start(&argvars[0], NULL, &opt, 0);
+***************
+*** 5426,5431 ****
+--- 5477,5803 ----
+   * 2. MS-Windows implementation.
+   */
+  
++ HRESULT (WINAPI *pCreatePseudoConsole)(COORD, HANDLE, HANDLE, DWORD, HPCON*);
++ HRESULT (WINAPI *pResizePseudoConsole)(HPCON, COORD);
++ HRESULT (WINAPI *pClosePseudoConsole)(HPCON);
++ BOOL (*pInitializeProcThreadAttributeList)(LPPROC_THREAD_ATTRIBUTE_LIST, DWORD, DWORD, PSIZE_T);
++ BOOL (*pUpdateProcThreadAttribute)(LPPROC_THREAD_ATTRIBUTE_LIST, DWORD, DWORD_PTR, PVOID, SIZE_T, PVOID, PSIZE_T);
++ void (*pDeleteProcThreadAttributeList)(LPPROC_THREAD_ATTRIBUTE_LIST);
++ 
++     static int
++ dyn_conpty_init(int verbose)
++ {
++     static BOOL	handled = FALSE;
++     static int	result;
++     HMODULE	hKerneldll;
++     int		i;
++     static struct
++     {
++ 	char	*name;
++ 	FARPROC	*ptr;
++     } conpty_entry[] =
++     {
++ 	{"CreatePseudoConsole", (FARPROC*)&pCreatePseudoConsole},
++ 	{"ResizePseudoConsole", (FARPROC*)&pResizePseudoConsole},
++ 	{"ClosePseudoConsole", (FARPROC*)&pClosePseudoConsole},
++ 	{"InitializeProcThreadAttributeList",
++ 				(FARPROC*)&pInitializeProcThreadAttributeList},
++ 	{"UpdateProcThreadAttribute",
++ 				(FARPROC*)&pUpdateProcThreadAttribute},
++ 	{"DeleteProcThreadAttributeList",
++ 				(FARPROC*)&pDeleteProcThreadAttributeList},
++ 	{NULL, NULL}
++     };
++ 
++     if (handled)
++ 	return result;
++ 
++     if (!has_vtp_working())
++     {
++ 	handled = TRUE;
++ 	result = FAIL;
++ 	return FAIL;
++     }
++ 
++     hKerneldll = vimLoadLib("kernel32.dll");
++     for (i = 0; conpty_entry[i].name != NULL
++ 					&& conpty_entry[i].ptr != NULL; ++i)
++     {
++ 	if ((*conpty_entry[i].ptr = (FARPROC)GetProcAddress(hKerneldll,
++ 						conpty_entry[i].name)) == NULL)
++ 	{
++ 	    if (verbose)
++ 		semsg(_(e_loadfunc), conpty_entry[i].name);
++ 	    return FAIL;
++ 	}
++     }
++ 
++     handled = TRUE;
++     result = OK;
++     return OK;
++ }
++ 
++     static int
++ conpty_term_and_job_init(
++ 	term_T	    *term,
++ 	typval_T    *argvar,
++ 	char	    **argv,
++ 	jobopt_T    *opt,
++ 	jobopt_T    *orig_opt)
++ {
++     WCHAR	    *cmd_wchar = NULL;
++     WCHAR	    *cmd_wchar_copy = NULL;
++     WCHAR	    *cwd_wchar = NULL;
++     WCHAR	    *env_wchar = NULL;
++     channel_T	    *channel = NULL;
++     job_T	    *job = NULL;
++     HANDLE	    jo = NULL;
++     garray_T	    ga_cmd, ga_env;
++     char_u	    *cmd = NULL;
++     HRESULT	    hr;
++     COORD	    consize;
++     SIZE_T	    breq;
++     PROCESS_INFORMATION proc_info;
++     HANDLE	    i_theirs = NULL;
++     HANDLE	    o_theirs = NULL;
++     HANDLE	    i_ours = NULL;
++     HANDLE	    o_ours = NULL;
++ 
++     ga_init2(&ga_cmd, (int)sizeof(char*), 20);
++     ga_init2(&ga_env, (int)sizeof(char*), 20);
++ 
++     if (argvar->v_type == VAR_STRING)
++     {
++ 	cmd = argvar->vval.v_string;
++     }
++     else if (argvar->v_type == VAR_LIST)
++     {
++ 	if (win32_build_cmd(argvar->vval.v_list, &ga_cmd) == FAIL)
++ 	    goto failed;
++ 	cmd = ga_cmd.ga_data;
++     }
++     if (cmd == NULL || *cmd == NUL)
++     {
++ 	emsg(_(e_invarg));
++ 	goto failed;
++     }
++ 
++     term->tl_arg0_cmd = vim_strsave(cmd);
++ 
++     cmd_wchar = enc_to_utf16(cmd, NULL);
++ 
++     if (cmd_wchar != NULL)
++     {
++ 	/* Request by CreateProcessW */
++ 	breq = wcslen(cmd_wchar) + 1 + 1;	/* Addition of NUL by API */
++ 	cmd_wchar_copy = (PWSTR)alloc((int)(breq * sizeof(WCHAR)));
++ 	wcsncpy(cmd_wchar_copy, cmd_wchar, breq - 1);
++     }
++ 
++     ga_clear(&ga_cmd);
++     if (cmd_wchar == NULL)
++ 	goto failed;
++     if (opt->jo_cwd != NULL)
++ 	cwd_wchar = enc_to_utf16(opt->jo_cwd, NULL);
++ 
++     win32_build_env(opt->jo_env, &ga_env, TRUE);
++     env_wchar = ga_env.ga_data;
++ 
++     if (!CreatePipe(&i_theirs, &i_ours, NULL, 0))
++ 	goto failed;
++     if (!CreatePipe(&o_ours, &o_theirs, NULL, 0))
++ 	goto failed;
++ 
++     consize.X = term->tl_cols;
++     consize.Y = term->tl_rows;
++     hr = pCreatePseudoConsole(consize, i_theirs, o_theirs, 0,
++ 							     &term->tl_conpty);
++     if (FAILED(hr))
++ 	goto failed;
++ 
++     term->tl_siex.StartupInfo.cb = sizeof(term->tl_siex);
++ 
++     /* Set up pipe inheritance safely: Vista or later. */
++     pInitializeProcThreadAttributeList(NULL, 1, 0, &breq);
++     term->tl_siex.lpAttributeList =
++ 	    (PPROC_THREAD_ATTRIBUTE_LIST)alloc((int)breq);
++     if (!term->tl_siex.lpAttributeList)
++ 	goto failed;
++     if (!pInitializeProcThreadAttributeList(term->tl_siex.lpAttributeList, 1,
++ 								     0, &breq))
++ 	goto failed;
++     if (!pUpdateProcThreadAttribute(
++ 	    term->tl_siex.lpAttributeList, 0,
++ 	    PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, term->tl_conpty,
++ 	    sizeof(HPCON), NULL, NULL))
++ 	goto failed;
++ 
++     channel = add_channel();
++     if (channel == NULL)
++ 	goto failed;
++ 
++     job = job_alloc();
++     if (job == NULL)
++ 	goto failed;
++     if (argvar->v_type == VAR_STRING)
++     {
++ 	int argc;
++ 
++ 	build_argv_from_string(cmd, &job->jv_argv, &argc);
++     }
++     else
++     {
++ 	int argc;
++ 
++ 	build_argv_from_list(argvar->vval.v_list, &job->jv_argv, &argc);
++     }
++ 
++     if (opt->jo_set & JO_IN_BUF)
++ 	job->jv_in_buf = buflist_findnr(opt->jo_io_buf[PART_IN]);
++ 
++     if (!CreateProcessW(NULL, cmd_wchar_copy, NULL, NULL, FALSE,
++ 	    EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT
++ 	    | CREATE_SUSPENDED | CREATE_NEW_PROCESS_GROUP
++ 	    | CREATE_DEFAULT_ERROR_MODE,
++ 	    env_wchar, cwd_wchar,
++ 	    &term->tl_siex.StartupInfo, &proc_info))
++ 	goto failed;
++ 
++     CloseHandle(i_theirs);
++     CloseHandle(o_theirs);
++ 
++     channel_set_pipes(channel,
++ 	    (sock_T)i_ours,
++ 	    (sock_T)o_ours,
++ 	    (sock_T)o_ours);
++ 
++     /* Write lines with CR instead of NL. */
++     channel->ch_write_text_mode = TRUE;
++ 
++     /* Use to explicitly delete anonymous pipe handle. */
++     channel->ch_anonymous_pipe = TRUE;
++ 
++     jo = CreateJobObject(NULL, NULL);
++     if (jo == NULL)
++ 	goto failed;
++ 
++     if (!AssignProcessToJobObject(jo, proc_info.hProcess))
++     {
++ 	/* Failed, switch the way to terminate process with TerminateProcess. */
++ 	CloseHandle(jo);
++ 	jo = NULL;
++     }
++ 
++     ResumeThread(proc_info.hThread);
++     CloseHandle(proc_info.hThread);
++ 
++     vim_free(cmd_wchar);
++     vim_free(cmd_wchar_copy);
++     vim_free(cwd_wchar);
++     vim_free(env_wchar);
++ 
++     if (create_vterm(term, term->tl_rows, term->tl_cols) == FAIL)
++ 	goto failed;
++ 
++ #if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS)
++     if (opt->jo_set2 & JO2_ANSI_COLORS)
++ 	set_vterm_palette(term->tl_vterm, opt->jo_ansi_colors);
++     else
++ 	init_vterm_ansi_colors(term->tl_vterm);
++ #endif
++ 
++     channel_set_job(channel, job, opt);
++     job_set_options(job, opt);
++ 
++     job->jv_channel = channel;
++     job->jv_proc_info = proc_info;
++     job->jv_job_object = jo;
++     job->jv_status = JOB_STARTED;
++     ++job->jv_refcount;
++     term->tl_job = job;
++ 
++     /* Redirecting stdout and stderr doesn't work at the job level.  Instead
++      * open the file here and handle it in.  opt->jo_io was changed in
++      * setup_job_options(), use the original flags here. */
++     if (orig_opt->jo_io[PART_OUT] == JIO_FILE)
++     {
++ 	char_u *fname = opt->jo_io_name[PART_OUT];
++ 
++ 	ch_log(channel, "Opening output file %s", fname);
++ 	term->tl_out_fd = mch_fopen((char *)fname, WRITEBIN);
++ 	if (term->tl_out_fd == NULL)
++ 	    semsg(_(e_notopen), fname);
++     }
++ 
++     return OK;
++ 
++ failed:
++     ga_clear(&ga_cmd);
++     ga_clear(&ga_env);
++     vim_free(cmd_wchar);
++     vim_free(cmd_wchar_copy);
++     vim_free(cwd_wchar);
++     if (channel != NULL)
++ 	channel_clear(channel);
++     if (job != NULL)
++     {
++ 	job->jv_channel = NULL;
++ 	job_cleanup(job);
++     }
++     term->tl_job = NULL;
++     if (jo != NULL)
++ 	CloseHandle(jo);
++ 
++     if (term->tl_siex.lpAttributeList != NULL)
++     {
++ 	pDeleteProcThreadAttributeList(term->tl_siex.lpAttributeList);
++ 	vim_free(term->tl_siex.lpAttributeList);
++     }
++     term->tl_siex.lpAttributeList = NULL;
++     if (o_theirs != NULL)
++ 	CloseHandle(o_theirs);
++     if (o_ours != NULL)
++ 	CloseHandle(o_ours);
++     if (i_ours != NULL)
++ 	CloseHandle(i_ours);
++     if (i_theirs != NULL)
++ 	CloseHandle(i_theirs);
++     if (term->tl_conpty != NULL)
++ 	pClosePseudoConsole(term->tl_conpty);
++     term->tl_conpty = NULL;
++     return FAIL;
++ }
++ 
++     static void
++ conpty_term_report_winsize(term_T *term, int rows, int cols)
++ {
++     COORD consize;
++ 
++     consize.X = cols;
++     consize.Y = rows;
++     pResizePseudoConsole(term->tl_conpty, consize);
++ }
++ 
++     void
++ term_free_conpty(term_T *term)
++ {
++     if (term->tl_siex.lpAttributeList != NULL)
++     {
++ 	pDeleteProcThreadAttributeList(term->tl_siex.lpAttributeList);
++ 	vim_free(term->tl_siex.lpAttributeList);
++     }
++     term->tl_siex.lpAttributeList = NULL;
++     if (term->tl_conpty != NULL)
++ 	pClosePseudoConsole(term->tl_conpty);
++     term->tl_conpty = NULL;
++ }
++ 
++     int
++ use_conpty(void)
++ {
++     return has_conpty;
++ }
++ 
+  #  ifndef PROTO
+  
+  #define WINPTY_SPAWN_FLAG_AUTO_SHUTDOWN 1ul
+***************
+*** 5516,5531 ****
+      return OK;
+  }
+  
+- /*
+-  * Create a new terminal of "rows" by "cols" cells.
+-  * Store a reference in "term".
+-  * Return OK or FAIL.
+-  */
+      static int
+! term_and_job_init(
+  	term_T	    *term,
+  	typval_T    *argvar,
+! 	char	    **argv UNUSED,
+  	jobopt_T    *opt,
+  	jobopt_T    *orig_opt)
+  {
+--- 5888,5898 ----
+      return OK;
+  }
+  
+      static int
+! winpty_term_and_job_init(
+  	term_T	    *term,
+  	typval_T    *argvar,
+! 	char	    **argv,
+  	jobopt_T    *opt,
+  	jobopt_T    *orig_opt)
+  {
+***************
+*** 5543,5550 ****
+      garray_T	    ga_cmd, ga_env;
+      char_u	    *cmd = NULL;
+  
+-     if (dyn_winpty_init(TRUE) == FAIL)
+- 	return FAIL;
+      ga_init2(&ga_cmd, (int)sizeof(char*), 20);
+      ga_init2(&ga_env, (int)sizeof(char*), 20);
+  
+--- 5910,5915 ----
+***************
+*** 5564,5569 ****
+--- 5929,5936 ----
+  	goto failed;
+      }
+  
++     term->tl_arg0_cmd = vim_strsave(cmd);
++ 
+      cmd_wchar = enc_to_utf16(cmd, NULL);
+      ga_clear(&ga_cmd);
+      if (cmd_wchar == NULL)
+***************
+*** 5676,5684 ****
+      job->jv_job_object = jo;
+      job->jv_status = JOB_STARTED;
+      job->jv_tty_in = utf16_to_enc(
+! 	    (short_u*)winpty_conin_name(term->tl_winpty), NULL);
+      job->jv_tty_out = utf16_to_enc(
+! 	    (short_u*)winpty_conout_name(term->tl_winpty), NULL);
+      ++job->jv_refcount;
+      term->tl_job = job;
+  
+--- 6043,6051 ----
+      job->jv_job_object = jo;
+      job->jv_status = JOB_STARTED;
+      job->jv_tty_in = utf16_to_enc(
+! 	    (short_u *)winpty_conin_name(term->tl_winpty), NULL);
+      job->jv_tty_out = utf16_to_enc(
+! 	    (short_u *)winpty_conout_name(term->tl_winpty), NULL);
+      ++job->jv_refcount;
+      term->tl_job = job;
+  
+***************
+*** 5722,5728 ****
+      term->tl_winpty_config = NULL;
+      if (winpty_err != NULL)
+      {
+! 	char_u *msg = utf16_to_enc(
+  				(short_u *)winpty_error_msg(winpty_err), NULL);
+  
+  	emsg(msg);
+--- 6089,6095 ----
+      term->tl_winpty_config = NULL;
+      if (winpty_err != NULL)
+      {
+! 	char *msg = (char *)utf16_to_enc(
+  				(short_u *)winpty_error_msg(winpty_err), NULL);
+  
+  	emsg(msg);
+***************
+*** 5731,5736 ****
+--- 6098,6173 ----
+      return FAIL;
+  }
+  
++ /*
++  * Create a new terminal of "rows" by "cols" cells.
++  * Store a reference in "term".
++  * Return OK or FAIL.
++  */
++     static int
++ term_and_job_init(
++ 	term_T	    *term,
++ 	typval_T    *argvar,
++ 	char	    **argv UNUSED,
++ 	jobopt_T    *opt,
++ 	jobopt_T    *orig_opt)
++ {
++     int		    use_winpty = FALSE;
++     int		    use_conpty = FALSE;
++ 
++     has_winpty = dyn_winpty_init(FALSE) != FAIL ? TRUE : FALSE;
++     has_conpty = dyn_conpty_init(FALSE) != FAIL ? TRUE : FALSE;
++ 
++     if (!has_winpty && !has_conpty)
++ 	// If neither is available give the errors for winpty, since when
++ 	// conpty is not available it can't be installed either.
++ 	return dyn_winpty_init(TRUE);
++ 
++     if (opt->jo_term_mode == 'w')
++ 	set_string_option_direct((char_u *)"tmod", -1, (char_u *)"winpty",
++ 							OPT_FREE|OPT_LOCAL, 0);
++     if (opt->jo_term_mode == 'c')
++ 	set_string_option_direct((char_u *)"tmod", -1, (char_u *)"conpty",
++ 							OPT_FREE|OPT_LOCAL, 0);
++ 
++     if (curwin->w_p_tmod == NULL || *curwin->w_p_tmod == NUL)
++     {
++ 	if (has_conpty)
++ 	    use_conpty = TRUE;
++ 	else if (has_winpty)
++ 	    use_winpty = TRUE;
++ 	// else: error
++     }
++     else if (STRICMP(curwin->w_p_tmod, "winpty") == 0)
++     {
++ 	if (has_winpty)
++ 	    use_winpty = TRUE;
++     }
++     else if (STRICMP(curwin->w_p_tmod, "conpty") == 0)
++     {
++ 	if (has_conpty)
++ 	    use_conpty = TRUE;
++ 	else
++ 	    return dyn_conpty_init(TRUE);
++     }
++ 
++     if (use_conpty)
++     {
++ 	set_string_option_direct((char_u *)"tmod", -1, (char_u *)"conpty",
++ 							OPT_FREE|OPT_LOCAL, 0);
++ 	return conpty_term_and_job_init(term, argvar, argv, opt, orig_opt);
++     }
++ 
++     if (use_winpty)
++     {
++ 	set_string_option_direct((char_u *)"tmod", -1, (char_u *)"winpty",
++ 							OPT_FREE|OPT_LOCAL, 0);
++ 	return winpty_term_and_job_init(term, argvar, argv, opt, orig_opt);
++     }
++ 
++     // error
++     return dyn_winpty_init(TRUE);
++ }
++ 
+      static int
+  create_pty_only(term_T *term, jobopt_T *options)
+  {
+***************
+*** 5804,5809 ****
+--- 6241,6247 ----
+      static void
+  term_free_vterm(term_T *term)
+  {
++     term_free_conpty(term);
+      if (term->tl_winpty != NULL)
+  	winpty_free(term->tl_winpty);
+      term->tl_winpty = NULL;
+***************
+*** 5821,5826 ****
+--- 6259,6266 ----
+      static void
+  term_report_winsize(term_T *term, int rows, int cols)
+  {
++     if (term->tl_conpty)
++ 	conpty_term_report_winsize(term, rows, cols);
+      if (term->tl_winpty)
+  	winpty_set_size(term->tl_winpty, cols, rows, NULL);
+  }
+***************
+*** 5828,5834 ****
+      int
+  terminal_enabled(void)
+  {
+!     return dyn_winpty_init(FALSE) == OK;
+  }
+  
+  # else
+--- 6268,6274 ----
+      int
+  terminal_enabled(void)
+  {
+!     return dyn_winpty_init(FALSE) == OK || dyn_conpty_init(FALSE) == OK;
+  }
+  
+  # else
+***************
+*** 5852,5857 ****
+--- 6292,6299 ----
+  	jobopt_T    *opt,
+  	jobopt_T    *orig_opt UNUSED)
+  {
++     term->tl_arg0_cmd = NULL;
++ 
+      if (create_vterm(term, term->tl_rows, term->tl_cols) == FAIL)
+  	return FAIL;
+  
+*** ../vim-8.1.0869/src/testdir/gen_opt_test.vim	2018-11-05 21:21:29.800286334 +0100
+--- src/testdir/gen_opt_test.vim	2019-02-03 13:46:59.603853294 +0100
+***************
+*** 131,136 ****
+--- 131,137 ----
+        \ 'term': [[], []],
+        \ 'termguicolors': [[], []],
+        \ 'termencoding': [has('gui_gtk') ? [] : ['', 'utf-8'], ['xxx']],
++       \ 'termmode': [['', 'winpty', 'conpty'], ['xxx']],
+        \ 'termwinsize': [['', '24x80', '0x80', '32x0', '0x0'], ['xxx', '80', '8ax9', '24x80b']],
+        \ 'toolbar': [['', 'icons', 'text'], ['xxx']],
+        \ 'toolbariconsize': [['', 'tiny', 'huge'], ['xxx']],
+*** ../vim-8.1.0869/src/testdir/test_autocmd.vim	2019-01-30 22:01:36.982854408 +0100
+--- src/testdir/test_autocmd.vim	2019-02-03 13:46:59.603853294 +0100
+***************
+*** 1397,1403 ****
+    let buf = term_start([GetVimProg(), '--clean', '-c', 'set noswapfile'], {'term_rows': 3})
+    call assert_equal('running', term_getstatus(buf))
+    " Wait for the ruler (in the status line) to be shown.
+!   call WaitForAssert({-> assert_match('\<All$', term_getline(buf, 3))})
+    " It's only adding autocmd, so that no event occurs.
+    call term_sendkeys(buf, ":au! TextChanged <buffer> call writefile(['No'], 'Xchanged.txt')\<cr>")
+    call term_sendkeys(buf, "\<C-\\>\<C-N>:qa!\<cr>")
+--- 1397,1409 ----
+    let buf = term_start([GetVimProg(), '--clean', '-c', 'set noswapfile'], {'term_rows': 3})
+    call assert_equal('running', term_getstatus(buf))
+    " Wait for the ruler (in the status line) to be shown.
+!   " In ConPTY, there is additional character which is drawn up to the width of
+!   " the screen.
+!   if has('conpty')
+!     call WaitForAssert({-> assert_match('\<All.*$', term_getline(buf, 3))})
+!   else
+!     call WaitForAssert({-> assert_match('\<All$', term_getline(buf, 3))})
+!   endif
+    " It's only adding autocmd, so that no event occurs.
+    call term_sendkeys(buf, ":au! TextChanged <buffer> call writefile(['No'], 'Xchanged.txt')\<cr>")
+    call term_sendkeys(buf, "\<C-\\>\<C-N>:qa!\<cr>")
+*** ../vim-8.1.0869/src/testdir/test_mksession.vim	2019-01-26 20:07:34.592237223 +0100
+--- src/testdir/test_mksession.vim	2019-02-03 13:46:59.603853294 +0100
+***************
+*** 295,301 ****
+        call assert_report('unexpected shell line: ' . line)
+      endif
+    endfor
+!   call assert_match('terminal ++curwin ++cols=\d\+ ++rows=\d\+\s*$', term_cmd)
+  
+    call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+--- 295,301 ----
+        call assert_report('unexpected shell line: ' . line)
+      endif
+    endfor
+!   call assert_match('terminal ++curwin ++cols=\d\+ ++rows=\d\+\s*.*$', term_cmd)
+  
+    call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+***************
+*** 375,381 ****
+        let term_cmd = line
+      endif
+    endfor
+!   call assert_match('terminal ++curwin ++cols=\d\+ ++rows=\d\+ other', term_cmd)
+  
+    call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+--- 375,381 ----
+        let term_cmd = line
+      endif
+    endfor
+!   call assert_match('terminal ++curwin ++cols=\d\+ ++rows=\d\+.*other', term_cmd)
+  
+    call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+*** ../vim-8.1.0869/src/testdir/test_terminal.vim	2019-01-29 22:58:02.401136295 +0100
+--- src/testdir/test_terminal.vim	2019-02-03 13:46:59.603853294 +0100
+***************
+*** 39,46 ****
+      call assert_match('^/dev/', job_info(g:job).tty_out)
+      call assert_match('^/dev/', term_gettty(''))
+    else
+!     call assert_match('^\\\\.\\pipe\\', job_info(g:job).tty_out)
+!     call assert_match('^\\\\.\\pipe\\', term_gettty(''))
+    endif
+    call assert_equal('t', mode())
+    call assert_equal('yes', b:done)
+--- 39,49 ----
+      call assert_match('^/dev/', job_info(g:job).tty_out)
+      call assert_match('^/dev/', term_gettty(''))
+    else
+!     " ConPTY works on anonymous pipe.
+!     if !has('conpty')
+!       call assert_match('^\\\\.\\pipe\\', job_info(g:job).tty_out)
+!       call assert_match('^\\\\.\\pipe\\', term_gettty(''))
+!     endif
+    endif
+    call assert_equal('t', mode())
+    call assert_equal('yes', b:done)
+***************
+*** 129,135 ****
+  
+  func Get_cat_123_cmd()
+    if has('win32')
+!     return 'cmd /c "cls && color 2 && echo 123"'
+    else
+      call writefile(["\<Esc>[32m123"], 'Xtext')
+      return "cat Xtext"
+--- 132,143 ----
+  
+  func Get_cat_123_cmd()
+    if has('win32')
+!     if !has('conpty')
+!       return 'cmd /c "cls && color 2 && echo 123"'
+!     else
+!       " When clearing twice, extra sequence is not output.
+!       return 'cmd /c "cls && cls && color 2 && echo 123"'
+!     endif
+    else
+      call writefile(["\<Esc>[32m123"], 'Xtext')
+      return "cat Xtext"
+***************
+*** 143,150 ****
+  
+    call WaitForAssert({-> assert_equal("dead", job_status(g:job))})
+    call WaitForAssert({-> assert_equal(0, g:buf)})
+-   unlet g:buf
+    unlet g:job
+    call delete('Xtext')
+  endfunc
+  
+--- 151,158 ----
+  
+    call WaitForAssert({-> assert_equal("dead", job_status(g:job))})
+    call WaitForAssert({-> assert_equal(0, g:buf)})
+    unlet g:job
++   unlet g:buf
+    call delete('Xtext')
+  endfunc
+  
+***************
+*** 563,568 ****
+--- 571,579 ----
+      " The shell or something else has a problem dealing with more than 1000
+      " characters at the same time.
+      let len = 1000
++   " NPFS is used in Windows, nonblocking mode does not work properly.
++   elseif has('win32')
++     let len = 1
+    else
+      let len = 5000
+    endif
+***************
+*** 693,700 ****
+    let cmd = Get_cat_123_cmd()
+    let buf = term_start(cmd, {'out_io': 'file', 'out_name': 'Xfile'})
+    call term_wait(buf)
+!   call WaitForAssert({-> assert_notequal(0, len(readfile("Xfile")))})
+!   call assert_match('123', readfile('Xfile')[0])
+    let g:job = term_getjob(buf)
+    call WaitForAssert({-> assert_equal("dead", job_status(g:job))})
+    call delete('Xfile')
+--- 704,714 ----
+    let cmd = Get_cat_123_cmd()
+    let buf = term_start(cmd, {'out_io': 'file', 'out_name': 'Xfile'})
+    call term_wait(buf)
+!   " ConPTY may precede escape sequence. There are things that are not so.
+!   if !has('conpty')
+!     call WaitForAssert({-> assert_notequal(0, len(readfile("Xfile")))})
+!     call assert_match('123', readfile('Xfile')[0])
+!   endif
+    let g:job = term_getjob(buf)
+    call WaitForAssert({-> assert_equal("dead", job_status(g:job))})
+    call delete('Xfile')
+***************
+*** 1661,1666 ****
+--- 1675,1684 ----
+  endfunc
+  
+  func Test_terminal_does_not_truncate_last_newlines()
++   " This test does not pass through ConPTY.
++   if has('conpty')
++     return
++   endif
+    let contents = [
+    \   [ 'One', '', 'X' ],
+    \   [ 'Two', '', '' ],
+*** ../vim-8.1.0869/src/version.c	2019-02-03 13:12:20.344668681 +0100
+--- src/version.c	2019-02-03 13:50:03.310696825 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     870,
+  /**/
+
+-- 
+A hamburger walks into a bar, and the bartender says: "I'm sorry,
+but we don't serve food here."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,132 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0702
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0702
+Problem:    ":sign place" only uses the current buffer.
+Solution:   List signs for all buffers when there is no buffer argument.
+            Fix error message for invalid buffer name in sign_place().
+            (Yegappan Lakshmanan, closes #3774)
+Files:	    runtime/doc/eval.txt, src/evalfunc.c, src/sign.c,
+            src/testdir/test_signs.vim
+
+
+*** ../vim-8.1.0701/runtime/doc/eval.txt	2019-01-06 16:23:29.495325106 +0100
+--- runtime/doc/eval.txt	2019-01-07 21:55:34.129662097 +0100
+***************
+*** 7945,7950 ****
+--- 7971,7979 ----
+  			name	name of the defined sign
+  			priority	sign priority
+  
++ 		The returned signs in a buffer are ordered by their line
++ 		number.
++ 
+  		Returns an empty list on failure or if there are no placed
+  		signs.
+  
+*** ../vim-8.1.0701/src/evalfunc.c	2019-01-04 18:07:20.981806698 +0100
+--- src/evalfunc.c	2019-01-07 21:55:34.129662097 +0100
+***************
+*** 11462,11468 ****
+      buf = tv_get_buf(&argvars[3], FALSE);
+      if (buf == NULL)
+      {
+! 	EMSG2(_("E158: Invalid buffer name: %s"), tv_get_string(&argvars[2]));
+  	goto cleanup;
+      }
+  
+--- 11462,11468 ----
+      buf = tv_get_buf(&argvars[3], FALSE);
+      if (buf == NULL)
+      {
+! 	EMSG2(_("E158: Invalid buffer name: %s"), tv_get_string(&argvars[3]));
+  	goto cleanup;
+      }
+  
+*** ../vim-8.1.0701/src/sign.c	2019-01-07 21:16:49.329347583 +0100
+--- src/sign.c	2019-01-07 21:55:34.129662097 +0100
+***************
+*** 1237,1242 ****
+--- 1237,1243 ----
+      char_u	*arg1;
+      char_u	*name;
+      char_u	*filename = NULL;
++     int		lnum_arg = FALSE;
+  
+      // first arg could be placed sign id
+      arg1 = arg;
+***************
+*** 1259,1264 ****
+--- 1260,1266 ----
+  	    arg += 5;
+  	    *lnum = atoi((char *)arg);
+  	    arg = skiptowhite(arg);
++ 	    lnum_arg = TRUE;
+  	}
+  	else if (STRNCMP(arg, "*", 1) == 0 && cmd == SIGNCMD_UNPLACE)
+  	{
+***************
+*** 1327,1333 ****
+  
+      // If the filename is not supplied for the sign place or the sign jump
+      // command, then use the current buffer.
+!     if (filename == NULL && (cmd == SIGNCMD_PLACE || cmd == SIGNCMD_JUMP))
+  	*buf = curwin->w_buffer;
+  
+      return OK;
+--- 1329,1336 ----
+  
+      // If the filename is not supplied for the sign place or the sign jump
+      // command, then use the current buffer.
+!     if (filename == NULL && ((cmd == SIGNCMD_PLACE && lnum_arg)
+! 		|| cmd == SIGNCMD_JUMP))
+  	*buf = curwin->w_buffer;
+  
+      return OK;
+*** ../vim-8.1.0701/src/testdir/test_signs.vim	2019-01-07 21:16:49.329347583 +0100
+--- src/testdir/test_signs.vim	2019-01-07 21:55:34.129662097 +0100
+***************
+*** 663,668 ****
+--- 663,680 ----
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+  	      \ "    line=10  id=5  name=sign1  priority=10\n", a)
+  
++   " Place signs in more than one buffer and list the signs
++   split foo
++   set buftype=nofile
++   sign place 25 line=76 name=sign1 priority=99 file=foo
++   let a = execute('sign place')
++   call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
++ 	      \ "    line=10  id=5  name=sign1  priority=10\n" .
++ 	      \ "Signs for foo:\n" .
++ 	      \ "    line=76  id=25  name=sign1  priority=99\n", a)
++   close
++   bwipe foo
++ 
+    " :sign place group={group}
+    let a = execute('sign place group=g1')
+    call assert_equal("\n--- Signs ---\nSigns for Xsign:\n" .
+*** ../vim-8.1.0701/src/version.c	2019-01-07 21:16:49.329347583 +0100
+--- src/version.c	2019-01-07 22:01:25.163266068 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     702,
+  /**/
+
+-- 
+The difference between theory and practice, is that in theory, there
+is no difference between theory and practice.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

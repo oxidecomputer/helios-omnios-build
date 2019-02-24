@@ -1,0 +1,102 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0738
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0738
+Problem:    Using freed memory, for loop over blob leaks memory.
+Solution:   Clear pointer after freeing memory.  Decrement reference count
+            after for loop over blob.
+Files:	    src/eval.c
+
+
+*** ../vim-8.1.0737/src/eval.c	2019-01-13 15:41:58.937718637 +0100
+--- src/eval.c	2019-01-13 16:01:12.357352208 +0100
+***************
+*** 2615,2620 ****
+--- 2615,2622 ----
+  		    clear_tv(&tv);
+  		else
+  		{
++ 		    // No need to increment the refcount, it's already set for
++ 		    // the blob being used in "tv".
+  		    fi->fi_blob = b;
+  		    fi->fi_bi = 0;
+  		}
+***************
+*** 2684,2689 ****
+--- 2686,2693 ----
+  	list_rem_watch(fi->fi_list, &fi->fi_lw);
+  	list_unref(fi->fi_list);
+      }
++     if (fi != NULL && fi->fi_blob != NULL)
++ 	blob_unref(fi->fi_blob);
+      vim_free(fi);
+  }
+  
+***************
+*** 4217,4224 ****
+  		    {
+  			if (!vim_isxdigit(bp[1]))
+  			{
+! 			    EMSG(_("E973: Blob literal should have an even number of hex characters"));
+! 			    vim_free(blob);
+  			    ret = FAIL;
+  			    break;
+  			}
+--- 4221,4232 ----
+  		    {
+  			if (!vim_isxdigit(bp[1]))
+  			{
+! 			    if (blob != NULL)
+! 			    {
+! 				EMSG(_("E973: Blob literal should have an even number of hex characters"));
+! 				ga_clear(&blob->bv_ga);
+! 				VIM_CLEAR(blob);
+! 			    }
+  			    ret = FAIL;
+  			    break;
+  			}
+***************
+*** 4227,4237 ****
+  					 (hex2nr(*bp) << 4) + hex2nr(*(bp+1)));
+  		    }
+  		    if (blob != NULL)
+! 		    {
+! 			++blob->bv_refcount;
+! 			rettv->v_type = VAR_BLOB;
+! 			rettv->vval.v_blob = blob;
+! 		    }
+  		    *arg = bp;
+  		}
+  		else
+--- 4235,4241 ----
+  					 (hex2nr(*bp) << 4) + hex2nr(*(bp+1)));
+  		    }
+  		    if (blob != NULL)
+! 			rettv_blob_set(rettv, blob);
+  		    *arg = bp;
+  		}
+  		else
+*** ../vim-8.1.0737/src/version.c	2019-01-13 15:41:58.937718637 +0100
+--- src/version.c	2019-01-13 15:46:25.263747024 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     738,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+186. You overstay in the office so you can have more time surfing the net.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

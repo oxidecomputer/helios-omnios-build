@@ -1,0 +1,485 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0634
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0634
+Problem:    Text properties cannot cross line boundaries.
+Solution:   Support multi-line text properties.
+Files:	    src/textprop.c, src/testdir/test_textprop.vim,
+            runtime/doc/eval.txt
+
+
+*** ../vim-8.1.0633/src/textprop.c	2018-12-21 16:04:16.316437487 +0100
+--- src/textprop.c	2018-12-24 22:50:21.446758177 +0100
+***************
+*** 17,26 ****
+   * Text properties have a type, which can be used to specify highlighting.
+   *
+   * TODO:
+   * - Add an arrray for global_proptypes, to quickly lookup a proptype by ID
+   * - Add an arrray for b_proptypes, to quickly lookup a proptype by ID
+-  * - adjust property column when text is inserted/deleted
+-  * - support properties that continue over a line break
+   * - add mechanism to keep track of changed lines.
+   */
+  
+--- 17,28 ----
+   * Text properties have a type, which can be used to specify highlighting.
+   *
+   * TODO:
++  * - When deleting a line where a prop ended, adjust flag of previous line.
++  * - When deleting a line where a prop started, adjust flag of next line.
++  * - When inserting a line add props that continue from previous line.
++  * - Adjust property column and length when text is inserted/deleted
+   * - Add an arrray for global_proptypes, to quickly lookup a proptype by ID
+   * - Add an arrray for b_proptypes, to quickly lookup a proptype by ID
+   * - add mechanism to keep track of changed lines.
+   */
+  
+***************
+*** 47,52 ****
+--- 49,55 ----
+  
+  static char_u e_type_not_exist[] = N_("E971: Property type %s does not exist");
+  static char_u e_invalid_col[] = N_("E964: Invalid column number: %ld");
++ static char_u e_invalid_lnum[] = N_("E966: Invalid line number: %ld");
+  
+  /*
+   * Find a property type by name, return the hashitem.
+***************
+*** 139,147 ****
+  f_prop_add(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+      linenr_T	lnum;
+!     colnr_T	col;
+      dict_T	*dict;
+-     colnr_T	length = 1;
+      char_u	*type_name;
+      proptype_T	*type;
+      buf_T	*buf = curbuf;
+--- 142,152 ----
+  f_prop_add(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+      linenr_T	lnum;
+!     linenr_T	start_lnum;
+!     linenr_T	end_lnum;
+!     colnr_T	start_col;
+!     colnr_T	end_col;
+      dict_T	*dict;
+      char_u	*type_name;
+      proptype_T	*type;
+      buf_T	*buf = curbuf;
+***************
+*** 154,164 ****
+      textprop_T	tmp_prop;
+      int		i;
+  
+!     lnum = tv_get_number(&argvars[0]);
+!     col = tv_get_number(&argvars[1]);
+!     if (col < 1)
+      {
+! 	EMSGN(_(e_invalid_col), (long)col);
+  	return;
+      }
+      if (argvars[2].v_type != VAR_DICT)
+--- 159,169 ----
+      textprop_T	tmp_prop;
+      int		i;
+  
+!     start_lnum = tv_get_number(&argvars[0]);
+!     start_col = tv_get_number(&argvars[1]);
+!     if (start_col < 1)
+      {
+! 	EMSGN(_(e_invalid_col), (long)start_col);
+  	return;
+      }
+      if (argvars[2].v_type != VAR_DICT)
+***************
+*** 177,198 ****
+  
+      if (dict_find(dict, (char_u *)"end_lnum", -1) != NULL)
+      {
+! 	// TODO: handle end_lnum
+! 	EMSG("Sorry, end_lnum not supported yet");
+! 	return;
+      }
+  
+      if (dict_find(dict, (char_u *)"length", -1) != NULL)
+! 	length = dict_get_number(dict, (char_u *)"length");
+      else if (dict_find(dict, (char_u *)"end_col", -1) != NULL)
+      {
+! 	length = dict_get_number(dict, (char_u *)"end_col") - col;
+! 	if (length <= 0)
+  	{
+  	    EMSG2(_(e_invargval), "end_col");
+  	    return;
+  	}
+      }
+  
+      if (dict_find(dict, (char_u *)"id", -1) != NULL)
+  	id = dict_get_number(dict, (char_u *)"id");
+--- 182,221 ----
+  
+      if (dict_find(dict, (char_u *)"end_lnum", -1) != NULL)
+      {
+! 	end_lnum = dict_get_number(dict, (char_u *)"end_lnum");
+! 	if (end_lnum < start_lnum)
+! 	{
+! 	    EMSG2(_(e_invargval), "end_lnum");
+! 	    return;
+! 	}
+      }
++     else
++ 	end_lnum = start_lnum;
+  
+      if (dict_find(dict, (char_u *)"length", -1) != NULL)
+!     {
+! 	long length = dict_get_number(dict, (char_u *)"length");
+! 
+! 	if (length < 1 || end_lnum > start_lnum)
+! 	{
+! 	    EMSG2(_(e_invargval), "length");
+! 	    return;
+! 	}
+! 	end_col = start_col + length - 1;
+!     }
+      else if (dict_find(dict, (char_u *)"end_col", -1) != NULL)
+      {
+! 	end_col = dict_get_number(dict, (char_u *)"end_col");
+! 	if (end_col <= 0)
+  	{
+  	    EMSG2(_(e_invargval), "end_col");
+  	    return;
+  	}
+      }
++     else if (start_lnum == end_lnum)
++ 	end_col = start_col;
++     else
++ 	end_col = 1;
+  
+      if (dict_find(dict, (char_u *)"id", -1) != NULL)
+  	id = dict_get_number(dict, (char_u *)"id");
+***************
+*** 204,264 ****
+      if (type == NULL)
+  	return;
+  
+!     if (lnum < 1 || lnum > buf->b_ml.ml_line_count)
+      {
+! 	EMSGN(_("E966: Invalid line number: %ld"), (long)lnum);
+  	return;
+      }
+! 
+!     // Fetch the line to get the ml_line_len field updated.
+!     proplen = get_text_props(buf, lnum, &props, TRUE);
+!     textlen = buf->b_ml.ml_line_len - proplen * sizeof(textprop_T);
+! 
+!     if (col >= (colnr_T)textlen - 1)
+      {
+! 	EMSGN(_(e_invalid_col), (long)col);
+  	return;
+      }
+  
+!     // Allocate the new line with space for the new proprety.
+!     newtext = alloc(buf->b_ml.ml_line_len + sizeof(textprop_T));
+!     if (newtext == NULL)
+! 	return;
+!     // Copy the text, including terminating NUL.
+!     mch_memmove(newtext, buf->b_ml.ml_line_ptr, textlen);
+! 
+!     // Find the index where to insert the new property.
+!     // Since the text properties are not aligned properly when stored with the
+!     // text, we need to copy them as bytes before using it as a struct.
+!     for (i = 0; i < proplen; ++i)
+      {
+! 	mch_memmove(&tmp_prop, props + i * sizeof(textprop_T),
+! 							   sizeof(textprop_T));
+! 	if (tmp_prop.tp_col >= col)
+! 	    break;
+!     }
+!     newprops = newtext + textlen;
+!     if (i > 0)
+! 	mch_memmove(newprops, props, sizeof(textprop_T) * i);
+  
+!     tmp_prop.tp_col = col;
+!     tmp_prop.tp_len = length;
+!     tmp_prop.tp_id = id;
+!     tmp_prop.tp_type = type->pt_id;
+!     tmp_prop.tp_flags = 0;
+!     mch_memmove(newprops + i * sizeof(textprop_T), &tmp_prop,
+! 							   sizeof(textprop_T));
+  
+!     if (i < proplen)
+! 	mch_memmove(newprops + (i + 1) * sizeof(textprop_T),
+! 					props + i * sizeof(textprop_T),
+! 					sizeof(textprop_T) * (proplen - i));
+  
+!     if (buf->b_ml.ml_flags & ML_LINE_DIRTY)
+! 	vim_free(buf->b_ml.ml_line_ptr);
+!     buf->b_ml.ml_line_ptr = newtext;
+!     buf->b_ml.ml_line_len += sizeof(textprop_T);
+!     buf->b_ml.ml_flags |= ML_LINE_DIRTY;
+  
+      redraw_buf_later(buf, NOT_VALID);
+  }
+--- 227,312 ----
+      if (type == NULL)
+  	return;
+  
+!     if (start_lnum < 1 || start_lnum > buf->b_ml.ml_line_count)
+      {
+! 	EMSGN(_(e_invalid_lnum), (long)start_lnum);
+  	return;
+      }
+!     if (end_lnum < start_lnum || end_lnum > buf->b_ml.ml_line_count)
+      {
+! 	EMSGN(_(e_invalid_lnum), (long)end_lnum);
+  	return;
+      }
+  
+!     for (lnum = start_lnum; lnum <= end_lnum; ++lnum)
+      {
+! 	colnr_T col;	// start column
+! 	long	length;	// in bytes
+  
+! 	// Fetch the line to get the ml_line_len field updated.
+! 	proplen = get_text_props(buf, lnum, &props, TRUE);
+! 	textlen = buf->b_ml.ml_line_len - proplen * sizeof(textprop_T);
+! 
+! 	if (lnum == start_lnum)
+! 	    col = start_col;
+! 	else
+! 	    col = 1;
+! 	if (col - 1 > (colnr_T)textlen)
+! 	{
+! 	    EMSGN(_(e_invalid_col), (long)start_col);
+! 	    return;
+! 	}
+  
+! 	if (lnum == end_lnum)
+! 	    length = end_col - col + 1;
+! 	else
+! 	    length = textlen - col + 1;
+! 	if (length > textlen)
+! 	    length = textlen;  // can include the end-of-line
+! 	if (length < 1)
+! 	    length = 1;
+! 
+! 	// Allocate the new line with space for the new proprety.
+! 	newtext = alloc(buf->b_ml.ml_line_len + sizeof(textprop_T));
+! 	if (newtext == NULL)
+! 	    return;
+! 	// Copy the text, including terminating NUL.
+! 	mch_memmove(newtext, buf->b_ml.ml_line_ptr, textlen);
+  
+! 	// Find the index where to insert the new property.
+! 	// Since the text properties are not aligned properly when stored with the
+! 	// text, we need to copy them as bytes before using it as a struct.
+! 	for (i = 0; i < proplen; ++i)
+! 	{
+! 	    mch_memmove(&tmp_prop, props + i * sizeof(textprop_T),
+! 							       sizeof(textprop_T));
+! 	    if (tmp_prop.tp_col >= col)
+! 		break;
+! 	}
+! 	newprops = newtext + textlen;
+! 	if (i > 0)
+! 	    mch_memmove(newprops, props, sizeof(textprop_T) * i);
+! 
+! 	tmp_prop.tp_col = col;
+! 	tmp_prop.tp_len = length;
+! 	tmp_prop.tp_id = id;
+! 	tmp_prop.tp_type = type->pt_id;
+! 	tmp_prop.tp_flags = (lnum > start_lnum ? TP_FLAG_CONT_PREV : 0)
+! 			  | (lnum < end_lnum ? TP_FLAG_CONT_NEXT : 0);
+! 	mch_memmove(newprops + i * sizeof(textprop_T), &tmp_prop,
+! 							       sizeof(textprop_T));
+! 
+! 	if (i < proplen)
+! 	    mch_memmove(newprops + (i + 1) * sizeof(textprop_T),
+! 					    props + i * sizeof(textprop_T),
+! 					    sizeof(textprop_T) * (proplen - i));
+! 
+! 	if (buf->b_ml.ml_flags & ML_LINE_DIRTY)
+! 	    vim_free(buf->b_ml.ml_line_ptr);
+! 	buf->b_ml.ml_line_ptr = newtext;
+! 	buf->b_ml.ml_line_len += sizeof(textprop_T);
+! 	buf->b_ml.ml_flags |= ML_LINE_DIRTY;
+!     }
+  
+      redraw_buf_later(buf, NOT_VALID);
+  }
+*** ../vim-8.1.0633/src/testdir/test_textprop.vim	2018-12-13 22:17:52.881941445 +0100
+--- src/testdir/test_textprop.vim	2018-12-24 22:54:55.192278005 +0100
+***************
+*** 197,200 ****
+--- 197,230 ----
+    bwipe!
+  endfunc
+  
++ func Test_prop_multiline()
++   call prop_type_add('comment', {'highlight': 'Directory'})
++   new
++   call setline(1, ['xxxxxxx', 'yyyyyyyyy', 'zzzzzzzz'])
++ 
++   " start halfway line 1, end halfway line 3
++   call prop_add(1, 3, {'end_lnum': 3, 'end_col': 5, 'type': 'comment'})
++   let expect1 = {'col': 3, 'length': 6, 'type': 'comment', 'start': 1, 'end': 0, 'id': 0}
++   call assert_equal([expect1], prop_list(1))
++   let expect2 = {'col': 1, 'length': 10, 'type': 'comment', 'start': 0, 'end': 0, 'id': 0}
++   call assert_equal([expect2], prop_list(2))
++   let expect3 = {'col': 1, 'length': 5, 'type': 'comment', 'start': 0, 'end': 1, 'id': 0}
++   call assert_equal([expect3], prop_list(3))
++   call prop_clear(1, 3)
++ 
++   " include all three lines
++   call prop_add(1, 1, {'end_lnum': 3, 'end_col': 999, 'type': 'comment'})
++   let expect1.col = 1
++   let expect1.length = 8
++   call assert_equal([expect1], prop_list(1))
++   call assert_equal([expect2], prop_list(2))
++   let expect3.length = 9
++   call assert_equal([expect3], prop_list(3))
++   call prop_clear(1, 3)
++ 
++   bwipe!
++   call prop_type_delete('comment')
++ endfunc
++ 
++ 
+  " TODO: screenshot test with highlighting
+*** ../vim-8.1.0633/runtime/doc/eval.txt	2018-12-22 13:27:59.119503967 +0100
+--- runtime/doc/eval.txt	2018-12-24 23:04:04.175009945 +0100
+***************
+*** 2304,2310 ****
+  prompt_setinterrupt({buf}, {text}) none	set prompt interrupt function
+  prompt_setprompt({buf}, {text}) none	set prompt text
+  prop_add({lnum}, {col}, {props})  none	add a text property
+! prop_clear({lnum} [, {lnum_end} [, {bufnr}]])
+  				none	remove all text properties
+  prop_find({props} [, {direction}])
+  				Dict	search for a text property
+--- 2318,2324 ----
+  prompt_setinterrupt({buf}, {text}) none	set prompt interrupt function
+  prompt_setprompt({buf}, {text}) none	set prompt text
+  prop_add({lnum}, {col}, {props})  none	add a text property
+! prop_clear({lnum} [, {lnum-end} [, {props}]])
+  				none	remove all text properties
+  prop_find({props} [, {direction}])
+  				Dict	search for a text property
+***************
+*** 6679,6687 ****
+  				     used for a property that does not
+  				     continue in another line
+  			"end_lnum" - line number for end of text
+! 			"end_col"  - column for end of text; not used when
+  				     "length" is present
+! 			"bufnr	   - buffer to add the property to; when
+  				     omitted the current buffer is used
+  			"id"	   - user defined ID for the property; when
+  				     omitted zero is used
+--- 6695,6703 ----
+  				     used for a property that does not
+  				     continue in another line
+  			"end_lnum" - line number for end of text
+! 			"end_col"  - last column of the text; not used when
+  				     "length" is present
+! 			"bufnr"	   - buffer to add the property to; when
+  				     omitted the current buffer is used
+  			"id"	   - user defined ID for the property; when
+  				     omitted zero is used
+***************
+*** 6692,6699 ****
+  		are passed.  Either use "length" or "end_col" for a property
+  		within one line, or use "end_lnum" and "end_col" for a
+  		property that spans more than one line.
+! 		When neither "length" or "end_col" are passed the property
+  		will apply to one character.
+  
+  		"type" will first be looked up in the buffer the property is
+  		added to. When not found, the global property types are used.
+--- 6708,6719 ----
+  		are passed.  Either use "length" or "end_col" for a property
+  		within one line, or use "end_lnum" and "end_col" for a
+  		property that spans more than one line.
+! 		When neither "length" nor "end_col" are passed the property
+  		will apply to one character.
++ 		The property can end exactly at the last character of the
++ 		text, or just after it.  In the last case, if text is appended
++ 		to the line, the text property size will increase, also when
++ 		the property type does not have "end_incl" set.
+  
+  		"type" will first be looked up in the buffer the property is
+  		added to. When not found, the global property types are used.
+***************
+*** 6702,6711 ****
+  		See |text-properties| for information about text properties.
+  
+  
+! prop_clear({lnum} [, {lnum_end} [, {props}]])		*prop_clear()*
+  		Remove all text properties from line {lnum}.
+! 		When {lnum_end} is given, remove all text properties from line
+! 		{lnum} to {lnum_end} (inclusive).
+  
+  		When {props} contains a "bufnr" item use this buffer,
+  		otherwise use the current buffer.
+--- 6722,6731 ----
+  		See |text-properties| for information about text properties.
+  
+  
+! prop_clear({lnum} [, {lnum-end} [, {props}]])		*prop_clear()*
+  		Remove all text properties from line {lnum}.
+! 		When {lnum-end} is given, remove all text properties from line
+! 		{lnum} to {lnum-end} (inclusive).
+  
+  		When {props} contains a "bufnr" item use this buffer,
+  		otherwise use the current buffer.
+***************
+*** 6765,6771 ****
+  
+  
+  						*prop_remove()* *E968*
+! prop_remove({props} [, {lnum} [, {lnum_end}]])	
+  		Remove a matching text property from line {lnum}.  When
+  		{lnum_end} is given, remove matching text properties from line
+  		{lnum} to {lnum_end} (inclusive).
+--- 6785,6791 ----
+  
+  
+  						*prop_remove()* *E968*
+! prop_remove({props} [, {lnum} [, {lnum_end}]])
+  		Remove a matching text property from line {lnum}.  When
+  		{lnum_end} is given, remove matching text properties from line
+  		{lnum} to {lnum_end} (inclusive).
+***************
+*** 10011,10016 ****
+--- 10035,10041 ----
+  terminfo		Compiled with terminfo instead of termcap.
+  termresponse		Compiled with support for |t_RV| and |v:termresponse|.
+  textobjects		Compiled with support for |text-objects|.
++ textprop		Compiled with support for |text-properties|.
+  tgetent			Compiled with tgetent support, able to use a termcap
+  			or terminfo file.
+  timers			Compiled with |timer_start()| support.
+*** ../vim-8.1.0633/src/version.c	2018-12-24 21:38:40.814173687 +0100
+--- src/version.c	2018-12-24 22:59:33.909541573 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     634,
+  /**/
+
+-- 
+Microsoft is to software what McDonalds is to gourmet cooking
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

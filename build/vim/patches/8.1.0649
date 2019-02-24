@@ -1,0 +1,121 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0649
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0649
+Problem:    setjmp() variables defined globally are used in one file.
+Solution:   Move the declarations to that file.
+Files:	    src/globals.h, src/os_unix.c
+
+
+*** ../vim-8.1.0648/src/globals.h	2018-12-27 23:44:34.797953474 +0100
+--- src/globals.h	2018-12-28 16:54:10.327379790 +0100
+***************
+*** 798,818 ****
+  EXTERN JMP_BUF x_jump_env;
+  #endif
+  
+- #if defined(HAVE_SETJMP_H)
+- /*
+-  * Stuff for setjmp() and longjmp().
+-  * Used to protect areas where we could crash.
+-  */
+- EXTERN JMP_BUF lc_jump_env;	/* argument to SETJMP() */
+- # ifdef SIGHASARG
+- /* volatile because it is used in signal handlers. */
+- EXTERN volatile sig_atomic_t lc_signal;	/* caught signal number, 0 when no was signal
+- 				   caught; used for mch_libcall() */
+- # endif
+- /* volatile because it is used in signal handler deathtrap(). */
+- EXTERN volatile sig_atomic_t lc_active INIT(= FALSE); /* TRUE when lc_jump_env is valid. */
+- #endif
+- 
+  #if defined(FEAT_MBYTE) || defined(FEAT_POSTSCRIPT)
+  /*
+   * These flags are set based upon 'fileencoding'.
+--- 798,803 ----
+*** ../vim-8.1.0648/src/os_unix.c	2018-12-21 16:04:16.320437461 +0100
+--- src/os_unix.c	2018-12-28 17:00:11.740193430 +0100
+***************
+*** 980,992 ****
+  }
+  #endif
+  
+! #if (defined(HAVE_SETJMP_H) \
+! 	&& ((defined(FEAT_X11) && defined(FEAT_XCLIPBOARD)) \
+! 	    || defined(FEAT_LIBCALL))) \
+!     || defined(PROTO)
+  /*
+   * A simplistic version of setjmp() that only allows one level of using.
+   * Don't call twice before calling mch_endjmp()!.
+   * Usage:
+   *	mch_startjmp();
+   *	if (SETJMP(lc_jump_env) != 0)
+--- 980,1004 ----
+  }
+  #endif
+  
+! #if defined(HAVE_SETJMP_H) || defined(PROTO)
+! // argument to SETJMP()
+! static JMP_BUF lc_jump_env;
+! 
+! # ifdef SIGHASARG
+! // Caught signal number, 0 when no was signal caught; used for mch_libcall().
+! // Volatile because it is used in signal handlers.
+! static volatile sig_atomic_t lc_signal;
+! # endif
+! 
+! // TRUE when lc_jump_env is valid.
+! // Volatile because it is used in signal handler deathtrap().
+! static volatile sig_atomic_t lc_active INIT(= FALSE);
+! 
+  /*
+   * A simplistic version of setjmp() that only allows one level of using.
++  * Used to protect areas where we could crash.
+   * Don't call twice before calling mch_endjmp()!.
++  *
+   * Usage:
+   *	mch_startjmp();
+   *	if (SETJMP(lc_jump_env) != 0)
+***************
+*** 1023,1030 ****
+  mch_didjmp(void)
+  {
+  # if defined(HAVE_SIGALTSTACK) || defined(HAVE_SIGSTACK)
+!     /* On FreeBSD the signal stack has to be reset after using siglongjmp(),
+!      * otherwise catching the signal only works once. */
+      init_signal_stack();
+  # endif
+  }
+--- 1035,1042 ----
+  mch_didjmp(void)
+  {
+  # if defined(HAVE_SIGALTSTACK) || defined(HAVE_SIGSTACK)
+!     // On FreeBSD the signal stack has to be reset after using siglongjmp(),
+!     // otherwise catching the signal only works once.
+      init_signal_stack();
+  # endif
+  }
+*** ../vim-8.1.0648/src/version.c	2018-12-27 23:44:34.797953474 +0100
+--- src/version.c	2018-12-28 16:53:54.427521974 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     649,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+64. The remote to the T.V. is missing...and you don't even care.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///
