@@ -46,7 +46,7 @@
 | library/nghttp2			| 1.36.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.42.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.20			| http://archive.mozilla.org/pub/nspr/releases/
-| library/pcre				| 8.42			| https://ftp.pcre.org/pub/pcre/
+| library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.32			| https://ftp.pcre.org/pub/pcre/
 | library/readline			| 8.0			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
