@@ -27,7 +27,10 @@ SUMMARY="Kayak - OmniOS media generator and server"
 DESC="Kayak generates install media for OmniOS: either ISO/USB or network installation using PXE, DHCP, and HTTP"
 
 BUILD_DEPENDS_IPS="developer/versioning/git"
-RUN_DEPENDS_IPS="developer/build/gnu-make"
+RUN_DEPENDS_IPS="
+    developer/build/gnu-make
+    library/python-3/cherrypy-35
+"
 
 # Respect environmental overrides for these to ease development.
 : ${KAYAK_SOURCE_REPO:=$GITHUB/kayak}
