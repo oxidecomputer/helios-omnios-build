@@ -1,6 +1,6 @@
 | Package | Version | Link | Notes |
 | :------ | :------ | :--- | :---- |
-| archiver/gnu-tar			| 1.31			| https://ftp.gnu.org/gnu/tar/ http://git.savannah.gnu.org/cgit/tar.git/refs/tags
+| archiver/gnu-tar			| 1.32			| https://ftp.gnu.org/gnu/tar/ http://git.savannah.gnu.org/cgit/tar.git/refs/tags
 | compress/bzip2			| 1.0.6			| https://sourceforge.net/projects/bzip2/files
 | compress/gzip				| 1.10			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
 | compress/p7zip			| 16.02			| https://sourceforge.net/projects/p7zip/files/p7zip
@@ -16,7 +16,7 @@
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/gcc5			| 5.5			| https://www.gnu.org/software/gcc/releases.html
 | developer/gcc7			| 7.4			| https://www.gnu.org/software/gcc/releases.html
-| developer/gcc8			| 8.2			| https://www.gnu.org/software/gcc/releases.html
+| developer/gcc8			| 8.3			| https://www.gnu.org/software/gcc/releases.html
 | developer/java/jdk			| 1.8.192-20181209	| https://ftp.netbsd.org/pub/pkgsrc/distfiles/openjdk7/
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
@@ -46,7 +46,7 @@
 | library/nghttp2			| 1.36.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.42.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.20			| http://archive.mozilla.org/pub/nspr/releases/
-| library/pcre				| 8.42			| https://ftp.pcre.org/pub/pcre/
+| library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.32			| https://ftp.pcre.org/pub/pcre/
 | library/readline			| 8.0			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/

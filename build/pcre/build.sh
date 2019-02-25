@@ -22,13 +22,12 @@
 
 #
 # Copyright 2011-2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=pcre
-VER=8.42
+VER=8.43
 PKG=library/pcre
 SUMMARY="Perl-Compatible Regular Expressions"
 DESC="The PCRE library is a set of functions that implement regular expression"
