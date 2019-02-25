@@ -56,7 +56,10 @@ BUILD_DEPENDS_IPS="
     developer/linker
     system/library/gcc-runtime
 "
-RUN_DEPEND_IPS="$BUILD_DEPENDS_IPS"
+RUN_DEPEND_IPS="
+    $BUILD_DEPENDS_IPS
+    system/library/c-runtime
+"
 
 PREFIX=/opt/gcc-${VER}
 reset_configure_opts

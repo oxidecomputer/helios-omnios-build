@@ -46,6 +46,7 @@ RUN_DEPENDS_IPS="
     developer/linker
     developer/gnu-binutils
     system/header
+    system/library/c-runtime
 "
 
 PREFIX=$OPT
