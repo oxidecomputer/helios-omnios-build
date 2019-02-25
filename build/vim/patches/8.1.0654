@@ -1,0 +1,412 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0654
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0654
+Problem:    When deleting a line text property flags are not adjusted.
+Solution:   Adjust text property flags in preceding and following lines.
+Files:	    src/memline.c, src/misc2.c, src/proto/misc2.pro,
+            src/testdir/test_textprop.vim
+
+
+*** ../vim-8.1.0653/src/memline.c	2018-12-26 23:42:05.331769359 +0100
+--- src/memline.c	2018-12-28 21:43:27.380673476 +0100
+***************
+*** 3214,3219 ****
+--- 3214,3317 ----
+      return OK;
+  }
+  
++ #ifdef FEAT_TEXT_PROP
++ /*
++  * Adjust text properties in line "lnum" for a deleted line.
++  * When "above" is true this is the line above the deleted line.
++  * "del_props" are the properties of the deleted line.
++  */
++     static void
++ adjust_text_props_for_delete(
++ 	buf_T	    *buf,
++ 	linenr_T    lnum,
++ 	char_u	    *del_props,
++ 	int	    del_props_len,
++ 	int	    above)
++ {
++     int		did_get_line = FALSE;
++     int		done_del;
++     int		done_this;
++     textprop_T	prop_del;
++     textprop_T	prop_this;
++     bhdr_T	*hp;
++     DATA_BL	*dp;
++     int		idx;
++     int		line_start;
++     long	line_size;
++     int		this_props_len;
++     char_u	*text;
++     size_t	textlen;
++     int		found;
++ 
++     for (done_del = 0; done_del < del_props_len; done_del += sizeof(textprop_T))
++     {
++ 	mch_memmove(&prop_del, del_props + done_del, sizeof(textprop_T));
++ 	if ((above && (prop_del.tp_flags & TP_FLAG_CONT_PREV)
++ 		    && !(prop_del.tp_flags & TP_FLAG_CONT_NEXT))
++ 		|| (!above && (prop_del.tp_flags & TP_FLAG_CONT_NEXT)
++ 		    && !(prop_del.tp_flags & TP_FLAG_CONT_PREV)))
++ 	{
++ 	    if (!did_get_line)
++ 	    {
++ 		did_get_line = TRUE;
++ 		if ((hp = ml_find_line(buf, lnum, ML_FIND)) == NULL)
++ 		    return;
++ 
++ 		dp = (DATA_BL *)(hp->bh_data);
++ 		idx = lnum - buf->b_ml.ml_locked_low;
++ 		line_start = ((dp->db_index[idx]) & DB_INDEX_MASK);
++ 		if (idx == 0)		// first line in block, text at the end
++ 		    line_size = dp->db_txt_end - line_start;
++ 		else
++ 		    line_size = ((dp->db_index[idx - 1]) & DB_INDEX_MASK) - line_start;
++ 		text = (char_u *)dp + line_start;
++ 		textlen = STRLEN(text) + 1;
++ 		if ((long)textlen >= line_size)
++ 		{
++ 		    if (above)
++ 			internal_error("no text property above deleted line");
++ 		    else
++ 			internal_error("no text property below deleted line");
++ 		    return;
++ 		}
++ 		this_props_len = line_size - textlen;
++ 	    }
++ 
++ 	    found = FALSE;
++ 	    for (done_this = 0; done_this < this_props_len; done_this += sizeof(textprop_T))
++ 	    {
++ 		mch_memmove(&prop_this, text + textlen + done_del, sizeof(textprop_T));
++ 		if (prop_del.tp_id == prop_this.tp_id
++ 			&& prop_del.tp_type == prop_this.tp_type)
++ 		{
++ 		    int flag = above ? TP_FLAG_CONT_NEXT : TP_FLAG_CONT_PREV;
++ 
++ 		    found = TRUE;
++ 		    if (prop_this.tp_flags & flag)
++ 		    {
++ 			prop_this.tp_flags &= ~flag;
++ 			mch_memmove(text + textlen + done_del, &prop_this, sizeof(textprop_T));
++ 		    }
++ 		    else if (above)
++ 			internal_error("text property above deleted line does not continue");
++ 		    else
++ 			internal_error("text property below deleted line does not continue");
++ 		}
++ 	    }
++ 	    if (!found)
++ 	    {
++ 		if (above)
++ 		    internal_error("text property above deleted line not found");
++ 		else
++ 		    internal_error("text property below deleted line not found");
++ 	    }
++ 
++ 	    buf->b_ml.ml_flags |= (ML_LOCKED_DIRTY | ML_LOCKED_POS);
++ 	}
++     }
++ }
++ #endif
++ 
+  /*
+   * Delete line "lnum" in the current buffer.
+   * When "message" is TRUE may give a "No lines in buffer" message.
+***************
+*** 3245,3250 ****
+--- 3343,3353 ----
+      int		line_start;
+      long	line_size;
+      int		i;
++     int		ret = FAIL;
++ #ifdef FEAT_TEXT_PROP
++     char_u	*textprop_save = NULL;
++     int		textprop_save_len;
++ #endif
+  
+      if (lnum < 1 || lnum > buf->b_ml.ml_line_count)
+  	return FAIL;
+***************
+*** 3272,3280 ****
+      }
+  
+  /*
+!  * find the data block containing the line
+!  * This also fills the stack with the blocks from the root to the data block
+!  * This also releases any locked block.
+   */
+      mfp = buf->b_ml.ml_mfp;
+      if (mfp == NULL)
+--- 3375,3383 ----
+      }
+  
+  /*
+!  * Find the data block containing the line.
+!  * This also fills the stack with the blocks from the root to the data block.
+!  * This also releases any locked block..
+   */
+      mfp = buf->b_ml.ml_mfp;
+      if (mfp == NULL)
+***************
+*** 3301,3306 ****
+--- 3404,3424 ----
+      if (netbeans_active())
+  	netbeans_removed(buf, lnum, 0, (long)line_size);
+  #endif
++ #ifdef FEAT_TEXT_PROP
++     // If there are text properties, make a copy, so that we can update
++     // properties in preceding and following lines.
++     if (buf->b_has_textprop)
++     {
++ 	size_t	textlen = STRLEN((char_u *)dp + line_start) + 1;
++ 
++ 	if ((long)textlen < line_size)
++ 	{
++ 	    textprop_save_len = line_size - textlen;
++ 	    textprop_save = vim_memsave((char_u *)dp + line_start + textlen,
++ 							  textprop_save_len);
++ 	}
++     }
++ #endif
+  
+  /*
+   * special case: If there is only one line in the data block it becomes empty.
+***************
+*** 3322,3334 ****
+  	    ip = &(buf->b_ml.ml_stack[stack_idx]);
+  	    idx = ip->ip_index;
+  	    if ((hp = mf_get(mfp, ip->ip_bnum, 1)) == NULL)
+! 		return FAIL;
+  	    pp = (PTR_BL *)(hp->bh_data);   /* must be pointer block */
+  	    if (pp->pb_id != PTR_ID)
+  	    {
+  		IEMSG(_("E317: pointer block id wrong 4"));
+  		mf_put(mfp, hp, FALSE, FALSE);
+! 		return FAIL;
+  	    }
+  	    count = --(pp->pb_count);
+  	    if (count == 0)	    /* the pointer block becomes empty! */
+--- 3440,3452 ----
+  	    ip = &(buf->b_ml.ml_stack[stack_idx]);
+  	    idx = ip->ip_index;
+  	    if ((hp = mf_get(mfp, ip->ip_bnum, 1)) == NULL)
+! 		goto theend;
+  	    pp = (PTR_BL *)(hp->bh_data);   /* must be pointer block */
+  	    if (pp->pb_id != PTR_ID)
+  	    {
+  		IEMSG(_("E317: pointer block id wrong 4"));
+  		mf_put(mfp, hp, FALSE, FALSE);
+! 		goto theend;
+  	    }
+  	    count = --(pp->pb_count);
+  	    if (count == 0)	    /* the pointer block becomes empty! */
+***************
+*** 3384,3394 ****
+  #ifdef FEAT_BYTEOFF
+      ml_updatechunk(buf, lnum, line_size, ML_CHNK_DELLINE);
+  #endif
+!     return OK;
+  }
+  
+  /*
+!  * set the B_MARKED flag for line 'lnum'
+   */
+      void
+  ml_setmarked(linenr_T lnum)
+--- 3502,3526 ----
+  #ifdef FEAT_BYTEOFF
+      ml_updatechunk(buf, lnum, line_size, ML_CHNK_DELLINE);
+  #endif
+!     ret = OK;
+! 
+! theend:
+! #ifdef FEAT_TEXT_PROP
+!     if (textprop_save != NULL)
+!     {
+! 	// Adjust text properties in the line above and below.
+! 	if (lnum > 1)
+! 	    adjust_text_props_for_delete(buf, lnum - 1, textprop_save, textprop_save_len, TRUE);
+! 	if (lnum <= buf->b_ml.ml_line_count)
+! 	    adjust_text_props_for_delete(buf, lnum, textprop_save, textprop_save_len, FALSE);
+!     }
+!     vim_free(textprop_save);
+! #endif
+!     return ret;
+  }
+  
+  /*
+!  * set the DB_MARKED flag for line 'lnum'
+   */
+      void
+  ml_setmarked(linenr_T lnum)
+***************
+*** 3417,3423 ****
+  }
+  
+  /*
+!  * find the first line with its B_MARKED flag set
+   */
+      linenr_T
+  ml_firstmarked(void)
+--- 3549,3555 ----
+  }
+  
+  /*
+!  * find the first line with its DB_MARKED flag set
+   */
+      linenr_T
+  ml_firstmarked(void)
+***************
+*** 3650,3656 ****
+  }
+  
+  /*
+!  * lookup line 'lnum' in a memline
+   *
+   *   action: if ML_DELETE or ML_INSERT the line count is updated while searching
+   *	     if ML_FLUSH only flush a locked block
+--- 3782,3788 ----
+  }
+  
+  /*
+!  * Lookup line 'lnum' in a memline.
+   *
+   *   action: if ML_DELETE or ML_INSERT the line count is updated while searching
+   *	     if ML_FLUSH only flush a locked block
+*** ../vim-8.1.0653/src/misc2.c	2018-12-21 16:04:16.324437435 +0100
+--- src/misc2.c	2018-12-28 20:48:07.184432933 +0100
+***************
+*** 1351,1356 ****
+--- 1351,1370 ----
+  }
+  
+  /*
++  * Copy "p[len]" into allocated memory, ignoring NUL characters.
++  * Returns NULL when out of memory.
++  */
++     char_u *
++ vim_memsave(char_u *p, int len)
++ {
++     char_u *ret = alloc((unsigned)len);
++ 
++     if (ret != NULL)
++ 	mch_memmove(ret, p, (size_t)len);
++     return ret;
++ }
++ 
++ /*
+   * Same as vim_strsave(), but any characters found in esc_chars are preceded
+   * by a backslash.
+   */
+*** ../vim-8.1.0653/src/proto/misc2.pro	2018-12-21 15:16:57.483579762 +0100
+--- src/proto/misc2.pro	2018-12-28 20:48:14.680374028 +0100
+***************
+*** 24,30 ****
+  char_u *alloc(unsigned size);
+  char_u *alloc_id(unsigned size, alloc_id_T id);
+  char_u *alloc_clear(unsigned size);
+! char_u * alloc_clear_id(unsigned size, alloc_id_T id);
+  char_u *alloc_check(unsigned size);
+  char_u *lalloc_clear(long_u size, int message);
+  char_u *lalloc(long_u size, int message);
+--- 24,30 ----
+  char_u *alloc(unsigned size);
+  char_u *alloc_id(unsigned size, alloc_id_T id);
+  char_u *alloc_clear(unsigned size);
+! char_u *alloc_clear_id(unsigned size, alloc_id_T id);
+  char_u *alloc_check(unsigned size);
+  char_u *lalloc_clear(long_u size, int message);
+  char_u *lalloc(long_u size, int message);
+***************
+*** 34,39 ****
+--- 34,40 ----
+  void free_all_mem(void);
+  char_u *vim_strsave(char_u *string);
+  char_u *vim_strnsave(char_u *string, int len);
++ char_u *vim_memsave(char_u *p, int len);
+  char_u *vim_strsave_escaped(char_u *string, char_u *esc_chars);
+  char_u *vim_strsave_escaped_ext(char_u *string, char_u *esc_chars, int cc, int bsl);
+  int csh_like_shell(void);
+*** ../vim-8.1.0653/src/testdir/test_textprop.vim	2018-12-26 23:42:05.331769359 +0100
+--- src/testdir/test_textprop.vim	2018-12-28 21:56:36.550153919 +0100
+***************
+*** 197,202 ****
+--- 197,212 ----
+    bwipe!
+  endfunc
+  
++ " Setup a three line prop in lines 2 - 4.
++ " Add short props in line 1 and 5.
++ func Setup_three_line_prop()
++   new
++   call setline(1, ['one', 'twotwo', 'three', 'fourfour', 'five'])
++   call prop_add(1, 2, {'length': 1, 'type': 'comment'})
++   call prop_add(2, 4, {'end_lnum': 4, 'end_col': 5, 'type': 'comment'})
++   call prop_add(5, 2, {'length': 1, 'type': 'comment'})
++ endfunc
++ 
+  func Test_prop_multiline()
+    call prop_type_add('comment', {'highlight': 'Directory'})
+    new
+***************
+*** 223,228 ****
+--- 233,262 ----
+    call prop_clear(1, 3)
+  
+    bwipe!
++ 
++   " Test deleting the first line with a prop.
++   call Setup_three_line_prop()
++   let expect2 = {'col': 4, 'length': 4, 'type': 'comment', 'start': 1, 'end': 0, 'id': 0}
++   call assert_equal([expect2], prop_list(2))
++   2del
++   let expect_short = {'col': 2, 'length': 1, 'type': 'comment', 'start': 1, 'end': 1, 'id': 0}
++   call assert_equal([expect_short], prop_list(1))
++   let expect2 = {'col': 1, 'length': 6, 'type': 'comment', 'start': 1, 'end': 0, 'id': 0}
++   call assert_equal([expect2], prop_list(2))
++   bwipe!
++ 
++   " Test deleting the last line with a prop.
++   call Setup_three_line_prop()
++   let expect3 = {'col': 1, 'length': 6, 'type': 'comment', 'start': 0, 'end': 0, 'id': 0}
++   call assert_equal([expect3], prop_list(3))
++   let expect4 = {'col': 1, 'length': 5, 'type': 'comment', 'start': 0, 'end': 1, 'id': 0}
++   call assert_equal([expect4], prop_list(4))
++   4del
++   let expect3 = {'col': 1, 'length': 6, 'type': 'comment', 'start': 0, 'end': 1, 'id': 0}
++   call assert_equal([expect3], prop_list(3))
++   call assert_equal([expect_short], prop_list(4))
++   bwipe!
++ 
+    call prop_type_delete('comment')
+  endfunc
+  
+*** ../vim-8.1.0653/src/version.c	2018-12-28 19:29:31.743633958 +0100
+--- src/version.c	2018-12-28 20:47:21.172793725 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     654,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+69. Yahoo welcomes you with your own start page
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

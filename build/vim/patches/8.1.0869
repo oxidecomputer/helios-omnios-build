@@ -1,0 +1,420 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0869
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0869
+Problem:    Travis CI script is too complicated.
+Solution:   Add names to environments.  Move appveyor script outside of src
+            directory. (Ozaki Kiichi, closes #3890)
+Files:	    .travis.yml, appveyor.yml, ci/appveyor.bat, src/appveyor.bat,
+            Filelist
+
+
+*** ../vim-8.1.0868/.travis.yml	2019-01-28 22:59:32.154270544 +0100
+--- .travis.yml	2019-02-03 13:07:39.494492101 +0100
+***************
+*** 10,67 ****
+    - gcc
+  
+  env:
+!   - BUILD=yes TEST=test COVERAGE=no FEATURES=tiny  "CONFOPT='--disable-gui'" SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+!   - BUILD=yes TEST=test COVERAGE=no FEATURES=tiny  CONFOPT= SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+!     # ASAN build
+!   - BUILD=yes TEST=test SANITIZER_CFLAGS="-g -O1 -DABORT_ON_INTERNAL_ERROR -DEXITFREE -fsanitize=address -fno-omit-frame-pointer"
+      FEATURES=huge SRCDIR=./src CHECK_AUTOCONF=no ASAN_OPTIONS="print_stacktrace=1 log_path=asan" LSAN_OPTIONS="suppressions=$TRAVIS_BUILD_DIR/src/testdir/lsan-suppress.txt"
+      "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+!   - BUILD=yes TEST="scripttests test_libvterm" COVERAGE=yes CFLAGS=--coverage LDFLAGS=--coverage FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+      "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-python3interp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+!   - BUILD=no TEST=unittests COVERAGE=yes CFLAGS=--coverage LDFLAGS=--coverage FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=yes
+!   - BUILD=yes TEST=test COVERAGE=no FEATURES=normal CONFOPT= SHADOWOPT="-C src/shadow" SRCDIR=./src/shadow CHECK_AUTOCONF=no
+!   - BUILD=yes TEST=test COVERAGE=no FEATURES=small CONFOPT= SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+!     # Mac OSX build
+!   - BUILD=yes TEST=test COVERAGE=no FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+      "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+  
+  sudo: false
+  
+! # instead of a 2*2*7 matrix (2*os + 2*compiler + 7*env),
+  # exclude some builds on mac os x and linux
+  # on mac os x "tiny" is always without GUI
+  # linux: 2*compiler + 5*env + mac: 2*compiler + 2*env
+  matrix:
+    exclude:
+      - os: osx
+!       env: BUILD=yes TEST=test COVERAGE=no FEATURES=tiny  CONFOPT= SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+      - os: osx
+!       env: BUILD=yes TEST=test COVERAGE=no FEATURES=normal CONFOPT= SHADOWOPT="-C src/shadow" SRCDIR=./src/shadow CHECK_AUTOCONF=no
+      - os: osx
+!       env: BUILD=no TEST=unittests COVERAGE=yes CFLAGS=--coverage LDFLAGS=--coverage FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=yes
+      - os: osx
+!       env: BUILD=yes TEST=test COVERAGE=no FEATURES=small CONFOPT= SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+      - os: osx
+!       env: BUILD=yes TEST="scripttests test_libvterm" COVERAGE=yes CFLAGS=--coverage LDFLAGS=--coverage FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+!             "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-python3interp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+      - os: osx
+!       env: BUILD=yes TEST=test SANITIZER_CFLAGS="-g -O1 -DABORT_ON_INTERNAL_ERROR -DEXITFREE -fsanitize=address -fno-omit-frame-pointer"
+!             FEATURES=huge SRCDIR=./src CHECK_AUTOCONF=no ASAN_OPTIONS="print_stacktrace=1 log_path=asan" LSAN_OPTIONS="suppressions=$TRAVIS_BUILD_DIR/src/testdir/lsan-suppress.txt"
+!             "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+      - os: linux
+        compiler: clang
+!       env: BUILD=yes TEST=test SANITIZER_CFLAGS="-g -O1 -DABORT_ON_INTERNAL_ERROR -DEXITFREE -fsanitize=address -fno-omit-frame-pointer"
+!             FEATURES=huge SRCDIR=./src CHECK_AUTOCONF=no ASAN_OPTIONS="print_stacktrace=1 log_path=asan" LSAN_OPTIONS="suppressions=$TRAVIS_BUILD_DIR/src/testdir/lsan-suppress.txt"
+!             "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+      - os: linux
+        compiler: clang
+!       env: BUILD=no TEST=unittests COVERAGE=yes CFLAGS=--coverage LDFLAGS=--coverage FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=yes
+      - os: linux
+        compiler: clang
+!       env: BUILD=yes TEST=test COVERAGE=no FEATURES=small CONFOPT= SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+      - os: linux
+!       env: BUILD=yes TEST=test COVERAGE=no FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+!             "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+  
+  branches:
+    except:
+--- 10,67 ----
+    - gcc
+  
+  env:
+!   - &tiny-nogui
+!     BUILD=yes TEST=test COVERAGE=no FEATURES=tiny "CONFOPT='--disable-gui'" SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+!   - &tiny
+!     BUILD=yes TEST=test COVERAGE=no FEATURES=tiny CONFOPT= SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+!   - &asan # ASAN build
+!     BUILD=yes TEST=test SANITIZER_CFLAGS="-g -O1 -DABORT_ON_INTERNAL_ERROR -DEXITFREE -fsanitize=address -fno-omit-frame-pointer"
+      FEATURES=huge SRCDIR=./src CHECK_AUTOCONF=no ASAN_OPTIONS="print_stacktrace=1 log_path=asan" LSAN_OPTIONS="suppressions=$TRAVIS_BUILD_DIR/src/testdir/lsan-suppress.txt"
+      "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+!   - &linux-huge
+!     BUILD=yes TEST="scripttests test_libvterm" COVERAGE=yes CFLAGS=--coverage LDFLAGS=--coverage FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+      "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-python3interp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+!   - &unittests
+!     BUILD=no TEST=unittests COVERAGE=yes CFLAGS=--coverage LDFLAGS=--coverage FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=yes
+!   - &normal
+!     BUILD=yes TEST=test COVERAGE=no FEATURES=normal CONFOPT= SHADOWOPT="-C src/shadow" SRCDIR=./src/shadow CHECK_AUTOCONF=no
+!   - &small
+!     BUILD=yes TEST=test COVERAGE=no FEATURES=small CONFOPT= SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+!   - &osx-huge # Mac OSX build
+!     BUILD=yes TEST=test COVERAGE=no FEATURES=huge SHADOWOPT= SRCDIR=./src CHECK_AUTOCONF=no
+      "CONFOPT='--enable-perlinterp --enable-pythoninterp --enable-rubyinterp --enable-luainterp --enable-tclinterp'"
+  
+  sudo: false
+  
+! # instead of a 2*2*8 matrix (2*os + 2*compiler + 8*env),
+  # exclude some builds on mac os x and linux
+  # on mac os x "tiny" is always without GUI
+  # linux: 2*compiler + 5*env + mac: 2*compiler + 2*env
+  matrix:
+    exclude:
+      - os: osx
+!       env: *tiny
+      - os: osx
+!       env: *normal
+      - os: osx
+!       env: *unittests
+      - os: osx
+!       env: *small
+      - os: osx
+!       env: *linux-huge
+      - os: osx
+!       env: *asan
+      - os: linux
+        compiler: clang
+!       env: *asan
+      - os: linux
+        compiler: clang
+!       env: *unittests
+      - os: linux
+        compiler: clang
+!       env: *small
+      - os: linux
+!       env: *osx-huge
+  
+  branches:
+    except:
+***************
+*** 89,123 ****
+  
+  before_install:
+    - rvm reset
+!     # Remove /opt/python/3.x.x/bin from $PATH for using system python3.
+!     # ("pyenv global system" doesn't seem to work.)
+!   - if [ "$TRAVIS_OS_NAME" = "linux" ] && which python3 | grep '/opt/python/' > /dev/null; then export PATH=$(echo $PATH | sed -e "s#$(echo $(which python3) | sed -e 's#/python3$##'):##"); fi
+!   - if [ "$COVERAGE" = "yes" ]; then pip install --user cpp-coveralls; fi
+!     # needed for https support for coveralls
+!     # building cffi only works with gcc, not with clang
+!   - if [ "$COVERAGE" = "yes" ]; then CC=gcc pip install --user pyopenssl ndg-httpsclient pyasn1; fi
+!     # Lua is not installed on Travis OSX
+!   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then export LUA_PREFIX=/usr/local; fi
+!     # Use llvm-cov instead of gcov when compiler is clang.
+!   - if [ "$TRAVIS_OS_NAME" = "linux" ] && [ "$CC" = "clang" ]; then ln -sf $(which llvm-cov) /home/travis/bin/gcov; fi
+  
+- # Start virtual framebuffer to be able to test the GUI. Does not work on OS X.
+  before_script:
+!   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then export DISPLAY=:99.0 && sh -e /etc/init.d/xvfb start && sleep 3; fi
+  
+  script:
+    - NPROC=$(getconf _NPROCESSORS_ONLN)
+!   - if [ "$CHECK_AUTOCONF" = "yes" -a "$CC" = "gcc" ]; then make -C src autoconf; fi
+!   - if [ "x$SHADOWOPT" != x ]; then make -C src shadow; fi
+!   - (cd ${SRCDIR} && ./configure --with-features=$FEATURES $CONFOPT --enable-fail-if-missing && if [ "$BUILD" = "yes" ]; then make -j$NPROC; fi)
+!     # Show Vim version and also if_xx versions.
+!   - if [ "$BUILD" = "yes" ]; then ${SRCDIR}/vim --version; ${SRCDIR}/vim --not-a-term -u NONE -S ${SRCDIR}/testdir/if_ver-1.vim -c quit > /dev/null; ${SRCDIR}/vim --not-a-term -u NONE -S ${SRCDIR}/testdir/if_ver-2.vim -c quit > /dev/null; cat if_ver.txt; fi
+!   - make $SHADOWOPT $TEST
+!   - if [ -n "$ASAN_OPTIONS" ]; then for log in $(find -type f -name 'asan.*' -size +0); do asan_symbolize < "$log"; err=1; done; fi
+!   - if [ -n "$err" ]; then exit 1; fi
+  
+  after_success:
+!   - if [ "$COVERAGE" = "yes" ]; then ~/.local/bin/coveralls -b ${SRCDIR} -x .xs -e ${SRCDIR}/if_perl.c -e ${SRCDIR}/xxd -e ${SRCDIR}/libvterm --encodings utf-8 latin-1 EUC-KR; fi
+!   - if [ "$COVERAGE" = "yes" ]; then  cd ${SRCDIR} && bash <(curl -s https://codecov.io/bash) ; fi
+  
+  # vim:set sts=2 sw=2 tw=0 et:
+--- 89,171 ----
+  
+  before_install:
+    - rvm reset
+!   # Remove /opt/python/3.x.x/bin from $PATH for using system python3.
+!   # ("pyenv global system" doesn't seem to work.)
+!   - |
+!     if [[ "${TRAVIS_OS_NAME}" = "linux" ]] && [[ "$(which python3)" =~ ^/opt/python/ ]]; then
+!       export PATH=$(py3=$(which python3); echo ${PATH//${py3%/python3}:/})
+!     fi
+!   - |
+!     if [[ "${COVERAGE}" = "yes" ]]; then
+!       pip install --user cpp-coveralls
+!     fi
+!   # needed for https support for coveralls
+!   # building cffi only works with gcc, not with clang
+!   - |
+!     if [[ "${COVERAGE}" = "yes" ]]; then
+!       CC=gcc pip install --user pyopenssl ndg-httpsclient pyasn1
+!     fi
+!   # Lua is not installed on Travis OSX
+!   - |
+!     if [[ "${TRAVIS_OS_NAME}" = "osx" ]]; then
+!       export LUA_PREFIX=/usr/local
+!     fi
+!   # Use llvm-cov instead of gcov when compiler is clang.
+!   - |
+!     if [[ "${TRAVIS_OS_NAME}" = "linux" ]] && [[ "${CC}" = "clang" ]]; then
+!       ln -sf "$(which llvm-cov)" /home/travis/bin/gcov
+!     fi
+  
+  before_script:
+!   # Start virtual framebuffer to be able to test the GUI. Does not work on OS X.
+!   - |
+!     if [[ "${TRAVIS_OS_NAME}" = "linux" ]]; then
+!       export DISPLAY=:99.0
+!       sh -e /etc/init.d/xvfb start && sleep 3
+!     fi
+  
+  script:
+    - NPROC=$(getconf _NPROCESSORS_ONLN)
+!   - |
+!     if [[ "${CHECK_AUTOCONF}" = "yes" ]] && [[ "${CC}" = "gcc" ]]; then
+!       make -C src autoconf
+!     fi
+!   - |
+!     if [[ -n "${SHADOWOPT}" ]]; then
+!       make -C src shadow
+!     fi
+!   - |
+!     (
+!     cd "${SRCDIR}" \
+!       && ./configure --with-features=${FEATURES} ${CONFOPT} --enable-fail-if-missing
+!     ) && if [[ "${BUILD}" = "yes" ]]; then
+!       make ${SHADOWOPT} -j${NPROC}
+!     fi
+!   # Show Vim version and also if_xx versions.
+!   - |
+!     if [[ "${BUILD}" = "yes" ]]; then
+!       "${SRCDIR}"/vim --version
+!       "${SRCDIR}"/vim --not-a-term -u NONE -S "${SRCDIR}"/testdir/if_ver-1.vim -c quit > /dev/null
+!       "${SRCDIR}"/vim --not-a-term -u NONE -S "${SRCDIR}"/testdir/if_ver-2.vim -c quit > /dev/null
+!       cat if_ver.txt
+!     fi
+!   - make ${SHADOWOPT} ${TEST}
+!   - |
+!     if [[ -n "${ASAN_OPTIONS}" ]]; then
+!       while read log; do
+!         asan_symbolize < "${log}"
+!       done < <(find . -type f -name 'asan.*' -size +0)
+!       [[ -z "${log}" ]] # exit 1 if there are ASAN logs
+!     fi
+  
+  after_success:
+!   - |
+!     if [[ "${COVERAGE}" = "yes" ]]; then
+!       ~/.local/bin/coveralls -b "${SRCDIR}" -x .xs -e "${SRCDIR}"/if_perl.c -e "${SRCDIR}"/xxd -e "${SRCDIR}"/libvterm --encodings utf-8 latin-1 EUC-KR
+!     fi
+!   - |
+!     if [[ "${COVERAGE}" = "yes" ]]; then
+!       (cd "${SRCDIR}" && bash <(curl -s https://codecov.io/bash))
+!     fi
+  
+  # vim:set sts=2 sw=2 tw=0 et:
+*** ../vim-8.1.0868/appveyor.yml	2017-11-26 14:22:54.000000000 +0100
+--- appveyor.yml	2019-02-03 13:07:39.494492101 +0100
+***************
+*** 19,25 ****
+    - 'set INCLUDE=%INCLUDE%C:\Program Files (x86)\Windows Kits\8.1\Include\um'
+  
+  build_script:
+!   - src/appveyor.bat
+  
+  test_script:
+    - cd src/testdir
+--- 19,25 ----
+    - 'set INCLUDE=%INCLUDE%C:\Program Files (x86)\Windows Kits\8.1\Include\um'
+  
+  build_script:
+!   - ci/appveyor.bat
+  
+  test_script:
+    - cd src/testdir
+*** ../vim-8.1.0868/ci/appveyor.bat	1970-01-01 01:00:00.000000000 +0100
+--- ci/appveyor.bat	2019-02-03 13:07:39.494492101 +0100
+***************
+*** 0 ****
+--- 1,46 ----
++ @echo off
++ :: Batch file for building/testing Vim on AppVeyor
++ 
++ setlocal ENABLEDELAYEDEXPANSION
++ cd %APPVEYOR_BUILD_FOLDER%
++ 
++ cd src
++ echo "Building MinGW 32bit console version"
++ set PATH=c:\msys64\mingw32\bin;%PATH%
++ mingw32-make.exe -f Make_ming.mak GUI=no OPTIMIZE=speed IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
++ :: Save vim.exe before Make clean, moved back below.
++ copy vim.exe testdir
++ mingw32-make.exe -f Make_ming.mak clean
++ 
++ :: Build Mingw huge version with python and channel support, or
++ :: with specified features without python.
++ echo "Building MinGW 32bit GUI version"
++ if "%FEATURE%" == "HUGE" (
++     mingw32-make.exe -f Make_ming.mak OPTIMIZE=speed CHANNEL=yes GUI=yes IME=yes ICONV=yes DEBUG=no PYTHON_VER=27 DYNAMIC_PYTHON=yes PYTHON=C:\Python27 PYTHON3_VER=35 DYNAMIC_PYTHON3=yes PYTHON3=C:\Python35 FEATURES=%FEATURE% || exit 1
++ ) ELSE (
++     mingw32-make.exe -f Make_ming.mak OPTIMIZE=speed GUI=yes IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
++ )
++ .\gvim -u NONE -c "redir @a | ver |0put a | wq" ver_ming.txt
++ 
++ echo "Building MSVC 64bit console Version"
++ sed -e "s/\$(LINKARGS2)/\$(LINKARGS2) | sed -e 's#.*\\\\r.*##'/" Make_mvc.mak > Make_mvc2.mak
++ nmake -f Make_mvc2.mak CPU=AMD64 OLE=no GUI=no IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
++ nmake -f Make_mvc2.mak clean
++ 
++ :: build MSVC huge version with python and channel support
++ :: GUI needs to be last, so that testing works
++ echo "Building MSVC 64bit GUI Version"
++ if "%FEATURE%" == "HUGE" (
++     nmake -f Make_mvc2.mak DIRECTX=yes CPU=AMD64 CHANNEL=yes OLE=no GUI=yes IME=yes ICONV=yes DEBUG=no PYTHON_VER=27 DYNAMIC_PYTHON=yes PYTHON=C:\Python27-x64 PYTHON3_VER=35 DYNAMIC_PYTHON3=yes PYTHON3=C:\Python35-x64 FEATURES=%FEATURE% || exit 1
++ ) ELSE (
++     nmake -f Make_mvc2.mak CPU=AMD64 OLE=no GUI=yes IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
++ )
++ .\gvim -u NONE -c "redir @a | ver |0put a | wq" ver_msvc.txt
++ 
++ :: Restore vim.exe, tests will run with this.
++ move /Y testdir\vim.exe .
++ echo "version output MinGW"
++ type ver_ming.txt
++ echo "version output MVC"
++ type ver_msvc.txt
++ cd ..
+*** ../vim-8.1.0868/src/appveyor.bat	2019-01-24 17:59:35.143217444 +0100
+--- src/appveyor.bat	1970-01-01 01:00:00.000000000 +0100
+***************
+*** 1,46 ****
+- @echo off
+- :: Batch file for building/testing Vim on AppVeyor
+- 
+- setlocal ENABLEDELAYEDEXPANSION
+- cd %APPVEYOR_BUILD_FOLDER%
+- 
+- cd src
+- echo "Building MinGW 32bit console version"
+- set PATH=c:\msys64\mingw32\bin;%PATH%
+- mingw32-make.exe -f Make_ming.mak GUI=no OPTIMIZE=speed IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+- :: Save vim.exe before Make clean, moved back below.
+- copy vim.exe testdir
+- mingw32-make.exe -f Make_ming.mak clean
+- 
+- :: Build Mingw huge version with python and channel support, or
+- :: with specified features without python.
+- echo "Building MinGW 32bit GUI version"
+- if "%FEATURE%" == "HUGE" (
+-     mingw32-make.exe -f Make_ming.mak OPTIMIZE=speed CHANNEL=yes GUI=yes IME=yes ICONV=yes DEBUG=no PYTHON_VER=27 DYNAMIC_PYTHON=yes PYTHON=C:\Python27 PYTHON3_VER=35 DYNAMIC_PYTHON3=yes PYTHON3=C:\Python35 FEATURES=%FEATURE% || exit 1
+- ) ELSE (
+-     mingw32-make.exe -f Make_ming.mak OPTIMIZE=speed GUI=yes IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+- )
+- .\gvim -u NONE -c "redir @a | ver |0put a | wq" ver_ming.txt
+- 
+- echo "Building MSVC 64bit console Version"
+- sed -e "s/\$(LINKARGS2)/\$(LINKARGS2) | sed -e 's#.*\\\\r.*##'/" Make_mvc.mak > Make_mvc2.mak
+- nmake -f Make_mvc2.mak CPU=AMD64 OLE=no GUI=no IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+- nmake -f Make_mvc2.mak clean
+- 
+- :: build MSVC huge version with python and channel support
+- :: GUI needs to be last, so that testing works
+- echo "Building MSVC 64bit GUI Version"
+- if "%FEATURE%" == "HUGE" (
+-     nmake -f Make_mvc2.mak DIRECTX=yes CPU=AMD64 CHANNEL=yes OLE=no GUI=yes IME=yes ICONV=yes DEBUG=no PYTHON_VER=27 DYNAMIC_PYTHON=yes PYTHON=C:\Python27-x64 PYTHON3_VER=35 DYNAMIC_PYTHON3=yes PYTHON3=C:\Python35-x64 FEATURES=%FEATURE% || exit 1
+- ) ELSE (
+-     nmake -f Make_mvc2.mak CPU=AMD64 OLE=no GUI=yes IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+- )
+- .\gvim -u NONE -c "redir @a | ver |0put a | wq" ver_msvc.txt
+- 
+- :: Restore vim.exe, tests will run with this.
+- move /Y testdir\vim.exe .
+- echo "version output MinGW"
+- type ver_ming.txt
+- echo "version output MVC"
+- type ver_msvc.txt
+- cd ..
+--- 0 ----
+*** ../vim-8.1.0868/Filelist	2019-01-31 13:47:51.114632702 +0100
+--- Filelist	2019-02-03 13:09:38.941715967 +0100
+***************
+*** 7,14 ****
+  		.lgtm.yml \
+  		.travis.yml \
+  		appveyor.yml \
+  		src/Make_all.mak \
+- 		src/appveyor.bat \
+  		src/README.txt \
+  		src/alloc.h \
+  		src/arabic.c \
+--- 7,14 ----
+  		.lgtm.yml \
+  		.travis.yml \
+  		appveyor.yml \
++ 		ci/appveyor.bat \
+  		src/Make_all.mak \
+  		src/README.txt \
+  		src/alloc.h \
+  		src/arabic.c \
+*** ../vim-8.1.0868/src/version.c	2019-02-02 14:02:26.012222133 +0100
+--- src/version.c	2019-02-03 13:09:51.489634493 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     869,
+  /**/
+
+-- 
+ARTHUR: Go on, Bors, chop its head off.
+BORS:   Right.  Silly little bleeder.  One rabbit stew coming up.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

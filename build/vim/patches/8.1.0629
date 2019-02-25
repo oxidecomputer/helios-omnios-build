@@ -1,0 +1,454 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0629
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0629
+Problem:    "gn" selects the wrong text with a multi-line match.
+Solution:   Get the end position from searchit() directly. (closes #3695)
+Files:	    src/testdir/test_gn.vim, src/search.c, src/proto/search.pro,
+            src/edit.c, src/evalfunc.c, src/ex_docmd.c, ex_getln.c,
+            src/normal.c
+
+
+*** ../vim-8.1.0628/src/testdir/test_gn.vim	2018-05-22 17:50:38.683980716 +0200
+--- src/testdir/test_gn.vim	2018-12-22 20:09:51.629267209 +0100
+***************
+*** 131,134 ****
+--- 131,153 ----
+    set wrapscan&vim
+  endfu
+  
++ func Test_gn_multi_line()
++   new
++   call setline(1, [
++         \ 'func Tm1()',
++         \ ' echo "one"',
++         \ 'endfunc',
++         \ 'func Tm2()',
++         \ ' echo "two"',
++         \ 'endfunc',
++         \ 'func Tm3()',
++         \ ' echo "three"',
++         \ 'endfunc',
++         \])
++   /\v^func Tm\d\(\)\n.*\zs".*"\ze$
++   normal jgnrx
++   call assert_equal(' echo xxxxx', getline(5))
++   bwipe!
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.0628/src/search.c	2018-12-01 21:08:18.019648483 +0100
+--- src/search.c	2018-12-23 19:08:55.834869939 +0100
+***************
+*** 610,617 ****
+  
+  /*
+   * Lowest level search function.
+!  * Search for 'count'th occurrence of pattern 'pat' in direction 'dir'.
+!  * Start at position 'pos' and return the found position in 'pos'.
+   *
+   * if (options & SEARCH_MSG) == 0 don't give any messages
+   * if (options & SEARCH_MSG) == SEARCH_NFMSG don't give 'notfound' messages
+--- 610,617 ----
+  
+  /*
+   * Lowest level search function.
+!  * Search for 'count'th occurrence of pattern "pat" in direction "dir".
+!  * Start at position "pos" and return the found position in "pos".
+   *
+   * if (options & SEARCH_MSG) == 0 don't give any messages
+   * if (options & SEARCH_MSG) == SEARCH_NFMSG don't give 'notfound' messages
+***************
+*** 634,639 ****
+--- 634,640 ----
+  				   buffer without a window! */
+      buf_T	*buf,
+      pos_T	*pos,
++     pos_T	*end_pos,	// set to end of the match, unless NULL
+      int		dir,
+      char_u	*pat,
+      long	count,
+***************
+*** 1035,1048 ****
+--- 1036,1061 ----
+  			    }
+  #endif
+  			}
++ 			if (end_pos != NULL)
++ 			{
++ 			    end_pos->lnum = lnum + matchpos.lnum;
++ 			    end_pos->col = matchpos.col;
++ 			}
+  		    }
+  		    else
+  		    {
+  			pos->lnum = lnum + matchpos.lnum;
+  			pos->col = matchpos.col;
++ 			if (end_pos != NULL)
++ 			{
++ 			    end_pos->lnum = lnum + endpos.lnum;
++ 			    end_pos->col = endpos.col;
++ 			}
+  		    }
+  #ifdef FEAT_VIRTUALEDIT
+  		    pos->coladd = 0;
++ 		    if (end_pos != NULL)
++ 			end_pos->coladd = 0;
+  #endif
+  		    found = 1;
+  		    first_match = FALSE;
+***************
+*** 1496,1502 ****
+  	     lrFswap(searchstr,0);
+  #endif
+  
+! 	c = searchit(curwin, curbuf, &pos, dirc == '/' ? FORWARD : BACKWARD,
+  		searchstr, count, spats[0].off.end + (options &
+  		       (SEARCH_KEEP + SEARCH_PEEK + SEARCH_HIS
+  			+ SEARCH_MSG + SEARCH_START
+--- 1509,1515 ----
+  	     lrFswap(searchstr,0);
+  #endif
+  
+! 	c = searchit(curwin, curbuf, &pos, NULL, dirc == '/' ? FORWARD : BACKWARD,
+  		searchstr, count, spats[0].off.end + (options &
+  		       (SEARCH_KEEP + SEARCH_PEEK + SEARCH_HIS
+  			+ SEARCH_MSG + SEARCH_START
+***************
+*** 4665,4684 ****
+      int
+  current_search(
+      long	count,
+!     int		forward)	/* move forward or backwards */
+  {
+!     pos_T	start_pos;	/* position before the pattern */
+!     pos_T	orig_pos;	/* position of the cursor at beginning */
+!     pos_T	first_match;	/* position of first match */
+!     pos_T	pos;		/* position after the pattern */
+      int		i;
+      int		dir;
+!     int		result;		/* result of various function calls */
+      char_u	old_p_ws = p_ws;
+      int		flags = 0;
+      pos_T	save_VIsual = VIsual;
+      int		one_char;
+-     int		direction = forward ? FORWARD : BACKWARD;
+  
+      /* wrapping should not occur */
+      p_ws = FALSE;
+--- 4678,4696 ----
+      int
+  current_search(
+      long	count,
+!     int		forward)	// TRUE for forward, FALSE for backward
+  {
+!     pos_T	start_pos;	// start position of the pattern match
+!     pos_T	end_pos;	// end position of the pattern match
+!     pos_T	orig_pos;	// position of the cursor at beginning
+!     pos_T	pos;		// position after the pattern
+      int		i;
+      int		dir;
+!     int		result;		// result of various function calls
+      char_u	old_p_ws = p_ws;
+      int		flags = 0;
+      pos_T	save_VIsual = VIsual;
+      int		one_char;
+  
+      /* wrapping should not occur */
+      p_ws = FALSE;
+***************
+*** 4730,4737 ****
+  	flags = 0;
+  	if (!dir && !one_char)
+  	    flags = SEARCH_END;
+  
+! 	result = searchit(curwin, curbuf, &pos, (dir ? FORWARD : BACKWARD),
+  		spats[last_idx].pat, (long) (i ? count : 1),
+  		SEARCH_KEEP | flags, RE_SEARCH, 0, NULL, NULL);
+  
+--- 4742,4751 ----
+  	flags = 0;
+  	if (!dir && !one_char)
+  	    flags = SEARCH_END;
++ 	end_pos = pos;
+  
+! 	result = searchit(curwin, curbuf, &pos, &end_pos,
+! 		(dir ? FORWARD : BACKWARD),
+  		spats[last_idx].pat, (long) (i ? count : 1),
+  		SEARCH_KEEP | flags, RE_SEARCH, 0, NULL, NULL);
+  
+***************
+*** 4739,4745 ****
+  	 * beginning of the file (cursor might be on the search match)
+  	 * except when Visual mode is active, so that extending the visual
+  	 * selection works. */
+! 	if (!result && i) /* not found, abort */
+  	{
+  	    curwin->w_cursor = orig_pos;
+  	    if (VIsual_active)
+--- 4753,4759 ----
+  	 * beginning of the file (cursor might be on the search match)
+  	 * except when Visual mode is active, so that extending the visual
+  	 * selection works. */
+! 	if (i == 1 && !result) /* not found, abort */
+  	{
+  	    curwin->w_cursor = orig_pos;
+  	    if (VIsual_active)
+***************
+*** 4747,4753 ****
+  	    p_ws = old_p_ws;
+  	    return FAIL;
+  	}
+! 	else if (!i && !result)
+  	{
+  	    if (forward)
+  	    {
+--- 4761,4767 ----
+  	    p_ws = old_p_ws;
+  	    return FAIL;
+  	}
+! 	else if (i == 0 && !result)
+  	{
+  	    if (forward)
+  	    {
+***************
+*** 4763,4810 ****
+  				ml_get(curwin->w_buffer->b_ml.ml_line_count));
+  	    }
+  	}
+- 	if (i == 0)
+- 	    first_match = pos;
+  	p_ws = old_p_ws;
+      }
+  
+      start_pos = pos;
+-     flags = forward ? SEARCH_END : SEARCH_START;
+- 
+-     /* Check again from the current cursor position,
+-      * since the next match might actually by only one char wide */
+-     one_char = is_one_char(spats[last_idx].pat, FALSE, &pos, direction);
+-     if (one_char < 0)
+- 	/* search failed, abort */
+- 	return FAIL;
+- 
+-     /* move to match, except for zero-width matches, in which case, we are
+-      * already on the next match */
+-     if (!one_char)
+-     {
+- 	p_ws = FALSE;
+- 	for (i = 0; i < 2; i++)
+- 	{
+- 	    result = searchit(curwin, curbuf, &pos, direction,
+- 		    spats[last_idx].pat, 0L, flags | SEARCH_KEEP, RE_SEARCH, 0,
+- 								   NULL, NULL);
+- 	    /* Search successfull, break out from the loop */
+- 	    if (result)
+- 		break;
+- 	    /* search failed, try again from the last search position match */
+- 	    pos = first_match;
+- 	}
+-     }
+- 
+      p_ws = old_p_ws;
+-     /* not found */
+-     if (!result)
+- 	return FAIL;
+  
+      if (!VIsual_active)
+  	VIsual = start_pos;
+  
+!     curwin->w_cursor = pos;
+      VIsual_active = TRUE;
+      VIsual_mode = 'v';
+  
+--- 4777,4795 ----
+  				ml_get(curwin->w_buffer->b_ml.ml_line_count));
+  	    }
+  	}
+  	p_ws = old_p_ws;
+      }
+  
+      start_pos = pos;
+      p_ws = old_p_ws;
+  
+      if (!VIsual_active)
+  	VIsual = start_pos;
+  
+!     // put cursor on last character of match
+!     curwin->w_cursor = end_pos;
+!     if (LT_POS(VIsual, end_pos))
+! 	dec_cursor();
+      VIsual_active = TRUE;
+      VIsual_mode = 'v';
+  
+***************
+*** 4880,4886 ****
+  	flag = SEARCH_START;
+      }
+  
+!     if (searchit(curwin, curbuf, &pos, direction, pattern, 1,
+  			 SEARCH_KEEP + flag, RE_SEARCH, 0, NULL, NULL) != FAIL)
+      {
+  	/* Zero-width pattern should match somewhere, then we can check if
+--- 4865,4871 ----
+  	flag = SEARCH_START;
+      }
+  
+!     if (searchit(curwin, curbuf, &pos, NULL, direction, pattern, 1,
+  			 SEARCH_KEEP + flag, RE_SEARCH, 0, NULL, NULL) != FAIL)
+      {
+  	/* Zero-width pattern should match somewhere, then we can check if
+*** ../vim-8.1.0628/src/proto/search.pro	2018-05-17 13:52:50.000000000 +0200
+--- src/proto/search.pro	2018-12-22 19:28:05.421217008 +0100
+***************
+*** 22,28 ****
+  void reset_search_dir(void);
+  void set_last_search_pat(char_u *s, int idx, int magic, int setlast);
+  void last_pat_prog(regmmatch_T *regmatch);
+! int searchit(win_T *win, buf_T *buf, pos_T *pos, int dir, char_u *pat, long count, int options, int pat_use, linenr_T stop_lnum, proftime_T *tm, int *timed_out);
+  void set_search_direction(int cdir);
+  int do_search(oparg_T *oap, int dirc, char_u *pat, long count, int options, proftime_T *tm, int *timed_out);
+  int search_for_exact_line(buf_T *buf, pos_T *pos, int dir, char_u *pat);
+--- 22,28 ----
+  void reset_search_dir(void);
+  void set_last_search_pat(char_u *s, int idx, int magic, int setlast);
+  void last_pat_prog(regmmatch_T *regmatch);
+! int searchit(win_T *win, buf_T *buf, pos_T *pos, pos_T *end_pos, int dir, char_u *pat, long count, int options, int pat_use, linenr_T stop_lnum, proftime_T *tm, int *timed_out);
+  void set_search_direction(int cdir);
+  int do_search(oparg_T *oap, int dirc, char_u *pat, long count, int options, proftime_T *tm, int *timed_out);
+  int search_for_exact_line(buf_T *buf, pos_T *pos, int dir, char_u *pat);
+*** ../vim-8.1.0628/src/edit.c	2018-12-21 16:04:16.324437435 +0100
+--- src/edit.c	2018-12-22 19:28:18.801116799 +0100
+***************
+*** 4653,4659 ****
+  		    found_new_match = search_for_exact_line(ins_buf, pos,
+  					      compl_direction, compl_pattern);
+  		else
+! 		    found_new_match = searchit(NULL, ins_buf, pos,
+  							      compl_direction,
+  				 compl_pattern, 1L, SEARCH_KEEP + SEARCH_NFMSG,
+  					     RE_LAST, (linenr_T)0, NULL, NULL);
+--- 4653,4659 ----
+  		    found_new_match = search_for_exact_line(ins_buf, pos,
+  					      compl_direction, compl_pattern);
+  		else
+! 		    found_new_match = searchit(NULL, ins_buf, pos, NULL,
+  							      compl_direction,
+  				 compl_pattern, 1L, SEARCH_KEEP + SEARCH_NFMSG,
+  					     RE_LAST, (linenr_T)0, NULL, NULL);
+*** ../vim-8.1.0628/src/evalfunc.c	2018-12-22 13:27:59.115503998 +0100
+--- src/evalfunc.c	2018-12-22 19:29:14.056703170 +0100
+***************
+*** 10056,10062 ****
+      }
+  
+      pos = save_cursor = curwin->w_cursor;
+!     subpatnum = searchit(curwin, curbuf, &pos, dir, pat, 1L,
+  			   options, RE_SEARCH, (linenr_T)lnum_stop, &tm, NULL);
+      if (subpatnum != FAIL)
+      {
+--- 10056,10062 ----
+      }
+  
+      pos = save_cursor = curwin->w_cursor;
+!     subpatnum = searchit(curwin, curbuf, &pos, NULL, dir, pat, 1L,
+  			   options, RE_SEARCH, (linenr_T)lnum_stop, &tm, NULL);
+      if (subpatnum != FAIL)
+      {
+***************
+*** 10414,10420 ****
+      pat = pat3;
+      for (;;)
+      {
+! 	n = searchit(curwin, curbuf, &pos, dir, pat, 1L,
+  				     options, RE_SEARCH, lnum_stop, &tm, NULL);
+  	if (n == FAIL || (firstpos.lnum != 0 && EQUAL_POS(pos, firstpos)))
+  	    /* didn't find it or found the first match again: FAIL */
+--- 10414,10420 ----
+      pat = pat3;
+      for (;;)
+      {
+! 	n = searchit(curwin, curbuf, &pos, NULL, dir, pat, 1L,
+  				     options, RE_SEARCH, lnum_stop, &tm, NULL);
+  	if (n == FAIL || (firstpos.lnum != 0 && EQUAL_POS(pos, firstpos)))
+  	    /* didn't find it or found the first match again: FAIL */
+*** ../vim-8.1.0628/src/ex_docmd.c	2018-12-22 17:07:45.771347741 +0100
+--- src/ex_docmd.c	2018-12-22 19:29:20.004658681 +0100
+***************
+*** 4669,4675 ****
+  #ifdef FEAT_VIRTUALEDIT
+  		    pos.coladd = 0;
+  #endif
+! 		    if (searchit(curwin, curbuf, &pos,
+  				*cmd == '?' ? BACKWARD : FORWARD,
+  				(char_u *)"", 1L, SEARCH_MSG,
+  					i, (linenr_T)0, NULL, NULL) != FAIL)
+--- 4669,4675 ----
+  #ifdef FEAT_VIRTUALEDIT
+  		    pos.coladd = 0;
+  #endif
+! 		    if (searchit(curwin, curbuf, &pos, NULL,
+  				*cmd == '?' ? BACKWARD : FORWARD,
+  				(char_u *)"", 1L, SEARCH_MSG,
+  					i, (linenr_T)0, NULL, NULL) != FAIL)
+*** ../vim-8.1.0628/src/ex_getln.c	2018-12-13 22:17:52.877941474 +0100
+--- src/ex_getln.c	2018-12-22 19:29:46.224462639 +0100
+***************
+*** 675,681 ****
+      ++emsg_off;
+      save = pat[patlen];
+      pat[patlen] = NUL;
+!     i = searchit(curwin, curbuf, &t,
+  		 c == Ctrl_G ? FORWARD : BACKWARD,
+  		 pat, count, search_flags,
+  		 RE_SEARCH, 0, NULL, NULL);
+--- 675,681 ----
+      ++emsg_off;
+      save = pat[patlen];
+      pat[patlen] = NUL;
+!     i = searchit(curwin, curbuf, &t, NULL,
+  		 c == Ctrl_G ? FORWARD : BACKWARD,
+  		 pat, count, search_flags,
+  		 RE_SEARCH, 0, NULL, NULL);
+*** ../vim-8.1.0628/src/normal.c	2018-11-22 03:07:30.944596219 +0100
+--- src/normal.c	2018-12-22 19:30:21.432199427 +0100
+***************
+*** 4338,4344 ****
+      for (;;)
+      {
+  	valid = FALSE;
+! 	t = searchit(curwin, curbuf, &curwin->w_cursor, FORWARD,
+  		       pat, 1L, searchflags, RE_LAST, (linenr_T)0, NULL, NULL);
+  	if (curwin->w_cursor.lnum >= old_pos.lnum)
+  	    t = FAIL;	/* match after start is failure too */
+--- 4338,4344 ----
+      for (;;)
+      {
+  	valid = FALSE;
+! 	t = searchit(curwin, curbuf, &curwin->w_cursor, NULL, FORWARD,
+  		       pat, 1L, searchflags, RE_LAST, (linenr_T)0, NULL, NULL);
+  	if (curwin->w_cursor.lnum >= old_pos.lnum)
+  	    t = FAIL;	/* match after start is failure too */
+*** ../vim-8.1.0628/src/version.c	2018-12-23 13:36:36.671194499 +0100
+--- src/version.c	2018-12-23 19:06:08.800075128 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     629,
+  /**/
+
+-- 
+A fine is a tax for doing wrong.  A tax is a fine for doing well.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

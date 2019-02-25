@@ -1,0 +1,417 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0793
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0793
+Problem:    Incorrect error messages for functions that now take a Blob
+            argument.
+Solution:   Adjust the error messages. (Dominique Pelle, closes #3846)
+Files:	    runtime/doc/eval.txt, src/evalfunc.c, src/globals.h,
+            src/testdir/test_blob.vim, src/testdir/test_listdict.vim
+
+
+*** ../vim-8.1.0792/runtime/doc/eval.txt	2019-01-15 22:51:35.820099991 +0100
+--- runtime/doc/eval.txt	2019-01-22 22:13:51.087503416 +0100
+***************
+*** 38,44 ****
+  1. Variables						*variables*
+  
+  1.1 Variable types ~
+! 							*E712*
+  There are nine types of variables:
+  
+  Number		A 32 or 64 bit signed number.  |expr-number| *Number*
+--- 38,44 ----
+  1. Variables						*variables*
+  
+  1.1 Variable types ~
+! 						*E712* *E896* *E897* *E898*
+  There are nine types of variables:
+  
+  Number		A 32 or 64 bit signed number.  |expr-number| *Number*
+***************
+*** 131,138 ****
+  
+  		*E745* *E728* *E703* *E729* *E730* *E731* *E908* *E910* *E913*
+  		*E974* *E975* *E976*
+! List, Dictionary, Funcref, Job, Channel and Blob types are not automatically
+! converted.
+  
+  							*E805* *E806* *E808*
+  When mixing Number and Float the Number is converted to Float.  Otherwise
+--- 131,138 ----
+  
+  		*E745* *E728* *E703* *E729* *E730* *E731* *E908* *E910* *E913*
+  		*E974* *E975* *E976*
+! |List|, |Dictionary|, |Funcref|, |Job|, |Channel| and |Blob| types are not
+! automatically converted.
+  
+  							*E805* *E806* *E808*
+  When mixing Number and Float the Number is converted to Float.  Otherwise
+***************
+*** 633,638 ****
+--- 633,641 ----
+  
+  A Blob can be created with a |blob-literal|: >
+  	:let b = 0zFF00ED015DAF
++ Dots can be inserted between bytes (pair of hex characters) for readability,
++ they don't change the value: >
++ 	:let b = 0zFF00.ED01.5DAF
+  
+  A blob can be read from a file with |readfile()| passing the {type} argument
+  set to "B", for example: >
+***************
+*** 673,678 ****
+--- 676,682 ----
+  A part of the Blob can be obtained by specifying the first and last index,
+  separated by a colon in square brackets: >
+  	:let myblob = 0z00112233
++ 	:let shortblob = myblob[1:2]	" get 0z1122
+  	:let shortblob = myblob[2:-1]	" get 0z2233
+  
+  Omitting the first index is similar to zero.  Omitting the last index is
+***************
+*** 681,687 ****
+  	:let shortblob = myblob[2:2]	" Blob with one byte: 0z22
+  	:let otherblob = myblob[:]	" make a copy of the Blob
+  
+! If the first index is beyond the last byte of the Blob or the second byte is
+  before the first byte, the result is an empty list.  There is no error
+  message.
+  
+--- 685,691 ----
+  	:let shortblob = myblob[2:2]	" Blob with one byte: 0z22
+  	:let otherblob = myblob[:]	" make a copy of the Blob
+  
+! If the first index is beyond the last byte of the Blob or the second index is
+  before the first byte, the result is an empty list.  There is no error
+  message.
+  
+***************
+*** 700,711 ****
+  
+  To change a sequence of bytes the [:] notation can be used: >
+  	let blob[1:3] = 0z445566
+! The length of the replaced bytes much be exactly the same as the value
+  provided. *E972*
+  
+  To change part of a blob you can specify the first and last byte to be
+! modified.  The value must at least have the number of bytes in the range: >
+! 	:let blob[3:5] = [3, 4, 5]
+  
+  You can also use the functions |add()|, |remove()| and |insert()|.
+  
+--- 704,715 ----
+  
+  To change a sequence of bytes the [:] notation can be used: >
+  	let blob[1:3] = 0z445566
+! The length of the replaced bytes must be exactly the same as the value
+  provided. *E972*
+  
+  To change part of a blob you can specify the first and last byte to be
+! modified.  The value must have the same number of bytes in the range: >
+! 	:let blob[3:5] = 0z334455
+  
+  You can also use the functions |add()|, |remove()| and |insert()|.
+  
+***************
+*** 734,740 ****
+  	:echo blob is blob3
+  <	0
+  
+! Making a copy of a list is done with the |copy()| function.  Using [:] also
+  works, as explained above.
+  
+  
+--- 738,744 ----
+  	:echo blob is blob3
+  <	0
+  
+! Making a copy of a Blob is done with the |copy()| function.  Using [:] also
+  works, as explained above.
+  
+  
+***************
+*** 793,799 ****
+  	expr5 isnot expr5	different |List| instance
+  
+  |expr5|	expr6
+! 	expr6 +	 expr6 ..	number addition or list concatenation
+  	expr6 -	 expr6 ..	number subtraction
+  	expr6 .	 expr6 ..	string concatenation
+  
+--- 797,803 ----
+  	expr5 isnot expr5	different |List| instance
+  
+  |expr5|	expr6
+! 	expr6 +	 expr6 ..	number addition, list or blob concatenation
+  	expr6 -	 expr6 ..	number subtraction
+  	expr6 .	 expr6 ..	string concatenation
+  
+***************
+*** 8586,8598 ****
+  
+  							*string()*
+  string({expr})	Return {expr} converted to a String.  If {expr} is a Number,
+! 		Float, String or a composition of them, then the result can be
+! 		parsed back with |eval()|.
+  			{expr} type	result ~
+  			String		'string' (single quotes are doubled)
+  			Number		123
+  			Float		123.123456 or 1.123456e8
+  			Funcref		function('name')
+  			List		[item, item]
+  			Dictionary	{key: value, key: value}
+  
+--- 8626,8639 ----
+  
+  							*string()*
+  string({expr})	Return {expr} converted to a String.  If {expr} is a Number,
+! 		Float, String, Blob or a composition of them, then the result
+! 		can be parsed back with |eval()|.
+  			{expr} type	result ~
+  			String		'string' (single quotes are doubled)
+  			Number		123
+  			Float		123.123456 or 1.123456e8
+  			Funcref		function('name')
++ 			Blob		0z00112233.44556677.8899
+  			List		[item, item]
+  			Dictionary	{key: value, key: value}
+  
+*** ../vim-8.1.0792/src/evalfunc.c	2019-01-19 17:43:03.433449041 +0100
+--- src/evalfunc.c	2019-01-22 22:13:51.091503363 +0100
+***************
+*** 29,34 ****
+--- 29,35 ----
+  #endif
+  
+  static char *e_listarg = N_("E686: Argument of %s must be a List");
++ static char *e_listblobarg = N_("E898: Argument of %s must be a List or Blob");
+  static char *e_stringreq = N_("E928: String required");
+  
+  #ifdef FEAT_FLOAT
+***************
+*** 1269,1275 ****
+  	}
+      }
+      else
+! 	emsg(_(e_listreq));
+  }
+  
+  /*
+--- 1270,1276 ----
+  	}
+      }
+      else
+! 	emsg(_(e_listblobreq));
+  }
+  
+  /*
+***************
+*** 4490,4496 ****
+  	}
+      }
+      else
+! 	semsg(_(e_listdictarg), "get()");
+  
+      if (tv == NULL)
+      {
+--- 4491,4497 ----
+  	}
+      }
+      else
+! 	semsg(_(e_listdictblobarg), "get()");
+  
+      if (tv == NULL)
+      {
+***************
+*** 7057,7063 ****
+      }
+      else if (argvars[0].v_type != VAR_LIST)
+      {
+! 	emsg(_(e_listreq));
+  	return;
+      }
+  
+--- 7058,7064 ----
+      }
+      else if (argvars[0].v_type != VAR_LIST)
+      {
+! 	emsg(_(e_listblobreq));
+  	return;
+      }
+  
+***************
+*** 7281,7287 ****
+  	copy_tv(&argvars[0], rettv);
+      }
+      else if (argvars[0].v_type != VAR_LIST)
+! 	semsg(_(e_listarg), "insert()");
+      else if ((l = argvars[0].vval.v_list) != NULL && !tv_check_lock(l->lv_lock,
+  				      (char_u *)N_("insert() argument"), TRUE))
+      {
+--- 7282,7288 ----
+  	copy_tv(&argvars[0], rettv);
+      }
+      else if (argvars[0].v_type != VAR_LIST)
+! 	semsg(_(e_listblobarg), "insert()");
+      else if ((l = argvars[0].vval.v_list) != NULL && !tv_check_lock(l->lv_lock,
+  				      (char_u *)N_("insert() argument"), TRUE))
+      {
+***************
+*** 9789,9795 ****
+  	}
+      }
+      else if (argvars[0].v_type != VAR_LIST)
+! 	semsg(_(e_listdictarg), "remove()");
+      else if ((l = argvars[0].vval.v_list) != NULL
+  			       && !tv_check_lock(l->lv_lock, arg_errmsg, TRUE))
+      {
+--- 9790,9796 ----
+  	}
+      }
+      else if (argvars[0].v_type != VAR_LIST)
+! 	semsg(_(e_listdictblobarg), "remove()");
+      else if ((l = argvars[0].vval.v_list) != NULL
+  			       && !tv_check_lock(l->lv_lock, arg_errmsg, TRUE))
+      {
+***************
+*** 10136,10142 ****
+      }
+  
+      if (argvars[0].v_type != VAR_LIST)
+! 	semsg(_(e_listarg), "reverse()");
+      else if ((l = argvars[0].vval.v_list) != NULL
+  	    && !tv_check_lock(l->lv_lock,
+  				    (char_u *)N_("reverse() argument"), TRUE))
+--- 10137,10143 ----
+      }
+  
+      if (argvars[0].v_type != VAR_LIST)
+! 	semsg(_(e_listblobarg), "reverse()");
+      else if ((l = argvars[0].vval.v_list) != NULL
+  	    && !tv_check_lock(l->lv_lock,
+  				    (char_u *)N_("reverse() argument"), TRUE))
+*** ../vim-8.1.0792/src/globals.h	2019-01-19 17:43:03.413449172 +0100
+--- src/globals.h	2019-01-22 22:13:51.091503363 +0100
+***************
+*** 1521,1527 ****
+--- 1521,1529 ----
+  EXTERN char e_toomanyarg[]	INIT(= N_("E118: Too many arguments for function: %s"));
+  EXTERN char e_dictkey[]	INIT(= N_("E716: Key not present in Dictionary: %s"));
+  EXTERN char e_listreq[]	INIT(= N_("E714: List required"));
++ EXTERN char e_listblobreq[]	INIT(= N_("E897: List or Blob required"));
+  EXTERN char e_listdictarg[]	INIT(= N_("E712: Argument of %s must be a List or Dictionary"));
++ EXTERN char e_listdictblobarg[]	INIT(= N_("E896: Argument of %s must be a List, Dictionary or Blob"));
+  #endif
+  #ifdef FEAT_QUICKFIX
+  EXTERN char e_readerrf[]	INIT(= N_("E47: Error while reading errorfile"));
+*** ../vim-8.1.0792/src/testdir/test_blob.vim	2019-01-17 16:32:49.469289080 +0100
+--- src/testdir/test_blob.vim	2019-01-22 22:13:51.091503363 +0100
+***************
+*** 32,37 ****
+--- 32,38 ----
+    call assert_fails('let b = 0z1.1')
+    call assert_fails('let b = 0z.')
+    call assert_fails('let b = 0z001122.')
++   call assert_fails('call get("", 1)', 'E896:')
+  endfunc
+  
+  " assignment to a blob
+***************
+*** 182,187 ****
+--- 183,189 ----
+    call assert_equal(0z00112233, b)
+  
+    call assert_fails('call add(b, [9])', 'E745:')
++   call assert_fails('call add("", 0x01)', 'E897:')
+  endfunc
+  
+  func Test_blob_empty()
+***************
+*** 219,225 ****
+    call assert_fails("call remove(b, 5)", 'E979:')
+    call assert_fails("call remove(b, 1, 5)", 'E979:')
+    call assert_fails("call remove(b, 3, 2)", 'E979:')
+!   call assert_fails("call remove(1, 0)", 'E712:')
+    call assert_fails("call remove(b, b)", 'E974:')
+  endfunc
+  
+--- 221,227 ----
+    call assert_fails("call remove(b, 5)", 'E979:')
+    call assert_fails("call remove(b, 1, 5)", 'E979:')
+    call assert_fails("call remove(b, 3, 2)", 'E979:')
+!   call assert_fails("call remove(1, 0)", 'E896:')
+    call assert_fails("call remove(b, b)", 'E974:')
+  endfunc
+  
+***************
+*** 255,261 ****
+    call assert_equal(2, index(0z11111111, 0x11, -2))
+    call assert_equal(3, index(0z11110111, 0x11, -2))
+  
+!   call assert_fails('call index("asdf", 0)', 'E714:')
+  endfunc
+  
+  func Test_blob_insert()
+--- 257,263 ----
+    call assert_equal(2, index(0z11111111, 0x11, -2))
+    call assert_equal(3, index(0z11110111, 0x11, -2))
+  
+!   call assert_fails('call index("asdf", 0)', 'E897:')
+  endfunc
+  
+  func Test_blob_insert()
+*** ../vim-8.1.0792/src/testdir/test_listdict.vim	2019-01-09 23:00:57.997176121 +0100
+--- src/testdir/test_listdict.vim	2019-01-22 22:13:51.091503363 +0100
+***************
+*** 139,145 ****
+    call assert_fails("call remove(l, 5)", 'E684:')
+    call assert_fails("call remove(l, 1, 5)", 'E684:')
+    call assert_fails("call remove(l, 3, 2)", 'E16:')
+!   call assert_fails("call remove(1, 0)", 'E712:')
+    call assert_fails("call remove(l, l)", 'E745:')
+  endfunc
+  
+--- 139,145 ----
+    call assert_fails("call remove(l, 5)", 'E684:')
+    call assert_fails("call remove(l, 1, 5)", 'E684:')
+    call assert_fails("call remove(l, 3, 2)", 'E16:')
+!   call assert_fails("call remove(1, 0)", 'E896:')
+    call assert_fails("call remove(l, l)", 'E745:')
+  endfunc
+  
+***************
+*** 596,601 ****
+--- 596,603 ----
+    call assert_equal(['bar', 'BAR', 'Bar', 'Foo', 'FOO', 'foo', 'FOOBAR', -1, 0, 0, 0.22, 1.0e-15, 12, 18, 22, 255, 7, 9, [], {}], sort(copy(l), 1))
+    call assert_equal(['bar', 'BAR', 'Bar', 'Foo', 'FOO', 'foo', 'FOOBAR', -1, 0, 0, 0.22, 1.0e-15, 12, 18, 22, 255, 7, 9, [], {}], sort(copy(l), 'i'))
+    call assert_equal(['BAR', 'Bar', 'FOO', 'FOOBAR', 'Foo', 'bar', 'foo', -1, 0, 0, 0.22, 1.0e-15, 12, 18, 22, 255, 7, 9, [], {}], sort(copy(l)))
++ 
++   call assert_fails('call reverse("")', 'E898:')
+  endfunc
+  
+  " splitting a string to a List
+*** ../vim-8.1.0792/src/version.c	2019-01-22 22:08:05.231676850 +0100
+--- src/version.c	2019-01-22 22:18:04.288396237 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     793,
+  /**/
+
+-- 
+Facepalm statement #1: "I'm going to New York tomorrow, hopefully I have time
+to visit the White House"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

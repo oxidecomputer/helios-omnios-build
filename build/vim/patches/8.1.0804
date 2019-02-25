@@ -1,0 +1,78 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0804
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0804
+Problem:    Crash when setting v:errmsg to empty list. (Jaon Franklin)
+Solution:   Separate getting value and assigning result.
+Files:	    src/eval.c, src/testdir/test_eval_stuff.vim
+
+
+*** ../vim-8.1.0803/src/eval.c	2019-01-24 12:31:40.756926525 +0100
+--- src/eval.c	2019-01-24 13:55:29.234651834 +0100
+***************
+*** 7892,7900 ****
+  	{
+  	    if (v->di_tv.v_type == VAR_STRING)
+  	    {
+! 		vim_free(v->di_tv.vval.v_string);
+  		if (copy || tv->v_type != VAR_STRING)
+! 		    v->di_tv.vval.v_string = vim_strsave(tv_get_string(tv));
+  		else
+  		{
+  		    /* Take over the string to avoid an extra alloc/free. */
+--- 7892,7907 ----
+  	{
+  	    if (v->di_tv.v_type == VAR_STRING)
+  	    {
+! 		VIM_CLEAR(v->di_tv.vval.v_string);
+  		if (copy || tv->v_type != VAR_STRING)
+! 		{
+! 		    char_u *val = tv_get_string(tv);
+! 
+! 		    // Careful: when assigning to v:errmsg and tv_get_string()
+! 		    // causes an error message the variable will alrady be set.
+! 		    if (v->di_tv.vval.v_string == NULL)
+! 			v->di_tv.vval.v_string = vim_strsave(val);
+! 		}
+  		else
+  		{
+  		    /* Take over the string to avoid an extra alloc/free. */
+*** ../vim-8.1.0803/src/testdir/test_eval_stuff.vim	2019-01-13 19:10:28.963419901 +0100
+--- src/testdir/test_eval_stuff.vim	2019-01-24 13:56:37.090182391 +0100
+***************
+*** 87,89 ****
+--- 87,96 ----
+    bwipe!
+    call delete('XReadfile')
+  endfunc
++ 
++ func Test_let_errmsg()
++   call assert_fails('let v:errmsg = []', 'E730:')
++   let v:errmsg = ''
++   call assert_fails('let v:errmsg = []', 'E730:')
++   let v:errmsg = ''
++ endfunc
+*** ../vim-8.1.0803/src/version.c	2019-01-24 13:34:37.819464518 +0100
+--- src/version.c	2019-01-24 13:47:30.569976005 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     804,
+  /**/
+
+-- 
+"My particular problem is with registry entries, which seem to just
+accumulate like plastic coffee cups..."           -- Paul Moore
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

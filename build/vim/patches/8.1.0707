@@ -1,0 +1,135 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0707
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0707
+Problem:    Text property columns are not adjusted for changed indent.
+Solution:   Adjust text properties.
+Files:	    src/misc1.c, src/testdir/test_textprop.vim
+
+
+*** ../vim-8.1.0706/src/misc1.c	2019-01-02 18:00:22.639279766 +0100
+--- src/misc1.c	2019-01-08 22:59:28.733218404 +0100
+***************
+*** 411,434 ****
+      }
+      mch_memmove(s, p, (size_t)line_len);
+  
+!     /* Replace the line (unless undo fails). */
+      if (!(flags & SIN_UNDO) || u_savesub(curwin->w_cursor.lnum) == OK)
+      {
+  	ml_replace(curwin->w_cursor.lnum, newline, FALSE);
+  	if (flags & SIN_CHANGED)
+  	    changed_bytes(curwin->w_cursor.lnum, 0);
+! 	/* Correct saved cursor position if it is in this line. */
+  	if (saved_cursor.lnum == curwin->w_cursor.lnum)
+  	{
+  	    if (saved_cursor.col >= (colnr_T)(p - oldline))
+! 		/* cursor was after the indent, adjust for the number of
+! 		 * bytes added/removed */
+  		saved_cursor.col += ind_len - (colnr_T)(p - oldline);
+  	    else if (saved_cursor.col >= (colnr_T)(s - newline))
+! 		/* cursor was in the indent, and is now after it, put it back
+! 		 * at the start of the indent (replacing spaces with TAB) */
+  		saved_cursor.col = (colnr_T)(s - newline);
+  	}
+  	retval = TRUE;
+      }
+      else
+--- 411,439 ----
+      }
+      mch_memmove(s, p, (size_t)line_len);
+  
+!     // Replace the line (unless undo fails).
+      if (!(flags & SIN_UNDO) || u_savesub(curwin->w_cursor.lnum) == OK)
+      {
+  	ml_replace(curwin->w_cursor.lnum, newline, FALSE);
+  	if (flags & SIN_CHANGED)
+  	    changed_bytes(curwin->w_cursor.lnum, 0);
+! 
+! 	// Correct saved cursor position if it is in this line.
+  	if (saved_cursor.lnum == curwin->w_cursor.lnum)
+  	{
+  	    if (saved_cursor.col >= (colnr_T)(p - oldline))
+! 		// cursor was after the indent, adjust for the number of
+! 		// bytes added/removed
+  		saved_cursor.col += ind_len - (colnr_T)(p - oldline);
+  	    else if (saved_cursor.col >= (colnr_T)(s - newline))
+! 		// cursor was in the indent, and is now after it, put it back
+! 		// at the start of the indent (replacing spaces with TAB)
+  		saved_cursor.col = (colnr_T)(s - newline);
+  	}
++ #ifdef FEAT_TEXT_PROP
++ 	adjust_prop_columns(curwin->w_cursor.lnum, (colnr_T)(p - oldline),
++ 					     ind_len - (colnr_T)(p - oldline));
++ #endif
+  	retval = TRUE;
+      }
+      else
+*** ../vim-8.1.0706/src/testdir/test_textprop.vim	2019-01-04 23:09:45.249360567 +0100
+--- src/testdir/test_textprop.vim	2019-01-08 23:03:16.283370904 +0100
+***************
+*** 342,347 ****
+--- 342,381 ----
+    bwipe!
+  endfunc
+  
++ func Test_prop_change_indent()
++   call prop_type_add('comment', {'highlight': 'Directory'})
++   new
++   call setline(1, ['    xxx', 'yyyyy'])
++   call prop_add(2, 2, {'length': 2, 'type': 'comment'})
++   let expect = {'col': 2, 'length': 2, 'type': 'comment', 'start': 1, 'end': 1, 'id': 0}
++   call assert_equal([expect], prop_list(2))
++ 
++   set shiftwidth=3
++   normal 2G>>
++   call assert_equal('   yyyyy', getline(2))
++   let expect.col += 3
++   call assert_equal([expect], prop_list(2))
++ 
++   normal 2G==
++   call assert_equal('    yyyyy', getline(2))
++   let expect.col = 6
++   call assert_equal([expect], prop_list(2))
++ 
++   call prop_clear(2)
++   call prop_add(2, 2, {'length': 5, 'type': 'comment'})
++   let expect.col = 2
++   let expect.length = 5
++   call assert_equal([expect], prop_list(2))
++ 
++   normal 2G<<
++   call assert_equal(' yyyyy', getline(2))
++   let expect.length = 2
++   call assert_equal([expect], prop_list(2))
++ 
++   set shiftwidth&
++   call prop_type_delete('comment')
++ endfunc
++ 
+  " Setup a three line prop in lines 2 - 4.
+  " Add short props in line 1 and 5.
+  func Setup_three_line_prop()
+*** ../vim-8.1.0706/src/version.c	2019-01-08 22:02:36.044297306 +0100
+--- src/version.c	2019-01-08 23:06:09.505967326 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     707,
+  /**/
+
+-- 
+Birthdays are healthy.  The more you have them, the longer you live.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

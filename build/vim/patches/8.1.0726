@@ -1,0 +1,294 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0726
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0726
+Problem:    Redrawing specifically for conceal feature.
+Solution:   Use generic redrawing methods.
+Files:	    src/edit.c, src/gui.c, src/main.c, src/normal.c, src/screen.c,
+            src/proto/screen.pro, src/window.c
+
+
+*** ../vim-8.1.0725/src/edit.c	2019-01-11 13:02:20.101567912 +0100
+--- src/edit.c	2019-01-11 20:18:13.240623579 +0100
+***************
+*** 1745,1767 ****
+      }
+  #endif
+  
+!     if (must_redraw)
+! 	update_screen(0);
+!     else if (clear_cmdline || redraw_cmdline)
+! 	showmode();		/* clear cmdline and show mode */
+! # if defined(FEAT_CONCEAL)
+      if ((conceal_update_lines
+  	    && (conceal_old_cursor_line != conceal_new_cursor_line
+  		|| conceal_cursor_line(curwin)))
+  	    || need_cursor_line_redraw)
+      {
+  	if (conceal_old_cursor_line != conceal_new_cursor_line)
+! 	    update_single_line(curwin, conceal_old_cursor_line);
+! 	update_single_line(curwin, conceal_new_cursor_line == 0
+! 		       ? curwin->w_cursor.lnum : conceal_new_cursor_line);
+  	curwin->w_valid &= ~VALID_CROW;
+      }
+! # endif
+      showruler(FALSE);
+      setcursor();
+      emsg_on_display = FALSE;	/* may remove error message now */
+--- 1745,1768 ----
+      }
+  #endif
+  
+! #if defined(FEAT_CONCEAL)
+      if ((conceal_update_lines
+  	    && (conceal_old_cursor_line != conceal_new_cursor_line
+  		|| conceal_cursor_line(curwin)))
+  	    || need_cursor_line_redraw)
+      {
+  	if (conceal_old_cursor_line != conceal_new_cursor_line)
+! 	    redrawWinline(curwin, conceal_old_cursor_line);
+! 	redrawWinline(curwin, conceal_new_cursor_line == 0
+! 			    ? curwin->w_cursor.lnum : conceal_new_cursor_line);
+  	curwin->w_valid &= ~VALID_CROW;
++ 	need_cursor_line_redraw = FALSE;
+      }
+! #endif
+!     if (must_redraw)
+! 	update_screen(0);
+!     else if (clear_cmdline || redraw_cmdline)
+! 	showmode();		/* clear cmdline and show mode */
+      showruler(FALSE);
+      setcursor();
+      emsg_on_display = FALSE;	/* may remove error message now */
+*** ../vim-8.1.0725/src/gui.c	2018-12-22 18:44:49.100612553 +0100
+--- src/gui.c	2019-01-11 20:17:32.756910113 +0100
+***************
+*** 5166,5173 ****
+  	last_cursormoved = curwin->w_cursor;
+      }
+  
+-     update_screen(0);	/* may need to update the screen */
+-     setcursor();
+  # ifdef FEAT_CONCEAL
+      if (conceal_update_lines
+  	    && (conceal_old_cursor_line != conceal_new_cursor_line
+--- 5166,5171 ----
+***************
+*** 5175,5185 ****
+  		|| need_cursor_line_redraw))
+      {
+  	if (conceal_old_cursor_line != conceal_new_cursor_line)
+! 	    update_single_line(curwin, conceal_old_cursor_line);
+! 	update_single_line(curwin, conceal_new_cursor_line);
+  	curwin->w_valid &= ~VALID_CROW;
+      }
+  # endif
+      out_flush_cursor(TRUE, FALSE);
+  }
+  #endif
+--- 5173,5186 ----
+  		|| need_cursor_line_redraw))
+      {
+  	if (conceal_old_cursor_line != conceal_new_cursor_line)
+! 	    redrawWinline(curwin, conceal_old_cursor_line);
+! 	redrawWinline(curwin, conceal_new_cursor_line);
+  	curwin->w_valid &= ~VALID_CROW;
++ 	need_cursor_line_redraw = FALSE;
+      }
+  # endif
++     update_screen(0);	/* may need to update the screen */
++     setcursor();
+      out_flush_cursor(TRUE, FALSE);
+  }
+  #endif
+*** ../vim-8.1.0725/src/main.c	2018-12-27 00:28:27.497299324 +0100
+--- src/main.c	2019-01-11 20:22:02.995005173 +0100
+***************
+*** 1194,1199 ****
+--- 1194,1215 ----
+  		last_cursormoved = curwin->w_cursor;
+  	    }
+  
++ #if defined(FEAT_CONCEAL)
++ 	    if (conceal_update_lines
++ 		    && (conceal_old_cursor_line != conceal_new_cursor_line
++ 			|| conceal_cursor_line(curwin)
++ 			|| need_cursor_line_redraw))
++ 	    {
++ 		if (conceal_old_cursor_line != conceal_new_cursor_line
++ 			&& conceal_old_cursor_line
++ 						<= curbuf->b_ml.ml_line_count)
++ 		    redrawWinline(curwin, conceal_old_cursor_line);
++ 		redrawWinline(curwin, conceal_new_cursor_line);
++ 		curwin->w_valid &= ~VALID_CROW;
++ 		need_cursor_line_redraw = FALSE;
++ 	    }
++ #endif
++ 
+  	    /* Trigger TextChanged if b:changedtick differs. */
+  	    if (!finish_op && has_textchanged()
+  		    && curbuf->b_last_changedtick != CHANGEDTICK(curbuf))
+***************
+*** 1288,1309 ****
+  	    may_clear_sb_text();	/* clear scroll-back text on next msg */
+  	    showruler(FALSE);
+  
+- #if defined(FEAT_CONCEAL)
+- 	    if (conceal_update_lines
+- 		    && (conceal_old_cursor_line != conceal_new_cursor_line
+- 			|| conceal_cursor_line(curwin)
+- 			|| need_cursor_line_redraw))
+- 	    {
+- 		mch_disable_flush();	/* Stop issuing gui_mch_flush(). */
+- 		if (conceal_old_cursor_line != conceal_new_cursor_line
+- 			&& conceal_old_cursor_line
+- 						<= curbuf->b_ml.ml_line_count)
+- 		    update_single_line(curwin, conceal_old_cursor_line);
+- 		update_single_line(curwin, conceal_new_cursor_line);
+- 		mch_enable_flush();
+- 		curwin->w_valid &= ~VALID_CROW;
+- 	    }
+- #endif
+  	    setcursor();
+  	    cursor_on();
+  
+--- 1304,1309 ----
+*** ../vim-8.1.0725/src/normal.c	2019-01-11 14:37:16.689248837 +0100
+--- src/normal.c	2019-01-11 20:22:27.958829978 +0100
+***************
+*** 8512,8518 ****
+  	{
+  #ifdef FEAT_CONCEAL
+  	    if (curwin->w_p_cole > 0 && oldline != curwin->w_cursor.lnum)
+! 		update_single_line(curwin, oldline);
+  #endif
+  	    /* When '#' is in 'cpoptions' ignore the count. */
+  	    if (vim_strchr(p_cpo, CPO_HASH) != NULL)
+--- 8512,8518 ----
+  	{
+  #ifdef FEAT_CONCEAL
+  	    if (curwin->w_p_cole > 0 && oldline != curwin->w_cursor.lnum)
+! 		redrawWinline(curwin, oldline);
+  #endif
+  	    /* When '#' is in 'cpoptions' ignore the count. */
+  	    if (vim_strchr(p_cpo, CPO_HASH) != NULL)
+*** ../vim-8.1.0725/src/screen.c	2019-01-09 21:47:26.356341693 +0100
+--- src/screen.c	2019-01-11 20:23:24.722432006 +0100
+***************
+*** 927,981 ****
+  	curs_columns(TRUE);
+      }
+  }
+- 
+-     void
+- update_single_line(win_T *wp, linenr_T lnum)
+- {
+-     int		row;
+-     int		j;
+- #ifdef SYN_TIME_LIMIT
+-     proftime_T	syntax_tm;
+- #endif
+- 
+-     /* Don't do anything if the screen structures are (not yet) valid. */
+-     if (!screen_valid(TRUE) || updating_screen)
+- 	return;
+- 
+-     if (lnum >= wp->w_topline && lnum < wp->w_botline
+- 				 && foldedCount(wp, lnum, &win_foldinfo) == 0)
+-     {
+- #ifdef SYN_TIME_LIMIT
+- 	/* Set the time limit to 'redrawtime'. */
+- 	profile_setlimit(p_rdt, &syntax_tm);
+- 	syn_set_timeout(&syntax_tm);
+- #endif
+- 	update_prepare();
+- 
+- 	row = 0;
+- 	for (j = 0; j < wp->w_lines_valid; ++j)
+- 	{
+- 	    if (lnum == wp->w_lines[j].wl_lnum)
+- 	    {
+- 		screen_start();	/* not sure of screen cursor */
+- # ifdef FEAT_SEARCH_EXTRA
+- 		init_search_hl(wp);
+- 		prepare_search_hl(wp, lnum);
+- # endif
+- 		win_line(wp, lnum, row, row + wp->w_lines[j].wl_size,
+- 								 FALSE, FALSE);
+- 		break;
+- 	    }
+- 	    row += wp->w_lines[j].wl_size;
+- 	}
+- 
+- 	update_finish();
+- 
+- #ifdef SYN_TIME_LIMIT
+- 	syn_set_timeout(NULL);
+- #endif
+-     }
+-     need_cursor_line_redraw = FALSE;
+- }
+  #endif
+  
+  #if defined(FEAT_SIGNS) || defined(PROTO)
+--- 927,932 ----
+*** ../vim-8.1.0725/src/proto/screen.pro	2019-01-09 21:47:26.356341693 +0100
+--- src/proto/screen.pro	2019-01-11 20:24:12.926094436 +0100
+***************
+*** 15,21 ****
+  int update_screen(int type_arg);
+  int conceal_cursor_line(win_T *wp);
+  void conceal_check_cursor_line(void);
+- void update_single_line(win_T *wp, linenr_T lnum);
+  void update_debug_sign(buf_T *buf, linenr_T lnum);
+  void updateWindow(win_T *wp);
+  int screen_get_current_line_off(void);
+--- 15,20 ----
+*** ../vim-8.1.0725/src/window.c	2019-01-06 17:25:23.876557968 +0100
+--- src/window.c	2019-01-11 20:24:06.470139628 +0100
+***************
+*** 4177,4185 ****
+      win_enter(wp, TRUE);
+  
+  #ifdef FEAT_CONCEAL
+!     /* Conceal cursor line in previous window, unconceal in current window. */
+      if (win_valid(owp) && owp->w_p_cole > 0 && !msg_scrolled)
+! 	update_single_line(owp, owp->w_cursor.lnum);
+      if (curwin->w_p_cole > 0 && !msg_scrolled)
+  	need_cursor_line_redraw = TRUE;
+  #endif
+--- 4177,4185 ----
+      win_enter(wp, TRUE);
+  
+  #ifdef FEAT_CONCEAL
+!     // Conceal cursor line in previous window, unconceal in current window.
+      if (win_valid(owp) && owp->w_p_cole > 0 && !msg_scrolled)
+! 	redrawWinline(owp, owp->w_cursor.lnum);
+      if (curwin->w_p_cole > 0 && !msg_scrolled)
+  	need_cursor_line_redraw = TRUE;
+  #endif
+*** ../vim-8.1.0725/src/version.c	2019-01-11 20:12:57.066876963 +0100
+--- src/version.c	2019-01-11 20:24:42.153889913 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     726,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+166. You have been on your computer soo long that you didn't realize
+     you had grandchildren.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

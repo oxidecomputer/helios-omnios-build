@@ -1,0 +1,163 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0767
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0767
+Problem:    When deleting lines at the bottom signs are misplaced.
+Solution:   Properly update the line number of signs at the end of a buffer
+            after a delete/undo operation. (Yegappan Lakshmanan, closes #3798)
+Files:	    src/sign.c, src/testdir/test_signs.vim
+
+
+*** ../vim-8.1.0766/src/sign.c	2019-01-15 20:19:36.747904404 +0100
+--- src/sign.c	2019-01-17 17:34:20.468494506 +0100
+***************
+*** 660,677 ****
+      long	amount_after)
+  {
+      signlist_T	*sign;		// a sign in a b_signlist
+  
+      FOR_ALL_SIGNS_IN_BUF(curbuf, sign)
+      {
+  	if (sign->lnum >= line1 && sign->lnum <= line2)
+  	{
+! 	    if (amount == MAXLNUM)
+! 		sign->lnum = line1;
+! 	    else
+! 		sign->lnum += amount;
+  	}
+  	else if (sign->lnum > line2)
+! 	    sign->lnum += amount_after;
+      }
+  }
+  
+--- 660,687 ----
+      long	amount_after)
+  {
+      signlist_T	*sign;		// a sign in a b_signlist
++     linenr_T	new_lnum;
+  
+      FOR_ALL_SIGNS_IN_BUF(curbuf, sign)
+      {
++ 	// Ignore changes to lines after the sign
++ 	if (sign->lnum < line1)
++ 	    continue;
++ 	new_lnum = sign->lnum;
+  	if (sign->lnum >= line1 && sign->lnum <= line2)
+  	{
+! 	    if (amount != MAXLNUM)
+! 		new_lnum += amount;
+  	}
+  	else if (sign->lnum > line2)
+! 	    // Lines inserted or deleted before the sign
+! 	    new_lnum += amount_after;
+! 
+! 	// If the new sign line number is past the last line in the buffer,
+! 	// then don't adjust the line number. Otherwise, it will always be past
+! 	// the last line and will not be visible.
+! 	if (new_lnum <= curbuf->b_ml.ml_line_count)
+! 	    sign->lnum = new_lnum;
+      }
+  }
+  
+*** ../vim-8.1.0766/src/testdir/test_signs.vim	2019-01-11 13:42:31.680331155 +0100
+--- src/testdir/test_signs.vim	2019-01-17 17:34:20.472494477 +0100
+***************
+*** 1202,1214 ****
+    enew! | only!
+  
+    sign define sign1 text=#> linehl=Comment
+!   call setline(1, ['A', 'B', 'C', 'D'])
+    exe 'sign place 5 line=3 name=sign1 buffer=' . bufnr('')
+    let l = sign_getplaced(bufnr(''))
+    call assert_equal(3, l[0].signs[0].lnum)
+  
+    " Add some lines before the sign and check the sign line number
+!   call append(2, ['AA', 'AB', 'AC'])
+    let l = sign_getplaced(bufnr(''))
+    call assert_equal(6, l[0].signs[0].lnum)
+  
+--- 1202,1214 ----
+    enew! | only!
+  
+    sign define sign1 text=#> linehl=Comment
+!   call setline(1, ['A', 'B', 'C', 'D', 'E'])
+    exe 'sign place 5 line=3 name=sign1 buffer=' . bufnr('')
+    let l = sign_getplaced(bufnr(''))
+    call assert_equal(3, l[0].signs[0].lnum)
+  
+    " Add some lines before the sign and check the sign line number
+!   call append(2, ['BA', 'BB', 'BC'])
+    let l = sign_getplaced(bufnr(''))
+    call assert_equal(6, l[0].signs[0].lnum)
+  
+***************
+*** 1217,1222 ****
+--- 1217,1260 ----
+    let l = sign_getplaced(bufnr(''))
+    call assert_equal(4, l[0].signs[0].lnum)
+  
++   " Insert some lines after the sign and check the sign line number
++   call append(5, ['DA', 'DB'])
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal(4, l[0].signs[0].lnum)
++ 
++   " Delete some lines after the sign and check the sign line number
++   call deletebufline('', 6, 7)
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal(4, l[0].signs[0].lnum)
++ 
++   " Break the undo. Otherwise the undo operation below will undo all the
++   " changes made by this function.
++   let &undolevels=&undolevels
++ 
++   " Delete the line with the sign
++   call deletebufline('', 4)
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal(4, l[0].signs[0].lnum)
++ 
++   " Undo the delete operation
++   undo
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal(5, l[0].signs[0].lnum)
++ 
++   " Break the undo
++   let &undolevels=&undolevels
++ 
++   " Delete few lines at the end of the buffer including the line with the sign
++   " Sign line number should not change (as it is placed outside of the buffer)
++   call deletebufline('', 3, 6)
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal(5, l[0].signs[0].lnum)
++ 
++   " Undo the delete operation. Sign should be restored to the previous line
++   undo
++   let l = sign_getplaced(bufnr(''))
++   call assert_equal(5, l[0].signs[0].lnum)
++ 
+    sign unplace * group=*
+    sign undefine sign1
+    enew!
+*** ../vim-8.1.0766/src/version.c	2019-01-17 17:13:25.924984061 +0100
+--- src/version.c	2019-01-17 17:32:46.589140279 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     767,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+240. You think Webster's Dictionary is a directory of WEB sites.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,197 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0765
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0765
+Problem:    String format of a Blob can't be parsed back.
+Solution:   Use 0z format.
+Files:	    src/blob.c, src/eval.c, src/testdir/test_blob.vim
+
+
+*** ../vim-8.1.0764/src/blob.c	2019-01-13 23:38:33.375773418 +0100
+--- src/blob.c	2019-01-17 16:25:08.460040233 +0100
+***************
+*** 168,174 ****
+  }
+  
+  /*
+!  * Convert a blob to a readable form: "[0x11,0x34]"
+   */
+      char_u *
+  blob2string(blob_T *blob, char_u **tofree, char_u *numbuf)
+--- 168,174 ----
+  }
+  
+  /*
+!  * Convert a blob to a readable form: "0z00112233.44556677.8899"
+   */
+      char_u *
+  blob2string(blob_T *blob, char_u **tofree, char_u *numbuf)
+***************
+*** 179,198 ****
+      if (blob == NULL)
+      {
+  	*tofree = NULL;
+! 	return (char_u *)"[]";
+      }
+  
+      // Store bytes in the growarray.
+      ga_init2(&ga, 1, 4000);
+!     ga_append(&ga, '[');
+      for (i = 0; i < blob_len(blob); i++)
+      {
+! 	if (i > 0)
+! 	    ga_concat(&ga, (char_u *)",");
+! 	vim_snprintf((char *)numbuf, NUMBUFLEN, "0x%02X", (int)blob_get(blob, i));
+  	ga_concat(&ga, numbuf);
+      }
+-     ga_append(&ga, ']');
+      *tofree = ga.ga_data;
+      return *tofree;
+  }
+--- 179,197 ----
+      if (blob == NULL)
+      {
+  	*tofree = NULL;
+! 	return (char_u *)"0z";
+      }
+  
+      // Store bytes in the growarray.
+      ga_init2(&ga, 1, 4000);
+!     ga_concat(&ga, (char_u *)"0z");
+      for (i = 0; i < blob_len(blob); i++)
+      {
+! 	if (i > 0 && (i & 3) == 0)
+! 	    ga_concat(&ga, (char_u *)".");
+! 	vim_snprintf((char *)numbuf, NUMBUFLEN, "%02X", (int)blob_get(blob, i));
+  	ga_concat(&ga, numbuf);
+      }
+      *tofree = ga.ga_data;
+      return *tofree;
+  }
+***************
+*** 207,230 ****
+      blob_T  *blob = blob_alloc();
+      char_u  *s = str;
+  
+!     if (*s != '[')
+  	goto failed;
+!     s = skipwhite(s + 1);
+!     while (*s != ']')
+      {
+! 	if (s[0] != '0' || s[1] != 'x'
+! 				 || !vim_isxdigit(s[2]) || !vim_isxdigit(s[3]))
+! 	    goto failed;
+! 	ga_append(&blob->bv_ga, (hex2nr(s[2]) << 4) + hex2nr(s[3]));
+! 	s += 4;
+! 	if (*s == ',')
+! 	    s = skipwhite(s + 1);
+! 	else if (*s != ']')
+  	    goto failed;
+      }
+!     s = skipwhite(s + 1);
+!     if (*s != NUL)
+! 	goto failed;  // text after final ']'
+  
+      ++blob->bv_refcount;
+      return blob;
+--- 206,225 ----
+      blob_T  *blob = blob_alloc();
+      char_u  *s = str;
+  
+!     if (s[0] != '0' || (s[1] != 'z' && s[1] != 'Z'))
+  	goto failed;
+!     s += 2;
+!     while (vim_isxdigit(*s))
+      {
+! 	if (!vim_isxdigit(s[1]))
+  	    goto failed;
++ 	ga_append(&blob->bv_ga, (hex2nr(s[0]) << 4) + hex2nr(s[1]));
++ 	s += 2;
++ 	if (*s == '.' && vim_isxdigit(s[1]))
++ 	    ++s;
+      }
+!     if (*skipwhite(s) != NUL)
+! 	goto failed;  // text after final digit
+  
+      ++blob->bv_refcount;
+      return blob;
+*** ../vim-8.1.0764/src/eval.c	2019-01-15 22:44:14.459222955 +0100
+--- src/eval.c	2019-01-17 16:23:31.744690466 +0100
+***************
+*** 4258,4263 ****
+--- 4258,4265 ----
+  			if (blob != NULL)
+  			    ga_append(&blob->bv_ga,
+  					 (hex2nr(*bp) << 4) + hex2nr(*(bp+1)));
++ 			if (bp[2] == '.' && vim_isxdigit(bp[3]))
++ 			    ++bp;
+  		    }
+  		    if (blob != NULL)
+  			rettv_blob_set(rettv, blob);
+*** ../vim-8.1.0764/src/testdir/test_blob.vim	2019-01-15 22:44:14.459222955 +0100
+--- src/testdir/test_blob.vim	2019-01-17 16:31:56.521616741 +0100
+***************
+*** 26,31 ****
+--- 26,37 ----
+    call assert_fails('let b = 0z12345', 'E973:')
+  
+    call assert_equal(0z, test_null_blob())
++ 
++   let b = 0z001122.33445566.778899.aabbcc.dd
++   call assert_equal(0z00112233445566778899aabbccdd, b)
++   call assert_fails('let b = 0z1.1')
++   call assert_fails('let b = 0z.')
++   call assert_fails('let b = 0z001122.')
+  endfunc
+  
+  " assignment to a blob
+***************
+*** 91,100 ****
+  endfunc
+  
+  func Test_blob_to_string()
+!   let b = 0zDEADBEEF
+!   call assert_equal('[0xDE,0xAD,0xBE,0xEF]', string(b))
+    call remove(b, 0, 3)
+!   call assert_equal('[]', string(b))
+  endfunc
+  
+  func Test_blob_compare()
+--- 97,109 ----
+  endfunc
+  
+  func Test_blob_to_string()
+!   let b = 0z00112233445566778899aabbccdd
+!   call assert_equal('0z00112233.44556677.8899AABB.CCDD', string(b))
+!   call assert_equal(b, eval(string(b)))
+!   call remove(b, 4, -1)
+!   call assert_equal('0z00112233', string(b))
+    call remove(b, 0, 3)
+!   call assert_equal('0z', string(b))
+  endfunc
+  
+  func Test_blob_compare()
+*** ../vim-8.1.0764/src/version.c	2019-01-17 16:11:02.297811975 +0100
+--- src/version.c	2019-01-17 16:12:47.509084110 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     765,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+237. You tattoo your email address on your forehead.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

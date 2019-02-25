@@ -1,0 +1,5176 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0810
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0810
+Problem:    Too many #ifdefs.
+Solution:   Graduate FEAT_MBYTE, part 4.
+Files:	    src/getchar.c, src/search.c, src/sign.c, src/spell.c,
+            src/spellfile.c, src/syntax.c, src/tag.c, src/term.c, src/ui.c,
+            src/version.c, src/winclip.c, src/window.c, src/glbl_ime.cpp,
+            src/ex_cmds.h, src/globals.h, src/gui.h, src/if_py_both.h,
+            src/macros.h, src/option.h, src/os_mac.h, src/os_win32.h,
+            src/proto.h, src/spell.h, src/structs.h, src/vim.h
+
+
+*** ../vim-8.1.0809/src/getchar.c	2019-01-20 15:30:36.885328746 +0100
+--- src/getchar.c	2019-01-24 16:51:24.391561224 +0100
+***************
+*** 291,304 ****
+      static void
+  add_char_buff(buffheader_T *buf, int c)
+  {
+- #ifdef FEAT_MBYTE
+      char_u	bytes[MB_MAXBYTES + 1];
+      int		len;
+      int		i;
+- #endif
+      char_u	temp[4];
+  
+- #ifdef FEAT_MBYTE
+      if (IS_SPECIAL(c))
+  	len = 1;
+      else
+--- 291,301 ----
+***************
+*** 307,313 ****
+      {
+  	if (!IS_SPECIAL(c))
+  	    c = bytes[i];
+- #endif
+  
+  	if (IS_SPECIAL(c) || c == K_SPECIAL || c == NUL)
+  	{
+--- 304,309 ----
+***************
+*** 333,341 ****
+  	    temp[1] = NUL;
+  	}
+  	add_buff(buf, temp, -1L);
+- #ifdef FEAT_MBYTE
+      }
+- #endif
+  }
+  
+  /* First read ahead buffer. Used for translated commands. */
+--- 329,335 ----
+***************
+*** 596,607 ****
+  	    break;
+  
+  	/* Handle a special or multibyte character. */
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    /* Handle composing chars separately. */
+  	    c = mb_cptr2char_adv(&s);
+  	else
+- #endif
+  	    c = *s++;
+  	if (c < ' ' || c == DEL || (*s == NUL && (c == '0' || c == '^')))
+  	    add_char_buff(&redobuff, Ctrl_V);
+--- 590,599 ----
+***************
+*** 686,696 ****
+  	}
+  	else
+  	{
+- #ifdef FEAT_MBYTE
+  	    c = mb_ptr2char_adv(&s);
+- #else
+- 	    c = *s++;
+- #endif
+  	    if (c == CAR || c == NL || c == ESC)
+  		c = ' ';
+  	    stuffcharReadbuff(c);
+--- 678,684 ----
+***************
+*** 732,742 ****
+      static buffblock_T	*bp;
+      static char_u	*p;
+      int			c;
+- #ifdef FEAT_MBYTE
+      int			n;
+      char_u		buf[MB_MAXBYTES + 1];
+      int			i;
+- #endif
+  
+      if (init)
+      {
+--- 720,728 ----
+***************
+*** 752,758 ****
+      if ((c = *p) != NUL)
+      {
+  	/* Reverse the conversion done by add_char_buff() */
+- #ifdef FEAT_MBYTE
+  	/* For a multi-byte character get all the bytes and return the
+  	 * converted character. */
+  	if (has_mbyte && (c != K_SPECIAL || p[1] == KS_SPECIAL))
+--- 738,743 ----
+***************
+*** 760,766 ****
+  	else
+  	    n = 1;
+  	for (i = 0; ; ++i)
+- #endif
+  	{
+  	    if (c == K_SPECIAL) /* special key or escaped K_SPECIAL */
+  	    {
+--- 745,750 ----
+***************
+*** 776,782 ****
+  		bp = bp->b_next;
+  		p = bp->b_str;
+  	    }
+- #ifdef FEAT_MBYTE
+  	    buf[i] = c;
+  	    if (i == n - 1)	/* last byte of a character */
+  	    {
+--- 760,765 ----
+***************
+*** 787,793 ****
+  	    c = *p;
+  	    if (c == NUL)	/* cannot happen? */
+  		break;
+- #endif
+  	}
+      }
+  
+--- 770,775 ----
+***************
+*** 1093,1103 ****
+      void
+  ins_char_typebuf(int c)
+  {
+- #ifdef FEAT_MBYTE
+      char_u	buf[MB_MAXBYTES + 1];
+- #else
+-     char_u	buf[4];
+- #endif
+      if (IS_SPECIAL(c))
+      {
+  	buf[0] = K_SPECIAL;
+--- 1075,1081 ----
+***************
+*** 1106,1119 ****
+  	buf[3] = NUL;
+      }
+      else
+-     {
+- #ifdef FEAT_MBYTE
+  	buf[(*mb_char2bytes)(c, buf)] = NUL;
+- #else
+- 	buf[0] = c;
+- 	buf[1] = NUL;
+- #endif
+-     }
+      (void)ins_typebuf(buf, KeyNoremap, 0, !KeyTyped, cmd_silent);
+  }
+  
+--- 1084,1090 ----
+***************
+*** 1579,1589 ****
+  vgetc(void)
+  {
+      int		c, c2;
+- #ifdef FEAT_MBYTE
+      int		n;
+      char_u	buf[MB_MAXBYTES + 1];
+      int		i;
+- #endif
+  
+  #ifdef FEAT_EVAL
+      /* Do garbage collection when garbagecollect() was called previously and
+--- 1550,1558 ----
+***************
+*** 1763,1769 ****
+  	    case K_XRIGHT:	c = K_RIGHT; break;
+  	}
+  
+- #ifdef FEAT_MBYTE
+  	/* For a multi-byte character get all the bytes and return the
+  	 * converted character.
+  	 * Note: This will loop until enough bytes are received!
+--- 1732,1737 ----
+***************
+*** 1794,1800 ****
+  	    --no_mapping;
+  	    c = (*mb_ptr2char)(buf);
+  	}
+- #endif
+  
+  	break;
+        }
+--- 1762,1767 ----
+***************
+*** 2212,2218 ****
+  					break;
+  				}
+  
+- #ifdef FEAT_MBYTE
+  				/* Don't allow mapping the first byte(s) of a
+  				 * multi-byte char.  Happens when mapping
+  				 * <M-a> and then changing 'encoding'. Beware
+--- 2183,2188 ----
+***************
+*** 2225,2231 ****
+  					  && MB_BYTE2LEN(c1) > MB_PTR2LEN(p2))
+  					mlen = 0;
+  				}
+- #endif
+  				/*
+  				 * Check an entry whether it matches.
+  				 * - Full match: mlen == keylen
+--- 2195,2200 ----
+***************
+*** 2685,2722 ****
+  					curwin->w_wcol = vcol;
+  				    vcol += lbr_chartabsize(ptr, ptr + col,
+  							       (colnr_T)vcol);
+- #ifdef FEAT_MBYTE
+  				    if (has_mbyte)
+  					col += (*mb_ptr2len)(ptr + col);
+  				    else
+- #endif
+  					++col;
+  				}
+  				curwin->w_wrow = curwin->w_cline_row
+  					   + curwin->w_wcol / curwin->w_width;
+  				curwin->w_wcol %= curwin->w_width;
+  				curwin->w_wcol += curwin_col_off();
+- #ifdef FEAT_MBYTE
+  				col = 0;	/* no correction needed */
+- #endif
+  			    }
+  			    else
+  			    {
+  				--curwin->w_wcol;
+- #ifdef FEAT_MBYTE
+  				col = curwin->w_cursor.col - 1;
+- #endif
+  			    }
+  			}
+  			else if (curwin->w_p_wrap && curwin->w_wrow)
+  			{
+  			    --curwin->w_wrow;
+  			    curwin->w_wcol = curwin->w_width - 1;
+- #ifdef FEAT_MBYTE
+  			    col = curwin->w_cursor.col - 1;
+- #endif
+  			}
+- #ifdef FEAT_MBYTE
+  			if (has_mbyte && col > 0 && curwin->w_wcol > 0)
+  			{
+  			    /* Correct when the cursor is on the right halve
+--- 2654,2682 ----
+***************
+*** 2726,2732 ****
+  			    if ((*mb_ptr2cells)(ptr + col) > 1)
+  				--curwin->w_wcol;
+  			}
+- #endif
+  		    }
+  		    setcursor();
+  		    out_flush();
+--- 2686,2691 ----
+***************
+*** 3434,3440 ****
+  	     * Otherwise we won't be able to find the start of it in a
+  	     * vi-compatible way.
+  	     */
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		int	first, last;
+--- 3394,3399 ----
+***************
+*** 3458,3466 ****
+  		    goto theend;
+  		}
+  	    }
+! 	    else
+! #endif
+! 		if (vim_iswordc(keys[len - 1]))	/* ends in keyword char */
+  		    for (n = 0; n < len - 2; ++n)
+  			if (vim_iswordc(keys[n]) != vim_iswordc(keys[len - 2]))
+  			{
+--- 3417,3423 ----
+  		    goto theend;
+  		}
+  	    }
+! 	    else if (vim_iswordc(keys[len - 1]))  // ends in keyword char
+  		    for (n = 0; n < len - 2; ++n)
+  			if (vim_iswordc(keys[n]) != vim_iswordc(keys[len - 2]))
+  			{
+***************
+*** 4458,4466 ****
+  #ifdef FEAT_LOCALMAP
+      mapblock_T	*mp2;
+  #endif
+- #ifdef FEAT_MBYTE
+      int		clen = 0;	/* length in characters */
+- #endif
+      int		is_id = TRUE;
+      int		vim_abbr;
+  
+--- 4415,4421 ----
+***************
+*** 4480,4486 ****
+      if (col == 0)				/* cannot be an abbr. */
+  	return FALSE;
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	char_u *p;
+--- 4435,4440 ----
+***************
+*** 4508,4514 ****
+  	scol = (int)(p - ptr);
+      }
+      else
+- #endif
+      {
+  	if (!vim_iswordc(ptr[col - 1]))
+  	    vim_abbr = TRUE;			/* Vim added abbr. */
+--- 4462,4467 ----
+***************
+*** 4601,4607 ****
+  		{
+  		    if (c < ABBR_OFF && (c < ' ' || c > '~'))
+  			tb[j++] = Ctrl_V;	/* special char needs CTRL-V */
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  		    {
+  			/* if ABBR_OFF has been added, remove it here */
+--- 4554,4559 ----
+***************
+*** 4610,4616 ****
+  			j += (*mb_char2bytes)(c, tb + j);
+  		    }
+  		    else
+- #endif
+  			tb[j++] = c;
+  		}
+  		tb[j] = NUL;
+--- 4562,4567 ----
+***************
+*** 4637,4646 ****
+  
+  	    tb[0] = Ctrl_H;
+  	    tb[1] = NUL;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		len = clen;	/* Delete characters instead of bytes */
+- #endif
+  	    while (len-- > 0)		/* delete the from string */
+  		(void)ins_typebuf(tb, 1, 0, TRUE, mp->m_silent);
+  	    return TRUE;
+--- 4588,4595 ----
+***************
+*** 4715,4727 ****
+      /* Need a buffer to hold up to three times as much.  Four in case of an
+       * illegal utf-8 byte:
+       * 0xc0 -> 0xc3 0x80 -> 0xc3 K_SPECIAL KS_SPECIAL KE_FILLER */
+!     res = alloc((unsigned)(STRLEN(p) *
+! #ifdef FEAT_MBYTE
+! 			4
+! #else
+! 			3
+! #endif
+! 			    ) + 1);
+      if (res != NULL)
+      {
+  	d = res;
+--- 4664,4670 ----
+      /* Need a buffer to hold up to three times as much.  Four in case of an
+       * illegal utf-8 byte:
+       * 0xc0 -> 0xc3 0x80 -> 0xc3 K_SPECIAL KS_SPECIAL KE_FILLER */
+!     res = alloc((unsigned)(STRLEN(p) * 4) + 1);
+      if (res != NULL)
+      {
+  	d = res;
+***************
+*** 5012,5018 ****
+  
+      for ( ; *str != NUL; ++str)
+      {
+- #ifdef FEAT_MBYTE
+  	char_u	*p;
+  
+  	/* Check for a multi-byte character, which may contain escaped
+--- 4955,4960 ----
+***************
+*** 5026,5032 ****
+  	    --str;
+  	    continue;
+  	}
+- #endif
+  
+  	c = *str;
+  	/*
+--- 4968,4973 ----
+*** ../vim-8.1.0809/src/search.c	2019-01-20 15:30:36.893328693 +0100
+--- src/search.c	2019-01-24 16:41:51.655543691 +0100
+***************
+*** 85,94 ****
+  static char_u lastc[2] = {NUL, NUL};	/* last character searched for */
+  static int lastcdir = FORWARD;		/* last direction of character search */
+  static int last_t_cmd = TRUE;		/* last search t_cmd */
+- #ifdef FEAT_MBYTE
+  static char_u	lastc_bytes[MB_MAXBYTES + 1];
+  static int	lastc_bytelen = 1;	/* >1 for multi-byte char */
+- #endif
+  
+  /* copy of spats[], for keeping the search patterns while executing autocmds */
+  static struct spat  saved_spats[2];
+--- 85,92 ----
+***************
+*** 248,254 ****
+  	rev_i = len;
+  	for (s_i = 0; s_i < len; ++s_i)
+  	{
+- # ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		int	mb_len;
+--- 246,251 ----
+***************
+*** 259,265 ****
+  		s_i += mb_len - 1;
+  	    }
+  	    else
+- # endif
+  		rev[--rev_i] = s[s_i];
+  
+  	}
+--- 256,261 ----
+***************
+*** 446,452 ****
+  
+      while (*p != NUL)
+      {
+- #ifdef FEAT_MBYTE
+  	int		l;
+  
+  	if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
+--- 442,447 ----
+***************
+*** 455,463 ****
+  		return TRUE;
+  	    p += l;
+  	}
+! 	else
+! #endif
+! 	     if (*p == '\\')
+  	{
+  	    if (p[1] == '_' && p[2] != NUL)  /* skip "\_X" */
+  		p += 3;
+--- 450,456 ----
+  		return TRUE;
+  	    p += l;
+  	}
+! 	else if (*p == '\\')
+  	{
+  	    if (p[1] == '_' && p[2] != NUL)  /* skip "\_X" */
+  		p += 3;
+***************
+*** 480,490 ****
+      char_u *
+  last_csearch(void)
+  {
+- #ifdef FEAT_MBYTE
+      return lastc_bytes;
+- #else
+-     return lastc;
+- #endif
+  }
+  
+      int
+--- 473,479 ----
+***************
+*** 503,515 ****
+  set_last_csearch(int c, char_u *s UNUSED, int len UNUSED)
+  {
+      *lastc = c;
+- #ifdef FEAT_MBYTE
+      lastc_bytelen = len;
+      if (len)
+  	memcpy(lastc_bytes, s, len);
+      else
+  	vim_memset(lastc_bytes, 0, sizeof(lastc_bytes));
+- #endif
+  }
+  #endif
+  
+--- 492,502 ----
+***************
+*** 687,693 ****
+  	 * MAXCOL + 1 is zero. */
+  	if (pos->col == MAXCOL)
+  	    start_char_len = 0;
+- #ifdef FEAT_MBYTE
+  	/* Watch out for the "col" being MAXCOL - 2, used in a closed fold. */
+  	else if (has_mbyte
+  		    && pos->lnum >= 1 && pos->lnum <= buf->b_ml.ml_line_count
+--- 674,679 ----
+***************
+*** 699,705 ****
+  	    else
+  		start_char_len = (*mb_ptr2len)(ptr + pos->col);
+  	}
+- #endif
+  	else
+  	    start_char_len = 1;
+  	if (dir == FORWARD)
+--- 685,690 ----
+***************
+*** 835,846 ****
+  				if (matchcol == matchpos.col
+  						      && ptr[matchcol] != NUL)
+  				{
+- #ifdef FEAT_MBYTE
+  				    if (has_mbyte)
+  					matchcol +=
+  					  (*mb_ptr2len)(ptr + matchcol);
+  				    else
+- #endif
+  					++matchcol;
+  				}
+  			    }
+--- 820,829 ----
+***************
+*** 849,860 ****
+  				matchcol = matchpos.col;
+  				if (ptr[matchcol] != NUL)
+  				{
+- #ifdef FEAT_MBYTE
+  				    if (has_mbyte)
+  					matchcol += (*mb_ptr2len)(ptr
+  								  + matchcol);
+  				    else
+- #endif
+  					++matchcol;
+  				}
+  			    }
+--- 832,841 ----
+***************
+*** 946,957 ****
+  				if (matchcol == matchpos.col
+  						      && ptr[matchcol] != NUL)
+  				{
+- #ifdef FEAT_MBYTE
+  				    if (has_mbyte)
+  					matchcol +=
+  					  (*mb_ptr2len)(ptr + matchcol);
+  				    else
+- #endif
+  					++matchcol;
+  				}
+  			    }
+--- 927,936 ----
+***************
+*** 963,974 ****
+  				matchcol = matchpos.col;
+  				if (ptr[matchcol] != NUL)
+  				{
+- #ifdef FEAT_MBYTE
+  				    if (has_mbyte)
+  					matchcol +=
+  					  (*mb_ptr2len)(ptr + matchcol);
+  				    else
+- #endif
+  					++matchcol;
+  				}
+  			    }
+--- 942,951 ----
+***************
+*** 1029,1042 ****
+  			else
+  			{
+  			    --pos->col;
+- #ifdef FEAT_MBYTE
+  			    if (has_mbyte
+  				    && pos->lnum <= buf->b_ml.ml_line_count)
+  			    {
+  				ptr = ml_get_buf(buf, pos->lnum, FALSE);
+  				pos->col -= (*mb_head_off)(ptr, ptr + pos->col);
+  			    }
+- #endif
+  			}
+  			if (end_pos != NULL)
+  			{
+--- 1006,1017 ----
+***************
+*** 1410,1416 ****
+  	    if (msgbuf != NULL)
+  	    {
+  		msgbuf[0] = dirc;
+- #ifdef FEAT_MBYTE
+  		if (enc_utf8 && utf_iscomposing(utf_ptr2char(p)))
+  		{
+  		    /* Use a space to draw the composing char on. */
+--- 1385,1390 ----
+***************
+*** 1418,1424 ****
+  		    STRCPY(msgbuf + 2, p);
+  		}
+  		else
+- #endif
+  		    STRCPY(msgbuf + 1, p);
+  		if (spats[0].off.line || spats[0].off.end || spats[0].off.off)
+  		{
+--- 1392,1397 ----
+***************
+*** 1711,1717 ****
+  	    *lastc = c;
+  	    set_csearch_direction(dir);
+  	    set_csearch_until(t_cmd);
+- #ifdef FEAT_MBYTE
+  	    lastc_bytelen = (*mb_char2bytes)(c, lastc_bytes);
+  	    if (cap->ncharC1 != 0)
+  	    {
+--- 1684,1689 ----
+***************
+*** 1721,1736 ****
+  		    lastc_bytelen += (*mb_char2bytes)(cap->ncharC2,
+  			    lastc_bytes + lastc_bytelen);
+  	    }
+- #endif
+  	}
+      }
+      else		/* repeat previous search */
+      {
+! 	if (*lastc == NUL
+! #ifdef FEAT_MBYTE
+! 		&& lastc_bytelen == 1
+! #endif
+! 		)
+  	    return FAIL;
+  	if (dir)	/* repeat in opposite direction */
+  	    dir = -lastcdir;
+--- 1693,1703 ----
+  		    lastc_bytelen += (*mb_char2bytes)(cap->ncharC2,
+  			    lastc_bytes + lastc_bytelen);
+  	    }
+  	}
+      }
+      else		/* repeat previous search */
+      {
+! 	if (*lastc == NUL && lastc_bytelen == 1)
+  	    return FAIL;
+  	if (dir)	/* repeat in opposite direction */
+  	    dir = -lastcdir;
+***************
+*** 1758,1764 ****
+  
+      while (count--)
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    for (;;)
+--- 1725,1730 ----
+***************
+*** 1787,1793 ****
+  	    }
+  	}
+  	else
+- #endif
+  	{
+  	    for (;;)
+  	    {
+--- 1753,1758 ----
+***************
+*** 1804,1810 ****
+      {
+  	/* backup to before the character (possibly double-byte) */
+  	col -= dir;
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    if (dir < 0)
+--- 1769,1774 ----
+***************
+*** 1814,1820 ****
+  		/* To previous char, which may be multi-byte. */
+  		col -= (*mb_head_off)(p, p + col);
+  	}
+- #endif
+      }
+      curwin->w_cursor.col = col;
+  
+--- 1778,1783 ----
+***************
+*** 1851,1860 ****
+      int		*prevcol)
+  {
+      --col;
+- #ifdef FEAT_MBYTE
+      if (col > 0 && has_mbyte)
+  	col -= (*mb_head_off)(linep, linep + col);
+- #endif
+      if (prevcol)
+  	*prevcol = col;
+      return (col >= 0 && linep[col] == ch) ? TRUE : FALSE;
+--- 1814,1821 ----
+***************
+*** 2237,2246 ****
+  	    else
+  	    {
+  		--pos.col;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    pos.col -= (*mb_head_off)(linep, linep + pos.col);
+- #endif
+  	    }
+  	}
+  	else				/* forward search */
+--- 2198,2205 ----
+***************
+*** 2278,2288 ****
+  	    }
+  	    else
+  	    {
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    pos.col += (*mb_ptr2len)(linep + pos.col);
+  		else
+- #endif
+  		    ++pos.col;
+  	    }
+  	}
+--- 2237,2245 ----
+***************
+*** 2934,2943 ****
+  	if ((curwin->w_cursor.col = (colnr_T)STRLEN(line)) != 0)
+  	{
+  	    --curwin->w_cursor.col;
+- #ifdef FEAT_MBYTE
+  	    curwin->w_cursor.col -=
+  			     (*mb_head_off)(line, line + curwin->w_cursor.col);
+- #endif
+  	    *pincl = TRUE;
+  	}
+      }
+--- 2891,2898 ----
+***************
+*** 3029,3035 ****
+  #endif
+      if (c == ' ' || c == '\t' || c == NUL)
+  	return 0;
+- #ifdef FEAT_MBYTE
+      if (enc_dbcs != 0 && c > 0xFF)
+      {
+  	/* If cls_bigword, report multi-byte chars as class 1. */
+--- 2984,2989 ----
+***************
+*** 3046,3052 ****
+  	    return 1;
+  	return c;
+      }
+- #endif
+  
+      /* If cls_bigword is TRUE, report all non-blanks as class 1. */
+      if (cls_bigword)
+--- 3000,3005 ----
+***************
+*** 3903,3909 ****
+      int		lc = NUL;
+      pos_T	pos;
+  
+- #ifdef FEAT_MBYTE
+      if (enc_dbcs)
+      {
+  	char_u	*lp = NULL;
+--- 3856,3861 ----
+***************
+*** 3924,3930 ****
+  	}
+      }
+      else
+- #endif
+      {
+  	for (p = line + curwin->w_cursor.col; p > line; )
+  	{
+--- 3876,3881 ----
+***************
+*** 4371,4381 ****
+  	    ++col;
+  	else if (c == quotechar)
+  	    break;
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    col += (*mb_ptr2len)(line + col);
+  	else
+- #endif
+  	    ++col;
+      }
+      return col;
+--- 4322,4330 ----
+***************
+*** 4399,4407 ****
+      while (col_start > 0)
+      {
+  	--col_start;
+- #ifdef FEAT_MBYTE
+  	col_start -= (*mb_head_off)(line, line + col_start);
+- #endif
+  	n = 0;
+  	if (escape != NULL)
+  	    while (col_start - n > 0 && vim_strchr(escape,
+--- 4348,4354 ----
+*** ../vim-8.1.0809/src/sign.c	2019-01-19 17:43:03.425449092 +0100
+--- src/sign.c	2019-01-24 16:42:16.007379451 +0100
+***************
+*** 820,826 ****
+  	}
+  
+      // Count cells and check for non-printable chars
+- # ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	cells = 0;
+--- 820,825 ----
+***************
+*** 832,838 ****
+  	}
+      }
+      else
+- # endif
+      {
+  	for (s = text; s < endp; ++s)
+  	    if (!vim_isprintc(*s))
+--- 831,836 ----
+*** ../vim-8.1.0809/src/spell.c	2019-01-19 17:43:03.429449066 +0100
+--- src/spell.c	2019-01-24 16:46:46.505554025 +0100
+***************
+*** 224,235 ****
+  					   affixID/condition */
+      int		mi_prefcnt;		/* number of entries at mi_prefarridx */
+      int		mi_prefixlen;		/* byte length of prefix */
+- #ifdef FEAT_MBYTE
+      int		mi_cprefixlen;		/* byte length of prefix in original
+  					   case */
+- #else
+- # define mi_cprefixlen mi_prefixlen	/* it's the same value */
+- #endif
+  
+      /* for when checking a compound word */
+      int		mi_compoff;		/* start of following word offset */
+--- 224,231 ----
+***************
+*** 249,257 ****
+  
+  
+  static int spell_iswordp(char_u *p, win_T *wp);
+- #ifdef FEAT_MBYTE
+  static int spell_mb_isword_class(int cl, win_T *wp);
+- #endif
+  
+  /*
+   * For finding suggestions: At each node in the tree these states are tried:
+--- 245,251 ----
+***************
+*** 295,306 ****
+      char_u	ts_prefixdepth;	/* stack depth for end of prefix or
+  				 * PFD_PREFIXTREE or PFD_NOPREFIX */
+      char_u	ts_flags;	/* TSF_ flags */
+- #ifdef FEAT_MBYTE
+      char_u	ts_tcharlen;	/* number of bytes in tword character */
+      char_u	ts_tcharidx;	/* current byte index in tword character */
+      char_u	ts_isdiff;	/* DIFF_ values */
+      char_u	ts_fcharstart;	/* index in fword where badword char started */
+- #endif
+      char_u	ts_prewordlen;	/* length of word in "preword[]" */
+      char_u	ts_splitoff;	/* index in "tword" after last split */
+      char_u	ts_splitfidx;	/* "ts_fidx" at word split */
+--- 289,298 ----
+***************
+*** 358,366 ****
+  static void suggest_try_change(suginfo_T *su);
+  static void suggest_trie_walk(suginfo_T *su, langp_T *lp, char_u *fword, int soundfold);
+  static void go_deeper(trystate_T *stack, int depth, int score_add);
+- #ifdef FEAT_MBYTE
+  static int nofold_len(char_u *fword, int flen, char_u *word);
+- #endif
+  static void find_keepcap_word(slang_T *slang, char_u *fword, char_u *kword);
+  static void score_comp_sal(suginfo_T *su);
+  static void score_combine(suginfo_T *su);
+--- 350,356 ----
+***************
+*** 380,394 ****
+  static int cleanup_suggestions(garray_T *gap, int maxscore, int keep);
+  static void spell_soundfold_sofo(slang_T *slang, char_u *inword, char_u *res);
+  static void spell_soundfold_sal(slang_T *slang, char_u *inword, char_u *res);
+- #ifdef FEAT_MBYTE
+  static void spell_soundfold_wsal(slang_T *slang, char_u *inword, char_u *res);
+- #endif
+  static int soundalike_score(char_u *goodsound, char_u *badsound);
+  static int spell_edit_score(slang_T *slang, char_u *badword, char_u *goodword);
+  static int spell_edit_score_limit(slang_T *slang, char_u *badword, char_u *goodword, int limit);
+- #ifdef FEAT_MBYTE
+  static int spell_edit_score_limit_w(slang_T *slang, char_u *badword, char_u *goodword, int limit);
+- #endif
+  static void dump_word(slang_T *slang, char_u *word, char_u *pat, int *dir, int round, int flags, linenr_T lnum);
+  static linenr_T dump_prefixes(slang_T *slang, char_u *word, char_u *pat, int *dir, int round, int flags, linenr_T startlnum);
+  
+--- 370,380 ----
+***************
+*** 565,574 ****
+  		    *capcol = (int)(regmatch.endp[0] - ptr);
+  	    }
+  
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		return (*mb_ptr2len)(ptr);
+- #endif
+  	    return 1;
+  	}
+  	else if (mi.mi_end == ptr)
+--- 551,558 ----
+***************
+*** 646,654 ****
+      int		c;
+      char_u	*ptr;
+      idx_T	lo, hi, m;
+- #ifdef FEAT_MBYTE
+      char_u	*s;
+- #endif
+      char_u	*p;
+      int		res = SP_BAD;
+      slang_T	*slang = mip->mi_lp->lp_slang;
+--- 630,636 ----
+***************
+*** 794,803 ****
+  	arridx = endidx[endidxcnt];
+  	wlen = endlen[endidxcnt];
+  
+- #ifdef FEAT_MBYTE
+  	if ((*mb_head_off)(ptr, ptr + wlen) > 0)
+  	    continue;	    /* not at first byte of character */
+- #endif
+  	if (spell_iswordp(ptr + wlen, mip->mi_win))
+  	{
+  	    if (slang->sl_compprog == NULL && !slang->sl_nobreak)
+--- 776,783 ----
+***************
+*** 810,816 ****
+  	 * has been found we try compound flags. */
+  	prefix_found = FALSE;
+  
+- #ifdef FEAT_MBYTE
+  	if (mode != FIND_KEEPWORD && has_mbyte)
+  	{
+  	    /* Compute byte length in original word, length may change
+--- 790,795 ----
+***************
+*** 824,830 ****
+  		wlen = (int)(p - mip->mi_word);
+  	    }
+  	}
+- #endif
+  
+  	/* Check flags and region.  For FIND_PREFIX check the condition and
+  	 * prefix ID.
+--- 803,808 ----
+***************
+*** 896,902 ****
+  		if (((unsigned)flags >> 24) == 0
+  			     || wlen - mip->mi_compoff < slang->sl_compminlen)
+  		    continue;
+- #ifdef FEAT_MBYTE
+  		/* For multi-byte chars check character length against
+  		 * COMPOUNDMIN. */
+  		if (has_mbyte
+--- 874,879 ----
+***************
+*** 904,910 ****
+  			&& mb_charlen_len(mip->mi_word + mip->mi_compoff,
+  				wlen - mip->mi_compoff) < slang->sl_compminlen)
+  			continue;
+- #endif
+  
+  		/* Limit the number of compound words to COMPOUNDWORDMAX if no
+  		 * maximum for syllables is specified. */
+--- 881,886 ----
+***************
+*** 938,944 ****
+  
+  		    /* Need to check the caps type of the appended compound
+  		     * word. */
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte && STRNCMP(ptr, mip->mi_word,
+  							mip->mi_compoff) != 0)
+  		    {
+--- 914,919 ----
+***************
+*** 948,954 ****
+  			    MB_PTR_ADV(p);
+  		    }
+  		    else
+- #endif
+  			p = mip->mi_word + mip->mi_compoff;
+  		    capflags = captype(p, mip->mi_word + wlen);
+  		    if (capflags == WF_KEEPCAP || (capflags == WF_ALLCAP
+--- 923,928 ----
+***************
+*** 1020,1026 ****
+  
+  		/* Find following word in case-folded tree. */
+  		mip->mi_compoff = endlen[endidxcnt];
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte && mode == FIND_KEEPWORD)
+  		{
+  		    /* Compute byte length in case-folded word from "wlen":
+--- 994,999 ----
+***************
+*** 1035,1041 ****
+  			mip->mi_compoff = (int)(p - mip->mi_fword);
+  		    }
+  		}
+- #endif
+  #if 0 /* Disabled, see below */
+  		c = mip->mi_compoff;
+  #endif
+--- 1008,1013 ----
+***************
+*** 1186,1200 ****
+      static int
+  can_compound(slang_T *slang, char_u *word, char_u *flags)
+  {
+- #ifdef FEAT_MBYTE
+      char_u	uflags[MAXWLEN * 2];
+      int		i;
+- #endif
+      char_u	*p;
+  
+      if (slang->sl_compprog == NULL)
+  	return FALSE;
+- #ifdef FEAT_MBYTE
+      if (enc_utf8)
+      {
+  	/* Need to convert the single byte flags to utf8 characters. */
+--- 1158,1169 ----
+***************
+*** 1205,1211 ****
+  	p = uflags;
+      }
+      else
+- #endif
+  	p = flags;
+      if (!vim_regexec_prog(&slang->sl_compprog, FALSE, p, 0))
+  	return FALSE;
+--- 1174,1179 ----
+***************
+*** 1434,1440 ****
+  		/* Skip over the previously found word(s). */
+  		mip->mi_prefixlen += mip->mi_compoff;
+  
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		/* Case-folded length may differ from original length. */
+--- 1402,1407 ----
+***************
+*** 1443,1449 ****
+  	    }
+  	    else
+  		mip->mi_cprefixlen = mip->mi_prefixlen;
+- #endif
+  	    find_word(mip, FIND_PREFIX);
+  
+  
+--- 1410,1415 ----
+***************
+*** 1912,1921 ****
+  spell_enc(void)
+  {
+  
+- #ifdef FEAT_MBYTE
+      if (STRLEN(p_enc) < 60 && STRCMP(p_enc, "iso-8859-15") != 0)
+  	return p_enc;
+- #endif
+      return (char_u *)"latin1";
+  }
+  
+--- 1878,1885 ----
+***************
+*** 2015,2025 ****
+  	    vim_free(smp->sm_lead);
+  	    /* Don't free sm_oneof and sm_rules, they point into sm_lead. */
+  	    vim_free(smp->sm_to);
+- #ifdef FEAT_MBYTE
+  	    vim_free(smp->sm_lead_w);
+  	    vim_free(smp->sm_oneof_w);
+  	    vim_free(smp->sm_to_w);
+- #endif
+  	}
+      ga_clear(gap);
+  
+--- 1979,1987 ----
+***************
+*** 2046,2054 ****
+      hash_clear_all(&lp->sl_wordcount, WC_KEY_OFF);
+      hash_init(&lp->sl_wordcount);
+  
+- #ifdef FEAT_MBYTE
+      hash_clear_all(&lp->sl_map_hash, 0);
+- #endif
+  
+      /* Clear info from .sug file. */
+      slang_clear_sug(lp);
+--- 2008,2014 ----
+***************
+*** 2284,2296 ****
+  	else
+  	{
+  	    /* No recognized syllable item, at least a syllable char then? */
+- #ifdef FEAT_MBYTE
+  	    c = mb_ptr2char(p);
+  	    len = (*mb_ptr2len)(p);
+- #else
+- 	    c = *p;
+- 	    len = 1;
+- #endif
+  	    if (vim_strchr(slang->sl_syllable, c) == NULL)
+  		skip = FALSE;	    /* No, search for next syllable */
+  	    else if (!skip)
+--- 2244,2251 ----
+***************
+*** 2352,2360 ****
+      if (spl_copy == NULL)
+  	goto theend;
+  
+- #ifdef FEAT_MBYTE
+      wp->w_s->b_cjk = 0;
+- #endif
+  
+      /* Loop over comma separated language names. */
+      for (splp = spl_copy; *splp != NUL; )
+--- 2307,2313 ----
+***************
+*** 2366,2374 ****
+  
+  	if (STRCMP(lang, "cjk") == 0)
+  	{
+- #ifdef FEAT_MBYTE
+  	    wp->w_s->b_cjk = 1;
+- #endif
+  	    continue;
+  	}
+  
+--- 2319,2325 ----
+***************
+*** 2633,2641 ****
+  clear_midword(win_T *wp)
+  {
+      vim_memset(wp->w_s->b_spell_ismw, 0, 256);
+- #ifdef FEAT_MBYTE
+      VIM_CLEAR(wp->w_s->b_spell_ismw_mb);
+- #endif
+  }
+  
+  /*
+--- 2584,2590 ----
+***************
+*** 2651,2657 ****
+  	return;
+  
+      for (p = lp->sl_midword; *p != NUL; )
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    int	    c, l, n;
+--- 2600,2605 ----
+***************
+*** 2679,2685 ****
+  	    p += l;
+  	}
+  	else
+- #endif
+  	    wp->w_s->b_spell_ismw[*p++] = TRUE;
+  }
+  
+--- 2627,2632 ----
+***************
+*** 2725,2735 ****
+      for (p = word; !spell_iswordp_nmw(p, curwin); MB_PTR_ADV(p))
+  	if (end == NULL ? *p == NUL : p >= end)
+  	    return 0;	    /* only non-word characters, illegal word */
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+  	c = mb_ptr2char_adv(&p);
+      else
+- #endif
+  	c = *p++;
+      firstcap = allcap = SPELL_ISUPPER(c);
+  
+--- 2672,2680 ----
+***************
+*** 2825,2831 ****
+      }
+  }
+  
+- #if defined(FEAT_MBYTE) || defined(EXITFREE) || defined(PROTO)
+  /*
+   * Free all languages.
+   */
+--- 2770,2775 ----
+***************
+*** 2851,2859 ****
+      VIM_CLEAR(repl_to);
+      VIM_CLEAR(repl_from);
+  }
+- #endif
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Clear all spelling tables and reload them.
+   * Used after 'encoding' is set and when ":mkspell" was used.
+--- 2795,2801 ----
+***************
+*** 2884,2890 ****
+  	}
+      }
+  }
+- #endif
+  
+  /*
+   * Opposite of offset2bytes().
+--- 2826,2831 ----
+***************
+*** 3016,3022 ****
+  
+      did_set_spelltab = FALSE;
+      clear_spell_chartab(&spelltab);
+- #ifdef FEAT_MBYTE
+      if (enc_dbcs)
+      {
+  	/* DBCS: assume double-wide characters are word characters. */
+--- 2957,2962 ----
+***************
+*** 3041,3047 ****
+  	}
+      }
+      else
+- #endif
+      {
+  	/* Rough guess: use locale-dependent library functions. */
+  	for (i = 128; i < 256; ++i)
+--- 2981,2986 ----
+***************
+*** 3073,3079 ****
+      char_u	*p,
+      win_T	*wp)	    /* buffer used */
+  {
+- #ifdef FEAT_MBYTE
+      char_u	*s;
+      int		l;
+      int		c;
+--- 3012,3017 ----
+***************
+*** 3102,3108 ****
+  	    return spell_mb_isword_class(mb_get_class(s), wp);
+  	return spelltab.st_isw[c];
+      }
+- #endif
+  
+      return spelltab.st_isw[wp->w_s->b_spell_ismw[*p] ? p[1] : p[0]];
+  }
+--- 3040,3045 ----
+***************
+*** 3114,3120 ****
+      int
+  spell_iswordp_nmw(char_u *p, win_T *wp)
+  {
+- #ifdef FEAT_MBYTE
+      int		c;
+  
+      if (has_mbyte)
+--- 3051,3056 ----
+***************
+*** 3124,3134 ****
+  	    return spell_mb_isword_class(mb_get_class(p), wp);
+  	return spelltab.st_isw[c];
+      }
+- #endif
+      return spelltab.st_isw[*p];
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Return TRUE if word class indicates a word character.
+   * Only for characters above 255.
+--- 3060,3068 ----
+***************
+*** 3171,3177 ****
+      }
+      return spelltab.st_isw[*s];
+  }
+- #endif
+  
+  /*
+   * Case-fold "str[len]" into "buf[buflen]".  The result is NUL terminated.
+--- 3105,3110 ----
+***************
+*** 3194,3200 ****
+  	return FAIL;		/* result will not fit */
+      }
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	int	outi = 0;
+--- 3127,3132 ----
+***************
+*** 3215,3221 ****
+  	buf[outi] = NUL;
+      }
+      else
+- #endif
+      {
+  	/* Be quick for non-multibyte encodings. */
+  	for (i = 0; i < len; ++i)
+--- 3147,3152 ----
+***************
+*** 4072,4092 ****
+      int		l;
+  
+      p = word;
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+  	c = mb_cptr2char_adv(&p);
+      else
+- #endif
+  	c = *p++;
+      if (upper)
+  	c = SPELL_TOUPPER(c);
+      else
+  	c = SPELL_TOFOLD(c);
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+  	l = mb_char2bytes(c, wcopy);
+      else
+- #endif
+      {
+  	l = 1;
+  	wcopy[0] = c;
+--- 4003,4019 ----
+***************
+*** 4108,4121 ****
+      d = wcopy;
+      for (s = word; *s != NUL; )
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    c = mb_cptr2char_adv(&s);
+  	else
+- #endif
+  	    c = *s++;
+  
+- #ifdef FEAT_MBYTE
+  	/* We only change 0xdf to SS when we are certain latin1 is used.  It
+  	 * would cause weird errors in other 8-bit encodings. */
+  	if (enc_latin1like && c == 0xdf)
+--- 4035,4045 ----
+***************
+*** 4126,4135 ****
+  	    *d++ = c;
+  	}
+  	else
+- #endif
+  	    c = SPELL_TOUPPER(c);
+  
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    if (d - wcopy >= MAXWLEN - MB_MAXBYTES)
+--- 4050,4057 ----
+***************
+*** 4137,4143 ****
+  	    d += mb_char2bytes(c, d);
+  	}
+  	else
+- #endif
+  	{
+  	    if (d - wcopy >= MAXWLEN - 1)
+  		break;
+--- 4059,4064 ----
+***************
+*** 4434,4444 ****
+  		{
+  		    /* Set su->su_badflags to the caps type at this position.
+  		     * Use the caps type until here for the prefix itself. */
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  			n = nofold_len(fword, sp->ts_fidx, su->su_badptr);
+  		    else
+- #endif
+  			n = sp->ts_fidx;
+  		    flags = badword_captype(su->su_badptr, su->su_badptr + n);
+  		    su->su_badflags = badword_captype(su->su_badptr + n,
+--- 4355,4363 ----
+***************
+*** 4568,4574 ****
+  			    || sp->ts_twordlen - sp->ts_splitoff
+  						       < slang->sl_compminlen)
+  			break;
+- #ifdef FEAT_MBYTE
+  		    /* For multi-byte chars check character length against
+  		     * COMPOUNDMIN. */
+  		    if (has_mbyte
+--- 4487,4492 ----
+***************
+*** 4576,4582 ****
+  			    && mb_charlen(tword + sp->ts_splitoff)
+  						       < slang->sl_compminlen)
+  			break;
+- #endif
+  
+  		    compflags[sp->ts_complen] = ((unsigned)flags >> 24);
+  		    compflags[sp->ts_complen + 1] = NUL;
+--- 4494,4499 ----
+***************
+*** 4625,4636 ****
+  		 * allcap and it's only one char long use onecap. */
+  		c = su->su_badflags;
+  		if ((c & WF_ALLCAP)
+! #ifdef FEAT_MBYTE
+! 			&& su->su_badlen == (*mb_ptr2len)(su->su_badptr)
+! #else
+! 			&& su->su_badlen == 1
+! #endif
+! 			)
+  		    c = WF_ONECAP;
+  		c |= flags;
+  
+--- 4542,4548 ----
+  		 * allcap and it's only one char long use onecap. */
+  		c = su->su_badflags;
+  		if ((c & WF_ALLCAP)
+! 			&& su->su_badlen == (*mb_ptr2len)(su->su_badptr))
+  		    c = WF_ONECAP;
+  		c |= flags;
+  
+***************
+*** 4752,4762 ****
+  	     * Try word split and/or compounding.
+  	     */
+  	    if ((sp->ts_fidx >= sp->ts_fidxtry || fword_ends)
+- #ifdef FEAT_MBYTE
+  		    /* Don't split halfway a character. */
+! 		    && (!has_mbyte || sp->ts_tcharlen == 0)
+! #endif
+! 		    )
+  	    {
+  		int	try_compound;
+  		int	try_split;
+--- 4664,4671 ----
+  	     * Try word split and/or compounding.
+  	     */
+  	    if ((sp->ts_fidx >= sp->ts_fidxtry || fword_ends)
+  		    /* Don't split halfway a character. */
+! 		    && (!has_mbyte || sp->ts_tcharlen == 0))
+  	    {
+  		int	try_compound;
+  		int	try_split;
+***************
+*** 4789,4800 ****
+  			&& ((unsigned)flags >> 24) != 0
+  			&& sp->ts_twordlen - sp->ts_splitoff
+  						       >= slang->sl_compminlen
+- #ifdef FEAT_MBYTE
+  			&& (!has_mbyte
+  			    || slang->sl_compminlen == 0
+  			    || mb_charlen(tword + sp->ts_splitoff)
+  						      >= slang->sl_compminlen)
+- #endif
+  			&& (slang->sl_compsylmax < MAXWLEN
+  			    || sp->ts_complen + 1 - sp->ts_compsplit
+  							  < slang->sl_compmax)
+--- 4698,4707 ----
+***************
+*** 4921,4931 ****
+  
+  			/* set su->su_badflags to the caps type at this
+  			 * position */
+- #ifdef FEAT_MBYTE
+  			if (has_mbyte)
+  			    n = nofold_len(fword, sp->ts_fidx, su->su_badptr);
+  			else
+- #endif
+  			    n = sp->ts_fidx;
+  			su->su_badflags = badword_captype(su->su_badptr + n,
+  					       su->su_badptr + su->su_badlen);
+--- 4828,4836 ----
+***************
+*** 4963,4973 ****
+  	case STATE_ENDNUL:
+  	    /* Past the NUL bytes in the node. */
+  	    su->su_badflags = sp->ts_save_badflags;
+! 	    if (fword[sp->ts_fidx] == NUL
+! #ifdef FEAT_MBYTE
+! 		    && sp->ts_tcharlen == 0
+! #endif
+! 	       )
+  	    {
+  		/* The badword ends, can't use STATE_PLAIN. */
+  		PROF_STORE(sp->ts_state)
+--- 4868,4874 ----
+  	case STATE_ENDNUL:
+  	    /* Past the NUL bytes in the node. */
+  	    su->su_badflags = sp->ts_save_badflags;
+! 	    if (fword[sp->ts_fidx] == NUL && sp->ts_tcharlen == 0)
+  	    {
+  		/* The badword ends, can't use STATE_PLAIN. */
+  		PROF_STORE(sp->ts_state)
+***************
+*** 5005,5014 ****
+  		 * just deleted this byte, accepting it is always cheaper than
+  		 * delete + substitute. */
+  		if (c == fword[sp->ts_fidx]
+! #ifdef FEAT_MBYTE
+! 			|| (sp->ts_tcharlen > 0 && sp->ts_isdiff != DIFF_NONE)
+! #endif
+! 			)
+  		    newscore = 0;
+  		else
+  		    newscore = SCORE_SUBST;
+--- 4906,4912 ----
+  		 * just deleted this byte, accepting it is always cheaper than
+  		 * delete + substitute. */
+  		if (c == fword[sp->ts_fidx]
+! 			|| (sp->ts_tcharlen > 0 && sp->ts_isdiff != DIFF_NONE))
+  		    newscore = 0;
+  		else
+  		    newscore = SCORE_SUBST;
+***************
+*** 5034,5040 ****
+  		    ++sp->ts_fidx;
+  		    tword[sp->ts_twordlen++] = c;
+  		    sp->ts_arridx = idxs[arridx];
+- #ifdef FEAT_MBYTE
+  		    if (newscore == SCORE_SUBST)
+  			sp->ts_isdiff = DIFF_YES;
+  		    if (has_mbyte)
+--- 4932,4937 ----
+***************
+*** 5122,5128 ****
+  			}
+  		    }
+  		    else
+- #endif
+  		    {
+  			/* If we found a similar char adjust the score.
+  			 * We do this after calling go_deeper() because
+--- 5019,5024 ----
+***************
+*** 5139,5145 ****
+  	    break;
+  
+  	case STATE_DEL:
+- #ifdef FEAT_MBYTE
+  	    /* When past the first byte of a multi-byte char don't try
+  	     * delete/insert/swap a character. */
+  	    if (has_mbyte && sp->ts_tcharlen > 0)
+--- 5035,5040 ----
+***************
+*** 5148,5154 ****
+  		sp->ts_state = STATE_FINAL;
+  		break;
+  	    }
+- #endif
+  	    /*
+  	     * Try skipping one character in the bad word (delete it).
+  	     */
+--- 5043,5048 ----
+***************
+*** 5181,5187 ****
+  		 * score if the same character is following "nn" -> "n".  It's
+  		 * a bit illogical for soundfold tree but it does give better
+  		 * results. */
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    c = mb_ptr2char(fword + sp->ts_fidx);
+--- 5075,5080 ----
+***************
+*** 5192,5198 ****
+  			stack[depth].ts_score -= SCORE_DEL - SCORE_DELDUP;
+  		}
+  		else
+- #endif
+  		{
+  		    ++stack[depth].ts_fidx;
+  		    if (fword[sp->ts_fidx] == fword[sp->ts_fidx + 1])
+--- 5085,5090 ----
+***************
+*** 5274,5280 ****
+  		sp = &stack[depth];
+  		tword[sp->ts_twordlen++] = c;
+  		sp->ts_arridx = idxs[n];
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    fl = MB_BYTE2LEN(c);
+--- 5166,5171 ----
+***************
+*** 5291,5297 ****
+  		else
+  		    fl = 1;
+  		if (fl == 1)
+- #endif
+  		{
+  		    /* If the previous character was the same, thus doubling a
+  		     * character, give a bonus to the score.  Also for
+--- 5182,5187 ----
+***************
+*** 5329,5335 ****
+  		break;
+  	    }
+  
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		n = MB_CPTR2LEN(p);
+--- 5219,5224 ----
+***************
+*** 5342,5348 ****
+  		    c2 = mb_ptr2char(p + n);
+  	    }
+  	    else
+- #endif
+  	    {
+  		if (p[1] == NUL)
+  		    c2 = NUL;
+--- 5231,5236 ----
+***************
+*** 5379,5385 ****
+  		PROF_STORE(sp->ts_state)
+  		sp->ts_state = STATE_UNSWAP;
+  		++depth;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    fl = mb_char2len(c2);
+--- 5267,5272 ----
+***************
+*** 5388,5394 ****
+  		    stack[depth].ts_fidxtry = sp->ts_fidx + n + fl;
+  		}
+  		else
+- #endif
+  		{
+  		    p[0] = c2;
+  		    p[1] = c;
+--- 5275,5280 ----
+***************
+*** 5406,5412 ****
+  	case STATE_UNSWAP:
+  	    /* Undo the STATE_SWAP swap: "21" -> "12". */
+  	    p = fword + sp->ts_fidx;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		n = MB_PTR2LEN(p);
+--- 5292,5297 ----
+***************
+*** 5415,5421 ****
+  		mb_char2bytes(c, p);
+  	    }
+  	    else
+- #endif
+  	    {
+  		c = *p;
+  		*p = p[1];
+--- 5300,5305 ----
+***************
+*** 5427,5433 ****
+  	    /* Swap two bytes, skipping one: "123" -> "321".  We change
+  	     * "fword" here, it's changed back afterwards at STATE_UNSWAP3. */
+  	    p = fword + sp->ts_fidx;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		n = MB_CPTR2LEN(p);
+--- 5311,5316 ----
+***************
+*** 5440,5446 ****
+  		    c3 = mb_ptr2char(p + n + fl);
+  	    }
+  	    else
+- #endif
+  	    {
+  		c = *p;
+  		c2 = p[1];
+--- 5323,5328 ----
+***************
+*** 5473,5479 ****
+  		PROF_STORE(sp->ts_state)
+  		sp->ts_state = STATE_UNSWAP3;
+  		++depth;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    tl = mb_char2len(c3);
+--- 5355,5360 ----
+***************
+*** 5483,5489 ****
+  		    stack[depth].ts_fidxtry = sp->ts_fidx + n + fl + tl;
+  		}
+  		else
+- #endif
+  		{
+  		    p[0] = p[2];
+  		    p[2] = c;
+--- 5364,5369 ----
+***************
+*** 5500,5506 ****
+  	case STATE_UNSWAP3:
+  	    /* Undo STATE_SWAP3: "321" -> "123" */
+  	    p = fword + sp->ts_fidx;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		n = MB_PTR2LEN(p);
+--- 5380,5385 ----
+***************
+*** 5514,5520 ****
+  		p = p + tl;
+  	    }
+  	    else
+- #endif
+  	    {
+  		c = *p;
+  		*p = p[2];
+--- 5393,5398 ----
+***************
+*** 5546,5552 ****
+  		sp->ts_state = STATE_UNROT3L;
+  		++depth;
+  		p = fword + sp->ts_fidx;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    n = MB_CPTR2LEN(p);
+--- 5424,5429 ----
+***************
+*** 5558,5564 ****
+  		    stack[depth].ts_fidxtry = sp->ts_fidx + n + fl;
+  		}
+  		else
+- #endif
+  		{
+  		    c = *p;
+  		    *p = p[1];
+--- 5435,5440 ----
+***************
+*** 5577,5583 ****
+  	case STATE_UNROT3L:
+  	    /* Undo ROT3L: "231" -> "123" */
+  	    p = fword + sp->ts_fidx;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		n = MB_PTR2LEN(p);
+--- 5453,5458 ----
+***************
+*** 5588,5594 ****
+  		mb_char2bytes(c, p);
+  	    }
+  	    else
+- #endif
+  	    {
+  		c = p[2];
+  		p[2] = p[1];
+--- 5463,5468 ----
+***************
+*** 5611,5617 ****
+  		sp->ts_state = STATE_UNROT3R;
+  		++depth;
+  		p = fword + sp->ts_fidx;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    n = MB_CPTR2LEN(p);
+--- 5485,5490 ----
+***************
+*** 5623,5629 ****
+  		    stack[depth].ts_fidxtry = sp->ts_fidx + n + tl;
+  		}
+  		else
+- #endif
+  		{
+  		    c = p[2];
+  		    p[2] = p[1];
+--- 5496,5501 ----
+***************
+*** 5642,5648 ****
+  	case STATE_UNROT3R:
+  	    /* Undo ROT3R: "312" -> "123" */
+  	    p = fword + sp->ts_fidx;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		c = mb_ptr2char(p);
+--- 5514,5519 ----
+***************
+*** 5653,5659 ****
+  		mb_char2bytes(c, p + n);
+  	    }
+  	    else
+- #endif
+  	    {
+  		c = *p;
+  		*p = p[1];
+--- 5524,5529 ----
+***************
+*** 5738,5746 ****
+  		    }
+  		    mch_memmove(p, ftp->ft_to, tl);
+  		    stack[depth].ts_fidxtry = sp->ts_fidx + tl;
+- #ifdef FEAT_MBYTE
+  		    stack[depth].ts_tcharlen = 0;
+- #endif
+  		    break;
+  		}
+  	    }
+--- 5608,5614 ----
+***************
+*** 5809,5815 ****
+      stack[depth + 1].ts_flags = 0;
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Case-folding may change the number of bytes: Count nr of chars in
+   * fword[flen] and return the byte length of that many chars in "word".
+--- 5677,5682 ----
+***************
+*** 5826,5832 ****
+  	--i;
+      return (int)(p - word);
+  }
+- #endif
+  
+  /*
+   * "fword" is a good word with case folded.  Find the matching keep-case
+--- 5693,5698 ----
+***************
+*** 5905,5918 ****
+  	     * round[depth] == 1: Try using the folded-case character.
+  	     * round[depth] == 2: Try using the upper-case character.
+  	     */
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		flen = MB_CPTR2LEN(fword + fwordidx[depth]);
+  		ulen = MB_CPTR2LEN(uword + uwordidx[depth]);
+  	    }
+  	    else
+- #endif
+  		ulen = flen = 1;
+  	    if (round[depth] == 1)
+  	    {
+--- 5771,5782 ----
+***************
+*** 6627,6633 ****
+  similar_chars(slang_T *slang, int c1, int c2)
+  {
+      int		m1, m2;
+- #ifdef FEAT_MBYTE
+      char_u	buf[MB_MAXBYTES + 1];
+      hashitem_T  *hi;
+  
+--- 6491,6496 ----
+***************
+*** 6641,6653 ****
+  	    m1 = mb_ptr2char(hi->hi_key + STRLEN(hi->hi_key) + 1);
+      }
+      else
+- #endif
+  	m1 = slang->sl_map_array[c1];
+      if (m1 == 0)
+  	return FALSE;
+  
+  
+- #ifdef FEAT_MBYTE
+      if (c2 >= 256)
+      {
+  	buf[mb_char2bytes(c2, buf)] = 0;
+--- 6504,6514 ----
+***************
+*** 6658,6664 ****
+  	    m2 = mb_ptr2char(hi->hi_key + STRLEN(hi->hi_key) + 1);
+      }
+      else
+- #endif
+  	m2 = slang->sl_map_array[c2];
+  
+      return m1 == m2;
+--- 6519,6524 ----
+***************
+*** 6700,6714 ****
+  	    break;
+  	MB_PTR_BACK(goodword, pgood);
+  	MB_PTR_BACK(su->su_badptr, pbad);
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    if (mb_ptr2char(pgood) != mb_ptr2char(pbad))
+  		break;
+  	}
+! 	else
+! #endif
+! 	    if (*pgood != *pbad)
+  		break;
+      }
+  
+--- 6560,6571 ----
+  	    break;
+  	MB_PTR_BACK(goodword, pgood);
+  	MB_PTR_BACK(su->su_badptr, pbad);
+  	if (has_mbyte)
+  	{
+  	    if (mb_ptr2char(pgood) != mb_ptr2char(pbad))
+  		break;
+  	}
+! 	else if (*pgood != *pbad)
+  		break;
+      }
+  
+***************
+*** 7028,7038 ****
+  	    word = fword;
+  	}
+  
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    spell_soundfold_wsal(slang, word, res);
+  	else
+- #endif
+  	    spell_soundfold_sal(slang, word, res);
+      }
+  }
+--- 6885,6893 ----
+***************
+*** 7048,7054 ****
+      int		ri = 0;
+      int		c;
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	int	prevc = 0;
+--- 6903,6908 ----
+***************
+*** 7095,7101 ****
+  	}
+      }
+      else
+- #endif
+      {
+  	/* The sl_sal_first[] table contains the translation. */
+  	for (s = inword; (c = *s) != NUL; ++s)
+--- 6949,6954 ----
+***************
+*** 7385,7391 ****
+      res[reslen] = NUL;
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Turn "inword" into its sound-a-like equivalent in "res[MAXWLEN]".
+   * Multi-byte version of spell_soundfold().
+--- 7238,7243 ----
+***************
+*** 7698,7704 ****
+      }
+      res[l] = NUL;
+  }
+- #endif
+  
+  /*
+   * Compute a score for two sound-a-like words.
+--- 7550,7555 ----
+***************
+*** 7953,7959 ****
+      int		t;
+      int		bc, gc;
+      int		pbc, pgc;
+- #ifdef FEAT_MBYTE
+      char_u	*p;
+      int		wbadword[MAXWLEN];
+      int		wgoodword[MAXWLEN];
+--- 7804,7809 ----
+***************
+*** 7970,7976 ****
+  	wgoodword[goodlen++] = 0;
+      }
+      else
+- #endif
+      {
+  	badlen = (int)STRLEN(badword) + 1;
+  	goodlen = (int)STRLEN(goodword) + 1;
+--- 7820,7825 ----
+***************
+*** 7992,8005 ****
+  	CNT(i, 0) = CNT(i - 1, 0) + SCORE_DEL;
+  	for (j = 1; j <= goodlen; ++j)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		bc = wbadword[i - 1];
+  		gc = wgoodword[j - 1];
+  	    }
+  	    else
+- #endif
+  	    {
+  		bc = badword[i - 1];
+  		gc = goodword[j - 1];
+--- 7841,7852 ----
+***************
+*** 8024,8037 ****
+  
+  		if (i > 1 && j > 1)
+  		{
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  		    {
+  			pbc = wbadword[i - 2];
+  			pgc = wgoodword[j - 2];
+  		    }
+  		    else
+- #endif
+  		    {
+  			pbc = badword[i - 2];
+  			pgc = goodword[j - 2];
+--- 7871,7882 ----
+***************
+*** 8090,8101 ****
+      int		    minscore;
+      int		    round;
+  
+- #ifdef FEAT_MBYTE
+      /* Multi-byte characters require a bit more work, use a different function
+       * to avoid testing "has_mbyte" quite often. */
+      if (has_mbyte)
+  	return spell_edit_score_limit_w(slang, badword, goodword, limit);
+- #endif
+  
+      /*
+       * The idea is to go from start to end over the words.  So long as
+--- 7935,7944 ----
+***************
+*** 8250,8256 ****
+      return minscore;
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Multi-byte version of spell_edit_score_limit().
+   * Keep it in sync with the above!
+--- 8093,8098 ----
+***************
+*** 8439,8445 ****
+  	return SCORE_MAXMAX;
+      return minscore;
+  }
+- #endif
+  
+  /*
+   * ":spellinfo"
+--- 8281,8286 ----
+***************
+*** 8554,8566 ****
+  	    n = captype(pat, NULL);
+  	    if (n == WF_ONECAP)
+  		dumpflags |= DUMPFLAG_ONECAP;
+! 	    else if (n == WF_ALLCAP
+! #ifdef FEAT_MBYTE
+! 		    && (int)STRLEN(pat) > mb_ptr2len(pat)
+! #else
+! 		    && (int)STRLEN(pat) > 1
+! #endif
+! 		    )
+  		dumpflags |= DUMPFLAG_ALLCAP;
+  	}
+      }
+--- 8395,8401 ----
+  	    n = captype(pat, NULL);
+  	    if (n == WF_ONECAP)
+  		dumpflags |= DUMPFLAG_ONECAP;
+! 	    else if (n == WF_ALLCAP && (int)STRLEN(pat) > mb_ptr2len(pat))
+  		dumpflags |= DUMPFLAG_ALLCAP;
+  	}
+      }
+*** ../vim-8.1.0809/src/spellfile.c	2019-01-19 17:43:03.429449066 +0100
+--- src/spellfile.c	2019-01-24 16:49:05.504615445 +0100
+***************
+*** 306,314 ****
+  static int read_compound(FILE *fd, slang_T *slang, int len);
+  static int set_sofo(slang_T *lp, char_u *from, char_u *to);
+  static void set_sal_first(slang_T *lp);
+- #ifdef FEAT_MBYTE
+  static int *mb_str2wide(char_u *s);
+- #endif
+  static int spell_read_tree(FILE *fd, char_u **bytsp, idx_T **idxsp, int prefixtree, int prefixcnt);
+  static idx_T read_tree_node(FILE *fd, char_u *byts, idx_T *idxs, int maxidx, idx_T startidx, int prefixtree, int maxprefcondnr);
+  static void set_spell_charflags(char_u *flags, int cnt, char_u *upp);
+--- 306,312 ----
+***************
+*** 1062,1068 ****
+  	    return ccnt;
+  	}
+  
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    /* convert the multi-byte strings to wide char strings */
+--- 1060,1065 ----
+***************
+*** 1088,1094 ****
+  		return SP_OTHERERROR;
+  	    }
+  	}
+- #endif
+      }
+  
+      if (gap->ga_len > 0)
+--- 1085,1090 ----
+***************
+*** 1104,1110 ****
+  	smp->sm_oneof = NULL;
+  	smp->sm_rules = p;
+  	smp->sm_to = NULL;
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    smp->sm_lead_w = mb_str2wide(smp->sm_lead);
+--- 1100,1105 ----
+***************
+*** 1112,1118 ****
+  	    smp->sm_oneof_w = NULL;
+  	    smp->sm_to_w = NULL;
+  	}
+- #endif
+  	++gap->ga_len;
+      }
+  
+--- 1107,1112 ----
+***************
+*** 1268,1277 ****
+       * Inserting backslashes may double the length, "^\(\)$<Nul>" is 7 bytes.
+       * Conversion to utf-8 may double the size. */
+      c = todo * 2 + 7;
+- #ifdef FEAT_MBYTE
+      if (enc_utf8)
+  	c += todo * 2;
+- #endif
+      pat = alloc((unsigned)c);
+      if (pat == NULL)
+  	return SP_OTHERERROR;
+--- 1262,1269 ----
+***************
+*** 1367,1377 ****
+  	{
+  	    if (c == '?' || c == '+' || c == '~')
+  		*pp++ = '\\';	    /* "a?" becomes "a\?", "a+" becomes "a\+" */
+- #ifdef FEAT_MBYTE
+  	    if (enc_utf8)
+  		pp += mb_char2bytes(c, pp);
+  	    else
+- #endif
+  		*pp++ = c;
+  	}
+      }
+--- 1359,1367 ----
+***************
+*** 1401,1407 ****
+  {
+      int		i;
+  
+- #ifdef FEAT_MBYTE
+      garray_T	*gap;
+      char_u	*s;
+      char_u	*p;
+--- 1391,1396 ----
+***************
+*** 1468,1474 ****
+  	}
+      }
+      else
+- #endif
+      {
+  	/* mapping bytes to bytes is done in sl_sal_first[] */
+  	if (STRLEN(from) != STRLEN(to))
+--- 1457,1462 ----
+***************
+*** 1500,1518 ****
+      smp = (salitem_T *)gap->ga_data;
+      for (i = 0; i < gap->ga_len; ++i)
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    /* Use the lowest byte of the first character.  For latin1 it's
+  	     * the character, for other encodings it should differ for most
+  	     * characters. */
+  	    c = *smp[i].sm_lead_w & 0xff;
+  	else
+- #endif
+  	    c = *smp[i].sm_lead;
+  	if (sfirst[c] == -1)
+  	{
+  	    sfirst[c] = i;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		int		n;
+--- 1488,1503 ----
+***************
+*** 1540,1551 ****
+  			smp[i] = tsal;
+  		    }
+  	    }
+- #endif
+  	}
+      }
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Turn a multi-byte string into a wide character string.
+   * Return it in allocated memory (NULL for out-of-memory)
+--- 1525,1534 ----
+***************
+*** 1566,1572 ****
+      }
+      return res;
+  }
+- #endif
+  
+  /*
+   * Read a tree from the .spl or .sug file.
+--- 1549,1554 ----
+***************
+*** 1820,1830 ****
+      char	ae_comppermit;	/* COMPOUNDPERMITFLAG found */
+  };
+  
+! #ifdef FEAT_MBYTE
+! # define AH_KEY_LEN 17		/* 2 x 8 bytes + NUL */
+! #else
+! # define AH_KEY_LEN 7		/* 6 digits + NUL */
+! #endif
+  
+  /* Affix header from ".aff" file.  Used for af_pref and af_suff. */
+  typedef struct affheader_S
+--- 1802,1808 ----
+      char	ae_comppermit;	/* COMPOUNDPERMITFLAG found */
+  };
+  
+! #define AH_KEY_LEN 17		/* 2 x 8 bytes + NUL */
+  
+  /* Affix header from ".aff" file.  Used for af_pref and af_suff. */
+  typedef struct affheader_S
+***************
+*** 2271,2277 ****
+  
+  	/* Convert from "SET" to 'encoding' when needed. */
+  	vim_free(pc);
+- #ifdef FEAT_MBYTE
+  	if (spin->si_conv.vc_type != CONV_NONE)
+  	{
+  	    pc = string_convert(&spin->si_conv, rline, NULL);
+--- 2249,2254 ----
+***************
+*** 2284,2290 ****
+  	    line = pc;
+  	}
+  	else
+- #endif
+  	{
+  	    pc = NULL;
+  	    line = rline;
+--- 2261,2266 ----
+***************
+*** 2319,2325 ****
+  	{
+  	    if (is_aff_rule(items, itemcnt, "SET", 2) && aff->af_enc == NULL)
+  	    {
+- #ifdef FEAT_MBYTE
+  		/* Setup for conversion from "ENC" to 'encoding'. */
+  		aff->af_enc = enc_canonize(items[1]);
+  		if (aff->af_enc != NULL && !spin->si_ascii
+--- 2295,2300 ----
+***************
+*** 2328,2336 ****
+  		    smsg(_("Conversion in %s not supported: from %s to %s"),
+  					       fname, aff->af_enc, p_enc);
+  		spin->si_conv.vc_fail = TRUE;
+- #else
+- 		    smsg(_("Conversion in %s not supported"), fname);
+- #endif
+  	    }
+  	    else if (is_aff_rule(items, itemcnt, "FLAG", 2)
+  					      && aff->af_flagtype == AFT_CHAR)
+--- 2303,2308 ----
+***************
+*** 2772,2784 ****
+  			 * be empty or start with the same letter. */
+  			if (aff_entry->ae_chop != NULL
+  				&& aff_entry->ae_add != NULL
+- #ifdef FEAT_MBYTE
+  				&& aff_entry->ae_chop[(*mb_ptr2len)(
+! 						   aff_entry->ae_chop)] == NUL
+! #else
+! 				&& aff_entry->ae_chop[1] == NUL
+! #endif
+! 				)
+  			{
+  			    int		c, c_up;
+  
+--- 2744,2751 ----
+  			 * be empty or start with the same letter. */
+  			if (aff_entry->ae_chop != NULL
+  				&& aff_entry->ae_add != NULL
+  				&& aff_entry->ae_chop[(*mb_ptr2len)(
+! 						   aff_entry->ae_chop)] == NUL)
+  			{
+  			    int		c, c_up;
+  
+***************
+*** 2803,2809 ****
+  				    if (aff_entry->ae_cond != NULL)
+  				    {
+  					char_u	buf[MAXLINELEN];
+! #ifdef FEAT_MBYTE
+  					if (has_mbyte)
+  					{
+  					    onecap_copy(items[4], buf, TRUE);
+--- 2770,2776 ----
+  				    if (aff_entry->ae_cond != NULL)
+  				    {
+  					char_u	buf[MAXLINELEN];
+! 
+  					if (has_mbyte)
+  					{
+  					    onecap_copy(items[4], buf, TRUE);
+***************
+*** 2811,2817 ****
+  								   spin, buf);
+  					}
+  					else
+- #endif
+  					    *aff_entry->ae_cond = c_up;
+  					if (aff_entry->ae_cond != NULL)
+  					{
+--- 2778,2783 ----
+***************
+*** 2947,2957 ****
+  		    /* Check that every character appears only once. */
+  		    for (p = items[1]; *p != NUL; )
+  		    {
+- #ifdef FEAT_MBYTE
+  			c = mb_ptr2char_adv(&p);
+- #else
+- 			c = *p++;
+- #endif
+  			if ((spin->si_map.ga_len > 0
+  				    && vim_strchr(spin->si_map.ga_data, c)
+  								      != NULL)
+--- 2913,2919 ----
+***************
+*** 3034,3044 ****
+  	 * Don't write one for utf-8 either, we use utf_*() and
+  	 * mb_get_class(), the list of chars in the file will be incomplete.
+  	 */
+! 	if (!spin->si_ascii
+! #ifdef FEAT_MBYTE
+! 		&& !enc_utf8
+! #endif
+! 		)
+  	{
+  	    if (fol == NULL || low == NULL || upp == NULL)
+  		smsg(_("Missing FOL/LOW/UPP line in %s"), fname);
+--- 2996,3002 ----
+  	 * Don't write one for utf-8 either, we use utf_*() and
+  	 * mb_get_class(), the list of chars in the file will be incomplete.
+  	 */
+! 	if (!spin->si_ascii && !enc_utf8)
+  	{
+  	    if (fol == NULL || low == NULL || upp == NULL)
+  		smsg(_("Missing FOL/LOW/UPP line in %s"), fname);
+***************
+*** 3243,3263 ****
+      }
+      else
+      {
+- #ifdef FEAT_MBYTE
+  	res = mb_ptr2char_adv(pp);
+- #else
+- 	res = *(*pp)++;
+- #endif
+  	if (flagtype == AFT_LONG || (flagtype == AFT_CAPLONG
+  						 && res >= 'A' && res <= 'Z'))
+  	{
+  	    if (**pp == NUL)
+  		return 0;
+- #ifdef FEAT_MBYTE
+  	    res = mb_ptr2char_adv(pp) + (res << 16);
+- #else
+- 	    res = *(*pp)++ + (res << 16);
+- #endif
+  	}
+      }
+      return res;
+--- 3201,3213 ----
+***************
+*** 3381,3398 ****
+  	case AFT_LONG:
+  	    for (p = afflist; *p != NUL; )
+  	    {
+- #ifdef FEAT_MBYTE
+  		n = mb_ptr2char_adv(&p);
+- #else
+- 		n = *p++;
+- #endif
+  		if ((flagtype == AFT_LONG || (n >= 'A' && n <= 'Z'))
+  								 && *p != NUL)
+- #ifdef FEAT_MBYTE
+  		    n = mb_ptr2char_adv(&p) + (n << 16);
+- #else
+- 		    n = *p++ + (n << 16);
+- #endif
+  		if (n == flag)
+  		    return TRUE;
+  	    }
+--- 3331,3340 ----
+***************
+*** 3589,3595 ****
+  	    continue;	/* empty line */
+  	line[l] = NUL;
+  
+- #ifdef FEAT_MBYTE
+  	/* Convert from "SET" to 'encoding' when needed. */
+  	if (spin->si_conv.vc_type != CONV_NONE)
+  	{
+--- 3531,3536 ----
+***************
+*** 3603,3609 ****
+  	    w = pc;
+  	}
+  	else
+- #endif
+  	{
+  	    pc = NULL;
+  	    w = line;
+--- 3544,3549 ----
+***************
+*** 3930,3936 ****
+  			    if (ae->ae_chop != NULL)
+  			    {
+  				/* Skip chop string. */
+- #ifdef FEAT_MBYTE
+  				if (has_mbyte)
+  				{
+  				    i = mb_charlen(ae->ae_chop);
+--- 3870,3875 ----
+***************
+*** 3938,3944 ****
+  					MB_PTR_ADV(p);
+  				}
+  				else
+- #endif
+  				    p += STRLEN(ae->ae_chop);
+  			    }
+  			    STRCAT(newword, p);
+--- 3877,3882 ----
+***************
+*** 4162,4168 ****
+  
+  	/* Convert from "/encoding={encoding}" to 'encoding' when needed. */
+  	vim_free(pc);
+- #ifdef FEAT_MBYTE
+  	if (spin->si_conv.vc_type != CONV_NONE)
+  	{
+  	    pc = string_convert(&spin->si_conv, rline, NULL);
+--- 4100,4105 ----
+***************
+*** 4175,4181 ****
+  	    line = pc;
+  	}
+  	else
+- #endif
+  	{
+  	    pc = NULL;
+  	    line = rline;
+--- 4112,4117 ----
+***************
+*** 4194,4200 ****
+  						       fname, lnum, line - 1);
+  		else
+  		{
+- #ifdef FEAT_MBYTE
+  		    char_u	*enc;
+  
+  		    /* Setup for conversion to 'encoding'. */
+--- 4130,4135 ----
+***************
+*** 4207,4215 ****
+  							  fname, line, p_enc);
+  		    vim_free(enc);
+  		    spin->si_conv.vc_fail = TRUE;
+- #else
+- 		    smsg(_("Conversion in %s not supported"), fname);
+- #endif
+  		}
+  		continue;
+  	    }
+--- 4142,4147 ----
+***************
+*** 4981,4991 ****
+  	l = 0;
+  	for (i = 128; i < 256; ++i)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		l += mb_char2bytes(spelltab.st_fold[i], folchars + l);
+  	    else
+- #endif
+  		folchars[l++] = spelltab.st_fold[i];
+  	}
+  	put_bytes(fd, (long_u)(1 + 128 + 2 + l), 4);	/* <sectionlen> */
+--- 4913,4921 ----
+***************
+*** 6112,6121 ****
+  		    error = TRUE;
+  	    }
+  
+- #ifdef FEAT_MBYTE
+  	    /* Free any conversion stuff. */
+  	    convert_setup(&spin.si_conv, NULL, NULL);
+- #endif
+  	}
+  
+  	if (spin.si_compflags != NULL && spin.si_nobreak)
+--- 6042,6049 ----
+***************
+*** 6488,6502 ****
+  	    emsg(_(e_affform));
+  	    return FAIL;
+  	}
+- #ifdef FEAT_MBYTE
+  	f = mb_ptr2char_adv(&pf);
+  	l = mb_ptr2char_adv(&pl);
+  	u = mb_ptr2char_adv(&pu);
+! #else
+! 	f = *pf++;
+! 	l = *pl++;
+! 	u = *pu++;
+! #endif
+  	/* Every character that appears is a word character. */
+  	if (f < 256)
+  	    new_st.st_isw[f] = TRUE;
+--- 6416,6425 ----
+  	    emsg(_(e_affform));
+  	    return FAIL;
+  	}
+  	f = mb_ptr2char_adv(&pf);
+  	l = mb_ptr2char_adv(&pl);
+  	u = mb_ptr2char_adv(&pu);
+! 
+  	/* Every character that appears is a word character. */
+  	if (f < 256)
+  	    new_st.st_isw[f] = TRUE;
+***************
+*** 6570,6580 ****
+  
+  	if (*p != NUL)
+  	{
+- #ifdef FEAT_MBYTE
+  	    c = mb_ptr2char_adv(&p);
+- #else
+- 	    c = *p++;
+- #endif
+  	    new_st.st_fold[i + 128] = c;
+  	    if (i + 128 != c && new_st.st_isu[i + 128] && c < 256)
+  		new_st.st_upper[c] = i + 128;
+--- 6493,6499 ----
+***************
+*** 6675,6683 ****
+      /* Init the array and hash tables empty. */
+      for (i = 0; i < 256; ++i)
+  	lp->sl_map_array[i] = 0;
+- #ifdef FEAT_MBYTE
+      hash_init(&lp->sl_map_hash);
+- #endif
+  
+      /*
+       * The similar characters are stored separated with slashes:
+--- 6594,6600 ----
+***************
+*** 6686,6696 ****
+       */
+      for (p = map; *p != NUL; )
+      {
+- #ifdef FEAT_MBYTE
+  	c = mb_cptr2char_adv(&p);
+- #else
+- 	c = *p++;
+- #endif
+  	if (c == '/')
+  	    headc = 0;
+  	else
+--- 6603,6609 ----
+***************
+*** 6698,6704 ****
+  	    if (headc == 0)
+  		 headc = c;
+  
+- #ifdef FEAT_MBYTE
+  	    /* Characters above 255 don't fit in sl_map_array[], put them in
+  	     * the hash table.  Each entry is the char, a NUL the headchar and
+  	     * a NUL. */
+--- 6611,6616 ----
+***************
+*** 6730,6736 ****
+  		}
+  	    }
+  	    else
+- #endif
+  		lp->sl_map_array[c] = headc;
+  	}
+      }
+--- 6642,6647 ----
+*** ../vim-8.1.0809/src/syntax.c	2019-01-20 15:30:36.893328693 +0100
+--- src/syntax.c	2019-01-24 16:51:52.891322038 +0100
+***************
+*** 1974,1985 ****
+  	      if (vim_iswordp_buf(line + current_col, syn_buf)
+  		      && (current_col == 0
+  			  || !vim_iswordp_buf(line + current_col - 1
+- #ifdef FEAT_MBYTE
+  			      - (has_mbyte
+  				  ? (*mb_head_off)(line, line + current_col - 1)
+! 				  : 0)
+! #endif
+! 			       , syn_buf)))
+  	      {
+  		syn_id = check_keyword_id(line, (int)current_col,
+  					 &endcol, &flags, &next_list, cur_si,
+--- 1974,1982 ----
+  	      if (vim_iswordp_buf(line + current_col, syn_buf)
+  		      && (current_col == 0
+  			  || !vim_iswordp_buf(line + current_col - 1
+  			      - (has_mbyte
+  				  ? (*mb_head_off)(line, line + current_col - 1)
+! 				  : 0) , syn_buf)))
+  	      {
+  		syn_id = check_keyword_id(line, (int)current_col,
+  					 &endcol, &flags, &next_list, cur_si,
+***************
+*** 3355,3365 ****
+      kwlen = 0;
+      do
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    kwlen += (*mb_ptr2len)(kwp + kwlen);
+  	else
+- #endif
+  	    ++kwlen;
+      }
+      while (vim_iswordp_buf(kwp + kwlen, syn_buf));
+--- 3352,3360 ----
+***************
+*** 4668,4684 ****
+  	}
+  	else if (flagtab[fidx].argtype == 11 && arg[5] == '=')
+  	{
+- #ifdef FEAT_MBYTE
+  	    /* cchar=? */
+  	    if (has_mbyte)
+  	    {
+! # ifdef FEAT_CONCEAL
+  		*conceal_char = mb_ptr2char(arg + 6);
+! # endif
+  		arg += mb_ptr2len(arg + 6) - 1;
+  	    }
+  	    else
+- #endif
+  	    {
+  #ifdef FEAT_CONCEAL
+  		*conceal_char = arg[6];
+--- 4663,4677 ----
+  	}
+  	else if (flagtab[fidx].argtype == 11 && arg[5] == '=')
+  	{
+  	    /* cchar=? */
+  	    if (has_mbyte)
+  	    {
+! #ifdef FEAT_CONCEAL
+  		*conceal_char = mb_ptr2char(arg + 6);
+! #endif
+  		arg += mb_ptr2len(arg + 6) - 1;
+  	    }
+  	    else
+  	    {
+  #ifdef FEAT_CONCEAL
+  		*conceal_char = arg[6];
+***************
+*** 4948,4954 ****
+  			    kw = p + 1;		/* skip over the "]" */
+  			    break;
+  			}
+- #ifdef FEAT_MBYTE
+  			if (has_mbyte)
+  			{
+  			    int l = (*mb_ptr2len)(p + 1);
+--- 4941,4946 ----
+***************
+*** 4957,4963 ****
+  			    p += l;
+  			}
+  			else
+- #endif
+  			{
+  			    p[0] = p[1];
+  			    ++p;
+--- 4949,4954 ----
+*** ../vim-8.1.0809/src/tag.c	2019-01-19 17:43:03.429449066 +0100
+--- src/tag.c	2019-01-24 16:52:13.291152187 +0100
+***************
+*** 1349,1357 ****
+  #endif
+  
+      pat_T	orgpat;			/* holds unconverted pattern info */
+- #ifdef FEAT_MBYTE
+      vimconv_T	vimconv;
+- #endif
+  
+  #ifdef FEAT_TAG_BINS
+      int		findall = (mincount == MAXCOL || mincount == TAG_MANY);
+--- 1349,1355 ----
+***************
+*** 1387,1395 ****
+  
+      help_save = curbuf->b_help;
+      orgpat.pat = pat;
+- #ifdef FEAT_MBYTE
+      vimconv.vc_type = CONV_NONE;
+- #endif
+  
+      /*
+       * Allocate memory for the buffers that are used
+--- 1385,1391 ----
+***************
+*** 1725,1731 ****
+  	    }
+  line_read_in:
+  
+- #ifdef FEAT_MBYTE
+  	    if (vimconv.vc_type != CONV_NONE)
+  	    {
+  		char_u	*conv_line;
+--- 1721,1726 ----
+***************
+*** 1752,1758 ****
+  		    }
+  		}
+  	    }
+- #endif
+  
+  
+  #ifdef FEAT_EMACS_TAGS
+--- 1747,1752 ----
+***************
+*** 1846,1852 ****
+  		    if (STRNCMP(lbuf, "!_TAG_FILE_SORTED\t", 18) == 0)
+  			tag_file_sorted = lbuf[18];
+  #endif
+- #ifdef FEAT_MBYTE
+  		    if (STRNCMP(lbuf, "!_TAG_FILE_ENCODING\t", 20) == 0)
+  		    {
+  			/* Prepare to convert every line from the specified
+--- 1840,1845 ----
+***************
+*** 1856,1862 ****
+  			*p = NUL;
+  			convert_setup(&vimconv, lbuf + 20, p_enc);
+  		    }
+- #endif
+  
+  		    /* Read the next line.  Unrecognized flags are ignored. */
+  		    continue;
+--- 1849,1854 ----
+***************
+*** 2472,2481 ****
+  	    vim_free(incstack[incstack_idx].etag_fname);
+  	}
+  #endif
+- #ifdef FEAT_MBYTE
+  	if (vimconv.vc_type != CONV_NONE)
+  	    convert_setup(&vimconv, NULL, NULL);
+- #endif
+  
+  #ifdef FEAT_TAG_BINS
+  	tag_file_sorted = NUL;
+--- 2464,2471 ----
+*** ../vim-8.1.0809/src/term.c	2019-01-20 15:30:36.893328693 +0100
+--- src/term.c	2019-01-24 16:53:05.898719068 +0100
+***************
+*** 2585,2591 ****
+  }
+  
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Sometimes a byte out of a multi-byte character is written with out_char().
+   * To avoid flushing half of the character, call this function first.
+--- 2585,2590 ----
+***************
+*** 2596,2602 ****
+      if (enc_dbcs != 0 && out_pos >= OUT_SIZE - MB_MAXBYTES)
+  	out_flush();
+  }
+- #endif
+  
+  #ifdef FEAT_GUI
+  /*
+--- 2595,2600 ----
+***************
+*** 3620,3626 ****
+      }
+  }
+  
+- # if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Check how the terminal treats ambiguous character width (UAX #11).
+   * First, we move the cursor to (1, 0) and print a test ambiguous character
+--- 3618,3623 ----
+***************
+*** 3666,3672 ****
+  	 (void)vpeekc_nomap();
+      }
+  }
+- # endif
+  
+  /*
+   * Similar to requesting the version string: Request the terminal background
+--- 3663,3668 ----
+***************
+*** 4606,4614 ****
+  	    {
+  		int col = 0;
+  		int semicols = 0;
+- #ifdef FEAT_MBYTE
+  		int row_char = NUL;
+- #endif
+  
+  		extra = 0;
+  		for (i = 2 + (tp[0] != CSI); i < len
+--- 4602,4608 ----
+***************
+*** 4617,4625 ****
+  		    if (tp[i] == ';' && ++semicols == 1)
+  		    {
+  			extra = i + 1;
+- #ifdef FEAT_MBYTE
+  			row_char = tp[i - 1];
+- #endif
+  		    }
+  		if (i == len)
+  		{
+--- 4611,4617 ----
+***************
+*** 4629,4635 ****
+  		if (extra > 0)
+  		    col = atoi((char *)tp + extra);
+  
+- #ifdef FEAT_MBYTE
+  		/* Eat it when it has 2 arguments and ends in 'R'. Also when
+  		 * u7_status is not "sent", it may be from a previous Vim that
+  		 * just exited.  But not for <S-F3>, it sends something
+--- 4621,4626 ----
+***************
+*** 4672,4681 ****
+  		    set_vim_var_string(VV_TERMU7RESP, tp, slen);
+  # endif
+  		}
+- 		else
+- #endif
+  		/* eat it when at least one digit and ending in 'c' */
+! 		if (*T_CRV != NUL && i > 2 + (tp[0] != CSI) && tp[i] == 'c')
+  		{
+  		    int version = col;
+  
+--- 4663,4671 ----
+  		    set_vim_var_string(VV_TERMU7RESP, tp, slen);
+  # endif
+  		}
+  		/* eat it when at least one digit and ending in 'c' */
+! 		else if (*T_CRV != NUL && i > 2 + (tp[0] != CSI)
+! 							       && tp[i] == 'c')
+  		{
+  		    int version = col;
+  
+***************
+*** 5973,5983 ****
+  	if (key_name[0] == KS_KEY)
+  	{
+  	    /* from ":set <M-b>=xx" */
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		new_slen += (*mb_char2bytes)(key_name[1], string + new_slen);
+  	    else
+- #endif
+  		string[new_slen++] = key_name[1];
+  	}
+  	else if (new_slen == 0 && key_name[0] == KS_EXTRA
+--- 5963,5971 ----
+***************
+*** 6257,6266 ****
+  	    }
+  	}
+  
+- #ifdef FEAT_MBYTE
+  	/* skip multibyte char correctly */
+  	for (i = (*mb_ptr2len)(src); i > 0; --i)
+- #endif
+  	{
+  	    /*
+  	     * If the character is K_SPECIAL, replace it with K_SPECIAL
+--- 6245,6252 ----
+*** ../vim-8.1.0809/src/ui.c	2019-01-20 15:30:36.897328669 +0100
+--- src/ui.c	2019-01-24 16:56:27.013117974 +0100
+***************
+*** 40,46 ****
+      /* Don't output anything in silent mode ("ex -s") unless 'verbose' set */
+      if (!(silent_mode && p_verbose == 0))
+      {
+! #if defined(FEAT_MBYTE) && !defined(WIN3264)
+  	char_u	*tofree = NULL;
+  
+  	if (output_conv.vc_type != CONV_NONE)
+--- 40,46 ----
+      /* Don't output anything in silent mode ("ex -s") unless 'verbose' set */
+      if (!(silent_mode && p_verbose == 0))
+      {
+! #if !defined(WIN3264)
+  	char_u	*tofree = NULL;
+  
+  	if (output_conv.vc_type != CONV_NONE)
+***************
+*** 54,63 ****
+  
+  	mch_write(s, len);
+  
+! #if defined(FEAT_MBYTE) && !defined(WIN3264)
+  	if (output_conv.vc_type != CONV_NONE)
+  	    vim_free(tofree);
+! #endif
+      }
+  #endif
+  }
+--- 54,63 ----
+  
+  	mch_write(s, len);
+  
+! # if !defined(WIN3264)
+  	if (output_conv.vc_type != CONV_NONE)
+  	    vim_free(tofree);
+! # endif
+      }
+  #endif
+  }
+***************
+*** 516,525 ****
+  	{
+  	    start = VIsual;
+  	    end = curwin->w_cursor;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		end.col += (*mb_ptr2len)(ml_get_cursor()) - 1;
+- #endif
+  	}
+  	else
+  	{
+--- 516,523 ----
+***************
+*** 821,829 ****
+  
+      row = check_row(row);
+      col = check_col(col);
+- #ifdef FEAT_MBYTE
+      col = mb_fix_col(col, row);
+- #endif
+  
+      cb->start.lnum  = row;
+      cb->start.col   = col;
+--- 819,825 ----
+***************
+*** 927,935 ****
+  
+      row = check_row(row);
+      col = check_col(col);
+- #ifdef FEAT_MBYTE
+      col = mb_fix_col(col, row);
+- #endif
+  
+      if (col == (int)cb->prev.col && row == cb->prev.lnum && !repeated_click)
+  	return;
+--- 923,929 ----
+***************
+*** 995,1015 ****
+  			    cb->origin_start_col, row, (int)Columns);
+  		else
+  		{
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte && mb_lefthalve(row, col))
+  			slen = 2;
+- #endif
+  		    clip_update_modeless_selection(cb, cb->origin_row,
+  			    cb->origin_start_col, row, col + slen);
+  		}
+  	    }
+  	    else
+  	    {
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte
+  			&& mb_lefthalve(cb->origin_row, cb->origin_start_col))
+  		    slen = 2;
+- #endif
+  		if (col >= (int)cb->word_end_col)
+  		    clip_update_modeless_selection(cb, row, cb->word_end_col,
+  			    cb->origin_row, cb->origin_start_col + slen);
+--- 989,1005 ----
+***************
+*** 1243,1251 ****
+      int		line_end_col;
+      int		add_newline_flag = FALSE;
+      int		len;
+- #ifdef FEAT_MBYTE
+      char_u	*p;
+- #endif
+      int		row1 = clip_star.start.lnum;
+      int		col1 = clip_star.start.col;
+      int		row2 = clip_star.end.lnum;
+--- 1233,1239 ----
+***************
+*** 1267,1289 ****
+      {
+  	row = col1; col1 = col2; col2 = row;
+      }
+- #ifdef FEAT_MBYTE
+      /* correct starting point for being on right halve of double-wide char */
+      p = ScreenLines + LineOffset[row1];
+      if (enc_dbcs != 0)
+  	col1 -= (*mb_head_off)(p, p + col1);
+      else if (enc_utf8 && p[col1] == 0)
+  	--col1;
+- #endif
+  
+      /* Create a temporary buffer for storing the text */
+      len = (row2 - row1 + 1) * Columns + 1;
+- #ifdef FEAT_MBYTE
+      if (enc_dbcs != 0)
+  	len *= 2;	/* max. 2 bytes per display cell */
+      else if (enc_utf8)
+  	len *= MB_MAXBYTES;
+- #endif
+      buffer = lalloc((long_u)len, TRUE);
+      if (buffer == NULL)	    /* out of memory */
+  	return;
+--- 1255,1273 ----
+***************
+*** 1322,1328 ****
+  
+  	if (row < screen_Rows && end_col <= screen_Columns)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (enc_dbcs != 0)
+  	    {
+  		int	i;
+--- 1306,1311 ----
+***************
+*** 1373,1379 ****
+  		}
+  	    }
+  	    else
+- #endif
+  	    {
+  		STRNCPY(bufp, ScreenLines + LineOffset[row] + start_col,
+  							 end_col - start_col);
+--- 1356,1361 ----
+***************
+*** 1421,1471 ****
+      int		start_class;
+      int		temp_col;
+      char_u	*p;
+- #ifdef FEAT_MBYTE
+      int		mboff;
+- #endif
+  
+      if (row >= screen_Rows || col >= screen_Columns || ScreenLines == NULL)
+  	return;
+  
+      p = ScreenLines + LineOffset[row];
+- #ifdef FEAT_MBYTE
+      /* Correct for starting in the right halve of a double-wide char */
+      if (enc_dbcs != 0)
+  	col -= dbcs_screen_head_off(p, p + col);
+      else if (enc_utf8 && p[col] == 0)
+  	--col;
+- #endif
+      start_class = CHAR_CLASS(p[col]);
+  
+      temp_col = col;
+      for ( ; temp_col > 0; temp_col--)
+- #ifdef FEAT_MBYTE
+  	if (enc_dbcs != 0
+  		   && (mboff = dbcs_screen_head_off(p, p + temp_col - 1)) > 0)
+  	    temp_col -= mboff;
+! 	else
+! #endif
+! 	if (CHAR_CLASS(p[temp_col - 1]) != start_class
+! #ifdef FEAT_MBYTE
+! 		&& !(enc_utf8 && p[temp_col - 1] == 0)
+! #endif
+! 		)
+  	    break;
+      cb->word_start_col = temp_col;
+  
+      temp_col = col;
+      for ( ; temp_col < screen_Columns; temp_col++)
+- #ifdef FEAT_MBYTE
+  	if (enc_dbcs != 0 && dbcs_ptr2cells(p + temp_col) == 2)
+  	    ++temp_col;
+! 	else
+! #endif
+! 	if (CHAR_CLASS(p[temp_col]) != start_class
+! #ifdef FEAT_MBYTE
+! 		&& !(enc_utf8 && p[temp_col] == 0)
+! #endif
+! 		)
+  	    break;
+      cb->word_end_col = temp_col;
+  }
+--- 1403,1437 ----
+      int		start_class;
+      int		temp_col;
+      char_u	*p;
+      int		mboff;
+  
+      if (row >= screen_Rows || col >= screen_Columns || ScreenLines == NULL)
+  	return;
+  
+      p = ScreenLines + LineOffset[row];
+      /* Correct for starting in the right halve of a double-wide char */
+      if (enc_dbcs != 0)
+  	col -= dbcs_screen_head_off(p, p + col);
+      else if (enc_utf8 && p[col] == 0)
+  	--col;
+      start_class = CHAR_CLASS(p[col]);
+  
+      temp_col = col;
+      for ( ; temp_col > 0; temp_col--)
+  	if (enc_dbcs != 0
+  		   && (mboff = dbcs_screen_head_off(p, p + temp_col - 1)) > 0)
+  	    temp_col -= mboff;
+! 	else if (CHAR_CLASS(p[temp_col - 1]) != start_class
+! 		&& !(enc_utf8 && p[temp_col - 1] == 0))
+  	    break;
+      cb->word_start_col = temp_col;
+  
+      temp_col = col;
+      for ( ; temp_col < screen_Columns; temp_col++)
+  	if (enc_dbcs != 0 && dbcs_ptr2cells(p + temp_col) == 2)
+  	    ++temp_col;
+! 	else if (CHAR_CLASS(p[temp_col]) != start_class
+! 		&& !(enc_utf8 && p[temp_col] == 0))
+  	    break;
+      cb->word_end_col = temp_col;
+  }
+***************
+*** 1820,1830 ****
+      int		len;
+      int		try;
+      static int	did_read_something = FALSE;
+- # ifdef FEAT_MBYTE
+      static char_u *rest = NULL;	    /* unconverted rest of previous read */
+      static int	restlen = 0;
+      int		unconverted;
+- # endif
+  #endif
+  
+  #ifdef FEAT_GUI
+--- 1786,1794 ----
+***************
+*** 1860,1866 ****
+      inbufcount = 0;
+  # else
+  
+- #  ifdef FEAT_MBYTE
+      if (rest != NULL)
+      {
+  	/* Use remainder of previous call, starts with an invalid character
+--- 1824,1829 ----
+***************
+*** 1881,1896 ****
+      }
+      else
+  	unconverted = 0;
+- #  endif
+  
+      len = 0;	/* to avoid gcc warning */
+      for (try = 0; try < 100; ++try)
+      {
+  	size_t readlen = (size_t)((INBUFLEN - inbufcount)
+! #  ifdef FEAT_MBYTE
+! 			    / input_conv.vc_factor
+! #  endif
+! 			    );
+  #  ifdef VMS
+  	len = vms_read((char *)inbuf + inbufcount, readlen);
+  #  else
+--- 1844,1855 ----
+      }
+      else
+  	unconverted = 0;
+  
+      len = 0;	/* to avoid gcc warning */
+      for (try = 0; try < 100; ++try)
+      {
+  	size_t readlen = (size_t)((INBUFLEN - inbufcount)
+! 			    / input_conv.vc_factor);
+  #  ifdef VMS
+  	len = vms_read((char *)inbuf + inbufcount, readlen);
+  #  else
+***************
+*** 1936,1942 ****
+      }
+      else
+      {
+- # ifdef FEAT_MBYTE
+  	/*
+  	 * May perform conversion on the input characters.
+  	 * Include the unconverted rest of the previous call.
+--- 1895,1900 ----
+***************
+*** 1952,1958 ****
+  				     len + unconverted, INBUFLEN - inbufcount,
+  				       rest == NULL ? &rest : NULL, &restlen);
+  	}
+- # endif
+  	while (len-- > 0)
+  	{
+  	    /*
+--- 1910,1915 ----
+***************
+*** 2014,2021 ****
+  }
+  #endif
+  
+- #if defined(FEAT_CLIPBOARD) || defined(FEAT_GUI) || defined(FEAT_RIGHTLEFT) \
+- 	|| defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Check bounds for column number
+   */
+--- 1971,1976 ----
+***************
+*** 2041,2047 ****
+  	return (int)screen_Rows - 1;
+      return row;
+  }
+- #endif
+  
+  /*
+   * Stuff for the X clipboard.  Shared between VMS and Unix.
+--- 1996,2001 ----
+***************
+*** 2066,2075 ****
+  }
+  
+  static Atom	vim_atom;	/* Vim's own special selection format */
+- #ifdef FEAT_MBYTE
+  static Atom	vimenc_atom;	/* Vim's extended selection format */
+  static Atom	utf8_atom;
+- #endif
+  static Atom	compound_text_atom;
+  static Atom	text_atom;
+  static Atom	targets_atom;
+--- 2020,2027 ----
+***************
+*** 2079,2088 ****
+  x11_setup_atoms(Display *dpy)
+  {
+      vim_atom	       = XInternAtom(dpy, VIM_ATOM_NAME,   False);
+- #ifdef FEAT_MBYTE
+      vimenc_atom	       = XInternAtom(dpy, VIMENC_ATOM_NAME,False);
+      utf8_atom	       = XInternAtom(dpy, "UTF8_STRING",   False);
+- #endif
+      compound_text_atom = XInternAtom(dpy, "COMPOUND_TEXT", False);
+      text_atom	       = XInternAtom(dpy, "TEXT",	   False);
+      targets_atom       = XInternAtom(dpy, "TARGETS",	   False);
+--- 2031,2038 ----
+***************
+*** 2170,2178 ****
+      char_u	*p;
+      char	**text_list = NULL;
+      VimClipboard	*cbd;
+- #ifdef FEAT_MBYTE
+      char_u	*tmpbuf = NULL;
+- #endif
+  
+      if (*sel_atom == clip_plus.sel_atom)
+  	cbd = &clip_plus;
+--- 2120,2126 ----
+***************
+*** 2193,2199 ****
+  	len--;
+      }
+  
+- #ifdef FEAT_MBYTE
+      else if (*type == vimenc_atom)
+      {
+  	char_u		*enc;
+--- 2141,2146 ----
+***************
+*** 2221,2237 ****
+  	    convert_setup(&conv, NULL, NULL);
+  	}
+      }
+- #endif
+  
+      else if (*type == compound_text_atom
+- #ifdef FEAT_MBYTE
+  	    || *type == utf8_atom
+! #endif
+! 	    || (
+! #ifdef FEAT_MBYTE
+! 		enc_dbcs != 0 &&
+! #endif
+! 		*type == text_atom))
+      {
+  	XTextProperty	text_prop;
+  	int		n_text = 0;
+--- 2168,2177 ----
+  	    convert_setup(&conv, NULL, NULL);
+  	}
+      }
+  
+      else if (*type == compound_text_atom
+  	    || *type == utf8_atom
+! 	    || (enc_dbcs != 0 && *type == text_atom))
+      {
+  	XTextProperty	text_prop;
+  	int		n_text = 0;
+***************
+*** 2241,2247 ****
+  	text_prop.encoding = *type;
+  	text_prop.format = *format;
+  	text_prop.nitems = len;
+! #if defined(FEAT_MBYTE) && defined(X_HAVE_UTF8_STRING)
+  	if (*type == utf8_atom)
+  	    status = Xutf8TextPropertyToTextList(X_DISPLAY, &text_prop,
+  							 &text_list, &n_text);
+--- 2181,2187 ----
+  	text_prop.encoding = *type;
+  	text_prop.format = *format;
+  	text_prop.nitems = len;
+! #if defined(X_HAVE_UTF8_STRING)
+  	if (*type == utf8_atom)
+  	    status = Xutf8TextPropertyToTextList(X_DISPLAY, &text_prop,
+  							 &text_list, &n_text);
+***************
+*** 2261,2269 ****
+  
+      if (text_list != NULL)
+  	XFreeStringList(text_list);
+- #ifdef FEAT_MBYTE
+      vim_free(tmpbuf);
+- #endif
+      XtFree((char *)value);
+      *(int *)success = TRUE;
+  }
+--- 2201,2207 ----
+***************
+*** 2281,2308 ****
+      time_t	start_time;
+      int		timed_out = FALSE;
+  
+!     for (i =
+! #ifdef FEAT_MBYTE
+! 	    0
+! #else
+! 	    1
+! #endif
+! 	    ; i < 6; i++)
+      {
+  	switch (i)
+  	{
+- #ifdef FEAT_MBYTE
+  	    case 0:  type = vimenc_atom;	break;
+- #endif
+  	    case 1:  type = vim_atom;		break;
+- #ifdef FEAT_MBYTE
+  	    case 2:  type = utf8_atom;		break;
+- #endif
+  	    case 3:  type = compound_text_atom; break;
+  	    case 4:  type = text_atom;		break;
+  	    default: type = XA_STRING;
+  	}
+- #ifdef FEAT_MBYTE
+  	if (type == utf8_atom
+  # if defined(X_HAVE_UTF8_STRING)
+  		&& !enc_utf8
+--- 2219,2235 ----
+      time_t	start_time;
+      int		timed_out = FALSE;
+  
+!     for (i = 0; i < 6; i++)
+      {
+  	switch (i)
+  	{
+  	    case 0:  type = vimenc_atom;	break;
+  	    case 1:  type = vim_atom;		break;
+  	    case 2:  type = utf8_atom;		break;
+  	    case 3:  type = compound_text_atom; break;
+  	    case 4:  type = text_atom;		break;
+  	    default: type = XA_STRING;
+  	}
+  	if (type == utf8_atom
+  # if defined(X_HAVE_UTF8_STRING)
+  		&& !enc_utf8
+***************
+*** 2311,2317 ****
+  	    /* Only request utf-8 when 'encoding' is utf8 and
+  	     * Xutf8TextPropertyToTextList is available. */
+  	    continue;
+- #endif
+  	success = MAYBE;
+  	XtGetSelectionValue(myShell, cbd->sel_atom, type,
+  	    clip_x11_request_selection_cb, (XtPointer)&success, CurrentTime);
+--- 2238,2243 ----
+***************
+*** 2406,2419 ****
+  	*value = (XtPointer)array;
+  	i = 0;
+  	array[i++] = targets_atom;
+- #ifdef FEAT_MBYTE
+  	array[i++] = vimenc_atom;
+- #endif
+  	array[i++] = vim_atom;
+- #ifdef FEAT_MBYTE
+  	if (enc_utf8)
+  	    array[i++] = utf8_atom;
+- #endif
+  	array[i++] = XA_STRING;
+  	array[i++] = text_atom;
+  	array[i++] = compound_text_atom;
+--- 2332,2341 ----
+***************
+*** 2427,2436 ****
+      }
+  
+      if (       *target != XA_STRING
+- #ifdef FEAT_MBYTE
+  	    && *target != vimenc_atom
+  	    && (*target != utf8_atom || !enc_utf8)
+- #endif
+  	    && *target != vim_atom
+  	    && *target != text_atom
+  	    && *target != compound_text_atom)
+--- 2349,2356 ----
+***************
+*** 2445,2455 ****
+      if (*target == vim_atom)
+  	(*length)++;
+  
+- #ifdef FEAT_MBYTE
+      /* Our own format with encoding: motion 'encoding' NUL text */
+      if (*target == vimenc_atom)
+  	*length += STRLEN(p_enc) + 2;
+- #endif
+  
+      if (save_length < *length || save_length / 2 >= *length)
+  	*value = XtRealloc((char *)save_result, (Cardinal)*length + 1);
+--- 2365,2373 ----
+***************
+*** 2463,2473 ****
+      save_result = (char_u *)*value;
+      save_length = *length;
+  
+!     if (*target == XA_STRING
+! #ifdef FEAT_MBYTE
+! 	    || (*target == utf8_atom && enc_utf8)
+! #endif
+! 	    )
+      {
+  	mch_memmove(save_result, string, (size_t)(*length));
+  	*type = *target;
+--- 2381,2387 ----
+      save_result = (char_u *)*value;
+      save_length = *length;
+  
+!     if (*target == XA_STRING || (*target == utf8_atom && enc_utf8))
+      {
+  	mch_memmove(save_result, string, (size_t)(*length));
+  	*type = *target;
+***************
+*** 2495,2501 ****
+  	save_result = (char_u *)*value;
+  	save_length = *length;
+      }
+- #ifdef FEAT_MBYTE
+      else if (*target == vimenc_atom)
+      {
+  	int l = STRLEN(p_enc);
+--- 2409,2414 ----
+***************
+*** 2505,2511 ****
+  	mch_memmove(save_result + l + 2, string, (size_t)(*length - l - 2));
+  	*type = vimenc_atom;
+      }
+- #endif
+      else
+      {
+  	save_result[0] = motion_type;
+--- 2418,2423 ----
+***************
+*** 2599,2605 ****
+  
+      if (nbytes > 0)
+      {
+- #ifdef FEAT_MBYTE
+  	int  done = FALSE;
+  
+  	/* CUT_BUFFER0 is supposed to be always latin1.  Convert to 'enc' when
+--- 2511,2516 ----
+***************
+*** 2625,2631 ****
+  	    }
+  	}
+  	if (!done)  /* use the text without conversion */
+- #endif
+  	    clip_yank_selection(MCHAR, buffer, (long)nbytes, cbd);
+  	XFree((void *)buffer);
+  	if (p_verbose > 0)
+--- 2536,2541 ----
+*** ../vim-8.1.0809/src/version.c	2019-01-24 16:38:58.280712420 +0100
+--- src/version.c	2019-01-24 17:17:24.875973757 +0100
+***************
+*** 459,469 ****
+  	"+multi_byte_ime",
+  # endif
+  #else
+- # ifdef FEAT_MBYTE
+  	"+multi_byte",
+- # else
+- 	"-multi_byte",
+- # endif
+  #endif
+  #ifdef FEAT_MULTI_LANG
+  	"+multi_lang",
+--- 459,465 ----
+***************
+*** 3052,3065 ****
+  	for (l = 0; p[l] != NUL
+  			 && (l == 0 || (p[l] != '<' && p[l - 1] != '>')); ++l)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		clen += ptr2cells(p + l);
+  		l += (*mb_ptr2len)(p + l) - 1;
+  	    }
+  	    else
+- #endif
+  		clen += byte2cells(p[l]);
+  	}
+  	screen_puts_len(p, l, row, col, *p == '<' ? HL_ATTR(HLF_8) : attr);
+--- 3050,3061 ----
+*** ../vim-8.1.0809/src/winclip.c	2017-02-01 13:42:34.000000000 +0100
+--- src/winclip.c	2019-01-24 17:00:00.143491565 +0100
+***************
+*** 44,50 ****
+  typedef int UINT;
+  #endif
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Convert an UTF-8 string to UTF-16.
+   * "instr[inlen]" is the input.  "inlen" is in bytes.
+--- 44,49 ----
+***************
+*** 179,185 ****
+      }
+  }
+  
+- #endif /* FEAT_MBYTE */
+  
+  #ifdef FEAT_CLIPBOARD
+  /*
+--- 178,183 ----
+***************
+*** 301,312 ****
+      VimClipType_t	metadata = { -1, -1, -1, -1 };
+      HGLOBAL		hMem = NULL;
+      char_u		*str = NULL;
+! #if defined(FEAT_MBYTE) && defined(WIN3264)
+      char_u		*to_free = NULL;
+  #endif
+- #ifdef FEAT_MBYTE
+      HGLOBAL		rawh = NULL;
+- #endif
+      int			str_size = 0;
+      int			maxlen;
+      size_t		n;
+--- 299,308 ----
+      VimClipType_t	metadata = { -1, -1, -1, -1 };
+      HGLOBAL		hMem = NULL;
+      char_u		*str = NULL;
+! #if defined(WIN3264)
+      char_u		*to_free = NULL;
+  #endif
+      HGLOBAL		rawh = NULL;
+      int			str_size = 0;
+      int			maxlen;
+      size_t		n;
+***************
+*** 339,345 ****
+  	}
+      }
+  
+- #ifdef FEAT_MBYTE
+      /* Check for Vim's raw clipboard format first.  This is used without
+       * conversion, but only if 'encoding' matches. */
+      if (IsClipboardFormatAvailable(cbd->format_raw)
+--- 335,340 ----
+***************
+*** 366,444 ****
+      }
+      if (str == NULL)
+      {
+! #endif
+! 
+! #if defined(FEAT_MBYTE) && defined(WIN3264)
+!     /* Try to get the clipboard in Unicode if it's not an empty string. */
+!     if (IsClipboardFormatAvailable(CF_UNICODETEXT) && metadata.ucslen != 0)
+!     {
+! 	HGLOBAL hMemW;
+! 
+! 	if ((hMemW = GetClipboardData(CF_UNICODETEXT)) != NULL)
+! 	{
+! 	    WCHAR *hMemWstr = (WCHAR *)GlobalLock(hMemW);
+! 
+! 	    /* Use the length of our metadata if possible, but limit it to the
+! 	     * GlobalSize() for safety. */
+! 	    maxlen = (int)(GlobalSize(hMemW) / sizeof(WCHAR));
+! 	    if (metadata.ucslen >= 0)
+! 	    {
+! 		if (metadata.ucslen > maxlen)
+! 		    str_size = maxlen;
+  		else
+! 		    str_size = metadata.ucslen;
+! 	    }
+! 	    else
+! 	    {
+! 		for (str_size = 0; str_size < maxlen; ++str_size)
+! 		    if (hMemWstr[str_size] == NUL)
+! 			break;
+  	    }
+- 	    to_free = str = utf16_to_enc((short_u *)hMemWstr, &str_size);
+- 	    GlobalUnlock(hMemW);
+  	}
+!     }
+!     else
+  #endif
+!     /* Get the clipboard in the Active codepage. */
+!     if (IsClipboardFormatAvailable(CF_TEXT))
+!     {
+! 	if ((hMem = GetClipboardData(CF_TEXT)) != NULL)
+  	{
+! 	    str = (char_u *)GlobalLock(hMem);
+! 
+! 	    /* The length is either what our metadata says or the strlen().
+! 	     * But limit it to the GlobalSize() for safety. */
+! 	    maxlen = (int)GlobalSize(hMem);
+! 	    if (metadata.txtlen >= 0)
+! 	    {
+! 		if (metadata.txtlen > maxlen)
+! 		    str_size = maxlen;
+! 		else
+! 		    str_size = metadata.txtlen;
+! 	    }
+! 	    else
+  	    {
+! 		for (str_size = 0; str_size < maxlen; ++str_size)
+! 		    if (str[str_size] == NUL)
+! 			break;
+! 	    }
+  
+! # if defined(FEAT_MBYTE) && defined(WIN3264)
+! 	    /* The text is in the active codepage.  Convert to 'encoding',
+! 	     * going through UTF-16. */
+! 	    acp_to_enc(str, str_size, &to_free, &maxlen);
+! 	    if (to_free != NULL)
+! 	    {
+! 		str_size = maxlen;
+! 		str = to_free;
+  	    }
+- # endif
+  	}
+      }
+- #ifdef FEAT_MBYTE
+-     }
+- #endif
+  
+      if (str != NULL && *str != NUL)
+      {
+--- 361,435 ----
+      }
+      if (str == NULL)
+      {
+! #if defined(WIN3264)
+! 	/* Try to get the clipboard in Unicode if it's not an empty string. */
+! 	if (IsClipboardFormatAvailable(CF_UNICODETEXT) && metadata.ucslen != 0)
+! 	{
+! 	    HGLOBAL hMemW;
+! 
+! 	    if ((hMemW = GetClipboardData(CF_UNICODETEXT)) != NULL)
+! 	    {
+! 		WCHAR *hMemWstr = (WCHAR *)GlobalLock(hMemW);
+! 
+! 		/* Use the length of our metadata if possible, but limit it to
+! 		 * the GlobalSize() for safety. */
+! 		maxlen = (int)(GlobalSize(hMemW) / sizeof(WCHAR));
+! 		if (metadata.ucslen >= 0)
+! 		{
+! 		    if (metadata.ucslen > maxlen)
+! 			str_size = maxlen;
+! 		    else
+! 			str_size = metadata.ucslen;
+! 		}
+  		else
+! 		{
+! 		    for (str_size = 0; str_size < maxlen; ++str_size)
+! 			if (hMemWstr[str_size] == NUL)
+! 			    break;
+! 		}
+! 		to_free = str = utf16_to_enc((short_u *)hMemWstr, &str_size);
+! 		GlobalUnlock(hMemW);
+  	    }
+  	}
+! 	else
+  #endif
+! 	    /* Get the clipboard in the Active codepage. */
+! 	    if (IsClipboardFormatAvailable(CF_TEXT))
+  	{
+! 	    if ((hMem = GetClipboardData(CF_TEXT)) != NULL)
+  	    {
+! 		str = (char_u *)GlobalLock(hMem);
+  
+! 		/* The length is either what our metadata says or the strlen().
+! 		 * But limit it to the GlobalSize() for safety. */
+! 		maxlen = (int)GlobalSize(hMem);
+! 		if (metadata.txtlen >= 0)
+! 		{
+! 		    if (metadata.txtlen > maxlen)
+! 			str_size = maxlen;
+! 		    else
+! 			str_size = metadata.txtlen;
+! 		}
+! 		else
+! 		{
+! 		    for (str_size = 0; str_size < maxlen; ++str_size)
+! 			if (str[str_size] == NUL)
+! 			    break;
+! 		}
+! 
+! #if defined(WIN3264)
+! 		/* The text is in the active codepage.  Convert to
+! 		 * 'encoding', going through UTF-16. */
+! 		acp_to_enc(str, str_size, &to_free, &maxlen);
+! 		if (to_free != NULL)
+! 		{
+! 		    str_size = maxlen;
+! 		    str = to_free;
+! 		}
+! #endif
+  	    }
+  	}
+      }
+  
+      if (str != NULL && *str != NUL)
+      {
+***************
+*** 460,471 ****
+      /* unlock the global object */
+      if (hMem != NULL)
+  	GlobalUnlock(hMem);
+- #ifdef FEAT_MBYTE
+      if (rawh != NULL)
+  	GlobalUnlock(rawh);
+- #endif
+      CloseClipboard();
+! #if defined(FEAT_MBYTE) && defined(WIN3264)
+      vim_free(to_free);
+  #endif
+  }
+--- 451,460 ----
+      /* unlock the global object */
+      if (hMem != NULL)
+  	GlobalUnlock(hMem);
+      if (rawh != NULL)
+  	GlobalUnlock(rawh);
+      CloseClipboard();
+! #if defined(WIN3264)
+      vim_free(to_free);
+  #endif
+  }
+***************
+*** 482,488 ****
+      HGLOBAL		hMemRaw = NULL;
+      HGLOBAL		hMem = NULL;
+      HGLOBAL		hMemVim = NULL;
+! # if defined(FEAT_MBYTE) && defined(WIN3264)
+      HGLOBAL		hMemW = NULL;
+  # endif
+  
+--- 471,477 ----
+      HGLOBAL		hMemRaw = NULL;
+      HGLOBAL		hMem = NULL;
+      HGLOBAL		hMemVim = NULL;
+! # if defined(WIN3264)
+      HGLOBAL		hMemW = NULL;
+  # endif
+  
+***************
+*** 499,505 ****
+      metadata.ucslen = 0;
+      metadata.rawlen = 0;
+  
+- #ifdef FEAT_MBYTE
+      /* Always set the raw bytes: 'encoding', NUL and the text.  This is used
+       * when copy/paste from/to Vim with the same 'encoding', so that illegal
+       * bytes can also be copied and no conversion is needed. */
+--- 488,493 ----
+***************
+*** 519,527 ****
+  	else
+  	    metadata.rawlen = 0;
+      }
+- #endif
+  
+! # if defined(FEAT_MBYTE) && defined(WIN3264)
+      {
+  	WCHAR		*out;
+  	int		len = metadata.txtlen;
+--- 507,514 ----
+  	else
+  	    metadata.rawlen = 0;
+      }
+  
+! # if defined(WIN3264)
+      {
+  	WCHAR		*out;
+  	int		len = metadata.txtlen;
+***************
+*** 603,609 ****
+  	{
+  	    SetClipboardData(cbd->format, hMemVim);
+  	    hMemVim = 0;
+! # if defined(FEAT_MBYTE) && defined(WIN3264)
+  	    if (hMemW != NULL)
+  	    {
+  		if (SetClipboardData(CF_UNICODETEXT, hMemW) != NULL)
+--- 590,596 ----
+  	{
+  	    SetClipboardData(cbd->format, hMemVim);
+  	    hMemVim = 0;
+! # if defined(WIN3264)
+  	    if (hMemW != NULL)
+  	    {
+  		if (SetClipboardData(CF_UNICODETEXT, hMemW) != NULL)
+***************
+*** 624,630 ****
+  	GlobalFree(hMemRaw);
+      if (hMem)
+  	GlobalFree(hMem);
+! # if defined(FEAT_MBYTE) && defined(WIN3264)
+      if (hMemW)
+  	GlobalFree(hMemW);
+  # endif
+--- 611,617 ----
+  	GlobalFree(hMemRaw);
+      if (hMem)
+  	GlobalFree(hMem);
+! # if defined(WIN3264)
+      if (hMemW)
+  	GlobalFree(hMemW);
+  # endif
+***************
+*** 634,640 ****
+  
+  #endif /* FEAT_CLIPBOARD */
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Note: the following two functions are only guaranteed to work when using
+   * valid MS-Windows codepages or when iconv() is available.
+--- 621,626 ----
+***************
+*** 759,767 ****
+  
+      return enc_str;
+  }
+- #endif /* FEAT_MBYTE */
+  
+! #if (defined(FEAT_MBYTE) && defined(WIN3264)) || defined(PROTO)
+  /*
+   * Convert from the active codepage to 'encoding'.
+   * Input is "str[str_size]".
+--- 745,752 ----
+  
+      return enc_str;
+  }
+  
+! #if defined(WIN3264) || defined(PROTO)
+  /*
+   * Convert from the active codepage to 'encoding'.
+   * Input is "str[str_size]".
+*** ../vim-8.1.0809/src/window.c	2019-01-19 17:43:03.433449041 +0100
+--- src/window.c	2019-01-24 17:00:20.827336604 +0100
+***************
+*** 6180,6191 ****
+       */
+      while (ptr > line)
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte && (len = (*mb_head_off)(line, ptr - 1)) > 0)
+  	    ptr -= len + 1;
+! 	else
+! #endif
+! 	if (vim_isfilec(ptr[-1])
+  		|| ((options & FNAME_HYP) && path_is_url(ptr - 1)))
+  	    --ptr;
+  	else
+--- 6180,6188 ----
+       */
+      while (ptr > line)
+      {
+  	if (has_mbyte && (len = (*mb_head_off)(line, ptr - 1)) > 0)
+  	    ptr -= len + 1;
+! 	else if (vim_isfilec(ptr[-1])
+  		|| ((options & FNAME_HYP) && path_is_url(ptr - 1)))
+  	    --ptr;
+  	else
+***************
+*** 6214,6224 ****
+  	if (ptr[len] == '\\')
+  	    /* Skip over the "\" in "\ ". */
+  	    ++len;
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    len += (*mb_ptr2len)(ptr + len);
+  	else
+- #endif
+  	    ++len;
+      }
+  
+--- 6211,6219 ----
+***************
+*** 6829,6835 ****
+      m->match.regprog = regprog;
+      m->match.rmm_ic = FALSE;
+      m->match.rmm_maxcol = 0;
+! # if defined(FEAT_CONCEAL) && defined(FEAT_MBYTE)
+      m->conceal_char = 0;
+      if (conceal_char != NULL)
+  	m->conceal_char = (*mb_ptr2char)(conceal_char);
+--- 6824,6830 ----
+      m->match.regprog = regprog;
+      m->match.rmm_ic = FALSE;
+      m->match.rmm_maxcol = 0;
+! # if defined(FEAT_CONCEAL)
+      m->conceal_char = 0;
+      if (conceal_char != NULL)
+  	m->conceal_char = (*mb_ptr2char)(conceal_char);
+*** ../vim-8.1.0809/src/glbl_ime.cpp	2016-08-29 22:42:20.000000000 +0200
+--- src/glbl_ime.cpp	2019-01-24 17:00:38.099207536 +0100
+***************
+*** 134,140 ****
+      if (pIApp == NULL || pIApp->OnDefWindowProc(hWnd, Msg,
+  					    wParam, lParam, &lResult) != S_OK)
+      {
+! #if defined(WIN3264) && defined(FEAT_MBYTE)
+  	if (wide_WindowProc)
+  	    lResult = DefWindowProcW(hWnd, Msg, wParam, lParam);
+  	else
+--- 134,140 ----
+      if (pIApp == NULL || pIApp->OnDefWindowProc(hWnd, Msg,
+  					    wParam, lParam, &lResult) != S_OK)
+      {
+! #if defined(WIN3264)
+  	if (wide_WindowProc)
+  	    lResult = DefWindowProcW(hWnd, Msg, wParam, lParam);
+  	else
+*** ../vim-8.1.0809/src/ex_cmds.h	2019-01-17 15:43:21.757878392 +0100
+--- src/ex_cmds.h	2019-01-24 17:01:04.547010454 +0100
+***************
+*** 1789,1798 ****
+      int		force_bin;	/* 0, FORCE_BIN or FORCE_NOBIN */
+      int		read_edit;	/* ++edit argument */
+      int		force_ff;	/* ++ff= argument (first char of argument) */
+- #ifdef FEAT_MBYTE
+      int		force_enc;	/* ++enc= argument (index in cmd[]) */
+      int		bad_char;	/* BAD_KEEP, BAD_DROP or replacement byte */
+- #endif
+  #ifdef FEAT_USR_CMDS
+      int		useridx;	/* user command index */
+  #endif
+--- 1789,1796 ----
+*** ../vim-8.1.0809/src/globals.h	2019-01-22 22:20:13.374961397 +0100
+--- src/globals.h	2019-01-24 17:01:59.414603615 +0100
+***************
+*** 44,50 ****
+  EXTERN unsigned	*LineOffset INIT(= NULL);
+  EXTERN char_u	*LineWraps INIT(= NULL);	/* line wraps to next line */
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * When using Unicode characters (in UTF-8 encoding) the character in
+   * ScreenLinesUC[] contains the Unicode for the character at this position, or
+--- 44,49 ----
+***************
+*** 61,67 ****
+  /* Only used for euc-jp: Second byte of a character that starts with 0x8e.
+   * These are single-width. */
+  EXTERN schar_T	*ScreenLines2 INIT(= NULL);
+- #endif
+  
+  /*
+   * Indexes for tab page line:
+--- 60,65 ----
+***************
+*** 798,838 ****
+  EXTERN JMP_BUF x_jump_env;
+  #endif
+  
+- #if defined(FEAT_MBYTE) || defined(FEAT_POSTSCRIPT)
+  /*
+   * These flags are set based upon 'fileencoding'.
+   * Note that "enc_utf8" is also set for "unicode", because the characters are
+   * internally stored as UTF-8 (to avoid trouble with NUL bytes).
+   */
+! # define DBCS_JPN	932	/* japan */
+! # define DBCS_JPNU	9932	/* euc-jp */
+! # define DBCS_KOR	949	/* korea */
+! # define DBCS_KORU	9949	/* euc-kr */
+! # define DBCS_CHS	936	/* chinese */
+! # define DBCS_CHSU	9936	/* euc-cn */
+! # define DBCS_CHT	950	/* taiwan */
+! # define DBCS_CHTU	9950	/* euc-tw */
+! # define DBCS_2BYTE	1	/* 2byte- */
+! # define DBCS_DEBUG	-1
+! #endif
+  
+- #ifdef FEAT_MBYTE
+  EXTERN int	enc_dbcs INIT(= 0);		/* One of DBCS_xxx values if
+  						   DBCS encoding */
+  EXTERN int	enc_unicode INIT(= 0);	/* 2: UCS-2 or UTF-16, 4: UCS-4 */
+  EXTERN int	enc_utf8 INIT(= FALSE);		/* UTF-8 encoded Unicode */
+  EXTERN int	enc_latin1like INIT(= TRUE);	/* 'encoding' is latin1 comp. */
+! # if defined(WIN3264) || defined(FEAT_CYGWIN_WIN32_CLIPBOARD)
+  /* Codepage nr of 'encoding'.  Negative means it's not been set yet, zero
+   * means 'encoding' is not a valid codepage. */
+  EXTERN int	enc_codepage INIT(= -1);
+  EXTERN int	enc_latin9 INIT(= FALSE);	/* 'encoding' is latin9 */
+! # endif
+  EXTERN int	has_mbyte INIT(= 0);		/* any multi-byte encoding */
+  
+! # if defined(WIN3264) && defined(FEAT_MBYTE)
+  EXTERN int	wide_WindowProc INIT(= FALSE);	/* use wide WindowProc() */
+! # endif
+  
+  /*
+   * To speed up BYTELEN() we fill a table with the byte lengths whenever
+--- 796,833 ----
+  EXTERN JMP_BUF x_jump_env;
+  #endif
+  
+  /*
+   * These flags are set based upon 'fileencoding'.
+   * Note that "enc_utf8" is also set for "unicode", because the characters are
+   * internally stored as UTF-8 (to avoid trouble with NUL bytes).
+   */
+! #define DBCS_JPN	932	/* japan */
+! #define DBCS_JPNU	9932	/* euc-jp */
+! #define DBCS_KOR	949	/* korea */
+! #define DBCS_KORU	9949	/* euc-kr */
+! #define DBCS_CHS	936	/* chinese */
+! #define DBCS_CHSU	9936	/* euc-cn */
+! #define DBCS_CHT	950	/* taiwan */
+! #define DBCS_CHTU	9950	/* euc-tw */
+! #define DBCS_2BYTE	1	/* 2byte- */
+! #define DBCS_DEBUG	-1
+  
+  EXTERN int	enc_dbcs INIT(= 0);		/* One of DBCS_xxx values if
+  						   DBCS encoding */
+  EXTERN int	enc_unicode INIT(= 0);	/* 2: UCS-2 or UTF-16, 4: UCS-4 */
+  EXTERN int	enc_utf8 INIT(= FALSE);		/* UTF-8 encoded Unicode */
+  EXTERN int	enc_latin1like INIT(= TRUE);	/* 'encoding' is latin1 comp. */
+! #if defined(WIN3264) || defined(FEAT_CYGWIN_WIN32_CLIPBOARD)
+  /* Codepage nr of 'encoding'.  Negative means it's not been set yet, zero
+   * means 'encoding' is not a valid codepage. */
+  EXTERN int	enc_codepage INIT(= -1);
+  EXTERN int	enc_latin9 INIT(= FALSE);	/* 'encoding' is latin9 */
+! #endif
+  EXTERN int	has_mbyte INIT(= 0);		/* any multi-byte encoding */
+  
+! #if defined(WIN3264)
+  EXTERN int	wide_WindowProc INIT(= FALSE);	/* use wide WindowProc() */
+! #endif
+  
+  /*
+   * To speed up BYTELEN() we fill a table with the byte lengths whenever
+***************
+*** 875,881 ****
+  EXTERN int* (*iconv_errno) (void);
+  # endif
+  
+- #endif /* FEAT_MBYTE */
+  
+  #ifdef FEAT_XIM
+  # ifdef FEAT_GUI_GTK
+--- 870,875 ----
+*** ../vim-8.1.0809/src/gui.h	2018-07-29 17:35:19.493750319 +0200
+--- src/gui.h	2019-01-24 17:02:15.106487731 +0100
+***************
+*** 303,315 ****
+      GuiFont	menu_font;	    /* menu item font */
+  # endif
+  #endif
+- #ifdef FEAT_MBYTE
+      GuiFont	wide_font;	    /* Normal 'guifontwide' font */
+! # ifndef FEAT_GUI_GTK
+      GuiFont	wide_bold_font;	    /* Bold 'guifontwide' font */
+      GuiFont	wide_ital_font;	    /* Italic 'guifontwide' font */
+      GuiFont	wide_boldital_font; /* Bold-Italic 'guifontwide' font */
+- # endif
+  #endif
+  #ifdef FEAT_XFONTSET
+      GuiFontset	fontset;	    /* set of fonts for multi-byte chars */
+--- 303,313 ----
+      GuiFont	menu_font;	    /* menu item font */
+  # endif
+  #endif
+      GuiFont	wide_font;	    /* Normal 'guifontwide' font */
+! #ifndef FEAT_GUI_GTK
+      GuiFont	wide_bold_font;	    /* Bold 'guifontwide' font */
+      GuiFont	wide_ital_font;	    /* Italic 'guifontwide' font */
+      GuiFont	wide_boldital_font; /* Bold-Italic 'guifontwide' font */
+  #endif
+  #ifdef FEAT_XFONTSET
+      GuiFontset	fontset;	    /* set of fonts for multi-byte chars */
+*** ../vim-8.1.0809/src/if_py_both.h	2019-01-19 17:43:03.417449145 +0100
+--- src/if_py_both.h	2019-01-24 17:02:32.870356782 +0100
+***************
+*** 24,34 ****
+  typedef int Py_ssize_t;  /* Python 2.4 and earlier don't have this type. */
+  #endif
+  
+! #ifdef FEAT_MBYTE
+! # define ENC_OPT ((char *)p_enc)
+! #else
+! # define ENC_OPT "latin1"
+! #endif
+  #define DOPY_FUNC "_vim_pydo"
+  
+  static const char *vim_special_path = "_vim_path_";
+--- 24,30 ----
+  typedef int Py_ssize_t;  /* Python 2.4 and earlier don't have this type. */
+  #endif
+  
+! #define ENC_OPT ((char *)p_enc)
+  #define DOPY_FUNC "_vim_pydo"
+  
+  static const char *vim_special_path = "_vim_path_";
+***************
+*** 985,995 ****
+      if (!(str = StringToChars(string, &todecref)))
+  	return NULL;
+  
+- #ifdef FEAT_MBYTE
+      len = mb_string2cells(str, (int)STRLEN(str));
+- #else
+-     len = STRLEN(str);
+- #endif
+  
+      Py_XDECREF(todecref);
+  
+--- 981,987 ----
+*** ../vim-8.1.0809/src/macros.h	2018-11-16 16:21:01.633310065 +0100
+--- src/macros.h	2019-01-24 17:03:20.958003503 +0100
+***************
+*** 96,112 ****
+   * MB_ISLOWER() and MB_ISUPPER() are to be used on multi-byte characters.  But
+   * don't use them for negative values!
+   */
+! #ifdef FEAT_MBYTE
+! # define MB_ISLOWER(c)	vim_islower(c)
+! # define MB_ISUPPER(c)	vim_isupper(c)
+! # define MB_TOLOWER(c)	vim_tolower(c)
+! # define MB_TOUPPER(c)	vim_toupper(c)
+! #else
+! # define MB_ISLOWER(c)	islower(c)
+! # define MB_ISUPPER(c)	isupper(c)
+! # define MB_TOLOWER(c)	TOLOWER_LOC(c)
+! # define MB_TOUPPER(c)	TOUPPER_LOC(c)
+! #endif
+  
+  /* Use our own isdigit() replacement, because on MS-Windows isdigit() returns
+   * non-zero for superscript 1.  Also avoids that isdigit() crashes for numbers
+--- 96,105 ----
+   * MB_ISLOWER() and MB_ISUPPER() are to be used on multi-byte characters.  But
+   * don't use them for negative values!
+   */
+! #define MB_ISLOWER(c)	vim_islower(c)
+! #define MB_ISUPPER(c)	vim_isupper(c)
+! #define MB_TOLOWER(c)	vim_tolower(c)
+! #define MB_TOUPPER(c)	vim_toupper(c)
+  
+  /* Use our own isdigit() replacement, because on MS-Windows isdigit() returns
+   * non-zero for superscript 1.  Also avoids that isdigit() crashes for numbers
+***************
+*** 139,146 ****
+   * a mapping and the langnoremap option was set.
+   * The do-while is just to ignore a ';' after the macro.
+   */
+! # ifdef FEAT_MBYTE
+! #  define LANGMAP_ADJUST(c, condition) \
+      do { \
+  	if (*p_langmap \
+  		&& (condition) \
+--- 132,138 ----
+   * a mapping and the langnoremap option was set.
+   * The do-while is just to ignore a ';' after the macro.
+   */
+! # define LANGMAP_ADJUST(c, condition) \
+      do { \
+  	if (*p_langmap \
+  		&& (condition) \
+***************
+*** 154,170 ****
+  		c = langmap_adjust_mb(c); \
+  	} \
+      } while (0)
+- # else
+- #  define LANGMAP_ADJUST(c, condition) \
+-     do { \
+- 	if (*p_langmap \
+- 		&& (condition) \
+- 		&& (p_lrm || (!p_lrm && KeyTyped)) \
+- 		&& !KeyStuffed \
+- 		&& (c) >= 0 && (c) < 256) \
+- 	    c = langmap_mapchar[c]; \
+-     } while (0)
+- # endif
+  #else
+  # define LANGMAP_ADJUST(c, condition) /* nop */
+  #endif
+--- 146,151 ----
+***************
+*** 256,288 ****
+   * MB_COPY_CHAR(f, t): copy one char from "f" to "t" and advance the pointers.
+   * PTR2CHAR(): get character from pointer.
+   */
+- #ifdef FEAT_MBYTE
+  /* Get the length of the character p points to, including composing chars */
+! # define MB_PTR2LEN(p)	    (has_mbyte ? (*mb_ptr2len)(p) : 1)
+  /* Advance multi-byte pointer, skip over composing chars. */
+! # define MB_PTR_ADV(p)	    p += has_mbyte ? (*mb_ptr2len)(p) : 1
+  /* Advance multi-byte pointer, do not skip over composing chars. */
+! # define MB_CPTR_ADV(p)	    p += enc_utf8 ? utf_ptr2len(p) : has_mbyte ? (*mb_ptr2len)(p) : 1
+  /* Backup multi-byte pointer. Only use with "p" > "s" ! */
+! # define MB_PTR_BACK(s, p)  p -= has_mbyte ? ((*mb_head_off)(s, p - 1) + 1) : 1
+  /* get length of multi-byte char, not including composing chars */
+! # define MB_CPTR2LEN(p)	    (enc_utf8 ? utf_ptr2len(p) : (*mb_ptr2len)(p))
+  
+! # define MB_COPY_CHAR(f, t) if (has_mbyte) mb_copy_char(&f, &t); else *t++ = *f++
+! # define MB_CHARLEN(p)	    (has_mbyte ? mb_charlen(p) : (int)STRLEN(p))
+! # define MB_CHAR2LEN(c)	    (has_mbyte ? mb_char2len(c) : 1)
+! # define PTR2CHAR(p)	    (has_mbyte ? mb_ptr2char(p) : (int)*(p))
+! #else
+! # define MB_PTR2LEN(p)		1
+! # define MB_CPTR2LEN(p)		1
+! # define MB_PTR_ADV(p)		++p
+! # define MB_CPTR_ADV(p)		++p
+! # define MB_PTR_BACK(s, p)	--p
+! # define MB_COPY_CHAR(f, t)	*t++ = *f++
+! # define MB_CHARLEN(p)		STRLEN(p)
+! # define MB_CHAR2LEN(c)		1
+! # define PTR2CHAR(p)		((int)*(p))
+! #endif
+  
+  #ifdef FEAT_AUTOCHDIR
+  # define DO_AUTOCHDIR do { if (p_acd) do_autochdir(); } while (0)
+--- 237,257 ----
+   * MB_COPY_CHAR(f, t): copy one char from "f" to "t" and advance the pointers.
+   * PTR2CHAR(): get character from pointer.
+   */
+  /* Get the length of the character p points to, including composing chars */
+! #define MB_PTR2LEN(p)	    (has_mbyte ? (*mb_ptr2len)(p) : 1)
+  /* Advance multi-byte pointer, skip over composing chars. */
+! #define MB_PTR_ADV(p)	    p += has_mbyte ? (*mb_ptr2len)(p) : 1
+  /* Advance multi-byte pointer, do not skip over composing chars. */
+! #define MB_CPTR_ADV(p)	    p += enc_utf8 ? utf_ptr2len(p) : has_mbyte ? (*mb_ptr2len)(p) : 1
+  /* Backup multi-byte pointer. Only use with "p" > "s" ! */
+! #define MB_PTR_BACK(s, p)  p -= has_mbyte ? ((*mb_head_off)(s, p - 1) + 1) : 1
+  /* get length of multi-byte char, not including composing chars */
+! #define MB_CPTR2LEN(p)	    (enc_utf8 ? utf_ptr2len(p) : (*mb_ptr2len)(p))
+  
+! #define MB_COPY_CHAR(f, t) if (has_mbyte) mb_copy_char(&f, &t); else *t++ = *f++
+! #define MB_CHARLEN(p)	    (has_mbyte ? mb_charlen(p) : (int)STRLEN(p))
+! #define MB_CHAR2LEN(c)	    (has_mbyte ? mb_char2len(c) : 1)
+! #define PTR2CHAR(p)	    (has_mbyte ? mb_ptr2char(p) : (int)*(p))
+  
+  #ifdef FEAT_AUTOCHDIR
+  # define DO_AUTOCHDIR do { if (p_acd) do_autochdir(); } while (0)
+*** ../vim-8.1.0809/src/option.h	2019-01-11 22:15:00.519123428 +0100
+--- src/option.h	2019-01-24 17:04:23.493546503 +0100
+***************
+*** 69,81 ****
+  #endif
+  
+  
+- #ifdef FEAT_MBYTE
+  /* Possible values for 'encoding' */
+! # define ENC_UCSBOM	"ucs-bom"	/* check for BOM at start of file */
+  
+  /* default value for 'encoding' */
+! # define ENC_DFLT	"latin1"
+! #endif
+  
+  /* end-of-line style */
+  #define EOL_UNKNOWN	-1	/* not defined yet */
+--- 69,79 ----
+  #endif
+  
+  
+  /* Possible values for 'encoding' */
+! #define ENC_UCSBOM	"ucs-bom"	/* check for BOM at start of file */
+  
+  /* default value for 'encoding' */
+! #define ENC_DFLT	"latin1"
+  
+  /* end-of-line style */
+  #define EOL_UNKNOWN	-1	/* not defined yet */
+***************
+*** 315,324 ****
+  #ifdef FEAT_AUTOCHDIR
+  EXTERN int	p_acd;		/* 'autochdir' */
+  #endif
+- #ifdef FEAT_MBYTE
+  EXTERN char_u	*p_ambw;	/* 'ambiwidth' */
+  EXTERN char_u	*p_emoji;	/* 'emoji' */
+- #endif
+  #if defined(FEAT_GUI) && defined(MACOS_X)
+  EXTERN int	*p_antialias;	/* 'antialias' */
+  #endif
+--- 313,320 ----
+***************
+*** 395,415 ****
+  #ifdef FEAT_LINEBREAK
+  EXTERN char_u	*p_breakat;	/* 'breakat' */
+  #endif
+- #ifdef FEAT_MBYTE
+  EXTERN char_u	*p_cmp;		/* 'casemap' */
+  EXTERN unsigned	cmp_flags;
+! # ifdef IN_OPTION_C
+  static char *(p_cmp_values[]) = {"internal", "keepascii", NULL};
+- # endif
+- # define CMP_INTERNAL		0x001
+- # define CMP_KEEPASCII		0x002
+  #endif
+! #ifdef FEAT_MBYTE
+  EXTERN char_u	*p_enc;		/* 'encoding' */
+  EXTERN int	p_deco;		/* 'delcombine' */
+! # ifdef FEAT_EVAL
+  EXTERN char_u	*p_ccv;		/* 'charconvert' */
+- # endif
+  #endif
+  #ifdef FEAT_CMDWIN
+  EXTERN char_u	*p_cedit;	/* 'cedit' */
+--- 391,407 ----
+  #ifdef FEAT_LINEBREAK
+  EXTERN char_u	*p_breakat;	/* 'breakat' */
+  #endif
+  EXTERN char_u	*p_cmp;		/* 'casemap' */
+  EXTERN unsigned	cmp_flags;
+! #ifdef IN_OPTION_C
+  static char *(p_cmp_values[]) = {"internal", "keepascii", NULL};
+  #endif
+! #define CMP_INTERNAL		0x001
+! #define CMP_KEEPASCII		0x002
+  EXTERN char_u	*p_enc;		/* 'encoding' */
+  EXTERN int	p_deco;		/* 'delcombine' */
+! #ifdef FEAT_EVAL
+  EXTERN char_u	*p_ccv;		/* 'charconvert' */
+  #endif
+  #ifdef FEAT_CMDWIN
+  EXTERN char_u	*p_cedit;	/* 'cedit' */
+***************
+*** 482,490 ****
+  EXTERN char_u	*p_ei;		/* 'eventignore' */
+  EXTERN int	p_ek;		/* 'esckeys' */
+  EXTERN int	p_exrc;		/* 'exrc' */
+- #ifdef FEAT_MBYTE
+  EXTERN char_u	*p_fencs;	/* 'fileencodings' */
+- #endif
+  EXTERN char_u	*p_ffs;		/* 'fileformats' */
+  EXTERN long	p_fic;		/* 'fileignorecase' */
+  #ifdef FEAT_FOLDING
+--- 474,480 ----
+***************
+*** 519,528 ****
+  # ifdef FEAT_POSTSCRIPT
+  EXTERN char_u	*p_penc;	/* 'printencoding' */
+  EXTERN char_u	*p_pexpr;	/* 'printexpr' */
+- #   ifdef FEAT_MBYTE
+  EXTERN char_u	*p_pmfn;	/* 'printmbfont' */
+  EXTERN char_u	*p_pmcs;	/* 'printmbcharset' */
+- #   endif
+  # endif
+  EXTERN char_u	*p_pfn;		/* 'printfont' */
+  EXTERN char_u	*p_popt;	/* 'printoptions' */
+--- 509,516 ----
+***************
+*** 534,542 ****
+  # ifdef FEAT_XFONTSET
+  EXTERN char_u	*p_guifontset;	/* 'guifontset' */
+  # endif
+- # ifdef FEAT_MBYTE
+  EXTERN char_u	*p_guifontwide;	/* 'guifontwide' */
+- # endif
+  EXTERN int	p_guipty;	/* 'guipty' */
+  #endif
+  #if defined(FEAT_GUI_GTK) || defined(FEAT_GUI_X11)
+--- 522,528 ----
+***************
+*** 586,599 ****
+  #define IM_OVER_THE_SPOT	1L
+  EXTERN long	p_imst;		/* 'imstyle' */
+  #endif
+! #if defined(FEAT_EVAL) && defined(FEAT_MBYTE)
+  EXTERN char_u	*p_imaf;	/* 'imactivatefunc' */
+  EXTERN char_u	*p_imsf;	/* 'imstatusfunc' */
+  #endif
+- #ifdef FEAT_MBYTE
+  EXTERN int	p_imcmdline;	/* 'imcmdline' */
+  EXTERN int	p_imdisable;	/* 'imdisable' */
+- #endif
+  EXTERN int	p_is;		/* 'incsearch' */
+  EXTERN int	p_im;		/* 'insertmode' */
+  EXTERN char_u	*p_isf;		/* 'isfname' */
+--- 572,583 ----
+  #define IM_OVER_THE_SPOT	1L
+  EXTERN long	p_imst;		/* 'imstyle' */
+  #endif
+! #if defined(FEAT_EVAL)
+  EXTERN char_u	*p_imaf;	/* 'imactivatefunc' */
+  EXTERN char_u	*p_imsf;	/* 'imstatusfunc' */
+  #endif
+  EXTERN int	p_imcmdline;	/* 'imcmdline' */
+  EXTERN int	p_imdisable;	/* 'imdisable' */
+  EXTERN int	p_is;		/* 'incsearch' */
+  EXTERN int	p_im;		/* 'insertmode' */
+  EXTERN char_u	*p_isf;		/* 'isfname' */
+***************
+*** 629,637 ****
+  EXTERN int	p_macatsui;	/* 'macatsui' */
+  #endif
+  EXTERN int	p_magic;	/* 'magic' */
+- #ifdef FEAT_MBYTE
+  EXTERN char_u	*p_menc;	/* 'makeencoding' */
+- #endif
+  #ifdef FEAT_QUICKFIX
+  EXTERN char_u	*p_mef;		/* 'makeef' */
+  EXTERN char_u	*p_mp;		/* 'makeprg' */
+--- 613,619 ----
+***************
+*** 644,652 ****
+  EXTERN int      p_cc_cols[256]; /* array for 'colorcolumn' columns */
+  #endif
+  EXTERN long	p_mat;		/* 'matchtime' */
+- #ifdef FEAT_MBYTE
+  EXTERN long	p_mco;		/* 'maxcombine' */
+- #endif
+  #ifdef FEAT_EVAL
+  EXTERN long	p_mfd;		/* 'maxfuncdepth' */
+  #endif
+--- 626,632 ----
+***************
+*** 850,858 ****
+  #ifdef FEAT_ARABIC
+  EXTERN int	p_tbidi;	/* 'termbidi' */
+  #endif
+- #ifdef FEAT_MBYTE
+  EXTERN char_u	*p_tenc;	/* 'termencoding' */
+- #endif
+  #ifdef FEAT_TERMGUICOLORS
+  EXTERN int	p_tgc;		/* 'termguicolors' */
+  #endif
+--- 830,836 ----
+***************
+*** 1001,1009 ****
+  #endif
+      , BV_BIN
+      , BV_BL
+- #ifdef FEAT_MBYTE
+      , BV_BOMB
+- #endif
+      , BV_CI
+  #ifdef FEAT_CINDENT
+      , BV_CIN
+--- 979,985 ----
+***************
+*** 1068,1076 ****
+      , BV_LISP
+      , BV_LW
+  #endif
+- #ifdef FEAT_MBYTE
+      , BV_MENC
+- #endif
+      , BV_MA
+      , BV_ML
+      , BV_MOD
+--- 1044,1050 ----
+*** ../vim-8.1.0809/src/os_mac.h	2018-09-21 14:48:49.644214400 +0200
+--- src/os_mac.h	2019-01-24 17:04:40.809420405 +0100
+***************
+*** 37,45 ****
+  # include <Memory.h>
+  # include <OSUtils.h>
+  # include <Files.h>
+! # ifdef FEAT_MBYTE
+! #  include <Script.h>
+! # endif
+  #endif
+  
+  /*
+--- 37,43 ----
+  # include <Memory.h>
+  # include <OSUtils.h>
+  # include <Files.h>
+! # include <Script.h>
+  #endif
+  
+  /*
+*** ../vim-8.1.0809/src/os_win32.h	2018-09-21 14:48:49.644214400 +0200
+--- src/os_win32.h	2019-01-24 17:04:56.853303732 +0100
+***************
+*** 213,226 ****
+  #endif
+  
+  /* Enable common dialogs input unicode from IME if possible. */
+! #ifdef FEAT_MBYTE
+! # define pDispatchMessage DispatchMessageW
+! # define pGetMessage GetMessageW
+! # define pIsDialogMessage IsDialogMessageW
+! # define pPeekMessage PeekMessageW
+! #else
+! # define pDispatchMessage DispatchMessage
+! # define pGetMessage GetMessage
+! # define pIsDialogMessage IsDialogMessage
+! # define pPeekMessage PeekMessage
+! #endif
+--- 213,219 ----
+  #endif
+  
+  /* Enable common dialogs input unicode from IME if possible. */
+! #define pDispatchMessage DispatchMessageW
+! #define pGetMessage GetMessageW
+! #define pIsDialogMessage IsDialogMessageW
+! #define pPeekMessage PeekMessageW
+*** ../vim-8.1.0809/src/proto.h	2019-01-22 21:45:36.553678901 +0100
+--- src/proto.h	2019-01-24 17:05:20.409132700 +0100
+***************
+*** 168,177 ****
+  void qsort(void *base, size_t elm_count, size_t elm_size, int (*cmp)(const void *, const void *));
+  #endif
+  # include "move.pro"
+! # if defined(FEAT_MBYTE) || defined(FEAT_XIM) || defined(FEAT_KEYMAP) \
+! 	|| defined(FEAT_POSTSCRIPT)
+! #  include "mbyte.pro"
+! # endif
+  # include "normal.pro"
+  # include "ops.pro"
+  # include "option.pro"
+--- 168,174 ----
+  void qsort(void *base, size_t elm_count, size_t elm_size, int (*cmp)(const void *, const void *));
+  #endif
+  # include "move.pro"
+! # include "mbyte.pro"
+  # include "normal.pro"
+  # include "ops.pro"
+  # include "option.pro"
+*** ../vim-8.1.0809/src/spell.h	2018-02-10 13:55:21.000000000 +0100
+--- src/spell.h	2019-01-24 17:06:16.664725481 +0100
+***************
+*** 44,54 ****
+  typedef long idx_T;
+  #endif
+  
+- #ifdef FEAT_MBYTE
+  typedef int salfirst_T;
+- #else
+- typedef short salfirst_T;
+- #endif
+  
+  /*
+   * Structure used to store words and other info for one language, loaded from
+--- 44,50 ----
+***************
+*** 132,143 ****
+  				   load */
+  
+      int		sl_has_map;	/* TRUE if there is a MAP line */
+- #ifdef FEAT_MBYTE
+      hashtab_T	sl_map_hash;	/* MAP for multi-byte chars */
+      int		sl_map_array[256]; /* MAP for first 256 chars */
+- #else
+-     char_u	sl_map_array[256]; /* MAP for first 256 chars */
+- #endif
+      hashtab_T	sl_sounddone;	/* table with soundfolded words that have
+  				   handled, see add_sound_suggest() */
+  };
+--- 128,135 ----
+***************
+*** 213,223 ****
+      char_u	*sm_oneof;	/* letters from () or NULL */
+      char_u	*sm_rules;	/* rules like ^, $, priority */
+      char_u	*sm_to;		/* replacement. */
+- #ifdef FEAT_MBYTE
+      int		*sm_lead_w;	/* wide character copy of "sm_lead" */
+      int		*sm_oneof_w;	/* wide character copy of "sm_oneof" */
+      int		*sm_to_w;	/* wide character copy of "sm_to" */
+- #endif
+  } salitem_T;
+  
+  /* Values for SP_*ERROR are negative, positive values are used by
+--- 205,213 ----
+***************
+*** 260,300 ****
+   * differ from what the .spl file uses.
+   * These must not be called with negative number!
+   */
+! #ifndef FEAT_MBYTE
+! /* Non-multi-byte implementation. */
+! # define SPELL_TOFOLD(c) ((c) < 256 ? (int)spelltab.st_fold[c] : (c))
+! # define SPELL_TOUPPER(c) ((c) < 256 ? (int)spelltab.st_upper[c] : (c))
+! # define SPELL_ISUPPER(c) ((c) < 256 ? spelltab.st_isu[c] : FALSE)
+! #else
+! # if defined(HAVE_WCHAR_H)
+! #  include <wchar.h>	    /* for towupper() and towlower() */
+! # endif
+  /* Multi-byte implementation.  For Unicode we can call utf_*(), but don't do
+   * that for ASCII, because we don't want to use 'casemap' here.  Otherwise use
+   * the "w" library function for characters above 255 if available. */
+! # ifdef HAVE_TOWLOWER
+! #  define SPELL_TOFOLD(c) (enc_utf8 && (c) >= 128 ? utf_fold(c) \
+  	    : (c) < 256 ? (int)spelltab.st_fold[c] : (int)towlower(c))
+! # else
+! #  define SPELL_TOFOLD(c) (enc_utf8 && (c) >= 128 ? utf_fold(c) \
+  	    : (c) < 256 ? (int)spelltab.st_fold[c] : (c))
+! # endif
+  
+! # ifdef HAVE_TOWUPPER
+! #  define SPELL_TOUPPER(c) (enc_utf8 && (c) >= 128 ? utf_toupper(c) \
+  	    : (c) < 256 ? (int)spelltab.st_upper[c] : (int)towupper(c))
+! # else
+! #  define SPELL_TOUPPER(c) (enc_utf8 && (c) >= 128 ? utf_toupper(c) \
+  	    : (c) < 256 ? (int)spelltab.st_upper[c] : (c))
+! # endif
+  
+! # ifdef HAVE_ISWUPPER
+! #  define SPELL_ISUPPER(c) (enc_utf8 && (c) >= 128 ? utf_isupper(c) \
+  	    : (c) < 256 ? spelltab.st_isu[c] : iswupper(c))
+! # else
+! #  define SPELL_ISUPPER(c) (enc_utf8 && (c) >= 128 ? utf_isupper(c) \
+  	    : (c) < 256 ? spelltab.st_isu[c] : (FALSE))
+- # endif
+  #endif
+  
+  #ifdef FEAT_SPELL
+--- 250,283 ----
+   * differ from what the .spl file uses.
+   * These must not be called with negative number!
+   */
+! #if defined(HAVE_WCHAR_H)
+! # include <wchar.h>	    /* for towupper() and towlower() */
+! #endif
+  /* Multi-byte implementation.  For Unicode we can call utf_*(), but don't do
+   * that for ASCII, because we don't want to use 'casemap' here.  Otherwise use
+   * the "w" library function for characters above 255 if available. */
+! #ifdef HAVE_TOWLOWER
+! # define SPELL_TOFOLD(c) (enc_utf8 && (c) >= 128 ? utf_fold(c) \
+  	    : (c) < 256 ? (int)spelltab.st_fold[c] : (int)towlower(c))
+! #else
+! # define SPELL_TOFOLD(c) (enc_utf8 && (c) >= 128 ? utf_fold(c) \
+  	    : (c) < 256 ? (int)spelltab.st_fold[c] : (c))
+! #endif
+  
+! #ifdef HAVE_TOWUPPER
+! # define SPELL_TOUPPER(c) (enc_utf8 && (c) >= 128 ? utf_toupper(c) \
+  	    : (c) < 256 ? (int)spelltab.st_upper[c] : (int)towupper(c))
+! #else
+! # define SPELL_TOUPPER(c) (enc_utf8 && (c) >= 128 ? utf_toupper(c) \
+  	    : (c) < 256 ? (int)spelltab.st_upper[c] : (c))
+! #endif
+  
+! #ifdef HAVE_ISWUPPER
+! # define SPELL_ISUPPER(c) (enc_utf8 && (c) >= 128 ? utf_isupper(c) \
+  	    : (c) < 256 ? spelltab.st_isu[c] : iswupper(c))
+! #else
+! # define SPELL_ISUPPER(c) (enc_utf8 && (c) >= 128 ? utf_isupper(c) \
+  	    : (c) < 256 ? spelltab.st_isu[c] : (FALSE))
+  #endif
+  
+  #ifdef FEAT_SPELL
+*** ../vim-8.1.0809/src/structs.h	2019-01-18 22:48:30.900796633 +0100
+--- src/structs.h	2019-01-24 17:06:44.200526742 +0100
+***************
+*** 1103,1111 ****
+  {
+      char_u	*vir_line;	/* text of the current line */
+      FILE	*vir_fd;	/* file descriptor */
+- #ifdef FEAT_MBYTE
+      vimconv_T	vir_conv;	/* encoding conversion */
+- #endif
+      int		vir_version;	/* viminfo version detected or -1 */
+      garray_T	vir_barlines;	/* lines starting with | */
+  } vir_T;
+--- 1103,1109 ----
+***************
+*** 2013,2028 ****
+      /* for spell checking */
+      garray_T	b_langp;	/* list of pointers to slang_T, see spell.c */
+      char_u	b_spell_ismw[256];/* flags: is midword char */
+- # ifdef FEAT_MBYTE
+      char_u	*b_spell_ismw_mb; /* multi-byte midword chars */
+- # endif
+      char_u	*b_p_spc;	/* 'spellcapcheck' */
+      regprog_T	*b_cap_prog;	/* program for 'spellcapcheck' */
+      char_u	*b_p_spf;	/* 'spellfile' */
+      char_u	*b_p_spl;	/* 'spelllang' */
+- # ifdef FEAT_MBYTE
+      int		b_cjk;		/* all CJK letters as OK */
+- # endif
+  #endif
+  #if !defined(FEAT_SYN_HL) && !defined(FEAT_SPELL)
+      int		dummy;
+--- 2011,2022 ----
+***************
+*** 2233,2241 ****
+      unsigned	b_bkc_flags;    /* flags for 'backupcopy' */
+      int		b_p_ci;		/* 'copyindent' */
+      int		b_p_bin;	/* 'binary' */
+- #ifdef FEAT_MBYTE
+      int		b_p_bomb;	/* 'bomb' */
+- #endif
+      char_u	*b_p_bh;	/* 'bufhidden' */
+      char_u	*b_p_bt;	/* 'buftype' */
+  #ifdef FEAT_QUICKFIX
+--- 2227,2233 ----
+***************
+*** 2270,2278 ****
+      int		b_p_et;		/* 'expandtab' */
+      int		b_p_et_nobin;	/* b_p_et saved for binary mode */
+      int	        b_p_et_nopaste; /* b_p_et saved for paste mode */
+- #ifdef FEAT_MBYTE
+      char_u	*b_p_fenc;	/* 'fileencoding' */
+- #endif
+      char_u	*b_p_ff;	/* 'fileformat' */
+      char_u	*b_p_ft;	/* 'filetype' */
+      char_u	*b_p_fo;	/* 'formatoptions' */
+--- 2262,2268 ----
+***************
+*** 2304,2312 ****
+  #ifdef FEAT_LISP
+      int		b_p_lisp;	/* 'lisp' */
+  #endif
+- #ifdef FEAT_MBYTE
+      char_u	*b_p_menc;	/* 'makeencoding' */
+- #endif
+      char_u	*b_p_mps;	/* 'matchpairs' */
+      int		b_p_ml;		/* 'modeline' */
+      int		b_p_ml_nobin;	/* b_p_ml saved for binary mode */
+--- 2294,2300 ----
+***************
+*** 2425,2435 ****
+  
+      int		b_start_eol;	/* last line had eol when it was read */
+      int		b_start_ffc;	/* first char of 'ff' when edit started */
+- #ifdef FEAT_MBYTE
+      char_u	*b_start_fenc;	/* 'fileencoding' when edit started or NULL */
+      int		b_bad_char;	/* "++bad=" argument when edit started or 0 */
+      int		b_start_bomb;	/* 'bomb' when it was read */
+- #endif
+  
+  #ifdef FEAT_EVAL
+      dictitem_T	b_bufvar;	/* variable for "b:" Dictionary */
+--- 2413,2421 ----
+***************
+*** 3107,3116 ****
+      int		prechar;	/* prefix character (optional, always 'g') */
+      int		cmdchar;	/* command character */
+      int		nchar;		/* next command character (optional) */
+- #ifdef FEAT_MBYTE
+      int		ncharC1;	/* first composing character (optional) */
+      int		ncharC2;	/* second composing character (optional) */
+- #endif
+      int		extra_char;	/* yet another character (optional) */
+      long	opcount;	/* count before an operator */
+      long	count0;		/* count before command, default 0 */
+--- 3093,3100 ----
+*** ../vim-8.1.0809/src/vim.h	2019-01-19 17:43:03.433449041 +0100
+--- src/vim.h	2019-01-24 17:09:28.719346216 +0100
+***************
+*** 210,216 ****
+  #endif
+  
+  /* The Mac conversion stuff doesn't work under X11. */
+! #if defined(FEAT_MBYTE) && defined(MACOS_X_DARWIN)
+  # define MACOS_CONVERT
+  #endif
+  
+--- 210,216 ----
+  #endif
+  
+  /* The Mac conversion stuff doesn't work under X11. */
+! #if defined(MACOS_X_DARWIN)
+  # define MACOS_CONVERT
+  #endif
+  
+***************
+*** 431,446 ****
+   * bits.  u8char_T is only used for displaying, it could be 16 bits to save
+   * memory.
+   */
+! #ifdef FEAT_MBYTE
+! # ifdef UNICODE16
+  typedef unsigned short u8char_T;    /* short should be 16 bits */
+! # else
+! #  if VIM_SIZEOF_INT >= 4
+! typedef unsigned int u8char_T;	    /* int is 32 bits */
+! #  else
+! typedef unsigned long u8char_T;	    /* long should be 32 bits or more */
+! #  endif
+! # endif
+  #endif
+  
+  #ifndef UNIX		    /* For Unix this is included in os_unix.h */
+--- 431,440 ----
+   * bits.  u8char_T is only used for displaying, it could be 16 bits to save
+   * memory.
+   */
+! #ifdef UNICODE16
+  typedef unsigned short u8char_T;    /* short should be 16 bits */
+! #else
+! typedef unsigned int u8char_T;	    /* int is 32 bits or more */
+  #endif
+  
+  #ifndef UNIX		    /* For Unix this is included in os_unix.h */
+***************
+*** 1516,1529 ****
+  
+  #define DIALOG_MSG_SIZE 1000	/* buffer size for dialog_msg() */
+  
+! #ifdef FEAT_MBYTE
+! # define MSG_BUF_LEN 480	/* length of buffer for small messages */
+! # define MSG_BUF_CLEN  (MSG_BUF_LEN / 6)    /* cell length (worst case: utf-8
+  					       takes 6 bytes for one cell) */
+- #else
+- # define MSG_BUF_LEN 80		/* length of buffer for small messages */
+- # define MSG_BUF_CLEN  MSG_BUF_LEN	    /* cell length */
+- #endif
+  
+  #define FOLD_TEXT_LEN  51	/* buffer size for get_foldtext() */
+  
+--- 1510,1518 ----
+  
+  #define DIALOG_MSG_SIZE 1000	/* buffer size for dialog_msg() */
+  
+! #define MSG_BUF_LEN 480	/* length of buffer for small messages */
+! #define MSG_BUF_CLEN  (MSG_BUF_LEN / 6)    /* cell length (worst case: utf-8
+  					       takes 6 bytes for one cell) */
+  
+  #define FOLD_TEXT_LEN  51	/* buffer size for get_foldtext() */
+  
+***************
+*** 1609,1615 ****
+  # endif
+  #endif
+  
+- #ifdef FEAT_MBYTE
+  /* We need to call mb_stricmp() even when we aren't dealing with a multi-byte
+   * encoding because mb_stricmp() takes care of all ascii and non-ascii
+   * encodings, including characters with umlauts in latin1, etc., while
+--- 1598,1603 ----
+***************
+*** 1618,1627 ****
+  
+  # define MB_STRICMP(d, s)	mb_strnicmp((char_u *)(d), (char_u *)(s), (int)MAXCOL)
+  # define MB_STRNICMP(d, s, n)	mb_strnicmp((char_u *)(d), (char_u *)(s), (int)(n))
+- #else
+- # define MB_STRICMP(d, s)	STRICMP((d), (s))
+- # define MB_STRNICMP(d, s, n)	STRNICMP((d), (s), (n))
+- #endif
+  
+  #define STRCAT(d, s)	    strcat((char *)(d), (char *)(s))
+  #define STRNCAT(d, s, n)    strncat((char *)(d), (char *)(s), (size_t)(n))
+--- 1606,1611 ----
+***************
+*** 1766,1781 ****
+  # endif
+  #endif
+  
+! #ifdef FEAT_MBYTE
+! # define MAX_MCO	6	/* maximum value for 'maxcombine' */
+  
+  /* Maximum number of bytes in a multi-byte character.  It can be one 32-bit
+   * character of up to 6 bytes, or one 16-bit character of up to three bytes
+   * plus six following composing characters of three bytes each. */
+! # define MB_MAXBYTES	21
+! #else
+! # define MB_MAXBYTES	1
+! #endif
+  
+  #if (defined(FEAT_PROFILE) || defined(FEAT_RELTIME)) && !defined(PROTO)
+  # ifdef WIN3264
+--- 1750,1761 ----
+  # endif
+  #endif
+  
+! #define MAX_MCO	6	/* maximum value for 'maxcombine' */
+  
+  /* Maximum number of bytes in a multi-byte character.  It can be one 32-bit
+   * character of up to 6 bytes, or one 16-bit character of up to three bytes
+   * plus six following composing characters of three bytes each. */
+! #define MB_MAXBYTES	21
+  
+  #if (defined(FEAT_PROFILE) || defined(FEAT_RELTIME)) && !defined(PROTO)
+  # ifdef WIN3264
+***************
+*** 2128,2134 ****
+  # define USE_MCH_ERRMSG
+  #endif
+  
+! # if defined(FEAT_MBYTE) && defined(FEAT_EVAL) \
+  	&& (!defined(FEAT_GUI_W32) \
+  	     || !(defined(FEAT_MBYTE_IME) || defined(GLOBAL_IME))) \
+  	&& !(defined(FEAT_GUI_MAC) && defined(MACOS_CONVERT))
+--- 2108,2114 ----
+  # define USE_MCH_ERRMSG
+  #endif
+  
+! # if defined(FEAT_EVAL) \
+  	&& (!defined(FEAT_GUI_W32) \
+  	     || !(defined(FEAT_MBYTE_IME) || defined(GLOBAL_IME))) \
+  	&& !(defined(FEAT_GUI_MAC) && defined(MACOS_CONVERT))
+***************
+*** 2139,2158 ****
+  # define IME_WITHOUT_XIM
+  #endif
+  
+! #if defined(FEAT_MBYTE) && (defined(FEAT_XIM) \
+  	|| defined(IME_WITHOUT_XIM) \
+  	|| (defined(FEAT_GUI_W32) \
+  	    && (defined(FEAT_MBYTE_IME) || defined(GLOBAL_IME))) \
+! 	|| defined(FEAT_GUI_MAC))
+  /* im_set_active() is available */
+  # define HAVE_INPUT_METHOD
+  #endif
+  
+- #ifndef FEAT_MBYTE
+- # define after_pathsep(b, p)	vim_ispathsep(*((p) - 1))
+- # define transchar_byte(c)	transchar(c)
+- #endif
+- 
+  #ifndef FEAT_LINEBREAK
+  /* Without the 'numberwidth' option line numbers are always 7 chars. */
+  # define number_width(x) 7
+--- 2119,2133 ----
+  # define IME_WITHOUT_XIM
+  #endif
+  
+! #if defined(FEAT_XIM) \
+  	|| defined(IME_WITHOUT_XIM) \
+  	|| (defined(FEAT_GUI_W32) \
+  	    && (defined(FEAT_MBYTE_IME) || defined(GLOBAL_IME))) \
+! 	|| defined(FEAT_GUI_MAC)
+  /* im_set_active() is available */
+  # define HAVE_INPUT_METHOD
+  #endif
+  
+  #ifndef FEAT_LINEBREAK
+  /* Without the 'numberwidth' option line numbers are always 7 chars. */
+  # define number_width(x) 7
+***************
+*** 2160,2166 ****
+  
+  /* This must come after including proto.h.
+   * For VMS this is defined in macros.h. */
+! #if !(defined(FEAT_MBYTE) && defined(WIN3264)) && !defined(VMS)
+  # define mch_open(n, m, p)	open((n), (m), (p))
+  # define mch_fopen(n, p)	fopen((n), (p))
+  #endif
+--- 2135,2141 ----
+  
+  /* This must come after including proto.h.
+   * For VMS this is defined in macros.h. */
+! #if !defined(WIN3264) && !defined(VMS)
+  # define mch_open(n, m, p)	open((n), (m), (p))
+  # define mch_fopen(n, p)	fopen((n), (p))
+  #endif
+***************
+*** 2236,2292 ****
+  # define vim_realloc(ptr, size)  realloc((ptr), (size))
+  #endif
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Return byte length of character that starts with byte "b".
+   * Returns 1 for a single-byte character.
+   * MB_BYTE2LEN_CHECK() can be used to count a special key as one byte.
+   * Don't call MB_BYTE2LEN(b) with b < 0 or b > 255!
+   */
+! # define MB_BYTE2LEN(b)		mb_bytelen_tab[b]
+! # define MB_BYTE2LEN_CHECK(b)	(((b) < 0 || (b) > 255) ? 1 : mb_bytelen_tab[b])
+! #endif
+  
+- #if defined(FEAT_MBYTE) || defined(FEAT_POSTSCRIPT)
+  /* properties used in enc_canon_table[] (first three mutually exclusive) */
+! # define ENC_8BIT	0x01
+! # define ENC_DBCS	0x02
+! # define ENC_UNICODE	0x04
+! 
+! # define ENC_ENDIAN_B	0x10	    /* Unicode: Big endian */
+! # define ENC_ENDIAN_L	0x20	    /* Unicode: Little endian */
+! 
+! # define ENC_2BYTE	0x40	    /* Unicode: UCS-2 */
+! # define ENC_4BYTE	0x80	    /* Unicode: UCS-4 */
+! # define ENC_2WORD	0x100	    /* Unicode: UTF-16 */
+! 
+! # define ENC_LATIN1	0x200	    /* Latin1 */
+! # define ENC_LATIN9	0x400	    /* Latin9 */
+! # define ENC_MACROMAN	0x800	    /* Mac Roman (not Macro Man! :-) */
+! #endif
+! 
+! #ifdef FEAT_MBYTE
+! # ifdef USE_ICONV
+! #  ifndef EILSEQ
+! #   define EILSEQ 123
+! #  endif
+! #  ifdef DYNAMIC_ICONV
+  /* On Win32 iconv.dll is dynamically loaded. */
+! #   define ICONV_ERRNO (*iconv_errno())
+! #   define ICONV_E2BIG  7
+! #   define ICONV_EINVAL 22
+! #   define ICONV_EILSEQ 42
+! #  else
+! #   define ICONV_ERRNO errno
+! #   define ICONV_E2BIG  E2BIG
+! #   define ICONV_EINVAL EINVAL
+! #   define ICONV_EILSEQ EILSEQ
+! #  endif
+  # endif
+- 
+  #endif
+  
+- 
+  #define SIGN_BYTE 1	    /* byte value used where sign is displayed;
+  			       attribute value is sign type */
+  
+--- 2211,2259 ----
+  # define vim_realloc(ptr, size)  realloc((ptr), (size))
+  #endif
+  
+  /*
+   * Return byte length of character that starts with byte "b".
+   * Returns 1 for a single-byte character.
+   * MB_BYTE2LEN_CHECK() can be used to count a special key as one byte.
+   * Don't call MB_BYTE2LEN(b) with b < 0 or b > 255!
+   */
+! #define MB_BYTE2LEN(b)		mb_bytelen_tab[b]
+! #define MB_BYTE2LEN_CHECK(b)	(((b) < 0 || (b) > 255) ? 1 : mb_bytelen_tab[b])
+  
+  /* properties used in enc_canon_table[] (first three mutually exclusive) */
+! #define ENC_8BIT	0x01
+! #define ENC_DBCS	0x02
+! #define ENC_UNICODE	0x04
+! 
+! #define ENC_ENDIAN_B	0x10	    /* Unicode: Big endian */
+! #define ENC_ENDIAN_L	0x20	    /* Unicode: Little endian */
+! 
+! #define ENC_2BYTE	0x40	    /* Unicode: UCS-2 */
+! #define ENC_4BYTE	0x80	    /* Unicode: UCS-4 */
+! #define ENC_2WORD	0x100	    /* Unicode: UTF-16 */
+! 
+! #define ENC_LATIN1	0x200	    /* Latin1 */
+! #define ENC_LATIN9	0x400	    /* Latin9 */
+! #define ENC_MACROMAN	0x800	    /* Mac Roman (not Macro Man! :-) */
+! 
+! #ifdef USE_ICONV
+! # ifndef EILSEQ
+! #  define EILSEQ 123
+! # endif
+! # ifdef DYNAMIC_ICONV
+  /* On Win32 iconv.dll is dynamically loaded. */
+! #  define ICONV_ERRNO (*iconv_errno())
+! #  define ICONV_E2BIG  7
+! #  define ICONV_EINVAL 22
+! #  define ICONV_EILSEQ 42
+! # else
+! #  define ICONV_ERRNO errno
+! #  define ICONV_E2BIG  E2BIG
+! #  define ICONV_EINVAL EINVAL
+! #  define ICONV_EILSEQ EILSEQ
+  # endif
+  #endif
+  
+  #define SIGN_BYTE 1	    /* byte value used where sign is displayed;
+  			       attribute value is sign type */
+  
+*** ../vim-8.1.0809/src/version.c	2019-01-24 16:38:58.280712420 +0100
+--- src/version.c	2019-01-24 17:17:24.875973757 +0100
+***************
+*** 793,794 ****
+--- 789,792 ----
+  {   /* Add new patch number below this line */
++ /**/
++     810,
+  /**/
+
+-- 
+FATHER:       Make sure the Prince doesn't leave this room until I come and
+              get him.
+FIRST GUARD:  Not ... to leave the room ... even if you come and get him.
+FATHER:       No.  Until I come and get him.
+SECOND GUARD: Hic.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

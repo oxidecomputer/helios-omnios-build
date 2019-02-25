@@ -1,0 +1,198 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0777
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0777
+Problem:    Win32: using pipes for channel does not work well.
+Solution:   Use a larger buffer and handle overlaps. (Yasuhiro Matsumoto,
+            closes #3782)
+Files:	    src/channel.c, src/os_win32.c
+
+
+*** ../vim-8.1.0776/src/channel.c	2019-01-17 22:28:18.897373219 +0100
+--- src/channel.c	2019-01-19 14:32:48.390370019 +0100
+***************
+*** 80,90 ****
+      static int
+  fd_write(sock_T fd, char *buf, size_t len)
+  {
+!     HANDLE h = (HANDLE)fd;
+!     DWORD nwrite;
+! 
+!     if (!WriteFile(h, buf, (DWORD)len, &nwrite, NULL))
+! 	return -1;
+      return (int)nwrite;
+  }
+  
+--- 80,102 ----
+      static int
+  fd_write(sock_T fd, char *buf, size_t len)
+  {
+!     HANDLE	h = (HANDLE)fd;
+!     DWORD	nwrite;
+!     OVERLAPPED	ov;
+! 
+!     // If the pipe overflows while the job does not read the data, WriteFile
+!     // will block forever. This abandons the write.
+!     memset(&ov, 0, sizeof(ov));
+!     if (!WriteFile(h, buf, (DWORD)len, &nwrite, &ov))
+!     {
+! 	DWORD err = GetLastError();
+! 
+! 	if (err != ERROR_IO_PENDING)
+! 	    return -1;
+! 	if (!GetOverlappedResult(h, &ov, &nwrite, FALSE))
+! 	    return -1;
+! 	FlushFileBuffers(h);
+!     }
+      return (int)nwrite;
+  }
+  
+***************
+*** 3168,3187 ****
+  	    if (r && nread > 0)
+  		return CW_READY;
+  	    if (r == 0)
+! 	    {
+! 		DWORD err = GetLastError();
+! 
+! 		if (err != ERROR_BAD_PIPE && err != ERROR_BROKEN_PIPE)
+! 		    return CW_ERROR;
+! 
+! 		if (channel->ch_named_pipe)
+! 		{
+! 		    DisconnectNamedPipe((HANDLE)fd);
+! 		    ConnectNamedPipe((HANDLE)fd, NULL);
+! 		}
+! 		else
+! 		    return CW_ERROR;
+! 	    }
+  
+  	    /* perhaps write some buffer lines */
+  	    channel_write_any_lines();
+--- 3180,3186 ----
+  	    if (r && nread > 0)
+  		return CW_READY;
+  	    if (r == 0)
+! 		return CW_ERROR;
+  
+  	    /* perhaps write some buffer lines */
+  	    channel_write_any_lines();
+***************
+*** 3812,3828 ****
+  	if (part == PART_SOCK)
+  	    res = sock_write(fd, (char *)buf, len);
+  	else
+- 	{
+  	    res = fd_write(fd, (char *)buf, len);
+- #ifdef WIN32
+- 	    if (channel->ch_named_pipe && res < 0)
+- 	    {
+- 		DisconnectNamedPipe((HANDLE)fd);
+- 		ConnectNamedPipe((HANDLE)fd, NULL);
+- 	    }
+- #endif
+- 
+- 	}
+  	if (res < 0 && (errno == EWOULDBLOCK
+  #ifdef EAGAIN
+  			|| errno == EAGAIN
+--- 3811,3817 ----
+*** ../vim-8.1.0776/src/os_win32.c	2019-01-13 23:38:33.407773189 +0100
+--- src/os_win32.c	2019-01-19 14:36:01.957057721 +0100
+***************
+*** 5428,5433 ****
+--- 5428,5476 ----
+  # endif
+  }
+  
++ /*
++  * Create a pair of pipes.
++  * Return TRUE for success, FALSE for failure.
++  */
++     static BOOL
++ create_pipe_pair(HANDLE handles[2])
++ {
++     static LONG		s;
++     char		name[64];
++     SECURITY_ATTRIBUTES sa;
++ 
++     sprintf(name, "\\\\?\\pipe\\vim-%08lx-%08lx",
++ 	    GetCurrentProcessId(),
++ 	    InterlockedIncrement(&s));
++ 
++     // Create named pipe. Max size of named pipe is 65535.
++     handles[1] = CreateNamedPipe(
++ 	    name,
++ 	    PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED,
++ 	    PIPE_TYPE_BYTE | PIPE_NOWAIT,
++ 	    1, 65535, 0, 0, NULL);
++ 
++     if (handles[1] == INVALID_HANDLE_VALUE)
++ 	return FALSE;
++ 
++     sa.nLength = sizeof(sa);
++     sa.bInheritHandle = TRUE;
++     sa.lpSecurityDescriptor = NULL;
++ 
++     handles[0] = CreateFile(name,
++ 	    FILE_GENERIC_READ,
++ 	    FILE_SHARE_READ, &sa,
++ 	    OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
++ 
++     if (handles[0] == INVALID_HANDLE_VALUE)
++     {
++         CloseHandle(handles[1]);
++ 	return FALSE;
++     }
++ 
++     return TRUE;
++ }
++ 
+      void
+  mch_job_start(char *cmd, job_T *job, jobopt_T *options)
+  {
+***************
+*** 5493,5501 ****
+  	    goto failed;
+  	}
+      }
+!     else if (!use_null_for_in &&
+! 	    (!CreatePipe(&ifd[0], &ifd[1], &saAttr, 0)
+! 	    || !SetHandleInformation(ifd[1], HANDLE_FLAG_INHERIT, 0)))
+  	goto failed;
+  
+      if (use_file_for_out)
+--- 5536,5544 ----
+  	    goto failed;
+  	}
+      }
+!     else if (!use_null_for_in
+! 	    && (!create_pipe_pair(ifd)
+! 		|| !SetHandleInformation(ifd[1], HANDLE_FLAG_INHERIT, 0)))
+  	goto failed;
+  
+      if (use_file_for_out)
+*** ../vim-8.1.0776/src/version.c	2019-01-19 13:46:46.417507738 +0100
+--- src/version.c	2019-01-19 14:31:44.254801032 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     777,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+253. You wait for a slow loading web page before going to the toilet.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

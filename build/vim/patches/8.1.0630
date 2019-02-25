@@ -1,0 +1,124 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0630
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0630
+Problem:   "wincmd p" does not work after using an autocmd window. 
+Solution:   Store "prevwin" in aco_save_T. (Christian Brabandt, closes #3690)
+Files:	    src/fileio.c, src/structs.h, src/testdir/test_window_cmd.vim
+
+
+*** ../vim-8.1.0629/src/fileio.c	2018-11-16 16:21:01.629310081 +0100
+--- src/fileio.c	2018-12-23 23:53:39.133259452 +0100
+***************
+*** 9017,9022 ****
+--- 9017,9023 ----
+  
+      aco->save_curwin = curwin;
+      aco->save_curbuf = curbuf;
++     aco->save_prevwin = prevwin;
+      if (win != NULL)
+      {
+  	/* There is a window for "buf" in the current tab page, make it the
+***************
+*** 9127,9132 ****
+--- 9128,9135 ----
+  	else
+  	    /* Hmm, original window disappeared.  Just use the first one. */
+  	    curwin = firstwin;
++ 	if (win_valid(aco->save_prevwin))
++ 	    prevwin = aco->save_prevwin;
+  #ifdef FEAT_EVAL
+  	vars_clear(&aucmd_win->w_vars->dv_hashtab);  /* free all w: variables */
+  	hash_init(&aucmd_win->w_vars->dv_hashtab);   /* re-use the hashtab */
+***************
+*** 9177,9182 ****
+--- 9180,9187 ----
+  
+  	    curwin = aco->save_curwin;
+  	    curbuf = curwin->w_buffer;
++ 	    if (win_valid(aco->save_prevwin))
++ 		prevwin = aco->save_prevwin;
+  	    /* In case the autocommand move the cursor to a position that that
+  	     * not exist in curbuf. */
+  	    check_cursor();
+*** ../vim-8.1.0629/src/structs.h	2018-12-21 15:16:57.483579762 +0100
+--- src/structs.h	2018-12-23 23:54:09.861011969 +0100
+***************
+*** 3252,3257 ****
+--- 3252,3258 ----
+      int		use_aucmd_win;	/* using aucmd_win */
+      win_T	*save_curwin;	/* saved curwin */
+      win_T	*new_curwin;	/* new curwin */
++     win_T	*save_prevwin;	/* saved prevwin */
+      bufref_T	new_curbuf;	/* new curbuf */
+      char_u	*globaldir;	/* saved value of globaldir */
+  } aco_save_T;
+*** ../vim-8.1.0629/src/testdir/test_window_cmd.vim	2018-11-10 20:47:43.394262832 +0100
+--- src/testdir/test_window_cmd.vim	2018-12-23 23:51:10.570457916 +0100
+***************
+*** 578,581 ****
+--- 578,618 ----
+    only
+  endfunc
+  
++ function! Fun_RenewFile()
++   sleep 2
++   silent execute '!echo "1" > tmp.txt'
++   sp
++   wincmd p
++   edit! tmp.txt
++ endfunction
++ 
++ func Test_window_prevwin()
++   " Can we make this work on MS-Windows?
++   if !has('unix')
++     return
++   endif
++ 
++   set hidden autoread
++   call writefile(['2'], 'tmp.txt')
++   new tmp.txt
++   q
++   " Need to wait a bit for the timestamp to be older.
++   call Fun_RenewFile()
++   call assert_equal(2, winnr())
++   wincmd p
++   call assert_equal(1, winnr())
++   wincmd p
++   q
++   call Fun_RenewFile()
++   call assert_equal(2, winnr())
++   wincmd p
++   call assert_equal(1, winnr())
++   wincmd p
++   " reset
++   q
++   call delete('tmp.txt')
++   set hidden&vim autoread&vim
++   delfunc Fun_RenewFile
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.0629/src/version.c	2018-12-23 19:10:05.014359877 +0100
+--- src/version.c	2018-12-23 19:59:59.298394002 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     630,
+  /**/
+
+-- 
+Never overestimate a man's ability to underestimate a woman.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

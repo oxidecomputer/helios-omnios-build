@@ -1,0 +1,148 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0652
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0652
+Problem:    Freeing memory for balloon eval too early.
+Solution:   Store the pointer in BalloonEval and free it later. (Yasuhiro
+            Matsumoto, closes #3725)
+Files:	    src/beval.h, src/gui_w32.c
+
+
+*** ../vim-8.1.0651/src/beval.h	2018-06-23 19:22:45.598486362 +0200
+--- src/beval.h	2018-12-28 19:10:21.049387746 +0100
+***************
+*** 76,81 ****
+--- 76,84 ----
+      int			*vts;		// vartabstop setting for this buffer
+  #endif
+      char_u		*msg;
++ #ifdef FEAT_GUI_W32
++     void		*tofree;
++ #endif
+  } BalloonEval;
+  
+  #define EVAL_OFFSET_X 15 /* displacement of beval topleft corner from pointer */
+*** ../vim-8.1.0651/src/gui_w32.c	2018-12-27 22:43:03.901774877 +0100
+--- src/gui_w32.c	2018-12-28 19:12:47.316154820 +0100
+***************
+*** 8787,8793 ****
+  {
+      TOOLINFOW	*pti;
+      int		ToolInfoSize;
+-     WCHAR	*tofree = NULL;
+  
+      if (multiline_balloon_available() == TRUE)
+  	ToolInfoSize = sizeof(TOOLINFOW_NEW);
+--- 8787,8792 ----
+***************
+*** 8817,8824 ****
+  	RECT rect;
+  	TOOLINFOW_NEW *ptin = (TOOLINFOW_NEW *)pti;
+  	pti->lpszText = LPSTR_TEXTCALLBACKW;
+! 	tofree = enc_to_utf16((char_u*)text, NULL);
+! 	ptin->lParam = (LPARAM)tofree;
+  	// switch multiline tooltips on
+  	if (GetClientRect(s_textArea, &rect))
+  	    SendMessageW(beval->balloon, TTM_SETMAXTIPWIDTH, 0,
+--- 8816,8823 ----
+  	RECT rect;
+  	TOOLINFOW_NEW *ptin = (TOOLINFOW_NEW *)pti;
+  	pti->lpszText = LPSTR_TEXTCALLBACKW;
+! 	beval->tofree = enc_to_utf16((char_u*)text, NULL);
+! 	ptin->lParam = (LPARAM)beval->tofree;
+  	// switch multiline tooltips on
+  	if (GetClientRect(s_textArea, &rect))
+  	    SendMessageW(beval->balloon, TTM_SETMAXTIPWIDTH, 0,
+***************
+*** 8827,8834 ****
+      else
+      {
+  	// do this old way
+! 	tofree = enc_to_utf16((char_u*)text, NULL);
+! 	pti->lpszText = tofree;
+      }
+  
+      // Limit ballooneval bounding rect to CursorPos neighbourhood.
+--- 8826,8833 ----
+      else
+      {
+  	// do this old way
+! 	beval->tofree = enc_to_utf16((char_u*)text, NULL);
+! 	pti->lpszText = (LPWSTR)beval->tofree;
+      }
+  
+      // Limit ballooneval bounding rect to CursorPos neighbourhood.
+***************
+*** 8851,8858 ****
+      mouse_event(MOUSEEVENTF_MOVE, 2, 2, 0, 0);
+      mouse_event(MOUSEEVENTF_MOVE, (DWORD)-1, (DWORD)-1, 0, 0);
+      vim_free(pti);
+-     if (tofree != NULL)
+- 	vim_free(tofree);
+  }
+  #endif
+  
+--- 8850,8855 ----
+***************
+*** 8898,8904 ****
+  	RECT rect;
+  	TOOLINFO_NEW *ptin = (TOOLINFO_NEW *)pti;
+  	pti->lpszText = LPSTR_TEXTCALLBACK;
+! 	ptin->lParam = (LPARAM)text;
+  	if (GetClientRect(s_textArea, &rect)) /* switch multiline tooltips on */
+  	    SendMessage(beval->balloon, TTM_SETMAXTIPWIDTH, 0,
+  		    (LPARAM)rect.right);
+--- 8895,8902 ----
+  	RECT rect;
+  	TOOLINFO_NEW *ptin = (TOOLINFO_NEW *)pti;
+  	pti->lpszText = LPSTR_TEXTCALLBACK;
+! 	beval->tofree = vim_strsave((char_u*)text);
+! 	ptin->lParam = (LPARAM)beval->tofree;
+  	if (GetClientRect(s_textArea, &rect)) /* switch multiline tooltips on */
+  	    SendMessage(beval->balloon, TTM_SETMAXTIPWIDTH, 0,
+  		    (LPARAM)rect.right);
+***************
+*** 9106,9114 ****
+  gui_mch_destroy_beval_area(BalloonEval *beval)
+  {
+  #ifdef FEAT_VARTABS
+!     if (beval->vts)
+! 	vim_free(beval->vts);
+  #endif
+      vim_free(beval);
+  }
+  #endif /* FEAT_BEVAL_GUI */
+--- 9104,9112 ----
+  gui_mch_destroy_beval_area(BalloonEval *beval)
+  {
+  #ifdef FEAT_VARTABS
+!     vim_free(beval->vts);
+  #endif
++     vim_free(beval->tofree);
+      vim_free(beval);
+  }
+  #endif /* FEAT_BEVAL_GUI */
+*** ../vim-8.1.0651/src/version.c	2018-12-28 19:06:43.095216722 +0100
+--- src/version.c	2018-12-28 19:12:09.156476825 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     652,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+68. Your cat always puts viruses on your dogs homepage
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

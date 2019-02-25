@@ -1,0 +1,305 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0678
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0678
+Problem:    Text properties as not adjusted for inserted text.
+Solution:   Adjust text properties when inserting text.
+Files:	    src/misc1.c, src/proto/misc1.pro, src/textprop.c,
+            src/testdir/test_textprop.vim,
+            src/testdir/dumps/Test_textprop_01.dump
+
+
+*** ../vim-8.1.0677/src/misc1.c	2018-12-31 23:58:20.246887218 +0100
+--- src/misc1.c	2019-01-01 23:58:07.685325391 +0100
+***************
+*** 2322,2328 ****
+  	for (i = 0; i < len; i += n)
+  	{
+  	    if (enc_utf8)
+! 		/* avoid reading past p[len] */
+  		n = utfc_ptr2len_len(p + i, len - i);
+  	    else
+  		n = (*mb_ptr2len)(p + i);
+--- 2322,2328 ----
+  	for (i = 0; i < len; i += n)
+  	{
+  	    if (enc_utf8)
+! 		// avoid reading past p[len]
+  		n = utfc_ptr2len_len(p + i, len - i);
+  	    else
+  		n = (*mb_ptr2len)(p + i);
+***************
+*** 2365,2376 ****
+  ins_char_bytes(char_u *buf, int charlen)
+  {
+      int		c = buf[0];
+!     int		newlen;		/* nr of bytes inserted */
+!     int		oldlen;		/* nr of bytes deleted (0 when not replacing) */
+      char_u	*p;
+      char_u	*newp;
+      char_u	*oldp;
+!     int		linelen;	/* length of old line including NUL */
+      colnr_T	col;
+      linenr_T	lnum = curwin->w_cursor.lnum;
+      int		i;
+--- 2365,2376 ----
+  ins_char_bytes(char_u *buf, int charlen)
+  {
+      int		c = buf[0];
+!     int		newlen;		// nr of bytes inserted
+!     int		oldlen;		// nr of bytes deleted (0 when not replacing)
+      char_u	*p;
+      char_u	*newp;
+      char_u	*oldp;
+!     int		linelen;	// length of old line including NUL
+      colnr_T	col;
+      linenr_T	lnum = curwin->w_cursor.lnum;
+      int		i;
+***************
+*** 2439,2446 ****
+  	    }
+  	    curwin->w_p_list = old_list;
+  	}
+! 	else
+! 	    if (oldp[col] != NUL)
+  	{
+  	    /* normal replace */
+  #ifdef FEAT_MBYTE
+--- 2439,2445 ----
+  	    }
+  	    curwin->w_p_list = old_list;
+  	}
+! 	else if (oldp[col] != NUL)
+  	{
+  	    /* normal replace */
+  #ifdef FEAT_MBYTE
+***************
+*** 2494,2504 ****
+      while (i < newlen)
+  	p[i++] = ' ';
+  
+!     /* Replace the line in the buffer. */
+      ml_replace(lnum, newp, FALSE);
+  
+!     /* mark the buffer as changed and prepare for displaying */
+!     changed_bytes(lnum, col);
+  
+      /*
+       * If we're in Insert or Replace mode and 'showmatch' is set, then briefly
+--- 2493,2503 ----
+      while (i < newlen)
+  	p[i++] = ' ';
+  
+!     // Replace the line in the buffer.
+      ml_replace(lnum, newp, FALSE);
+  
+!     // mark the buffer as changed and prepare for displaying
+!     inserted_bytes(lnum, col, newlen - oldlen);
+  
+      /*
+       * If we're in Insert or Replace mode and 'showmatch' is set, then briefly
+***************
+*** 2566,2572 ****
+      mch_memmove(newp + col, s, (size_t)newlen);
+      mch_memmove(newp + col + newlen, oldp + col, (size_t)(oldlen - col + 1));
+      ml_replace(lnum, newp, FALSE);
+!     changed_bytes(lnum, col);
+      curwin->w_cursor.col += newlen;
+  }
+  
+--- 2565,2571 ----
+      mch_memmove(newp + col, s, (size_t)newlen);
+      mch_memmove(newp + col + newlen, oldp + col, (size_t)(oldlen - col + 1));
+      ml_replace(lnum, newp, FALSE);
+!     inserted_bytes(lnum, col, newlen);
+      curwin->w_cursor.col += newlen;
+  }
+  
+***************
+*** 3016,3021 ****
+--- 3015,3035 ----
+  #endif
+  }
+  
++ /*
++  * Like changed_bytes() but also adjust text properties for "added" bytes.
++  * When "added" is negative text was deleted.
++  */
++     void
++ inserted_bytes(linenr_T lnum, colnr_T col, int added)
++ {
++     changed_bytes(lnum, col);
++ 
++ #ifdef FEAT_TEXT_PROP
++     if (curbuf->b_has_textprop && added != 0)
++ 	adjust_prop_columns(lnum, col, added);
++ #endif
++ }
++ 
+      static void
+  changedOneline(buf_T *buf, linenr_T lnum)
+  {
+*** ../vim-8.1.0677/src/proto/misc1.pro	2018-06-23 19:22:45.614486258 +0200
+--- src/proto/misc1.pro	2019-01-01 23:01:52.739596275 +0100
+***************
+*** 35,40 ****
+--- 35,41 ----
+  void changed(void);
+  void changed_int(void);
+  void changed_bytes(linenr_T lnum, colnr_T col);
++ void inserted_bytes(linenr_T lnum, colnr_T col, int added);
+  void appended_lines(linenr_T lnum, long count);
+  void appended_lines_mark(linenr_T lnum, long count);
+  void deleted_lines(linenr_T lnum, long count);
+*** ../vim-8.1.0677/src/textprop.c	2019-01-01 19:47:17.854123944 +0100
+--- src/textprop.c	2019-01-01 23:30:08.638101345 +0100
+***************
+*** 915,925 ****
+  /*
+   * Adjust the columns of text properties in line "lnum" after position "col" to
+   * shift by "bytes_added" (can be negative).
+   */
+      void
+! adjust_prop_columns(linenr_T lnum UNUSED, colnr_T col UNUSED, int bytes_added UNUSED)
+  {
+!     // TODO
+  }
+  
+  #endif // FEAT_TEXT_PROP
+--- 915,961 ----
+  /*
+   * Adjust the columns of text properties in line "lnum" after position "col" to
+   * shift by "bytes_added" (can be negative).
++  * Note that "col" is zero-based, while tp_col is one-based.
++  * Only for the current buffer.
++  * Called is expected to check b_has_textprop and "bytes_added" being non-zero.
+   */
+      void
+! adjust_prop_columns(linenr_T lnum, colnr_T col, int bytes_added)
+  {
+!     int		proplen;
+!     char_u	*props;
+!     textprop_T	tmp_prop;
+!     proptype_T  *pt;
+!     int		dirty = FALSE;
+!     int		i;
+! 
+!     proplen = get_text_props(curbuf, lnum, &props, TRUE);
+!     if (proplen == 0)
+! 	return;
+! 
+!     for (i = 0; i < proplen; ++i)
+!     {
+! 	mch_memmove(&tmp_prop, props + i * sizeof(textprop_T),
+! 							   sizeof(textprop_T));
+! 	pt = text_prop_type_by_id(curbuf, tmp_prop.tp_type);
+! 
+! 	if (tmp_prop.tp_col >= col + (pt != NULL && (pt->pt_flags & PT_FLAG_INS_START_INCL) ? 2 : 1))
+! 	{
+! 	    tmp_prop.tp_col += bytes_added;
+! 	    dirty = TRUE;
+! 	}
+! 	else if (tmp_prop.tp_col + tmp_prop.tp_len > col + (pt != NULL && (pt->pt_flags & PT_FLAG_INS_END_INCL) ? 0 : 1))
+! 	{
+! 	    tmp_prop.tp_len += bytes_added;
+! 	    dirty = TRUE;
+! 	}
+! 	if (dirty)
+! 	{
+! 	    curbuf->b_ml.ml_flags |= ML_LINE_DIRTY;
+! 	    mch_memmove(props + i * sizeof(textprop_T), &tmp_prop,
+! 							   sizeof(textprop_T));
+! 	}
+!     }
+  }
+  
+  #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.0677/src/testdir/test_textprop.vim	2019-01-01 19:47:17.854123944 +0100
+--- src/testdir/test_textprop.vim	2019-01-01 23:44:18.167348741 +0100
+***************
+*** 300,316 ****
+      return
+    endif
+    call writefile([
+! 	\ "call setline(1, ['One two', 'Numbér 123 änd thœn 4¾7.', 'Three'])",
+  	\ "hi NumberProp ctermfg=blue",
+  	\ "hi LongProp ctermbg=yellow",
+  	\ "call prop_type_add('number', {'highlight': 'NumberProp'})",
+  	\ "call prop_type_add('long', {'highlight': 'LongProp'})",
+  	\ "call prop_add(1, 4, {'end_lnum': 3, 'end_col': 3, 'type': 'long'})",
+  	\ "call prop_add(2, 9, {'length': 3, 'type': 'number'})",
+  	\ "call prop_add(2, 24, {'length': 4, 'type': 'number'})",
+  	\ "set number",
+  	\ "hi clear SpellBad",
+  	\ "set spell",
+  	\], 'XtestProp')
+    let buf = RunVimInTerminal('-S XtestProp', {'rows': 6})
+    call VerifyScreenDump(buf, 'Test_textprop_01', {})
+--- 300,324 ----
+      return
+    endif
+    call writefile([
+! 	\ "call setline(1, ['One two', 'Numbér 123 änd thœn 4¾7.', '--aa--bb--cc--dd--'])",
+  	\ "hi NumberProp ctermfg=blue",
+  	\ "hi LongProp ctermbg=yellow",
+  	\ "call prop_type_add('number', {'highlight': 'NumberProp'})",
+  	\ "call prop_type_add('long', {'highlight': 'LongProp'})",
++ 	\ "call prop_type_add('start', {'highlight': 'NumberProp', 'start_incl': 1})",
++ 	\ "call prop_type_add('end', {'highlight': 'NumberProp', 'end_incl': 1})",
++ 	\ "call prop_type_add('both', {'highlight': 'NumberProp', 'start_incl': 1, 'end_incl': 1})",
+  	\ "call prop_add(1, 4, {'end_lnum': 3, 'end_col': 3, 'type': 'long'})",
+  	\ "call prop_add(2, 9, {'length': 3, 'type': 'number'})",
+  	\ "call prop_add(2, 24, {'length': 4, 'type': 'number'})",
++ 	\ "call prop_add(3, 3, {'length': 2, 'type': 'number'})",
++ 	\ "call prop_add(3, 7, {'length': 2, 'type': 'start'})",
++ 	\ "call prop_add(3, 11, {'length': 2, 'type': 'end'})",
++ 	\ "call prop_add(3, 15, {'length': 2, 'type': 'both'})",
+  	\ "set number",
+  	\ "hi clear SpellBad",
+  	\ "set spell",
++ 	\ "normal 3G0llix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>",
+  	\], 'XtestProp')
+    let buf = RunVimInTerminal('-S XtestProp', {'rows': 6})
+    call VerifyScreenDump(buf, 'Test_textprop_01', {})
+*** ../vim-8.1.0677/src/testdir/dumps/Test_textprop_01.dump	2019-01-01 19:47:17.854123944 +0100
+--- src/testdir/dumps/Test_textprop_01.dump	2019-01-01 23:59:16.492821920 +0100
+***************
+*** 1,6 ****
+! | +0#af5f00255#ffffff0@1|1| >O+0#0000000&|n|e| +0&#ffff4012|t|w|o| +0&#ffffff0@63
+  | +0#af5f00255&@1|2| |N+0#0000000#ffff4012|u|m|b|é|r| |1+0#4040ff13&|2|3| +0#0000000&|ä|n|d| |t|h|œ|n| |4+0#4040ff13&|¾|7|.+0#0000000&| +0&#ffffff0@46
+! | +0#af5f00255&@1|3| |T+0#0000000#ffff4012|h|r+0&#ffffff0|e@1| @65
+  |~+0#4040ff13&| @73
+  |~| @73
+! | +0#0000000&@56|1|,|1| @10|A|l@1| 
+--- 1,6 ----
+! | +0#af5f00255#ffffff0@1|1| |O+0#0000000&|n|e| +0&#ffff4012|t|w|o| +0&#ffffff0@63
+  | +0#af5f00255&@1|2| |N+0#0000000#ffff4012|u|m|b|é|r| |1+0#4040ff13&|2|3| +0#0000000&|ä|n|d| |t|h|œ|n| |4+0#4040ff13&|¾|7|.+0#0000000&| +0&#ffffff0@46
+! | +0#af5f00255&@1|3| |-+0#0000000#ffff4012@1|x+0&#ffffff0|a+0#4040ff13&@1|x+0#0000000&|-@1|x+0#4040ff13&|b@1|x+0#0000000&|-@1|x|c+0#4040ff13&@1|x|-+0#0000000&@1|x+0#4040ff13&|d@1>x|-+0#0000000&@1| @44
+  |~+0#4040ff13&| @73
+  |~| @73
+! | +0#0000000&@56|3|,|2|4| @9|A|l@1| 
+*** ../vim-8.1.0677/src/version.c	2019-01-01 22:18:59.808136916 +0100
+--- src/version.c	2019-01-02 00:00:20.584349916 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     678,
+  /**/
+
+-- 
+I AM THANKFUL...
+...for a lawn that needs mowing, windows that need cleaning
+and gutters that need fixing because it means I have a home.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

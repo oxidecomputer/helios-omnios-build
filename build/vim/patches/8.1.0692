@@ -1,0 +1,148 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0692
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0692
+Problem:    If a buffer was deleted a channel can't write to it.
+Solution:   When the buffer exists but was unloaded, prepare it for writing.
+            (closes #3764)
+Files:	    src/channel.c, src/testdir/test_channel.vim
+
+
+*** ../vim-8.1.0691/src/channel.c	2018-12-21 16:04:16.312437516 +0100
+--- src/channel.c	2019-01-04 23:59:05.527410601 +0100
+***************
+*** 1099,1104 ****
+--- 1099,1123 ----
+  }
+  
+  /*
++  * Prepare buffer "buf" for writing channel output to.
++  */
++ 	static void
++ prepare_buffer(buf_T *buf)
++ {
++     buf_T *save_curbuf = curbuf;
++ 
++     buf_copy_options(buf, BCO_ENTER);
++     curbuf = buf;
++ #ifdef FEAT_QUICKFIX
++     set_option_value((char_u *)"bt", 0L, (char_u *)"nofile", OPT_LOCAL);
++     set_option_value((char_u *)"bh", 0L, (char_u *)"hide", OPT_LOCAL);
++ #endif
++     if (curbuf->b_ml.ml_mfp == NULL)
++ 	ml_open(curbuf);
++     curbuf = save_curbuf;
++ }
++ 
++ /*
+   * Find a buffer matching "name" or create a new one.
+   * Returns NULL if there is something very wrong (error already reported).
+   */
+***************
+*** 1120,1133 ****
+  				     NULL, (linenr_T)0, BLN_LISTED | BLN_NEW);
+  	if (buf == NULL)
+  	    return NULL;
+! 	buf_copy_options(buf, BCO_ENTER);
+  	curbuf = buf;
+- #ifdef FEAT_QUICKFIX
+- 	set_option_value((char_u *)"bt", 0L, (char_u *)"nofile", OPT_LOCAL);
+- 	set_option_value((char_u *)"bh", 0L, (char_u *)"hide", OPT_LOCAL);
+- #endif
+- 	if (curbuf->b_ml.ml_mfp == NULL)
+- 	    ml_open(curbuf);
+  	if (msg)
+  	    ml_replace(1, (char_u *)(err ? "Reading from channel error..."
+  				   : "Reading from channel output..."), TRUE);
+--- 1139,1147 ----
+  				     NULL, (linenr_T)0, BLN_LISTED | BLN_NEW);
+  	if (buf == NULL)
+  	    return NULL;
+! 	prepare_buffer(buf);
+! 
+  	curbuf = buf;
+  	if (msg)
+  	    ml_replace(1, (char_u *)(err ? "Reading from channel error..."
+  				   : "Reading from channel output..."), TRUE);
+***************
+*** 1244,1249 ****
+--- 1258,1266 ----
+  		ch_log(channel, "writing out to buffer '%s'",
+  						       (char *)buf->b_ffname);
+  		set_bufref(&channel->ch_part[PART_OUT].ch_bufref, buf);
++ 		// if the buffer was deleted or unloaded resurrect it
++ 		if (buf->b_ml.ml_mfp == NULL)
++ 		    prepare_buffer(buf);
+  	    }
+  	}
+      }
+***************
+*** 1287,1292 ****
+--- 1304,1312 ----
+  		ch_log(channel, "writing err to buffer '%s'",
+  						       (char *)buf->b_ffname);
+  		set_bufref(&channel->ch_part[PART_ERR].ch_bufref, buf);
++ 		// if the buffer was deleted or unloaded resurrect it
++ 		if (buf->b_ml.ml_mfp == NULL)
++ 		    prepare_buffer(buf);
+  	    }
+  	}
+      }
+*** ../vim-8.1.0691/src/testdir/test_channel.vim	2018-12-14 22:42:10.191670447 +0100
+--- src/testdir/test_channel.vim	2019-01-04 23:58:11.943811833 +0100
+***************
+*** 1645,1650 ****
+--- 1645,1672 ----
+    bwipe!
+  endfunc
+  
++ func Test_write_to_deleted_buffer()
++   if !executable('echo') || !has('job')
++     return
++   endif
++   let job = job_start('echo hello', {'out_io': 'buffer', 'out_name': 'test_buffer', 'out_msg': 0})
++   call WaitForAssert({-> assert_equal("dead", job_status(job))})
++   let bufnr = bufnr('test_buffer')
++   call assert_equal(['hello'], getbufline(bufnr, 1, '$'))
++   call assert_equal('nofile', getbufvar(bufnr, '&buftype'))
++   call assert_equal('hide', getbufvar(bufnr, '&bufhidden'))
++   bdel test_buffer
++   call assert_equal([], getbufline(bufnr, 1, '$'))
++ 
++   let job = job_start('echo hello', {'out_io': 'buffer', 'out_name': 'test_buffer', 'out_msg': 0})
++   call WaitForAssert({-> assert_equal("dead", job_status(job))})
++   call assert_equal(['hello'], getbufline(bufnr, 1, '$'))
++   call assert_equal('nofile', getbufvar(bufnr, '&buftype'))
++   call assert_equal('hide', getbufvar(bufnr, '&bufhidden'))
++ 
++   bwipe! test_buffer
++ endfunc
++ 
+  func Test_cmd_parsing()
+    if !has('unix')
+      return
+*** ../vim-8.1.0691/src/version.c	2019-01-04 23:09:45.249360567 +0100
+--- src/version.c	2019-01-05 00:02:09.446027308 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     692,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+107. When using your phone you forget that you don't have to use your
+     keyboard.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,134 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0972
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0972
+Problem:    Cannot switch from terminal window to next tabpage.
+Solution:   Make CTRL-W gt move to next tabpage.
+Files:	    src/window.c, src/testdir/test_terminal.vim,
+            runtime/doc/terminal.txt
+
+
+*** ../vim-8.1.0971/src/window.c	2019-02-16 15:09:21.217946198 +0100
+--- src/window.c	2019-02-22 15:48:48.790106681 +0100
+***************
+*** 67,73 ****
+  static char *m_onlyone = N_("Already only one window");
+  
+  /*
+!  * all CTRL-W window commands are handled here, called from normal_cmd().
+   */
+      void
+  do_window(
+--- 67,73 ----
+  static char *m_onlyone = N_("Already only one window");
+  
+  /*
+!  * All CTRL-W window commands are handled here, called from normal_cmd().
+   */
+      void
+  do_window(
+***************
+*** 584,589 ****
+--- 584,593 ----
+  			nchar = xchar;
+  			goto wingotofile;
+  #endif
++ 		    case 't':	    // CTRL-W gt: go to next tab page
++ 			goto_tabpage((int)Prenum);
++ 			break;
++ 
+  		    default:
+  			beep_flush();
+  			break;
+*** ../vim-8.1.0971/src/testdir/test_terminal.vim	2019-02-15 01:06:09.283099564 +0100
+--- src/testdir/test_terminal.vim	2019-02-22 16:06:24.095723103 +0100
+***************
+*** 1571,1576 ****
+--- 1571,1578 ----
+  func Test_terminal_termwinkey()
+    call assert_equal(1, winnr('$'))
+    let thiswin = win_getid()
++   tabnew
++   tabnext
+  
+    let buf = Run_shell_in_terminal({})
+    let termwin = bufwinid(buf)
+***************
+*** 1578,1589 ****
+--- 1580,1601 ----
+    call feedkeys("\<C-L>w", 'tx')
+    call assert_equal(thiswin, win_getid())
+    call feedkeys("\<C-W>w", 'tx')
++   call assert_equal(termwin, win_getid())
++ 
++   let tnr = tabpagenr()
++   call feedkeys("\<C-L>gt", "xt")
++   call assert_notequal(tnr, tabpagenr())
++   tabnext
++   call assert_equal(tnr, tabpagenr())
++   call assert_equal(termwin, win_getid())
+  
+    let job = term_getjob(buf)
+    call feedkeys("\<C-L>\<C-C>", 'tx')
+    call WaitForAssert({-> assert_equal("dead", job_status(job))})
+  
+    set termwinkey&
++   tabnext
++   tabclose
+  endfunc
+  
+  func Test_terminal_out_err()
+*** ../vim-8.1.0971/runtime/doc/terminal.txt	2019-02-16 13:35:09.841639346 +0100
+--- runtime/doc/terminal.txt	2019-02-22 15:37:26.906339197 +0100
+***************
+*** 80,85 ****
+--- 80,86 ----
+  			Also works with the = register to insert the result of
+  			evaluating an expression.
+  	CTRL-W CTRL-C	ends the job, see below |t_CTRL-W_CTRL-C|
++ 	CTRL-W gt	go to next tabpage, same as `gt`
+  
+  See option 'termwinkey' for specifying another key instead of CTRL-W that
+  will work like CTRL-W.  However, typing 'termwinkey' twice sends 'termwinkey'
+***************
+*** 110,116 ****
+  to Terminal-Normal mode: >
+     tnoremap <F1> <C-W>N
+  You can use Esc, but you need to make sure it won't cause other keys to
+! break: >
+     tnoremap <Esc> <C-W>N
+     set notimeout ttimeout timeoutlen=100
+  
+--- 111,117 ----
+  to Terminal-Normal mode: >
+     tnoremap <F1> <C-W>N
+  You can use Esc, but you need to make sure it won't cause other keys to
+! break (cursor keys start with an Esc, so they may break): >
+     tnoremap <Esc> <C-W>N
+     set notimeout ttimeout timeoutlen=100
+  
+*** ../vim-8.1.0971/src/version.c	2019-02-22 15:04:09.714683845 +0100
+--- src/version.c	2019-02-22 16:07:34.099302623 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     972,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+12. You turn off your Wifi and get this awful empty feeling, like you just
+    pulled the plug on a loved one.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,134 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0696
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0696
+Problem:    When test_edit fails 'insertmode' may not be reset and the next
+            test may get stuck. (James McCoy)
+Solution:   Always reset 'insertmode' after executing a test.  Avoid that an
+            InsertCharPre autocommand or a 'complete' function can change the
+            state. (closes #3768)
+Files:	    src/testdir/runtest.vim, src/edit.c
+
+
+*** ../vim-8.1.0695/src/testdir/runtest.vim	2018-12-15 17:46:18.909870746 +0100
+--- src/testdir/runtest.vim	2019-01-06 15:23:08.248156368 +0100
+***************
+*** 26,32 ****
+  " It will be called after each Test_ function.
+  "
+  " When debugging a test it can be useful to add messages to v:errors:
+! " 	call add(v:errors, "this happened")
+  
+  
+  " Without the +eval feature we can't run these tests, bail out.
+--- 26,32 ----
+  " It will be called after each Test_ function.
+  "
+  " When debugging a test it can be useful to add messages to v:errors:
+! "	call add(v:errors, "this happened")
+  
+  
+  " Without the +eval feature we can't run these tests, bail out.
+***************
+*** 149,154 ****
+--- 149,158 ----
+      endtry
+    endif
+  
++   " In case 'insertmode' was set and something went wrong, make sure it is
++   " reset to avoid trouble with anything else.
++   set noinsertmode
++ 
+    if exists("*TearDown")
+      try
+        call TearDown()
+*** ../vim-8.1.0695/src/edit.c	2019-01-02 23:47:14.360433274 +0100
+--- src/edit.c	2019-01-06 15:21:36.636912346 +0100
+***************
+*** 4219,4224 ****
+--- 4219,4225 ----
+      win_T	*curwin_save;
+      buf_T	*curbuf_save;
+      typval_T	rettv;
++     int		save_State = State;
+  
+      funcname = (type == CTRL_X_FUNCTION) ? curbuf->b_p_cfu : curbuf->b_p_ofu;
+      if (*funcname == NUL)
+***************
+*** 4272,4277 ****
+--- 4273,4281 ----
+  	ins_compl_add_dict(matchdict);
+  
+  theend:
++     // Restore State, it might have been changed.
++     State = save_State;
++ 
+      if (matchdict != NULL)
+  	dict_unref(matchdict);
+      if (matchlist != NULL)
+***************
+*** 5549,5554 ****
+--- 5553,5559 ----
+  	    pos_T	pos;
+  	    win_T	*curwin_save;
+  	    buf_T	*curbuf_save;
++ 	    int		save_State = State;
+  
+  	    /* Call 'completefunc' or 'omnifunc' and get pattern length as a
+  	     * string */
+***************
+*** 5572,5577 ****
+--- 5577,5584 ----
+  	    curwin_save = curwin;
+  	    curbuf_save = curbuf;
+  	    col = call_func_retnr(funcname, 2, args);
++ 
++ 	    State = save_State;
+  	    if (curwin_save != curwin || curbuf_save != curbuf)
+  	    {
+  		EMSG(_(e_complwin));
+***************
+*** 10730,10735 ****
+--- 10737,10743 ----
+  {
+      char_u	*res;
+      char_u	buf[MB_MAXBYTES + 1];
++     int		save_State = State;
+  
+      /* Return quickly when there is nothing to do. */
+      if (!has_insertcharpre())
+***************
+*** 10762,10767 ****
+--- 10770,10778 ----
+      set_vim_var_string(VV_CHAR, NULL, -1);  /* clear v:char */
+      --textlock;
+  
++     // Restore the State, it may have been changed.
++     State = save_State;
++ 
+      return res;
+  }
+  #endif
+*** ../vim-8.1.0695/src/version.c	2019-01-06 13:10:46.332499076 +0100
+--- src/version.c	2019-01-06 14:27:17.537077362 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     696,
+  /**/
+
+-- 
+Corduroy pillows: They're making headlines!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

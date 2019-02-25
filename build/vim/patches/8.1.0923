@@ -1,0 +1,123 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0923
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0923
+Problem:    Terminal dump diff swap does not update file names.
+Solution:   Also swap the file name.  Add a test.
+Files:	    src/terminal.c, src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.0922/src/terminal.c	2019-02-14 23:23:16.000358261 +0100
+--- src/terminal.c	2019-02-15 00:13:03.411505106 +0100
+***************
+*** 4816,4822 ****
+      bot_start = line_count - bot_rows;
+      sb_line = (sb_line_T *)term->tl_scrollback.ga_data;
+  
+!     /* move lines from top to above the bottom part */
+      for (lnum = 1; lnum <= top_rows; ++lnum)
+      {
+  	p = vim_strsave(ml_get(1));
+--- 4816,4822 ----
+      bot_start = line_count - bot_rows;
+      sb_line = (sb_line_T *)term->tl_scrollback.ga_data;
+  
+!     // move lines from top to above the bottom part
+      for (lnum = 1; lnum <= top_rows; ++lnum)
+      {
+  	p = vim_strsave(ml_get(1));
+***************
+*** 4827,4833 ****
+  	vim_free(p);
+      }
+  
+!     /* move lines from bottom to the top */
+      for (lnum = 1; lnum <= bot_rows; ++lnum)
+      {
+  	p = vim_strsave(ml_get(bot_start + lnum));
+--- 4827,4833 ----
+  	vim_free(p);
+      }
+  
+!     // move lines from bottom to the top
+      for (lnum = 1; lnum <= bot_rows; ++lnum)
+      {
+  	p = vim_strsave(ml_get(bot_start + lnum));
+***************
+*** 4838,4843 ****
+--- 4838,4859 ----
+  	vim_free(p);
+      }
+  
++     // move top title to bottom
++     p = vim_strsave(ml_get(bot_rows + 1));
++     if (p == NULL)
++ 	return OK;
++     ml_append(line_count - top_rows - 1, p, 0, FALSE);
++     ml_delete(bot_rows + 1, FALSE);
++     vim_free(p);
++ 
++     // move bottom title to top
++     p = vim_strsave(ml_get(line_count - top_rows));
++     if (p == NULL)
++ 	return OK;
++     ml_delete(line_count - top_rows, FALSE);
++     ml_append(bot_rows, p, 0, FALSE);
++     vim_free(p);
++ 
+      if (top_rows == bot_rows)
+      {
+  	/* rows counts are equal, can swap cell properties */
+*** ../vim-8.1.0922/src/testdir/test_terminal.vim	2019-02-14 23:49:35.513222082 +0100
+--- src/testdir/test_terminal.vim	2019-02-14 23:58:17.045787751 +0100
+***************
+*** 1124,1129 ****
+--- 1124,1147 ----
+    quit
+  endfunc
+  
++ func Test_terminal_dumpdiff_swap()
++   call assert_equal(1, winnr('$'))
++   call term_dumpdiff('dumps/Test_popup_command_01.dump', 'dumps/Test_popup_command_03.dump')
++   call assert_equal(2, winnr('$'))
++   call assert_equal(62, line('$'))
++   call assert_match('Test_popup_command_01.dump', getline(21))
++   call assert_match('Test_popup_command_03.dump', getline(42))
++   call assert_match('Undo', getline(3))
++   call assert_match('three four five', getline(45))
++ 
++   normal s
++   call assert_match('Test_popup_command_03.dump', getline(21))
++   call assert_match('Test_popup_command_01.dump', getline(42))
++   call assert_match('three four five', getline(3))
++   call assert_match('Undo', getline(45))
++   quit
++ endfunc
++ 
+  func Test_terminal_dumpdiff_options()
+    set laststatus=0
+    call assert_equal(1, winnr('$'))
+*** ../vim-8.1.0922/src/version.c	2019-02-14 23:49:35.513222082 +0100
+--- src/version.c	2019-02-14 23:59:52.613126996 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     923,
+  /**/
+
+-- 
+"The future's already arrived - it's just not evenly distributed yet."
+		-- William Gibson
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

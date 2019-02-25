@@ -1,0 +1,96 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0690
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0690
+Problem:    setline() and setbufline() do not clear text properties.
+Solution:   Clear text properties when setting the text.
+Files:	    src/evalfunc.c, src/testdir/test_textprop.vim
+
+
+*** ../vim-8.1.0689/src/evalfunc.c	2019-01-03 22:19:22.227686199 +0100
+--- src/evalfunc.c	2019-01-04 18:02:36.548302845 +0100
+***************
+*** 1357,1364 ****
+  
+  	if (!append && lnum <= curbuf->b_ml.ml_line_count)
+  	{
+! 	    /* existing line, replace it */
+! 	    if (u_savesub(lnum) == OK && ml_replace(lnum, line, TRUE) == OK)
+  	    {
+  		changed_bytes(lnum, 0);
+  		if (is_curbuf && lnum == curwin->w_cursor.lnum)
+--- 1357,1366 ----
+  
+  	if (!append && lnum <= curbuf->b_ml.ml_line_count)
+  	{
+! 	    // Existing line, replace it.
+! 	    // Removes any existing text properties.
+! 	    if (u_savesub(lnum) == OK && ml_replace_len(
+! 		      lnum, line, (colnr_T)STRLEN(line) + 1, TRUE, TRUE) == OK)
+  	    {
+  		changed_bytes(lnum, 0);
+  		if (is_curbuf && lnum == curwin->w_cursor.lnum)
+*** ../vim-8.1.0689/src/testdir/test_textprop.vim	2019-01-04 17:21:19.144832959 +0100
+--- src/testdir/test_textprop.vim	2019-01-04 18:00:00.365686883 +0100
+***************
+*** 261,266 ****
+--- 261,295 ----
+    bwipe!
+  endfunc
+  
++ func Test_prop_setline()
++   new
++   call AddPropTypes()
++   call SetupPropsInFirstLine()
++   call assert_equal(s:expected_props, prop_list(1))
++ 
++   call setline(1, 'foobar')
++   call assert_equal([], prop_list(1))
++ 
++   call DeletePropTypes()
++   bwipe!
++ endfunc
++ 
++ func Test_prop_setbufline()
++   new
++   call AddPropTypes()
++   call SetupPropsInFirstLine()
++   let bufnr = bufnr('')
++   wincmd w
++   call assert_equal(s:expected_props, prop_list(1, {'bufnr': bufnr}))
++ 
++   call setbufline(bufnr, 1, 'foobar')
++   call assert_equal([], prop_list(1, {'bufnr': bufnr}))
++ 
++   wincmd w
++   call DeletePropTypes()
++   bwipe!
++ endfunc
++ 
+  " Setup a three line prop in lines 2 - 4.
+  " Add short props in line 1 and 5.
+  func Setup_three_line_prop()
+*** ../vim-8.1.0689/src/version.c	2019-01-04 17:21:19.144832959 +0100
+--- src/version.c	2019-01-04 17:58:33.190465147 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     690,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+105. When someone asks you for your address, you tell them your URL.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

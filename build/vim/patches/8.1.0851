@@ -1,0 +1,144 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0851
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0851
+Problem:    feedkeys() with "L" does not work properly.
+Solution:   Do not set typebuf_was_filled when using "L". (Ozaki Kiichi,
+            closes #3885)
+Files:	    src/evalfunc.c, src/testdir/test_autocmd.vim,
+            src/testdir/test_mapping.vim, src/testdir/test_timers.vim
+
+
+*** ../vim-8.1.0850/src/evalfunc.c	2019-01-29 22:58:02.401136295 +0100
+--- src/evalfunc.c	2019-01-30 21:55:17.473416488 +0100
+***************
+*** 3705,3719 ****
+  #endif
+  	    }
+  	    else
+  		ins_typebuf(keys_esc, (remap ? REMAP_YES : REMAP_NONE),
+  				  insert ? 0 : typebuf.tb_len, !typed, FALSE);
+! 	    vim_free(keys_esc);
+! 	    if (vgetc_busy
+  #ifdef FEAT_TIMERS
+! 		    || timer_busy
+  #endif
+! 		    )
+! 		typebuf_was_filled = TRUE;
+  	    if (execute)
+  	    {
+  		int save_msg_scroll = msg_scroll;
+--- 3705,3722 ----
+  #endif
+  	    }
+  	    else
++ 	    {
+  		ins_typebuf(keys_esc, (remap ? REMAP_YES : REMAP_NONE),
+  				  insert ? 0 : typebuf.tb_len, !typed, FALSE);
+! 		if (vgetc_busy
+  #ifdef FEAT_TIMERS
+! 			|| timer_busy
+  #endif
+! 			)
+! 		    typebuf_was_filled = TRUE;
+! 	    }
+! 	    vim_free(keys_esc);
+! 
+  	    if (execute)
+  	    {
+  		int save_msg_scroll = msg_scroll;
+*** ../vim-8.1.0850/src/testdir/test_autocmd.vim	2019-01-27 22:32:51.584018729 +0100
+--- src/testdir/test_autocmd.vim	2019-01-30 21:55:17.473416488 +0100
+***************
+*** 50,56 ****
+      au CursorHoldI * let g:triggered += 1
+      set updatetime=500
+      call job_start(has('win32') ? 'cmd /c echo:' : 'echo',
+!           \ {'exit_cb': {j, s -> timer_start(1000, 'ExitInsertMode')}})
+      call feedkeys('a', 'x!')
+      call assert_equal(1, g:triggered)
+      unlet g:triggered
+--- 50,56 ----
+      au CursorHoldI * let g:triggered += 1
+      set updatetime=500
+      call job_start(has('win32') ? 'cmd /c echo:' : 'echo',
+!           \ {'exit_cb': {-> timer_start(1000, 'ExitInsertMode')}})
+      call feedkeys('a', 'x!')
+      call assert_equal(1, g:triggered)
+      unlet g:triggered
+*** ../vim-8.1.0850/src/testdir/test_mapping.vim	2019-01-27 22:32:51.584018729 +0100
+--- src/testdir/test_mapping.vim	2019-01-30 21:55:17.473416488 +0100
+***************
+*** 215,221 ****
+    set timeout timeoutlen=1000
+  
+    func ExitCb(job, status)
+!     let g:timer = timer_start(1, {_ -> feedkeys("3\<Esc>", 't')})
+    endfunc
+  
+    call job_start([&shell, &shellcmdflag, 'echo'], {'exit_cb': 'ExitCb'})
+--- 215,221 ----
+    set timeout timeoutlen=1000
+  
+    func ExitCb(job, status)
+!     let g:timer = timer_start(1, {-> feedkeys("3\<Esc>", 't')})
+    endfunc
+  
+    call job_start([&shell, &shellcmdflag, 'echo'], {'exit_cb': 'ExitCb'})
+*** ../vim-8.1.0850/src/testdir/test_timers.vim	2019-01-29 20:36:53.350466201 +0100
+--- src/testdir/test_timers.vim	2019-01-30 21:55:17.473416488 +0100
+***************
+*** 251,265 ****
+  endfunc
+  
+  func Test_getchar_zero()
+!   if has('win32')
+      " Console: no low-level input
+-     " GUI: somehow doesn't work
+      return
+    endif
+  
+    " Measure the elapsed time to avoid a hang when it fails.
+    let start = reltime()
+!   let id = timer_start(20, {id -> feedkeys('x', 'L')})
+    let c = 0
+    while c == 0 && reltimefloat(reltime(start)) < 0.2
+      let c = getchar(0)
+--- 251,264 ----
+  endfunc
+  
+  func Test_getchar_zero()
+!   if has('win32') && !has('gui_running')
+      " Console: no low-level input
+      return
+    endif
+  
+    " Measure the elapsed time to avoid a hang when it fails.
+    let start = reltime()
+!   let id = timer_start(20, {-> feedkeys('x', 'L')})
+    let c = 0
+    while c == 0 && reltimefloat(reltime(start)) < 0.2
+      let c = getchar(0)
+*** ../vim-8.1.0850/src/version.c	2019-01-30 21:51:24.427016059 +0100
+--- src/version.c	2019-01-30 22:01:25.434932254 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     851,
+  /**/
+
+-- 
+The early bird gets the worm. The second mouse gets the cheese.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

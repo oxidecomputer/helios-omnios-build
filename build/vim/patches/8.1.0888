@@ -1,0 +1,385 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0888
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0888
+Problem:    The a: dict is not immutable as documented.
+Solution:   Make the a:dict immutable, add a test. (Ozaki Kiichi, Yasuhiro
+            Matsumoto, closes #3929)
+Files:      src/eval.c, src/userfunc.c, src/testdir/test_let.vim,
+            src/testdir/test_listdict.vim
+    
+
+*** ../vim-8.1.0887/src/eval.c	2019-01-26 17:28:22.220599167 +0100
+--- src/eval.c	2019-02-10 22:04:07.884987095 +0100
+***************
+*** 2092,2105 ****
+  
+  	    if (lp->ll_di == NULL)
+  	    {
+! 		/* Can't add "v:" variable. */
+! 		if (lp->ll_dict == &vimvardict)
+  		{
+  		    semsg(_(e_illvar), name);
+  		    return NULL;
+  		}
+  
+! 		/* Key does not exist in dict: may need to add it. */
+  		if (*p == '[' || *p == '.' || unlet)
+  		{
+  		    if (!quiet)
+--- 2092,2106 ----
+  
+  	    if (lp->ll_di == NULL)
+  	    {
+! 		// Can't add "v:" or "a:" variable.
+! 		if (lp->ll_dict == &vimvardict
+! 			 || &lp->ll_dict->dv_hashtab == get_funccal_args_ht())
+  		{
+  		    semsg(_(e_illvar), name);
+  		    return NULL;
+  		}
+  
+! 		// Key does not exist in dict: may need to add it.
+  		if (*p == '[' || *p == '.' || unlet)
+  		{
+  		    if (!quiet)
+***************
+*** 7919,7932 ****
+      }
+      else		    /* add a new variable */
+      {
+! 	/* Can't add "v:" variable. */
+! 	if (ht == &vimvarht)
+  	{
+  	    semsg(_(e_illvar), name);
+  	    return;
+  	}
+  
+! 	/* Make sure the variable name is valid. */
+  	if (!valid_varname(varname))
+  	    return;
+  
+--- 7920,7933 ----
+      }
+      else		    /* add a new variable */
+      {
+! 	// Can't add "v:" or "a:" variable.
+! 	if (ht == &vimvarht || ht == get_funccal_args_ht())
+  	{
+  	    semsg(_(e_illvar), name);
+  	    return;
+  	}
+  
+! 	// Make sure the variable name is valid.
+  	if (!valid_varname(varname))
+  	    return;
+  
+*** ../vim-8.1.0887/src/userfunc.c	2019-02-02 14:02:26.012222133 +0100
+--- src/userfunc.c	2019-02-10 22:00:22.410776043 +0100
+***************
+*** 772,778 ****
+  	v = &fc->fixvar[fixvar_idx++].var;
+  	name = v->di_key;
+  	STRCPY(name, "self");
+! 	v->di_flags = DI_FLAGS_RO + DI_FLAGS_FIX;
+  	hash_add(&fc->l_vars.dv_hashtab, DI2HIKEY(v));
+  	v->di_tv.v_type = VAR_DICT;
+  	v->di_tv.v_lock = 0;
+--- 772,778 ----
+  	v = &fc->fixvar[fixvar_idx++].var;
+  	name = v->di_key;
+  	STRCPY(name, "self");
+! 	v->di_flags = DI_FLAGS_RO | DI_FLAGS_FIX;
+  	hash_add(&fc->l_vars.dv_hashtab, DI2HIKEY(v));
+  	v->di_tv.v_type = VAR_DICT;
+  	v->di_tv.v_lock = 0;
+***************
+*** 788,793 ****
+--- 788,794 ----
+      init_var_dict(&fc->l_avars, &fc->l_avars_var, VAR_SCOPE);
+      add_nr_var(&fc->l_avars, &fc->fixvar[fixvar_idx++].var, "0",
+  				(varnumber_T)(argcount - fp->uf_args.ga_len));
++     fc->l_avars.dv_lock = VAR_FIXED;
+      /* Use "name" to avoid a warning from some compiler that checks the
+       * destination size. */
+      v = &fc->fixvar[fixvar_idx++].var;
+*** ../vim-8.1.0887/src/testdir/test_let.vim	2017-08-04 22:16:54.000000000 +0200
+--- src/testdir/test_let.vim	2019-02-10 22:00:22.410776043 +0100
+***************
+*** 25,27 ****
+--- 25,148 ----
+    let s = "\na                     #1\nb                     #2"
+    call assert_equal(s, out)
+  endfunc
++ 
++ func s:set_arg1(a) abort
++   let a:a = 1
++ endfunction
++ 
++ func s:set_arg2(a) abort
++   let a:b = 1
++ endfunction
++ 
++ func s:set_arg3(a) abort
++   let b = a:
++   let b['a'] = 1
++ endfunction
++ 
++ func s:set_arg4(a) abort
++   let b = a:
++   let b['a'] = 1
++ endfunction
++ 
++ func s:set_arg5(a) abort
++   let b = a:
++   let b['a'][0] = 1
++ endfunction
++ 
++ func s:set_arg6(a) abort
++   let a:a[0] = 1
++ endfunction
++ 
++ func s:set_arg7(a) abort
++   call extend(a:, {'a': 1})
++ endfunction
++ 
++ func s:set_arg8(a) abort
++   call extend(a:, {'b': 1})
++ endfunction
++ 
++ func s:set_arg9(a) abort
++   let a:['b'] = 1
++ endfunction
++ 
++ func s:set_arg10(a) abort
++   let b = a:
++   call extend(b, {'a': 1})
++ endfunction
++ 
++ func s:set_arg11(a) abort
++   let b = a:
++   call extend(b, {'b': 1})
++ endfunction
++ 
++ func s:set_arg12(a) abort
++   let b = a:
++   let b['b'] = 1
++ endfunction
++ 
++ func Test_let_arg_fail()
++   call assert_fails('call s:set_arg1(1)', 'E46:')
++   call assert_fails('call s:set_arg2(1)', 'E461:')
++   call assert_fails('call s:set_arg3(1)', 'E46:')
++   call assert_fails('call s:set_arg4(1)', 'E46:')
++   call assert_fails('call s:set_arg5(1)', 'E46:')
++   call s:set_arg6([0])
++   call assert_fails('call s:set_arg7(1)', 'E742:')
++   call assert_fails('call s:set_arg8(1)', 'E742:')
++   call assert_fails('call s:set_arg9(1)', 'E461:')
++   call assert_fails('call s:set_arg10(1)', 'E742:')
++   call assert_fails('call s:set_arg11(1)', 'E742:')
++   call assert_fails('call s:set_arg12(1)', 'E461:')
++ endfunction
++ 
++ func s:set_varg1(...) abort
++   let a:000 = []
++ endfunction
++ 
++ func s:set_varg2(...) abort
++   let a:000[0] = 1
++ endfunction
++ 
++ func s:set_varg3(...) abort
++   let a:000 += [1]
++ endfunction
++ 
++ func s:set_varg4(...) abort
++   call add(a:000, 1)
++ endfunction
++ 
++ func s:set_varg5(...) abort
++   let a:000[0][0] = 1
++ endfunction
++ 
++ func s:set_varg6(...) abort
++   let b = a:000
++   let b[0] = 1
++ endfunction
++ 
++ func s:set_varg7(...) abort
++   let b = a:000
++   let b += [1]
++ endfunction
++ 
++ func s:set_varg8(...) abort
++   let b = a:000
++   call add(b, 1)
++ endfunction
++ 
++ func s:set_varg9(...) abort
++   let b = a:000
++   let b[0][0] = 1
++ endfunction
++ 
++ func Test_let_varg_fail()
++   call assert_fails('call s:set_varg1(1)', 'E46:')
++   call assert_fails('call s:set_varg2(1)', 'E742:')
++   call assert_fails('call s:set_varg3(1)', 'E46:')
++   call assert_fails('call s:set_varg4(1)', 'E742:')
++   call s:set_varg5([0])
++   call assert_fails('call s:set_varg6(1)', 'E742:')
++   " call assert_fails('call s:set_varg7(1)', 'E46:')
++   call assert_fails('call s:set_varg8(1)', 'E742:')
++   call s:set_varg9([0])
++ endfunction
+*** ../vim-8.1.0887/src/testdir/test_listdict.vim	2019-01-23 21:14:59.165314597 +0100
+--- src/testdir/test_listdict.vim	2019-02-10 22:05:27.764369544 +0100
+***************
+*** 500,516 ****
+  
+  " No remove() of write-protected scope-level variable
+  func Tfunc1(this_is_a_long_parameter_name)
+!   call assert_fails("call remove(a:, 'this_is_a_long_parameter_name')", 'E795')
+  endfunc
+  func Test_dict_scope_var_remove()
+    call Tfunc1('testval')
+  endfunc
+  
+  " No extend() of write-protected scope-level variable
+  func Tfunc2(this_is_a_long_parameter_name)
+    call assert_fails("call extend(a:, {'this_is_a_long_parameter_name': 1234})", 'E742')
+  endfunc
+! func Test_dict_scope_var_extend()
+    call Tfunc2('testval')
+  endfunc
+  
+--- 500,520 ----
+  
+  " No remove() of write-protected scope-level variable
+  func Tfunc1(this_is_a_long_parameter_name)
+!   call assert_fails("call remove(a:, 'this_is_a_long_parameter_name')", 'E742')
+  endfunc
+  func Test_dict_scope_var_remove()
+    call Tfunc1('testval')
+  endfunc
+  
+  " No extend() of write-protected scope-level variable
++ func Test_dict_scope_var_extend()
++   call assert_fails("call extend(a:, {'this_is_a_long_parameter_name': 1234})", 'E742')
++ endfunc
++ 
+  func Tfunc2(this_is_a_long_parameter_name)
+    call assert_fails("call extend(a:, {'this_is_a_long_parameter_name': 1234})", 'E742')
+  endfunc
+! func Test_dict_scope_var_extend_overwrite()
+    call Tfunc2('testval')
+  endfunc
+  
+***************
+*** 651,653 ****
+--- 655,729 ----
+    call assert_fails("call extend(d, d, 'error')", 'E737:')
+    call assert_equal({'a': {'b': 'B'}}, d)
+  endfunc
++ 
++ func s:check_scope_dict(x, fixed)
++   func s:gen_cmd(cmd, x)
++     return substitute(a:cmd, '\<x\ze:', a:x, 'g')
++   endfunc
++ 
++   let cmd = s:gen_cmd('let x:foo = 1', a:x)
++   if a:fixed
++     call assert_fails(cmd, 'E461')
++   else
++     exe cmd
++     exe s:gen_cmd('call assert_equal(1, x:foo)', a:x)
++   endif
++ 
++   let cmd = s:gen_cmd('let x:["bar"] = 2', a:x)
++   if a:fixed
++     call assert_fails(cmd, 'E461')
++   else
++     exe cmd
++     exe s:gen_cmd('call assert_equal(2, x:bar)', a:x)
++   endif
++ 
++   let cmd = s:gen_cmd('call extend(x:, {"baz": 3})', a:x)
++   if a:fixed
++     call assert_fails(cmd, 'E742')
++   else
++     exe cmd
++     exe s:gen_cmd('call assert_equal(3, x:baz)', a:x)
++   endif
++ 
++   if a:fixed
++     if a:x ==# 'a'
++       call assert_fails('unlet a:x', 'E795')
++       call assert_fails('call remove(a:, "x")', 'E742')
++     elseif a:x ==# 'v'
++       call assert_fails('unlet v:count', 'E795')
++       call assert_fails('call remove(v:, "count")', 'E742')
++     endif
++   else
++     exe s:gen_cmd('unlet x:foo', a:x)
++     exe s:gen_cmd('unlet x:bar', a:x)
++     exe s:gen_cmd('call remove(x:, "baz")', a:x)
++   endif
++ 
++   delfunc s:gen_cmd
++ endfunc
++ 
++ func Test_scope_dict()
++   " Test for g:
++   call s:check_scope_dict('g', v:false)
++ 
++   " Test for s:
++   call s:check_scope_dict('s', v:false)
++ 
++   " Test for l:
++   call s:check_scope_dict('l', v:false)
++ 
++   " Test for a:
++   call s:check_scope_dict('a', v:true)
++ 
++   " Test for b:
++   call s:check_scope_dict('b', v:false)
++ 
++   " Test for w:
++   call s:check_scope_dict('w', v:false)
++ 
++   " Test for t:
++   call s:check_scope_dict('t', v:false)
++ 
++   " Test for v:
++   call s:check_scope_dict('v', v:true)
++ endfunc
+*** ../vim-8.1.0887/src/version.c	2019-02-10 21:55:23.109307873 +0100
+--- src/version.c	2019-02-10 22:13:09.808900292 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     888,
+  /**/
+
+-- 
+ARTHUR: CHARGE!
+   [The mighty ARMY charges.  Thundering noise of feet.  Clatter of coconuts.
+   Shouts etc.   Suddenly there is a wail of a siren and a couple of police
+   cars roar round in front of the charging ARMY and the POLICE leap out and
+   stop them.  TWO POLICEMAN and the HISTORIAN'S WIFE.  Black Marias skid up
+   behind them.]
+HISTORIAN'S WIFE: They're the ones, I'm sure.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,167 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0601
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0601
+Problem:    A few compiler warnings.
+Solution:   Add type casts. (Mike Williams)
+Files:	    src/GvimExt/gvimext.cpp, src/memline.c, src/textprop.c
+
+
+*** ../vim-8.1.0600/src/GvimExt/gvimext.cpp	2018-12-14 19:54:35.711994528 +0100
+--- src/GvimExt/gvimext.cpp	2018-12-16 14:31:38.691477523 +0100
+***************
+*** 1084,1090 ****
+  	CloseHandle(pi.hProcess);
+  	CloseHandle(pi.hThread);
+      }
+- theend:
+      free(cmdStrW);
+  
+      return NOERROR;
+--- 1084,1089 ----
+*** ../vim-8.1.0600/src/memline.c	2018-12-13 23:16:32.808280772 +0100
+--- src/memline.c	2018-12-16 14:31:38.691477523 +0100
+***************
+*** 3146,3152 ****
+      colnr_T len = -1;
+  
+      if (line != NULL)
+! 	len = STRLEN(line);
+      return ml_replace_len(lnum, line, len, copy);
+  }
+  
+--- 3146,3152 ----
+      colnr_T len = -1;
+  
+      if (line != NULL)
+! 	len = (colnr_T)STRLEN(line);
+      return ml_replace_len(lnum, line, len, copy);
+  }
+  
+***************
+*** 3196,3209 ****
+  	    size_t textproplen = curbuf->b_ml.ml_line_len - oldtextlen;
+  
+  	    // Need to copy over text properties, stored after the text.
+! 	    newline = alloc(len + 1 + textproplen);
+  	    if (newline != NULL)
+  	    {
+  		mch_memmove(newline, line, len + 1);
+  		mch_memmove(newline + len + 1, curbuf->b_ml.ml_line_ptr + oldtextlen, textproplen);
+  		vim_free(line);
+  		line = newline;
+! 		len += textproplen;
+  	    }
+  	}
+      }
+--- 3196,3209 ----
+  	    size_t textproplen = curbuf->b_ml.ml_line_len - oldtextlen;
+  
+  	    // Need to copy over text properties, stored after the text.
+! 	    newline = alloc(len + 1 + (int)textproplen);
+  	    if (newline != NULL)
+  	    {
+  		mch_memmove(newline, line, len + 1);
+  		mch_memmove(newline + len + 1, curbuf->b_ml.ml_line_ptr + oldtextlen, textproplen);
+  		vim_free(line);
+  		line = newline;
+! 		len += (colnr_T)textproplen;
+  	    }
+  	}
+      }
+*** ../vim-8.1.0600/src/textprop.c	2018-12-14 15:38:28.331597637 +0100
+--- src/textprop.c	2018-12-16 14:31:38.691477523 +0100
+***************
+*** 301,307 ****
+      }
+      if (proplen > 0)
+  	*props = text + textlen;
+!     return proplen / sizeof(textprop_T);
+  }
+  
+      static proptype_T *
+--- 301,307 ----
+      }
+      if (proplen > 0)
+  	*props = text + textlen;
+!     return (int)(proplen / sizeof(textprop_T));
+  }
+  
+      static proptype_T *
+***************
+*** 393,399 ****
+  		buf->b_ml.ml_line_ptr = newtext;
+  		buf->b_ml.ml_flags |= ML_LINE_DIRTY;
+  	    }
+! 	    buf->b_ml.ml_line_len = len;
+  	}
+      }
+      redraw_buf_later(buf, NOT_VALID);
+--- 393,399 ----
+  		buf->b_ml.ml_line_ptr = newtext;
+  		buf->b_ml.ml_flags |= ML_LINE_DIRTY;
+  	    }
+! 	    buf->b_ml.ml_line_len = (int)len;
+  	}
+      }
+      redraw_buf_later(buf, NOT_VALID);
+***************
+*** 423,430 ****
+      {
+  	char_u	    *text = ml_get_buf(buf, lnum, FALSE);
+  	size_t	    textlen = STRLEN(text) + 1;
+! 	int	    count = (buf->b_ml.ml_line_len - textlen)
+! 							  / sizeof(textprop_T);
+  	int	    i;
+  	textprop_T  prop;
+  	proptype_T  *pt;
+--- 423,430 ----
+      {
+  	char_u	    *text = ml_get_buf(buf, lnum, FALSE);
+  	size_t	    textlen = STRLEN(text) + 1;
+! 	int	    count = (int)((buf->b_ml.ml_line_len - textlen)
+! 							 / sizeof(textprop_T));
+  	int	    i;
+  	textprop_T  prop;
+  	proptype_T  *pt;
+***************
+*** 607,613 ****
+  	    EMSG2(_("E969: Property type %s already defined"), name);
+  	    return;
+  	}
+! 	prop = (proptype_T *)alloc_clear(sizeof(proptype_T) + STRLEN(name));
+  	if (prop == NULL)
+  	    return;
+  	STRCPY(prop->pt_name, name);
+--- 607,613 ----
+  	    EMSG2(_("E969: Property type %s already defined"), name);
+  	    return;
+  	}
+! 	prop = (proptype_T *)alloc_clear((int)(sizeof(proptype_T) + STRLEN(name)));
+  	if (prop == NULL)
+  	    return;
+  	STRCPY(prop->pt_name, name);
+*** ../vim-8.1.0600/src/version.c	2018-12-15 17:46:18.913870718 +0100
+--- src/version.c	2018-12-16 14:32:28.159174538 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     601,
+  /**/
+
+-- 
+Computers are useless. They can only give you answers.
+                -- Pablo Picasso
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

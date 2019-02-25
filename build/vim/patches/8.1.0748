@@ -1,0 +1,136 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0748
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0748
+Problem:    Using sprintf() instead of semsg().
+Solution:   Use semsg().  Fix bug with E888. (Ozaki Kiichi, closes #3801)
+Files:	    src/regexp.c
+
+
+*** ../vim-8.1.0747/src/regexp.c	2019-01-13 23:38:33.407773189 +0100
+--- src/regexp.c	2019-01-14 22:39:42.656618226 +0100
+***************
+*** 338,343 ****
+--- 338,344 ----
+  #define IEMSG_RET_NULL(m) return (iemsg((m)), rc_did_emsg = TRUE, (void *)NULL)
+  #define EMSG_RET_FAIL(m) return (emsg((m)), rc_did_emsg = TRUE, FAIL)
+  #define EMSG2_RET_NULL(m, c) return (semsg((const char *)(m), (c) ? "" : "\\"), rc_did_emsg = TRUE, (void *)NULL)
++ #define EMSG3_RET_NULL(m, c, a) return (semsg((const char *)(m), (c) ? "" : "\\", (a)), rc_did_emsg = TRUE, (void *)NULL)
+  #define EMSG2_RET_FAIL(m, c) return (semsg((const char *)(m), (c) ? "" : "\\"), rc_did_emsg = TRUE, FAIL)
+  #define EMSG_ONE_RET_NULL EMSG2_RET_NULL(_("E369: invalid item in %s%%[]"), reg_magic == MAGIC_ALL)
+  
+***************
+*** 1895,1908 ****
+      }
+      if (re_multi_type(peekchr()) != NOT_MULTI)
+      {
+! 	/* Can't have a multi follow a multi. */
+  	if (peekchr() == Magic('*'))
+! 	    sprintf((char *)IObuff, _("E61: Nested %s*"),
+! 					    reg_magic >= MAGIC_ON ? "" : "\\");
+! 	else
+! 	    sprintf((char *)IObuff, _("E62: Nested %s%c"),
+! 		reg_magic == MAGIC_ALL ? "" : "\\", no_Magic(peekchr()));
+! 	EMSG_RET_NULL((char *)IObuff);
+      }
+  
+      return ret;
+--- 1896,1906 ----
+      }
+      if (re_multi_type(peekchr()) != NOT_MULTI)
+      {
+! 	// Can't have a multi follow a multi.
+  	if (peekchr() == Magic('*'))
+! 	    EMSG2_RET_NULL(_("E61: Nested %s*"), reg_magic >= MAGIC_ON);
+! 	EMSG3_RET_NULL(_("E62: Nested %s%c"), reg_magic == MAGIC_ALL,
+! 							  no_Magic(peekchr()));
+      }
+  
+      return ret;
+***************
+*** 2075,2084 ****
+        case Magic('{'):
+        case Magic('*'):
+  	c = no_Magic(c);
+! 	sprintf((char *)IObuff, _("E64: %s%c follows nothing"),
+! 		(c == '*' ? reg_magic >= MAGIC_ON : reg_magic == MAGIC_ALL)
+! 		? "" : "\\", c);
+! 	EMSG_RET_NULL((char *)IObuff);
+  	/* NOTREACHED */
+  
+        case Magic('~'):		/* previous substitute pattern */
+--- 2073,2080 ----
+        case Magic('{'):
+        case Magic('*'):
+  	c = no_Magic(c);
+! 	EMSG3_RET_NULL(_("E64: %s%c follows nothing"),
+! 		(c == '*' ? reg_magic >= MAGIC_ON : reg_magic == MAGIC_ALL), c);
+  	/* NOTREACHED */
+  
+        case Magic('~'):		/* previous substitute pattern */
+***************
+*** 3403,3413 ****
+      if (*regparse == '\\')
+  	regparse++;	/* Allow either \{...} or \{...\} */
+      if (*regparse != '}')
+!     {
+! 	sprintf((char *)IObuff, _("E554: Syntax error in %s{...}"),
+! 					  reg_magic == MAGIC_ALL ? "" : "\\");
+! 	EMSG_RET_FAIL((char *)IObuff);
+!     }
+  
+      /*
+       * Reverse the range if there was a '-', or make sure it is in the right
+--- 3399,3406 ----
+      if (*regparse == '\\')
+  	regparse++;	/* Allow either \{...} or \{...\} */
+      if (*regparse != '}')
+! 	EMSG2_RET_FAIL(_("E554: Syntax error in %s{...}"),
+! 						       reg_magic == MAGIC_ALL);
+  
+      /*
+       * Reverse the range if there was a '-', or make sure it is in the right
+***************
+*** 6998,7004 ****
+  re_mult_next(char *what)
+  {
+      if (re_multi_type(peekchr()) == MULTI_MULT)
+! 	EMSG2_RET_FAIL(_("E888: (NFA regexp) cannot repeat %s"), what);
+      return OK;
+  }
+  
+--- 6991,7001 ----
+  re_mult_next(char *what)
+  {
+      if (re_multi_type(peekchr()) == MULTI_MULT)
+!     {
+!        semsg(_("E888: (NFA regexp) cannot repeat %s"), what);
+!        rc_did_emsg = TRUE;
+!        return FAIL;
+!     }
+      return OK;
+  }
+  
+*** ../vim-8.1.0747/src/version.c	2019-01-14 22:22:25.584624342 +0100
+--- src/version.c	2019-01-14 22:45:14.998094549 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     748,
+  /**/
+
+-- 
+$ echo pizza > /dev/oven
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

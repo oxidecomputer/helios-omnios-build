@@ -1,0 +1,175 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0728
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0728
+Problem:    Cannot avoid breaking after a single space.
+Solution:   Add the 'p' flag to 'formatoptions'. (Tom Ryder)
+Files:	    runtime/doc/change.txt, src/edit.c, src/option.h,
+            src/testdir/test_textformat.vim
+
+
+*** ../vim-8.1.0727/runtime/doc/change.txt	2018-11-22 03:07:30.940596247 +0100
+--- runtime/doc/change.txt	2019-01-11 21:16:00.361692960 +0100
+***************
+*** 1716,1721 ****
+--- 1720,1736 ----
+  		         // in the list ~
+  	Becomes:
+  		int i;   // the index in the list ~
++ p	Don't break lines at single spaces that follow periods.  This is
++ 	intended to complement 'joinspaces' and |cpo-J|, for prose with
++ 	sentences separated by two spaces.  For example, with 'textwidth' set
++ 	to 28: >
++ 		Surely you're joking, Mr. Feynman!
++ <	Becomes: >
++ 		Surely you're joking,
++ 		Mr. Feynman!
++ <	Instead of: >
++ 		Surely you're joking, Mr.
++ 		Feynman!
+  
+  
+  With 't' and 'c' you can specify when Vim performs auto-wrapping:
+*** ../vim-8.1.0727/src/edit.c	2019-01-11 20:34:18.296314730 +0100
+--- src/edit.c	2019-01-11 21:20:05.523988403 +0100
+***************
+*** 6498,6503 ****
+--- 6498,6504 ----
+  	char_u	*saved_text = NULL;
+  	colnr_T	col;
+  	colnr_T	end_col;
++ 	int	wcc;			// counter for whitespace chars
+  
+  	virtcol = get_nolist_virtcol()
+  		+ char2cells(c != NUL ? c : gchar_cursor());
+***************
+*** 6559,6572 ****
+  		/* remember position of blank just before text */
+  		end_col = curwin->w_cursor.col;
+  
+! 		/* find start of sequence of blanks */
+  		while (curwin->w_cursor.col > 0 && WHITECHAR(cc))
+  		{
+  		    dec_cursor();
+  		    cc = gchar_cursor();
+  		}
+  		if (curwin->w_cursor.col == 0 && WHITECHAR(cc))
+  		    break;		/* only spaces in front of text */
+  #ifdef FEAT_COMMENTS
+  		/* Don't break until after the comment leader */
+  		if (curwin->w_cursor.col < leader_len)
+--- 6560,6585 ----
+  		/* remember position of blank just before text */
+  		end_col = curwin->w_cursor.col;
+  
+! 		// find start of sequence of blanks
+! 		wcc = 0;
+  		while (curwin->w_cursor.col > 0 && WHITECHAR(cc))
+  		{
+  		    dec_cursor();
+  		    cc = gchar_cursor();
++ 
++ 		    // Increment count of how many whitespace chars in this
++ 		    // group; we only need to know if it's more than one.
++ 		    if (wcc < 2)
++ 		        wcc++;
+  		}
+  		if (curwin->w_cursor.col == 0 && WHITECHAR(cc))
+  		    break;		/* only spaces in front of text */
++ 
++ 		// Don't break after a period when 'formatoptions' has 'p' and
++ 		// there are less than two spaces.
++ 		if (has_format_option(FO_PERIOD_ABBR) && cc == '.' && wcc < 2)
++ 		    continue;
++ 
+  #ifdef FEAT_COMMENTS
+  		/* Don't break until after the comment leader */
+  		if (curwin->w_cursor.col < leader_len)
+*** ../vim-8.1.0727/src/option.h	2018-12-03 20:49:58.767291066 +0100
+--- src/option.h	2019-01-11 21:16:00.365692934 +0100
+***************
+*** 101,110 ****
+  #define FO_WHITE_PAR	'w'	/* trailing white space continues paragr. */
+  #define FO_AUTO		'a'	/* automatic formatting */
+  #define FO_REMOVE_COMS	'j'	/* remove comment leaders when joining lines */
+  
+  #define DFLT_FO_VI	"vt"
+  #define DFLT_FO_VIM	"tcq"
+! #define FO_ALL		"tcroq2vlb1mMBn,awj"	/* for do_set() */
+  
+  /* characters for the p_cpo option: */
+  #define CPO_ALTREAD	'a'	/* ":read" sets alternate file name */
+--- 101,111 ----
+  #define FO_WHITE_PAR	'w'	/* trailing white space continues paragr. */
+  #define FO_AUTO		'a'	/* automatic formatting */
+  #define FO_REMOVE_COMS	'j'	/* remove comment leaders when joining lines */
++ #define FO_PERIOD_ABBR	'p'	/* don't break a single space after a period */
+  
+  #define DFLT_FO_VI	"vt"
+  #define DFLT_FO_VIM	"tcq"
+! #define FO_ALL		"tcroq2vlb1mMBn,awjp"	/* for do_set() */
+  
+  /* characters for the p_cpo option: */
+  #define CPO_ALTREAD	'a'	/* ":read" sets alternate file name */
+*** ../vim-8.1.0727/src/testdir/test_textformat.vim	2018-12-31 23:58:20.246887218 +0100
+--- src/testdir/test_textformat.vim	2019-01-11 21:16:00.365692934 +0100
+***************
+*** 163,168 ****
+--- 163,194 ----
+  	      \ '# 1 xxxxx',
+  	      \ '#   foobar'], getline(1, 2))
+  
++   " Test the 'p' flag for 'formatoptions'
++   " First test without the flag: that it will break "Mr. Feynman" at the space
++   normal ggdG
++   setl tw=28 fo=tcq
++   call setline('.', 'Surely you''re joking, Mr. Feynman!')
++   normal gqq
++   call assert_equal([
++               \ 'Surely you''re joking, Mr.',
++               \ 'Feynman!'], getline(1, 2))
++   " Now test with the flag: that it will push the name with the title onto the
++   " next line
++   normal ggdG
++   setl fo+=p
++   call setline('.', 'Surely you''re joking, Mr. Feynman!')
++   normal gqq
++   call assert_equal([
++               \ 'Surely you''re joking,',
++               \ 'Mr. Feynman!'], getline(1, 2))
++   " Ensure that it will still break if two spaces are entered
++   normal ggdG
++   call setline('.', 'Surely you''re joking, Mr.  Feynman!')
++   normal gqq
++   call assert_equal([
++               \ 'Surely you''re joking, Mr.',
++               \ 'Feynman!'], getline(1, 2))
++ 
+    setl ai& tw& fo& si& comments&
+    enew!
+  endfunc
+*** ../vim-8.1.0727/src/version.c	2019-01-11 20:37:07.714787395 +0100
+--- src/version.c	2019-01-11 21:17:56.504888657 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     728,
+  /**/
+
+-- 
+Microsoft says that MS-Windows is much better for you than Linux.
+That's like the Pope saying that catholicism is much better for
+you than protestantism.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

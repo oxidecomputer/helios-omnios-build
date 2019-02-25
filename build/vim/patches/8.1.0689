@@ -1,0 +1,97 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0689
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0689 (after 8.1.0688)
+Problem:    Undo with text properties not tested.
+Solution:   Add a test function.
+Files:	    src/testdir/test_textprop.vim
+
+
+*** ../vim-8.1.0688/src/testdir/test_textprop.vim	2019-01-02 23:47:14.360433274 +0100
+--- src/testdir/test_textprop.vim	2019-01-04 17:19:52.549408306 +0100
+***************
+*** 348,353 ****
+--- 348,406 ----
+    call prop_type_delete('comment')
+  endfunc
+  
++ func Test_prop_undo()
++   new
++   call prop_type_add('comment', {'highlight': 'Directory'})
++   call setline(1, ['oneone', 'twotwo', 'three'])
++   " Set 'undolevels' to break changes into undo-able pieces.
++   set ul&
++ 
++   call prop_add(1, 3, {'end_col': 5, 'type': 'comment'})
++   let expected = [{'col': 3, 'length': 2, 'id': 0, 'type': 'comment', 'start': 1, 'end': 1} ]
++   call assert_equal(expected, prop_list(1))
++ 
++   " Insert a character, then undo.
++   exe "normal 0lllix\<Esc>"
++   set ul&
++   let expected[0].length = 3
++   call assert_equal(expected, prop_list(1))
++   undo
++   let expected[0].length = 2
++   call assert_equal(expected, prop_list(1))
++ 
++   " Delete a character, then undo
++   exe "normal 0lllx"
++   set ul&
++   let expected[0].length = 1
++   call assert_equal(expected, prop_list(1))
++   undo
++   let expected[0].length = 2
++   call assert_equal(expected, prop_list(1))
++ 
++   " Delete the line, then undo
++   1d
++   set ul&
++   call assert_equal([], prop_list(1))
++   undo
++   call assert_equal(expected, prop_list(1))
++ 
++   " Insert a character, delete two characters, then undo with "U"
++   exe "normal 0lllix\<Esc>"
++   set ul&
++   let expected[0].length = 3
++   call assert_equal(expected, prop_list(1))
++   exe "normal 0lllxx"
++   set ul&
++   let expected[0].length = 1
++   call assert_equal(expected, prop_list(1))
++   normal U
++   let expected[0].length = 2
++   call assert_equal(expected, prop_list(1))
++ 
++   bwipe!
++   call prop_type_delete('comment')
++ endfunc
++ 
+  " screenshot test with textprop highlighting
+  funct Test_textprop_screenshots()
+    if !CanRunVimInTerminal() || &encoding != 'utf-8'
+*** ../vim-8.1.0688/src/version.c	2019-01-04 15:09:52.922373054 +0100
+--- src/version.c	2019-01-04 17:20:55.164995001 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     689,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+104. When people ask about the Presidential Election you ask "Which country?"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

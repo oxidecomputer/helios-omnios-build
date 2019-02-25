@@ -1,0 +1,632 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0719
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0719
+Problem:    Too many #ifdefs.
+Solution:   Always build with the +visualextra feature.
+Files:	    src/evalfunc.c, src/version.c, src/normal.c, src/ops.c,
+            src/feature.h, runtime/doc/various.txt
+
+
+*** ../vim-8.1.0718/src/evalfunc.c	2019-01-11 13:42:31.680331155 +0100
+--- src/evalfunc.c	2019-01-11 14:13:58.623063385 +0100
+***************
+*** 6533,6541 ****
+  	"virtualedit",
+  #endif
+  	"visual",
+- #ifdef FEAT_VISUALEXTRA
+  	"visualextra",
+- #endif
+  	"vreplace",
+  #ifdef FEAT_VTP
+  	"vtp",
+--- 6533,6539 ----
+*** ../vim-8.1.0718/src/version.c	2019-01-11 14:10:00.348749729 +0100
+--- src/version.c	2019-01-11 14:23:42.578954675 +0100
+***************
+*** 709,719 ****
+  	"-virtualedit",
+  #endif
+  	"+visual",
+- #ifdef FEAT_VISUALEXTRA
+  	"+visualextra",
+- #else
+- 	"-visualextra",
+- #endif
+  #ifdef FEAT_VIMINFO
+  	"+viminfo",
+  #else
+--- 709,715 ----
+*** ../vim-8.1.0718/src/normal.c	2019-01-03 22:57:59.540478092 +0100
+--- src/normal.c	2019-01-11 14:14:52.426682428 +0100
+***************
+*** 1998,2004 ****
+  	case OP_INSERT:
+  	case OP_APPEND:
+  	    VIsual_reselect = FALSE;	/* don't reselect now */
+- #ifdef FEAT_VISUALEXTRA
+  	    if (empty_region_error)
+  	    {
+  		vim_beep(BO_OPER);
+--- 1998,2003 ----
+***************
+*** 2035,2058 ****
+  		else
+  		    cap->retval |= CA_COMMAND_BUSY;
+  	    }
+- #else
+- 	    vim_beep(BO_OPER);
+- #endif
+  	    break;
+  
+  	case OP_REPLACE:
+  	    VIsual_reselect = FALSE;	/* don't reselect now */
+- #ifdef FEAT_VISUALEXTRA
+  	    if (empty_region_error)
+- #endif
+  	    {
+  		vim_beep(BO_OPER);
+  		CancelRedo();
+  	    }
+- #ifdef FEAT_VISUALEXTRA
+  	    else
+  	    {
+! # ifdef FEAT_LINEBREAK
+  		/* Restore linebreak, so that when the user edits it looks as
+  		 * before. */
+  		if (curwin->w_p_lbr != lbr_saved)
+--- 2034,2051 ----
+  		else
+  		    cap->retval |= CA_COMMAND_BUSY;
+  	    }
+  	    break;
+  
+  	case OP_REPLACE:
+  	    VIsual_reselect = FALSE;	/* don't reselect now */
+  	    if (empty_region_error)
+  	    {
+  		vim_beep(BO_OPER);
+  		CancelRedo();
+  	    }
+  	    else
+  	    {
+! #ifdef FEAT_LINEBREAK
+  		/* Restore linebreak, so that when the user edits it looks as
+  		 * before. */
+  		if (curwin->w_p_lbr != lbr_saved)
+***************
+*** 2060,2069 ****
+  		    curwin->w_p_lbr = lbr_saved;
+  		    get_op_vcol(oap, redo_VIsual_mode, FALSE);
+  		}
+! # endif
+  		op_replace(oap, cap->nchar);
+  	    }
+- #endif
+  	    break;
+  
+  #ifdef FEAT_FOLDING
+--- 2053,2061 ----
+  		    curwin->w_p_lbr = lbr_saved;
+  		    get_op_vcol(oap, redo_VIsual_mode, FALSE);
+  		}
+! #endif
+  		op_replace(oap, cap->nchar);
+  	    }
+  	    break;
+  
+  #ifdef FEAT_FOLDING
+*** ../vim-8.1.0718/src/ops.c	2018-12-31 23:58:20.246887218 +0100
+--- src/ops.c	2019-01-11 14:21:13.747985991 +0100
+***************
+*** 82,101 ****
+      colnr_T	textcol;	/* index of chars (partially) in block */
+      colnr_T	start_vcol;	/* start col of 1st char wholly inside block */
+      colnr_T	end_vcol;	/* start col of 1st char wholly after block */
+- #ifdef FEAT_VISUALEXTRA
+      int		is_short;	/* TRUE if line is too short to fit in block */
+      int		is_MAX;		/* TRUE if curswant==MAXCOL when starting */
+      int		is_oneChar;	/* TRUE if block within one character */
+      int		pre_whitesp;	/* screen cols of ws before block */
+      int		pre_whitesp_c;	/* chars of ws before block */
+      colnr_T	end_char_vcols;	/* number of vcols of post-block char */
+- #endif
+      colnr_T	start_char_vcols; /* number of vcols of pre-block char */
+  };
+  
+- #ifdef FEAT_VISUALEXTRA
+  static void shift_block(oparg_T *oap, int amount);
+- #endif
+  static int	stuff_yank(int, char_u *);
+  static void	put_reedit_in_typebuf(int silent);
+  static int	put_in_typebuf(char_u *s, int esc, int colon,
+--- 82,97 ----
+***************
+*** 255,264 ****
+  	first_char = *ml_get_curline();
+  	if (first_char == NUL)				/* empty line */
+  	    curwin->w_cursor.col = 0;
+- #ifdef FEAT_VISUALEXTRA
+  	else if (oap->block_mode)
+  	    shift_block(oap, amount);
+- #endif
+  	else
+  	    /* Move the line right if it doesn't start with '#', 'smartindent'
+  	     * isn't set or 'cindent' isn't set or '#' isn't in 'cino'. */
+--- 251,258 ----
+***************
+*** 322,329 ****
+  }
+  
+  /*
+!  * shift the current line one shiftwidth left (if left != 0) or right
+!  * leaves cursor on first blank in the line
+   */
+      void
+  shift_line(
+--- 316,323 ----
+  }
+  
+  /*
+!  * Shift the current line one shiftwidth left (if left != 0) or right
+!  * leaves cursor on first blank in the line.
+   */
+      void
+  shift_line(
+***************
+*** 373,379 ****
+  	(void)set_indent(count, call_changed_bytes ? SIN_CHANGED : 0);
+  }
+  
+- #if defined(FEAT_VISUALEXTRA) || defined(PROTO)
+  /*
+   * Shift one line of the current block one shiftwidth right or left.
+   * Leaves cursor on first character in block.
+--- 367,372 ----
+***************
+*** 577,585 ****
+      p_ri = old_p_ri;
+  #endif
+  }
+- #endif
+  
+- #ifdef FEAT_VISUALEXTRA
+  /*
+   * Insert string "s" (b_insert ? before : after) block :AKelly
+   * Caller must prepare for undo.
+--- 570,576 ----
+***************
+*** 703,709 ****
+  
+      State = oldstate;
+  }
+- #endif
+  
+  #if defined(FEAT_LISP) || defined(FEAT_CINDENT) || defined(PROTO)
+  /*
+--- 694,699 ----
+***************
+*** 2132,2140 ****
+  }
+  #endif
+  
+- #if defined(FEAT_VISUALEXTRA) || defined(PROTO)
+  
+! # ifdef FEAT_MBYTE
+  /*
+   * Replace the character under the cursor with "c".
+   * This takes care of multi-byte characters.
+--- 2122,2129 ----
+  }
+  #endif
+  
+  
+! #ifdef FEAT_MBYTE
+  /*
+   * Replace the character under the cursor with "c".
+   * This takes care of multi-byte characters.
+***************
+*** 2150,2157 ****
+      /* Backup to the replaced character. */
+      dec_cursor();
+  }
+  
+- # endif
+  /*
+   * Replace a whole area with one character.
+   */
+--- 2139,2146 ----
+      /* Backup to the replaced character. */
+      dec_cursor();
+  }
++ #endif
+  
+  /*
+   * Replace a whole area with one character.
+   */
+***************
+*** 2378,2388 ****
+  		curwin->w_cursor.col -= (virtcols + 1);
+  		for (; virtcols >= 0; virtcols--)
+  		{
+! #ifdef FEAT_MBYTE
+                     if ((*mb_char2len)(c) > 1)
+  		       replace_character(c);
+                     else
+!  #endif
+  			PBYTE(curwin->w_cursor, c);
+  		   if (inc(&curwin->w_cursor) == -1)
+  		       break;
+--- 2367,2377 ----
+  		curwin->w_cursor.col -= (virtcols + 1);
+  		for (; virtcols >= 0; virtcols--)
+  		{
+! # ifdef FEAT_MBYTE
+                     if ((*mb_char2len)(c) > 1)
+  		       replace_character(c);
+                     else
+! # endif
+  			PBYTE(curwin->w_cursor, c);
+  		   if (inc(&curwin->w_cursor) == -1)
+  		       break;
+***************
+*** 2406,2412 ****
+  
+      return OK;
+  }
+- #endif
+  
+  static int swapchars(int op_type, pos_T *pos, int length);
+  
+--- 2395,2400 ----
+***************
+*** 2627,2633 ****
+      return FALSE;
+  }
+  
+- #if defined(FEAT_VISUALEXTRA) || defined(PROTO)
+  /*
+   * op_insert - Insert and append operators for Visual mode.
+   */
+--- 2615,2620 ----
+***************
+*** 2844,2850 ****
+  	}
+      }
+  }
+- #endif
+  
+  /*
+   * op_change - handle a change operation
+--- 2831,2836 ----
+***************
+*** 2856,2862 ****
+  {
+      colnr_T		l;
+      int			retval;
+- #ifdef FEAT_VISUALEXTRA
+      long		offset;
+      linenr_T		linenr;
+      long		ins_len;
+--- 2842,2847 ----
+***************
+*** 2865,2871 ****
+      char_u		*firstline;
+      char_u		*ins_text, *newp, *oldp;
+      struct block_def	bd;
+- #endif
+  
+      l = oap->start.col;
+      if (oap->motion_type == MLINE)
+--- 2850,2855 ----
+***************
+*** 2895,2917 ****
+  							 && !virtual_op)
+  	inc_cursor();
+  
+- #ifdef FEAT_VISUALEXTRA
+      /* check for still on same line (<CR> in inserted text meaningless) */
+      /* skip blank lines too */
+      if (oap->block_mode)
+      {
+! # ifdef FEAT_VIRTUALEDIT
+  	/* Add spaces before getting the current line length. */
+  	if (virtual_op && (curwin->w_cursor.coladd > 0
+  						    || gchar_cursor() == NUL))
+  	    coladvance_force(getviscol());
+! # endif
+  	firstline = ml_get(oap->start.lnum);
+  	pre_textlen = (long)STRLEN(firstline);
+  	pre_indent = (long)getwhitecols(firstline);
+  	bd.textcol = curwin->w_cursor.col;
+      }
+- #endif
+  
+  #if defined(FEAT_LISP) || defined(FEAT_CINDENT)
+      if (oap->motion_type == MLINE)
+--- 2879,2899 ----
+  							 && !virtual_op)
+  	inc_cursor();
+  
+      /* check for still on same line (<CR> in inserted text meaningless) */
+      /* skip blank lines too */
+      if (oap->block_mode)
+      {
+! #ifdef FEAT_VIRTUALEDIT
+  	/* Add spaces before getting the current line length. */
+  	if (virtual_op && (curwin->w_cursor.coladd > 0
+  						    || gchar_cursor() == NUL))
+  	    coladvance_force(getviscol());
+! #endif
+  	firstline = ml_get(oap->start.lnum);
+  	pre_textlen = (long)STRLEN(firstline);
+  	pre_indent = (long)getwhitecols(firstline);
+  	bd.textcol = curwin->w_cursor.col;
+      }
+  
+  #if defined(FEAT_LISP) || defined(FEAT_CINDENT)
+      if (oap->motion_type == MLINE)
+***************
+*** 2920,2926 ****
+  
+      retval = edit(NUL, FALSE, (linenr_T)1);
+  
+- #ifdef FEAT_VISUALEXTRA
+      /*
+       * In Visual block mode, handle copying the new text to all lines of the
+       * block.
+--- 2902,2907 ----
+***************
+*** 2953,2959 ****
+  		    block_prep(oap, &bd, linenr, TRUE);
+  		    if (!bd.is_short || virtual_op)
+  		    {
+! # ifdef FEAT_VIRTUALEDIT
+  			pos_T vpos;
+  
+  			/* If the block starts in virtual space, count the
+--- 2934,2940 ----
+  		    block_prep(oap, &bd, linenr, TRUE);
+  		    if (!bd.is_short || virtual_op)
+  		    {
+! #ifdef FEAT_VIRTUALEDIT
+  			pos_T vpos;
+  
+  			/* If the block starts in virtual space, count the
+***************
+*** 2965,2986 ****
+  			}
+  			else
+  			    vpos.coladd = 0;
+! # endif
+  			oldp = ml_get(linenr);
+  			newp = alloc_check((unsigned)(STRLEN(oldp)
+! # ifdef FEAT_VIRTUALEDIT
+  							+ vpos.coladd
+! # endif
+  							      + ins_len + 1));
+  			if (newp == NULL)
+  			    continue;
+  			/* copy up to block start */
+  			mch_memmove(newp, oldp, (size_t)bd.textcol);
+  			offset = bd.textcol;
+! # ifdef FEAT_VIRTUALEDIT
+  			vim_memset(newp + offset, ' ', (size_t)vpos.coladd);
+  			offset += vpos.coladd;
+! # endif
+  			mch_memmove(newp + offset, ins_text, (size_t)ins_len);
+  			offset += ins_len;
+  			oldp += bd.textcol;
+--- 2946,2967 ----
+  			}
+  			else
+  			    vpos.coladd = 0;
+! #endif
+  			oldp = ml_get(linenr);
+  			newp = alloc_check((unsigned)(STRLEN(oldp)
+! #ifdef FEAT_VIRTUALEDIT
+  							+ vpos.coladd
+! #endif
+  							      + ins_len + 1));
+  			if (newp == NULL)
+  			    continue;
+  			/* copy up to block start */
+  			mch_memmove(newp, oldp, (size_t)bd.textcol);
+  			offset = bd.textcol;
+! #ifdef FEAT_VIRTUALEDIT
+  			vim_memset(newp + offset, ' ', (size_t)vpos.coladd);
+  			offset += vpos.coladd;
+! #endif
+  			mch_memmove(newp + offset, ins_text, (size_t)ins_len);
+  			offset += ins_len;
+  			oldp += bd.textcol;
+***************
+*** 2995,3001 ****
+  	    vim_free(ins_text);
+  	}
+      }
+- #endif
+  
+      return retval;
+  }
+--- 2976,2981 ----
+***************
+*** 5415,5427 ****
+      bdp->textlen = 0;
+      bdp->start_vcol = 0;
+      bdp->end_vcol = 0;
+- #ifdef FEAT_VISUALEXTRA
+      bdp->is_short = FALSE;
+      bdp->is_oneChar = FALSE;
+      bdp->pre_whitesp = 0;
+      bdp->pre_whitesp_c = 0;
+      bdp->end_char_vcols = 0;
+- #endif
+      bdp->start_char_vcols = 0;
+  
+      line = ml_get(lnum);
+--- 5395,5405 ----
+***************
+*** 5432,5438 ****
+  	/* Count a tab for what it's worth (if list mode not on) */
+  	incr = lbr_chartabsize(line, pstart, (colnr_T)bdp->start_vcol);
+  	bdp->start_vcol += incr;
+- #ifdef FEAT_VISUALEXTRA
+  	if (VIM_ISWHITE(*pstart))
+  	{
+  	    bdp->pre_whitesp += incr;
+--- 5410,5415 ----
+***************
+*** 5443,5449 ****
+  	    bdp->pre_whitesp = 0;
+  	    bdp->pre_whitesp_c = 0;
+  	}
+- #endif
+  	prev_pstart = pstart;
+  	MB_PTR_ADV(pstart);
+      }
+--- 5420,5425 ----
+***************
+*** 5451,5459 ****
+      if (bdp->start_vcol < oap->start_vcol)	/* line too short */
+      {
+  	bdp->end_vcol = bdp->start_vcol;
+- #ifdef FEAT_VISUALEXTRA
+  	bdp->is_short = TRUE;
+- #endif
+  	if (!is_del || oap->op_type == OP_APPEND)
+  	    bdp->endspaces = oap->end_vcol - oap->start_vcol + 1;
+      }
+--- 5427,5433 ----
+***************
+*** 5468,5476 ****
+  	bdp->end_vcol = bdp->start_vcol;
+  	if (bdp->end_vcol > oap->end_vcol)	/* it's all in one character */
+  	{
+- #ifdef FEAT_VISUALEXTRA
+  	    bdp->is_oneChar = TRUE;
+- #endif
+  	    if (oap->op_type == OP_INSERT)
+  		bdp->endspaces = bdp->start_char_vcols - bdp->startspaces;
+  	    else if (oap->op_type == OP_APPEND)
+--- 5442,5448 ----
+***************
+*** 5507,5515 ****
+  			|| oap->op_type == OP_APPEND
+  			|| oap->op_type == OP_REPLACE)) /* line too short */
+  	    {
+- #ifdef FEAT_VISUALEXTRA
+  		bdp->is_short = TRUE;
+- #endif
+  		/* Alternative: include spaces to fill up the block.
+  		 * Disadvantage: can lead to trailing spaces when the line is
+  		 * short where the text is put */
+--- 5479,5485 ----
+***************
+*** 5531,5539 ****
+  		}
+  	    }
+  	}
+- #ifdef FEAT_VISUALEXTRA
+  	bdp->end_char_vcols = incr;
+- #endif
+  	if (is_del && bdp->startspaces)
+  	    pstart = prev_pstart;
+  	bdp->textlen = (int)(pend - pstart);
+--- 5501,5507 ----
+***************
+*** 6624,6630 ****
+  }
+  
+  /*
+!  * Get the selected text and put it in the gui selection register '*' or '+'.
+   */
+      void
+  clip_get_selection(VimClipboard *cbd)
+--- 6592,6598 ----
+  }
+  
+  /*
+!  * Get the selected text and put it in register '*' or '+'.
+   */
+      void
+  clip_get_selection(VimClipboard *cbd)
+*** ../vim-8.1.0718/src/feature.h	2018-12-21 11:48:48.320680492 +0100
+--- src/feature.h	2019-01-11 14:24:15.922722850 +0100
+***************
+*** 194,203 ****
+  /*
+   * +visual		Visual mode - now always included.
+   * +visualextra		Extra features for Visual mode (mostly block operators).
+   */
+- #ifdef FEAT_NORMAL
+- # define FEAT_VISUALEXTRA
+- #endif
+  
+  /*
+   * +virtualedit		'virtualedit' option and its implementation
+--- 194,201 ----
+  /*
+   * +visual		Visual mode - now always included.
+   * +visualextra		Extra features for Visual mode (mostly block operators).
++  *			Now always included.
+   */
+  
+  /*
+   * +virtualedit		'virtualedit' option and its implementation
+*** ../vim-8.1.0718/runtime/doc/various.txt	2019-01-08 22:02:36.040297337 +0100
+--- runtime/doc/various.txt	2019-01-11 14:23:23.643086212 +0100
+***************
+*** 465,477 ****
+  			since 8.0.1118.
+  			in sync with the |+windows| feature
+  N  *+virtualedit*	|'virtualedit'|
+! S  *+visual*		Visual mode |Visual-mode| Always enabled since 7.4.200.
+! N  *+visualextra*	extra Visual mode commands |blockwise-operators|
+  T  *+vreplace*		|gR| and |gr|
+     *+vtp*		on MS-Windows console: support for 'termguicolors'
+  N  *+wildignore*	|'wildignore'|
+  N  *+wildmenu*		|'wildmenu'|
+!    *+windows*		more than one window; Always enabled since 8.0.1118.
+  m  *+writebackup*	|'writebackup'| is default on
+  m  *+xim*		X input method |xim|
+     *+xfontset*		X fontset support |xfontset|
+--- 465,477 ----
+  			since 8.0.1118.
+  			in sync with the |+windows| feature
+  N  *+virtualedit*	|'virtualedit'|
+! T  *+visual*		Visual mode |Visual-mode| Always enabled since 7.4.200.
+! T  *+visualextra*	extra Visual mode commands |blockwise-operators|
+  T  *+vreplace*		|gR| and |gr|
+     *+vtp*		on MS-Windows console: support for 'termguicolors'
+  N  *+wildignore*	|'wildignore'|
+  N  *+wildmenu*		|'wildmenu'|
+! T  *+windows*		more than one window; Always enabled since 8.0.1118.
+  m  *+writebackup*	|'writebackup'| is default on
+  m  *+xim*		X input method |xim|
+     *+xfontset*		X fontset support |xfontset|
+*** ../vim-8.1.0718/src/version.c	2019-01-11 14:10:00.348749729 +0100
+--- src/version.c	2019-01-11 14:23:42.578954675 +0100
+***************
+*** 801,802 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     719,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+158. You get a tuner card so you can watch TV while surfing.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,94 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0661
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0661
+Problem:    Clipboard regexp might be used recursively.
+Solution:   Check for recursive use and bail out.
+Files:	    src/regexp.c, src/proto/regexp.pro, src/os_unix.c
+
+
+*** ../vim-8.1.0660/src/regexp.c	2018-12-21 16:04:16.324437435 +0100
+--- src/regexp.c	2018-12-29 22:24:58.276693199 +0100
+***************
+*** 8210,8215 ****
+--- 8210,8224 ----
+  #endif
+  
+  /*
++  * Return whether "prog" is currently being executed.
++  */
++     int
++ regprog_in_use(regprog_T *prog)
++ {
++     return prog->re_in_use;
++ }
++ 
++ /*
+   * Match a regexp against a string.
+   * "rmp->regprog" is a compiled regexp as returned by vim_regcomp().
+   * Note: "rmp->regprog" may be freed and changed.
+*** ../vim-8.1.0660/src/proto/regexp.pro	2018-05-17 13:52:49.000000000 +0200
+--- src/proto/regexp.pro	2018-12-29 22:25:02.584654266 +0100
+***************
+*** 13,18 ****
+--- 13,19 ----
+  list_T *reg_submatch_list(int no);
+  regprog_T *vim_regcomp(char_u *expr_arg, int re_flags);
+  void vim_regfree(regprog_T *prog);
++ int regprog_in_use(regprog_T *prog);
+  int vim_regexec_prog(regprog_T **prog, int ignore_case, char_u *line, colnr_T col);
+  int vim_regexec(regmatch_T *rmp, char_u *line, colnr_T col);
+  int vim_regexec_nl(regmatch_T *rmp, char_u *line, colnr_T col);
+*** ../vim-8.1.0660/src/os_unix.c	2018-12-29 13:09:43.242347695 +0100
+--- src/os_unix.c	2018-12-29 22:22:20.674036581 +0100
+***************
+*** 1688,1696 ****
+      if (x_no_connect)
+  	return FALSE;
+  
+!     /* Check for a match with "exclude:" from 'clipboard'. */
+      if (clip_exclude_prog != NULL)
+      {
+  	if (vim_regexec_prog(&clip_exclude_prog, FALSE, T_NAME, (colnr_T)0))
+  	    return FALSE;
+      }
+--- 1688,1702 ----
+      if (x_no_connect)
+  	return FALSE;
+  
+!     // Check for a match with "exclude:" from 'clipboard'.
+      if (clip_exclude_prog != NULL)
+      {
++ 	// Just in case we get called recursively, return FALSE.  This could
++ 	// happen if vpeekc() is used while executing the prog and it causes a
++ 	// related callback to be invoked.
++ 	if (regprog_in_use(clip_exclude_prog))
++ 	    return FALSE;
++ 
+  	if (vim_regexec_prog(&clip_exclude_prog, FALSE, T_NAME, (colnr_T)0))
+  	    return FALSE;
+      }
+*** ../vim-8.1.0660/src/version.c	2018-12-29 21:00:20.953498877 +0100
+--- src/version.c	2018-12-29 22:27:56.171107925 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     661,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+82. AT&T names you Customer of the Month for the third consecutive time.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,96 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0694
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0694
+Problem:    When using text props may free memory that is not allocated.
+            (Andy Massimino)
+Solution:   Allocate the line when adjusting text props. (closes #3766)
+Files:	    src/textprop.c
+
+
+*** ../vim-8.1.0693/src/textprop.c	2019-01-04 23:09:45.249360567 +0100
+--- src/textprop.c	2019-01-06 12:53:20.159681468 +0100
+***************
+*** 979,985 ****
+  	pt = text_prop_type_by_id(curbuf, tmp_prop.tp_type);
+  
+  	if (bytes_added > 0
+! 		? (tmp_prop.tp_col >= col + (pt != NULL && (pt->pt_flags & PT_FLAG_INS_START_INCL) ? 2 : 1))
+  		: (tmp_prop.tp_col > col + 1))
+  	{
+  	    tmp_prop.tp_col += bytes_added;
+--- 979,987 ----
+  	pt = text_prop_type_by_id(curbuf, tmp_prop.tp_type);
+  
+  	if (bytes_added > 0
+! 		? (tmp_prop.tp_col >= col
+! 		       + (pt != NULL && (pt->pt_flags & PT_FLAG_INS_START_INCL)
+! 								      ? 2 : 1))
+  		: (tmp_prop.tp_col > col + 1))
+  	{
+  	    tmp_prop.tp_col += bytes_added;
+***************
+*** 987,993 ****
+  	}
+  	else if (tmp_prop.tp_len > 0
+  		&& tmp_prop.tp_col + tmp_prop.tp_len > col
+! 			+ ((pt != NULL && (pt->pt_flags & PT_FLAG_INS_END_INCL))
+  								      ? 0 : 1))
+  	{
+  	    tmp_prop.tp_len += bytes_added;
+--- 989,995 ----
+  	}
+  	else if (tmp_prop.tp_len > 0
+  		&& tmp_prop.tp_col + tmp_prop.tp_len > col
+! 		       + ((pt != NULL && (pt->pt_flags & PT_FLAG_INS_END_INCL))
+  								      ? 0 : 1))
+  	{
+  	    tmp_prop.tp_len += bytes_added;
+***************
+*** 1001,1008 ****
+      }
+      if (dirty)
+      {
+  	curbuf->b_ml.ml_flags |= ML_LINE_DIRTY;
+! 	curbuf->b_ml.ml_line_len = (int)textlen + wi * sizeof(textprop_T);
+      }
+  }
+  
+--- 1003,1015 ----
+      }
+      if (dirty)
+      {
++ 	colnr_T newlen = (int)textlen + wi * (colnr_T)sizeof(textprop_T);
++ 
++ 	if ((curbuf->b_ml.ml_flags & ML_LINE_DIRTY) == 0)
++ 	    curbuf->b_ml.ml_line_ptr =
++ 				 vim_memsave(curbuf->b_ml.ml_line_ptr, newlen);
+  	curbuf->b_ml.ml_flags |= ML_LINE_DIRTY;
+! 	curbuf->b_ml.ml_line_len = newlen;
+      }
+  }
+  
+*** ../vim-8.1.0693/src/version.c	2019-01-05 00:35:17.298497431 +0100
+--- src/version.c	2019-01-06 12:53:52.163454756 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     694,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+110. You actually volunteer to become your employer's webmaster.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

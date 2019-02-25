@@ -1,0 +1,79 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0800
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0800
+Problem:    May use a lot of memory when a function creates a cyclic
+            reference.
+Solution:   After saving a funccal many times, invoke the garbage collector.
+            (closes #3835)
+Files:	    src/userfunc.c
+
+
+*** ../vim-8.1.0799/src/userfunc.c	2019-01-20 15:30:36.897328669 +0100
+--- src/userfunc.c	2019-01-23 22:57:55.946713344 +0100
+***************
+*** 651,656 ****
+--- 651,657 ----
+  	listitem_T	*li;
+  	int		todo;
+  	dictitem_T	*v;
++ 	static int	made_copy = 0;
+  
+  	/* "fc" is still in use.  This can happen when returning "a:000",
+  	 * assigning "l:" to a global variable or defining a closure.
+***************
+*** 673,678 ****
+--- 674,689 ----
+  	/* Make a copy of the a:000 items, since we didn't do that above. */
+  	for (li = fc->l_varlist.lv_first; li != NULL; li = li->li_next)
+  	    copy_tv(&li->li_tv, &li->li_tv);
++ 
++ 	if (++made_copy == 10000)
++ 	{
++ 	    // We have made a lot of copies.  This can happen when
++ 	    // repetitively calling a function that creates a reference to
++ 	    // itself somehow.  Call the garbage collector here to avoid using
++ 	    // too much memory.
++ 	    made_copy = 0;
++ 	    (void)garbage_collect(FALSE);
++ 	}
+      }
+  }
+  
+***************
+*** 723,728 ****
+--- 734,741 ----
+      line_breakcheck();		/* check for CTRL-C hit */
+  
+      fc = (funccall_T *)alloc(sizeof(funccall_T));
++     if (fc == NULL)
++ 	return;
+      fc->caller = current_funccal;
+      current_funccal = fc;
+      fc->func = fp;
+*** ../vim-8.1.0799/src/version.c	2019-01-23 22:33:15.356020765 +0100
+--- src/version.c	2019-01-23 22:59:38.994013371 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     800,
+  /**/
+
+-- 
+GALAHAD: No look, really, this isn't nescess ...
+PIGLET:  We must examine you.
+GALAHAD: There's nothing wrong with ... that.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

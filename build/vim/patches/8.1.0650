@@ -1,0 +1,92 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0650
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0650
+Problem:    Command line argument -q [errorfile] is not tested.
+Solution:   Add a test. (Dominique Pelle, closes #3730)
+Files:	    src/testdir/test_startup.vim
+
+
+*** ../vim-8.1.0649/src/testdir/test_startup.vim	2018-09-22 14:08:41.926157823 +0200
+--- src/testdir/test_startup.vim	2018-12-28 18:24:58.428636622 +0100
+***************
+*** 269,274 ****
+--- 269,321 ----
+     call assert_match("sourcing \"$VIMRUNTIME[\\/]defaults\.vim\"\r\nline 1: \" The default vimrc file\..*  verbose=15\n", out)
+  endfunc
+  
++ " Test the '-q [errorfile]' argument.
++ func Test_q_arg()
++   let source_file = has('win32') ? '..\memfile.c' : '../memfile.c'
++   let after = [
++ 	\ 'call writefile([&errorfile, string(getpos("."))], "Xtestout")',
++ 	\ 'copen',
++ 	\ 'w >> Xtestout',
++ 	\ 'qall'
++ 	\ ]
++ 
++   " Test with default argument '-q'.
++   call assert_equal('errors.err', &errorfile)
++   call writefile(["../memfile.c:1482:5: error: expected ';' before '}' token"], 'errors.err')
++   if RunVim([], after, '-q')
++     let lines = readfile('Xtestout')
++     call assert_equal(['errors.err',
++ 	\              '[0, 1482, 5, 0]',
++ 	\              source_file . "|1482 col 5| error: expected ';' before '}' token"],
++ 	\             lines)
++   endif
++   call delete('Xtestout')
++   call delete('errors.err')
++ 
++   " Test with explicit argument '-q Xerrors' (with space).
++   call writefile(["../memfile.c:1482:5: error: expected ';' before '}' token"], 'Xerrors')
++   if RunVim([], after, '-q Xerrors')
++     let lines = readfile('Xtestout')
++     call assert_equal(['Xerrors',
++ 	\              '[0, 1482, 5, 0]',
++ 	\              source_file . "|1482 col 5| error: expected ';' before '}' token"],
++ 	\             lines)
++   endif
++   call delete('Xtestout')
++ 
++   " Test with explicit argument '-qXerrors' (without space).
++   if RunVim([], after, '-qXerrors')
++     let lines = readfile('Xtestout')
++     call assert_equal(['Xerrors',
++ 	\              '[0, 1482, 5, 0]',
++ 	\              source_file . "|1482 col 5| error: expected ';' before '}' token"],
++ 	\             lines)
++   endif
++ 
++   call delete('Xtestout')
++   call delete('Xerrors')
++ endfunc
++ 
+  " Test the -V[N]{filename} argument to set the 'verbose' option to N
+  " and set 'verbosefile' to filename.
+  func Test_V_file_arg()
+*** ../vim-8.1.0649/src/version.c	2018-12-28 17:01:55.307292166 +0100
+--- src/version.c	2018-12-28 18:26:26.363883925 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     650,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+66. You create a homepage with the impression to cure the afflicted...but
+    your hidden agenda is to receive more e-mail.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

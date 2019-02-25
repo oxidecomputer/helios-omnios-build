@@ -1,0 +1,310 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0716
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0716
+Problem:    Get warning message when 'completefunc' returns nothing.
+Solution:   Allow for returning v:none to suppress the warning message.
+            (Yasuhiro Matsumoto, closes #3789)
+Files:	    runtime/doc/insert.txt, src/edit.c,
+            src/testdir/test_ins_complete.vim
+
+
+
+*** ../vim-8.1.0715/runtime/doc/insert.txt	2018-05-17 13:41:41.000000000 +0200
+--- runtime/doc/insert.txt	2019-01-11 12:51:28.486353875 +0100
+***************
+*** 1076,1081 ****
+--- 1076,1085 ----
+  			The only value currently recognized is "always", the
+  			effect is that the function is called whenever the
+  			leading text is changed.
++ 
++ If you want to suppress the warning message for an empty result, return
++ v:none.  This is useful to implement asynchronous completion with complete().
++ 
+  Other items are ignored.
+  
+  For acting upon end of completion, see the |CompleteDone| autocommand event.
+*** ../vim-8.1.0715/src/edit.c	2019-01-09 20:51:00.321398815 +0100
+--- src/edit.c	2019-01-11 12:53:41.697357871 +0100
+***************
+*** 150,155 ****
+--- 150,156 ----
+  static expand_T	  compl_xp;
+  
+  static int	  compl_opt_refresh_always = FALSE;
++ static int	  compl_opt_suppress_empty = FALSE;
+  
+  static void ins_ctrl_x(void);
+  static int  has_compl_option(int dict_opt);
+***************
+*** 4247,4254 ****
+  	    case VAR_DICT:
+  		matchdict = rettv.vval.v_dict;
+  		break;
+  	    default:
+! 		/* TODO: Give error message? */
+  		clear_tv(&rettv);
+  		break;
+  	}
+--- 4248,4259 ----
+  	    case VAR_DICT:
+  		matchdict = rettv.vval.v_dict;
+  		break;
++ 	    case VAR_SPECIAL:
++ 		if (rettv.vval.v_number == VVAL_NONE)
++ 		    compl_opt_suppress_empty = TRUE;
++ 		// FALLTHROUGH
+  	    default:
+! 		// TODO: Give error message?
+  		clear_tv(&rettv);
+  		break;
+  	}
+***************
+*** 5611,5616 ****
+--- 5616,5622 ----
+  	     * completion.
+  	     */
+  	    compl_opt_refresh_always = FALSE;
++ 	    compl_opt_suppress_empty = FALSE;
+  
+  	    if (col < 0)
+  		col = curs_col;
+***************
+*** 5860,5878 ****
+  	}
+      }
+  
+!     /* Show a message about what (completion) mode we're in. */
+!     showmode();
+!     if (!shortmess(SHM_COMPLETIONMENU))
+!     {
+! 	if (edit_submode_extra != NULL)
+! 	{
+! 	    if (!p_smd)
+! 		msg_attr(edit_submode_extra,
+! 			edit_submode_highl < HLF_COUNT
+! 			? HL_ATTR(edit_submode_highl) : 0);
+  	}
+- 	else
+- 	    msg_clr_cmdline();	/* necessary for "noshowmode" */
+      }
+  
+      /* Show the popup menu, unless we got interrupted. */
+--- 5866,5887 ----
+  	}
+      }
+  
+!     // Show a message about what (completion) mode we're in.
+!     if (!compl_opt_suppress_empty)
+!     {
+! 	showmode();
+! 	if (!shortmess(SHM_COMPLETIONMENU))
+! 	{
+! 	    if (edit_submode_extra != NULL)
+! 	    {
+! 		if (!p_smd)
+! 		    msg_attr(edit_submode_extra,
+! 			    edit_submode_highl < HLF_COUNT
+! 			    ? HL_ATTR(edit_submode_highl) : 0);
+! 	    }
+! 	    else
+! 		msg_clr_cmdline();	// necessary for "noshowmode"
+  	}
+      }
+  
+      /* Show the popup menu, unless we got interrupted. */
+*** ../vim-8.1.0715/src/testdir/test_ins_complete.vim	2019-01-09 23:00:57.997176121 +0100
+--- src/testdir/test_ins_complete.vim	2019-01-11 12:55:51.700396748 +0100
+***************
+*** 142,147 ****
+--- 142,155 ----
+    delfunc CompleteFunc
+  endfunc
+  
++ func s:CompleteDone_CompleteFuncNone( findstart, base )
++   if a:findstart
++     return 0
++   endif
++ 
++   return v:none
++ endfunc
++ 
+  func s:CompleteDone_CompleteFuncDict( findstart, base )
+    if a:findstart
+      return 0
+***************
+*** 161,166 ****
+--- 169,178 ----
+          \ }
+  endfunc
+  
++ func s:CompleteDone_CheckCompletedItemNone()
++   let s:called_completedone = 1
++ endfunc
++ 
+  func s:CompleteDone_CheckCompletedItemDict()
+    call assert_equal( 'aword',          v:completed_item[ 'word' ] )
+    call assert_equal( 'wrd',            v:completed_item[ 'abbr' ] )
+***************
+*** 172,192 ****
+    let s:called_completedone = 1
+  endfunc
+  
+! function Test_CompleteDoneDict()
+    au CompleteDone * :call <SID>CompleteDone_CheckCompletedItemDict()
+  
+    set completefunc=<SID>CompleteDone_CompleteFuncDict
+    execute "normal a\<C-X>\<C-U>\<C-Y>"
+    set completefunc&
+  
+!   call assert_equal( 'test', v:completed_item[ 'user_data' ] )
+!   call assert_true( s:called_completedone )
+  
+    let s:called_completedone = 0
+    au! CompleteDone
+  endfunc
+  
+! func s:CompleteDone_CompleteFuncDictNoUserData( findstart, base )
+    if a:findstart
+      return 0
+    endif
+--- 184,217 ----
+    let s:called_completedone = 1
+  endfunc
+  
+! func Test_CompleteDoneNone()
+!   au CompleteDone * :call <SID>CompleteDone_CheckCompletedItemNone()
+! 
+!   set completefunc=<SID>CompleteDone_CompleteFuncNone
+!   execute "normal a\<C-X>\<C-U>\<C-Y>"
+!   set completefunc&
+! 
+!   call assert_true(s:called_completedone)
+! 
+!   let s:called_completedone = 0
+!   au! CompleteDone
+! endfunc
+! 
+! func Test_CompleteDoneDict()
+    au CompleteDone * :call <SID>CompleteDone_CheckCompletedItemDict()
+  
+    set completefunc=<SID>CompleteDone_CompleteFuncDict
+    execute "normal a\<C-X>\<C-U>\<C-Y>"
+    set completefunc&
+  
+!   call assert_equal('test', v:completed_item[ 'user_data' ])
+!   call assert_true(s:called_completedone)
+  
+    let s:called_completedone = 0
+    au! CompleteDone
+  endfunc
+  
+! func s:CompleteDone_CompleteFuncDictNoUserData(findstart, base)
+    if a:findstart
+      return 0
+    endif
+***************
+*** 215,235 ****
+    let s:called_completedone = 1
+  endfunc
+  
+! function Test_CompleteDoneDictNoUserData()
+    au CompleteDone * :call <SID>CompleteDone_CheckCompletedItemDictNoUserData()
+  
+    set completefunc=<SID>CompleteDone_CompleteFuncDictNoUserData
+    execute "normal a\<C-X>\<C-U>\<C-Y>"
+    set completefunc&
+  
+!   call assert_equal( '', v:completed_item[ 'user_data' ] )
+!   call assert_true( s:called_completedone )
+  
+    let s:called_completedone = 0
+    au! CompleteDone
+  endfunc
+  
+! func s:CompleteDone_CompleteFuncList( findstart, base )
+    if a:findstart
+      return 0
+    endif
+--- 240,260 ----
+    let s:called_completedone = 1
+  endfunc
+  
+! func Test_CompleteDoneDictNoUserData()
+    au CompleteDone * :call <SID>CompleteDone_CheckCompletedItemDictNoUserData()
+  
+    set completefunc=<SID>CompleteDone_CompleteFuncDictNoUserData
+    execute "normal a\<C-X>\<C-U>\<C-Y>"
+    set completefunc&
+  
+!   call assert_equal('', v:completed_item[ 'user_data' ])
+!   call assert_true(s:called_completedone)
+  
+    let s:called_completedone = 0
+    au! CompleteDone
+  endfunc
+  
+! func s:CompleteDone_CompleteFuncList(findstart, base)
+    if a:findstart
+      return 0
+    endif
+***************
+*** 248,262 ****
+    let s:called_completedone = 1
+  endfunc
+  
+! function Test_CompleteDoneList()
+    au CompleteDone * :call <SID>CompleteDone_CheckCompletedItemList()
+  
+    set completefunc=<SID>CompleteDone_CompleteFuncList
+    execute "normal a\<C-X>\<C-U>\<C-Y>"
+    set completefunc&
+  
+!   call assert_equal( '', v:completed_item[ 'user_data' ] )
+!   call assert_true( s:called_completedone )
+  
+    let s:called_completedone = 0
+    au! CompleteDone
+--- 273,287 ----
+    let s:called_completedone = 1
+  endfunc
+  
+! func Test_CompleteDoneList()
+    au CompleteDone * :call <SID>CompleteDone_CheckCompletedItemList()
+  
+    set completefunc=<SID>CompleteDone_CompleteFuncList
+    execute "normal a\<C-X>\<C-U>\<C-Y>"
+    set completefunc&
+  
+!   call assert_equal('', v:completed_item[ 'user_data' ])
+!   call assert_true(s:called_completedone)
+  
+    let s:called_completedone = 0
+    au! CompleteDone
+*** ../vim-8.1.0715/src/version.c	2019-01-11 11:55:12.930066044 +0100
+--- src/version.c	2019-01-11 12:52:49.509746564 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     716,
+  /**/
+
+-- 
+Although the scythe isn't pre-eminent among the weapons of war, anyone who
+has been on the wrong end of, say, a peasants' revolt will know that in
+skilled hands it is fearsome.
+					-- (Terry Pratchett, Mort)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

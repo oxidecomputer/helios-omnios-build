@@ -1,0 +1,119 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0799
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0799
+Problem:    Calling deleted function; test doesn't work on Mac.
+Solution:   Wait for the function to be called before deleting it. Use a job
+            to write to the pty, unless in the GUI. (Ozaki Kiichi,
+            closes #3854)
+Files:	    src/testdir/test_channel.vim, src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.0798/src/testdir/test_channel.vim	2019-01-12 22:47:01.264088074 +0100
+--- src/testdir/test_channel.vim	2019-01-23 22:25:23.423421047 +0100
+***************
+*** 1945,1954 ****
+    endif
+  
+    func OutCb(chan, msg)
+    endfunc
+  
+    func ExitCb(job, status)
+!     let g:val = 1
+      call Resume()
+    endfunc
+  
+--- 1945,1955 ----
+    endif
+  
+    func OutCb(chan, msg)
++     let g:val += 1
+    endfunc
+  
+    func ExitCb(job, status)
+!     let g:val += 1
+      call Resume()
+    endfunc
+  
+***************
+*** 1967,1972 ****
+--- 1968,1977 ----
+    call timer_start(1, 'TimerCb')
+    let elapsed = Standby(&ut)
+    call assert_inrange(1, &ut / 2, elapsed)
++ 
++   " Wait for both OutCb() and ExitCb() to have been called before deleting
++   " them.
++   call WaitForAssert({-> assert_equal(2, g:val)})
+    call job_stop(g:job)
+  
+    delfunc OutCb
+*** ../vim-8.1.0798/src/testdir/test_terminal.vim	2019-01-22 23:01:36.943693467 +0100
+--- src/testdir/test_terminal.vim	2019-01-23 22:29:51.381495917 +0100
+***************
+*** 643,661 ****
+  endfunc
+  
+  func Test_terminal_no_cmd()
+-   " Does not work on Mac.
+-   if has('mac')
+-     return
+-   endif
+    let buf = term_start('NONE', {})
+    call assert_notequal(0, buf)
+  
+    let pty = job_info(term_getjob(buf))['tty_out']
+    call assert_notequal('', pty)
+!   if has('win32')
+!     silent exe '!start cmd /c "echo look here > ' . pty . '"'
+!   else
+      call system('echo "look here" > ' . pty)
+    endif
+    call WaitForAssert({-> assert_match('look here', term_getline(buf, 1))})
+  
+--- 643,659 ----
+  endfunc
+  
+  func Test_terminal_no_cmd()
+    let buf = term_start('NONE', {})
+    call assert_notequal(0, buf)
+  
+    let pty = job_info(term_getjob(buf))['tty_out']
+    call assert_notequal('', pty)
+!   if has('gui_running') && !has('win32')
+!     " In the GUI job_start() doesn't work, it does not read from the pty.
+      call system('echo "look here" > ' . pty)
++   else
++     " Otherwise using a job works on all systems.
++     call job_start([&shell, &shellcmdflag, 'echo "look here" > ' . pty])
+    endif
+    call WaitForAssert({-> assert_match('look here', term_getline(buf, 1))})
+  
+*** ../vim-8.1.0798/src/version.c	2019-01-23 21:56:17.627299992 +0100
+--- src/version.c	2019-01-23 22:32:24.184391431 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     799,
+  /**/
+
+-- 
+ZOOT:  I'm afraid our life must seem very dull and quiet compared to yours.
+       We are but eightscore young blondes, all between sixteen and
+       nineteen-and-a-half, cut off in this castle, with no one to protect us.
+       Oooh.  It is a lonely life ... bathing ...  dressing ... undressing ...
+       making exciting underwear....
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

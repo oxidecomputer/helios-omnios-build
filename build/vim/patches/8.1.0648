@@ -1,0 +1,203 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0648
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0648
+Problem:    Custom operators can't act upon a forced motion. (Christian
+            Wellenbrock)
+Solution:   Add the forced motion to the mode() result. (Christian Brabandt,
+            closes #3490)
+Files:	    runtime/doc/eval.txt, src/evalfunc.c, src/globals.h, src/normal.c,
+            src/testdir/test_mapping.vim
+
+
+*** ../vim-8.1.0647/runtime/doc/eval.txt	2018-12-27 00:28:27.493299355 +0100
+--- runtime/doc/eval.txt	2018-12-27 23:13:51.631271146 +0100
+***************
+*** 6308,6313 ****
+--- 6324,6333 ----
+  
+  		   n	    Normal, Terminal-Normal
+  		   no	    Operator-pending
++ 		   nov	    Operator-pending (forced characterwise |o_v|)
++ 		   noV	    Operator-pending (forced linewise |o_V|)
++ 		   noCTRL-V Operator-pending (forced blockwise |o_CTRL-V|);
++ 		   		CTRL-V is one character
+  		   niI	    Normal using |i_CTRL-O| in |Insert-mode|
+  		   niR	    Normal using |i_CTRL-O| in |Replace-mode|
+  		   niV	    Normal using |i_CTRL-O| in |Virtual-Replace-mode|
+*** ../vim-8.1.0647/src/evalfunc.c	2018-12-27 00:28:27.497299324 +0100
+--- src/evalfunc.c	2018-12-27 23:06:25.098224834 +0100
+***************
+*** 8506,8512 ****
+--- 8506,8516 ----
+      {
+  	buf[0] = 'n';
+  	if (finish_op)
++ 	{
+  	    buf[1] = 'o';
++ 	    // to be able to detect force-linewise/blockwise/characterwise operations
++ 	    buf[2] = motion_force;
++ 	}
+  	else if (restart_edit == 'I' || restart_edit == 'R'
+  							|| restart_edit == 'V')
+  	{
+*** ../vim-8.1.0647/src/globals.h	2018-12-27 00:28:27.497299324 +0100
+--- src/globals.h	2018-12-27 23:06:25.098224834 +0100
+***************
+*** 928,933 ****
+--- 928,934 ----
+   * "Visual_mode"    When State is NORMAL or INSERT.
+   * "finish_op"	    When State is NORMAL, after typing the operator and before
+   *		    typing the motion command.
++  * "motion_force"   Last motion_force  from do_pending_operator()
+   * "debug_mode"	    Debug mode.
+   */
+  EXTERN int	State INIT(= NORMAL);	/* This is the current state of the
+***************
+*** 938,943 ****
+--- 939,945 ----
+  
+  EXTERN int	finish_op INIT(= FALSE);/* TRUE while an operator is pending */
+  EXTERN long	opcount INIT(= 0);	/* count for pending operator */
++ EXTERN int	motion_force INIT(= 0); // motion force for pending operator
+  
+  /*
+   * Ex mode (Q) state
+*** ../vim-8.1.0647/src/normal.c	2018-12-23 19:10:05.010359907 +0100
+--- src/normal.c	2018-12-27 23:06:25.098224834 +0100
+***************
+*** 1395,1402 ****
+  	else if (oap->motion_force == Ctrl_V)
+  	{
+  	    /* Change line- or characterwise motion into Visual block mode. */
+! 	    VIsual_active = TRUE;
+! 	    VIsual = oap->start;
+  	    VIsual_mode = Ctrl_V;
+  	    VIsual_select = FALSE;
+  	    VIsual_reselect = FALSE;
+--- 1395,1405 ----
+  	else if (oap->motion_force == Ctrl_V)
+  	{
+  	    /* Change line- or characterwise motion into Visual block mode. */
+! 	    if (!VIsual_active)
+! 	    {
+! 		VIsual_active = TRUE;
+! 		VIsual = oap->start;
+! 	    }
+  	    VIsual_mode = Ctrl_V;
+  	    VIsual_select = FALSE;
+  	    VIsual_reselect = FALSE;
+***************
+*** 2129,2134 ****
+--- 2132,2138 ----
+  	}
+  	oap->block_mode = FALSE;
+  	clearop(oap);
++ 	motion_force = NUL;
+      }
+  #ifdef FEAT_LINEBREAK
+      curwin->w_p_lbr = lbr_saved;
+***************
+*** 7689,7695 ****
+       * characterwise, linewise, or blockwise. */
+      if (cap->oap->op_type != OP_NOP)
+      {
+! 	cap->oap->motion_force = cap->cmdchar;
+  	finish_op = FALSE;	/* operator doesn't finish now but later */
+  	return;
+      }
+--- 7693,7699 ----
+       * characterwise, linewise, or blockwise. */
+      if (cap->oap->op_type != OP_NOP)
+      {
+! 	motion_force = cap->oap->motion_force = cap->cmdchar;
+  	finish_op = FALSE;	/* operator doesn't finish now but later */
+  	return;
+      }
+*** ../vim-8.1.0647/src/testdir/test_mapping.vim	2018-05-13 18:29:43.000000000 +0200
+--- src/testdir/test_mapping.vim	2018-12-27 23:06:25.098224834 +0100
+***************
+*** 230,232 ****
+--- 230,286 ----
+    call assert_equal(expected, getreg(':'))
+    cunabbr s
+  endfunc
++ 
++ func Test_motionforce_omap()
++   func GetCommand()
++     let g:m=mode(1)
++     let [g:lnum1, g:col1] = searchpos('-', 'Wb')
++     if g:lnum1 == 0
++         return "\<Esc>"
++     endif
++     let [g:lnum2, g:col2] = searchpos('-', 'W')
++     if g:lnum2 == 0
++         return "\<Esc>"
++     endif
++     return ":call Select()\<CR>"
++   endfunc
++   func Select()
++     call cursor([g:lnum1, g:col1])
++     exe "normal! 1 ". (strlen(g:m) == 2 ? 'v' : g:m[2])
++     call cursor([g:lnum2, g:col2])
++     execute "normal! \<BS>"
++   endfunc
++   new
++   onoremap <buffer><expr> i- GetCommand()
++   " 1) default omap mapping
++   %d_
++   call setline(1, ['aaa - bbb', 'x', 'ddd - eee'])
++   call cursor(2, 1)
++   norm di-
++   call assert_equal('no', g:m)
++   call assert_equal(['aaa -- eee'], getline(1, '$'))
++   " 2) forced characterwise operation
++   %d_
++   call setline(1, ['aaa - bbb', 'x', 'ddd - eee'])
++   call cursor(2, 1)
++   norm dvi-
++   call assert_equal('nov', g:m)
++   call assert_equal(['aaa -- eee'], getline(1, '$'))
++   " 3) forced linewise operation
++   %d_
++   call setline(1, ['aaa - bbb', 'x', 'ddd - eee'])
++   call cursor(2, 1)
++   norm dVi-
++   call assert_equal('noV', g:m)
++   call assert_equal([''], getline(1, '$'))
++   " 4) forced blockwise operation
++   %d_
++   call setline(1, ['aaa - bbb', 'x', 'ddd - eee'])
++   call cursor(2, 1)
++   exe "norm d\<C-V>i-"
++   call assert_equal("no\<C-V>", g:m)
++   call assert_equal(['aaabbb', 'x', 'dddeee'], getline(1, '$'))
++   bwipe!
++   delfunc Select
++   delfunc GetCommand
++ endfunc
+*** ../vim-8.1.0647/src/version.c	2018-12-27 22:43:03.901774877 +0100
+--- src/version.c	2018-12-27 23:25:22.866659463 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     648,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+61. Your best friends know your e-mail address, but neither your phone number
+    nor the address where you live.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

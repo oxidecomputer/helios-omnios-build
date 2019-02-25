@@ -1,0 +1,129 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0829
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0829
+Problem:    When 'hidden' is set session creates extra buffers.
+Solution:   Move :badd commands to the end. (Jason Franklin)
+Files:	    src/ex_docmd.c, src/testdir/test_mksession.vim
+
+
+*** ../vim-8.1.0828/src/ex_docmd.c	2019-01-26 17:28:22.224599141 +0100
+--- src/ex_docmd.c	2019-01-26 18:14:51.237292887 +0100
+***************
+*** 11280,11305 ****
+      if (put_line(fd, "set shortmess=aoO") == FAIL)
+  	return FAIL;
+  
+-     /* Now put the other buffers into the buffer list */
+-     FOR_ALL_BUFFERS(buf)
+-     {
+- 	if (!(only_save_windows && buf->b_nwindows == 0)
+- 		&& !(buf->b_help && !(ssop_flags & SSOP_HELP))
+- #ifdef FEAT_TERMINAL
+- 		/* skip terminal buffers: finished ones are not useful, others
+- 		 * will be resurrected and result in a new buffer */
+- 		&& !bt_terminal(buf)
+- #endif
+- 		&& buf->b_fname != NULL
+- 		&& buf->b_p_bl)
+- 	{
+- 	    if (fprintf(fd, "badd +%ld ", buf->b_wininfo == NULL ? 1L
+- 					   : buf->b_wininfo->wi_fpos.lnum) < 0
+- 		    || ses_fname(fd, buf, &ssop_flags, TRUE) == FAIL)
+- 		return FAIL;
+- 	}
+-     }
+- 
+      /* the global argument list */
+      if (ses_arglist(fd, "argglobal", &global_alist.al_ga,
+  			    !(ssop_flags & SSOP_CURDIR), &ssop_flags) == FAIL)
+--- 11280,11285 ----
+***************
+*** 11515,11520 ****
+--- 11495,11523 ----
+      if (restore_stal && put_line(fd, "set stal=1") == FAIL)
+  	return FAIL;
+  
++     // Now put the remaining buffers into the buffer list.
++     // This is near the end, so that when 'hidden' is set we don't create extra
++     // buffers.  If the buffer was already created with another command the
++     // ":badd" will have no effect.
++     FOR_ALL_BUFFERS(buf)
++     {
++ 	if (!(only_save_windows && buf->b_nwindows == 0)
++ 		&& !(buf->b_help && !(ssop_flags & SSOP_HELP))
++ #ifdef FEAT_TERMINAL
++ 		// Skip terminal buffers: finished ones are not useful, others
++ 		// will be resurrected and result in a new buffer.
++ 		&& !bt_terminal(buf)
++ #endif
++ 		&& buf->b_fname != NULL
++ 		&& buf->b_p_bl)
++ 	{
++ 	    if (fprintf(fd, "badd +%ld ", buf->b_wininfo == NULL ? 1L
++ 					   : buf->b_wininfo->wi_fpos.lnum) < 0
++ 		    || ses_fname(fd, buf, &ssop_flags, TRUE) == FAIL)
++ 		return FAIL;
++ 	}
++     }
++ 
+      /*
+       * Wipe out an empty unnamed buffer we started in.
+       */
+*** ../vim-8.1.0828/src/testdir/test_mksession.vim	2019-01-24 22:23:55.644948698 +0100
+--- src/testdir/test_mksession.vim	2019-01-26 18:10:34.215079163 +0100
+***************
+*** 225,230 ****
+--- 225,253 ----
+    call delete('Xtest_mks.out')
+  endfunc
+  
++ func Test_mksession_buffer_count()
++   set hidden
++ 
++   " Edit exactly three files in the current session.
++   %bwipe!
++   e Xfoo | tabe Xbar | tabe Xbaz
++   tabdo write
++   mksession! Xtest_mks.out
++ 
++   " Verify that loading the session does not create additional buffers.
++   %bwipe!
++   source Xtest_mks.out
++   call assert_equal(3, len(getbufinfo()))
++ 
++   " Clean up.
++   call delete('Xfoo')
++   call delete('Xbar')
++   call delete('Xbaz')
++   call delete('Xtest_mks.out')
++   %bwipe!
++   set hidden&
++ endfunc
++ 
+  if has('extra_search')
+  
+  func Test_mksession_hlsearch()
+*** ../vim-8.1.0828/src/version.c	2019-01-26 17:43:16.226527267 +0100
+--- src/version.c	2019-01-26 18:11:42.518604352 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     829,
+  /**/
+
+-- 
+Nothing is impossible for the man who doesn't have to do it.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

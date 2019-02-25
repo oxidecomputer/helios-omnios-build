@@ -1,0 +1,219 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0890
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0890
+Problem:    Pty allocation wrong if using file for out channel and using null
+            for in channel and null for error channel.
+Solution:   Correct using use_file_for_out in condition. (Ozaki Kiichi, closes
+            #3917)
+Files:	    src/os_unix.c, src/testdir/test_channel.vim
+
+
+*** ../vim-8.1.0889/src/os_unix.c	2019-01-31 15:52:05.265907656 +0100
+--- src/os_unix.c	2019-02-10 22:36:01.194231354 +0100
+***************
+*** 4196,4208 ****
+  /*
+   * Open a PTY, with FD for the master and slave side.
+   * When failing "pty_master_fd" and "pty_slave_fd" are -1.
+!  * When successful both file descriptors are stored.
+   */
+      static void
+! open_pty(int *pty_master_fd, int *pty_slave_fd, char_u **namep)
+  {
+      char	*tty_name;
+  
+      *pty_master_fd = mch_openpty(&tty_name);	    // open pty
+      if (*pty_master_fd >= 0)
+      {
+--- 4196,4214 ----
+  /*
+   * Open a PTY, with FD for the master and slave side.
+   * When failing "pty_master_fd" and "pty_slave_fd" are -1.
+!  * When successful both file descriptors are stored and the allocated pty name
+!  * is stored in both "*name1" and "*name2".
+   */
+      static void
+! open_pty(int *pty_master_fd, int *pty_slave_fd, char_u **name1, char_u **name2)
+  {
+      char	*tty_name;
+  
++     if (name1 != NULL)
++ 	*name1 = NULL;
++     if (name2 != NULL)
++ 	*name2 = NULL;
++ 
+      *pty_master_fd = mch_openpty(&tty_name);	    // open pty
+      if (*pty_master_fd >= 0)
+      {
+***************
+*** 4219,4226 ****
+  	    close(*pty_master_fd);
+  	    *pty_master_fd = -1;
+  	}
+! 	else if (namep != NULL)
+! 	    *namep = vim_strsave((char_u *)tty_name);
+      }
+  }
+  #endif
+--- 4225,4237 ----
+  	    close(*pty_master_fd);
+  	    *pty_master_fd = -1;
+  	}
+! 	else
+! 	{
+! 	    if (name1 != NULL)
+! 		*name1 = vim_strsave((char_u *)tty_name);
+! 	    if (name2 != NULL)
+! 		*name2 = vim_strsave((char_u *)tty_name);
+! 	}
+      }
+  }
+  #endif
+***************
+*** 4513,4519 ****
+  	 * If the slave can't be opened, close the master pty.
+  	 */
+  	if (p_guipty && !(options & (SHELL_READ|SHELL_WRITE)))
+! 	    open_pty(&pty_master_fd, &pty_slave_fd, NULL);
+  	/*
+  	 * If not opening a pty or it didn't work, try using pipes.
+  	 */
+--- 4524,4530 ----
+  	 * If the slave can't be opened, close the master pty.
+  	 */
+  	if (p_guipty && !(options & (SHELL_READ|SHELL_WRITE)))
+! 	    open_pty(&pty_master_fd, &pty_slave_fd, NULL, NULL);
+  	/*
+  	 * If not opening a pty or it didn't work, try using pipes.
+  	 */
+***************
+*** 5352,5364 ****
+  
+      if (options->jo_pty
+  	    && (!(use_file_for_in || use_null_for_in)
+! 		|| !(use_file_for_in || use_null_for_out)
+  		|| !(use_out_for_err || use_file_for_err || use_null_for_err)))
+!     {
+! 	open_pty(&pty_master_fd, &pty_slave_fd, &job->jv_tty_out);
+! 	if (job->jv_tty_out != NULL)
+! 	    job->jv_tty_in = vim_strsave(job->jv_tty_out);
+!     }
+  
+      /* TODO: without the channel feature connect the child to /dev/null? */
+      /* Open pipes for stdin, stdout, stderr. */
+--- 5363,5372 ----
+  
+      if (options->jo_pty
+  	    && (!(use_file_for_in || use_null_for_in)
+! 		|| !(use_file_for_out || use_null_for_out)
+  		|| !(use_out_for_err || use_file_for_err || use_null_for_err)))
+! 	open_pty(&pty_master_fd, &pty_slave_fd,
+! 					    &job->jv_tty_out, &job->jv_tty_in);
+  
+      /* TODO: without the channel feature connect the child to /dev/null? */
+      /* Open pipes for stdin, stdout, stderr. */
+***************
+*** 5834,5842 ****
+      int		pty_slave_fd = -1;
+      channel_T	*channel;
+  
+!     open_pty(&pty_master_fd, &pty_slave_fd, &job->jv_tty_out);
+!     if (job->jv_tty_out != NULL)
+! 	job->jv_tty_in = vim_strsave(job->jv_tty_out);
+      close(pty_slave_fd);
+  
+      channel = add_channel();
+--- 5842,5848 ----
+      int		pty_slave_fd = -1;
+      channel_T	*channel;
+  
+!     open_pty(&pty_master_fd, &pty_slave_fd, &job->jv_tty_out, &job->jv_tty_in);
+      close(pty_slave_fd);
+  
+      channel = add_channel();
+*** ../vim-8.1.0889/src/testdir/test_channel.vim	2019-02-10 22:23:23.020415140 +0100
+--- src/testdir/test_channel.vim	2019-02-10 22:39:24.104680140 +0100
+***************
+*** 2040,2042 ****
+--- 2040,2094 ----
+    call assert_equal(-1, info.exitval)
+    call assert_equal("term", info.termsig)
+  endfunc
++ 
++ func Test_job_tty_in_out()
++   if !has('job') || !has('unix')
++     return
++   endif
++ 
++   call writefile(['test'], 'Xtestin')
++   let in_opts = [{},
++         \ {'in_io': 'null'},
++         \ {'in_io': 'file', 'in_name': 'Xtestin'}]
++   let out_opts = [{},
++         \ {'out_io': 'null'},
++         \ {'out_io': 'file', 'out_name': 'Xtestout'}]
++   let err_opts = [{},
++         \ {'err_io': 'null'},
++         \ {'err_io': 'file', 'err_name': 'Xtesterr'},
++         \ {'err_io': 'out'}]
++   let opts = []
++ 
++   for in_opt in in_opts
++     let x = copy(in_opt)
++     for out_opt in out_opts
++       call extend(x, out_opt)
++       for err_opt in err_opts
++         call extend(x, err_opt)
++         let opts += [extend({'pty': 1}, x)]
++       endfor
++     endfor
++   endfor
++ 
++   for opt in opts
++     let job = job_start('echo', opt)
++     let info = job_info(job)
++     let msg = printf('option={"in_io": "%s", "out_io": "%s", "err_io": "%s"}',
++           \ get(opt, 'in_io', 'tty'),
++           \ get(opt, 'out_io', 'tty'),
++           \ get(opt, 'err_io', 'tty'))
++ 
++     if !has_key(opt, 'in_io') || !has_key(opt, 'out_io') || !has_key(opt, 'err_io')
++       call assert_notequal('', info.tty_in, msg)
++     else
++       call assert_equal('', info.tty_in, msg)
++     endif
++     call assert_equal(info.tty_in, info.tty_out, msg)
++ 
++     call WaitForAssert({-> assert_equal('dead', job_status(job))})
++   endfor
++ 
++   call delete('Xtestin')
++   call delete('Xtestout')
++   call delete('Xtesterr')
++ endfunc
+*** ../vim-8.1.0889/src/version.c	2019-02-10 22:23:23.020415140 +0100
+--- src/version.c	2019-02-10 22:42:46.495151907 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     890,
+  /**/
+
+-- 
+"I love deadlines.  I especially like the whooshing sound they
+make as they go flying by."
+                         -- Douglas Adams
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

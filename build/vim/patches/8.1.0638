@@ -1,0 +1,241 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0638
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0638
+Problem:    Text property highlighting is off by one column. (Bjorn Linse)
+Solution:   Update text property highlighting earlier.  Let it overrule syntax
+            highlighting.
+Files:	    src/structs.h, src/screen.c
+
+
+*** ../vim-8.1.0637/src/structs.h	2018-12-25 23:15:41.795966567 +0100
+--- src/structs.h	2018-12-25 23:48:14.284675586 +0100
+***************
+*** 705,711 ****
+   */
+  typedef struct textprop_S
+  {
+!     colnr_T	tp_col;		// start column
+      colnr_T	tp_len;		// length in bytes
+      int		tp_id;		// identifier
+      int		tp_type;	// property type
+--- 705,711 ----
+   */
+  typedef struct textprop_S
+  {
+!     colnr_T	tp_col;		// start column (one based)
+      colnr_T	tp_len;		// length in bytes
+      int		tp_id;		// identifier
+      int		tp_type;	// property type
+*** ../vim-8.1.0637/src/screen.c	2018-12-22 17:07:45.771347741 +0100
+--- src/screen.c	2018-12-26 00:19:53.558481875 +0100
+***************
+*** 4294,4299 ****
+--- 4294,4359 ----
+  	    }
+  #endif
+  
++ #ifdef FEAT_TEXT_PROP
++ 	    if (text_props != NULL)
++ 	    {
++ 		int pi;
++ 
++ 		// Check if any active property ends.
++ 		for (pi = 0; pi < text_props_active; ++pi)
++ 		{
++ 		    int tpi = text_prop_idxs[pi];
++ 
++ 		    if (col >= text_props[tpi].tp_col - 1
++ 						  + text_props[tpi].tp_len)
++ 		    {
++ 			if (pi + 1 < text_props_active)
++ 			    mch_memmove(text_prop_idxs + pi,
++ 					text_prop_idxs + pi + 1,
++ 					sizeof(int)
++ 					 * (text_props_active - (pi + 1)));
++ 			--text_props_active;
++ 			--pi;
++ 		    }
++ 		}
++ 
++ 		// Add any text property that starts in this column.
++ 		while (text_prop_next < text_prop_count
++ 			   && col >= text_props[text_prop_next].tp_col - 1)
++ 		    text_prop_idxs[text_props_active++] = text_prop_next++;
++ 
++ 		text_prop_type = NULL;
++ 		if (text_props_active > 0)
++ 		{
++ 		    int max_priority = INT_MIN;
++ 		    int max_col = 0;
++ 
++ 		    // Get the property type with the highest priority
++ 		    // and/or starting last.
++ 		    for (pi = 0; pi < text_props_active; ++pi)
++ 		    {
++ 			int		tpi = text_prop_idxs[pi];
++ 			proptype_T  *pt;
++ 
++ 			pt = text_prop_type_by_id(
++ 				curwin->w_buffer, text_props[tpi].tp_type);
++ 			if (pt != NULL
++ 				&& (pt->pt_priority > max_priority
++ 				    || (pt->pt_priority == max_priority
++ 				    && text_props[tpi].tp_col >= max_col)))
++ 			{
++ 			    text_prop_type = pt;
++ 			    max_priority = pt->pt_priority;
++ 			    max_col = text_props[tpi].tp_col;
++ 			}
++ 		    }
++ 		    if (text_prop_type != NULL)
++ 			text_prop_attr =
++ 				     syn_id2attr(text_prop_type->pt_hl_id);
++ 		}
++ 	    }
++ #endif
++ 
+  	    /* Decide which of the highlight attributes to use. */
+  	    attr_pri = TRUE;
+  #ifdef LINE_ATTR
+***************
+*** 4653,4660 ****
+  #endif
+  
+  #ifdef FEAT_SYN_HL
+! 		/* Get syntax attribute, unless still at the start of the line
+! 		 * (double-wide char that doesn't fit). */
+  		v = (long)(ptr - line);
+  		if (has_syntax && v > 0)
+  		{
+--- 4713,4720 ----
+  #endif
+  
+  #ifdef FEAT_SYN_HL
+! 		// Get syntax attribute, unless still at the start of the line
+! 		// (double-wide char that doesn't fit).
+  		v = (long)(ptr - line);
+  		if (has_syntax && v > 0)
+  		{
+***************
+*** 4686,4695 ****
+  		    line = ml_get_buf(wp->w_buffer, lnum, FALSE);
+  		    ptr = line + v;
+  
+! 		    if (!attr_pri)
+! 			char_attr = syntax_attr;
+! 		    else
+! 			char_attr = hl_combine_attr(syntax_attr, char_attr);
+  # ifdef FEAT_CONCEAL
+  		    /* no concealing past the end of the line, it interferes
+  		     * with line highlighting */
+--- 4746,4761 ----
+  		    line = ml_get_buf(wp->w_buffer, lnum, FALSE);
+  		    ptr = line + v;
+  
+! # ifdef FEAT_TEXT_PROP
+! 		    // Text properties overrule syntax highlighting.
+! 		    if (text_prop_attr == 0)
+! #endif
+! 		    {
+! 			if (!attr_pri)
+! 			    char_attr = syntax_attr;
+! 			else
+! 			    char_attr = hl_combine_attr(syntax_attr, char_attr);
+! 		    }
+  # ifdef FEAT_CONCEAL
+  		    /* no concealing past the end of the line, it interferes
+  		     * with line highlighting */
+***************
+*** 4701,4766 ****
+  		}
+  #endif
+  
+- #ifdef FEAT_TEXT_PROP
+- 		if (text_props != NULL)
+- 		{
+- 		    int pi;
+- 
+- 		    // Check if any active property ends.
+- 		    for (pi = 0; pi < text_props_active; ++pi)
+- 		    {
+- 			int tpi = text_prop_idxs[pi];
+- 
+- 			if (col >= text_props[tpi].tp_col - 1
+- 						      + text_props[tpi].tp_len)
+- 			{
+- 			    if (pi + 1 < text_props_active)
+- 				mch_memmove(text_prop_idxs + pi,
+- 					    text_prop_idxs + pi + 1,
+- 					    sizeof(int)
+- 					     * (text_props_active - (pi + 1)));
+- 			    --text_props_active;
+- 			    --pi;
+- 			}
+- 		    }
+- 
+- 		    // Add any text property that starts in this column.
+- 		    while (text_prop_next < text_prop_count
+- 			       && col >= text_props[text_prop_next].tp_col - 1)
+- 			text_prop_idxs[text_props_active++] = text_prop_next++;
+- 
+- 		    text_prop_type = NULL;
+- 		    if (text_props_active > 0)
+- 		    {
+- 			int max_priority = INT_MIN;
+- 			int max_col = 0;
+- 
+- 			// Get the property type with the highest priority
+- 			// and/or starting last.
+- 			for (pi = 0; pi < text_props_active; ++pi)
+- 			{
+- 			    int		tpi = text_prop_idxs[pi];
+- 			    proptype_T  *pt;
+- 
+- 			    pt = text_prop_type_by_id(
+- 				    curwin->w_buffer, text_props[tpi].tp_type);
+- 			    if (pt != NULL
+- 				    && (pt->pt_priority > max_priority
+- 					|| (pt->pt_priority == max_priority
+- 					&& text_props[tpi].tp_col >= max_col)))
+- 			    {
+- 				text_prop_type = pt;
+- 				max_priority = pt->pt_priority;
+- 				max_col = text_props[tpi].tp_col;
+- 			    }
+- 			}
+- 			if (text_prop_type != NULL)
+- 			    text_prop_attr =
+- 					 syn_id2attr(text_prop_type->pt_hl_id);
+- 		    }
+- 		}
+- #endif
+- 
+  #ifdef FEAT_SPELL
+  		/* Check spelling (unless at the end of the line).
+  		 * Only do this when there is no syntax highlighting, the
+--- 4767,4772 ----
+*** ../vim-8.1.0637/src/version.c	2018-12-25 23:36:44.942120387 +0100
+--- src/version.c	2018-12-26 00:18:03.287330017 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     638,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+46. Your wife makes a new rule: "The computer cannot come to bed."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,5622 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0809
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0809
+Problem:    Too many #ifdefs.
+Solution:   Graduate FEAT_MBYTE, part 3.
+Files:	    src/os_amiga.c, src/os_mswin.c, src/os_unix.c, src/os_w32exe.c,
+            src/os_win32.c, src/quickfix.c, src/regexp.c, src/regexp_nfa.c,
+            src/screen.c
+
+
+*** ../vim-8.1.0808/src/os_amiga.c	2019-01-19 17:43:03.421449119 +0100
+--- src/os_amiga.c	2019-01-24 15:59:24.928700732 +0100
+***************
+*** 165,182 ****
+  
+      for (;;)	    /* repeat until we got a character */
+      {
+- #  ifdef FEAT_MBYTE
+  	len = Read(raw_in, (char *)buf, (long)maxlen / input_conv.vc_factor);
+- #  else
+- 	len = Read(raw_in, (char *)buf, (long)maxlen);
+- #  endif
+  	if (len > 0)
+  	{
+- #ifdef FEAT_MBYTE
+  	    /* Convert from 'termencoding' to 'encoding'. */
+  	    if (input_conv.vc_type != CONV_NONE)
+  		len = convert_input(buf, len, maxlen);
+- #endif
+  	    return len;
+  	}
+      }
+--- 165,176 ----
+*** ../vim-8.1.0808/src/os_mswin.c	2019-01-13 23:38:33.403773217 +0100
+--- src/os_mswin.c	2019-01-24 16:01:16.035931440 +0100
+***************
+*** 282,288 ****
+  # else
+      if (title != NULL)
+      {
+- #  ifdef FEAT_MBYTE
+  	if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+  	{
+  	    /* Convert the title from 'encoding' to the active codepage. */
+--- 282,287 ----
+***************
+*** 295,301 ****
+  		return;
+  	    }
+  	}
+- #  endif
+  	SetConsoleTitle((LPCSTR)title);
+      }
+  # endif
+--- 294,299 ----
+***************
+*** 361,367 ****
+      else
+  #endif
+      {
+- #ifdef FEAT_MBYTE
+  	if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+  	{
+  	    WCHAR	*wname;
+--- 359,364 ----
+***************
+*** 387,393 ****
+  	    vim_free(cname);
+  	}
+  	if (nResult == FAIL)	    /* fall back to non-wide function */
+- #endif
+  	{
+  	    if (_fullpath((char *)buf, (const char *)fname, len - 1) == NULL)
+  	    {
+--- 384,389 ----
+***************
+*** 415,428 ****
+      int
+  mch_isFullName(char_u *fname)
+  {
+- #ifdef FEAT_MBYTE
+      /* WinNT and later can use _MAX_PATH wide characters for a pathname, which
+       * means that the maximum pathname is _MAX_PATH * 3 bytes when 'enc' is
+       * UTF-8. */
+      char szName[_MAX_PATH * 3 + 1];
+- #else
+-     char szName[_MAX_PATH + 1];
+- #endif
+  
+      /* A name like "d:/foo" and "//server/share" is absolute */
+      if ((fname[0] && fname[1] == ':' && (fname[2] == '/' || fname[2] == '\\'))
+--- 411,420 ----
+***************
+*** 538,548 ****
+      return stat(name, stp);
+  }
+  
+- #ifdef FEAT_MBYTE
+      static int
+  wstat_symlink_aware(const WCHAR *name, stat_T *stp)
+  {
+! # if (defined(_MSC_VER) && (_MSC_VER < 1900)) || defined(__MINGW32__)
+      /* Work around for VC12 or earlier (and MinGW). _wstat() can't handle
+       * symlinks properly.
+       * VC9 or earlier: _wstat() doesn't support a symlink at all. It retrieves
+--- 530,539 ----
+      return stat(name, stp);
+  }
+  
+      static int
+  wstat_symlink_aware(const WCHAR *name, stat_T *stp)
+  {
+! #if (defined(_MSC_VER) && (_MSC_VER < 1900)) || defined(__MINGW32__)
+      /* Work around for VC12 or earlier (and MinGW). _wstat() can't handle
+       * symlinks properly.
+       * VC9 or earlier: _wstat() doesn't support a symlink at all. It retrieves
+***************
+*** 587,596 ****
+  	    return n;
+  	}
+      }
+! # endif
+      return _wstat(name, (struct _stat *)stp);
+  }
+- #endif
+  
+  /*
+   * stat() can't handle a trailing '/' or '\', remove it first.
+--- 578,586 ----
+  	    return n;
+  	}
+      }
+! #endif
+      return _wstat(name, (struct _stat *)stp);
+  }
+  
+  /*
+   * stat() can't handle a trailing '/' or '\', remove it first.
+***************
+*** 598,611 ****
+      int
+  vim_stat(const char *name, stat_T *stp)
+  {
+- #ifdef FEAT_MBYTE
+      /* WinNT and later can use _MAX_PATH wide characters for a pathname, which
+       * means that the maximum pathname is _MAX_PATH * 3 bytes when 'enc' is
+       * UTF-8. */
+      char_u	buf[_MAX_PATH * 3 + 1];
+- #else
+-     char_u	buf[_MAX_PATH + 1];
+- #endif
+      char_u	*p;
+  
+      vim_strncpy((char_u *)buf, (char_u *)name, sizeof(buf) - 1);
+--- 588,597 ----
+***************
+*** 628,634 ****
+  		STRCAT(buf, "\\");
+  	}
+      }
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR	*wp = enc_to_utf16(buf, NULL);
+--- 614,619 ----
+***************
+*** 641,647 ****
+  	    return n;
+  	}
+      }
+- #endif
+      return stat_symlink_aware((char *)buf, stp);
+  }
+  
+--- 626,631 ----
+***************
+*** 791,797 ****
+      if (*path == NUL)		/* drive name only */
+  	return 0;
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR	*p = enc_to_utf16((char_u *)path, NULL);
+--- 775,780 ----
+***************
+*** 804,810 ****
+  	    return n;
+  	}
+      }
+- #endif
+  
+      return chdir(path);	       /* let the normal chdir() do the rest */
+  }
+--- 787,792 ----
+***************
+*** 1145,1153 ****
+  #define IDC_PRINTTEXT2		402
+  #define IDC_PROGRESS		403
+  
+- #if !defined(FEAT_MBYTE)
+- # define vimSetDlgItemText(h, i, s) SetDlgItemText(h, i, s)
+- #else
+      static BOOL
+  vimSetDlgItemText(HWND hDlg, int nIDDlgItem, char_u *s)
+  {
+--- 1127,1132 ----
+***************
+*** 1166,1172 ****
+      }
+      return SetDlgItemText(hDlg, nIDDlgItem, (LPCSTR)s);
+  }
+- #endif
+  
+  /*
+   * Convert BGR to RGB for Windows GDI calls
+--- 1145,1150 ----
+***************
+*** 1563,1569 ****
+  	char_u	*printer_name = (char_u *)devname + devname->wDeviceOffset;
+  	char_u	*port_name = (char_u *)devname +devname->wOutputOffset;
+  	char_u	*text = (char_u *)_("to %s on %s");
+- #ifdef FEAT_MBYTE
+  	char_u  *printer_name_orig = printer_name;
+  	char_u	*port_name_orig = port_name;
+  
+--- 1541,1546 ----
+***************
+*** 1580,1597 ****
+  	    if (to_free != NULL)
+  		port_name = to_free;
+  	}
+- #endif
+  	prt_name = alloc((unsigned)(STRLEN(printer_name) + STRLEN(port_name)
+  							     + STRLEN(text)));
+  	if (prt_name != NULL)
+  	    wsprintf((char *)prt_name, (const char *)text,
+  		    printer_name, port_name);
+- #ifdef FEAT_MBYTE
+  	if (printer_name != printer_name_orig)
+  	    vim_free(printer_name);
+  	if (port_name != port_name_orig)
+  	    vim_free(port_name);
+- #endif
+      }
+      GlobalUnlock(prt_dlg.hDevNames);
+  
+--- 1557,1571 ----
+***************
+*** 1680,1688 ****
+  {
+      int			ret;
+      char		szBuffer[300];
+- #if defined(FEAT_MBYTE)
+      WCHAR		*wp = NULL;
+- #endif
+  
+      hDlgPrint = CreateDialog(GetModuleHandle(NULL), TEXT("PrintDlgBox"),
+  					     prt_dlg.hwndOwner, PrintDlgProc);
+--- 1654,1660 ----
+***************
+*** 1690,1696 ****
+      wsprintf(szBuffer, _("Printing '%s'"), gettail(psettings->jobname));
+      vimSetDlgItemText(hDlgPrint, IDC_PRINTTEXT1, (char_u *)szBuffer);
+  
+- #if defined(FEAT_MBYTE)
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+  	wp = enc_to_utf16(psettings->jobname, NULL);
+      if (wp != NULL)
+--- 1662,1667 ----
+***************
+*** 1704,1710 ****
+  	vim_free(wp);
+      }
+      else
+- #endif
+      {
+  	DOCINFO		di;
+  
+--- 1675,1680 ----
+***************
+*** 1767,1776 ****
+      int
+  mch_print_text_out(char_u *p, int len)
+  {
+- #if defined(FEAT_PROPORTIONAL_FONTS) || defined(FEAT_MBYTE)
+      SIZE	sz;
+- #endif
+- #if defined(FEAT_MBYTE)
+      WCHAR	*wp = NULL;
+      int		wlen = len;
+  
+--- 1737,1743 ----
+***************
+*** 1801,1807 ****
+  	}
+  	return ret;
+      }
+- #endif
+      TextOut(prt_dlg.hDC, prt_pos_x + prt_left_margin,
+  					  prt_pos_y + prt_top_margin,
+  					  (LPCSTR)p, len);
+--- 1768,1773 ----
+***************
+*** 1873,1882 ****
+      CHAR		buf[MAX_PATH]; // could have simply reused 'wsz'...
+      char_u		*rfname = NULL;
+      int			len;
+- # ifdef FEAT_MBYTE
+      IShellLinkW		*pslw = NULL;
+      WIN32_FIND_DATAW	ffdw; // we get those free of charge
+- # endif
+  
+      /* Check if the file name ends in ".lnk". Avoid calling
+       * CoCreateInstance(), it's quite slow. */
+--- 1839,1846 ----
+***************
+*** 1888,1894 ****
+  
+      CoInitialize(NULL);
+  
+- # ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	// create a link manager object and request its interface
+--- 1852,1857 ----
+***************
+*** 1930,1936 ****
+  	}
+  	goto shortcut_end;
+      }
+- # endif
+      // create a link manager object and request its interface
+      hr = CoCreateInstance(
+  	    &CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER,
+--- 1893,1898 ----
+***************
+*** 1969,1978 ****
+  	ppf->lpVtbl->Release(ppf);
+      if (psl != NULL)
+  	psl->lpVtbl->Release(psl);
+- # ifdef FEAT_MBYTE
+      if (pslw != NULL)
+  	pslw->lpVtbl->Release(pslw);
+- # endif
+  
+      CoUninitialize();
+      return rfname;
+--- 1931,1938 ----
+***************
+*** 2042,2054 ****
+      COPYDATASTRUCT data;
+  
+      data.dwData = COPYDATA_ENCODING;
+- #ifdef FEAT_MBYTE
+      data.cbData = (DWORD)STRLEN(p_enc) + 1;
+      data.lpData = p_enc;
+- #else
+-     data.cbData = (DWORD)STRLEN("latin1") + 1;
+-     data.lpData = "latin1";
+- #endif
+      (void)SendMessage(target, WM_COPYDATA, (WPARAM)message_window,
+  							     (LPARAM)(&data));
+  }
+--- 2002,2009 ----
+***************
+*** 2118,2128 ****
+  	switch (data->dwData)
+  	{
+  	case COPYDATA_ENCODING:
+- # ifdef FEAT_MBYTE
+  	    /* Remember the encoding that the client uses. */
+  	    vim_free(client_enc);
+  	    client_enc = enc_canonize((char_u *)data->lpData);
+- # endif
+  	    return 1;
+  
+  	case COPYDATA_KEYS:
+--- 2073,2081 ----
+***************
+*** 2954,2968 ****
+      int		i;
+      int		ret = FAIL;
+      static LOGFONT *lastlf = NULL;
+- #ifdef FEAT_MBYTE
+      char_u	*acpname = NULL;
+- #endif
+  
+      *lf = s_lfDefault;
+      if (name == NULL)
+  	return OK;
+  
+- #ifdef FEAT_MBYTE
+      /* Convert 'name' from 'encoding' to the current codepage, because
+       * lf->lfFaceName uses the current codepage.
+       * TODO: Use Wide APIs instead of ANSI APIs. */
+--- 2907,2918 ----
+***************
+*** 2972,2978 ****
+  	enc_to_acp(name, (int)STRLEN(name), &acpname, &len);
+  	name = acpname;
+      }
+- #endif
+      if (STRCMP(name, "*") == 0)
+      {
+  #if defined(FEAT_GUI_W32)
+--- 2922,2927 ----
+***************
+*** 3112,3120 ****
+  	if (lastlf != NULL)
+  	    mch_memmove(lastlf, lf, sizeof(LOGFONT));
+      }
+- #ifdef FEAT_MBYTE
+      vim_free(acpname);
+- #endif
+  
+      return ret;
+  }
+--- 3061,3067 ----
+*** ../vim-8.1.0808/src/os_unix.c	2019-01-22 21:45:36.553678901 +0100
+--- src/os_unix.c	2019-01-24 16:02:08.167571433 +0100
+***************
+*** 2054,2072 ****
+  	    retval = TRUE;
+  	    if (!test_only)
+  	    {
+! #if defined(FEAT_XFONTSET) || defined(FEAT_MBYTE)
+! 		if (text_prop.encoding == XA_STRING
+! # ifdef FEAT_MBYTE
+! 			&& !has_mbyte
+! # endif
+! 			)
+  		{
+- #endif
+  		    if (get_title)
+  			oldtitle = vim_strsave((char_u *)text_prop.value);
+  		    else
+  			oldicon = vim_strsave((char_u *)text_prop.value);
+- #if defined(FEAT_XFONTSET) || defined(FEAT_MBYTE)
+  		}
+  		else
+  		{
+--- 2054,2065 ----
+  	    retval = TRUE;
+  	    if (!test_only)
+  	    {
+! 		if (text_prop.encoding == XA_STRING && !has_mbyte)
+  		{
+  		    if (get_title)
+  			oldtitle = vim_strsave((char_u *)text_prop.value);
+  		    else
+  			oldicon = vim_strsave((char_u *)text_prop.value);
+  		}
+  		else
+  		{
+***************
+*** 2093,2099 ****
+  			    oldicon = vim_strsave((char_u *)text_prop.value);
+  		    }
+  		}
+- #endif
+  	    }
+  	    XFree((void *)text_prop.value);
+  	}
+--- 2086,2091 ----
+***************
+*** 2105,2111 ****
+   * systems X_HAVE_UTF8_STRING may be defined in a header file but
+   * Xutf8SetWMProperties() is not in the X11 library.  Configure checks for
+   * that and defines HAVE_XUTF8SETWMPROPERTIES. */
+! #if defined(X_HAVE_UTF8_STRING) && defined(FEAT_MBYTE)
+  # if X_HAVE_UTF8_STRING && HAVE_XUTF8SETWMPROPERTIES
+  #  define USE_UTF8_STRING
+  # endif
+--- 2097,2103 ----
+   * systems X_HAVE_UTF8_STRING may be defined in a header file but
+   * Xutf8SetWMProperties() is not in the X11 library.  Configure checks for
+   * that and defines HAVE_XUTF8SETWMPROPERTIES. */
+! #if defined(X_HAVE_UTF8_STRING)
+  # if X_HAVE_UTF8_STRING && HAVE_XUTF8SETWMPROPERTIES
+  #  define USE_UTF8_STRING
+  # endif
+***************
+*** 4823,4831 ****
+  	    {
+  # define BUFLEN 100		/* length for buffer, pseudo tty limit is 128 */
+  		char_u	    buffer[BUFLEN + 1];
+- # ifdef FEAT_MBYTE
+  		int	    buffer_off = 0;	/* valid bytes in buffer[] */
+- # endif
+  		char_u	    ta_buf[BUFLEN + 1];	/* TypeAHead */
+  		int	    ta_len = 0;		/* valid bytes in ta_buf[] */
+  		int	    len;
+--- 4815,4821 ----
+***************
+*** 5031,5041 ****
+  			    }
+  			    else if (ta_buf[i] == '\r')
+  				ta_buf[i] = '\n';
+- # ifdef FEAT_MBYTE
+  			    if (has_mbyte)
+  				i += (*mb_ptr2len_len)(ta_buf + i,
+  							ta_len + len - i) - 1;
+- # endif
+  			}
+  
+  			/*
+--- 5021,5029 ----
+***************
+*** 5048,5054 ****
+  			    {
+  				if (ta_buf[i] == '\n' || ta_buf[i] == '\b')
+  				    msg_putchar(ta_buf[i]);
+- # ifdef FEAT_MBYTE
+  				else if (has_mbyte)
+  				{
+  				    int l = (*mb_ptr2len)(ta_buf + i);
+--- 5036,5041 ----
+***************
+*** 5056,5062 ****
+  				    msg_outtrans_len(ta_buf + i, l);
+  				    i += l - 1;
+  				}
+- # endif
+  				else
+  				    msg_outtrans_len(ta_buf + i, 1);
+  			    }
+--- 5043,5048 ----
+***************
+*** 5114,5124 ****
+  		    while (RealWaitForChar(fromshell_fd, 10L, NULL, NULL))
+  		    {
+  			len = read_eintr(fromshell_fd, buffer
+- # ifdef FEAT_MBYTE
+  				+ buffer_off, (size_t)(BUFLEN - buffer_off)
+- # else
+- 				, (size_t)BUFLEN
+- # endif
+  				);
+  			if (len <= 0)		    /* end of file or error */
+  			    goto finished;
+--- 5100,5106 ----
+***************
+*** 5138,5144 ****
+  				    ga_append(&ga, buffer[i]);
+  			    }
+  			}
+- # ifdef FEAT_MBYTE
+  			else if (has_mbyte)
+  			{
+  			    int		l;
+--- 5120,5125 ----
+***************
+*** 5181,5187 ****
+  			    }
+  			    buffer_off = 0;
+  			}
+- # endif /* FEAT_MBYTE */
+  			else
+  			{
+  			    buffer[len] = NUL;
+--- 5162,5167 ----
+*** ../vim-8.1.0808/src/os_w32exe.c	2017-02-01 13:42:23.000000000 +0100
+--- src/os_w32exe.c	2019-01-24 16:02:23.907462844 +0100
+***************
+*** 130,138 ****
+      free(argv);
+      if (tofree != NULL)
+  	free(tofree);
+- #ifdef FEAT_MBYTE
+      free_cmd_argsW();
+- #endif
+  
+      return 0;
+  }
+--- 130,136 ----
+*** ../vim-8.1.0808/src/os_win32.c	2019-01-19 21:12:21.561634437 +0100
+--- src/os_win32.c	2019-01-24 16:05:55.678005815 +0100
+***************
+*** 452,462 ****
+      {
+  	if (*p == '^' && vim_strchr(escaped, p[1]) != NULL)
+  	    mch_memmove(p, p + 1, l--);
+- #ifdef FEAT_MBYTE
+  	n = (*mb_ptr2len)(p);
+- #else
+- 	n = 1;
+- #endif
+  	p += n;
+  	l -= n;
+      }
+--- 452,458 ----
+***************
+*** 1890,1896 ****
+  	    {
+  		int	n = 1;
+  
+- #ifdef FEAT_MBYTE
+  		if (ch2 == NUL)
+  		{
+  		    int	    i;
+--- 1886,1891 ----
+***************
+*** 1912,1918 ****
+  		    }
+  		}
+  		else
+- #endif
+  		    typeahead[typeaheadlen] = c;
+  		if (ch2 != NUL)
+  		{
+--- 1907,1912 ----
+***************
+*** 1950,1966 ****
+  		if ((modifiers & MOD_MASK_ALT)
+  			&& n == 1
+  			&& (typeahead[typeaheadlen] & 0x80) == 0
+- #ifdef FEAT_MBYTE
+  			&& !enc_dbcs
+- #endif
+  		   )
+  		{
+- #ifdef FEAT_MBYTE
+  		    n = (*mb_char2bytes)(typeahead[typeaheadlen] | 0x80,
+  						    typeahead + typeaheadlen);
+- #else
+- 		    typeahead[typeaheadlen] |= 0x80;
+- #endif
+  		    modifiers &= ~MOD_MASK_ALT;
+  		}
+  
+--- 1944,1954 ----
+***************
+*** 2044,2050 ****
+  	return FALSE;
+      }
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR	*p = enc_to_utf16((char_u *)name, NULL);
+--- 2032,2037 ----
+***************
+*** 2073,2079 ****
+  	    return TRUE;
+  	}
+      }
+- #endif
+  
+      curpath = getenv("PATH");
+      newpath = (char*)alloc((unsigned)(STRLEN(curpath) + 3));
+--- 2060,2065 ----
+***************
+*** 2768,2774 ****
+  }
+  
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * fname_casew(): Wide version of fname_case().  Set the case of the file name,
+   * if it already exists.  When "len" is > 0, also expand short to long
+--- 2754,2759 ----
+***************
+*** 2878,2884 ****
+      wcscpy(name, szTrueName);
+      return OK;
+  }
+- #endif
+  
+  /*
+   * fname_case(): Set the case of the file name, if it already exists.
+--- 2863,2868 ----
+***************
+*** 2906,2912 ****
+  
+      slash_adjust(name);
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR	*p = enc_to_utf16(name, NULL);
+--- 2890,2895 ----
+***************
+*** 2933,2939 ****
+  	}
+  	return;
+      }
+- #endif
+  
+      /* If 'enc' is utf-8, flen can be larger than _MAX_PATH.
+       * So we should check this after calling wide function. */
+--- 2916,2921 ----
+***************
+*** 2962,2968 ****
+  	porigPrev = porig;
+  	while (*porig != NUL && *porig != psepc)
+  	{
+- #ifdef FEAT_MBYTE
+  	    int l;
+  
+  	    if (enc_dbcs)
+--- 2944,2949 ----
+***************
+*** 2972,2978 ****
+  		    *ptrue++ = *porig++;
+  	    }
+  	    else
+- #endif
+  		*ptrue++ = *porig++;
+  	}
+  	*ptrue = NUL;
+--- 2953,2958 ----
+***************
+*** 3044,3050 ****
+      char szUserName[256 + 1];	/* UNLEN is 256 */
+      DWORD cch = sizeof szUserName;
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR wszUserName[256 + 1];	/* UNLEN is 256 */
+--- 3024,3029 ----
+***************
+*** 3062,3068 ****
+  	    }
+  	}
+      }
+- #endif
+      if (GetUserName(szUserName, &cch))
+      {
+  	vim_strncpy(s, (char_u *)szUserName, len - 1);
+--- 3041,3046 ----
+***************
+*** 3083,3089 ****
+  {
+      DWORD cch = len;
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR wszHostName[256 + 1];
+--- 3061,3066 ----
+***************
+*** 3101,3107 ****
+  	    }
+  	}
+      }
+- #endif
+      if (!GetComputerName((LPSTR)s, &cch))
+  	vim_strncpy(s, (char_u *)"PC (Win32 Vim)", len - 1);
+  }
+--- 3078,3083 ----
+***************
+*** 3135,3141 ****
+       * But the Win32s known bug list says that getcwd() doesn't work
+       * so use the Win32 system call instead. <Negri>
+       */
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR	wbuf[_MAX_PATH + 1];
+--- 3111,3116 ----
+***************
+*** 3167,3173 ****
+  	}
+  	return FAIL;
+      }
+- #endif
+      if (GetCurrentDirectory(len, (LPSTR)buf) == 0)
+  	return FAIL;
+      lfnlen = GetLongPathNameA((LPCSTR)buf, (LPSTR)abuf, _MAX_PATH);
+--- 3142,3147 ----
+***************
+*** 3205,3211 ****
+  {
+      long	n = -1;
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR *p = enc_to_utf16(name, NULL);
+--- 3179,3184 ----
+***************
+*** 3219,3225 ****
+  	}
+      }
+      if (n == -1)
+- #endif
+  	n = _chmod((const char *)name, perm);
+      if (n == -1)
+  	return FAIL;
+--- 3192,3197 ----
+***************
+*** 3290,3296 ****
+      int
+  mch_mkdir(char_u *name)
+  {
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR	*p;
+--- 3262,3267 ----
+***************
+*** 3303,3309 ****
+  	vim_free(p);
+  	return retval;
+      }
+- #endif
+      return _mkdir((const char *)name);
+  }
+  
+--- 3274,3279 ----
+***************
+*** 3314,3320 ****
+      int
+  mch_rmdir(char_u *name)
+  {
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR	*p;
+--- 3284,3289 ----
+***************
+*** 3327,3333 ****
+  	vim_free(p);
+  	return retval;
+      }
+- #endif
+      return _rmdir((const char *)name);
+  }
+  
+--- 3296,3301 ----
+***************
+*** 3353,3359 ****
+      int			res = FALSE;
+      WIN32_FIND_DATAA	findDataA;
+      DWORD		fileFlags = 0, reparseTag = 0;
+- #ifdef FEAT_MBYTE
+      WCHAR		*wn = NULL;
+      WIN32_FIND_DATAW	findDataW;
+  
+--- 3321,3326 ----
+***************
+*** 3370,3376 ****
+  	}
+      }
+      else
+- #endif
+      {
+  	hFind = FindFirstFile((LPCSTR)name, &findDataA);
+  	if (hFind != INVALID_HANDLE_VALUE)
+--- 3337,3342 ----
+***************
+*** 3415,3421 ****
+  {
+      HANDLE	hFile;
+      int		res = FILEINFO_READ_FAIL;
+- #ifdef FEAT_MBYTE
+      WCHAR	*wn = NULL;
+  
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+--- 3381,3386 ----
+***************
+*** 3436,3442 ****
+  	vim_free(wn);
+      }
+      else
+- #endif
+  	hFile = CreateFile((LPCSTR)fname,    /* file name */
+  		    GENERIC_READ,	    /* access mode */
+  		    FILE_SHARE_READ | FILE_SHARE_WRITE,	/* share mode */
+--- 3401,3406 ----
+***************
+*** 3466,3472 ****
+  win32_getattrs(char_u *name)
+  {
+      int		attr;
+- #ifdef FEAT_MBYTE
+      WCHAR	*p = NULL;
+  
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+--- 3430,3435 ----
+***************
+*** 3478,3484 ****
+  	vim_free(p);
+      }
+      else
+- #endif
+  	attr = GetFileAttributes((char *)name);
+  
+      return attr;
+--- 3441,3446 ----
+***************
+*** 3493,3499 ****
+  win32_setattrs(char_u *name, int attrs)
+  {
+      int res;
+- #ifdef FEAT_MBYTE
+      WCHAR	*p = NULL;
+  
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+--- 3455,3460 ----
+***************
+*** 3505,3511 ****
+  	vim_free(p);
+      }
+      else
+- #endif
+  	res = SetFileAttributes((char *)name, attrs);
+  
+      return res ? 0 : -1;
+--- 3466,3471 ----
+***************
+*** 3621,3629 ****
+  {
+      HANDLE	hFile;
+      int		type;
+- #ifdef FEAT_MBYTE
+      WCHAR	*wn = NULL;
+- #endif
+  
+      /* We can't open a file with a name "\\.\con" or "\\.\prn" and trying to
+       * read from it later will cause Vim to hang.  Thus return NODE_WRITABLE
+--- 3581,3587 ----
+***************
+*** 3631,3637 ****
+      if (STRNCMP(name, "\\\\.\\", 4) == 0)
+  	return NODE_WRITABLE;
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+  	wn = enc_to_utf16(name, NULL);
+  
+--- 3589,3594 ----
+***************
+*** 3647,3653 ****
+  	vim_free(wn);
+      }
+      else
+- #endif
+  	hFile = CreateFile((LPCSTR)name,    /* file name */
+  		    GENERIC_WRITE,	    /* access mode */
+  		    0,			    /* share mode */
+--- 3604,3609 ----
+***************
+*** 3695,3701 ****
+      p = (struct my_acl *)alloc_clear((unsigned)sizeof(struct my_acl));
+      if (p != NULL)
+      {
+- # ifdef FEAT_MBYTE
+  	WCHAR	*wn = NULL;
+  
+  	if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+--- 3651,3656 ----
+***************
+*** 3737,3743 ****
+  	    vim_free(wn);
+  	}
+  	else
+- # endif
+  	{
+  	    /* Try to retrieve the entire security descriptor. */
+  	    err = GetNamedSecurityInfo(
+--- 3692,3697 ----
+***************
+*** 3815,3823 ****
+  
+      if (p != NULL)
+      {
+- # ifdef FEAT_MBYTE
+  	WCHAR	*wn = NULL;
+- # endif
+  
+  	/* Set security flags */
+  	if (p->pSidOwner)
+--- 3769,3775 ----
+***************
+*** 3836,3842 ****
+  	if (p->pSacl)
+  	    sec_info |= SACL_SECURITY_INFORMATION;
+  
+- # ifdef FEAT_MBYTE
+  	if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+  	    wn = enc_to_utf16(fname, NULL);
+  	if (wn != NULL)
+--- 3788,3793 ----
+***************
+*** 3853,3859 ****
+  	    vim_free(wn);
+  	}
+  	else
+- # endif
+  	{
+  	    (void)SetNamedSecurityInfo(
+  			(LPSTR)fname,		// Abstract filename
+--- 3804,3809 ----
+***************
+*** 4211,4217 ****
+      LPVOID		*env,
+      char		*cwd)
+  {
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	BOOL	ret;
+--- 4161,4166 ----
+***************
+*** 4247,4253 ****
+  	return ret;
+      }
+  fallback:
+- #endif
+      return CreateProcess(
+  	NULL,			/* Executable name */
+  	cmd,			/* Command to execute */
+--- 4196,4201 ----
+***************
+*** 4267,4273 ****
+      char *cmd,
+      INT	 n_show_cmd)
+  {
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR *wcmd = enc_to_utf16((char_u *)cmd, NULL);
+--- 4215,4220 ----
+***************
+*** 4279,4285 ****
+  	    return ret;
+  	}
+      }
+- #endif
+      return ShellExecute(NULL, NULL, cmd, NULL, NULL, n_show_cmd);
+  }
+  
+--- 4226,4231 ----
+***************
+*** 4466,4485 ****
+      while (ret != 0 && availableBytes > 0)
+      {
+  	repeatCount++;
+! 	toRead =
+! # ifdef FEAT_MBYTE
+! 		 (DWORD)(BUFLEN - *buffer_off);
+! # else
+! 		 (DWORD)BUFLEN;
+! # endif
+  	toRead = availableBytes < toRead ? availableBytes : toRead;
+! 	ReadFile(g_hChildStd_OUT_Rd, buffer
+! # ifdef FEAT_MBYTE
+! 		 + *buffer_off, toRead
+! # else
+! 		 , toRead
+! # endif
+! 		 , &len, NULL);
+  
+  	/* If we haven't read anything, there is a problem */
+  	if (len == 0)
+--- 4412,4420 ----
+      while (ret != 0 && availableBytes > 0)
+      {
+  	repeatCount++;
+! 	toRead = (DWORD)(BUFLEN - *buffer_off);
+  	toRead = availableBytes < toRead ? availableBytes : toRead;
+! 	ReadFile(g_hChildStd_OUT_Rd, buffer + *buffer_off, toRead , &len, NULL);
+  
+  	/* If we haven't read anything, there is a problem */
+  	if (len == 0)
+***************
+*** 4501,4507 ****
+  		    ga_append(ga, buffer[i]);
+  	    }
+  	}
+- # ifdef FEAT_MBYTE
+  	else if (has_mbyte)
+  	{
+  	    int		l;
+--- 4436,4441 ----
+***************
+*** 4545,4551 ****
+  	    }
+  	    *buffer_off = 0;
+  	}
+- # endif /* FEAT_MBYTE */
+  	else
+  	{
+  	    buffer[len] = NUL;
+--- 4479,4484 ----
+***************
+*** 4740,4750 ****
+  			}
+  			else if (ta_buf[i] == '\r')
+  			    ta_buf[i] = '\n';
+- # ifdef FEAT_MBYTE
+  			if (has_mbyte)
+  			    i += (*mb_ptr2len_len)(ta_buf + i,
+  						    ta_len + len - i) - 1;
+- # endif
+  		    }
+  
+  		    /*
+--- 4673,4681 ----
+***************
+*** 4755,4761 ****
+  		    {
+  			if (ta_buf[i] == '\n' || ta_buf[i] == '\b')
+  			    msg_putchar(ta_buf[i]);
+- # ifdef FEAT_MBYTE
+  			else if (has_mbyte)
+  			{
+  			    int l = (*mb_ptr2len)(ta_buf + i);
+--- 4686,4691 ----
+***************
+*** 4763,4769 ****
+  			    msg_outtrans_len(ta_buf + i, l);
+  			    i += l - 1;
+  			}
+- # endif
+  			else
+  			    msg_outtrans_len(ta_buf + i, 1);
+  		    }
+--- 4693,4698 ----
+***************
+*** 4857,4863 ****
+  }
+  #else
+  
+- # ifdef FEAT_MBYTE
+      static int
+  mch_system(char *cmd, int options)
+  {
+--- 4786,4791 ----
+***************
+*** 4873,4881 ****
+      }
+      return system(cmd);
+  }
+- # else
+- #  define mch_system(c, o) system(c)
+- # endif
+  
+  #endif
+  
+--- 4801,4806 ----
+***************
+*** 4972,4978 ****
+      int		tmode = cur_tmode;
+  #ifdef FEAT_TITLE
+      char	szShellTitle[512];
+- # ifdef FEAT_MBYTE
+      int		did_set_title = FALSE;
+  
+      /* Change the title to reflect that we are in a subshell. */
+--- 4897,4902 ----
+***************
+*** 5003,5009 ****
+  	}
+      }
+      if (!did_set_title)
+- # endif
+  	/* Change the title to reflect that we are in a subshell. */
+  	if (GetConsoleTitle(szShellTitle, sizeof(szShellTitle) - 4) > 0)
+  	{
+--- 4927,4932 ----
+***************
+*** 5217,5223 ****
+  			"External commands will not pause after completion.\n"
+  			"See  :help win32-vimrun  for more information.");
+  		    char *title = _("Vim Warning");
+- # ifdef FEAT_MBYTE
+  		    if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+  		    {
+  			WCHAR *wmsg = enc_to_utf16((char_u *)msg, NULL);
+--- 5140,5145 ----
+***************
+*** 5229,5235 ****
+  			vim_free(wtitle);
+  		    }
+  		    else
+- # endif
+  			MessageBox(NULL, msg, title, MB_ICONWARNING);
+  		    need_vimrun_warning = FALSE;
+  		}
+--- 5151,5156 ----
+***************
+*** 5294,5301 ****
+  	DWORD dwFlagsAndAttributes)
+  {
+      HANDLE h;
+- # ifdef FEAT_MBYTE
+      WCHAR *wn = NULL;
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	wn = enc_to_utf16(fname, NULL);
+--- 5215,5222 ----
+  	DWORD dwFlagsAndAttributes)
+  {
+      HANDLE h;
+      WCHAR *wn = NULL;
++ 
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	wn = enc_to_utf16(fname, NULL);
+***************
+*** 5308,5314 ****
+  	}
+      }
+      if (wn == NULL)
+- # endif
+  	h = CreateFile((LPCSTR)fname, dwDesiredAccess, dwShareMode,
+  		lpSecurityAttributes, dwCreationDisposition,
+  		dwFlagsAndAttributes, NULL);
+--- 5229,5234 ----
+***************
+*** 6339,6345 ****
+      COORD coord = g_coord;
+      DWORD written;
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	static WCHAR	*unicodebuf = NULL;
+--- 6259,6264 ----
+***************
+*** 6392,6398 ****
+  	}
+      }
+      else
+- #endif
+      {
+  	if (!USE_VTP)
+  	{
+--- 6311,6316 ----
+***************
+*** 6763,6772 ****
+      int
+  mch_remove(char_u *name)
+  {
+- #ifdef FEAT_MBYTE
+      WCHAR	*wn = NULL;
+      int		n;
+- #endif
+  
+      /*
+       * On Windows, deleting a directory's symbolic link is done by
+--- 6681,6688 ----
+***************
+*** 6777,6783 ****
+  
+      win32_setattrs(name, FILE_ATTRIBUTE_NORMAL);
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	wn = enc_to_utf16(name, NULL);
+--- 6693,6698 ----
+***************
+*** 6788,6794 ****
+  	    return n;
+  	}
+      }
+- #endif
+      return DeleteFile((LPCSTR)name) ? 0 : -1;
+  }
+  
+--- 6703,6708 ----
+***************
+*** 6839,6845 ****
+      return (long_u)((ms.ullTotalPhys - WINNT_RESERVE_BYTES) / 1024);
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Same code as below, but with wide functions and no comments.
+   * Return 0 for success, non-zero for failure.
+--- 6753,6758 ----
+***************
+*** 6893,6899 ****
+  
+      return 0;
+  }
+- #endif
+  
+  
+  /*
+--- 6806,6811 ----
+***************
+*** 6924,6930 ****
+      char	szNewPath[_MAX_PATH+1];
+      char	*pszFilePart;
+      HANDLE	hf;
+- #ifdef FEAT_MBYTE
+      WCHAR	*wold = NULL;
+      WCHAR	*wnew = NULL;
+      int		retval = -1;
+--- 6836,6841 ----
+***************
+*** 6939,6945 ****
+  	vim_free(wnew);
+  	return retval;
+      }
+- #endif
+  
+      /*
+       * No need to play tricks unless the file name contains a "~" as the
+--- 6850,6855 ----
+***************
+*** 7024,7048 ****
+  {
+      HANDLE	hFile;
+      int		retval = -1;	    /* default: fail */
+- #ifdef FEAT_MBYTE
+      WCHAR	*wn = NULL;
+  
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+  	wn = enc_to_utf16((char_u *)n, NULL);
+- #endif
+  
+      if (mch_isdir((char_u *)n))
+      {
+  	char TempName[_MAX_PATH + 16] = "";
+- #ifdef FEAT_MBYTE
+  	WCHAR TempNameW[_MAX_PATH + 16] = L"";
+- #endif
+  
+  	if (p & R_OK)
+  	{
+  	    /* Read check is performed by seeing if we can do a find file on
+  	     * the directory for any file. */
+- #ifdef FEAT_MBYTE
+  	    if (wn != NULL)
+  	    {
+  		int		    i;
+--- 6934,6953 ----
+***************
+*** 7062,7068 ****
+  		    (void)FindClose(hFile);
+  	    }
+  	    else
+- #endif
+  	    {
+  		char		    *pch;
+  		WIN32_FIND_DATA	    d;
+--- 6967,6972 ----
+***************
+*** 7087,7093 ****
+  	     * directories on read-only network shares.  However, in
+  	     * directories whose ACL allows writes but denies deletes will end
+  	     * up keeping the temporary file :-(. */
+- #ifdef FEAT_MBYTE
+  	    if (wn != NULL)
+  	    {
+  		if (!GetTempFileNameW(wn, L"VIM", 0, TempNameW))
+--- 6991,6996 ----
+***************
+*** 7096,7102 ****
+  		    DeleteFileW(TempNameW);
+  	    }
+  	    else
+- #endif
+  	    {
+  		if (!GetTempFileName(n, "VIM", 0, TempName))
+  		    goto getout;
+--- 6999,7004 ----
+***************
+*** 7114,7125 ****
+  	DWORD access_mode = ((p & W_OK) ? GENERIC_WRITE : 0)
+  					     | ((p & R_OK) ? GENERIC_READ : 0);
+  
+- #ifdef FEAT_MBYTE
+  	if (wn != NULL)
+  	    hFile = CreateFileW(wn, access_mode, share_mode,
+  						 NULL, OPEN_EXISTING, 0, NULL);
+  	else
+- #endif
+  	    hFile = CreateFile(n, access_mode, share_mode,
+  						 NULL, OPEN_EXISTING, 0, NULL);
+  	if (hFile == INVALID_HANDLE_VALUE)
+--- 7016,7025 ----
+***************
+*** 7129,7141 ****
+  
+      retval = 0;	    /* success */
+  getout:
+- #ifdef FEAT_MBYTE
+      vim_free(wn);
+- #endif
+      return retval;
+  }
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * Version of open() that may use UTF-16 file name.
+   */
+--- 7029,7038 ----
+***************
+*** 7143,7149 ****
+  mch_open(const char *name, int flags, int mode)
+  {
+      /* _wopen() does not work with Borland C 5.5: creates a read-only file. */
+! # ifndef __BORLANDC__
+      WCHAR	*wn;
+      int		f;
+  
+--- 7040,7046 ----
+  mch_open(const char *name, int flags, int mode)
+  {
+      /* _wopen() does not work with Borland C 5.5: creates a read-only file. */
+! #ifndef __BORLANDC__
+      WCHAR	*wn;
+      int		f;
+  
+***************
+*** 7157,7163 ****
+  	    return f;
+  	}
+      }
+! # endif
+  
+      /* open() can open a file which name is longer than _MAX_PATH bytes
+       * and shorter than _MAX_PATH characters successfully, but sometimes it
+--- 7054,7060 ----
+  	    return f;
+  	}
+      }
+! #endif
+  
+      /* open() can open a file which name is longer than _MAX_PATH bytes
+       * and shorter than _MAX_PATH characters successfully, but sometimes it
+***************
+*** 7180,7186 ****
+  
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+! # if defined(DEBUG) && _MSC_VER >= 1400
+  	/* Work around an annoying assertion in the Microsoft debug CRT
+  	 * when mode's text/binary setting doesn't match _get_fmode(). */
+  	char newMode = mode[strlen(mode) - 1];
+--- 7077,7083 ----
+  
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+! #if defined(DEBUG) && _MSC_VER >= 1400
+  	/* Work around an annoying assertion in the Microsoft debug CRT
+  	 * when mode's text/binary setting doesn't match _get_fmode(). */
+  	char newMode = mode[strlen(mode) - 1];
+***************
+*** 7191,7197 ****
+  	    _set_fmode(_O_TEXT);
+  	else if (newMode == 'b')
+  	    _set_fmode(_O_BINARY);
+! # endif
+  	wn = enc_to_utf16((char_u *)name, NULL);
+  	wm = enc_to_utf16((char_u *)mode, NULL);
+  	if (wn != NULL && wm != NULL)
+--- 7088,7094 ----
+  	    _set_fmode(_O_TEXT);
+  	else if (newMode == 'b')
+  	    _set_fmode(_O_BINARY);
+! #endif
+  	wn = enc_to_utf16((char_u *)name, NULL);
+  	wm = enc_to_utf16((char_u *)mode, NULL);
+  	if (wn != NULL && wm != NULL)
+***************
+*** 7199,7207 ****
+  	vim_free(wn);
+  	vim_free(wm);
+  
+! # if defined(DEBUG) && _MSC_VER >= 1400
+  	_set_fmode(oldMode);
+! # endif
+  	return f;
+      }
+  
+--- 7096,7104 ----
+  	vim_free(wn);
+  	vim_free(wm);
+  
+! #if defined(DEBUG) && _MSC_VER >= 1400
+  	_set_fmode(oldMode);
+! #endif
+  	return f;
+      }
+  
+***************
+*** 7214,7222 ****
+  
+      return fopen(name, mode);
+  }
+- #endif
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * SUB STREAM (aka info stream) handling:
+   *
+--- 7111,7117 ----
+***************
+*** 7360,7366 ****
+      vim_free(fromw);
+      vim_free(tow);
+  }
+- #endif
+  
+  /*
+   * Copy file attributes from file "from" to file "to".
+--- 7255,7260 ----
+***************
+*** 7370,7380 ****
+      int
+  mch_copy_file_attribute(char_u *from, char_u *to)
+  {
+- #ifdef FEAT_MBYTE
+      /* File streams only work on Windows NT and later. */
+      PlatformId();
+      copy_infostreams(from, to);
+- #endif
+      return 0;
+  }
+  
+--- 7264,7272 ----
+***************
+*** 7464,7470 ****
+  #endif
+  
+  
+- #if defined(FEAT_MBYTE) || defined(PROTO)
+  /*
+   * The command line arguments in UCS2
+   */
+--- 7356,7361 ----
+***************
+*** 7691,7697 ****
+  
+      set_alist_count();
+  }
+- #endif
+  
+      int
+  mch_setenv(char *var, char *value, int x)
+--- 7582,7587 ----
+***************
+*** 7704,7710 ****
+  
+      sprintf((char *)envbuf, "%s=%s", var, value);
+  
+- #ifdef FEAT_MBYTE
+      if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+      {
+  	WCHAR	    *p = enc_to_utf16(envbuf, NULL);
+--- 7594,7599 ----
+***************
+*** 7713,7726 ****
+  	if (p == NULL)
+  	    return -1;
+  	_wputenv(p);
+! # ifdef libintl_wputenv
+  	libintl_wputenv(p);
+! # endif
+  	/* Unlike Un*x systems, we can free the string for _wputenv(). */
+  	vim_free(p);
+      }
+      else
+- #endif
+      {
+  	_putenv((char *)envbuf);
+  #ifdef libintl_putenv
+--- 7602,7614 ----
+  	if (p == NULL)
+  	    return -1;
+  	_wputenv(p);
+! #ifdef libintl_wputenv
+  	libintl_wputenv(p);
+! #endif
+  	/* Unlike Un*x systems, we can free the string for _wputenv(). */
+  	vim_free(p);
+      }
+      else
+      {
+  	_putenv((char *)envbuf);
+  #ifdef libintl_putenv
+*** ../vim-8.1.0808/src/quickfix.c	2019-01-19 17:43:03.425449092 +0100
+--- src/quickfix.c	2019-01-24 16:07:06.165522202 +0100
+***************
+*** 804,810 ****
+      else
+  	state->linebuf = IObuff;
+  
+- #ifdef FEAT_MBYTE
+      // Convert a line if it contains a non-ASCII character.
+      if (state->vc.vc_type != CONV_NONE && has_non_ascii(state->linebuf))
+      {
+--- 804,809 ----
+***************
+*** 827,833 ****
+  	    }
+  	}
+      }
+- #endif
+  
+      return QF_OK;
+  }
+--- 826,831 ----
+***************
+*** 872,880 ****
+  #endif
+      }
+  
+- #ifdef FEAT_MBYTE
+      remove_bom(state->linebuf);
+- #endif
+  
+      return QF_OK;
+  }
+--- 870,876 ----
+***************
+*** 1538,1548 ****
+  	linenr_T	lnumfirst,
+  	linenr_T	lnumlast)
+  {
+- #ifdef FEAT_MBYTE
+      pstate->vc.vc_type = CONV_NONE;
+      if (enc != NULL && *enc != NUL)
+  	convert_setup(&pstate->vc, enc, p_enc);
+- #endif
+  
+      if (efile != NULL && (pstate->fd = mch_fopen((char *)efile, "r")) == NULL)
+      {
+--- 1534,1542 ----
+***************
+*** 1576,1585 ****
+  	fclose(pstate->fd);
+  
+      vim_free(pstate->growbuf);
+- #ifdef FEAT_MBYTE
+      if (pstate->vc.vc_type != CONV_NONE)
+  	convert_setup(&pstate->vc, NULL, NULL);
+- #endif
+  }
+  
+  /*
+--- 1570,1577 ----
+***************
+*** 4690,4698 ****
+  	    return;
+  #endif
+      }
+- #ifdef FEAT_MBYTE
+      enc = (*curbuf->b_p_menc != NUL) ? curbuf->b_p_menc : p_menc;
+- #endif
+  
+      if (is_loclist_cmd(eap->cmdidx))
+  	wp = curwin;
+--- 4682,4688 ----
+***************
+*** 5032,5040 ****
+      }
+      if (au_name != NULL)
+  	apply_autocmds(EVENT_QUICKFIXCMDPRE, au_name, NULL, FALSE, curbuf);
+- #ifdef FEAT_MBYTE
+      enc = (*curbuf->b_p_menc != NUL) ? curbuf->b_p_menc : p_menc;
+- #endif
+  #ifdef FEAT_BROWSE
+      if (cmdmod.browse)
+      {
+--- 5022,5028 ----
+***************
+*** 7035,7043 ****
+  hgr_search_file(
+  	qf_info_T *qi,
+  	char_u *fname,
+- #ifdef FEAT_MBYTE
+  	vimconv_T *p_vc,
+- #endif
+  	regmatch_T *p_regmatch)
+  {
+      FILE	*fd;
+--- 7023,7029 ----
+***************
+*** 7051,7057 ****
+      while (!vim_fgets(IObuff, IOSIZE, fd) && !got_int)
+      {
+  	char_u    *line = IObuff;
+! #ifdef FEAT_MBYTE
+  	// Convert a line if 'encoding' is not utf-8 and
+  	// the line contains a non-ASCII character.
+  	if (p_vc->vc_type != CONV_NONE
+--- 7037,7043 ----
+      while (!vim_fgets(IObuff, IOSIZE, fd) && !got_int)
+      {
+  	char_u    *line = IObuff;
+! 
+  	// Convert a line if 'encoding' is not utf-8 and
+  	// the line contains a non-ASCII character.
+  	if (p_vc->vc_type != CONV_NONE
+***************
+*** 7061,7067 ****
+  	    if (line == NULL)
+  		line = IObuff;
+  	}
+- #endif
+  
+  	if (vim_regexec(p_regmatch, line, (colnr_T)0))
+  	{
+--- 7047,7052 ----
+***************
+*** 7089,7105 ****
+  			) == FAIL)
+  	    {
+  		got_int = TRUE;
+- #ifdef FEAT_MBYTE
+  		if (line != IObuff)
+  		    vim_free(line);
+- #endif
+  		break;
+  	    }
+  	}
+- #ifdef FEAT_MBYTE
+  	if (line != IObuff)
+  	    vim_free(line);
+- #endif
+  	++lnum;
+  	line_breakcheck();
+      }
+--- 7074,7086 ----
+***************
+*** 7114,7123 ****
+  hgr_search_files_in_dir(
+  	qf_info_T *qi,
+  	char_u *dirname,
+! 	regmatch_T *p_regmatch
+! #ifdef FEAT_MBYTE
+! 	, vimconv_T *p_vc
+! #endif
+  #ifdef FEAT_MULTI_LANG
+  	, char_u *lang
+  #endif
+--- 7095,7102 ----
+  hgr_search_files_in_dir(
+  	qf_info_T *qi,
+  	char_u *dirname,
+! 	regmatch_T *p_regmatch,
+! 	vimconv_T *p_vc
+  #ifdef FEAT_MULTI_LANG
+  	, char_u *lang
+  #endif
+***************
+*** 7147,7157 ****
+  		continue;
+  #endif
+  
+! 	    hgr_search_file(qi, fnames[fi],
+! #ifdef FEAT_MBYTE
+! 		    p_vc,
+! #endif
+! 		    p_regmatch);
+  	}
+  	FreeWild(fcount, fnames);
+      }
+--- 7126,7132 ----
+  		continue;
+  #endif
+  
+! 	    hgr_search_file(qi, fnames[fi], p_vc, p_regmatch);
+  	}
+  	FreeWild(fcount, fnames);
+      }
+***************
+*** 7168,7174 ****
+  {
+      char_u	*p;
+  
+- #ifdef FEAT_MBYTE
+      vimconv_T	vc;
+  
+      // Help files are in utf-8 or latin1, convert lines when 'encoding'
+--- 7143,7148 ----
+***************
+*** 7176,7182 ****
+      vc.vc_type = CONV_NONE;
+      if (!enc_utf8)
+  	convert_setup(&vc, (char_u *)"utf-8", p_enc);
+- #endif
+  
+      // Go through all the directories in 'runtimepath'
+      p = p_rtp;
+--- 7150,7155 ----
+***************
+*** 7184,7203 ****
+      {
+  	copy_option_part(&p, NameBuff, MAXPATHL, ",");
+  
+! 	hgr_search_files_in_dir(qi, NameBuff, p_regmatch
+! #ifdef FEAT_MBYTE
+! 		, &vc
+! #endif
+  #ifdef FEAT_MULTI_LANG
+  		, lang
+  #endif
+  		);
+      }
+  
+- #ifdef FEAT_MBYTE
+      if (vc.vc_type != CONV_NONE)
+  	convert_setup(&vc, NULL, NULL);
+- #endif
+  }
+  
+  /*
+--- 7157,7171 ----
+      {
+  	copy_option_part(&p, NameBuff, MAXPATHL, ",");
+  
+! 	hgr_search_files_in_dir(qi, NameBuff, p_regmatch, &vc
+  #ifdef FEAT_MULTI_LANG
+  		, lang
+  #endif
+  		);
+      }
+  
+      if (vc.vc_type != CONV_NONE)
+  	convert_setup(&vc, NULL, NULL);
+  }
+  
+  /*
+*** ../vim-8.1.0808/src/regexp.c	2019-01-20 15:30:36.893328693 +0100
+--- src/regexp.c	2019-01-24 16:11:49.839580685 +0100
+***************
+*** 359,367 ****
+  
+  static char_u e_missingbracket[] = N_("E769: Missing ] after %s[");
+  static char_u e_reverse_range[] = N_("E944: Reverse range in character class");
+- #ifdef FEAT_MBYTE
+  static char_u e_large_class[] = N_("E945: Range too large in character class");
+- #endif
+  static char_u e_unmatchedpp[] = N_("E53: Unmatched %s%%(");
+  static char_u e_unmatchedp[] = N_("E54: Unmatched %s(");
+  static char_u e_unmatchedpar[] = N_("E55: Unmatched %s)");
+--- 359,365 ----
+***************
+*** 561,587 ****
+      done = TRUE;
+  }
+  
+! #ifdef FEAT_MBYTE
+! # define ri_digit(c)	(c < 0x100 && (class_tab[c] & RI_DIGIT))
+! # define ri_hex(c)	(c < 0x100 && (class_tab[c] & RI_HEX))
+! # define ri_octal(c)	(c < 0x100 && (class_tab[c] & RI_OCTAL))
+! # define ri_word(c)	(c < 0x100 && (class_tab[c] & RI_WORD))
+! # define ri_head(c)	(c < 0x100 && (class_tab[c] & RI_HEAD))
+! # define ri_alpha(c)	(c < 0x100 && (class_tab[c] & RI_ALPHA))
+! # define ri_lower(c)	(c < 0x100 && (class_tab[c] & RI_LOWER))
+! # define ri_upper(c)	(c < 0x100 && (class_tab[c] & RI_UPPER))
+! # define ri_white(c)	(c < 0x100 && (class_tab[c] & RI_WHITE))
+! #else
+! # define ri_digit(c)	(class_tab[c] & RI_DIGIT)
+! # define ri_hex(c)	(class_tab[c] & RI_HEX)
+! # define ri_octal(c)	(class_tab[c] & RI_OCTAL)
+! # define ri_word(c)	(class_tab[c] & RI_WORD)
+! # define ri_head(c)	(class_tab[c] & RI_HEAD)
+! # define ri_alpha(c)	(class_tab[c] & RI_ALPHA)
+! # define ri_lower(c)	(class_tab[c] & RI_LOWER)
+! # define ri_upper(c)	(class_tab[c] & RI_UPPER)
+! # define ri_white(c)	(class_tab[c] & RI_WHITE)
+! #endif
+  
+  /* flags for regflags */
+  #define RF_ICASE    1	/* ignore case */
+--- 559,573 ----
+      done = TRUE;
+  }
+  
+! #define ri_digit(c)	(c < 0x100 && (class_tab[c] & RI_DIGIT))
+! #define ri_hex(c)	(c < 0x100 && (class_tab[c] & RI_HEX))
+! #define ri_octal(c)	(c < 0x100 && (class_tab[c] & RI_OCTAL))
+! #define ri_word(c)	(c < 0x100 && (class_tab[c] & RI_WORD))
+! #define ri_head(c)	(c < 0x100 && (class_tab[c] & RI_HEAD))
+! #define ri_alpha(c)	(c < 0x100 && (class_tab[c] & RI_ALPHA))
+! #define ri_lower(c)	(c < 0x100 && (class_tab[c] & RI_LOWER))
+! #define ri_upper(c)	(c < 0x100 && (class_tab[c] & RI_UPPER))
+! #define ri_white(c)	(c < 0x100 && (class_tab[c] & RI_WHITE))
+  
+  /* flags for regflags */
+  #define RF_ICASE    1	/* ignore case */
+***************
+*** 698,718 ****
+  static char_u	*regpiece(int *);
+  static char_u	*regatom(int *);
+  static char_u	*regnode(int);
+- #ifdef FEAT_MBYTE
+  static int	use_multibytecode(int c);
+- #endif
+  static int	prog_magic_wrong(void);
+  static char_u	*regnext(char_u *);
+  static void	regc(int b);
+- #ifdef FEAT_MBYTE
+  static void	regmbc(int c);
+! # define REGMBC(x) regmbc(x);
+! # define CASEMBC(x) case x:
+! #else
+! # define regmbc(c) regc(c)
+! # define REGMBC(x)
+! # define CASEMBC(x)
+! #endif
+  static void	reginsert(int, char_u *);
+  static void	reginsert_nr(int op, long val, char_u *opnd);
+  static void	reginsert_limits(int, long, long, char_u *);
+--- 684,696 ----
+  static char_u	*regpiece(int *);
+  static char_u	*regatom(int *);
+  static char_u	*regnode(int);
+  static int	use_multibytecode(int c);
+  static int	prog_magic_wrong(void);
+  static char_u	*regnext(char_u *);
+  static void	regc(int b);
+  static void	regmbc(int c);
+! #define REGMBC(x) regmbc(x);
+! #define CASEMBC(x) case x:
+  static void	reginsert(int, char_u *);
+  static void	reginsert_nr(int op, long val, char_u *opnd);
+  static void	reginsert_limits(int, long, long, char_u *);
+***************
+*** 747,763 ****
+  
+      if (p[1] == '=')
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    l = (*mb_ptr2len)(p + 2);
+- #endif
+  	if (p[l + 2] == '=' && p[l + 3] == ']')
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		c = mb_ptr2char(p + 2);
+  	    else
+- #endif
+  		c = p[2];
+  	    *pp += l + 4;
+  	    return c;
+--- 725,737 ----
+***************
+*** 798,807 ****
+      static void
+  reg_equi_class(int c)
+  {
+- #ifdef FEAT_MBYTE
+      if (enc_utf8 || STRCMP(p_enc, "latin1") == 0
+  					 || STRCMP(p_enc, "iso-8859-15") == 0)
+- #endif
+      {
+  #ifdef EBCDIC
+  	int i;
+--- 772,779 ----
+***************
+*** 1134,1150 ****
+  
+      if (p[0] != NUL && p[1] == '.')
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    l = (*mb_ptr2len)(p + 2);
+- #endif
+  	if (p[l + 2] == '.' && p[l + 3] == ']')
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		c = mb_ptr2char(p + 2);
+  	    else
+- #endif
+  		c = p[2];
+  	    *pp += l + 4;
+  	    return c;
+--- 1106,1118 ----
+***************
+*** 1171,1179 ****
+      static char_u *
+  skip_anyof(char_u *p)
+  {
+- #ifdef FEAT_MBYTE
+      int		l;
+- #endif
+  
+      if (*p == '^')	/* Complement of range. */
+  	++p;
+--- 1139,1145 ----
+***************
+*** 1181,1191 ****
+  	++p;
+      while (*p != NUL && *p != ']')
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
+  	    p += l;
+  	else
+- #endif
+  	    if (*p == '-')
+  	    {
+  		++p;
+--- 1147,1155 ----
+***************
+*** 1395,1405 ****
+  
+  	if (OP(scan) == EXACTLY)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		r->regstart = (*mb_ptr2char)(OPERAND(scan));
+  	    else
+- #endif
+  		r->regstart = *OPERAND(scan);
+  	}
+  	else if ((OP(scan) == BOW
+--- 1359,1367 ----
+***************
+*** 1409,1419 ****
+  		    || OP(scan) == MCLOSE + 0 || OP(scan) == NCLOSE)
+  		 && OP(regnext(scan)) == EXACTLY)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		r->regstart = (*mb_ptr2char)(OPERAND(regnext(scan)));
+  	    else
+- #endif
+  		r->regstart = *OPERAND(regnext(scan));
+  	}
+  
+--- 1371,1379 ----
+***************
+*** 1696,1704 ****
+  			    cont = FALSE;
+  			    break;
+  	    case Magic('Z'):
+- #ifdef FEAT_MBYTE
+  			    regflags |= RF_ICOMBINE;
+- #endif
+  			    skipchr_keepstart();
+  			    break;
+  	    case Magic('c'):
+--- 1656,1662 ----
+***************
+*** 2008,2014 ****
+  	p = vim_strchr(classchars, no_Magic(c));
+  	if (p == NULL)
+  	    EMSG_RET_NULL(_("E63: invalid use of \\_"));
+! #ifdef FEAT_MBYTE
+  	/* When '.' is followed by a composing char ignore the dot, so that
+  	 * the composing char is matched here. */
+  	if (enc_utf8 && c == Magic('.') && utf_iscomposing(peekchr()))
+--- 1966,1972 ----
+  	p = vim_strchr(classchars, no_Magic(c));
+  	if (p == NULL)
+  	    EMSG_RET_NULL(_("E63: invalid use of \\_"));
+! 
+  	/* When '.' is followed by a composing char ignore the dot, so that
+  	 * the composing char is matched here. */
+  	if (enc_utf8 && c == Magic('.') && utf_iscomposing(peekchr()))
+***************
+*** 2016,2022 ****
+  	    c = getchr();
+  	    goto do_multibyte;
+  	}
+- #endif
+  	ret = regnode(classcodes[p - classchars] + extra);
+  	*flagp |= HASWIDTH | SIMPLE;
+  	break;
+--- 1974,1979 ----
+***************
+*** 2268,2287 ****
+  				  EMSG2_RET_NULL(
+  					_("E678: Invalid character after %s%%[dxouU]"),
+  					reg_magic == MAGIC_ALL);
+- #ifdef FEAT_MBYTE
+  			      if (use_multibytecode(i))
+  				  ret = regnode(MULTIBYTECODE);
+  			      else
+- #endif
+  				  ret = regnode(EXACTLY);
+  			      if (i == 0)
+  				  regc(0x0a);
+  			      else
+- #ifdef FEAT_MBYTE
+  				  regmbc(i);
+- #else
+- 				  regc(i);
+- #endif
+  			      regc(NUL);
+  			      *flagp |= HASWIDTH;
+  			      break;
+--- 2225,2238 ----
+***************
+*** 2403,2413 ****
+  				endc = get_coll_element(&regparse);
+  			    if (endc == 0)
+  			    {
+- #ifdef FEAT_MBYTE
+  				if (has_mbyte)
+  				    endc = mb_ptr2char_adv(&regparse);
+  				else
+- #endif
+  				    endc = *regparse++;
+  			    }
+  
+--- 2354,2362 ----
+***************
+*** 2417,2423 ****
+  
+  			    if (startc > endc)
+  				EMSG_RET_NULL(_(e_reverse_range));
+- #ifdef FEAT_MBYTE
+  			    if (has_mbyte && ((*mb_char2len)(startc) > 1
+  						 || (*mb_char2len)(endc) > 1))
+  			    {
+--- 2366,2371 ----
+***************
+*** 2428,2434 ****
+  				    regmbc(startc);
+  			    }
+  			    else
+- #endif
+  			    {
+  #ifdef EBCDIC
+  				int	alpha_only = FALSE;
+--- 2376,2381 ----
+***************
+*** 2488,2498 ****
+  			    if (startc == 0)
+  				regc(0x0a);
+  			    else
+- #ifdef FEAT_MBYTE
+  				regmbc(startc);
+- #else
+- 				regc(startc);
+- #endif
+  			}
+  			else
+  			{
+--- 2435,2441 ----
+***************
+*** 2606,2612 ****
+  		    }
+  		    else
+  		    {
+- #ifdef FEAT_MBYTE
+  			if (has_mbyte)
+  			{
+  			    int	len;
+--- 2549,2554 ----
+***************
+*** 2621,2627 ****
+  				regc(*regparse++);
+  			}
+  			else
+- #endif
+  			{
+  			    startc = *regparse++;
+  			    regc(startc);
+--- 2563,2568 ----
+***************
+*** 2645,2651 ****
+  	{
+  	    int		len;
+  
+- #ifdef FEAT_MBYTE
+  	    /* A multi-byte character is handled as a separate atom if it's
+  	     * before a multi and when it's a composing char. */
+  	    if (use_multibytecode(c))
+--- 2586,2591 ----
+***************
+*** 2656,2662 ****
+  		*flagp |= HASWIDTH | SIMPLE;
+  		break;
+  	    }
+- #endif
+  
+  	    ret = regnode(EXACTLY);
+  
+--- 2596,2601 ----
+***************
+*** 2675,2681 ****
+  			    && !is_Magic(c))); ++len)
+  	    {
+  		c = no_Magic(c);
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    regmbc(c);
+--- 2614,2619 ----
+***************
+*** 2695,2701 ****
+  		    }
+  		}
+  		else
+- #endif
+  		    regc(c);
+  		c = getchr();
+  	    }
+--- 2633,2638 ----
+***************
+*** 2712,2718 ****
+      return ret;
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Return TRUE if MULTIBYTECODE should be used instead of EXACTLY for
+   * character "c".
+--- 2649,2654 ----
+***************
+*** 2724,2730 ****
+  		     && (re_multi_type(peekchr()) != NOT_MULTI
+  			     || (enc_utf8 && utf_iscomposing(c)));
+  }
+- #endif
+  
+  /*
+   * Emit a node.
+--- 2660,2665 ----
+***************
+*** 2759,2765 ****
+  	*regcode++ = b;
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Emit (if appropriate) a multi-byte character of code
+   */
+--- 2694,2699 ----
+***************
+*** 2773,2779 ****
+      else
+  	regcode += (*mb_char2bytes)(c, regcode);
+  }
+- #endif
+  
+  /*
+   * Insert an operator in front of already-emitted operand
+--- 2707,2712 ----
+***************
+*** 3139,3159 ****
+  		     * Next character can never be (made) magic?
+  		     * Then backslashing it won't do anything.
+  		     */
+- #ifdef FEAT_MBYTE
+  		    if (has_mbyte)
+  			curchr = (*mb_ptr2char)(regparse + 1);
+  		    else
+- #endif
+  			curchr = c;
+  		}
+  		break;
+  	    }
+  
+- #ifdef FEAT_MBYTE
+  	default:
+  	    if (has_mbyte)
+  		curchr = (*mb_ptr2char)(regparse);
+- #endif
+  	}
+      }
+  
+--- 3072,3088 ----
+***************
+*** 3173,3186 ****
+  	prevchr_len = 0;
+      if (regparse[prevchr_len] != NUL)
+      {
+- #ifdef FEAT_MBYTE
+  	if (enc_utf8)
+  	    /* exclude composing chars that mb_ptr2len does include */
+  	    prevchr_len += utf_ptr2len(regparse + prevchr_len);
+  	else if (has_mbyte)
+  	    prevchr_len += (*mb_ptr2len)(regparse + prevchr_len);
+  	else
+- #endif
+  	    ++prevchr_len;
+      }
+      regparse += prevchr_len;
+--- 3102,3113 ----
+***************
+*** 3538,3548 ****
+       * contains '\c' or '\C' the value is overruled. */
+      int			reg_ic;
+  
+- #ifdef FEAT_MBYTE
+      /* Similar to "reg_ic", but only for 'combining' characters.  Set with \Z
+       * flag in the regexp.  Defaults to false, always. */
+      int			reg_icombine;
+- #endif
+  
+      /* Copy of "rmm_maxcol": maximum column to search for a match.  Zero when
+       * there is no maximum. */
+--- 3465,3473 ----
+***************
+*** 3714,3722 ****
+      rex.reg_buf = curbuf;
+      rex.reg_win = NULL;
+      rex.reg_ic = rmp->rm_ic;
+- #ifdef FEAT_MBYTE
+      rex.reg_icombine = FALSE;
+- #endif
+      rex.reg_maxcol = 0;
+  
+      return bt_regexec_both(line, col, NULL, NULL);
+--- 3639,3645 ----
+***************
+*** 3748,3756 ****
+      rex.reg_maxline = rex.reg_buf->b_ml.ml_line_count - lnum;
+      rex.reg_line_lbr = FALSE;
+      rex.reg_ic = rmp->rmm_ic;
+- #ifdef FEAT_MBYTE
+      rex.reg_icombine = FALSE;
+- #endif
+      rex.reg_maxcol = rmp->rmm_maxcol;
+  
+      return bt_regexec_both(NULL, col, tm, timed_out);
+--- 3671,3677 ----
+***************
+*** 3827,3848 ****
+      else if (prog->regflags & RF_NOICASE)
+  	rex.reg_ic = FALSE;
+  
+- #ifdef FEAT_MBYTE
+      /* If pattern contains "\Z" overrule value of rex.reg_icombine */
+      if (prog->regflags & RF_ICOMBINE)
+  	rex.reg_icombine = TRUE;
+- #endif
+  
+      /* If there is a "must appear" string, look for it. */
+      if (prog->regmust != NULL)
+      {
+  	int c;
+  
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    c = (*mb_ptr2char)(prog->regmust);
+  	else
+- #endif
+  	    c = *prog->regmust;
+  	s = line + col;
+  
+--- 3748,3765 ----
+***************
+*** 3850,3867 ****
+  	 * This is used very often, esp. for ":global".  Use three versions of
+  	 * the loop to avoid overhead of conditions.
+  	 */
+! 	if (!rex.reg_ic
+! #ifdef FEAT_MBYTE
+! 		&& !has_mbyte
+! #endif
+! 		)
+  	    while ((s = vim_strbyte(s, c)) != NULL)
+  	    {
+  		if (cstrncmp(s, prog->regmust, &prog->regmlen) == 0)
+  		    break;		/* Found it. */
+  		++s;
+  	    }
+- #ifdef FEAT_MBYTE
+  	else if (!rex.reg_ic || (!enc_utf8 && mb_char2len(c) > 1))
+  	    while ((s = vim_strchr(s, c)) != NULL)
+  	    {
+--- 3767,3779 ----
+  	 * This is used very often, esp. for ":global".  Use three versions of
+  	 * the loop to avoid overhead of conditions.
+  	 */
+! 	if (!rex.reg_ic && !has_mbyte)
+  	    while ((s = vim_strbyte(s, c)) != NULL)
+  	    {
+  		if (cstrncmp(s, prog->regmust, &prog->regmlen) == 0)
+  		    break;		/* Found it. */
+  		++s;
+  	    }
+  	else if (!rex.reg_ic || (!enc_utf8 && mb_char2len(c) > 1))
+  	    while ((s = vim_strchr(s, c)) != NULL)
+  	    {
+***************
+*** 3869,3875 ****
+  		    break;		/* Found it. */
+  		MB_PTR_ADV(s);
+  	    }
+- #endif
+  	else
+  	    while ((s = cstrchr(s, c)) != NULL)
+  	    {
+--- 3781,3786 ----
+***************
+*** 3890,3908 ****
+      {
+  	int	c;
+  
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	    c = (*mb_ptr2char)(rex.line + col);
+  	else
+- #endif
+  	    c = rex.line[col];
+  	if (prog->regstart == NUL
+  		|| prog->regstart == c
+! 		|| (rex.reg_ic && ((
+! #ifdef FEAT_MBYTE
+! 			(enc_utf8 && utf_fold(prog->regstart) == utf_fold(c)))
+  			|| (c < 255 && prog->regstart < 255 &&
+- #endif
+  			    MB_TOLOWER(prog->regstart) == MB_TOLOWER(c)))))
+  	    retval = regtry(prog, col, tm, timed_out);
+  	else
+--- 3801,3815 ----
+      {
+  	int	c;
+  
+  	if (has_mbyte)
+  	    c = (*mb_ptr2char)(rex.line + col);
+  	else
+  	    c = rex.line[col];
+  	if (prog->regstart == NUL
+  		|| prog->regstart == c
+! 		|| (rex.reg_ic
+! 		    && (((enc_utf8 && utf_fold(prog->regstart) == utf_fold(c)))
+  			|| (c < 255 && prog->regstart < 255 &&
+  			    MB_TOLOWER(prog->regstart) == MB_TOLOWER(c)))))
+  	    retval = regtry(prog, col, tm, timed_out);
+  	else
+***************
+*** 3920,3930 ****
+  	    {
+  		/* Skip until the char we know it must start with.
+  		 * Used often, do some work to avoid call overhead. */
+! 		if (!rex.reg_ic
+! #ifdef FEAT_MBYTE
+! 			    && !has_mbyte
+! #endif
+! 			    )
+  		    s = vim_strbyte(rex.line + col, prog->regstart);
+  		else
+  		    s = cstrchr(rex.line + col, prog->regstart);
+--- 3827,3833 ----
+  	    {
+  		/* Skip until the char we know it must start with.
+  		 * Used often, do some work to avoid call overhead. */
+! 		if (!rex.reg_ic && !has_mbyte)
+  		    s = vim_strbyte(rex.line + col, prog->regstart);
+  		else
+  		    s = cstrchr(rex.line + col, prog->regstart);
+***************
+*** 3955,3965 ****
+  	    }
+  	    if (rex.line[col] == NUL)
+  		break;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		col += (*mb_ptr2len)(rex.line + col);
+  	    else
+- #endif
+  		++col;
+  #ifdef FEAT_RELTIME
+  	    /* Check for timeout once in a twenty times to avoid overhead. */
+--- 3858,3866 ----
+***************
+*** 4116,4122 ****
+      return 1 + rex.lnum;
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Get class of previous character.
+   */
+--- 4017,4022 ----
+***************
+*** 4125,4134 ****
+  {
+      if (rex.input > rex.line)
+  	return mb_get_class_buf(rex.input - 1
+! 			 - (*mb_head_off)(rex.line, rex.input - 1), rex.reg_buf);
+      return -1;
+  }
+- #endif
+  
+  /*
+   * Return TRUE if the current rex.input position matches the Visual area.
+--- 4025,4033 ----
+  {
+      if (rex.input > rex.line)
+  	return mb_get_class_buf(rex.input - 1
+! 		       - (*mb_head_off)(rex.line, rex.input - 1), rex.reg_buf);
+      return -1;
+  }
+  
+  /*
+   * Return TRUE if the current rex.input position matches the Visual area.
+***************
+*** 4339,4349 ****
+  	{
+  	  if (WITH_NL(op))
+  	      op -= ADD_NL;
+- #ifdef FEAT_MBYTE
+  	  if (has_mbyte)
+  	      c = (*mb_ptr2char)(rex.input);
+  	  else
+- #endif
+  	      c = *rex.input;
+  	  switch (op)
+  	  {
+--- 4238,4246 ----
+***************
+*** 4431,4437 ****
+  	  case BOW:	/* \<word; rex.input points to w */
+  	    if (c == NUL)	/* Can't match at end of line */
+  		status = RA_NOMATCH;
+- #ifdef FEAT_MBYTE
+  	    else if (has_mbyte)
+  	    {
+  		int this_class;
+--- 4328,4333 ----
+***************
+*** 4443,4449 ****
+  		else if (reg_prev_class() == this_class)
+  		    status = RA_NOMATCH;  /* previous char is in same word */
+  	    }
+- #endif
+  	    else
+  	    {
+  		if (!vim_iswordc_buf(c, rex.reg_buf) || (rex.input > rex.line
+--- 4339,4344 ----
+***************
+*** 4455,4461 ****
+  	  case EOW:	/* word\>; rex.input points after d */
+  	    if (rex.input == rex.line)    /* Can't match at start of line */
+  		status = RA_NOMATCH;
+- #ifdef FEAT_MBYTE
+  	    else if (has_mbyte)
+  	    {
+  		int this_class, prev_class;
+--- 4350,4355 ----
+***************
+*** 4467,4473 ****
+  			|| prev_class == 0 || prev_class == 1)
+  		    status = RA_NOMATCH;
+  	    }
+- #endif
+  	    else
+  	    {
+  		if (!vim_iswordc_buf(rex.input[-1], rex.reg_buf)
+--- 4361,4366 ----
+***************
+*** 4676,4686 ****
+  		opnd = OPERAND(scan);
+  		/* Inline the first byte, for speed. */
+  		if (*opnd != *rex.input
+! 			&& (!rex.reg_ic || (
+! #ifdef FEAT_MBYTE
+! 			    !enc_utf8 &&
+! #endif
+! 			    MB_TOLOWER(*opnd) != MB_TOLOWER(*rex.input))))
+  		    status = RA_NOMATCH;
+  		else if (*opnd == NUL)
+  		{
+--- 4569,4577 ----
+  		opnd = OPERAND(scan);
+  		/* Inline the first byte, for speed. */
+  		if (*opnd != *rex.input
+! 			&& (!rex.reg_ic
+! 			    || (!enc_utf8
+! 			      && MB_TOLOWER(*opnd) != MB_TOLOWER(*rex.input))))
+  		    status = RA_NOMATCH;
+  		else if (*opnd == NUL)
+  		{
+***************
+*** 4689,4699 ****
+  		}
+  		else
+  		{
+! 		    if (opnd[1] == NUL
+! #ifdef FEAT_MBYTE
+! 			    && !(enc_utf8 && rex.reg_ic)
+! #endif
+! 			)
+  		    {
+  			len = 1;	/* matched a single byte above */
+  		    }
+--- 4580,4586 ----
+  		}
+  		else
+  		{
+! 		    if (opnd[1] == NUL && !(enc_utf8 && rex.reg_ic))
+  		    {
+  			len = 1;	/* matched a single byte above */
+  		    }
+***************
+*** 4704,4710 ****
+  			if (cstrncmp(opnd, rex.input, &len) != 0)
+  			    status = RA_NOMATCH;
+  		    }
+- #ifdef FEAT_MBYTE
+  		    /* Check for following composing character, unless %C
+  		     * follows (skips over all composing chars). */
+  		    if (status != RA_NOMATCH
+--- 4591,4596 ----
+***************
+*** 4718,4724 ****
+  			 * for voweled Hebrew texts. */
+  			status = RA_NOMATCH;
+  		    }
+- #endif
+  		    if (status != RA_NOMATCH)
+  			rex.input += len;
+  		}
+--- 4604,4609 ----
+***************
+*** 4735,4741 ****
+  		ADVANCE_REGINPUT();
+  	    break;
+  
+- #ifdef FEAT_MBYTE
+  	  case MULTIBYTECODE:
+  	    if (has_mbyte)
+  	    {
+--- 4620,4625 ----
+***************
+*** 4788,4803 ****
+  	    else
+  		status = RA_NOMATCH;
+  	    break;
+- #endif
+  	  case RE_COMPOSING:
+- #ifdef FEAT_MBYTE
+  	    if (enc_utf8)
+  	    {
+  		/* Skip composing characters. */
+  		while (utf_iscomposing(utf_ptr2char(rex.input)))
+  		    MB_CPTR_ADV(rex.input);
+  	    }
+- #endif
+  	    break;
+  
+  	  case NOTHING:
+--- 4672,4684 ----
+***************
+*** 5561,5567 ****
+  		    }
+  		    else
+  		    {
+- #ifdef FEAT_MBYTE
+  			if (has_mbyte)
+  			{
+  			    char_u *line =
+--- 5442,5447 ----
+***************
+*** 5572,5578 ****
+  				    + rp->rs_un.regsave.rs_u.pos.col - 1) + 1;
+  			}
+  			else
+- #endif
+  			    --rp->rs_un.regsave.rs_u.pos.col;
+  		    }
+  		}
+--- 5452,5457 ----
+***************
+*** 5952,5960 ****
+  do_class:
+  	while (count < maxcount)
+  	{
+- #ifdef FEAT_MBYTE
+  	    int		l;
+! #endif
+  	    if (*scan == NUL)
+  	    {
+  		if (!REG_MULTI || !WITH_NL(OP(p)) || rex.lnum > rex.reg_maxline
+--- 5831,5838 ----
+  do_class:
+  	while (count < maxcount)
+  	{
+  	    int		l;
+! 
+  	    if (*scan == NUL)
+  	    {
+  		if (!REG_MULTI || !WITH_NL(OP(p)) || rex.lnum > rex.reg_maxline
+***************
+*** 5965,5978 ****
+  		if (got_int)
+  		    break;
+  	    }
+- #ifdef FEAT_MBYTE
+  	    else if (has_mbyte && (l = (*mb_ptr2len)(scan)) > 1)
+  	    {
+  		if (testval != 0)
+  		    break;
+  		scan += l;
+  	    }
+- #endif
+  	    else if ((class_tab[*scan] & mask) == testval)
+  		++scan;
+  	    else if (rex.reg_line_lbr && *scan == '\n' && WITH_NL(OP(p)))
+--- 5843,5854 ----
+***************
+*** 6081,6087 ****
+  	    break;
+  	}
+  
+- #ifdef FEAT_MBYTE
+        case MULTIBYTECODE:
+  	{
+  	    int		i, len, cf = 0;
+--- 5957,5962 ----
+***************
+*** 6106,6112 ****
+  	    }
+  	}
+  	break;
+- #endif
+  
+        case ANYOF:
+        case ANYOF + ADD_NL:
+--- 5981,5986 ----
+***************
+*** 6117,6125 ****
+        case ANYBUT + ADD_NL:
+  	while (count < maxcount)
+  	{
+- #ifdef FEAT_MBYTE
+  	    int len;
+! #endif
+  	    if (*scan == NUL)
+  	    {
+  		if (!REG_MULTI || !WITH_NL(OP(p)) || rex.lnum > rex.reg_maxline
+--- 5991,5998 ----
+        case ANYBUT + ADD_NL:
+  	while (count < maxcount)
+  	{
+  	    int len;
+! 
+  	    if (*scan == NUL)
+  	    {
+  		if (!REG_MULTI || !WITH_NL(OP(p)) || rex.lnum > rex.reg_maxline
+***************
+*** 6132,6145 ****
+  	    }
+  	    else if (rex.reg_line_lbr && *scan == '\n' && WITH_NL(OP(p)))
+  		++scan;
+- #ifdef FEAT_MBYTE
+  	    else if (has_mbyte && (len = (*mb_ptr2len)(scan)) > 1)
+  	    {
+  		if ((cstrchr(opnd, (*mb_ptr2char)(scan)) == NULL) == testval)
+  		    break;
+  		scan += len;
+  	    }
+- #endif
+  	    else
+  	    {
+  		if ((cstrchr(opnd, *scan) == NULL) == testval)
+--- 6005,6016 ----
+***************
+*** 6955,6965 ****
+  	sprintf(buf + STRLEN(buf), "BRACE_COMPLEX%d", OP(op) - BRACE_COMPLEX);
+  	p = NULL;
+  	break;
+- #ifdef FEAT_MBYTE
+        case MULTIBYTECODE:
+  	p = "MULTIBYTECODE";
+  	break;
+- #endif
+        case NEWL:
+  	p = "NEWL";
+  	break;
+--- 6826,6834 ----
+***************
+*** 6989,6995 ****
+      return OK;
+  }
+  
+- #ifdef FEAT_MBYTE
+  typedef struct
+  {
+      int a, b, c;
+--- 6858,6863 ----
+***************
+*** 7067,7073 ****
+  	*c2 = *c3 = 0;
+      }
+  }
+- #endif
+  
+  /*
+   * Compare two strings, ignore case if rex.reg_ic set.
+--- 6935,6940 ----
+***************
+*** 7084,7090 ****
+      else
+  	result = MB_STRNICMP(s1, s2, *n);
+  
+- #ifdef FEAT_MBYTE
+      /* if it failed and it's utf8 and we want to combineignore: */
+      if (result != 0 && enc_utf8 && rex.reg_icombine)
+      {
+--- 6951,6956 ----
+***************
+*** 7121,7127 ****
+  	if (result == 0)
+  	    *n = (int)(str2 - s2);
+      }
+- #endif
+  
+      return result;
+  }
+--- 6987,6992 ----
+***************
+*** 7135,7155 ****
+      char_u	*p;
+      int		cc;
+  
+!     if (!rex.reg_ic
+! #ifdef FEAT_MBYTE
+! 	    || (!enc_utf8 && mb_char2len(c) > 1)
+! #endif
+! 	    )
+  	return vim_strchr(s, c);
+  
+      /* tolower() and toupper() can be slow, comparing twice should be a lot
+       * faster (esp. when using MS Visual C++!).
+       * For UTF-8 need to use folded case. */
+- #ifdef FEAT_MBYTE
+      if (enc_utf8 && c > 0x80)
+  	cc = utf_fold(c);
+      else
+- #endif
+  	 if (MB_ISUPPER(c))
+  	cc = MB_TOLOWER(c);
+      else if (MB_ISLOWER(c))
+--- 7000,7014 ----
+      char_u	*p;
+      int		cc;
+  
+!     if (!rex.reg_ic || (!enc_utf8 && mb_char2len(c) > 1))
+  	return vim_strchr(s, c);
+  
+      /* tolower() and toupper() can be slow, comparing twice should be a lot
+       * faster (esp. when using MS Visual C++!).
+       * For UTF-8 need to use folded case. */
+      if (enc_utf8 && c > 0x80)
+  	cc = utf_fold(c);
+      else
+  	 if (MB_ISUPPER(c))
+  	cc = MB_TOLOWER(c);
+      else if (MB_ISLOWER(c))
+***************
+*** 7157,7163 ****
+      else
+  	return vim_strchr(s, c);
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	for (p = s; *p != NUL; p += (*mb_ptr2len)(p))
+--- 7016,7021 ----
+***************
+*** 7172,7178 ****
+  	}
+      }
+      else
+- #endif
+  	/* Faster version for when there are no multi-byte characters. */
+  	for (p = s; *p != NUL; ++p)
+  	    if (*p == c || *p == cc)
+--- 7030,7035 ----
+***************
+*** 7285,7294 ****
+  	{
+  	    if (*p == '\\' && p[1])		/* skip escaped characters */
+  		++p;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		p += (*mb_ptr2len)(p) - 1;
+- #endif
+  	}
+      }
+  
+--- 7142,7149 ----
+***************
+*** 7682,7691 ****
+  				c = *src++;
+  		}
+  	    }
+- #ifdef FEAT_MBYTE
+  	    else if (has_mbyte)
+  		c = mb_ptr2char(src - 1);
+- #endif
+  
+  	    /* Write to buffer, if copy is set. */
+  	    if (func_one != (fptr_T)NULL)
+--- 7537,7544 ----
+***************
+*** 7697,7703 ****
+  	    else /* just copy */
+  		cc = c;
+  
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		int totlen = mb_ptr2len(src - 1);
+--- 7550,7555 ----
+***************
+*** 7721,7729 ****
+  		}
+  		src += totlen - 1;
+  	    }
+! 	    else
+! #endif
+! 		if (copy)
+  		    *dst = cc;
+  	    dst++;
+  	}
+--- 7573,7579 ----
+  		}
+  		src += totlen - 1;
+  	    }
+! 	    else if (copy)
+  		    *dst = cc;
+  	    dst++;
+  	}
+***************
+*** 7799,7809 ****
+  			}
+  			else
+  			{
+- #ifdef FEAT_MBYTE
+  			    if (has_mbyte)
+  				c = mb_ptr2char(s);
+  			    else
+- #endif
+  				c = *s;
+  
+  			    if (func_one != (fptr_T)NULL)
+--- 7649,7657 ----
+***************
+*** 7815,7821 ****
+  			    else /* just copy */
+  				cc = c;
+  
+- #ifdef FEAT_MBYTE
+  			    if (has_mbyte)
+  			    {
+  				int l;
+--- 7663,7668 ----
+***************
+*** 7833,7841 ****
+  				    mb_char2bytes(cc, dst);
+  				dst += mb_char2len(cc) - 1;
+  			    }
+! 			    else
+! #endif
+! 				if (copy)
+  				    *dst = cc;
+  			    dst++;
+  			}
+--- 7680,7686 ----
+  				    mb_char2bytes(cc, dst);
+  				dst += mb_char2len(cc) - 1;
+  			    }
+! 			    else if (copy)
+  				    *dst = cc;
+  			    dst++;
+  			}
+*** ../vim-8.1.0808/src/regexp_nfa.c	2019-01-15 20:19:36.747904404 +0100
+--- src/regexp_nfa.c	2019-01-24 16:14:10.790618054 +0100
+***************
+*** 487,497 ****
+  	s = ret;
+  	while (p->c > 0)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		s += (*mb_char2bytes)(p->c, s);
+  	    else
+- #endif
+  		*s++ = p->c;
+  	    p = p->out;
+  	}
+--- 487,495 ----
+***************
+*** 687,702 ****
+  nfa_emit_equi_class(int c)
+  {
+  #define EMIT2(c)    EMIT(c); EMIT(NFA_CONCAT);
+! #ifdef FEAT_MBYTE
+! # define EMITMBC(c) EMIT(c); EMIT(NFA_CONCAT);
+! #else
+! # define EMITMBC(c)
+! #endif
+  
+- #ifdef FEAT_MBYTE
+      if (enc_utf8 || STRCMP(p_enc, "latin1") == 0
+  					 || STRCMP(p_enc, "iso-8859-15") == 0)
+- #endif
+      {
+  #ifdef EBCDIC
+  # define A_circumflex 0x62
+--- 685,694 ----
+  nfa_emit_equi_class(int c)
+  {
+  #define EMIT2(c)    EMIT(c); EMIT(NFA_CONCAT);
+! #define EMITMBC(c) EMIT(c); EMIT(NFA_CONCAT);
+  
+      if (enc_utf8 || STRCMP(p_enc, "latin1") == 0
+  					 || STRCMP(p_enc, "iso-8859-15") == 0)
+      {
+  #ifdef EBCDIC
+  # define A_circumflex 0x62
+***************
+*** 1203,1211 ****
+      int		got_coll_char;
+      char_u	*p;
+      char_u	*endp;
+- #ifdef FEAT_MBYTE
+      char_u	*old_regparse = regparse;
+- #endif
+      int		extra = 0;
+      int		emit_range;
+      int		negated;
+--- 1195,1201 ----
+***************
+*** 1310,1316 ****
+  		siemsg("INTERNAL: Unknown character class char: %d", c);
+  		return FAIL;
+  	    }
+! #ifdef FEAT_MBYTE
+  	    /* When '.' is followed by a composing char ignore the dot, so that
+  	     * the composing char is matched here. */
+  	    if (enc_utf8 && c == Magic('.') && utf_iscomposing(peekchr()))
+--- 1300,1306 ----
+  		siemsg("INTERNAL: Unknown character class char: %d", c);
+  		return FAIL;
+  	    }
+! 
+  	    /* When '.' is followed by a composing char ignore the dot, so that
+  	     * the composing char is matched here. */
+  	    if (enc_utf8 && c == Magic('.') && utf_iscomposing(peekchr()))
+***************
+*** 1319,1325 ****
+  		c = getchr();
+  		goto nfa_do_multibyte;
+  	    }
+- #endif
+  	    EMIT(nfa_classcodes[p - classchars]);
+  	    if (extra == NFA_ADD_NL)
+  	    {
+--- 1309,1314 ----
+***************
+*** 1827,1835 ****
+  			    EMIT(NFA_RANGE);
+  			    EMIT(NFA_CONCAT);
+  			}
+! 			else
+! #ifdef FEAT_MBYTE
+! 			     if (has_mbyte && ((*mb_char2len)(startc) > 1
+  				    || (*mb_char2len)(endc) > 1))
+  			{
+  			    /* Emit the characters in the range.
+--- 1816,1822 ----
+  			    EMIT(NFA_RANGE);
+  			    EMIT(NFA_CONCAT);
+  			}
+! 			else if (has_mbyte && ((*mb_char2len)(startc) > 1
+  				    || (*mb_char2len)(endc) > 1))
+  			{
+  			    /* Emit the characters in the range.
+***************
+*** 1842,1848 ****
+  			    }
+  			}
+  			else
+- #endif
+  			{
+  #ifdef EBCDIC
+  			    int alpha_only = FALSE;
+--- 1829,1834 ----
+***************
+*** 1929,1935 ****
+  
+  	default:
+  	    {
+- #ifdef FEAT_MBYTE
+  		int	plen;
+  
+  nfa_do_multibyte:
+--- 1915,1920 ----
+***************
+*** 1961,1967 ****
+  		    regparse = old_regparse + plen;
+  		}
+  		else
+- #endif
+  		{
+  		    c = no_Magic(c);
+  		    EMIT(c);
+--- 1946,1951 ----
+***************
+*** 2211,2219 ****
+  		break;
+  
+  	    case Magic('Z'):
+- #ifdef FEAT_MBYTE
+  		regflags |= RF_ICOMBINE;
+- #endif
+  		skipchr_keepstart();
+  		break;
+  	    case Magic('c'):
+--- 2195,2201 ----
+***************
+*** 2996,3008 ****
+  	    case NFA_START_COLL:
+  	    case NFA_START_NEG_COLL:
+  		/* matches some character, including composing chars */
+- #ifdef FEAT_MBYTE
+  		if (enc_utf8)
+  		    len += MB_MAXBYTES;
+  		else if (has_mbyte)
+  		    len += 2;
+  		else
+- #endif
+  		    ++len;
+  		if (state->c != NFA_ANY)
+  		{
+--- 2978,2988 ----
+***************
+*** 3048,3058 ****
+  	    case NFA_NUPPER_IC:
+  	    case NFA_ANY_COMPOSING:
+  		/* possibly non-ascii */
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    len += 3;
+  		else
+- #endif
+  		    ++len;
+  		break;
+  
+--- 3028,3036 ----
+***************
+*** 3501,3507 ****
+  	    break;
+  	  }
+  
+- #ifdef FEAT_MBYTE
+  	case NFA_COMPOSING:	/* char with composing char */
+  #if 0
+  	    /* TODO */
+--- 3479,3484 ----
+***************
+*** 3511,3517 ****
+  	    }
+  #endif
+  	    /* FALLTHROUGH */
+- #endif
+  
+  	case NFA_MOPEN:	/* \( \) Submatch */
+  	case NFA_MOPEN1:
+--- 3488,3493 ----
+***************
+*** 3558,3566 ****
+  		case NFA_ZOPEN8: mclose = NFA_ZCLOSE8; break;
+  		case NFA_ZOPEN9: mclose = NFA_ZCLOSE9; break;
+  #endif
+- #ifdef FEAT_MBYTE
+  		case NFA_COMPOSING: mclose = NFA_END_COMPOSING; break;
+- #endif
+  		default:
+  		    /* NFA_MOPEN, NFA_MOPEN1 .. NFA_MOPEN9 */
+  		    mclose = *p + NSUBEXP;
+--- 3534,3540 ----
+***************
+*** 3596,3606 ****
+  		goto theend;
+  	    patch(e.out, s1);
+  
+- #ifdef FEAT_MBYTE
+  	    if (mopen == NFA_COMPOSING)
+  		/* COMPOSING->out1 = END_COMPOSING */
+  		patch(list1(&s->out1), s1);
+- #endif
+  
+  	    PUSH(frag(s, list1(&s1->out)));
+  	    break;
+--- 3570,3578 ----
+***************
+*** 5119,5128 ****
+  	    if ((int)(rex.input - rex.line) >= state->val)
+  	    {
+  		rex.input -= state->val;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    rex.input -= mb_head_off(rex.line, rex.input);
+- #endif
+  	    }
+  	    else
+  		rex.input = rex.line;
+--- 5091,5098 ----
+***************
+*** 5381,5391 ****
+      char_u *s;
+  
+      /* Used often, do some work to avoid call overhead. */
+!     if (!rex.reg_ic
+! #ifdef FEAT_MBYTE
+! 		&& !has_mbyte
+! #endif
+! 		)
+  	s = vim_strbyte(rex.line + *colp, c);
+      else
+  	s = cstrchr(rex.line + *colp, c);
+--- 5351,5357 ----
+      char_u *s;
+  
+      /* Used often, do some work to avoid call overhead. */
+!     if (!rex.reg_ic && !has_mbyte)
+  	s = vim_strbyte(rex.line + *colp, c);
+      else
+  	s = cstrchr(rex.line + *colp, c);
+***************
+*** 5424,5435 ****
+  	    len2 += MB_CHAR2LEN(c2);
+  	}
+  	if (match
+- #ifdef FEAT_MBYTE
+  		/* check that no composing char follows */
+  		&& !(enc_utf8
+! 			   && utf_iscomposing(PTR2CHAR(rex.line + col + len2)))
+! #endif
+! 		)
+  	{
+  	    cleanup_subexpr();
+  	    if (REG_MULTI)
+--- 5390,5398 ----
+  	    len2 += MB_CHAR2LEN(c2);
+  	}
+  	if (match
+  		/* check that no composing char follows */
+  		&& !(enc_utf8
+! 			  && utf_iscomposing(PTR2CHAR(rex.line + col + len2))))
+  	{
+  	    cleanup_subexpr();
+  	    if (REG_MULTI)
+***************
+*** 5596,5609 ****
+  	int	curc;
+  	int	clen;
+  
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    curc = (*mb_ptr2char)(rex.input);
+  	    clen = (*mb_ptr2len)(rex.input);
+  	}
+  	else
+- #endif
+  	{
+  	    curc = *rex.input;
+  	    clen = 1;
+--- 5559,5570 ----
+***************
+*** 5708,5719 ****
+  	    {
+  	    case NFA_MATCH:
+  	      {
+- #ifdef FEAT_MBYTE
+  		/* If the match ends before a composing characters and
+  		 * rex.reg_icombine is not set, that is not really a match. */
+  		if (enc_utf8 && !rex.reg_icombine && utf_iscomposing(curc))
+  		    break;
+! #endif
+  		nfa_match = TRUE;
+  		copy_sub(&submatch->norm, &t->subs.norm);
+  #ifdef FEAT_SYN_HL
+--- 5669,5679 ----
+  	    {
+  	    case NFA_MATCH:
+  	      {
+  		/* If the match ends before a composing characters and
+  		 * rex.reg_icombine is not set, that is not really a match. */
+  		if (enc_utf8 && !rex.reg_icombine && utf_iscomposing(curc))
+  		    break;
+! 
+  		nfa_match = TRUE;
+  		copy_sub(&submatch->norm, &t->subs.norm);
+  #ifdef FEAT_SYN_HL
+***************
+*** 6024,6030 ****
+  
+  		if (curc == NUL)
+  		    result = FALSE;
+- #ifdef FEAT_MBYTE
+  		else if (has_mbyte)
+  		{
+  		    int this_class;
+--- 5984,5989 ----
+***************
+*** 6036,6042 ****
+  		    else if (reg_prev_class() == this_class)
+  			result = FALSE;
+  		}
+- #endif
+  		else if (!vim_iswordc_buf(curc, rex.reg_buf)
+  			   || (rex.input > rex.line
+  				&& vim_iswordc_buf(rex.input[-1], rex.reg_buf)))
+--- 5995,6000 ----
+***************
+*** 6052,6058 ****
+  		result = TRUE;
+  		if (rex.input == rex.line)
+  		    result = FALSE;
+- #ifdef FEAT_MBYTE
+  		else if (has_mbyte)
+  		{
+  		    int this_class, prev_class;
+--- 6010,6015 ----
+***************
+*** 6064,6070 ****
+  					|| prev_class == 0 || prev_class == 1)
+  			result = FALSE;
+  		}
+- #endif
+  		else if (!vim_iswordc_buf(rex.input[-1], rex.reg_buf)
+  			|| (rex.input[0] != NUL
+  					&& vim_iswordc_buf(curc, rex.reg_buf)))
+--- 6021,6026 ----
+***************
+*** 6093,6099 ****
+  		}
+  		break;
+  
+- #ifdef FEAT_MBYTE
+  	    case NFA_COMPOSING:
+  	    {
+  		int	    mc = curc;
+--- 6049,6054 ----
+***************
+*** 6169,6175 ****
+  		ADD_STATE_IF_MATCH(end);
+  		break;
+  	    }
+- #endif
+  
+  	    case NFA_NEWL:
+  		if (curc == NUL && !rex.reg_line_lbr && REG_MULTI
+--- 6124,6129 ----
+***************
+*** 6274,6286 ****
+  	    case NFA_ANY_COMPOSING:
+  		/* On a composing character skip over it.  Otherwise do
+  		 * nothing.  Always matches. */
+- #ifdef FEAT_MBYTE
+  		if (enc_utf8 && utf_iscomposing(curc))
+  		{
+  		    add_off = clen;
+  		}
+  		else
+- #endif
+  		{
+  		    add_here = TRUE;
+  		    add_off = 0;
+--- 6228,6238 ----
+***************
+*** 6562,6571 ****
+  		    /* Bail out quickly when there can't be a match, avoid the
+  		     * overhead of win_linetabsize() on long lines. */
+  		    if (op != 1 && col > t->state->val
+! #ifdef FEAT_MBYTE
+! 			    * (has_mbyte ? MB_MAXBYTES : 1)
+! #endif
+! 			    )
+  			break;
+  		    result = FALSE;
+  		    if (op == 1 && col - 1 > t->state->val && col > 100)
+--- 6514,6520 ----
+  		    /* Bail out quickly when there can't be a match, avoid the
+  		     * overhead of win_linetabsize() on long lines. */
+  		    if (op != 1 && col > t->state->val
+! 			    * (has_mbyte ? MB_MAXBYTES : 1))
+  			break;
+  		    result = FALSE;
+  		    if (op == 1 && col - 1 > t->state->val && col > 100)
+***************
+*** 6676,6687 ****
+  
+  		if (!result && rex.reg_ic)
+  		    result = MB_TOLOWER(c) == MB_TOLOWER(curc);
+- #ifdef FEAT_MBYTE
+  		/* If rex.reg_icombine is not set only skip over the character
+  		 * itself.  When it is set skip over composing characters. */
+  		if (result && enc_utf8 && !rex.reg_icombine)
+  		    clen = utf_ptr2len(rex.input);
+- #endif
+  		ADD_STATE_IF_MATCH(t->state);
+  		break;
+  	      }
+--- 6625,6634 ----
+***************
+*** 7104,7114 ****
+      else if (prog->regflags & RF_NOICASE)
+  	rex.reg_ic = FALSE;
+  
+- #ifdef FEAT_MBYTE
+      /* If pattern contains "\Z" overrule value of rex.reg_icombine */
+      if (prog->regflags & RF_ICOMBINE)
+  	rex.reg_icombine = TRUE;
+- #endif
+  
+      rex.line = line;
+      rex.lnum = 0;    /* relative to line */
+--- 7051,7059 ----
+***************
+*** 7149,7159 ****
+  
+  	/* If match_text is set it contains the full text that must match.
+  	 * Nothing else to try. Doesn't handle combining chars well. */
+! 	if (prog->match_text != NULL
+! #ifdef FEAT_MBYTE
+! 		    && !rex.reg_icombine
+! #endif
+! 		)
+  	    return find_match_text(col, prog->regstart, prog->match_text);
+      }
+  
+--- 7094,7100 ----
+  
+  	/* If match_text is set it contains the full text that must match.
+  	 * Nothing else to try. Doesn't handle combining chars well. */
+! 	if (prog->match_text != NULL && !rex.reg_icombine)
+  	    return find_match_text(col, prog->regstart, prog->match_text);
+      }
+  
+***************
+*** 7334,7342 ****
+      rex.reg_buf = curbuf;
+      rex.reg_win = NULL;
+      rex.reg_ic = rmp->rm_ic;
+- #ifdef FEAT_MBYTE
+      rex.reg_icombine = FALSE;
+- #endif
+      rex.reg_maxcol = 0;
+      return nfa_regexec_both(line, col, NULL, NULL);
+  }
+--- 7275,7281 ----
+***************
+*** 7385,7393 ****
+      rex.reg_maxline = rex.reg_buf->b_ml.ml_line_count - lnum;
+      rex.reg_line_lbr = FALSE;
+      rex.reg_ic = rmp->rmm_ic;
+- #ifdef FEAT_MBYTE
+      rex.reg_icombine = FALSE;
+- #endif
+      rex.reg_maxcol = rmp->rmm_maxcol;
+  
+      return nfa_regexec_both(NULL, col, tm, timed_out);
+--- 7324,7330 ----
+*** ../vim-8.1.0808/src/screen.c	2019-01-20 15:30:36.893328693 +0100
+--- src/screen.c	2019-01-24 16:22:53.839166984 +0100
+***************
+*** 144,152 ****
+  static int next_search_hl_pos(match_T *shl, linenr_T lnum, posmatch_T *pos, colnr_T mincol);
+  #endif
+  static void screen_char(unsigned off, int row, int col);
+- #ifdef FEAT_MBYTE
+  static void screen_char_2(unsigned off, int row, int col);
+- #endif
+  static void screenclear2(void);
+  static void lineclear(unsigned off, int width, int attr);
+  static void lineinvalid(unsigned off, int width);
+--- 144,150 ----
+***************
+*** 314,325 ****
+      int		ret = 0;
+      schar_T	*screenline;	/* copy from ScreenLines[] */
+      sattr_T	*screenattr;	/* copy from ScreenAttrs[] */
+- #ifdef FEAT_MBYTE
+      int		i;
+      u8char_T	*screenlineUC = NULL;	/* copy from ScreenLinesUC[] */
+      u8char_T	*screenlineC[MAX_MCO];	/* copy from ScreenLinesC[][] */
+      schar_T	*screenline2 = NULL;	/* copy from ScreenLines2[] */
+- #endif
+  
+      redraw_later(type);
+      if (msg_scrolled || (State != NORMAL && State != NORMAL_BUSY) || exiting)
+--- 312,321 ----
+***************
+*** 333,339 ****
+  			   (long_u)(rows * cols * sizeof(sattr_T)), FALSE);
+      if (screenline == NULL || screenattr == NULL)
+  	ret = 2;
+- #ifdef FEAT_MBYTE
+      if (enc_utf8)
+      {
+  	screenlineUC = (u8char_T *)lalloc(
+--- 329,334 ----
+***************
+*** 355,361 ****
+  	if (screenline2 == NULL)
+  	    ret = 2;
+      }
+- #endif
+  
+      if (ret != 2)
+      {
+--- 350,355 ----
+***************
+*** 368,374 ****
+  	    mch_memmove(screenattr + r * cols,
+  			ScreenAttrs + LineOffset[cmdline_row + r],
+  			(size_t)cols * sizeof(sattr_T));
+- #ifdef FEAT_MBYTE
+  	    if (enc_utf8)
+  	    {
+  		mch_memmove(screenlineUC + r * cols,
+--- 362,367 ----
+***************
+*** 383,389 ****
+  		mch_memmove(screenline2 + r * cols,
+  			    ScreenLines2 + LineOffset[cmdline_row + r],
+  			    (size_t)cols * sizeof(schar_T));
+- #endif
+  	}
+  
+  	update_screen(0);
+--- 376,381 ----
+***************
+*** 402,408 ****
+  		mch_memmove(ScreenAttrs + off,
+  			    screenattr + r * cols,
+  			    (size_t)cols * sizeof(sattr_T));
+- #ifdef FEAT_MBYTE
+  		if (enc_utf8)
+  		{
+  		    mch_memmove(ScreenLinesUC + off,
+--- 394,399 ----
+***************
+*** 417,423 ****
+  		    mch_memmove(ScreenLines2 + off,
+  				screenline2 + r * cols,
+  				(size_t)cols * sizeof(schar_T));
+- #endif
+  		screen_line(cmdline_row + r, 0, cols, cols, FALSE);
+  	    }
+  	    ret = 4;
+--- 408,413 ----
+***************
+*** 426,432 ****
+  
+      vim_free(screenline);
+      vim_free(screenattr);
+- #ifdef FEAT_MBYTE
+      if (enc_utf8)
+      {
+  	vim_free(screenlineUC);
+--- 416,421 ----
+***************
+*** 435,441 ****
+      }
+      if (enc_dbcs == DBCS_JPNU)
+  	vim_free(screenline2);
+- #endif
+  
+      /* Show the intro message when appropriate. */
+      maybe_intro_message();
+--- 424,429 ----
+***************
+*** 830,838 ****
+  	     * uses that. */
+  	    gui.col = gui_cursor_col;
+  	    gui.row = gui_cursor_row;
+- # ifdef FEAT_MBYTE
+  	    gui.col = mb_fix_col(gui.col, gui.row);
+- # endif
+  	    gui_update_cursor(FALSE, FALSE);
+  	    gui_may_flush();
+  	    screen_cur_col = gui.col;
+--- 818,824 ----
+***************
+*** 2154,2160 ****
+  	int i;
+  
+  	for (i = 0; i < Rows; ++i)
+- # ifdef FEAT_MBYTE
+  	    if (enc_utf8)
+  		if ((*mb_off2cells)(LineOffset[i] + Columns - 2,
+  					   LineOffset[i] + screen_Columns) > 1)
+--- 2140,2145 ----
+***************
+*** 2162,2168 ****
+  		else
+  		    screen_draw_rectangle(i, Columns - 1, 1, 1, FALSE);
+  	    else
+- # endif
+  		screen_char(LineOffset[i] + Columns - 1, i, Columns - 1);
+      }
+  #endif
+--- 2147,2152 ----
+***************
+*** 2454,2460 ****
+  {
+      int		off = (int)(current_ScreenLine - ScreenLines);
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+      {
+  	int	cells;
+--- 2438,2443 ----
+***************
+*** 2560,2566 ****
+  	}
+      }
+      else
+- #endif
+      {
+  	int len = (int)STRLEN(text);
+  
+--- 2543,2548 ----
+***************
+*** 2639,2648 ****
+      {
+  	ScreenLines[off] = cmdwin_type;
+  	ScreenAttrs[off] = HL_ATTR(HLF_AT);
+- #ifdef FEAT_MBYTE
+  	if (enc_utf8)
+  	    ScreenLinesUC[off] = 0;
+- #endif
+  	++col;
+      }
+  #endif
+--- 2621,2628 ----
+***************
+*** 2785,2791 ****
+  #endif
+  	    )
+      {
+- #ifdef FEAT_MBYTE
+  	if (enc_utf8)
+  	{
+  	    if (fill_fold >= 0x80)
+--- 2765,2770 ----
+***************
+*** 2802,2808 ****
+  	    col++;
+  	}
+  	else
+- #endif
+  	    ScreenLines[off + col++] = fill_fold;
+      }
+  
+--- 2781,2786 ----
+***************
+*** 2929,2938 ****
+      int		i;
+  
+      mch_memmove(ScreenLines + off, buf, (size_t)len);
+- # ifdef FEAT_MBYTE
+      if (enc_utf8)
+  	vim_memset(ScreenLinesUC + off, 0, sizeof(u8char_T) * (size_t)len);
+- # endif
+      for (i = 0; i < len; ++i)
+  	ScreenAttrs[off + i] = attr;
+  }
+--- 2907,2914 ----
+***************
+*** 3126,3138 ****
+      int		cur_checked_col = 0;	/* checked column for current line */
+  #endif
+      int		extra_check = 0;	// has extra highlighting
+- #ifdef FEAT_MBYTE
+      int		multi_attr = 0;		/* attributes desired by multibyte */
+      int		mb_l = 1;		/* multi-byte byte length */
+      int		mb_c = 0;		/* decoded multi-byte character */
+      int		mb_utf8 = FALSE;	/* screen char is UTF-8 char */
+      int		u8cc[MAX_MCO];		/* composing UTF-8 chars */
+- #endif
+  #ifdef FEAT_DIFF
+      int		filler_lines;		/* nr of filler lines to be drawn */
+      int		filler_todo;		/* nr of filler lines still to do + 1 */
+--- 3102,3112 ----
+***************
+*** 3555,3570 ****
+  	v = wp->w_leftcol;
+      if (v > 0 && !number_only)
+      {
+- #ifdef FEAT_MBYTE
+  	char_u	*prev_ptr = ptr;
+! #endif
+  	while (vcol < v && *ptr != NUL)
+  	{
+  	    c = win_lbr_chartabsize(wp, line, ptr, (colnr_T)vcol, NULL);
+  	    vcol += c;
+- #ifdef FEAT_MBYTE
+  	    prev_ptr = ptr;
+- #endif
+  	    MB_PTR_ADV(ptr);
+  	}
+  
+--- 3529,3541 ----
+  	v = wp->w_leftcol;
+      if (v > 0 && !number_only)
+      {
+  	char_u	*prev_ptr = ptr;
+! 
+  	while (vcol < v && *ptr != NUL)
+  	{
+  	    c = win_lbr_chartabsize(wp, line, ptr, (colnr_T)vcol, NULL);
+  	    vcol += c;
+  	    prev_ptr = ptr;
+  	    MB_PTR_ADV(ptr);
+  	}
+  
+***************
+*** 3592,3609 ****
+  	if (vcol > v)
+  	{
+  	    vcol -= c;
+- #ifdef FEAT_MBYTE
+  	    ptr = prev_ptr;
+- #else
+- 	    --ptr;
+- #endif
+  	    /* If the character fits on the screen, don't need to skip it.
+  	     * Except for a TAB. */
+! 	    if ((
+! #ifdef FEAT_MBYTE
+! 			(*mb_ptr2cells)(ptr) >= c ||
+! #endif
+! 		       *ptr == TAB) && col == 0)
+  	       n_skip = v - vcol;
+  	}
+  
+--- 3563,3572 ----
+  	if (vcol > v)
+  	{
+  	    vcol -= c;
+  	    ptr = prev_ptr;
+  	    /* If the character fits on the screen, don't need to skip it.
+  	     * Except for a TAB. */
+! 	    if (( (*mb_ptr2cells)(ptr) >= c || *ptr == TAB) && col == 0)
+  	       n_skip = v - vcol;
+  	}
+  
+***************
+*** 3734,3744 ****
+  	    /* Highlight one character for an empty match. */
+  	    if (shl->startcol == shl->endcol)
+  	    {
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte && line[shl->endcol] != NUL)
+  		    shl->endcol += (*mb_ptr2len)(line + shl->endcol);
+  		else
+- #endif
+  		    ++shl->endcol;
+  	    }
+  	    if ((long)shl->startcol < v)  /* match at leftcol */
+--- 3697,3705 ----
+***************
+*** 4133,4142 ****
+  	{
+  	    /* handle Visual or match highlighting in this line */
+  	    if (vcol == fromcol
+- #ifdef FEAT_MBYTE
+  		    || (has_mbyte && vcol + 1 == fromcol && n_extra == 0
+  			&& (*mb_ptr2cells)(ptr) > 1)
+- #endif
+  		    || ((int)vcol_prev == fromcol_prev
+  			&& vcol_prev < vcol	/* not at margin */
+  			&& vcol < tocol))
+--- 4094,4101 ----
+***************
+*** 4182,4193 ****
+  				&& v >= (long)shl->startcol
+  				&& v < (long)shl->endcol)
+  			{
+- #ifdef FEAT_MBYTE
+  			    int tmp_col = v + MB_PTR2LEN(ptr);
+  
+  			    if (shl->endcol < tmp_col)
+  				shl->endcol = tmp_col;
+- #endif
+  			    shl->attr_cur = shl->attr;
+  #ifdef FEAT_CONCEAL
+  			    if (cur != NULL && syn_name2id((char_u *)"Conceal")
+--- 4141,4150 ----
+***************
+*** 4226,4237 ****
+  				{
+  				    /* highlight empty match, try again after
+  				     * it */
+- #ifdef FEAT_MBYTE
+  				    if (has_mbyte)
+  					shl->endcol += (*mb_ptr2len)(line
+  							       + shl->endcol);
+  				    else
+- #endif
+  					++shl->endcol;
+  				}
+  
+--- 4183,4192 ----
+***************
+*** 4402,4408 ****
+  	    if (c_extra != NUL || (n_extra == 1 && c_final != NUL))
+  	    {
+  		c = (n_extra == 1 && c_final != NUL) ? c_final : c_extra;
+- #ifdef FEAT_MBYTE
+  		mb_c = c;	/* doesn't handle non-utf-8 multi-byte! */
+  		if (enc_utf8 && utf_char2len(c) > 1)
+  		{
+--- 4357,4362 ----
+***************
+*** 4412,4423 ****
+  		}
+  		else
+  		    mb_utf8 = FALSE;
+- #endif
+  	    }
+  	    else
+  	    {
+  		c = *p_extra;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		{
+  		    mb_c = c;
+--- 4366,4375 ----
+***************
+*** 4473,4479 ****
+  			p_extra += mb_l - 1;
+  		    }
+  		}
+- #endif
+  		++p_extra;
+  	    }
+  	    --n_extra;
+--- 4425,4430 ----
+***************
+*** 4493,4499 ****
+  #ifdef FEAT_LINEBREAK
+  	    c0 = *ptr;
+  #endif
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  	    {
+  		mb_c = c;
+--- 4444,4449 ----
+***************
+*** 4511,4519 ****
+  			if (mb_c < 0x80)
+  			{
+  			    c = mb_c;
+! # ifdef FEAT_LINEBREAK
+  			    c0 = mb_c;
+! # endif
+  			}
+  			mb_utf8 = TRUE;
+  
+--- 4461,4469 ----
+  			if (mb_c < 0x80)
+  			{
+  			    c = mb_c;
+! #ifdef FEAT_LINEBREAK
+  			    c0 = mb_c;
+! #endif
+  			}
+  			mb_utf8 = TRUE;
+  
+***************
+*** 4690,4696 ****
+  		}
+  
+  	    }
+- #endif
+  	    ++ptr;
+  
+  	    if (extra_check)
+--- 4640,4645 ----
+***************
+*** 4783,4796 ****
+  			char_u	*prev_ptr, *p;
+  			int	len;
+  			hlf_T	spell_hlf = HLF_COUNT;
+- # ifdef FEAT_MBYTE
+  			if (has_mbyte)
+  			{
+  			    prev_ptr = ptr - mb_l;
+  			    v -= mb_l - 1;
+  			}
+  			else
+- # endif
+  			    prev_ptr = ptr - 1;
+  
+  			/* Use nextline[] if possible, it has the start of the
+--- 4732,4743 ----
+***************
+*** 4862,4875 ****
+  		if (wp->w_p_lbr && c0 == c
+  				  && VIM_ISBREAK(c) && !VIM_ISBREAK((int)*ptr))
+  		{
+- # ifdef FEAT_MBYTE
+  		    int mb_off = has_mbyte ? (*mb_head_off)(line, ptr - 1) : 0;
+! # endif
+! 		    char_u *p = ptr - (
+! # ifdef FEAT_MBYTE
+! 				mb_off +
+! # endif
+! 				1);
+  
+  		    /* TODO: is passing p for start of the line OK? */
+  		    n_extra = win_lbr_chartabsize(wp, line, p, (colnr_T)vcol,
+--- 4809,4816 ----
+  		if (wp->w_p_lbr && c0 == c
+  				  && VIM_ISBREAK(c) && !VIM_ISBREAK((int)*ptr))
+  		{
+  		    int mb_off = has_mbyte ? (*mb_head_off)(line, ptr - 1) : 0;
+! 		    char_u *p = ptr - (mb_off + 1);
+  
+  		    /* TODO: is passing p for start of the line OK? */
+  		    n_extra = win_lbr_chartabsize(wp, line, p, (colnr_T)vcol,
+***************
+*** 4883,4893 ****
+  				       - vcol % (int)wp->w_buffer->b_p_ts - 1;
+  # endif
+  
+- # ifdef FEAT_MBYTE
+  		    c_extra = mb_off > 0 ? MB_FILLER_CHAR : ' ';
+- # else
+- 		    c_extra = ' ';
+- # endif
+  		    c_final = NUL;
+  		    if (VIM_ISWHITE(c))
+  		    {
+--- 4824,4830 ----
+***************
+*** 4906,4915 ****
+  		 */
+  		if (wp->w_p_list
+  			&& (((c == 160
+! #ifdef FEAT_MBYTE
+! 			      || (mb_utf8 && (mb_c == 160 || mb_c == 0x202f))
+! #endif
+! 			     ) && lcs_nbsp)
+  			|| (c == ' ' && lcs_space && ptr - line <= trailcol)))
+  		{
+  		    c = (c == ' ') ? lcs_space : lcs_nbsp;
+--- 4843,4850 ----
+  		 */
+  		if (wp->w_p_list
+  			&& (((c == 160
+! 			      || (mb_utf8 && (mb_c == 160 || mb_c == 0x202f)))
+! 				&& lcs_nbsp)
+  			|| (c == ' ' && lcs_space && ptr - line <= trailcol)))
+  		{
+  		    c = (c == ' ') ? lcs_space : lcs_nbsp;
+***************
+*** 4919,4925 ****
+  			extra_attr = HL_ATTR(HLF_8);
+  			saved_attr2 = char_attr; /* save current attr */
+  		    }
+- #ifdef FEAT_MBYTE
+  		    mb_c = c;
+  		    if (enc_utf8 && utf_char2len(c) > 1)
+  		    {
+--- 4854,4859 ----
+***************
+*** 4929,4935 ****
+  		    }
+  		    else
+  			mb_utf8 = FALSE;
+- #endif
+  		}
+  
+  		if (trailcol != MAXCOL && ptr > line + trailcol && c == ' ')
+--- 4863,4868 ----
+***************
+*** 4941,4947 ****
+  			extra_attr = HL_ATTR(HLF_8);
+  			saved_attr2 = char_attr; /* save current attr */
+  		    }
+- #ifdef FEAT_MBYTE
+  		    mb_c = c;
+  		    if (enc_utf8 && utf_char2len(c) > 1)
+  		    {
+--- 4874,4879 ----
+***************
+*** 4951,4957 ****
+  		    }
+  		    else
+  			mb_utf8 = FALSE;
+- #endif
+  		}
+  	    }
+  
+--- 4883,4888 ----
+***************
+*** 5012,5022 ****
+  			/* if n_extra > 0, it gives the number of chars, to
+  			 * use for a tab, else we need to calculate the width
+  			 * for a tab */
+- #ifdef FEAT_MBYTE
+  			len = (tab_len * mb_char2len(lcs_tab2));
+  			if (n_extra > 0)
+  			    len += n_extra - tab_len;
+- #endif
+  			c = lcs_tab1;
+  			p = alloc((unsigned)(len + 1));
+  			vim_memset(p, ' ', len);
+--- 4943,4951 ----
+***************
+*** 5030,5043 ****
+  				tab_len = i;
+  				break;
+  			    }
+- #ifdef FEAT_MBYTE
+  			    mb_char2bytes(lcs_tab2, p);
+  			    p += mb_char2len(lcs_tab2);
+  			    n_extra += mb_char2len(lcs_tab2)
+  						 - (saved_nextra > 0 ? 1 : 0);
+- #else
+- 			    p[i] = lcs_tab2;
+- #endif
+  			}
+  			p_extra = p_extra_free;
+  #ifdef FEAT_CONCEAL
+--- 4959,4968 ----
+***************
+*** 5068,5076 ****
+  			    tab_len += vc_saved;
+  		    }
+  #endif
+- #ifdef FEAT_MBYTE
+  		    mb_utf8 = FALSE;	/* don't draw as UTF-8 */
+- #endif
+  		    if (wp->w_p_list)
+  		    {
+  			c = (n_extra == 0 && lcs_tab3) ? lcs_tab3 : lcs_tab1;
+--- 4993,4999 ----
+***************
+*** 5084,5090 ****
+  			n_attr = tab_len + 1;
+  			extra_attr = HL_ATTR(HLF_8);
+  			saved_attr2 = char_attr; /* save current attr */
+- #ifdef FEAT_MBYTE
+  			mb_c = c;
+  			if (enc_utf8 && utf_char2len(c) > 1)
+  			{
+--- 5007,5012 ----
+***************
+*** 5092,5098 ****
+  			    u8cc[0] = 0;
+  			    c = 0xc0;
+  			}
+- #endif
+  		    }
+  		    else
+  		    {
+--- 5014,5019 ----
+***************
+*** 5160,5166 ****
+  			extra_attr = HL_ATTR(HLF_AT);
+  			n_attr = 1;
+  		    }
+- #ifdef FEAT_MBYTE
+  		    mb_c = c;
+  		    if (enc_utf8 && utf_char2len(c) > 1)
+  		    {
+--- 5081,5086 ----
+***************
+*** 5170,5176 ****
+  		    }
+  		    else
+  			mb_utf8 = FALSE;	/* don't draw as UTF-8 */
+- #endif
+  		}
+  		else if (c != NUL)
+  		{
+--- 5090,5095 ----
+***************
+*** 5208,5216 ****
+  			extra_attr = HL_ATTR(HLF_8);
+  			saved_attr2 = char_attr; /* save current attr */
+  		    }
+- #ifdef FEAT_MBYTE
+  		    mb_utf8 = FALSE;	/* don't draw as UTF-8 */
+- #endif
+  		}
+  #ifdef FEAT_VIRTUALEDIT
+  		else if (VIsual_active
+--- 5127,5133 ----
+***************
+*** 5339,5345 ****
+  		    is_concealing = TRUE;
+  		    n_skip = 1;
+  		}
+- # ifdef FEAT_MBYTE
+  		mb_c = c;
+  		if (enc_utf8 && utf_char2len(c) > 1)
+  		{
+--- 5256,5261 ----
+***************
+*** 5349,5355 ****
+  		}
+  		else
+  		    mb_utf8 = FALSE;	/* don't draw as UTF-8 */
+- # endif
+  	    }
+  	    else
+  	    {
+--- 5265,5270 ----
+***************
+*** 5438,5444 ****
+  	{
+  	    c = lcs_prec;
+  	    lcs_prec_todo = NUL;
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte && (*mb_char2cells)(mb_c) > 1)
+  	    {
+  		/* Double-width character being overwritten by the "precedes"
+--- 5353,5358 ----
+***************
+*** 5458,5464 ****
+  	    }
+  	    else
+  		mb_utf8 = FALSE;	/* don't draw as UTF-8 */
+- #endif
+  	    if (!attr_pri)
+  	    {
+  		saved_attr3 = char_attr; /* save current attr */
+--- 5372,5377 ----
+***************
+*** 5554,5563 ****
+  		{
+  		    /* Add a blank character to highlight. */
+  		    ScreenLines[off] = ' ';
+- #ifdef FEAT_MBYTE
+  		    if (enc_utf8)
+  			ScreenLinesUC[off] = 0;
+- #endif
+  		}
+  #ifdef FEAT_SEARCH_EXTRA
+  		if (area_attr == 0)
+--- 5467,5474 ----
+***************
+*** 5657,5666 ****
+  		while (col < wp->w_width)
+  		{
+  		    ScreenLines[off] = ' ';
+- #ifdef FEAT_MBYTE
+  		    if (enc_utf8)
+  			ScreenLinesUC[off] = 0;
+- #endif
+  		    ++col;
+  		    if (draw_color_col)
+  			draw_color_col = advance_color_col(VCOL_HLC,
+--- 5568,5575 ----
+***************
+*** 5719,5725 ****
+  	{
+  	    c = lcs_ext;
+  	    char_attr = HL_ATTR(HLF_AT);
+- #ifdef FEAT_MBYTE
+  	    mb_c = c;
+  	    if (enc_utf8 && utf_char2len(c) > 1)
+  	    {
+--- 5628,5633 ----
+***************
+*** 5729,5735 ****
+  	    }
+  	    else
+  		mb_utf8 = FALSE;
+- #endif
+  	}
+  
+  #ifdef FEAT_SYN_HL
+--- 5637,5642 ----
+***************
+*** 5769,5775 ****
+  	    /*
+  	     * Store the character.
+  	     */
+! #if defined(FEAT_RIGHTLEFT) && defined(FEAT_MBYTE)
+  	    if (has_mbyte && wp->w_p_rl && (*mb_char2cells)(mb_c) > 1)
+  	    {
+  		/* A double-wide character is: put first halve in left cell. */
+--- 5676,5682 ----
+  	    /*
+  	     * Store the character.
+  	     */
+! #if defined(FEAT_RIGHTLEFT)
+  	    if (has_mbyte && wp->w_p_rl && (*mb_char2cells)(mb_c) > 1)
+  	    {
+  		/* A double-wide character is: put first halve in left cell. */
+***************
+*** 5778,5784 ****
+  	    }
+  #endif
+  	    ScreenLines[off] = c;
+- #ifdef FEAT_MBYTE
+  	    if (enc_dbcs == DBCS_JPNU)
+  	    {
+  		if ((mb_c & 0xff00) == 0x8e00)
+--- 5685,5690 ----
+***************
+*** 5810,5819 ****
+  		multi_attr = 0;
+  	    }
+  	    else
+- #endif
+  		ScreenAttrs[off] = char_attr;
+  
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte && (*mb_char2cells)(mb_c) > 1)
+  	    {
+  		/* Need to fill two screen columns. */
+--- 5716,5723 ----
+***************
+*** 5844,5850 ****
+  		}
+  #endif
+  	    }
+- #endif
+  #ifdef FEAT_RIGHTLEFT
+  	    if (wp->w_p_rl)
+  	    {
+--- 5748,5753 ----
+***************
+*** 5900,5923 ****
+  		}
+  
+  
+- # ifdef FEAT_MBYTE
+  		if (has_mbyte && (*mb_char2cells)(mb_c) > 1)
+  		{
+  		    /* Need to fill two screen columns. */
+! #  ifdef FEAT_RIGHTLEFT
+  		    if (wp->w_p_rl)
+  		    {
+  			--boguscols;
+  			--col;
+  		    }
+  		    else
+! #  endif
+  		    {
+  			++boguscols;
+  			++col;
+  		    }
+  		}
+- # endif
+  
+  # ifdef FEAT_RIGHTLEFT
+  		if (wp->w_p_rl)
+--- 5803,5824 ----
+  		}
+  
+  
+  		if (has_mbyte && (*mb_char2cells)(mb_c) > 1)
+  		{
+  		    /* Need to fill two screen columns. */
+! # ifdef FEAT_RIGHTLEFT
+  		    if (wp->w_p_rl)
+  		    {
+  			--boguscols;
+  			--col;
+  		    }
+  		    else
+! # endif
+  		    {
+  			++boguscols;
+  			++col;
+  		    }
+  		}
+  
+  # ifdef FEAT_RIGHTLEFT
+  		if (wp->w_p_rl)
+***************
+*** 6050,6056 ****
+  #ifdef FEAT_GUI
+  			 && !gui.in_use
+  #endif
+- #ifdef FEAT_MBYTE
+  			 && !(has_mbyte
+  			     && ((*mb_off2cells)(LineOffset[screen_row],
+  				     LineOffset[screen_row] + screen_Columns)
+--- 5951,5956 ----
+***************
+*** 6058,6066 ****
+  				 || (*mb_off2cells)(LineOffset[screen_row - 1]
+  							+ (int)Columns - 2,
+  				     LineOffset[screen_row] + screen_Columns)
+! 									== 2))
+! #endif
+! 		   )
+  		{
+  		    /* First make sure we are at the end of the screen line,
+  		     * then output the same character again to let the
+--- 5958,5964 ----
+  				 || (*mb_off2cells)(LineOffset[screen_row - 1]
+  							+ (int)Columns - 2,
+  				     LineOffset[screen_row] + screen_Columns)
+! 									== 2)))
+  		{
+  		    /* First make sure we are at the end of the screen line,
+  		     * then output the same character again to let the
+***************
+*** 6071,6084 ****
+  						      + (unsigned)Columns - 1,
+  					  screen_row - 1, (int)(Columns - 1));
+  
+- #ifdef FEAT_MBYTE
+  		    /* When there is a multi-byte character, just output a
+  		     * space to keep it simple. */
+  		    if (has_mbyte && MB_BYTE2LEN(ScreenLines[LineOffset[
+  					screen_row - 1] + (Columns - 1)]) > 1)
+  			out_char(' ');
+  		    else
+- #endif
+  			out_char(ScreenLines[LineOffset[screen_row - 1]
+  							    + (Columns - 1)]);
+  		    /* force a redraw of the first char on the next line */
+--- 5969,5980 ----
+***************
+*** 6140,6146 ****
+      return row;
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Return if the composing characters at "off_from" and "off_to" differ.
+   * Only to be used when ScreenLinesUC[off_from] != 0.
+--- 6036,6041 ----
+***************
+*** 6159,6165 ****
+      }
+      return FALSE;
+  }
+- #endif
+  
+  /*
+   * Check whether the given character needs redrawing:
+--- 6054,6059 ----
+***************
+*** 6174,6181 ****
+      if (cols > 0
+  	    && ((ScreenLines[off_from] != ScreenLines[off_to]
+  		    || ScreenAttrs[off_from] != ScreenAttrs[off_to])
+- 
+- #ifdef FEAT_MBYTE
+  		|| (enc_dbcs != 0
+  		    && MB_BYTE2LEN(ScreenLines[off_from]) > 1
+  		    && (enc_dbcs == DBCS_JPNU && ScreenLines[off_from] == 0x8e
+--- 6068,6073 ----
+***************
+*** 6188,6196 ****
+  			    && comp_char_differs(off_from, off_to))
+  			|| ((*mb_off2cells)(off_from, off_from + cols) > 1
+  			    && ScreenLines[off_from + 1]
+! 						  != ScreenLines[off_to + 1])))
+! #endif
+! 	       ))
+  	return TRUE;
+      return FALSE;
+  }
+--- 6080,6086 ----
+  			    && comp_char_differs(off_from, off_to))
+  			|| ((*mb_off2cells)(off_from, off_from + cols) > 1
+  			    && ScreenLines[off_from + 1]
+! 						!= ScreenLines[off_to + 1])))))
+  	return TRUE;
+      return FALSE;
+  }
+***************
+*** 6227,6236 ****
+  {
+      unsigned	    off_from;
+      unsigned	    off_to;
+- #ifdef FEAT_MBYTE
+      unsigned	    max_off_from;
+      unsigned	    max_off_to;
+- #endif
+      int		    col = 0;
+      int		    hl;
+      int		    force = FALSE;	/* force update rest of the line */
+--- 6117,6124 ----
+***************
+*** 6240,6253 ****
+  #endif
+  				;
+      int		    redraw_next;	/* redraw_this for next character */
+- #ifdef FEAT_MBYTE
+      int		    clear_next = FALSE;
+      int		    char_cells;		/* 1: normal char */
+  					/* 2: occupies two display cells */
+  # define CHAR_CELLS char_cells
+- #else
+- # define CHAR_CELLS 1
+- #endif
+  
+      /* Check for illegal row and col, just in case. */
+      if (row >= Rows)
+--- 6128,6137 ----
+***************
+*** 6261,6270 ****
+  
+      off_from = (unsigned)(current_ScreenLine - ScreenLines);
+      off_to = LineOffset[row] + coloff;
+- #ifdef FEAT_MBYTE
+      max_off_from = off_from + screen_Columns;
+      max_off_to = LineOffset[row] + screen_Columns;
+- #endif
+  
+  #ifdef FEAT_RIGHTLEFT
+      if (rlflag)
+--- 6145,6152 ----
+***************
+*** 6274,6283 ****
+  	{
+  	    while (col <= endcol && ScreenLines[off_to] == ' '
+  		    && ScreenAttrs[off_to] == 0
+! # ifdef FEAT_MBYTE
+! 				  && (!enc_utf8 || ScreenLinesUC[off_to] == 0)
+! # endif
+! 						  )
+  	    {
+  		++off_to;
+  		++col;
+--- 6156,6162 ----
+  	{
+  	    while (col <= endcol && ScreenLines[off_to] == ' '
+  		    && ScreenAttrs[off_to] == 0
+! 				  && (!enc_utf8 || ScreenLinesUC[off_to] == 0))
+  	    {
+  		++off_to;
+  		++col;
+***************
+*** 6297,6308 ****
+  
+      while (col < endcol)
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte && (col + 1 < endcol))
+  	    char_cells = (*mb_off2cells)(off_from, max_off_from);
+  	else
+  	    char_cells = 1;
+- #endif
+  
+  	redraw_this = redraw_next;
+  	redraw_next = force || char_needs_redraw(off_from + CHAR_CELLS,
+--- 6176,6185 ----
+***************
+*** 6367,6373 ****
+  		else
+  		    screen_attr = 0;	    /* highlighting has stopped */
+  	    }
+- #ifdef FEAT_MBYTE
+  	    if (enc_dbcs != 0)
+  	    {
+  		/* Check if overwriting a double-byte with a single-byte or
+--- 6244,6249 ----
+***************
+*** 6410,6419 ****
+  			    && (*mb_off2cells)(off_to, max_off_to) == 1
+  			    && (*mb_off2cells)(off_to + 1, max_off_to) > 1)))
+  		clear_next = TRUE;
+- #endif
+  
+  	    ScreenLines[off_to] = ScreenLines[off_from];
+- #ifdef FEAT_MBYTE
+  	    if (enc_utf8)
+  	    {
+  		ScreenLinesUC[off_to] = ScreenLinesUC[off_from];
+--- 6286,6293 ----
+***************
+*** 6427,6433 ****
+  	    }
+  	    if (char_cells == 2)
+  		ScreenLines[off_to + 1] = ScreenLines[off_from + 1];
+- #endif
+  
+  #if defined(FEAT_GUI) || defined(UNIX)
+  	    /* The bold trick makes a single column of pixels appear in the
+--- 6301,6306 ----
+***************
+*** 6454,6460 ****
+  	    }
+  #endif
+  	    ScreenAttrs[off_to] = ScreenAttrs[off_from];
+! #ifdef FEAT_MBYTE
+  	    /* For simplicity set the attributes of second half of a
+  	     * double-wide character equal to the first half. */
+  	    if (char_cells == 2)
+--- 6327,6333 ----
+  	    }
+  #endif
+  	    ScreenAttrs[off_to] = ScreenAttrs[off_from];
+! 
+  	    /* For simplicity set the attributes of second half of a
+  	     * double-wide character equal to the first half. */
+  	    if (char_cells == 2)
+***************
+*** 6463,6469 ****
+  	    if (enc_dbcs != 0 && char_cells == 2)
+  		screen_char_2(off_to, row, col + coloff);
+  	    else
+- #endif
+  		screen_char(off_to, row, col + coloff);
+  	}
+  	else if (  p_wiv
+--- 6336,6341 ----
+***************
+*** 6489,6495 ****
+  	col += CHAR_CELLS;
+      }
+  
+- #ifdef FEAT_MBYTE
+      if (clear_next)
+      {
+  	/* Clear the second half of a double-wide character of which the left
+--- 6361,6366 ----
+***************
+*** 6499,6505 ****
+  	    ScreenLinesUC[off_to] = 0;
+  	screen_char(off_to, row, col + coloff);
+      }
+- #endif
+  
+      if (clear_width > 0
+  #ifdef FEAT_RIGHTLEFT
+--- 6370,6375 ----
+***************
+*** 6514,6523 ****
+  	/* blank out the rest of the line */
+  	while (col < clear_width && ScreenLines[off_to] == ' '
+  						  && ScreenAttrs[off_to] == 0
+! #ifdef FEAT_MBYTE
+! 				  && (!enc_utf8 || ScreenLinesUC[off_to] == 0)
+! #endif
+! 						  )
+  	{
+  	    ++off_to;
+  	    ++col;
+--- 6384,6390 ----
+  	/* blank out the rest of the line */
+  	while (col < clear_width && ScreenLines[off_to] == ' '
+  						  && ScreenAttrs[off_to] == 0
+! 				  && (!enc_utf8 || ScreenLinesUC[off_to] == 0))
+  	{
+  	    ++off_to;
+  	    ++col;
+***************
+*** 6538,6544 ****
+  		if (hl > HL_ALL || (hl & HL_BOLD))
+  		{
+  		    int prev_cells = 1;
+! # ifdef FEAT_MBYTE
+  		    if (enc_utf8)
+  			/* for utf-8, ScreenLines[char_offset + 1] == 0 means
+  			 * that its width is 2. */
+--- 6405,6411 ----
+  		if (hl > HL_ALL || (hl & HL_BOLD))
+  		{
+  		    int prev_cells = 1;
+! 
+  		    if (enc_utf8)
+  			/* for utf-8, ScreenLines[char_offset + 1] == 0 means
+  			 * that its width is 2. */
+***************
+*** 6561,6567 ****
+  			screen_char_2(off_to - prev_cells, row,
+  						   col + coloff - prev_cells);
+  		    else
+- # endif
+  			screen_char(off_to - prev_cells, row,
+  						   col + coloff - prev_cells);
+  		}
+--- 6428,6433 ----
+***************
+*** 6583,6597 ****
+  
+  	    c = fillchar_vsep(&hl);
+  	    if (ScreenLines[off_to] != (schar_T)c
+- #ifdef FEAT_MBYTE
+  		    || (enc_utf8 && (int)ScreenLinesUC[off_to]
+  						       != (c >= 0x80 ? c : 0))
+- #endif
+  		    || ScreenAttrs[off_to] != hl)
+  	    {
+  		ScreenLines[off_to] = c;
+  		ScreenAttrs[off_to] = hl;
+- #ifdef FEAT_MBYTE
+  		if (enc_utf8)
+  		{
+  		    if (c >= 0x80)
+--- 6449,6460 ----
+***************
+*** 6602,6608 ****
+  		    else
+  			ScreenLinesUC[off_to] = 0;
+  		}
+- #endif
+  		screen_char(off_to, row, col + coloff);
+  	    }
+  	}
+--- 6465,6470 ----
+***************
+*** 6808,6825 ****
+  #ifdef FEAT_MENU
+      int		emenu;
+  #endif
+- #if defined(FEAT_MBYTE) || defined(FEAT_MENU)
+      int		l;
+- #endif
+  
+      if (matches == NULL)	/* interrupted completion? */
+  	return;
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+  	buf = alloc((unsigned)Columns * MB_MAXBYTES + 1);
+      else
+- #endif
+  	buf = alloc((unsigned)Columns + 1);
+      if (buf == NULL)
+  	return;
+--- 6670,6683 ----
+***************
+*** 6912,6918 ****
+  	{
+  	    s += skip_status_match_char(xp, s);
+  	    clen += ptr2cells(s);
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte && (l = (*mb_ptr2len)(s)) > 1)
+  	    {
+  		STRNCPY(buf + len, s, l);
+--- 6770,6775 ----
+***************
+*** 6920,6926 ****
+  		len += l;
+  	    }
+  	    else
+- #endif
+  	    {
+  		STRCPY(buf + len, transchar_byte(*s));
+  		len += (int)STRLEN(buf + len);
+--- 6777,6782 ----
+***************
+*** 7095,7132 ****
+  	    p = (char_u *)"<";		/* No room for file name! */
+  	    len = 1;
+  	}
+! 	else
+! #ifdef FEAT_MBYTE
+! 	    if (has_mbyte)
+! 	    {
+! 		int	clen = 0, i;
+! 
+! 		/* Count total number of display cells. */
+! 		clen = mb_string2cells(p, -1);
+  
+! 		/* Find first character that will fit.
+! 		 * Going from start to end is much faster for DBCS. */
+! 		for (i = 0; p[i] != NUL && clen >= this_ru_col - 1;
+! 					      i += (*mb_ptr2len)(p + i))
+! 		    clen -= (*mb_ptr2cells)(p + i);
+! 		len = clen;
+! 		if (i > 0)
+! 		{
+! 		    p = p + i - 1;
+! 		    *p = '<';
+! 		    ++len;
+! 		}
+  
+! 	    }
+! 	    else
+! #endif
+! 	    if (len > this_ru_col - 1)
+  	    {
+! 		p += len - (this_ru_col - 1);
+  		*p = '<';
+! 		len = this_ru_col - 1;
+  	    }
+  
+  	row = W_WINROW(wp) + wp->w_height;
+  	screen_puts(p, row, wp->w_wincol, attr);
+  	screen_fill(row, row + 1, len + wp->w_wincol,
+--- 6951,6984 ----
+  	    p = (char_u *)"<";		/* No room for file name! */
+  	    len = 1;
+  	}
+! 	else if (has_mbyte)
+! 	{
+! 	    int	clen = 0, i;
+  
+! 	    /* Count total number of display cells. */
+! 	    clen = mb_string2cells(p, -1);
+  
+! 	    /* Find first character that will fit.
+! 	     * Going from start to end is much faster for DBCS. */
+! 	    for (i = 0; p[i] != NUL && clen >= this_ru_col - 1;
+! 		    i += (*mb_ptr2len)(p + i))
+! 		clen -= (*mb_ptr2cells)(p + i);
+! 	    len = clen;
+! 	    if (i > 0)
+  	    {
+! 		p = p + i - 1;
+  		*p = '<';
+! 		++len;
+  	    }
+  
++ 	}
++ 	else if (len > this_ru_col - 1)
++ 	{
++ 	    p += len - (this_ru_col - 1);
++ 	    *p = '<';
++ 	    len = this_ru_col - 1;
++ 	}
++ 
+  	row = W_WINROW(wp) + wp->w_height;
+  	screen_puts(p, row, wp->w_wincol, attr);
+  	screen_fill(row, row + 1, len + wp->w_wincol,
+***************
+*** 7397,7407 ****
+      len = (int)STRLEN(buf);
+      while (width < maxwidth && len < (int)sizeof(buf) - 1)
+      {
+- #ifdef FEAT_MBYTE
+  	len += (*mb_char2bytes)(fillchar, buf + len);
+- #else
+- 	buf[len++] = fillchar;
+- #endif
+  	++width;
+      }
+      buf[len] = NUL;
+--- 7249,7255 ----
+***************
+*** 7470,7480 ****
+  {
+      char_u	buf[MB_MAXBYTES + 1];
+  
+- #ifdef FEAT_MBYTE
+      if (has_mbyte)
+  	buf[(*mb_char2bytes)(c, buf)] = NUL;
+      else
+- #endif
+      {
+  	buf[0] = c;
+  	buf[1] = NUL;
+--- 7318,7326 ----
+***************
+*** 7499,7505 ****
+  	bytes[0] = ScreenLines[off];
+  	bytes[1] = NUL;
+  
+- #ifdef FEAT_MBYTE
+  	if (enc_utf8 && ScreenLinesUC[off] != 0)
+  	    bytes[utfc_char2bytes(off, bytes)] = NUL;
+  	else if (enc_dbcs == DBCS_JPNU && ScreenLines[off] == 0x8e)
+--- 7345,7350 ----
+***************
+*** 7513,7523 ****
+  	    bytes[1] = ScreenLines[off + 1];
+  	    bytes[2] = NUL;
+  	}
+- #endif
+      }
+  }
+  
+- #ifdef FEAT_MBYTE
+  /*
+   * Return TRUE if composing characters for screen posn "off" differs from
+   * composing characters in "u8cc".
+--- 7358,7366 ----
+***************
+*** 7537,7543 ****
+      }
+      return FALSE;
+  }
+- #endif
+  
+  /*
+   * Put string '*text' on the screen at position 'row' and 'col', with
+--- 7380,7385 ----
+***************
+*** 7571,7606 ****
+      char_u	*ptr = text;
+      int		len = textlen;
+      int		c;
+- #ifdef FEAT_MBYTE
+      unsigned	max_off;
+      int		mbyte_blen = 1;
+      int		mbyte_cells = 1;
+      int		u8c = 0;
+      int		u8cc[MAX_MCO];
+      int		clear_next_cell = FALSE;
+! # ifdef FEAT_ARABIC
+      int		prev_c = 0;		/* previous Arabic character */
+      int		pc, nc, nc1;
+      int		pcc[MAX_MCO];
+- # endif
+  #endif
+- #if defined(FEAT_MBYTE) || defined(FEAT_GUI) || defined(UNIX)
+      int		force_redraw_this;
+      int		force_redraw_next = FALSE;
+- #endif
+      int		need_redraw;
+  
+      if (ScreenLines == NULL || row >= screen_Rows)	/* safety check */
+  	return;
+      off = LineOffset[row] + col;
+  
+- #ifdef FEAT_MBYTE
+      /* When drawing over the right halve of a double-wide char clear out the
+       * left halve.  Only needed in a terminal. */
+      if (has_mbyte && col > 0 && col < screen_Columns
+! # ifdef FEAT_GUI
+  	    && !gui.in_use
+! # endif
+  	    && mb_fix_col(col, row) != col)
+      {
+  	ScreenLines[off - 1] = ' ';
+--- 7413,7443 ----
+      char_u	*ptr = text;
+      int		len = textlen;
+      int		c;
+      unsigned	max_off;
+      int		mbyte_blen = 1;
+      int		mbyte_cells = 1;
+      int		u8c = 0;
+      int		u8cc[MAX_MCO];
+      int		clear_next_cell = FALSE;
+! #ifdef FEAT_ARABIC
+      int		prev_c = 0;		/* previous Arabic character */
+      int		pc, nc, nc1;
+      int		pcc[MAX_MCO];
+  #endif
+      int		force_redraw_this;
+      int		force_redraw_next = FALSE;
+      int		need_redraw;
+  
+      if (ScreenLines == NULL || row >= screen_Rows)	/* safety check */
+  	return;
+      off = LineOffset[row] + col;
+  
+      /* When drawing over the right halve of a double-wide char clear out the
+       * left halve.  Only needed in a terminal. */
+      if (has_mbyte && col > 0 && col < screen_Columns
+! #ifdef FEAT_GUI
+  	    && !gui.in_use
+! #endif
+  	    && mb_fix_col(col, row) != col)
+      {
+  	ScreenLines[off - 1] = ' ';
+***************
+*** 7615,7631 ****
+  	/* force the cell at "col" to be redrawn */
+  	force_redraw_next = TRUE;
+      }
+- #endif
+  
+- #ifdef FEAT_MBYTE
+      max_off = LineOffset[row] + screen_Columns;
+- #endif
+      while (col < screen_Columns
+  	    && (len < 0 || (int)(ptr - text) < len)
+  	    && *ptr != NUL)
+      {
+  	c = *ptr;
+- #ifdef FEAT_MBYTE
+  	/* check if this is the first byte of a multibyte */
+  	if (has_mbyte)
+  	{
+--- 7452,7464 ----
+***************
+*** 7645,7651 ****
+  		else
+  		    u8c = utfc_ptr2char(ptr, u8cc);
+  		mbyte_cells = utf_char2cells(u8c);
+! # ifdef UNICODE16
+  		/* Non-BMP character: display as ? or fullwidth ?. */
+  		if (u8c >= 0x10000)
+  		{
+--- 7478,7484 ----
+  		else
+  		    u8c = utfc_ptr2char(ptr, u8cc);
+  		mbyte_cells = utf_char2cells(u8c);
+! #ifdef UNICODE16
+  		/* Non-BMP character: display as ? or fullwidth ?. */
+  		if (u8c >= 0x10000)
+  		{
+***************
+*** 7653,7660 ****
+  		    if (attr == 0)
+  			attr = HL_ATTR(HLF_8);
+  		}
+! # endif
+! # ifdef FEAT_ARABIC
+  		if (p_arshape && !p_tbidi && ARABIC_CHAR(u8c))
+  		{
+  		    /* Do Arabic shaping. */
+--- 7486,7493 ----
+  		    if (attr == 0)
+  			attr = HL_ATTR(HLF_8);
+  		}
+! #endif
+! #ifdef FEAT_ARABIC
+  		if (p_arshape && !p_tbidi && ARABIC_CHAR(u8c))
+  		{
+  		    /* Do Arabic shaping. */
+***************
+*** 7676,7682 ****
+  		}
+  		else
+  		    prev_c = u8c;
+! # endif
+  		if (col + mbyte_cells > screen_Columns)
+  		{
+  		    /* Only 1 cell left, but character requires 2 cells:
+--- 7509,7515 ----
+  		}
+  		else
+  		    prev_c = u8c;
+! #endif
+  		if (col + mbyte_cells > screen_Columns)
+  		{
+  		    /* Only 1 cell left, but character requires 2 cells:
+***************
+*** 7686,7700 ****
+  		}
+  	    }
+  	}
+- #endif
+  
+- #if defined(FEAT_MBYTE) || defined(FEAT_GUI) || defined(UNIX)
+  	force_redraw_this = force_redraw_next;
+  	force_redraw_next = FALSE;
+- #endif
+  
+  	need_redraw = ScreenLines[off] != c
+- #ifdef FEAT_MBYTE
+  		|| (mbyte_cells == 2
+  		    && ScreenLines[off + 1] != (enc_dbcs ? ptr[1] : 0))
+  		|| (enc_dbcs == DBCS_JPNU
+--- 7519,7529 ----
+***************
+*** 7705,7719 ****
+  				(u8char_T)(c < 0x80 && u8cc[0] == 0 ? 0 : u8c)
+  			|| (ScreenLinesUC[off] != 0
+  					  && screen_comp_differs(off, u8cc))))
+- #endif
+  		|| ScreenAttrs[off] != attr
+  		|| exmode_active;
+  
+! 	if (need_redraw
+! #if defined(FEAT_MBYTE) || defined(FEAT_GUI) || defined(UNIX)
+! 		|| force_redraw_this
+! #endif
+! 		)
+  	{
+  #if defined(FEAT_GUI) || defined(UNIX)
+  	    /* The bold trick makes a single row of pixels appear in the next
+--- 7534,7543 ----
+  				(u8char_T)(c < 0x80 && u8cc[0] == 0 ? 0 : u8c)
+  			|| (ScreenLinesUC[off] != 0
+  					  && screen_comp_differs(off, u8cc))))
+  		|| ScreenAttrs[off] != attr
+  		|| exmode_active;
+  
+! 	if (need_redraw || force_redraw_this)
+  	{
+  #if defined(FEAT_GUI) || defined(UNIX)
+  	    /* The bold trick makes a single row of pixels appear in the next
+***************
+*** 7740,7746 ****
+  		    force_redraw_next = TRUE;
+  	    }
+  #endif
+- #ifdef FEAT_MBYTE
+  	    /* When at the end of the text and overwriting a two-cell
+  	     * character with a one-cell character, need to clear the next
+  	     * cell.  Also when overwriting the left halve of a two-cell char
+--- 7564,7569 ----
+***************
+*** 7765,7774 ****
+  			    && (*mb_off2cells)(off, max_off) == 1
+  			    && (*mb_off2cells)(off + 1, max_off) > 1)))
+  		ScreenLines[off + mbyte_blen] = 0;
+- #endif
+  	    ScreenLines[off] = c;
+  	    ScreenAttrs[off] = attr;
+- #ifdef FEAT_MBYTE
+  	    if (enc_utf8)
+  	    {
+  		if (c < 0x80 && u8cc[0] == 0)
+--- 7588,7595 ----
+***************
+*** 7804,7813 ****
+  		screen_char(off, row, col);
+  	    }
+  	    else
+- #endif
+  		screen_char(off, row, col);
+  	}
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    off += mbyte_cells;
+--- 7625,7632 ----
+***************
+*** 7821,7827 ****
+  	    }
+  	}
+  	else
+- #endif
+  	{
+  	    ++off;
+  	    ++col;
+--- 7640,7645 ----
+***************
+*** 7829,7847 ****
+  	}
+      }
+  
+- #if defined(FEAT_MBYTE) || defined(FEAT_GUI) || defined(UNIX)
+      /* If we detected the next character needs to be redrawn, but the text
+       * doesn't extend up to there, update the character here. */
+      if (force_redraw_next && col < screen_Columns)
+      {
+- # ifdef FEAT_MBYTE
+  	if (enc_dbcs != 0 && dbcs_off2cells(off, max_off) > 1)
+  	    screen_char_2(off, row, col);
+  	else
+- # endif
+  	    screen_char(off, row, col);
+      }
+- #endif
+  }
+  
+  #ifdef FEAT_SEARCH_EXTRA
+--- 7647,7661 ----
+***************
+*** 8063,8073 ****
+  		shl->lnum = 0;
+  		break;
+  	    }
+- #ifdef FEAT_MBYTE
+  	    if (has_mbyte)
+  		matchcol += mb_ptr2len(ml);
+  	    else
+- #endif
+  		++matchcol;
+  	}
+  	else
+--- 7877,7885 ----
+***************
+*** 8515,8521 ****
+      if (screen_attr != attr)
+  	screen_start_highlight(attr);
+  
+- #ifdef FEAT_MBYTE
+      if (enc_utf8 && ScreenLinesUC[off] != 0)
+      {
+  	char_u	    buf[MB_MAXBYTES + 1];
+--- 8327,8332 ----
+***************
+*** 8523,8531 ****
+  	if (utf_ambiguous_width(ScreenLinesUC[off]))
+  	{
+  	    if (*p_ambw == 'd'
+! # ifdef FEAT_GUI
+  		    && !gui.in_use
+! # endif
+  		    )
+  	    {
+  		/* Clear the two screen cells. If the character is actually
+--- 8334,8342 ----
+  	if (utf_ambiguous_width(ScreenLinesUC[off]))
+  	{
+  	    if (*p_ambw == 'd'
+! #ifdef FEAT_GUI
+  		    && !gui.in_use
+! #endif
+  		    )
+  	    {
+  		/* Clear the two screen cells. If the character is actually
+***************
+*** 8545,8568 ****
+  	out_str(buf);
+      }
+      else
+- #endif
+      {
+- #ifdef FEAT_MBYTE
+  	out_flush_check();
+- #endif
+  	out_char(ScreenLines[off]);
+- #ifdef FEAT_MBYTE
+  	/* double-byte character in single-width cell */
+  	if (enc_dbcs == DBCS_JPNU && ScreenLines[off] == 0x8e)
+  	    out_char(ScreenLines2[off]);
+- #endif
+      }
+  
+      screen_cur_col++;
+  }
+  
+- #ifdef FEAT_MBYTE
+- 
+  /*
+   * Used for enc_dbcs only: Put one double-wide character at ScreenLines["off"]
+   * on the screen at position 'row' and 'col'.
+--- 8356,8372 ----
+***************
+*** 8590,8596 ****
+      out_char(ScreenLines[off + 1]);
+      ++screen_cur_col;
+  }
+- #endif
+  
+  /*
+   * Draw a rectangle of the screen, inverted when "invert" is TRUE.
+--- 8394,8399 ----
+***************
+*** 8606,8614 ****
+  {
+      int		r, c;
+      int		off;
+- #ifdef FEAT_MBYTE
+      int		max_off;
+- #endif
+  
+      /* Can't use ScreenLines unless initialized */
+      if (ScreenLines == NULL)
+--- 8409,8415 ----
+***************
+*** 8619,8643 ****
+      for (r = row; r < row + height; ++r)
+      {
+  	off = LineOffset[r];
+- #ifdef FEAT_MBYTE
+  	max_off = off + screen_Columns;
+- #endif
+  	for (c = col; c < col + width; ++c)
+  	{
+- #ifdef FEAT_MBYTE
+  	    if (enc_dbcs != 0 && dbcs_off2cells(off + c, max_off) > 1)
+  	    {
+  		screen_char_2(off + c, r, c);
+  		++c;
+  	    }
+  	    else
+- #endif
+  	    {
+  		screen_char(off + c, r, c);
+- #ifdef FEAT_MBYTE
+  		if (utf_off2cells(off + c, max_off) > 1)
+  		    ++c;
+- #endif
+  	    }
+  	}
+      }
+--- 8420,8438 ----
+***************
+*** 8675,8684 ****
+  {
+      ScreenLines[off] = ' ';
+      ScreenAttrs[off] = attr;
+- # ifdef FEAT_MBYTE
+      if (enc_utf8)
+  	ScreenLinesUC[off] = 0;
+- # endif
+  }
+  
+  /*
+--- 8470,8477 ----
+***************
+*** 8724,8734 ****
+  	    !IS_CTERM);
+      for (row = start_row; row < end_row; ++row)
+      {
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte
+! # ifdef FEAT_GUI
+  		&& !gui.in_use
+! # endif
+  	   )
+  	{
+  	    /* When drawing over the right halve of a double-wide char clear
+--- 8517,8526 ----
+  	    !IS_CTERM);
+      for (row = start_row; row < end_row; ++row)
+      {
+  	if (has_mbyte
+! #ifdef FEAT_GUI
+  		&& !gui.in_use
+! #endif
+  	   )
+  	{
+  	    /* When drawing over the right halve of a double-wide char clear
+***************
+*** 8740,8746 ****
+  	    if (end_col < screen_Columns && mb_fix_col(end_col, row) != end_col)
+  		screen_puts_len((char_u *)" ", 1, row, end_col, 0);
+  	}
+- #endif
+  	/*
+  	 * Try to use delete-line termcap code, when no attributes or in a
+  	 * "normal" terminal, where a bold/italic space is just a
+--- 8532,8537 ----
+***************
+*** 8766,8778 ****
+  	    end_off = LineOffset[row] + end_col;
+  
+  	    /* skip blanks (used often, keep it fast!) */
+- #ifdef FEAT_MBYTE
+  	    if (enc_utf8)
+  		while (off < end_off && ScreenLines[off] == ' '
+  			  && ScreenAttrs[off] == 0 && ScreenLinesUC[off] == 0)
+  		    ++off;
+  	    else
+- #endif
+  		while (off < end_off && ScreenLines[off] == ' '
+  						     && ScreenAttrs[off] == 0)
+  		    ++off;
+--- 8557,8567 ----
+***************
+*** 8798,8807 ****
+  	for (col = start_col; col < end_col; ++col)
+  	{
+  	    if (ScreenLines[off] != c
+- #ifdef FEAT_MBYTE
+  		    || (enc_utf8 && (int)ScreenLinesUC[off]
+  						       != (c >= 0x80 ? c : 0))
+- #endif
+  		    || ScreenAttrs[off] != attr
+  #if defined(FEAT_GUI) || defined(UNIX)
+  		    || force_next
+--- 8587,8594 ----
+***************
+*** 8834,8840 ****
+  		}
+  #endif
+  		ScreenLines[off] = c;
+- #ifdef FEAT_MBYTE
+  		if (enc_utf8)
+  		{
+  		    if (c >= 0x80)
+--- 8621,8626 ----
+***************
+*** 8845,8851 ****
+  		    else
+  			ScreenLinesUC[off] = 0;
+  		}
+- #endif
+  		ScreenAttrs[off] = attr;
+  		if (!did_delete || c != ' ')
+  		    screen_char(off, row, col);
+--- 8631,8636 ----
+***************
+*** 8925,8936 ****
+      int		    outofmem = FALSE;
+      int		    len;
+      schar_T	    *new_ScreenLines;
+- #ifdef FEAT_MBYTE
+      u8char_T	    *new_ScreenLinesUC = NULL;
+      u8char_T	    *new_ScreenLinesC[MAX_MCO];
+      schar_T	    *new_ScreenLines2 = NULL;
+      int		    i;
+- #endif
+      sattr_T	    *new_ScreenAttrs;
+      unsigned	    *new_LineOffset;
+      char_u	    *new_LineWraps;
+--- 8710,8719 ----
+***************
+*** 8949,8960 ****
+      if ((ScreenLines != NULL
+  		&& Rows == screen_Rows
+  		&& Columns == screen_Columns
+- #ifdef FEAT_MBYTE
+  		&& enc_utf8 == (ScreenLinesUC != NULL)
+  		&& (enc_dbcs == DBCS_JPNU) == (ScreenLines2 != NULL)
+! 		&& p_mco == Screen_mco
+! #endif
+! 		)
+  	    || Rows == 0
+  	    || Columns == 0
+  	    || (!full_screen && ScreenLines == NULL))
+--- 8732,8740 ----
+      if ((ScreenLines != NULL
+  		&& Rows == screen_Rows
+  		&& Columns == screen_Columns
+  		&& enc_utf8 == (ScreenLinesUC != NULL)
+  		&& (enc_dbcs == DBCS_JPNU) == (ScreenLines2 != NULL)
+! 		&& p_mco == Screen_mco)
+  	    || Rows == 0
+  	    || Columns == 0
+  	    || (!full_screen && ScreenLines == NULL))
+***************
+*** 8997,9003 ****
+  
+      new_ScreenLines = (schar_T *)lalloc((long_u)(
+  			      (Rows + 1) * Columns * sizeof(schar_T)), FALSE);
+- #ifdef FEAT_MBYTE
+      vim_memset(new_ScreenLinesC, 0, sizeof(u8char_T *) * MAX_MCO);
+      if (enc_utf8)
+      {
+--- 8777,8782 ----
+***************
+*** 9010,9016 ****
+      if (enc_dbcs == DBCS_JPNU)
+  	new_ScreenLines2 = (schar_T *)lalloc((long_u)(
+  			     (Rows + 1) * Columns * sizeof(schar_T)), FALSE);
+- #endif
+      new_ScreenAttrs = (sattr_T *)lalloc((long_u)(
+  			      (Rows + 1) * Columns * sizeof(sattr_T)), FALSE);
+      new_LineOffset = (unsigned *)lalloc((long_u)(
+--- 8789,8794 ----
+***************
+*** 9031,9046 ****
+  	outofmem = TRUE;
+  give_up:
+  
+- #ifdef FEAT_MBYTE
+      for (i = 0; i < p_mco; ++i)
+  	if (new_ScreenLinesC[i] == NULL)
+  	    break;
+- #endif
+      if (new_ScreenLines == NULL
+- #ifdef FEAT_MBYTE
+  	    || (enc_utf8 && (new_ScreenLinesUC == NULL || i != p_mco))
+  	    || (enc_dbcs == DBCS_JPNU && new_ScreenLines2 == NULL)
+- #endif
+  	    || new_ScreenAttrs == NULL
+  	    || new_LineOffset == NULL
+  	    || new_LineWraps == NULL
+--- 8809,8820 ----
+***************
+*** 9057,9068 ****
+  	    done_outofmem_msg = TRUE;
+  	}
+  	VIM_CLEAR(new_ScreenLines);
+- #ifdef FEAT_MBYTE
+  	VIM_CLEAR(new_ScreenLinesUC);
+  	for (i = 0; i < p_mco; ++i)
+  	    VIM_CLEAR(new_ScreenLinesC[i]);
+  	VIM_CLEAR(new_ScreenLines2);
+- #endif
+  	VIM_CLEAR(new_ScreenAttrs);
+  	VIM_CLEAR(new_LineOffset);
+  	VIM_CLEAR(new_LineWraps);
+--- 8831,8840 ----
+***************
+*** 9087,9093 ****
+  	    {
+  		(void)vim_memset(new_ScreenLines + new_row * Columns,
+  				      ' ', (size_t)Columns * sizeof(schar_T));
+- #ifdef FEAT_MBYTE
+  		if (enc_utf8)
+  		{
+  		    (void)vim_memset(new_ScreenLinesUC + new_row * Columns,
+--- 8859,8864 ----
+***************
+*** 9100,9106 ****
+  		if (enc_dbcs == DBCS_JPNU)
+  		    (void)vim_memset(new_ScreenLines2 + new_row * Columns,
+  				       0, (size_t)Columns * sizeof(schar_T));
+- #endif
+  		(void)vim_memset(new_ScreenAttrs + new_row * Columns,
+  					0, (size_t)Columns * sizeof(sattr_T));
+  		old_row = new_row + (screen_Rows - Rows);
+--- 8871,8876 ----
+***************
+*** 9110,9125 ****
+  			len = screen_Columns;
+  		    else
+  			len = Columns;
+- #ifdef FEAT_MBYTE
+  		    /* When switching to utf-8 don't copy characters, they
+  		     * may be invalid now.  Also when p_mco changes. */
+  		    if (!(enc_utf8 && ScreenLinesUC == NULL)
+  						       && p_mco == Screen_mco)
+- #endif
+  			mch_memmove(new_ScreenLines + new_LineOffset[new_row],
+  				ScreenLines + LineOffset[old_row],
+  				(size_t)len * sizeof(schar_T));
+- #ifdef FEAT_MBYTE
+  		    if (enc_utf8 && ScreenLinesUC != NULL
+  						       && p_mco == Screen_mco)
+  		    {
+--- 8880,8892 ----
+***************
+*** 9136,9142 ****
+  			mch_memmove(new_ScreenLines2 + new_LineOffset[new_row],
+  				ScreenLines2 + LineOffset[old_row],
+  				(size_t)len * sizeof(schar_T));
+- #endif
+  		    mch_memmove(new_ScreenAttrs + new_LineOffset[new_row],
+  			    ScreenAttrs + LineOffset[old_row],
+  			    (size_t)len * sizeof(sattr_T));
+--- 8903,8908 ----
+***************
+*** 9150,9162 ****
+      free_screenlines();
+  
+      ScreenLines = new_ScreenLines;
+- #ifdef FEAT_MBYTE
+      ScreenLinesUC = new_ScreenLinesUC;
+      for (i = 0; i < p_mco; ++i)
+  	ScreenLinesC[i] = new_ScreenLinesC[i];
+      Screen_mco = p_mco;
+      ScreenLines2 = new_ScreenLines2;
+- #endif
+      ScreenAttrs = new_ScreenAttrs;
+      LineOffset = new_LineOffset;
+      LineWraps = new_LineWraps;
+--- 8916,8926 ----
+***************
+*** 9213,9226 ****
+      void
+  free_screenlines(void)
+  {
+- #ifdef FEAT_MBYTE
+      int		i;
+  
+      vim_free(ScreenLinesUC);
+      for (i = 0; i < Screen_mco; ++i)
+  	vim_free(ScreenLinesC[i]);
+      vim_free(ScreenLines2);
+- #endif
+      vim_free(ScreenLines);
+      vim_free(ScreenAttrs);
+      vim_free(LineOffset);
+--- 8977,8988 ----
+***************
+*** 9303,9313 ****
+  lineclear(unsigned off, int width, int attr)
+  {
+      (void)vim_memset(ScreenLines + off, ' ', (size_t)width * sizeof(schar_T));
+- #ifdef FEAT_MBYTE
+      if (enc_utf8)
+  	(void)vim_memset(ScreenLinesUC + off, 0,
+  					  (size_t)width * sizeof(u8char_T));
+- #endif
+      (void)vim_memset(ScreenAttrs + off, attr, (size_t)width * sizeof(sattr_T));
+  }
+  
+--- 9065,9073 ----
+***************
+*** 9332,9338 ****
+  
+      mch_memmove(ScreenLines + off_to, ScreenLines + off_from,
+  	    wp->w_width * sizeof(schar_T));
+- #ifdef FEAT_MBYTE
+      if (enc_utf8)
+      {
+  	int	i;
+--- 9092,9097 ----
+***************
+*** 9346,9352 ****
+      if (enc_dbcs == DBCS_JPNU)
+  	mch_memmove(ScreenLines2 + off_to, ScreenLines2 + off_from,
+  		wp->w_width * sizeof(schar_T));
+- #endif
+      mch_memmove(ScreenAttrs + off_to, ScreenAttrs + off_from,
+  	    wp->w_width * sizeof(sattr_T));
+  }
+--- 9105,9110 ----
+***************
+*** 9533,9539 ****
+  		    if (i != 0)
+  			cost = 999;	/* different attributes, don't do it */
+  		}
+- #ifdef FEAT_MBYTE
+  		if (enc_utf8)
+  		{
+  		    /* Don't use an UTF-8 char for positioning, it's slow. */
+--- 9291,9296 ----
+***************
+*** 9544,9550 ****
+  			    break;
+  			}
+  		}
+- #endif
+  	    }
+  
+  	    /*
+--- 9301,9306 ----
+***************
+*** 9603,9617 ****
+  			{
+  			    if (ScreenAttrs[off] != screen_attr)
+  				screen_stop_highlight();
+- #ifdef FEAT_MBYTE
+  			    out_flush_check();
+- #endif
+  			    out_char(ScreenLines[off]);
+- #ifdef FEAT_MBYTE
+  			    if (enc_dbcs == DBCS_JPNU
+  						  && ScreenLines[off] == 0x8e)
+  				out_char(ScreenLines2[off]);
+- #endif
+  			    ++off;
+  			}
+  		    }
+--- 9359,9369 ----
+***************
+*** 9660,9672 ****
+  #ifdef FEAT_RIGHTLEFT
+  		/* With 'rightleft' set and the cursor on a double-wide
+  		 * character, position it on the leftmost column. */
+! 		curwin->w_p_rl ? ((int)curwin->w_width - curwin->w_wcol - (
+! # ifdef FEAT_MBYTE
+! 			(has_mbyte
+  			   && (*mb_ptr2cells)(ml_get_cursor()) == 2
+! 			   && vim_isprintc(gchar_cursor())) ? 2 :
+! # endif
+! 			1)) :
+  #endif
+  							    curwin->w_wcol));
+      }
+--- 9412,9421 ----
+  #ifdef FEAT_RIGHTLEFT
+  		/* With 'rightleft' set and the cursor on a double-wide
+  		 * character, position it on the leftmost column. */
+! 		curwin->w_p_rl ? ((int)curwin->w_width - curwin->w_wcol
+! 		    - ((has_mbyte
+  			   && (*mb_ptr2cells)(ml_get_cursor()) == 2
+! 			   && vim_isprintc(gchar_cursor())) ? 2 : 1)) :
+  #endif
+  							    curwin->w_wcol));
+      }
+***************
+*** 10808,10823 ****
+  		shorten_dir(NameBuff);
+  		len = vim_strsize(NameBuff);
+  		p = NameBuff;
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    while (len > room)
+  		    {
+  			len -= ptr2cells(p);
+  			MB_PTR_ADV(p);
+  		    }
+! 		else
+! #endif
+! 		    if (len > room)
+  		{
+  		    p += len - room;
+  		    len = room;
+--- 10557,10569 ----
+  		shorten_dir(NameBuff);
+  		len = vim_strsize(NameBuff);
+  		p = NameBuff;
+  		if (has_mbyte)
+  		    while (len > room)
+  		    {
+  			len -= ptr2cells(p);
+  			MB_PTR_ADV(p);
+  		    }
+! 		else if (len > room)
+  		{
+  		    p += len - room;
+  		    len = room;
+***************
+*** 11210,11227 ****
+  	    /* need at least 3 chars left for get_rel_pos() + NUL */
+  	    while (this_ru_col + o < width && RULER_BUF_LEN > i + 4)
+  	    {
+- #ifdef FEAT_MBYTE
+  		if (has_mbyte)
+  		    i += (*mb_char2bytes)(fillchar, buffer + i);
+  		else
+- #endif
+  		    buffer[i++] = fillchar;
+  		++o;
+  	    }
+  	    get_rel_pos(wp, buffer + i, RULER_BUF_LEN - i);
+  	}
+  	/* Truncate at window boundary. */
+- #ifdef FEAT_MBYTE
+  	if (has_mbyte)
+  	{
+  	    o = 0;
+--- 10956,10970 ----
+***************
+*** 11235,11243 ****
+  		}
+  	    }
+  	}
+! 	else
+! #endif
+! 	if (this_ru_col + (int)STRLEN(buffer) > width)
+  	    buffer[width - this_ru_col] = NUL;
+  
+  	screen_puts(buffer, row, this_ru_col + off, attr);
+--- 10978,10984 ----
+  		}
+  	    }
+  	}
+! 	else if (this_ru_col + (int)STRLEN(buffer) > width)
+  	    buffer[width - this_ru_col] = NUL;
+  
+  	screen_puts(buffer, row, this_ru_col + off, attr);
+*** ../vim-8.1.0808/src/version.c	2019-01-24 16:27:41.693254193 +0100
+--- src/version.c	2019-01-24 16:38:47.536784802 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     809,
+  /**/
+
+-- 
+FATHER: One day, lad, all this will be yours ...
+PRINCE: What - the curtains?
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

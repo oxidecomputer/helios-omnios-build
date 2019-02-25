@@ -1,0 +1,176 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0622
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0622
+Problem:    Adding quickfix items marks items as valid errors. (Daniel Hahler)
+Solution:   Check when items are valid. (Yegappan Lakshmanan, closes #3683,
+            closes #3633)
+Files:	    src/quickfix.c, src/testdir/test_quickfix.vim
+
+
+*** ../vim-8.1.0621/src/quickfix.c	2018-12-14 15:38:28.331597637 +0100
+--- src/quickfix.c	2018-12-22 16:42:35.335504536 +0100
+***************
+*** 6241,6254 ****
+  
+  /*
+   * Add a new quickfix entry to list at 'qf_idx' in the stack 'qi' from the
+!  * items in the dict 'd'.
+   */
+      static int
+  qf_add_entry_from_dict(
+  	qf_info_T	*qi,
+  	int		qf_idx,
+  	dict_T		*d,
+! 	int		first_entry)
+  {
+      static int	did_bufnr_emsg;
+      char_u	*filename, *module, *pattern, *text, *type;
+--- 6241,6256 ----
+  
+  /*
+   * Add a new quickfix entry to list at 'qf_idx' in the stack 'qi' from the
+!  * items in the dict 'd'. If it is a valid error entry, then set 'valid_entry'
+!  * to TRUE.
+   */
+      static int
+  qf_add_entry_from_dict(
+  	qf_info_T	*qi,
+  	int		qf_idx,
+  	dict_T		*d,
+! 	int		first_entry,
+! 	int		*valid_entry)
+  {
+      static int	did_bufnr_emsg;
+      char_u	*filename, *module, *pattern, *text, *type;
+***************
+*** 6313,6318 ****
+--- 6315,6323 ----
+      vim_free(text);
+      vim_free(type);
+  
++     if (valid)
++ 	*valid_entry = TRUE;
++ 
+      return status;
+  }
+  
+***************
+*** 6333,6338 ****
+--- 6338,6344 ----
+      dict_T	*d;
+      qfline_T	*old_last = NULL;
+      int		retval = OK;
++     int		valid_entry = FALSE;
+  
+      if (action == ' ' || qf_idx == qi->qf_listcount)
+      {
+***************
+*** 6359,6380 ****
+  	if (d == NULL)
+  	    continue;
+  
+! 	retval = qf_add_entry_from_dict(qi, qf_idx, d, li == list->lv_first);
+  	if (retval == FAIL)
+  	    break;
+      }
+  
+!     if (qfl->qf_index == 0)
+  	// no valid entry
+  	qfl->qf_nonevalid = TRUE;
+!     else
+! 	qfl->qf_nonevalid = FALSE;
+      if (action != 'a')
+-     {
+  	qfl->qf_ptr = qfl->qf_start;
+! 	if (!qf_list_empty(qi, qf_idx))
+! 	    qfl->qf_index = 1;
+!     }
+  
+      // Don't update the cursor in quickfix window when appending entries
+      qf_update_buffer(qi, old_last);
+--- 6365,6391 ----
+  	if (d == NULL)
+  	    continue;
+  
+! 	retval = qf_add_entry_from_dict(qi, qf_idx, d, li == list->lv_first,
+! 								&valid_entry);
+  	if (retval == FAIL)
+  	    break;
+      }
+  
+!     // Check if any valid error entries are added to the list.
+!     if (valid_entry)
+! 	qfl->qf_nonevalid = FALSE;
+!     else if (qfl->qf_index == 0)
+  	// no valid entry
+  	qfl->qf_nonevalid = TRUE;
+! 
+!     // If not appending to the list, set the current error to the first entry
+      if (action != 'a')
+  	qfl->qf_ptr = qfl->qf_start;
+! 
+!     // Update the current error index if not appending to the list or if the
+!     // list was empty before and it is not empty now.
+!     if ((action != 'a' || qfl->qf_index == 0) && !qf_list_empty(qi, qf_idx))
+! 	qfl->qf_index = 1;
+  
+      // Don't update the cursor in quickfix window when appending entries
+      qf_update_buffer(qi, old_last);
+*** ../vim-8.1.0621/src/testdir/test_quickfix.vim	2018-11-11 22:50:20.810297803 +0100
+--- src/testdir/test_quickfix.vim	2018-12-22 16:42:35.335504536 +0100
+***************
+*** 1299,1304 ****
+--- 1299,1326 ----
+    let l = g:Xgetlist()
+    call g:Xsetlist(l)
+    call assert_equal(0, g:Xgetlist()[0].valid)
++   " Adding a non-valid entry should not mark the list as having valid entries
++   call g:Xsetlist([{'bufnr':a:bnum, 'lnum':5, 'valid':0}], 'a')
++   Xwindow
++   call assert_equal(1, winnr('$'))
++ 
++   " :cnext/:cprev should still work even with invalid entries in the list
++   let l = [{'bufnr' : a:bnum, 'lnum' : 1, 'text' : '1', 'valid' : 0},
++ 	      \ {'bufnr' : a:bnum, 'lnum' : 2, 'text' : '2', 'valid' : 0}]
++   call g:Xsetlist(l)
++   Xnext
++   call assert_equal(2, g:Xgetlist({'idx' : 0}).idx)
++   Xprev
++   call assert_equal(1, g:Xgetlist({'idx' : 0}).idx)
++   " :cnext/:cprev should still work after appending invalid entries to an
++   " empty list
++   call g:Xsetlist([])
++   call g:Xsetlist(l, 'a')
++   Xnext
++   call assert_equal(2, g:Xgetlist({'idx' : 0}).idx)
++   Xprev
++   call assert_equal(1, g:Xgetlist({'idx' : 0}).idx)
++ 
+    call g:Xsetlist([{'text':'Text1', 'valid':1}])
+    Xwindow
+    call assert_equal(2, winnr('$'))
+*** ../vim-8.1.0621/src/version.c	2018-12-22 15:14:45.587283340 +0100
+--- src/version.c	2018-12-22 16:45:12.206329187 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     622,
+  /**/
+
+-- 
+The users that I support would double-click on a landmine to find out
+what happens.				-- A system administrator
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

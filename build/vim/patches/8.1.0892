@@ -1,0 +1,518 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0892
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0892
+Problem:    Failure when closing a window when location list is in use.
+Solution:   Handle the situation gracefully. Make sure memory for 'switchbuf'
+            is not freed at the wrong time. (Yegappan Lakshmanan,
+            closes #3928)
+Files:	    src/eval.c, src/evalfunc.c, src/proto/window.pro, src/quickfix.c,
+            src/testdir/test_quickfix.vim, src/window.c
+
+
+*** ../vim-8.1.0891/src/eval.c	2019-02-10 22:14:24.184352831 +0100
+--- src/eval.c	2019-02-10 22:55:04.745658531 +0100
+***************
+*** 8587,8593 ****
+      int	nr = (int)tv_get_number_chk(vp, NULL);
+  
+      if (nr >= LOWEST_WIN_ID)
+! 	return win_id2wp(vp);
+      return find_win_by_nr(vp, NULL);
+  }
+  
+--- 8587,8593 ----
+      int	nr = (int)tv_get_number_chk(vp, NULL);
+  
+      if (nr >= LOWEST_WIN_ID)
+! 	return win_id2wp(tv_get_number(vp));
+      return find_win_by_nr(vp, NULL);
+  }
+  
+*** ../vim-8.1.0891/src/evalfunc.c	2019-02-08 14:33:54.822761996 +0100
+--- src/evalfunc.c	2019-02-10 22:55:04.745658531 +0100
+***************
+*** 5800,5806 ****
+  
+      if (argvars[0].v_type != VAR_UNKNOWN)
+      {
+! 	wparg = win_id2wp(argvars);
+  	if (wparg == NULL)
+  	    return;
+      }
+--- 5800,5806 ----
+  
+      if (argvars[0].v_type != VAR_UNKNOWN)
+      {
+! 	wparg = win_id2wp(tv_get_number(&argvars[0]));
+  	if (wparg == NULL)
+  	    return;
+      }
+*** ../vim-8.1.0891/src/proto/window.pro	2018-09-13 17:26:31.091401618 +0200
+--- src/proto/window.pro	2019-02-10 22:55:04.749658501 +0100
+***************
+*** 91,97 ****
+  int win_getid(typval_T *argvars);
+  int win_gotoid(typval_T *argvars);
+  void win_id2tabwin(typval_T *argvars, list_T *list);
+! win_T *win_id2wp(typval_T *argvars);
+  int win_id2win(typval_T *argvars);
+  void win_findbuf(typval_T *argvars, list_T *list);
+  void get_framelayout(frame_T *fr, list_T *l, int outer);
+--- 91,97 ----
+  int win_getid(typval_T *argvars);
+  int win_gotoid(typval_T *argvars);
+  void win_id2tabwin(typval_T *argvars, list_T *list);
+! win_T *win_id2wp(int id);
+  int win_id2win(typval_T *argvars);
+  void win_findbuf(typval_T *argvars, list_T *list);
+  void get_framelayout(frame_T *fr, list_T *l, int outer);
+*** ../vim-8.1.0891/src/quickfix.c	2019-02-05 21:23:00.600559169 +0100
+--- src/quickfix.c	2019-02-10 22:55:04.749658501 +0100
+***************
+*** 1899,1921 ****
+  	return;
+      *pqi = NULL;	// Remove reference to this list
+  
+      qi->qf_refcount--;
+      if (qi->qf_refcount < 1)
+      {
+  	// No references to this location list.
+! 	// If the location list is still in use, then queue the delete request
+! 	// to be processed later.
+! 	if (quickfix_busy > 0)
+! 	    locstack_queue_delreq(qi);
+! 	else
+! 	{
+! 	    // If the quickfix window buffer is loaded, then wipe it
+! 	    wipe_qf_buffer(qi);
+  
+! 	    for (i = 0; i < qi->qf_listcount; ++i)
+! 		qf_free(&qi->qf_lists[i]);
+! 	    vim_free(qi);
+! 	}
+      }
+  }
+  
+--- 1899,1922 ----
+  	return;
+      *pqi = NULL;	// Remove reference to this list
+  
++     // If the location list is still in use, then queue the delete request
++     // to be processed later.
++     if (quickfix_busy > 0)
++     {
++ 	locstack_queue_delreq(qi);
++ 	return;
++     }
++ 
+      qi->qf_refcount--;
+      if (qi->qf_refcount < 1)
+      {
+  	// No references to this location list.
+! 	// If the quickfix window buffer is loaded, then wipe it
+! 	wipe_qf_buffer(qi);
+  
+! 	for (i = 0; i < qi->qf_listcount; ++i)
+! 	    qf_free(&qi->qf_lists[i]);
+! 	vim_free(qi);
+      }
+  }
+  
+***************
+*** 3018,3024 ****
+  	qf_info_T	*qi,
+  	qfline_T	*qf_ptr,
+  	int		forceit,
+! 	win_T		*oldwin,
+  	int		*opened_window)
+  {
+      qf_list_T	*qfl = &qi->qf_lists[qi->qf_curlist];
+--- 3019,3025 ----
+  	qf_info_T	*qi,
+  	qfline_T	*qf_ptr,
+  	int		forceit,
+! 	int		prev_winid,
+  	int		*opened_window)
+  {
+      qf_list_T	*qfl = &qi->qf_lists[qi->qf_curlist];
+***************
+*** 3039,3045 ****
+  
+  	retval = do_ecmd(qf_ptr->qf_fnum, NULL, NULL, NULL, (linenr_T)1,
+  		ECMD_HIDE + ECMD_SET_HELP,
+! 		oldwin == curwin ? curwin : NULL);
+      }
+      else
+  	retval = buflist_getfile(qf_ptr->qf_fnum,
+--- 3040,3046 ----
+  
+  	retval = do_ecmd(qf_ptr->qf_fnum, NULL, NULL, NULL, (linenr_T)1,
+  		ECMD_HIDE + ECMD_SET_HELP,
+! 		prev_winid == curwin->w_id ? curwin : NULL);
+      }
+      else
+  	retval = buflist_getfile(qf_ptr->qf_fnum,
+***************
+*** 3047,3057 ****
+  
+      // If a location list, check whether the associated window is still
+      // present.
+!     if (qfl_type == QFLT_LOCATION && !win_valid_any_tab(oldwin))
+      {
+! 	emsg(_("E924: Current window was closed"));
+! 	*opened_window = FALSE;
+! 	return NOTDONE;
+      }
+  
+      if (qfl_type == QFLT_QUICKFIX && !qflist_valid(NULL, save_qfid))
+--- 3048,3062 ----
+  
+      // If a location list, check whether the associated window is still
+      // present.
+!     if (qfl_type == QFLT_LOCATION)
+      {
+! 	win_T	*wp = win_id2wp(prev_winid);
+! 	if (wp == NULL && curwin->w_llist != qi)
+! 	{
+! 	    emsg(_("E924: Current window was closed"));
+! 	    *opened_window = FALSE;
+! 	    return NOTDONE;
+! 	}
+      }
+  
+      if (qfl_type == QFLT_QUICKFIX && !qflist_valid(NULL, save_qfid))
+***************
+*** 3211,3217 ****
+  	int		qf_index,
+  	qfline_T	*qf_ptr,
+  	int		forceit,
+! 	win_T		*oldwin,
+  	int		*opened_window,
+  	int		openfold,
+  	int		print_message)
+--- 3216,3222 ----
+  	int		qf_index,
+  	qfline_T	*qf_ptr,
+  	int		forceit,
+! 	int		prev_winid,
+  	int		*opened_window,
+  	int		openfold,
+  	int		print_message)
+***************
+*** 3227,3233 ****
+  
+      if (qf_ptr->qf_fnum != 0)
+      {
+! 	retval = qf_jump_edit_buffer(qi, qf_ptr, forceit, oldwin,
+  						opened_window);
+  	if (retval != OK)
+  	    return retval;
+--- 3232,3238 ----
+  
+      if (qf_ptr->qf_fnum != 0)
+      {
+! 	retval = qf_jump_edit_buffer(qi, qf_ptr, forceit, prev_winid,
+  						opened_window);
+  	if (retval != OK)
+  	    return retval;
+***************
+*** 3287,3294 ****
+      int			old_qf_index;
+      char_u		*old_swb = p_swb;
+      unsigned		old_swb_flags = swb_flags;
+      int			opened_window = FALSE;
+-     win_T		*oldwin = curwin;
+      int			print_message = TRUE;
+  #ifdef FEAT_FOLDING
+      int			old_KeyTyped = KeyTyped; // getting file may reset it
+--- 3292,3299 ----
+      int			old_qf_index;
+      char_u		*old_swb = p_swb;
+      unsigned		old_swb_flags = swb_flags;
++     int			prev_winid;
+      int			opened_window = FALSE;
+      int			print_message = TRUE;
+  #ifdef FEAT_FOLDING
+      int			old_KeyTyped = KeyTyped; // getting file may reset it
+***************
+*** 3304,3309 ****
+--- 3309,3316 ----
+  	return;
+      }
+  
++     incr_quickfix_busy();
++ 
+      qfl = &qi->qf_lists[qi->qf_curlist];
+  
+      qf_ptr = qfl->qf_ptr;
+***************
+*** 3325,3337 ****
+  	// window
+  	print_message = FALSE;
+  
+      retval = qf_jump_open_window(qi, qf_ptr, newwin, &opened_window);
+      if (retval == FAIL)
+  	goto failed;
+      if (retval == NOTDONE)
+  	goto theend;
+  
+!     retval = qf_jump_to_buffer(qi, qf_index, qf_ptr, forceit, oldwin,
+  	    &opened_window, old_KeyTyped, print_message);
+      if (retval == NOTDONE)
+      {
+--- 3332,3346 ----
+  	// window
+  	print_message = FALSE;
+  
++     prev_winid = curwin->w_id;
++ 
+      retval = qf_jump_open_window(qi, qf_ptr, newwin, &opened_window);
+      if (retval == FAIL)
+  	goto failed;
+      if (retval == NOTDONE)
+  	goto theend;
+  
+!     retval = qf_jump_to_buffer(qi, qf_index, qf_ptr, forceit, prev_winid,
+  	    &opened_window, old_KeyTyped, print_message);
+      if (retval == NOTDONE)
+      {
+***************
+*** 3359,3365 ****
+  	qfl->qf_ptr = qf_ptr;
+  	qfl->qf_index = qf_index;
+      }
+!     if (p_swb != old_swb && opened_window)
+      {
+  	// Restore old 'switchbuf' value, but not when an autocommand or
+  	// modeline has changed the value.
+--- 3368,3374 ----
+  	qfl->qf_ptr = qf_ptr;
+  	qfl->qf_index = qf_index;
+      }
+!     if (p_swb != old_swb)
+      {
+  	// Restore old 'switchbuf' value, but not when an autocommand or
+  	// modeline has changed the value.
+***************
+*** 3371,3376 ****
+--- 3380,3386 ----
+  	else
+  	    free_string_option(old_swb);
+      }
++     decr_quickfix_busy();
+  }
+  
+  // Highlight attributes used for displaying entries from the quickfix list.
+***************
+*** 4004,4012 ****
+      if (IS_LL_STACK(qi))
+      {
+  	// For the location list window, create a reference to the
+! 	// location list from the window 'win'.
+! 	curwin->w_llist_ref = win->w_llist;
+! 	win->w_llist->qf_refcount++;
+      }
+  
+      if (oldwin != curwin)
+--- 4014,4022 ----
+      if (IS_LL_STACK(qi))
+      {
+  	// For the location list window, create a reference to the
+! 	// location list stack from the window 'win'.
+! 	curwin->w_llist_ref = qi;
+! 	qi->qf_refcount++;
+      }
+  
+      if (oldwin != curwin)
+*** ../vim-8.1.0891/src/testdir/test_quickfix.vim	2019-02-05 21:23:00.600559169 +0100
+--- src/testdir/test_quickfix.vim	2019-02-10 22:55:04.749658501 +0100
+***************
+*** 1,4 ****
+! " Test for the quickfix commands.
+  
+  if !has('quickfix')
+    finish
+--- 1,4 ----
+! " Test for the quickfix feature.
+  
+  if !has('quickfix')
+    finish
+***************
+*** 1419,1425 ****
+            \    {'filename': 'fnameD', 'text': 'D'},
+            \    {'filename': 'fnameE', 'text': 'E'}]
+  
+!   " {action} is unspecified.  Same as specifing ' '.
+    new | only
+    silent! Xnewer 99
+    call g:Xsetlist(list1)
+--- 1419,1425 ----
+            \    {'filename': 'fnameD', 'text': 'D'},
+            \    {'filename': 'fnameE', 'text': 'E'}]
+  
+!   " {action} is unspecified.  Same as specifying ' '.
+    new | only
+    silent! Xnewer 99
+    call g:Xsetlist(list1)
+***************
+*** 2348,2354 ****
+    " Open a new window and create a location list
+    " Open the location list window and close the other window
+    " Jump to an entry.
+!   " Should create a new window and jump to the entry. The scrtach buffer
+    " should not be used.
+    enew | only
+    set buftype=nofile
+--- 2348,2354 ----
+    " Open a new window and create a location list
+    " Open the location list window and close the other window
+    " Jump to an entry.
+!   " Should create a new window and jump to the entry. The scratch buffer
+    " should not be used.
+    enew | only
+    set buftype=nofile
+***************
+*** 3831,3837 ****
+    new | only
+  
+    " When split opening files from a helpgrep location list window, a new help
+!   " window should be opend with a copy of the location list.
+    lhelpgrep window
+    let locid = getloclist(0, {'id' : 0}).id
+    lwindow
+--- 3831,3837 ----
+    new | only
+  
+    " When split opening files from a helpgrep location list window, a new help
+!   " window should be opened with a copy of the location list.
+    lhelpgrep window
+    let locid = getloclist(0, {'id' : 0}).id
+    lwindow
+***************
+*** 3933,3940 ****
+      call assert_match(qfbnum . '  h-  "\[Location List]"', execute('ls'))
+      call assert_true(bufloaded(qfbnum))
+  
+      new | only
+!     call assert_false(bufloaded(qfbnum))
+    endif
+  endfunc
+  
+--- 3933,3962 ----
+      call assert_match(qfbnum . '  h-  "\[Location List]"', execute('ls'))
+      call assert_true(bufloaded(qfbnum))
+  
++     " When the location list is cleared for the window, the buffer should be
++     " removed
++     call setloclist(0, [], 'f')
++     call assert_false(bufexists(qfbnum))
++ 
++     " When the location list is freed with the location list window open, the
++     " location list buffer should not be lost. It should be reused when the
++     " location list is again populated.
++     lexpr "F1:10:Line10"
++     lopen
++     let wid = win_getid()
++     let qfbnum = bufnr('')
++     wincmd p
++     call setloclist(0, [], 'f')
++     lexpr "F1:10:Line10"
++     lopen
++     call assert_equal(wid, win_getid())
++     call assert_equal(qfbnum, bufnr(''))
++     lclose
++ 
++     " When the window with the location list is closed, the buffer should be
++     " removed
+      new | only
+!     call assert_false(bufexists(qfbnum))
+    endif
+  endfunc
+  
+***************
+*** 3942,3944 ****
+--- 3964,3992 ----
+    call Xqfbuf_test('c')
+    call Xqfbuf_test('l')
+  endfunc
++ 
++ " If there is an autocmd to use only one window, then opening the location
++ " list window used to crash Vim.
++ func Test_winonly_autocmd()
++   call s:create_test_file('Xtest1')
++   " Autocmd to show only one Vim window at a time
++   autocmd WinEnter * only
++   new
++   " Load the location list
++   lexpr "Xtest1:5:Line5\nXtest1:10:Line10\nXtest1:15:Line15"
++   let loclistid = getloclist(0, {'id' : 0}).id
++   " Open the location list window. Only this window will be shown and the file
++   " window is closed.
++   lopen
++   call assert_equal(loclistid, getloclist(0, {'id' : 0}).id)
++   " Jump to an entry in the location list and make sure that the cursor is
++   " positioned correctly.
++   ll 3
++   call assert_equal(loclistid, getloclist(0, {'id' : 0}).id)
++   call assert_equal('Xtest1', bufname(''))
++   call assert_equal(15, line('.'))
++   " Cleanup
++   autocmd! WinEnter
++   new | only
++   call delete('Xtest1')
++ endfunc
+*** ../vim-8.1.0891/src/window.c	2019-01-31 18:26:05.742803481 +0100
+--- src/window.c	2019-02-10 22:55:04.749658501 +0100
+***************
+*** 7193,7203 ****
+  }
+  
+      win_T *
+! win_id2wp(typval_T *argvars)
+  {
+      win_T	*wp;
+      tabpage_T   *tp;
+-     int		id = tv_get_number(&argvars[0]);
+  
+      FOR_ALL_TAB_WINDOWS(tp, wp)
+  	if (wp->w_id == id)
+--- 7193,7202 ----
+  }
+  
+      win_T *
+! win_id2wp(int id)
+  {
+      win_T	*wp;
+      tabpage_T   *tp;
+  
+      FOR_ALL_TAB_WINDOWS(tp, wp)
+  	if (wp->w_id == id)
+*** ../vim-8.1.0891/src/version.c	2019-02-10 22:50:08.011856775 +0100
+--- src/version.c	2019-02-10 22:55:47.289343987 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     892,
+  /**/
+
+-- 
+JOHN CLEESE PLAYED: SECOND SOLDIER WITH A KEEN INTEREST IN BIRDS, LARGE MAN
+                    WITH DEAD BODY, BLACK KNIGHT, MR NEWT (A VILLAGE
+                    BLACKSMITH INTERESTED IN BURNING WITCHES), A QUITE
+                    EXTRAORDINARILY RUDE FRENCHMAN, TIM THE WIZARD, SIR
+                    LAUNCELOT
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

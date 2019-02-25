@@ -1,0 +1,572 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.07
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0759
+Problem:    Showing two characters for tab is limited.
+Solution:   Allow for a third character for "tab:" in 'listchars'. (Nathaniel
+            Braun, Ken Takata, closes #3810)
+Files:      runtime/doc/options.txt, src/globals.h, src/message.c,
+            src/option.c, src/screen.c, src/testdir/test_listchars.vim
+
+
+*** ../vim-8.1.0758/runtime/doc/options.txt	2019-01-08 22:02:36.040297337 +0100
+--- runtime/doc/options.txt	2019-01-16 22:32:15.368530721 +0100
+***************
+*** 5025,5035 ****
+  			omitted, there is no extra character at the end of the
+  			line.
+  							*lcs-tab*
+! 	  tab:xy	Two characters to be used to show a tab.  The first
+! 			char is used once.  The second char is repeated to
+! 			fill the space that the tab normally occupies.
+! 			"tab:>-" will show a tab that takes four spaces as
+! 			">---".  When omitted, a tab is show as ^I.
+  							*lcs-space*
+  	  space:c	Character to show for a space.  When omitted, spaces
+  			are left blank.
+--- 5066,5091 ----
+  			omitted, there is no extra character at the end of the
+  			line.
+  							*lcs-tab*
+! 	  tab:xy[z]	Two or three characters to be used to show a tab.
+! 			The third character is optional.
+! 
+! 	  tab:xy	The 'x' is always used, then 'y' as many times as will
+! 			fit.  Thus "tab:>-" displays:
+! 				>
+! 				>-
+! 				>--
+! 				etc.
+! 
+! 	  tab:xyz	The 'z' is always used, then 'x' is prepended, and
+! 			then 'y' is used as many times as will fit.  Thus
+! 			"tab:<->" displays:
+! 				>
+! 				<>
+! 				<->
+! 				<-->
+! 				etc.
+! 
+! 			When "tab:" is omitted, a tab is shown as ^I.
+  							*lcs-space*
+  	  space:c	Character to show for a space.  When omitted, spaces
+  			are left blank.
+*** ../vim-8.1.0758/src/globals.h	2019-01-13 23:38:33.391773303 +0100
+--- src/globals.h	2019-01-16 22:25:51.783632939 +0100
+***************
+*** 1163,1168 ****
+--- 1163,1169 ----
+  EXTERN int	lcs_space INIT(= NUL);
+  EXTERN int	lcs_tab1 INIT(= NUL);
+  EXTERN int	lcs_tab2 INIT(= NUL);
++ EXTERN int	lcs_tab3 INIT(= NUL);
+  EXTERN int	lcs_trail INIT(= NUL);
+  #ifdef FEAT_CONCEAL
+  EXTERN int	lcs_conceal INIT(= ' ');
+*** ../vim-8.1.0758/src/message.c	2019-01-13 23:38:33.399773248 +0100
+--- src/message.c	2019-01-16 22:25:51.783632939 +0100
+***************
+*** 1771,1776 ****
+--- 1771,1777 ----
+      int		col = 0;
+      int		n_extra = 0;
+      int		c_extra = 0;
++     int		c_final = 0;
+      char_u	*p_extra = NULL;	    /* init to make SASC shut up */
+      int		n;
+      int		attr = 0;
+***************
+*** 1801,1807 ****
+  	if (n_extra > 0)
+  	{
+  	    --n_extra;
+! 	    if (c_extra)
+  		c = c_extra;
+  	    else
+  		c = *p_extra++;
+--- 1802,1810 ----
+  	if (n_extra > 0)
+  	{
+  	    --n_extra;
+! 	    if (n_extra == 0 && c_final)
+! 		c = c_final;
+! 	    else if (c_extra)
+  		c = c_extra;
+  	    else
+  		c = *p_extra++;
+***************
+*** 1844,1854 ****
+  		{
+  		    c = ' ';
+  		    c_extra = ' ';
+  		}
+  		else
+  		{
+! 		    c = lcs_tab1;
+  		    c_extra = lcs_tab2;
+  		    attr = HL_ATTR(HLF_8);
+  		}
+  	    }
+--- 1847,1859 ----
+  		{
+  		    c = ' ';
+  		    c_extra = ' ';
++ 		    c_final = NUL;
+  		}
+  		else
+  		{
+! 		    c = (n_extra == 0 && lcs_tab3) ? lcs_tab3 : lcs_tab1;
+  		    c_extra = lcs_tab2;
++ 		    c_final = lcs_tab3;
+  		    attr = HL_ATTR(HLF_8);
+  		}
+  	    }
+***************
+*** 1861,1866 ****
+--- 1866,1872 ----
+  	    {
+  		p_extra = (char_u *)"";
+  		c_extra = NUL;
++ 		c_final = NUL;
+  		n_extra = 1;
+  		c = lcs_eol;
+  		attr = HL_ATTR(HLF_AT);
+***************
+*** 1871,1876 ****
+--- 1877,1883 ----
+  		n_extra = n - 1;
+  		p_extra = transchar_byte(c);
+  		c_extra = NUL;
++ 		c_final = NUL;
+  		c = *p_extra++;
+  		/* Use special coloring to be able to distinguish <hex> from
+  		 * the same in plain text. */
+*** ../vim-8.1.0758/src/option.c	2019-01-15 21:12:53.602254042 +0100
+--- src/option.c	2019-01-16 22:25:51.783632939 +0100
+***************
+*** 7949,7955 ****
+  {
+      int		round, i, len, entries;
+      char_u	*p, *s;
+!     int		c1, c2 = 0;
+      struct charstab
+      {
+  	int	*cp;
+--- 7949,7955 ----
+  {
+      int		round, i, len, entries;
+      char_u	*p, *s;
+!     int		c1 = 0, c2 = 0, c3 = 0;
+      struct charstab
+      {
+  	int	*cp;
+***************
+*** 8001,8008 ****
+--- 8001,8012 ----
+  	    for (i = 0; i < entries; ++i)
+  		if (tab[i].cp != NULL)
+  		    *(tab[i].cp) = (varp == &p_lcs ? NUL : ' ');
++ 
+  	    if (varp == &p_lcs)
++ 	    {
+  		lcs_tab1 = NUL;
++ 		lcs_tab3 = NUL;
++ 	    }
+  	    else
+  		fill_diff = '-';
+  	}
+***************
+*** 8016,8021 ****
+--- 8020,8026 ----
+  			&& p[len] == ':'
+  			&& p[len + 1] != NUL)
+  		{
++ 		    c1 = c2 = c3 = 0;
+  		    s = p + len + 1;
+  #ifdef FEAT_MBYTE
+  		    c1 = mb_ptr2char_adv(&s);
+***************
+*** 8035,8041 ****
+--- 8040,8057 ----
+  #else
+  			c2 = *s++;
+  #endif
++ 			if (!(*s == ',' || *s == NUL))
++ 			{
++ #ifdef FEAT_MBYTE
++ 			    c3 = mb_ptr2char_adv(&s);
++ 			    if (mb_char2cells(c3) > 1)
++ 				continue;
++ #else
++ 			    c3 = *s++;
++ #endif
++ 			}
+  		    }
++ 
+  		    if (*s == ',' || *s == NUL)
+  		    {
+  			if (round)
+***************
+*** 8044,8049 ****
+--- 8060,8066 ----
+  			    {
+  				lcs_tab1 = c1;
+  				lcs_tab2 = c2;
++ 				lcs_tab3 = c3;
+  			    }
+  			    else if (tab[i].cp != NULL)
+  				*(tab[i].cp) = c1;
+*** ../vim-8.1.0758/src/screen.c	2019-01-11 20:34:18.300314693 +0100
+--- src/screen.c	2019-01-16 22:25:51.787632909 +0100
+***************
+*** 3049,3054 ****
+--- 3049,3055 ----
+      char_u	*p_extra = NULL;	/* string of extra chars, plus NUL */
+      char_u	*p_extra_free = NULL;   /* p_extra needs to be freed */
+      int		c_extra = NUL;		/* extra chars, all the same */
++     int		c_final = NUL;		/* final char, mandatory if set */
+      int		extra_attr = 0;		/* attributes when n_extra != 0 */
+      static char_u *at_end_str = (char_u *)""; /* used for p_extra when
+  					   displaying lcs_eol at end-of-line */
+***************
+*** 3059,3064 ****
+--- 3060,3066 ----
+      int		saved_n_extra = 0;
+      char_u	*saved_p_extra = NULL;
+      int		saved_c_extra = 0;
++     int		saved_c_final = 0;
+      int		saved_char_attr = 0;
+  
+      int		n_attr = 0;		/* chars with special attr */
+***************
+*** 3814,3819 ****
+--- 3816,3822 ----
+  		    /* Draw the cmdline character. */
+  		    n_extra = 1;
+  		    c_extra = cmdwin_type;
++ 		    c_final = NUL;
+  		    char_attr = HL_ATTR(HLF_AT);
+  		}
+  	    }
+***************
+*** 3839,3844 ****
+--- 3842,3848 ----
+  			p_extra_free[n_extra] = NUL;
+  			p_extra = p_extra_free;
+  			c_extra = NUL;
++ 			c_final = NUL;
+  			char_attr = HL_ATTR(HLF_FC);
+  		    }
+  		}
+***************
+*** 3860,3865 ****
+--- 3864,3870 ----
+  
+  		    /* Draw two cells with the sign value or blank. */
+  		    c_extra = ' ';
++ 		    c_final = NUL;
+  		    char_attr = HL_ATTR(HLF_SC);
+  		    n_extra = 2;
+  
+***************
+*** 3878,3886 ****
+--- 3883,3895 ----
+  			{
+  			    /* Use the image in this position. */
+  			    c_extra = SIGN_BYTE;
++ 			    c_final = NUL;
+  #  ifdef FEAT_NETBEANS_INTG
+  			    if (buf_signcount(wp->w_buffer, lnum) > 1)
++ 			    {
+  				c_extra = MULTISIGN_BYTE;
++ 				c_final = NUL;
++ 			    }
+  #  endif
+  			    char_attr = icon_sign;
+  			}
+***************
+*** 3892,3897 ****
+--- 3901,3907 ----
+  			    if (p_extra != NULL)
+  			    {
+  				c_extra = NUL;
++ 				c_final = NUL;
+  				n_extra = (int)STRLEN(p_extra);
+  			    }
+  			    char_attr = sign_get_attr(text_sign, FALSE);
+***************
+*** 3949,3957 ****
+--- 3959,3971 ----
+  #endif
+  			p_extra = extra;
+  			c_extra = NUL;
++ 			c_final = NUL;
+  		    }
+  		    else
++ 		    {
+  			c_extra = ' ';
++ 			c_final = NUL;
++ 		    }
+  		    n_extra = number_width(wp) + 1;
+  		    char_attr = HL_ATTR(HLF_N);
+  #ifdef FEAT_SYN_HL
+***************
+*** 4020,4028 ****
+--- 4034,4048 ----
+  		{
+  		    /* Draw "deleted" diff line(s). */
+  		    if (char2cells(fill_diff) > 1)
++ 		    {
+  			c_extra = '-';
++ 			c_final = NUL;
++ 		    }
+  		    else
++ 		    {
+  			c_extra = fill_diff;
++ 			c_final = NUL;
++ 		    }
+  #  ifdef FEAT_RIGHTLEFT
+  		    if (wp->w_p_rl)
+  			n_extra = col + 1;
+***************
+*** 4038,4043 ****
+--- 4058,4064 ----
+  		    /* Draw 'showbreak' at the start of each broken line. */
+  		    p_extra = p_sbr;
+  		    c_extra = NUL;
++ 		    c_final = NUL;
+  		    n_extra = (int)STRLEN(p_sbr);
+  		    char_attr = HL_ATTR(HLF_AT);
+  		    need_showbreak = FALSE;
+***************
+*** 4065,4070 ****
+--- 4086,4092 ----
+  		    /* Continue item from end of wrapped line. */
+  		    n_extra = saved_n_extra;
+  		    c_extra = saved_c_extra;
++ 		    c_final = saved_c_final;
+  		    p_extra = saved_p_extra;
+  		    char_attr = saved_char_attr;
+  		}
+***************
+*** 4364,4378 ****
+  	 * The "p_extra" points to the extra stuff that is inserted to
+  	 * represent special characters (non-printable stuff) and other
+  	 * things.  When all characters are the same, c_extra is used.
+  	 * "p_extra" must end in a NUL to avoid mb_ptr2len() reads past
+  	 * "p_extra[n_extra]".
+  	 * For the '$' of the 'list' option, n_extra == 1, p_extra == "".
+  	 */
+  	if (n_extra > 0)
+  	{
+! 	    if (c_extra != NUL)
+  	    {
+! 		c = c_extra;
+  #ifdef FEAT_MBYTE
+  		mb_c = c;	/* doesn't handle non-utf-8 multi-byte! */
+  		if (enc_utf8 && utf_char2len(c) > 1)
+--- 4386,4401 ----
+  	 * The "p_extra" points to the extra stuff that is inserted to
+  	 * represent special characters (non-printable stuff) and other
+  	 * things.  When all characters are the same, c_extra is used.
++ 	 * If c_final is set, it will compulsorily be used at the end.
+  	 * "p_extra" must end in a NUL to avoid mb_ptr2len() reads past
+  	 * "p_extra[n_extra]".
+  	 * For the '$' of the 'list' option, n_extra == 1, p_extra == "".
+  	 */
+  	if (n_extra > 0)
+  	{
+! 	    if (c_extra != NUL || (n_extra == 1 && c_final != NUL))
+  	    {
+! 		c = (n_extra == 1 && c_final != NUL) ? c_final : c_extra;
+  #ifdef FEAT_MBYTE
+  		mb_c = c;	/* doesn't handle non-utf-8 multi-byte! */
+  		if (enc_utf8 && utf_char2len(c) > 1)
+***************
+*** 4537,4542 ****
+--- 4560,4566 ----
+  			mb_utf8 = (c >= 0x80);
+  			n_extra = (int)STRLEN(p_extra);
+  			c_extra = NUL;
++ 			c_final = NUL;
+  			if (area_attr == 0 && search_attr == 0)
+  			{
+  			    n_attr = n_extra + 1;
+***************
+*** 4605,4610 ****
+--- 4629,4635 ----
+  			    p_extra = extra;
+  			    n_extra = (int)STRLEN(extra) - 1;
+  			    c_extra = NUL;
++ 			    c_final = NUL;
+  			    c = *p_extra++;
+  			    if (area_attr == 0 && search_attr == 0)
+  			    {
+***************
+*** 4645,4650 ****
+--- 4670,4676 ----
+  		{
+  		    n_extra = 1;
+  		    c_extra = MB_FILLER_CHAR;
++ 		    c_final = NUL;
+  		    c = ' ';
+  		    if (area_attr == 0 && search_attr == 0)
+  		    {
+***************
+*** 4856,4861 ****
+--- 4882,4888 ----
+  # else
+  		    c_extra = ' ';
+  # endif
++ 		    c_final = NUL;
+  		    if (VIM_ISWHITE(c))
+  		    {
+  #ifdef FEAT_CONCEAL
+***************
+*** 5040,5052 ****
+  #endif
+  		    if (wp->w_p_list)
+  		    {
+! 			c = lcs_tab1;
+  #ifdef FEAT_LINEBREAK
+  			if (wp->w_p_lbr)
+  			    c_extra = NUL; /* using p_extra from above */
+  			else
+  #endif
+  			    c_extra = lcs_tab2;
+  			n_attr = tab_len + 1;
+  			extra_attr = HL_ATTR(HLF_8);
+  			saved_attr2 = char_attr; /* save current attr */
+--- 5067,5080 ----
+  #endif
+  		    if (wp->w_p_list)
+  		    {
+! 			c = (n_extra == 0 && lcs_tab3) ? lcs_tab3 : lcs_tab1;
+  #ifdef FEAT_LINEBREAK
+  			if (wp->w_p_lbr)
+  			    c_extra = NUL; /* using p_extra from above */
+  			else
+  #endif
+  			    c_extra = lcs_tab2;
++ 			c_final = lcs_tab3;
+  			n_attr = tab_len + 1;
+  			extra_attr = HL_ATTR(HLF_8);
+  			saved_attr2 = char_attr; /* save current attr */
+***************
+*** 5062,5067 ****
+--- 5090,5096 ----
+  		    }
+  		    else
+  		    {
++ 			c_final = NUL;
+  			c_extra = ' ';
+  			c = ' ';
+  		    }
+***************
+*** 5111,5116 ****
+--- 5140,5146 ----
+  			    p_extra = at_end_str;
+  			    n_extra = 1;
+  			    c_extra = NUL;
++ 			    c_final = NUL;
+  			}
+  		    }
+  		    if (wp->w_p_list && lcs_eol > 0)
+***************
+*** 5146,5151 ****
+--- 5176,5182 ----
+  			rl_mirror(p_extra);	/* reverse "<12>" */
+  #endif
+  		    c_extra = NUL;
++ 		    c_final = NUL;
+  #ifdef FEAT_LINEBREAK
+  		    if (wp->w_p_lbr)
+  		    {
+***************
+*** 5407,5412 ****
+--- 5438,5444 ----
+  		/* Double-width character being overwritten by the "precedes"
+  		 * character, need to fill up half the character. */
+  		c_extra = MB_FILLER_CHAR;
++ 		c_final = NUL;
+  		n_extra = 1;
+  		n_attr = 2;
+  		extra_attr = HL_ATTR(HLF_AT);
+***************
+*** 6064,6069 ****
+--- 6096,6102 ----
+  	    saved_n_extra = n_extra;
+  	    saved_p_extra = p_extra;
+  	    saved_c_extra = c_extra;
++ 	    saved_c_final = c_final;
+  	    saved_char_attr = char_attr;
+  	    n_extra = 0;
+  	    lcs_prec_todo = lcs_prec;
+*** ../vim-8.1.0758/src/testdir/test_listchars.vim	2017-11-16 21:41:26.000000000 +0100
+--- src/testdir/test_listchars.vim	2019-01-16 22:25:51.787632909 +0100
+***************
+*** 42,47 ****
+--- 42,79 ----
+      call assert_equal([expected[i - 1]], ScreenLines(i, virtcol('$')))
+    endfor
+  
++   " tab with 3rd character.
++   set listchars-=tab:>-
++   set listchars+=tab:<=>,trail:-
++   let expected = [
++ 	      \ '<======>aa<====>$',
++ 	      \ '..bb<==>--$',
++ 	      \ '...cccc>-$',
++ 	      \ 'dd........ee--<>$',
++ 	      \ '-$'
++ 	      \ ]
++   redraw!
++   for i in range(1, 5)
++     call cursor(i, 1)
++     call assert_equal([expected[i - 1]], ScreenLines(i, virtcol('$')))
++   endfor
++ 
++   set listchars-=trail:-
++   let expected = [
++ 	      \ '<======>aa<====>$',
++ 	      \ '..bb<==>..$',
++ 	      \ '...cccc>.$',
++ 	      \ 'dd........ee..<>$',
++ 	      \ '.$'
++ 	      \ ]
++   redraw!
++   for i in range(1, 5)
++     call cursor(i, 1)
++     call assert_equal([expected[i - 1]], ScreenLines(i, virtcol('$')))
++   endfor
++ 
++   set listchars-=tab:<=>
++   set listchars+=tab:>-
+    set listchars+=trail:<
+    set nolist
+    normal ggdG
+*** ../vim-8.1.0758/src/version.c	2019-01-16 22:15:07.872962363 +0100
+--- src/version.c	2019-01-16 22:26:24.651365857 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     759,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+228. You spend Saturday night making the counter on your home page
+     pass that 2000 mark.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

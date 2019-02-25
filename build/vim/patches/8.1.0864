@@ -1,0 +1,1239 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0864
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0864
+Problem:    Cannot have a local value for 'scrolloff' and 'sidescrolloff'.
+            (Gary Holloway)
+Solution:   Make 'scrolloff' and 'sidescrolloff' global-local. (mostly by
+            Aron Widforss, closes #3539)
+Files:	    runtime/doc/options.txt, src/edit.c, src/ex_cmds.c,
+            src/ex_docmd.c, src/gui.c, src/misc2.c, src/move.c, src/normal.c,
+            src/option.c, src/proto/option.pro, src/option.h, src/search.c,
+            src/structs.h, src/window.c, src/testdir/test_options.vim
+
+
+*** ../vim-8.1.0863/runtime/doc/options.txt	2019-01-31 14:12:52.760076333 +0100
+--- runtime/doc/options.txt	2019-01-31 16:38:43.450585694 +0100
+***************
+*** 6546,6559 ****
+  
+  						*'scrolloff'* *'so'*
+  'scrolloff' 'so'	number	(default 0, set to 5 in |defaults.vim|)
+! 			global
+  			{not in Vi}
+  	Minimal number of screen lines to keep above and below the cursor.
+  	This will make some context visible around where you are working.  If
+  	you set it to a very large value (999) the cursor line will always be
+  	in the middle of the window (except at the start or end of the file or
+  	when long lines wrap).
+! 	For scrolling horizontally see 'sidescrolloff'.
+  	NOTE: This option is set to 0 when 'compatible' is set.
+  
+  						*'scrollopt'* *'sbo'*
+--- 6590,6607 ----
+  
+  						*'scrolloff'* *'so'*
+  'scrolloff' 'so'	number	(default 0, set to 5 in |defaults.vim|)
+! 			global or local to window |global-local|
+  			{not in Vi}
+  	Minimal number of screen lines to keep above and below the cursor.
+  	This will make some context visible around where you are working.  If
+  	you set it to a very large value (999) the cursor line will always be
+  	in the middle of the window (except at the start or end of the file or
+  	when long lines wrap).
+! 	After using the local value, go back the global value with one of
+! 	these two: >
+! 		setlocal scrolloff<
+! 		setlocal scrolloff=-1
+! <	For scrolling horizontally see 'sidescrolloff'.
+  	NOTE: This option is set to 0 when 'compatible' is set.
+  
+  						*'scrollopt'* *'sbo'*
+***************
+*** 7107,7113 ****
+  
+  						*'sidescrolloff'* *'siso'*
+  'sidescrolloff' 'siso'	number (default 0)
+! 			global
+  			{not in Vi}
+  	The minimal number of screen columns to keep to the left and to the
+  	right of the cursor if 'nowrap' is set.  Setting this option to a
+--- 7156,7162 ----
+  
+  						*'sidescrolloff'* *'siso'*
+  'sidescrolloff' 'siso'	number (default 0)
+! 			global or local to window |global-local|
+  			{not in Vi}
+  	The minimal number of screen columns to keep to the left and to the
+  	right of the cursor if 'nowrap' is set.  Setting this option to a
+***************
+*** 7117,7123 ****
+  	to a large value (like 999) has the effect of keeping the cursor
+  	horizontally centered in the window, as long as one does not come too
+  	close to the beginning of the line.
+! 	NOTE: This option is set to 0 when 'compatible' is set.
+  
+  	Example: Try this together with 'sidescroll' and 'listchars' as
+  		 in the following example to never allow the cursor to move
+--- 7166,7176 ----
+  	to a large value (like 999) has the effect of keeping the cursor
+  	horizontally centered in the window, as long as one does not come too
+  	close to the beginning of the line.
+! 	After using the local value, go back the global value with one of
+! 	these two: >
+! 		setlocal sidescrolloff<
+! 		setlocal sidescrolloff=-1
+! <	NOTE: This option is set to 0 when 'compatible' is set.
+  
+  	Example: Try this together with 'sidescroll' and 'listchars' as
+  		 in the following example to never allow the cursor to move
+*** ../vim-8.1.0863/src/edit.c	2019-01-31 14:29:38.777104291 +0100
+--- src/edit.c	2019-01-31 16:19:08.534777417 +0100
+***************
+*** 728,734 ****
+  		(int)curwin->w_wcol < mincol - curbuf->b_p_ts
+  #endif
+  		    && curwin->w_wrow == W_WINROW(curwin)
+! 						 + curwin->w_height - 1 - p_so
+  		    && (curwin->w_cursor.lnum != curwin->w_topline
+  #ifdef FEAT_DIFF
+  			|| curwin->w_topfill > 0
+--- 728,734 ----
+  		(int)curwin->w_wcol < mincol - curbuf->b_p_ts
+  #endif
+  		    && curwin->w_wrow == W_WINROW(curwin)
+! 				 + curwin->w_height - 1 - get_scrolloff_value()
+  		    && (curwin->w_cursor.lnum != curwin->w_topline
+  #ifdef FEAT_DIFF
+  			|| curwin->w_topfill > 0
+*** ../vim-8.1.0863/src/ex_cmds.c	2019-01-26 17:28:22.224599141 +0100
+--- src/ex_cmds.c	2019-01-31 16:20:31.290176729 +0100
+***************
+*** 3784,3789 ****
+--- 3784,3790 ----
+  #endif
+      int		readfile_flags = 0;
+      int		did_inc_redrawing_disabled = FALSE;
++     long        *so_ptr = curwin->w_p_so >= 0 ? &curwin->w_p_so : &p_so;
+  
+      if (eap != NULL)
+  	command = eap->do_ecmd_cmd;
+***************
+*** 4389,4400 ****
+      did_inc_redrawing_disabled = FALSE;
+      if (!skip_redraw)
+      {
+! 	n = p_so;
+  	if (topline == 0 && command == NULL)
+! 	    p_so = 999;			/* force cursor halfway the window */
+  	update_topline();
+  	curwin->w_scbind_pos = curwin->w_topline;
+! 	p_so = n;
+  	redraw_curbuf_later(NOT_VALID);	/* redraw this buffer later */
+      }
+  
+--- 4390,4401 ----
+      did_inc_redrawing_disabled = FALSE;
+      if (!skip_redraw)
+      {
+! 	n = *so_ptr;
+  	if (topline == 0 && command == NULL)
+! 	    *so_ptr = 9999;		// force cursor halfway the window
+  	update_topline();
+  	curwin->w_scbind_pos = curwin->w_topline;
+! 	*so_ptr = n;
+  	redraw_curbuf_later(NOT_VALID);	/* redraw this buffer later */
+      }
+  
+*** ../vim-8.1.0863/src/ex_docmd.c	2019-01-28 20:19:01.679054801 +0100
+--- src/ex_docmd.c	2019-01-31 16:21:01.941955853 +0100
+***************
+*** 8923,8929 ****
+  	{
+  	    if (wp->w_p_scb && wp->w_buffer)
+  	    {
+! 		y = wp->w_buffer->b_ml.ml_line_count - p_so;
+  		if (topline > y)
+  		    topline = y;
+  	    }
+--- 8923,8929 ----
+  	{
+  	    if (wp->w_p_scb && wp->w_buffer)
+  	    {
+! 		y = wp->w_buffer->b_ml.ml_line_count - get_scrolloff_value();
+  		if (topline > y)
+  		    topline = y;
+  	    }
+*** ../vim-8.1.0863/src/gui.c	2019-01-27 16:55:44.276707556 +0100
+--- src/gui.c	2019-01-31 16:21:30.457751081 +0100
+***************
+*** 4405,4411 ****
+  #endif
+  	    )
+      {
+! 	if (p_so != 0)
+  	{
+  	    cursor_correct();		/* fix window for 'so' */
+  	    update_topline();		/* avoid up/down jump */
+--- 4405,4411 ----
+  #endif
+  	    )
+      {
+! 	if (get_scrolloff_value() != 0)
+  	{
+  	    cursor_correct();		/* fix window for 'so' */
+  	    update_topline();		/* avoid up/down jump */
+*** ../vim-8.1.0863/src/misc2.c	2019-01-29 22:29:03.550799929 +0100
+--- src/misc2.c	2019-01-31 16:13:49.121175986 +0100
+***************
+*** 643,648 ****
+--- 643,649 ----
+      long	lastcol;
+      colnr_T	s, e;
+      int		retval = FALSE;
++     long        siso = get_sidescrolloff_value();
+  
+      changed_cline_bef_curs();
+      lastcol = curwin->w_leftcol + curwin->w_width - curwin_col_off() - 1;
+***************
+*** 652,666 ****
+       * If the cursor is right or left of the screen, move it to last or first
+       * character.
+       */
+!     if (curwin->w_virtcol > (colnr_T)(lastcol - p_siso))
+      {
+  	retval = TRUE;
+! 	coladvance((colnr_T)(lastcol - p_siso));
+      }
+!     else if (curwin->w_virtcol < curwin->w_leftcol + p_siso)
+      {
+  	retval = TRUE;
+! 	(void)coladvance((colnr_T)(curwin->w_leftcol + p_siso));
+      }
+  
+      /*
+--- 653,667 ----
+       * If the cursor is right or left of the screen, move it to last or first
+       * character.
+       */
+!     if (curwin->w_virtcol > (colnr_T)(lastcol - siso))
+      {
+  	retval = TRUE;
+! 	coladvance((colnr_T)(lastcol - siso));
+      }
+!     else if (curwin->w_virtcol < curwin->w_leftcol + siso)
+      {
+  	retval = TRUE;
+! 	(void)coladvance((colnr_T)(curwin->w_leftcol + siso));
+      }
+  
+      /*
+*** ../vim-8.1.0863/src/move.c	2019-01-31 13:22:28.064543651 +0100
+--- src/move.c	2019-01-31 16:26:06.191799784 +0100
+***************
+*** 192,199 ****
+  #endif
+      int		check_topline = FALSE;
+      int		check_botline = FALSE;
+  #ifdef FEAT_MOUSE
+!     int		save_so = p_so;
+  #endif
+  
+      /* If there is no valid screen and when the window height is zero just use
+--- 192,200 ----
+  #endif
+      int		check_topline = FALSE;
+      int		check_botline = FALSE;
++     long        *so_ptr = curwin->w_p_so >= 0 ? &curwin->w_p_so : &p_so;
+  #ifdef FEAT_MOUSE
+!     int		save_so = *so_ptr;
+  #endif
+  
+      /* If there is no valid screen and when the window height is zero just use
+***************
+*** 214,220 ****
+  #ifdef FEAT_MOUSE
+      /* When dragging with the mouse, don't scroll that quickly */
+      if (mouse_dragging > 0)
+! 	p_so = mouse_dragging - 1;
+  #endif
+  
+      old_topline = curwin->w_topline;
+--- 215,221 ----
+  #ifdef FEAT_MOUSE
+      /* When dragging with the mouse, don't scroll that quickly */
+      if (mouse_dragging > 0)
+! 	*so_ptr = mouse_dragging - 1;
+  #endif
+  
+      old_topline = curwin->w_topline;
+***************
+*** 268,278 ****
+  	    if (hasAnyFolding(curwin))
+  	    {
+  		/* Count the number of logical lines between the cursor and
+! 		 * topline + p_so (approximation of how much will be
+  		 * scrolled). */
+  		n = 0;
+  		for (lnum = curwin->w_cursor.lnum;
+! 				      lnum < curwin->w_topline + p_so; ++lnum)
+  		{
+  		    ++n;
+  		    /* stop at end of file or when we know we are far off */
+--- 269,279 ----
+  	    if (hasAnyFolding(curwin))
+  	    {
+  		/* Count the number of logical lines between the cursor and
+! 		 * topline + scrolloff (approximation of how much will be
+  		 * scrolled). */
+  		n = 0;
+  		for (lnum = curwin->w_cursor.lnum;
+! 				      lnum < curwin->w_topline + *so_ptr; ++lnum)
+  		{
+  		    ++n;
+  		    /* stop at end of file or when we know we are far off */
+***************
+*** 283,289 ****
+  	    }
+  	    else
+  #endif
+! 		n = curwin->w_topline + p_so - curwin->w_cursor.lnum;
+  
+  	    /* If we weren't very close to begin with, we scroll to put the
+  	     * cursor in the middle of the window.  Otherwise put the cursor
+--- 284,290 ----
+  	    }
+  	    else
+  #endif
+! 		n = curwin->w_topline + *so_ptr - curwin->w_cursor.lnum;
+  
+  	    /* If we weren't very close to begin with, we scroll to put the
+  	     * cursor in the middle of the window.  Otherwise put the cursor
+***************
+*** 325,331 ****
+  	    if (curwin->w_cursor.lnum < curwin->w_botline)
+  	    {
+  	      if (((long)curwin->w_cursor.lnum
+! 					     >= (long)curwin->w_botline - p_so
+  #ifdef FEAT_FOLDING
+  			|| hasAnyFolding(curwin)
+  #endif
+--- 326,332 ----
+  	    if (curwin->w_cursor.lnum < curwin->w_botline)
+  	    {
+  	      if (((long)curwin->w_cursor.lnum
+! 					     >= (long)curwin->w_botline - *so_ptr
+  #ifdef FEAT_FOLDING
+  			|| hasAnyFolding(curwin)
+  #endif
+***************
+*** 354,364 ****
+  			)
+  		{
+  		    n += loff.height;
+! 		    if (n >= p_so)
+  			break;
+  		    botline_forw(&loff);
+  		}
+! 		if (n >= p_so)
+  		    /* sufficient context, no need to scroll */
+  		    check_botline = FALSE;
+  	      }
+--- 355,365 ----
+  			)
+  		{
+  		    n += loff.height;
+! 		    if (n >= *so_ptr)
+  			break;
+  		    botline_forw(&loff);
+  		}
+! 		if (n >= *so_ptr)
+  		    /* sufficient context, no need to scroll */
+  		    check_botline = FALSE;
+  	      }
+***************
+*** 372,382 ****
+  		if (hasAnyFolding(curwin))
+  		{
+  		    /* Count the number of logical lines between the cursor and
+! 		     * botline - p_so (approximation of how much will be
+  		     * scrolled). */
+  		    line_count = 0;
+  		    for (lnum = curwin->w_cursor.lnum;
+! 				     lnum >= curwin->w_botline - p_so; --lnum)
+  		    {
+  			++line_count;
+  			/* stop at end of file or when we know we are far off */
+--- 373,383 ----
+  		if (hasAnyFolding(curwin))
+  		{
+  		    /* Count the number of logical lines between the cursor and
+! 		     * botline - scrolloff (approximation of how much will be
+  		     * scrolled). */
+  		    line_count = 0;
+  		    for (lnum = curwin->w_cursor.lnum;
+! 				     lnum >= curwin->w_botline - *so_ptr; --lnum)
+  		    {
+  			++line_count;
+  			/* stop at end of file or when we know we are far off */
+***************
+*** 388,394 ****
+  		else
+  #endif
+  		    line_count = curwin->w_cursor.lnum - curwin->w_botline
+! 								   + 1 + p_so;
+  		if (line_count <= curwin->w_height + 1)
+  		    scroll_cursor_bot(scrolljump_value(), FALSE);
+  		else
+--- 389,395 ----
+  		else
+  #endif
+  		    line_count = curwin->w_cursor.lnum - curwin->w_botline
+! 								   + 1 + *so_ptr;
+  		if (line_count <= curwin->w_height + 1)
+  		    scroll_cursor_bot(scrolljump_value(), FALSE);
+  		else
+***************
+*** 421,427 ****
+      }
+  
+  #ifdef FEAT_MOUSE
+!     p_so = save_so;
+  #endif
+  }
+  
+--- 422,428 ----
+      }
+  
+  #ifdef FEAT_MOUSE
+!     *so_ptr = save_so;
+  #endif
+  }
+  
+***************
+*** 447,454 ****
+  {
+      lineoff_T	loff;
+      int		n;
+  
+!     if (curwin->w_cursor.lnum < curwin->w_topline + p_so
+  #ifdef FEAT_FOLDING
+  		    || hasAnyFolding(curwin)
+  #endif
+--- 448,456 ----
+  {
+      lineoff_T	loff;
+      int		n;
++     long        so = get_scrolloff_value();
+  
+!     if (curwin->w_cursor.lnum < curwin->w_topline + so
+  #ifdef FEAT_FOLDING
+  		    || hasAnyFolding(curwin)
+  #endif
+***************
+*** 462,468 ****
+  	n = 0;
+  #endif
+  	/* Count the visible screen lines above the cursor line. */
+! 	while (n < p_so)
+  	{
+  	    topline_back(&loff);
+  	    /* Stop when included a line above the window. */
+--- 464,470 ----
+  	n = 0;
+  #endif
+  	/* Count the visible screen lines above the cursor line. */
+! 	while (n < so)
+  	{
+  	    topline_back(&loff);
+  	    /* Stop when included a line above the window. */
+***************
+*** 474,480 ****
+  		break;
+  	    n += loff.height;
+  	}
+! 	if (n < p_so)
+  	    return TRUE;
+      }
+      return FALSE;
+--- 476,482 ----
+  		break;
+  	    n += loff.height;
+  	}
+! 	if (n < so)
+  	    return TRUE;
+      }
+      return FALSE;
+***************
+*** 946,951 ****
+--- 948,955 ----
+      colnr_T	startcol;
+      colnr_T	endcol;
+      colnr_T	prev_skipcol;
++     long        so = get_scrolloff_value();
++     long        siso = get_sidescrolloff_value();
+  
+      /*
+       * First make sure that w_topline is valid (after moving the cursor).
+***************
+*** 1028,1036 ****
+  	 * If we get closer to the edge than 'sidescrolloff', scroll a little
+  	 * extra
+  	 */
+! 	off_left = (int)startcol - (int)curwin->w_leftcol - p_siso;
+  	off_right = (int)endcol - (int)(curwin->w_leftcol + curwin->w_width
+! 								- p_siso) + 1;
+  	if (off_left < 0 || off_right > 0)
+  	{
+  	    if (off_left < 0)
+--- 1032,1040 ----
+  	 * If we get closer to the edge than 'sidescrolloff', scroll a little
+  	 * extra
+  	 */
+! 	off_left = (int)startcol - (int)curwin->w_leftcol - siso;
+  	off_right = (int)endcol - (int)(curwin->w_leftcol + curwin->w_width
+! 								- siso) + 1;
+  	if (off_left < 0 || off_right > 0)
+  	{
+  	    if (off_left < 0)
+***************
+*** 1079,1087 ****
+      prev_skipcol = curwin->w_skipcol;
+  
+      p_lines = 0;
+      if ((curwin->w_wrow >= curwin->w_height
+  		|| ((prev_skipcol > 0
+! 			|| curwin->w_wrow + p_so >= curwin->w_height)
+  		    && (p_lines =
+  #ifdef FEAT_DIFF
+  			plines_win_nofill
+--- 1083,1092 ----
+      prev_skipcol = curwin->w_skipcol;
+  
+      p_lines = 0;
++ 
+      if ((curwin->w_wrow >= curwin->w_height
+  		|| ((prev_skipcol > 0
+! 			|| curwin->w_wrow + so >= curwin->w_height)
+  		    && (p_lines =
+  #ifdef FEAT_DIFF
+  			plines_win_nofill
+***************
+*** 1098,1122 ****
+  	/* Cursor past end of screen.  Happens with a single line that does
+  	 * not fit on screen.  Find a skipcol to show the text around the
+  	 * cursor.  Avoid scrolling all the time. compute value of "extra":
+! 	 * 1: Less than "p_so" lines above
+! 	 * 2: Less than "p_so" lines below
+  	 * 3: both of them */
+  	extra = 0;
+! 	if (curwin->w_skipcol + p_so * width > curwin->w_virtcol)
+  	    extra = 1;
+  	/* Compute last display line of the buffer line that we want at the
+  	 * bottom of the window. */
+  	if (p_lines == 0)
+  	    p_lines = plines_win(curwin, curwin->w_cursor.lnum, FALSE);
+  	--p_lines;
+! 	if (p_lines > curwin->w_wrow + p_so)
+! 	    n = curwin->w_wrow + p_so;
+  	else
+  	    n = p_lines;
+  	if ((colnr_T)n >= curwin->w_height + curwin->w_skipcol / width)
+  	    extra += 2;
+  
+! 	if (extra == 3 || p_lines < p_so * 2)
+  	{
+  	    /* not enough room for 'scrolloff', put cursor in the middle */
+  	    n = curwin->w_virtcol / width;
+--- 1103,1127 ----
+  	/* Cursor past end of screen.  Happens with a single line that does
+  	 * not fit on screen.  Find a skipcol to show the text around the
+  	 * cursor.  Avoid scrolling all the time. compute value of "extra":
+! 	 * 1: Less than 'scrolloff' lines above
+! 	 * 2: Less than 'scrolloff' lines below
+  	 * 3: both of them */
+  	extra = 0;
+! 	if (curwin->w_skipcol + so * width > curwin->w_virtcol)
+  	    extra = 1;
+  	/* Compute last display line of the buffer line that we want at the
+  	 * bottom of the window. */
+  	if (p_lines == 0)
+  	    p_lines = plines_win(curwin, curwin->w_cursor.lnum, FALSE);
+  	--p_lines;
+! 	if (p_lines > curwin->w_wrow + so)
+! 	    n = curwin->w_wrow + so;
+  	else
+  	    n = p_lines;
+  	if ((colnr_T)n >= curwin->w_height + curwin->w_skipcol / width)
+  	    extra += 2;
+  
+! 	if (extra == 3 || p_lines < so * 2)
+  	{
+  	    /* not enough room for 'scrolloff', put cursor in the middle */
+  	    n = curwin->w_virtcol / width;
+***************
+*** 1132,1138 ****
+  	else if (extra == 1)
+  	{
+  	    /* less then 'scrolloff' lines above, decrease skipcol */
+! 	    extra = (curwin->w_skipcol + p_so * width - curwin->w_virtcol
+  				     + width - 1) / width;
+  	    if (extra > 0)
+  	    {
+--- 1137,1143 ----
+  	else if (extra == 1)
+  	{
+  	    /* less then 'scrolloff' lines above, decrease skipcol */
+! 	    extra = (curwin->w_skipcol + so * width - curwin->w_virtcol
+  				     + width - 1) / width;
+  	    if (extra > 0)
+  	    {
+***************
+*** 1464,1470 ****
+  	end_row += curwin->w_cline_height - 1 -
+  	    curwin->w_virtcol / curwin->w_width;
+      }
+!     if (end_row < curwin->w_height - p_so)
+      {
+  #ifdef FEAT_DIFF
+  	if (can_fill)
+--- 1469,1475 ----
+  	end_row += curwin->w_cline_height - 1 -
+  	    curwin->w_virtcol / curwin->w_width;
+      }
+!     if (end_row < curwin->w_height - get_scrolloff_value())
+      {
+  #ifdef FEAT_DIFF
+  	if (can_fill)
+***************
+*** 1522,1528 ****
+  	validate_virtcol();
+  	start_row -= curwin->w_virtcol / curwin->w_width;
+      }
+!     if (start_row >= p_so)
+      {
+  #ifdef FEAT_DIFF
+  	if (curwin->w_topfill > 0)
+--- 1527,1533 ----
+  	validate_virtcol();
+  	start_row -= curwin->w_virtcol / curwin->w_width;
+      }
+!     if (start_row >= get_scrolloff_value())
+      {
+  #ifdef FEAT_DIFF
+  	if (curwin->w_topfill > 0)
+***************
+*** 1666,1672 ****
+      linenr_T	old_topfill = curwin->w_topfill;
+  #endif
+      linenr_T	new_topline;
+!     int		off = p_so;
+  
+  #ifdef FEAT_MOUSE
+      if (mouse_dragging > 0)
+--- 1671,1677 ----
+      linenr_T	old_topfill = curwin->w_topfill;
+  #endif
+      linenr_T	new_topline;
+!     int		off = get_scrolloff_value();
+  
+  #ifdef FEAT_MOUSE
+      if (mouse_dragging > 0)
+***************
+*** 1842,1847 ****
+--- 1847,1853 ----
+      linenr_T	old_valid = curwin->w_valid;
+      int		old_empty_rows = curwin->w_empty_rows;
+      linenr_T	cln;		    /* Cursor Line Number */
++     long        so = get_scrolloff_value();
+  
+      cln = curwin->w_cursor.lnum;
+      if (set_topbot)
+***************
+*** 1898,1904 ****
+       * Stop counting lines to scroll when
+       * - hitting start of the file
+       * - scrolled nothing or at least 'sj' lines
+!      * - at least 'so' lines below the cursor
+       * - lines between botline and cursor have been counted
+       */
+  #ifdef FEAT_FOLDING
+--- 1904,1910 ----
+       * Stop counting lines to scroll when
+       * - hitting start of the file
+       * - scrolled nothing or at least 'sj' lines
+!      * - at least 'scrolloff' lines below the cursor
+       * - lines between botline and cursor have been counted
+       */
+  #ifdef FEAT_FOLDING
+***************
+*** 1924,1930 ****
+  #ifdef FEAT_MOUSE
+  			    mouse_dragging > 0 ? mouse_dragging - 1 :
+  #endif
+! 			    p_so))
+  		    || boff.lnum + 1 > curbuf->b_ml.ml_line_count)
+  		&& loff.lnum <= curwin->w_botline
+  #ifdef FEAT_DIFF
+--- 1930,1936 ----
+  #ifdef FEAT_MOUSE
+  			    mouse_dragging > 0 ? mouse_dragging - 1 :
+  #endif
+! 			    so))
+  		    || boff.lnum + 1 > curbuf->b_ml.ml_line_count)
+  		&& loff.lnum <= curwin->w_botline
+  #ifdef FEAT_DIFF
+***************
+*** 1970,1976 ****
+  #ifdef FEAT_MOUSE
+  			mouse_dragging > 0 ? mouse_dragging - 1 :
+  #endif
+! 			p_so) || scrolled < min_scroll)
+  	    {
+  		extra += boff.height;
+  		if (boff.lnum >= curwin->w_botline
+--- 1976,1982 ----
+  #ifdef FEAT_MOUSE
+  			mouse_dragging > 0 ? mouse_dragging - 1 :
+  #endif
+! 			so) || scrolled < min_scroll)
+  	    {
+  		extra += boff.height;
+  		if (boff.lnum >= curwin->w_botline
+***************
+*** 2124,2130 ****
+  
+  /*
+   * Correct the cursor position so that it is in a part of the screen at least
+!  * 'so' lines from the top and bottom, if possible.
+   * If not possible, put it at the same position as scroll_cursor_halfway().
+   * When called topline must be valid!
+   */
+--- 2130,2136 ----
+  
+  /*
+   * Correct the cursor position so that it is in a part of the screen at least
+!  * 'scrolloff' lines from the top and bottom, if possible.
+   * If not possible, put it at the same position as scroll_cursor_halfway().
+   * When called topline must be valid!
+   */
+***************
+*** 2138,2150 ****
+      int		above_wanted, below_wanted;
+      linenr_T	cln;		    /* Cursor Line Number */
+      int		max_off;
+  
+      /*
+       * How many lines we would like to have above/below the cursor depends on
+       * whether the first/last line of the file is on screen.
+       */
+!     above_wanted = p_so;
+!     below_wanted = p_so;
+  #ifdef FEAT_MOUSE
+      if (mouse_dragging > 0)
+      {
+--- 2144,2157 ----
+      int		above_wanted, below_wanted;
+      linenr_T	cln;		    /* Cursor Line Number */
+      int		max_off;
++     long        so = get_scrolloff_value();
+  
+      /*
+       * How many lines we would like to have above/below the cursor depends on
+       * whether the first/last line of the file is on screen.
+       */
+!     above_wanted = so;
+!     below_wanted = so;
+  #ifdef FEAT_MOUSE
+      if (mouse_dragging > 0)
+      {
+***************
+*** 2262,2267 ****
+--- 2269,2275 ----
+      int		retval = OK;
+      lineoff_T	loff;
+      linenr_T	old_topline = curwin->w_topline;
++     long        so = get_scrolloff_value();
+  
+      if (curbuf->b_ml.ml_line_count == 1)    /* nothing to do */
+      {
+***************
+*** 2279,2285 ****
+  	 * last line.
+  	 */
+  	if (dir == FORWARD
+! 		? ((curwin->w_topline >= curbuf->b_ml.ml_line_count - p_so)
+  		    && curwin->w_botline > curbuf->b_ml.ml_line_count)
+  		: (curwin->w_topline == 1
+  #ifdef FEAT_DIFF
+--- 2287,2293 ----
+  	 * last line.
+  	 */
+  	if (dir == FORWARD
+! 		? ((curwin->w_topline >= curbuf->b_ml.ml_line_count - so)
+  		    && curwin->w_botline > curbuf->b_ml.ml_line_count)
+  		: (curwin->w_topline == 1
+  #ifdef FEAT_DIFF
+*** ../vim-8.1.0863/src/normal.c	2019-01-31 13:22:28.068543628 +0100
+--- src/normal.c	2019-01-31 16:26:48.855501581 +0100
+***************
+*** 2814,2820 ****
+  
+      /* Set global flag that we are extending the Visual area with mouse
+       * dragging; temporarily minimize 'scrolloff'. */
+!     if (VIsual_active && is_drag && p_so)
+      {
+  	/* In the very first line, allow scrolling one line */
+  	if (mouse_row == 0)
+--- 2814,2820 ----
+  
+      /* Set global flag that we are extending the Visual area with mouse
+       * dragging; temporarily minimize 'scrolloff'. */
+!     if (VIsual_active && is_drag && get_scrolloff_value())
+      {
+  	/* In the very first line, allow scrolling one line */
+  	if (mouse_row == 0)
+***************
+*** 4635,4641 ****
+  	scrollup(count, TRUE);
+      else
+  	scrolldown(count, TRUE);
+!     if (p_so)
+      {
+  	/* Adjust the cursor position for 'scrolloff'.  Mark w_topline as
+  	 * valid, otherwise the screen jumps back at the end of the file. */
+--- 4635,4641 ----
+  	scrollup(count, TRUE);
+      else
+  	scrolldown(count, TRUE);
+!     if (get_scrolloff_value())
+      {
+  	/* Adjust the cursor position for 'scrolloff'.  Mark w_topline as
+  	 * valid, otherwise the screen jumps back at the end of the file. */
+***************
+*** 4692,4697 ****
+--- 4692,4698 ----
+  #ifdef FEAT_SPELL
+      int		undo = FALSE;
+  #endif
++     long        siso = get_sidescrolloff_value();
+  
+      if (VIM_ISDIGIT(nchar))
+      {
+***************
+*** 4874,4881 ****
+  		    else
+  #endif
+  		    getvcol(curwin, &curwin->w_cursor, &col, NULL, NULL);
+! 		    if ((long)col > p_siso)
+! 			col -= p_siso;
+  		    else
+  			col = 0;
+  		    if (curwin->w_leftcol != col)
+--- 4875,4882 ----
+  		    else
+  #endif
+  		    getvcol(curwin, &curwin->w_cursor, &col, NULL, NULL);
+! 		    if ((long)col > siso)
+! 			col -= siso;
+  		    else
+  			col = 0;
+  		    if (curwin->w_leftcol != col)
+***************
+*** 4896,4905 ****
+  #endif
+  		    getvcol(curwin, &curwin->w_cursor, NULL, NULL, &col);
+  		    n = curwin->w_width - curwin_col_off();
+! 		    if ((long)col + p_siso < n)
+  			col = 0;
+  		    else
+! 			col = col + p_siso - n + 1;
+  		    if (curwin->w_leftcol != col)
+  		    {
+  			curwin->w_leftcol = col;
+--- 4897,4906 ----
+  #endif
+  		    getvcol(curwin, &curwin->w_cursor, NULL, NULL, &col);
+  		    n = curwin->w_width - curwin_col_off();
+! 		    if ((long)col + siso < n)
+  			col = 0;
+  		    else
+! 			col = col + siso - n + 1;
+  		    if (curwin->w_leftcol != col)
+  		    {
+  			curwin->w_leftcol = col;
+*** ../vim-8.1.0863/src/option.c	2019-01-31 14:12:52.756076361 +0100
+--- src/option.c	2019-01-31 18:17:09.774932289 +0100
+***************
+*** 227,232 ****
+--- 227,234 ----
+  #endif
+  #define PV_SCBIND	OPT_WIN(WV_SCBIND)
+  #define PV_SCROLL	OPT_WIN(WV_SCROLL)
++ #define PV_SISO		OPT_BOTH(OPT_WIN(WV_SISO))
++ #define PV_SO		OPT_BOTH(OPT_WIN(WV_SO))
+  #ifdef FEAT_SPELL
+  # define PV_SPELL	OPT_WIN(WV_SPELL)
+  #endif
+***************
+*** 2333,2339 ****
+  			    (char_u *)&p_sj, PV_NONE,
+  			    {(char_u *)1L, (char_u *)0L} SCTX_INIT},
+      {"scrolloff",   "so",   P_NUM|P_VI_DEF|P_VIM|P_RALL,
+! 			    (char_u *)&p_so, PV_NONE,
+  			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
+      {"scrollopt",   "sbo",  P_STRING|P_VI_DEF|P_ONECOMMA|P_NODUP,
+  			    (char_u *)&p_sbo, PV_NONE,
+--- 2335,2341 ----
+  			    (char_u *)&p_sj, PV_NONE,
+  			    {(char_u *)1L, (char_u *)0L} SCTX_INIT},
+      {"scrolloff",   "so",   P_NUM|P_VI_DEF|P_VIM|P_RALL,
+! 			    (char_u *)&p_so, PV_SO,
+  			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
+      {"scrollopt",   "sbo",  P_STRING|P_VI_DEF|P_ONECOMMA|P_NODUP,
+  			    (char_u *)&p_sbo, PV_NONE,
+***************
+*** 2490,2496 ****
+  			    (char_u *)&p_ss, PV_NONE,
+  			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
+      {"sidescrolloff", "siso", P_NUM|P_VI_DEF|P_VIM|P_RBUF,
+! 			    (char_u *)&p_siso, PV_NONE,
+  			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
+      {"signcolumn",   "scl",  P_STRING|P_ALLOCED|P_VI_DEF|P_RWIN,
+  #ifdef FEAT_SIGNS
+--- 2492,2498 ----
+  			    (char_u *)&p_ss, PV_NONE,
+  			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
+      {"sidescrolloff", "siso", P_NUM|P_VI_DEF|P_VIM|P_RBUF,
+! 			    (char_u *)&p_siso, PV_SISO,
+  			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
+      {"signcolumn",   "scl",  P_STRING|P_ALLOCED|P_VI_DEF|P_RWIN,
+  #ifdef FEAT_SIGNS
+***************
+*** 3736,3746 ****
+  		win_comp_scroll(curwin);
+  	    else
+  	    {
+! 		*(long *)varp = (long)(long_i)options[opt_idx].def_val[dvi];
+  		/* May also set global value for local option. */
+  		if (both)
+  		    *(long *)get_varp_scope(&(options[opt_idx]), OPT_GLOBAL) =
+! 								*(long *)varp;
+  	    }
+  	}
+  	else	/* P_BOOL */
+--- 3738,3756 ----
+  		win_comp_scroll(curwin);
+  	    else
+  	    {
+! 		long def_val = (long)(long_i)options[opt_idx].def_val[dvi];
+! 
+! 		if ((long *)varp == &curwin->w_p_so
+! 			|| (long *)varp == &curwin->w_p_siso)
+! 		    // 'scrolloff' and 'sidescrolloff' local values have a
+! 		    // different default value than the global default.
+! 		    *(long *)varp = -1;
+! 		else
+! 		    *(long *)varp = def_val;
+  		/* May also set global value for local option. */
+  		if (both)
+  		    *(long *)get_varp_scope(&(options[opt_idx]), OPT_GLOBAL) =
+! 								def_val;
+  	    }
+  	}
+  	else	/* P_BOOL */
+***************
+*** 9382,9388 ****
+      }
+      if (p_so < 0 && full_screen)
+      {
+! 	errmsg = e_scroll;
+  	p_so = 0;
+      }
+      if (p_siso < 0 && full_screen)
+--- 9392,9398 ----
+      }
+      if (p_so < 0 && full_screen)
+      {
+! 	errmsg = e_positive;
+  	p_so = 0;
+      }
+      if (p_siso < 0 && full_screen)
+***************
+*** 10657,10662 ****
+--- 10667,10678 ----
+  	    clear_string_option(&buf->b_p_tc);
+  	    buf->b_tc_flags = 0;
+  	    break;
++         case PV_SISO:
++             curwin->w_p_siso = -1;
++             break;
++         case PV_SO:
++             curwin->w_p_so = -1;
++             break;
+  #ifdef FEAT_FIND_ID
+  	case PV_DEF:
+  	    clear_string_option(&buf->b_p_def);
+***************
+*** 10745,10750 ****
+--- 10761,10768 ----
+  	    case PV_AR:   return (char_u *)&(curbuf->b_p_ar);
+  	    case PV_TAGS: return (char_u *)&(curbuf->b_p_tags);
+  	    case PV_TC:   return (char_u *)&(curbuf->b_p_tc);
++             case PV_SISO: return (char_u *)&(curwin->w_p_siso);
++             case PV_SO:   return (char_u *)&(curwin->w_p_so);
+  #ifdef FEAT_FIND_ID
+  	    case PV_DEF:  return (char_u *)&(curbuf->b_p_def);
+  	    case PV_INC:  return (char_u *)&(curbuf->b_p_inc);
+***************
+*** 10803,10808 ****
+--- 10821,10830 ----
+  				    ? (char_u *)&(curbuf->b_p_tc) : p->var;
+  	case PV_BKC:	return *curbuf->b_p_bkc != NUL
+  				    ? (char_u *)&(curbuf->b_p_bkc) : p->var;
++ 	case PV_SISO:	return curwin->w_p_siso >= 0
++ 				    ? (char_u *)&(curwin->w_p_siso) : p->var;
++ 	case PV_SO:	return curwin->w_p_so >= 0
++ 				    ? (char_u *)&(curwin->w_p_so) : p->var;
+  #ifdef FEAT_FIND_ID
+  	case PV_DEF:	return *curbuf->b_p_def != NUL
+  				    ? (char_u *)&(curbuf->b_p_def) : p->var;
+***************
+*** 13099,13104 ****
+--- 13121,13146 ----
+  }
+  
+  /*
++  * Return the effective 'scrolloff' value for the current window, using the
++  * global value when appropriate.
++  */
++     long
++ get_scrolloff_value(void)
++ {
++     return curwin->w_p_so < 0 ? p_so : curwin->w_p_so;
++ }
++ 
++ /*
++  * Return the effective 'sidescrolloff' value for the current window, using the
++  * global value when appropriate.
++  */
++     long
++ get_sidescrolloff_value(void)
++ {
++     return curwin->w_p_siso < 0 ? p_siso : curwin->w_p_siso;
++ }
++ 
++ /*
+   * Check matchpairs option for "*initc".
+   * If there is a match set "*initc" to the matching character and "*findc" to
+   * the opposite character.  Set "*backwards" to the direction.
+*** ../vim-8.1.0863/src/proto/option.pro	2019-01-13 23:38:33.407773189 +0100
+--- src/proto/option.pro	2019-01-31 16:32:53.576978485 +0100
+***************
+*** 76,81 ****
+--- 76,83 ----
+  long get_sw_value_pos(buf_T *buf, pos_T *pos);
+  long get_sw_value_col(buf_T *buf, colnr_T col);
+  long get_sts_value(void);
++ long get_scrolloff_value(void);
++ long get_sidescrolloff_value(void);
+  void find_mps_values(int *initc, int *findc, int *backwards, int switchit);
+  unsigned int get_bkc_value(buf_T *buf);
+  int signcolumn_on(win_T *wp);
+*** ../vim-8.1.0863/src/option.h	2019-01-26 17:28:22.232599086 +0100
+--- src/option.h	2019-01-31 16:07:15.328122396 +0100
+***************
+*** 1152,1157 ****
+--- 1152,1159 ----
+  #endif
+      , WV_SCBIND
+      , WV_SCROLL
++     , WV_SISO
++     , WV_SO
+  #ifdef FEAT_SPELL
+      , WV_SPELL
+  #endif
+*** ../vim-8.1.0863/src/search.c	2019-01-26 17:28:22.232599086 +0100
+--- src/search.c	2019-01-31 16:18:09.207212428 +0100
+***************
+*** 2601,2606 ****
+--- 2601,2608 ----
+  #endif
+      colnr_T	save_dollar_vcol;
+      char_u	*p;
++     long        *so = curwin->w_p_so >= 0 ? &curwin->w_p_so : &p_so;
++     long        *siso = curwin->w_p_siso >= 0 ? &curwin->w_p_siso : &p_siso;
+  
+      /*
+       * Only show match for chars in the 'matchpairs' option.
+***************
+*** 2635,2642 ****
+  	{
+  	    mpos = *lpos;    /* save the pos, update_screen() may change it */
+  	    save_cursor = curwin->w_cursor;
+! 	    save_so = p_so;
+! 	    save_siso = p_siso;
+  	    /* Handle "$" in 'cpo': If the ')' is typed on top of the "$",
+  	     * stop displaying the "$". */
+  	    if (dollar_vcol >= 0 && dollar_vcol == curwin->w_virtcol)
+--- 2637,2644 ----
+  	{
+  	    mpos = *lpos;    /* save the pos, update_screen() may change it */
+  	    save_cursor = curwin->w_cursor;
+! 	    save_so = *so;
+! 	    save_siso = *siso;
+  	    /* Handle "$" in 'cpo': If the ')' is typed on top of the "$",
+  	     * stop displaying the "$". */
+  	    if (dollar_vcol >= 0 && dollar_vcol == curwin->w_virtcol)
+***************
+*** 2651,2658 ****
+  	    ui_cursor_shape();		/* may show different cursor shape */
+  #endif
+  	    curwin->w_cursor = mpos;	/* move to matching char */
+! 	    p_so = 0;			/* don't use 'scrolloff' here */
+! 	    p_siso = 0;			/* don't use 'sidescrolloff' here */
+  	    showruler(FALSE);
+  	    setcursor();
+  	    cursor_on();		/* make sure that the cursor is shown */
+--- 2653,2660 ----
+  	    ui_cursor_shape();		/* may show different cursor shape */
+  #endif
+  	    curwin->w_cursor = mpos;	/* move to matching char */
+! 	    *so = 0;			/* don't use 'scrolloff' here */
+! 	    *siso = 0;			/* don't use 'sidescrolloff' here */
+  	    showruler(FALSE);
+  	    setcursor();
+  	    cursor_on();		/* make sure that the cursor is shown */
+***************
+*** 2672,2679 ****
+  	    else if (!char_avail())
+  		ui_delay(p_mat * 100L, FALSE);
+  	    curwin->w_cursor = save_cursor;	/* restore cursor position */
+! 	    p_so = save_so;
+! 	    p_siso = save_siso;
+  #ifdef CURSOR_SHAPE
+  	    State = save_state;
+  	    ui_cursor_shape();		/* may show different cursor shape */
+--- 2674,2681 ----
+  	    else if (!char_avail())
+  		ui_delay(p_mat * 100L, FALSE);
+  	    curwin->w_cursor = save_cursor;	/* restore cursor position */
+! 	    *so = save_so;
+! 	    *siso = save_siso;
+  #ifdef CURSOR_SHAPE
+  	    State = save_state;
+  	    ui_cursor_shape();		/* may show different cursor shape */
+*** ../vim-8.1.0863/src/structs.h	2019-01-31 15:52:05.269907631 +0100
+--- src/structs.h	2019-01-31 16:07:15.328122396 +0100
+***************
+*** 2932,2937 ****
+--- 2932,2939 ----
+      int		w_p_brishift;	    /* additional shift for breakindent */
+      int		w_p_brisbr;	    /* sbr in 'briopt' */
+  #endif
++     long        w_p_siso;           /* 'sidescrolloff' local value */
++     long        w_p_so;             /* 'scrolloff' local value */
+  
+      /* transform a pointer to a "onebuf" option into a "allbuf" option */
+  #define GLOBAL_WO(p)	((char *)p + sizeof(winopt_T))
+*** ../vim-8.1.0863/src/window.c	2019-01-26 17:28:22.236599060 +0100
+--- src/window.c	2019-01-31 16:30:39.069904440 +0100
+***************
+*** 4594,4599 ****
+--- 4594,4603 ----
+      new_wp->w_cursor.lnum = 1;
+      new_wp->w_scbind_pos = 1;
+  
++     // use global option value for global-local options
++     new_wp->w_p_so = -1;
++     new_wp->w_p_siso = -1;
++ 
+      /* We won't calculate w_fraction until resizing the window */
+      new_wp->w_fraction = 0;
+      new_wp->w_prev_fraction_row = -1;
+***************
+*** 5871,5877 ****
+  
+      if (wp == curwin)
+      {
+! 	if (p_so)
+  	    update_topline();
+  	curs_columns(FALSE);	/* validate w_wrow */
+      }
+--- 5875,5881 ----
+  
+      if (wp == curwin)
+      {
+! 	if (get_scrolloff_value())
+  	    update_topline();
+  	curs_columns(FALSE);	/* validate w_wrow */
+      }
+*** ../vim-8.1.0863/src/testdir/test_options.vim	2019-01-30 22:36:14.646981306 +0100
+--- src/testdir/test_options.vim	2019-01-31 16:45:19.576136522 +0100
+***************
+*** 483,485 ****
+--- 483,520 ----
+    bwipe
+    bwipe
+  endfunc
++ 
++ func Test_local_scrolloff()
++   set so=5
++   set siso=7
++   split
++   call assert_equal(5, &so)
++   setlocal so=3
++   call assert_equal(3, &so)
++   wincmd w
++   call assert_equal(5, &so)
++   wincmd w
++   setlocal so<
++   call assert_equal(5, &so)
++   setlocal so=0
++   call assert_equal(0, &so)
++   setlocal so=-1
++   call assert_equal(5, &so)
++ 
++   call assert_equal(7, &siso)
++   setlocal siso=3
++   call assert_equal(3, &siso)
++   wincmd w
++   call assert_equal(7, &siso)
++   wincmd w
++   setlocal siso<
++   call assert_equal(7, &siso)
++   setlocal siso=0
++   call assert_equal(0, &siso)
++   setlocal siso=-1
++   call assert_equal(7, &siso)
++ 
++   close
++   set so&
++   set siso&
++ endfunc
+*** ../vim-8.1.0863/src/version.c	2019-01-31 15:52:05.269907631 +0100
+--- src/version.c	2019-01-31 18:20:44.797263867 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     864,
+  /**/
+
+-- 
+ARTHUR: Listen, old crone!  Unless you tell us where we can buy a shrubbery,
+        my friend and I will ... we will say "Ni!"
+CRONE:  Do your worst!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

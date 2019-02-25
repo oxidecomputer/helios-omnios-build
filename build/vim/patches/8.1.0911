@@ -1,0 +1,167 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0911
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0911
+Problem:    Tag line with Ex command cannot have extra fields.
+Solution:   Recognize |;" as the end of the command. (closes #2402)
+Files:	    runtime/doc/tagsrch.txt, src/tag.c, src/testdir/test_taglist.vim
+
+
+*** ../vim-8.1.0910/runtime/doc/tagsrch.txt	2018-11-11 15:20:32.432704446 +0100
+--- runtime/doc/tagsrch.txt	2019-02-13 21:17:47.448568824 +0100
+***************
+*** 571,577 ****
+  {term}		;" The two characters semicolon and double quote.  This is
+  		interpreted by Vi as the start of a comment, which makes the
+  		following be ignored.  This is for backwards compatibility
+! 		with Vi, it ignores the following fields.
+  {field} ..	A list of optional fields.  Each field has the form:
+  
+  			<Tab>{fieldname}:{value}
+--- 571,584 ----
+  {term}		;" The two characters semicolon and double quote.  This is
+  		interpreted by Vi as the start of a comment, which makes the
+  		following be ignored.  This is for backwards compatibility
+! 		with Vi, it ignores the following fields. Example:
+! 			APP	file	/^static int APP;$/;"	v
+! 		When {tagaddress} is not a line number or search pattern, then
+! 		{term} must be |;".  Here the bar ends the command (excluding
+! 		the bar) and ;" is used to have Vi ignore the rest of the
+! 		line.  Example:
+! 			APP	file.c	call cursor(3, 4)|;"	v
+! 			
+  {field} ..	A list of optional fields.  Each field has the form:
+  
+  			<Tab>{fieldname}:{value}
+*** ../vim-8.1.0910/src/tag.c	2019-01-26 17:28:22.236599060 +0100
+--- src/tag.c	2019-02-13 21:14:30.233964187 +0100
+***************
+*** 3014,3020 ****
+  	p = tagp->command;
+  	if (find_extra(&p) == OK)
+  	{
+! 	    tagp->command_end = p;
+  	    p += 2;	/* skip ";\"" */
+  	    if (*p++ == TAB)
+  		while (ASCII_ISALPHA(*p))
+--- 3014,3023 ----
+  	p = tagp->command;
+  	if (find_extra(&p) == OK)
+  	{
+! 	    if (p > tagp->command && p[-1] == '|')
+! 		tagp->command_end = p - 1;  // drop trailing bar
+! 	    else
+! 		tagp->command_end = p;
+  	    p += 2;	/* skip ";\"" */
+  	    if (*p++ == TAB)
+  		while (ASCII_ISALPHA(*p))
+***************
+*** 3784,3790 ****
+  {
+      char_u	*str = *pp;
+  
+!     /* Repeat for addresses separated with ';' */
+      for (;;)
+      {
+  	if (VIM_ISDIGIT(*str))
+--- 3787,3793 ----
+  {
+      char_u	*str = *pp;
+  
+!     // Repeat for addresses separated with ';'
+      for (;;)
+      {
+  	if (VIM_ISDIGIT(*str))
+***************
+*** 3798,3804 ****
+  		++str;
+  	}
+  	else
+! 	    str = NULL;
+  	if (str == NULL || *str != ';'
+  		  || !(VIM_ISDIGIT(str[1]) || str[1] == '/' || str[1] == '?'))
+  	    break;
+--- 3801,3816 ----
+  		++str;
+  	}
+  	else
+! 	{
+! 	    // not a line number or search string, look for terminator.
+! 	    str = (char_u *)strstr((char *)str, "|;\"");
+! 	    if (str != NULL)
+! 	    {
+! 		++str;
+! 		break;
+! 	    }
+! 
+! 	}
+  	if (str == NULL || *str != ';'
+  		  || !(VIM_ISDIGIT(str[1]) || str[1] == '/' || str[1] == '?'))
+  	    break;
+*** ../vim-8.1.0910/src/testdir/test_taglist.vim	2018-06-30 22:40:39.097551835 +0200
+--- src/testdir/test_taglist.vim	2019-02-13 21:14:47.965836948 +0100
+***************
+*** 5,11 ****
+  	\ "FFoo\tXfoo\t1",
+  	\ "FBar\tXfoo\t2",
+  	\ "BFoo\tXbar\t1",
+! 	\ "BBar\tXbar\t2"
+  	\ ], 'Xtags')
+    set tags=Xtags
+    split Xtext
+--- 5,13 ----
+  	\ "FFoo\tXfoo\t1",
+  	\ "FBar\tXfoo\t2",
+  	\ "BFoo\tXbar\t1",
+! 	\ "BBar\tXbar\t2",
+! 	\ "Kindly\tXbar\t3;\"\tv\tfile:",
+! 	\ "Command\tXbar\tcall cursor(3, 4)|;\"\td",
+  	\ ], 'Xtags')
+    set tags=Xtags
+    split Xtext
+***************
+*** 15,20 ****
+--- 17,34 ----
+    call assert_equal(['FFoo', 'BFoo'], map(taglist("Foo", "Xfoo"), {i, v -> v.name}))
+    call assert_equal(['BFoo', 'FFoo'], map(taglist("Foo", "Xbar"), {i, v -> v.name}))
+  
++   let kind = taglist("Kindly")
++   call assert_equal(1, len(kind))
++   call assert_equal('v', kind[0]['kind'])
++   call assert_equal('3', kind[0]['cmd'])
++   call assert_equal(1, kind[0]['static'])
++   call assert_equal('Xbar', kind[0]['filename'])
++ 
++   let cmd = taglist("Command")
++   call assert_equal(1, len(cmd))
++   call assert_equal('d', cmd[0]['kind'])
++   call assert_equal('call cursor(3, 4)', cmd[0]['cmd'])
++ 
+    call delete('Xtags')
+    bwipe
+  endfunc
+*** ../vim-8.1.0910/src/version.c	2019-02-13 20:31:46.883018311 +0100
+--- src/version.c	2019-02-13 21:18:24.092313726 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     911,
+  /**/
+
+-- 
+SOLDIER: What? A swallow carrying a coconut?
+ARTHUR:  It could grip it by the husk ...
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,228 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0731
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0731
+Problem:    JS encoding does not handle negative infinity.
+Solution:   Add support for negative infinity for JS encoding. (Dominique
+            Pelle, closes #3792)
+Files:	    runtime/doc/eval.txt, src/json.c, src/testdir/test_json.vim
+
+
+*** ../vim-8.1.0730/runtime/doc/eval.txt	2019-01-11 14:49:25.380107431 +0100
+--- runtime/doc/eval.txt	2019-01-12 14:20:11.501189651 +0100
+***************
+*** 5706,5712 ****
+  		  "[1, 2, ]" is the same as "[1, 2]".
+  		- More floating point numbers are recognized, e.g. "1." for
+  		  "1.0", or "001.2" for "1.2". Special floating point values
+! 		  "Infinity" and "NaN" (capitalization ignored) are accepted.
+  		- Leading zeroes in integer numbers are ignored, e.g. "012"
+  		  for "12" or "-012" for "-12".
+  		- Capitalization is ignored in literal names null, true or
+--- 5726,5733 ----
+  		  "[1, 2, ]" is the same as "[1, 2]".
+  		- More floating point numbers are recognized, e.g. "1." for
+  		  "1.0", or "001.2" for "1.2". Special floating point values
+! 		  "Infinity", "-Infinity" and "NaN" (capitalization ignored)
+! 		  are accepted.
+  		- Leading zeroes in integer numbers are ignored, e.g. "012"
+  		  for "12" or "-012" for "-12".
+  		- Capitalization is ignored in literal names null, true or
+***************
+*** 5735,5740 ****
+--- 5756,5762 ----
+  		   Float		floating point number
+  		   Float nan		"NaN"
+  		   Float inf		"Infinity"
++ 		   Float -inf		"-Infinity"
+  		   String		in double quotes (possibly null)
+  		   Funcref		not possible, error
+  		   List			as an array (possibly null); when
+*** ../vim-8.1.0730/src/json.c	2018-12-21 16:04:16.324437435 +0100
+--- src/json.c	2019-01-12 14:20:11.501189651 +0100
+***************
+*** 316,322 ****
+  	    if (isnan(val->vval.v_float))
+  		ga_concat(gap, (char_u *)"NaN");
+  	    else if (isinf(val->vval.v_float))
+! 		ga_concat(gap, (char_u *)"Infinity");
+  	    else
+  # endif
+  	    {
+--- 316,327 ----
+  	    if (isnan(val->vval.v_float))
+  		ga_concat(gap, (char_u *)"NaN");
+  	    else if (isinf(val->vval.v_float))
+! 	    {
+! 		if (val->vval.v_float < 0.0)
+! 		    ga_concat(gap, (char_u *)"-Infinity");
+! 		else
+! 		    ga_concat(gap, (char_u *)"Infinity");
+! 	    }
+  	    else
+  # endif
+  	    {
+***************
+*** 736,742 ****
+  		    break;
+  
+  		default:
+! 		    if (VIM_ISDIGIT(*p) || *p == '-')
+  		    {
+  #ifdef FEAT_FLOAT
+  			char_u  *sp = p;
+--- 741,747 ----
+  		    break;
+  
+  		default:
+! 		    if (VIM_ISDIGIT(*p) || (*p == '-' && VIM_ISDIGIT(p[1])))
+  		    {
+  #ifdef FEAT_FLOAT
+  			char_u  *sp = p;
+***************
+*** 834,839 ****
+--- 839,855 ----
+  			retval = OK;
+  			break;
+  		    }
++ 		    if (STRNICMP((char *)p, "-Infinity", 9) == 0)
++ 		    {
++ 			reader->js_used += 9;
++ 			if (cur_item != NULL)
++ 			{
++ 			    cur_item->v_type = VAR_FLOAT;
++ 			    cur_item->vval.v_float = -INFINITY;
++ 			}
++ 			retval = OK;
++ 			break;
++ 		    }
+  		    if (STRNICMP((char *)p, "Infinity", 8) == 0)
+  		    {
+  			reader->js_used += 8;
+***************
+*** 851,856 ****
+--- 867,873 ----
+  		    if (
+  			    (len < 5 && STRNICMP((char *)p, "false", len) == 0)
+  #ifdef FEAT_FLOAT
++ 			    || (len < 9 && STRNICMP((char *)p, "-Infinity", len) == 0)
+  			    || (len < 8 && STRNICMP((char *)p, "Infinity", len) == 0)
+  			    || (len < 3 && STRNICMP((char *)p, "NaN", len) == 0)
+  #endif
+***************
+*** 1072,1078 ****
+   * Return FAIL if the message has a decoding error.
+   * Return MAYBE if the message is truncated, need to read more.
+   * This only works reliable if the message contains an object, array or
+!  * string.  A number might be trucated without knowing.
+   * Does not advance the reader.
+   */
+      int
+--- 1089,1095 ----
+   * Return FAIL if the message has a decoding error.
+   * Return MAYBE if the message is truncated, need to read more.
+   * This only works reliable if the message contains an object, array or
+!  * string.  A number might be truncated without knowing.
+   * Does not advance the reader.
+   */
+      int
+*** ../vim-8.1.0730/src/testdir/test_json.vim	2018-03-13 13:06:11.000000000 +0100
+--- src/testdir/test_json.vim	2019-01-12 14:20:11.501189651 +0100
+***************
+*** 29,36 ****
+  if has('float')
+    let s:jsonfl = '12.34'
+    let s:varfl = 12.34
+!   let s:jsoninf = 'Infinity'
+!   let s:varinf = 1.0 / 0.0
+    let s:jsonnan = 'NaN'
+    let s:varnan = 0.0 / 0.0
+  endif
+--- 29,38 ----
+  if has('float')
+    let s:jsonfl = '12.34'
+    let s:varfl = 12.34
+!   let s:jsonneginf = '-Infinity'
+!   let s:jsonposinf = 'Infinity'
+!   let s:varneginf = -1.0 / 0.0
+!   let s:varposinf = 1.0 / 0.0
+    let s:jsonnan = 'NaN'
+    let s:varnan = 0.0 / 0.0
+  endif
+***************
+*** 85,91 ****
+    call assert_equal(s:jsonnr, json_encode(s:varnr))
+    if has('float')
+      call assert_equal(s:jsonfl, json_encode(s:varfl))
+!     call assert_equal(s:jsoninf, json_encode(s:varinf))
+      call assert_equal(s:jsonnan, json_encode(s:varnan))
+    endif
+  
+--- 87,94 ----
+    call assert_equal(s:jsonnr, json_encode(s:varnr))
+    if has('float')
+      call assert_equal(s:jsonfl, json_encode(s:varfl))
+!     call assert_equal(s:jsonneginf, json_encode(s:varneginf))
+!     call assert_equal(s:jsonposinf, json_encode(s:varposinf))
+      call assert_equal(s:jsonnan, json_encode(s:varnan))
+    endif
+  
+***************
+*** 202,208 ****
+    call assert_equal(s:jsonnr, js_encode(s:varnr))
+    if has('float')
+      call assert_equal(s:jsonfl, js_encode(s:varfl))
+!     call assert_equal(s:jsoninf, js_encode(s:varinf))
+      call assert_equal(s:jsonnan, js_encode(s:varnan))
+    endif
+  
+--- 205,212 ----
+    call assert_equal(s:jsonnr, js_encode(s:varnr))
+    if has('float')
+      call assert_equal(s:jsonfl, js_encode(s:varfl))
+!     call assert_equal(s:jsonneginf, js_encode(s:varneginf))
+!     call assert_equal(s:jsonposinf, js_encode(s:varposinf))
+      call assert_equal(s:jsonnan, js_encode(s:varnan))
+    endif
+  
+***************
+*** 242,248 ****
+    call assert_equal(s:varnr, js_decode(s:jsonnr))
+    if has('float')
+      call assert_equal(s:varfl, js_decode(s:jsonfl))
+!     call assert_equal(s:varinf, js_decode(s:jsoninf))
+      call assert_true(isnan(js_decode(s:jsonnan)))
+    endif
+  
+--- 246,253 ----
+    call assert_equal(s:varnr, js_decode(s:jsonnr))
+    if has('float')
+      call assert_equal(s:varfl, js_decode(s:jsonfl))
+!     call assert_equal(s:varneginf, js_decode(s:jsonneginf))
+!     call assert_equal(s:varposinf, js_decode(s:jsonposinf))
+      call assert_true(isnan(js_decode(s:jsonnan)))
+    endif
+  
+*** ../vim-8.1.0730/src/version.c	2019-01-12 13:50:27.712026891 +0100
+--- src/version.c	2019-01-12 14:21:33.808675256 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     731,
+  /**/
+
+-- 
+Apathy Error: Don't bother striking any key.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

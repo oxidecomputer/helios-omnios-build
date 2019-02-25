@@ -1,0 +1,285 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0846
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0846
+Problem:    Not easy to recognize the system Vim runs on.
+Solution:   Add more items to the features list. (Ozaki Kiichi, closes #3855)
+Files:	    runtime/doc/eval.txt, src/evalfunc.c,
+            src/testdir/test_channel.vim, src/testdir/test_functions.vim,
+            src/testdir/test_terminal.vim, src/testdir/test_writefile.vim
+
+
+*** ../vim-8.1.0845/runtime/doc/eval.txt	2019-01-24 21:57:11.578719824 +0100
+--- runtime/doc/eval.txt	2019-01-29 22:49:20.265156161 +0100
+***************
+*** 10110,10115 ****
+--- 10170,10176 ----
+  browse			Compiled with |:browse| support, and browse() will
+  			work.
+  browsefilter		Compiled with support for |browsefilter|.
++ bsd			Compiled on an OS in the BSD family (excluding macOS).
+  builtin_terms		Compiled with some builtin terminals.
+  byte_offset		Compiled with support for 'o' in 'statusline'
+  cindent			Compiled with 'cindent' support.
+***************
+*** 10162,10167 ****
+--- 10224,10230 ----
+  gui_win32		Compiled with MS Windows Win32 GUI.
+  gui_win32s		idem, and Win32s system being used (Windows 3.1)
+  hangul_input		Compiled with Hangul input support. |hangul|
++ hpux			HP-UX version of Vim.
+  iconv			Can use iconv() for conversion.
+  insert_expand		Compiled with support for CTRL-X expansion commands in
+  			Insert mode.
+***************
+*** 10172,10177 ****
+--- 10235,10241 ----
+  libcall			Compiled with |libcall()| support.
+  linebreak		Compiled with 'linebreak', 'breakat', 'showbreak' and
+  			'breakindent' support.
++ linux			Linux version of Vim.
+  lispindent		Compiled with support for lisp indenting.
+  listcmds		Compiled with commands for the buffer list |:files|
+  			and the argument list |arglist|.
+***************
+*** 10230,10236 ****
+  startuptime		Compiled with |--startuptime| support.
+  statusline		Compiled with support for 'statusline', 'rulerformat'
+  			and special formats of 'titlestring' and 'iconstring'.
+! sun_workshop		Compiled with support for Sun |workshop|.
+  syntax			Compiled with syntax highlighting support |syntax|.
+  syntax_items		There are active syntax highlighting items for the
+  			current buffer.
+--- 10294,10301 ----
+  startuptime		Compiled with |--startuptime| support.
+  statusline		Compiled with support for 'statusline', 'rulerformat'
+  			and special formats of 'titlestring' and 'iconstring'.
+! sun			SunOS version of Vim.
+! sun_workshop		Support for Sun |workshop| has been removed.
+  syntax			Compiled with syntax highlighting support |syntax|.
+  syntax_items		There are active syntax highlighting items for the
+  			current buffer.
+*** ../vim-8.1.0845/src/evalfunc.c	2019-01-26 17:28:22.224599141 +0100
+--- src/evalfunc.c	2019-01-29 22:53:05.411401755 +0100
+***************
+*** 6118,6123 ****
+--- 6118,6132 ----
+  #ifdef __BEOS__
+  	"beos",
+  #endif
++ #if defined(BSD) && !defined(MACOS_X)
++ 	"bsd",
++ #endif
++ #ifdef hpux
++ 	"hpux",
++ #endif
++ #ifdef __linux__
++ 	"linux",
++ #endif
+  #ifdef MACOS_X
+  	"mac",		/* Mac OS X (and, once, Mac OS Classic) */
+  	"osx",		/* Mac OS X */
+***************
+*** 6129,6134 ****
+--- 6138,6148 ----
+  #ifdef __QNX__
+  	"qnx",
+  #endif
++ #ifdef SUN_SYSTEM
++ 	"sun",
++ #else
++ 	"moon",
++ #endif
+  #ifdef UNIX
+  	"unix",
+  #endif
+***************
+*** 6158,6164 ****
+  #endif
+  	"autocmd",
+  #ifdef FEAT_AUTOCHDIR
+!        "autochdir",
+  #endif
+  #ifdef FEAT_AUTOSERVERNAME
+  	"autoservername",
+--- 6172,6178 ----
+  #endif
+  	"autocmd",
+  #ifdef FEAT_AUTOCHDIR
+! 	"autochdir",
+  #endif
+  #ifdef FEAT_AUTOSERVERNAME
+  	"autoservername",
+*** ../vim-8.1.0845/src/testdir/test_channel.vim	2019-01-25 21:01:13.240877414 +0100
+--- src/testdir/test_channel.vim	2019-01-29 22:46:18.030612829 +0100
+***************
+*** 29,35 ****
+  func s:get_resources()
+    let pid = getpid()
+  
+!   if has('mac')
+      return systemlist('lsof -p ' . pid . ' | awk ''$4~/^[0-9]*[rwu]$/&&$5=="REG"{print$NF}''')
+    elseif isdirectory('/proc/' . pid . '/fd/')
+      return systemlist('readlink /proc/' . pid . '/fd/* | grep -v ''^/dev/''')
+--- 29,35 ----
+  func s:get_resources()
+    let pid = getpid()
+  
+!   if executable('lsof')
+      return systemlist('lsof -p ' . pid . ' | awk ''$4~/^[0-9]*[rwu]$/&&$5=="REG"{print$NF}''')
+    elseif isdirectory('/proc/' . pid . '/fd/')
+      return systemlist('readlink /proc/' . pid . '/fd/* | grep -v ''^/dev/''')
+*** ../vim-8.1.0845/src/testdir/test_functions.vim	2019-01-27 15:00:32.472263438 +0100
+--- src/testdir/test_functions.vim	2019-01-29 22:46:18.030612829 +0100
+***************
+*** 1054,1075 ****
+      let libc = 'msvcrt.dll'
+    elseif has('mac')
+      let libc = 'libSystem.B.dylib'
+!   elseif system('uname -s') =~ 'SunOS'
+!     " Set the path to libc.so according to the architecture.
+!     let test_bits = system('file ' . GetVimProg())
+!     let test_arch = system('uname -p')
+!     if test_bits =~ '64-bit' && test_arch =~ 'sparc'
+!       let libc = '/usr/lib/sparcv9/libc.so'
+!     elseif test_bits =~ '64-bit' && test_arch =~ 'i386'
+!       let libc = '/usr/lib/amd64/libc.so'
+      else
+!       let libc = '/usr/lib/libc.so'
+      endif
+-   else
+-     " On Unix, libc.so can be in various places.
+-     " Interestingly, using an empty string for the 1st argument of libcall
+-     " allows to call functions from libc which is not documented.
+-     let libc = ''
+    endif
+  
+    if has('win32')
+--- 1054,1084 ----
+      let libc = 'msvcrt.dll'
+    elseif has('mac')
+      let libc = 'libSystem.B.dylib'
+!   elseif executable('ldd')
+!     let libc = matchstr(split(system('ldd ' . GetVimProg())), '/libc\.so\>')
+!   endif
+!   if get(l:, 'libc', '') ==# ''
+!     " On Unix, libc.so can be in various places.
+!     if has('linux')
+!       " There is not documented but regarding the 1st argument of glibc's
+!       " dlopen an empty string and nullptr are equivalent, so using an empty
+!       " string for the 1st argument of libcall allows to call functions.
+!       let libc = ''
+!     elseif has('sun')
+!       " Set the path to libc.so according to the architecture.
+!       let test_bits = system('file ' . GetVimProg())
+!       let test_arch = system('uname -p')
+!       if test_bits =~ '64-bit' && test_arch =~ 'sparc'
+!         let libc = '/usr/lib/sparcv9/libc.so'
+!       elseif test_bits =~ '64-bit' && test_arch =~ 'i386'
+!         let libc = '/usr/lib/amd64/libc.so'
+!       else
+!         let libc = '/usr/lib/libc.so'
+!       endif
+      else
+!       " Unfortunately skip this test until a good way is found.
+!       return
+      endif
+    endif
+  
+    if has('win32')
+***************
+*** 1208,1210 ****
+--- 1217,1248 ----
+    call assert_fails('call confirm("Are you sure?", "&Yes\n&No\n", [])', 'E745:')
+    call assert_fails('call confirm("Are you sure?", "&Yes\n&No\n", 0, [])', 'E730:')
+  endfunc
++ 
++ func Test_platform_name()
++   " The system matches at most only one name.
++   let names = ['amiga', 'beos', 'bsd', 'hpux', 'linux', 'mac', 'qnx', 'sun', 'vms', 'win32', 'win32unix']
++   call assert_inrange(0, 1, len(filter(copy(names), 'has(v:val)')))
++ 
++   " Is Unix?
++   call assert_equal(has('beos'), has('beos') && has('unix'))
++   call assert_equal(has('bsd'), has('bsd') && has('unix'))
++   call assert_equal(has('hpux'), has('hpux') && has('unix'))
++   call assert_equal(has('linux'), has('linux') && has('unix'))
++   call assert_equal(has('mac'), has('mac') && has('unix'))
++   call assert_equal(has('qnx'), has('qnx') && has('unix'))
++   call assert_equal(has('sun'), has('sun') && has('unix'))
++   call assert_equal(has('win32'), has('win32') && !has('unix'))
++   call assert_equal(has('win32unix'), has('win32unix') && has('unix'))
++ 
++   if has('unix') && executable('uname')
++     let uname = system('uname')
++     call assert_equal(uname =~? 'BeOS', has('beos'))
++     call assert_equal(uname =~? 'BSD\|DragonFly', has('bsd'))
++     call assert_equal(uname =~? 'HP-UX', has('hpux'))
++     call assert_equal(uname =~? 'Linux', has('linux'))
++     call assert_equal(uname =~? 'Darwin', has('mac'))
++     call assert_equal(uname =~? 'QNX', has('qnx'))
++     call assert_equal(uname =~? 'SunOS', has('sun'))
++     call assert_equal(uname =~? 'CYGWIN\|MSYS', has('win32unix'))
++   endif
++ endfunc
+*** ../vim-8.1.0845/src/testdir/test_terminal.vim	2019-01-24 17:59:35.143217444 +0100
+--- src/testdir/test_terminal.vim	2019-01-29 22:46:18.030612829 +0100
+***************
+*** 559,565 ****
+  
+  func Test_terminal_noblock()
+    let buf = term_start(&shell)
+!   if has('mac')
+      " The shell or something else has a problem dealing with more than 1000
+      " characters at the same time.
+      let len = 1000
+--- 559,565 ----
+  
+  func Test_terminal_noblock()
+    let buf = term_start(&shell)
+!   if has('bsd') || has('mac') || has('sun')
+      " The shell or something else has a problem dealing with more than 1000
+      " characters at the same time.
+      let len = 1000
+*** ../vim-8.1.0845/src/testdir/test_writefile.vim	2019-01-24 17:59:35.143217444 +0100
+--- src/testdir/test_writefile.vim	2019-01-29 22:46:18.030612829 +0100
+***************
+*** 33,39 ****
+  endfunc
+  
+  func Test_writefile_fails_conversion()
+!   if !has('iconv') || system('uname -s') =~ 'SunOS'
+      return
+    endif
+    set nobackup nowritebackup
+--- 33,39 ----
+  endfunc
+  
+  func Test_writefile_fails_conversion()
+!   if !has('iconv') || has('sun')
+      return
+    endif
+    set nobackup nowritebackup
+*** ../vim-8.1.0845/src/version.c	2019-01-29 22:29:03.550799929 +0100
+--- src/version.c	2019-01-29 22:56:21.525901115 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     846,
+  /**/
+
+-- 
+    f y cn rd ths thn y cn hv grt jb n cmptr prgrmmng
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

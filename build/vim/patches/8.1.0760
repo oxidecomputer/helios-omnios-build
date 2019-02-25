@@ -1,0 +1,295 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0760
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0760
+Problem:    No proper test for using 'termencoding'.
+Solution:   Add a screendump test.  Fix using double width characters in a
+            screendump.
+Files:	    src/terminal.c, src/testdir/test_termencoding.vim,
+            src/testdir/Make_all.mak,
+            src/testdir/dumps/Test_tenc_euc_jp_01.dump
+
+
+*** ../vim-8.1.0759/src/terminal.c	2019-01-13 23:38:33.415773131 +0100
+--- src/terminal.c	2019-01-17 12:40:16.242975080 +0100
+***************
+*** 4031,4037 ****
+  		    if (cell.width == 2)
+  		    {
+  			fputs("*", fd);
+- 			++pos.col;
+  		    }
+  		    else
+  			fputs("+", fd);
+--- 4031,4036 ----
+***************
+*** 4062,4067 ****
+--- 4061,4069 ----
+  
+  		prev_cell = cell;
+  	    }
++ 
++ 	    if (cell.width == 2)
++ 		++pos.col;
+  	}
+  	if (repeat > 0)
+  	    fprintf(fd, "@%d", repeat);
+***************
+*** 4103,4108 ****
+--- 4105,4111 ----
+      char_u	    *prev_char = NULL;
+      int		    attr = 0;
+      cellattr_T	    cell;
++     cellattr_T	    empty_cell;
+      term_T	    *term = curbuf->b_term;
+      int		    max_cells = 0;
+      int		    start_row = term->tl_scrollback.ga_len;
+***************
+*** 4110,4115 ****
+--- 4113,4119 ----
+      ga_init2(&ga_text, 1, 90);
+      ga_init2(&ga_cell, sizeof(cellattr_T), 90);
+      vim_memset(&cell, 0, sizeof(cell));
++     vim_memset(&empty_cell, 0, sizeof(empty_cell));
+      cursor_pos->row = -1;
+      cursor_pos->col = -1;
+  
+***************
+*** 4208,4273 ****
+  			c = fgetc(fd);
+  		    }
+  		    hl2vtermAttr(attr, &cell);
+- 		}
+- 		else
+- 		    dump_is_corrupt(&ga_text);
+  
+! 		/* is_bg == 0: fg, is_bg == 1: bg */
+! 		for (is_bg = 0; is_bg <= 1; ++is_bg)
+! 		{
+! 		    if (c == '&')
+! 		    {
+! 			/* use same color as previous cell */
+! 			c = fgetc(fd);
+! 		    }
+! 		    else if (c == '#')
+  		    {
+! 			int red, green, blue, index = 0;
+! 
+! 			c = fgetc(fd);
+! 			red = hex2nr(c);
+! 			c = fgetc(fd);
+! 			red = (red << 4) + hex2nr(c);
+! 			c = fgetc(fd);
+! 			green = hex2nr(c);
+! 			c = fgetc(fd);
+! 			green = (green << 4) + hex2nr(c);
+! 			c = fgetc(fd);
+! 			blue = hex2nr(c);
+! 			c = fgetc(fd);
+! 			blue = (blue << 4) + hex2nr(c);
+! 			c = fgetc(fd);
+! 			if (!isdigit(c))
+! 			    dump_is_corrupt(&ga_text);
+! 			while (isdigit(c))
+  			{
+! 			    index = index * 10 + (c - '0');
+  			    c = fgetc(fd);
+  			}
+! 
+! 			if (is_bg)
+  			{
+! 			    cell.bg.red = red;
+! 			    cell.bg.green = green;
+! 			    cell.bg.blue = blue;
+! 			    cell.bg.ansi_index = index;
+  			}
+  			else
+! 			{
+! 			    cell.fg.red = red;
+! 			    cell.fg.green = green;
+! 			    cell.fg.blue = blue;
+! 			    cell.fg.ansi_index = index;
+! 			}
+  		    }
+- 		    else
+- 			dump_is_corrupt(&ga_text);
+  		}
+  	    }
+  	    else
+  		dump_is_corrupt(&ga_text);
+  
+  	    append_cell(&ga_cell, &cell);
+  	}
+  	else if (c == '@')
+  	{
+--- 4212,4279 ----
+  			c = fgetc(fd);
+  		    }
+  		    hl2vtermAttr(attr, &cell);
+  
+! 		    /* is_bg == 0: fg, is_bg == 1: bg */
+! 		    for (is_bg = 0; is_bg <= 1; ++is_bg)
+  		    {
+! 			if (c == '&')
+  			{
+! 			    /* use same color as previous cell */
+  			    c = fgetc(fd);
+  			}
+! 			else if (c == '#')
+  			{
+! 			    int red, green, blue, index = 0;
+! 
+! 			    c = fgetc(fd);
+! 			    red = hex2nr(c);
+! 			    c = fgetc(fd);
+! 			    red = (red << 4) + hex2nr(c);
+! 			    c = fgetc(fd);
+! 			    green = hex2nr(c);
+! 			    c = fgetc(fd);
+! 			    green = (green << 4) + hex2nr(c);
+! 			    c = fgetc(fd);
+! 			    blue = hex2nr(c);
+! 			    c = fgetc(fd);
+! 			    blue = (blue << 4) + hex2nr(c);
+! 			    c = fgetc(fd);
+! 			    if (!isdigit(c))
+! 				dump_is_corrupt(&ga_text);
+! 			    while (isdigit(c))
+! 			    {
+! 				index = index * 10 + (c - '0');
+! 				c = fgetc(fd);
+! 			    }
+! 
+! 			    if (is_bg)
+! 			    {
+! 				cell.bg.red = red;
+! 				cell.bg.green = green;
+! 				cell.bg.blue = blue;
+! 				cell.bg.ansi_index = index;
+! 			    }
+! 			    else
+! 			    {
+! 				cell.fg.red = red;
+! 				cell.fg.green = green;
+! 				cell.fg.blue = blue;
+! 				cell.fg.ansi_index = index;
+! 			    }
+  			}
+  			else
+! 			    dump_is_corrupt(&ga_text);
+  		    }
+  		}
++ 		else
++ 		    dump_is_corrupt(&ga_text);
+  	    }
+  	    else
+  		dump_is_corrupt(&ga_text);
+  
+  	    append_cell(&ga_cell, &cell);
++ 	    if (cell.width == 2)
++ 		append_cell(&ga_cell, &empty_cell);
+  	}
+  	else if (c == '@')
+  	{
+*** ../vim-8.1.0759/src/testdir/test_termencoding.vim	2019-01-17 13:01:52.930244770 +0100
+--- src/testdir/test_termencoding.vim	2019-01-17 12:51:57.314381030 +0100
+***************
+*** 0 ****
+--- 1,37 ----
++ " Test for setting 'encoding' to something else than the terminal uses, then
++ " setting 'termencoding' to make it work.
++ 
++ " This only works with "iconv".
++ if !has('multi_byte') || !has('iconv')
++   finish
++ endif
++ 
++ source screendump.vim
++ if !CanRunVimInTerminal()
++   finish
++ endif
++ 
++ " This Vim is running with 'encoding' "utf-8", the Vim in the terminal is
++ " running with 'encoding' "euc-jp".  We need to make sure the text is in the
++ " right encoding, this is a bit tricky.
++ func Test_termencoding_euc_jp()
++   new
++   call setline(1, 'E89: バッファ %ld の変更は保存されていません (! で変更を破棄)')
++   write ++enc=euc-jp Xeuc_jp.txt
++   quit
++ 
++   call writefile([
++ 	\ 'set encoding=euc-jp',
++ 	\ 'set termencoding=utf-8',
++ 	\ 'scriptencoding utf-8',
++ 	\ 'exe "normal aE83: バッファを作成できないので、他のを使用します...\<Esc>"',
++ 	\ 'split Xeuc_jp.txt',
++ 	\ ], 'XTest_tenc_euc_jp')
++   let buf = RunVimInTerminal('-S XTest_tenc_euc_jp', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_tenc_euc_jp_01', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('Xeuc_jp.txt')
++   call delete('XTest_tenc_euc_jp')
++ endfunc
+*** ../vim-8.1.0759/src/testdir/Make_all.mak	2019-01-12 22:47:01.264088074 +0100
+--- src/testdir/Make_all.mak	2019-01-17 11:26:20.836888223 +0100
+***************
+*** 243,248 ****
+--- 243,249 ----
+  	test_tagjump \
+  	test_taglist \
+  	test_tcl \
++ 	test_termencoding \
+  	test_terminal \
+  	test_terminal_fail \
+  	test_textformat \
+***************
+*** 389,394 ****
+--- 390,396 ----
+  	test_system.res \
+  	test_tab.res \
+  	test_tcl.res \
++ 	test_termencoding.res \
+  	test_terminal.res \
+  	test_terminal_fail.res \
+  	test_textformat.res \
+*** ../vim-8.1.0759/src/testdir/dumps/Test_tenc_euc_jp_01.dump	2019-01-17 13:01:52.934244738 +0100
+--- src/testdir/dumps/Test_tenc_euc_jp_01.dump	2019-01-17 12:52:08.898303149 +0100
+***************
+*** 0 ****
+--- 1,10 ----
++ >E+0&#ffffff0|8|9|:| |バ*&|ッ|フ|ァ| +&|%|l|d| |の*&|変|更|は|保|存|さ|れ|て|い|ま|せ|ん| +&|(|!| |で*&|変|更|を|破|棄|)+&| @13
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |X+3#0000000&|e|u|c|_|j|p|.|t|x|t| @45|1|,|1| @11|A|l@1
++ |E+0&&|8|3|:| |バ*&|ッ|フ|ァ|を|作|成|で|き|な|い|の|で|、|他|の|を|使|用|し|ま|す|.+&@2| @22
++ |~+0#4040ff13&| @73
++ |~| @73
++ |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|1|,|5|2| @10|A|l@1
++ | +0&&@74
+*** ../vim-8.1.0759/src/version.c	2019-01-16 22:41:50.095917784 +0100
+--- src/version.c	2019-01-17 13:02:00.746184292 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     760,
+  /**/
+
+-- 
+A computer without Windows is like a fish without a bicycle.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

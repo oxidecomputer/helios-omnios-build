@@ -1,0 +1,1613 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0811
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0811
+Problem:    Too many #ifdefs.
+Solution:   Graduate FEAT_MBYTE, the final chapter.
+Files:	    src/feature.h, src/vim.h, src/crypt_zip.c, src/fileio.c,
+            src/message.c, src/spell.h, src/structs.h, src/config.h.in,
+            src/configure.ac, src/auto/configure, src/testdir/runtest.vim,
+            src/testdir/test_alot_utf8.vim, src/testdir/test_arabic.vim,
+            src/testdir/test_charsearch_utf8.vim,
+            src/testdir/test_cmdline.vim, src/testdir/test_digraph.vim,
+            src/testdir/test_display.vim, src/testdir/test_edit.vim,
+            src/testdir/test_erasebackword.vim,
+            src/testdir/test_expr_utf8.vim, src/testdir/test_functions.vim,
+            src/testdir/test_ga.vim, src/testdir/test_iminsert.vim,
+            src/testdir/test_increment_dbcs.vim, src/testdir/test_json.vim,
+            src/testdir/test_makeencoding.vim, src/testdir/test_maparg.vim,
+            src/testdir/test_mapping.vim, src/testdir/test_marks.vim,
+            src/testdir/test_match.vim,
+            src/testdir/test_matchadd_conceal_utf8.vim,
+            src/testdir/test_mksession_utf8.vim, src/testdir/test_normal.vim,
+            src/testdir/test_plus_arg_edit.vim, src/testdir/test_profile.vim,
+            src/testdir/test_put.vim, src/testdir/test_regex_char_classes.vim,
+            src/testdir/test_regexp_utf8.vim, src/testdir/test_search.vim,
+            src/testdir/test_source_utf8.vim, src/testdir/test_spell.vim,
+            src/testdir/test_startup_utf8.vim,
+            src/testdir/test_termencoding.vim, src/testdir/test_terminal.vim,
+            src/testdir/test_utf8.vim, src/testdir/test_utf8_comparisons.vim,
+            src/testdir/test_viminfo.vim, src/testdir/test_virtualedit.vim,
+            src/testdir/test_visual.vim, src/testdir/test_wordcount.vim,
+            src/testdir/test_writefile.vim, src/appveyor.bat, src/os_macosx.m
+
+
+*** ../vim-8.1.0810/src/feature.h	2019-01-17 17:13:25.916984116 +0100
+--- src/feature.h	2019-01-24 17:26:34.436229955 +0100
+***************
+*** 286,292 ****
+   *
+   * Disabled for EBCDIC as it requires multibyte.
+   */
+! #if defined(FEAT_BIG) && !defined(DISABLE_ARABIC) && VIM_SIZEOF_INT >= 4 && !defined(EBCDIC)
+  # define FEAT_ARABIC
+  #endif
+  #ifdef FEAT_ARABIC
+--- 286,292 ----
+   *
+   * Disabled for EBCDIC as it requires multibyte.
+   */
+! #if defined(FEAT_BIG) && !defined(DISABLE_ARABIC) && !defined(EBCDIC)
+  # define FEAT_ARABIC
+  #endif
+  #ifdef FEAT_ARABIC
+***************
+*** 600,620 ****
+   * +multi_byte		Generic multi-byte character handling.
+   *			Now always enabled.
+   */
+- #if !defined(FEAT_MBYTE)
+- # define FEAT_MBYTE
+- #endif
+- #if VIM_SIZEOF_INT < 4 && !defined(PROTO)
+- 	Error: Vim only works with 32 bit int or larger
+- #endif
+  
+  /* Define this if you want to use 16 bit Unicode only, reduces memory used for
+   * the screen structures. */
+  /* #define UNICODE16 */
+  
+  /*
+!  * +multi_byte_ime	Win32 IME input method.  Requires +multi_byte.
+!  *			Only for far-east Windows, so IME can be used to input
+!  *			chars.  Not tested much!
+   */
+  #if defined(FEAT_GUI_W32) && !defined(FEAT_MBYTE_IME)
+  /* #define FEAT_MBYTE_IME */
+--- 600,613 ----
+   * +multi_byte		Generic multi-byte character handling.
+   *			Now always enabled.
+   */
+  
+  /* Define this if you want to use 16 bit Unicode only, reduces memory used for
+   * the screen structures. */
+  /* #define UNICODE16 */
+  
+  /*
+!  * +multi_byte_ime	Win32 IME input method.  Only for far-east Windows, so
+!  *			IME can be used to input chars.  Not tested much!
+   */
+  #if defined(FEAT_GUI_W32) && !defined(FEAT_MBYTE_IME)
+  /* #define FEAT_MBYTE_IME */
+*** ../vim-8.1.0810/src/vim.h	2019-01-24 17:18:37.599462306 +0100
+--- src/vim.h	2019-01-24 17:30:47.350625573 +0100
+***************
+*** 157,162 ****
+--- 157,166 ----
+  #  define VIM_SIZEOF_INT __SIZEOF_INT__
+  #endif
+  
++ #if VIM_SIZEOF_INT < 4 && !defined(PROTO)
++     Error: Vim only works with 32 bit int or larger
++ #endif
++ 
+  /*
+   * #defines for optionals and features
+   * Also defines FEAT_TINY, FEAT_SMALL, etc. when FEAT_HUGE is defined.
+***************
+*** 1664,1671 ****
+  typedef int	colnr_T;		/* column number type */
+  typedef unsigned short disptick_T;	/* display tick type */
+  
+- #define MAXLNUM (0x7fffffffL)		/* maximum (invalid) line number */
+- 
+  /*
+   * Well, you won't believe it, but some S/390 machines ("host", now also known
+   * as zServer) use 31 bit pointers. There are also some newer machines, that
+--- 1668,1673 ----
+***************
+*** 1675,1688 ****
+   * With this we restrict the maximum line length to 1073741823. I guess this is
+   * not a real problem. BTW:  Longer lines are split.
+   */
+! #if VIM_SIZEOF_INT >= 4
+! # ifdef __MVS__
+! #  define MAXCOL (0x3fffffffL)		/* maximum column number, 30 bits */
+! # else
+! #  define MAXCOL (0x7fffffffL)		/* maximum column number, 31 bits */
+! # endif
+  #else
+! # define MAXCOL	(0x7fff)		/* maximum column number, 15 bits */
+  #endif
+  
+  #define SHOWCMD_COLS 10			/* columns needed by shown command */
+--- 1677,1688 ----
+   * With this we restrict the maximum line length to 1073741823. I guess this is
+   * not a real problem. BTW:  Longer lines are split.
+   */
+! #ifdef __MVS__
+! # define MAXCOL (0x3fffffffL)		/* maximum column number, 30 bits */
+! # define MAXLNUM (0x3fffffffL)		/* maximum (invalid) line number */
+  #else
+! # define MAXCOL (0x7fffffffL)		/* maximum column number, 31 bits */
+! # define MAXLNUM (0x7fffffffL)		/* maximum (invalid) line number */
+  #endif
+  
+  #define SHOWCMD_COLS 10			/* columns needed by shown command */
+*** ../vim-8.1.0810/src/crypt_zip.c	2018-09-30 21:43:17.179693404 +0200
+--- src/crypt_zip.c	2019-01-24 17:24:54.932842137 +0100
+***************
+*** 24,34 ****
+   */
+  
+  /* Need a type that should be 32 bits. 64 also works but wastes space. */
+- # if VIM_SIZEOF_INT >= 4
+  typedef unsigned int u32_T;	/* int is at least 32 bits */
+- # else
+- typedef unsigned long u32_T;	/* long should be 32 bits or more */
+- # endif
+  
+  /* The state of encryption, referenced by cryptstate_T. */
+  typedef struct {
+--- 24,30 ----
+*** ../vim-8.1.0810/src/fileio.c	2019-01-24 15:04:44.670887836 +0100
+--- src/fileio.c	2019-01-24 17:25:30.304626016 +0100
+***************
+*** 1178,1187 ****
+  	 */
+  	if (!skip_read)
+  	{
+! #if VIM_SIZEOF_INT > 2
+! # if defined(SSIZE_MAX) && (SSIZE_MAX < 0x10000L)
+  		size = SSIZE_MAX;		    /* use max I/O size, 52K */
+! # else
+  		/* Use buffer >= 64K.  Add linerest to double the size if the
+  		 * line gets very long, to avoid a lot of copying. But don't
+  		 * read more than 1 Mbyte at a time, so we can be interrupted.
+--- 1178,1186 ----
+  	 */
+  	if (!skip_read)
+  	{
+! #if defined(SSIZE_MAX) && (SSIZE_MAX < 0x10000L)
+  		size = SSIZE_MAX;		    /* use max I/O size, 52K */
+! #else
+  		/* Use buffer >= 64K.  Add linerest to double the size if the
+  		 * line gets very long, to avoid a lot of copying. But don't
+  		 * read more than 1 Mbyte at a time, so we can be interrupted.
+***************
+*** 1189,1208 ****
+  		size = 0x10000L + linerest;
+  		if (size > 0x100000L)
+  		    size = 0x100000L;
+- # endif
+- #else
+- 		size = 0x7ff0L - linerest;	    /* limit buffer to 32K */
+  #endif
+  	}
+  
+  	/* Protect against the argument of lalloc() going negative. */
+! 	if (
+! #if VIM_SIZEOF_INT <= 2
+! 	    linerest >= 0x7ff0
+! #else
+! 	    size < 0 || size + linerest + 1 < 0 || linerest >= MAXCOL
+! #endif
+! 	   )
+  	{
+  	    ++split;
+  	    *ptr = NL;		    /* split line by inserting a NL */
+--- 1188,1198 ----
+  		size = 0x10000L + linerest;
+  		if (size > 0x100000L)
+  		    size = 0x100000L;
+  #endif
+  	}
+  
+  	/* Protect against the argument of lalloc() going negative. */
+! 	if (size < 0 || size + linerest + 1 < 0 || linerest >= MAXCOL)
+  	{
+  	    ++split;
+  	    *ptr = NL;		    /* split line by inserting a NL */
+*** ../vim-8.1.0810/src/message.c	2019-01-24 15:54:17.790846972 +0100
+--- src/message.c	2019-01-24 17:26:13.456360090 +0100
+***************
+*** 4492,4505 ****
+  		    {
+  			/* Don't put the #if inside memchr(), it can be a
+  			 * macro. */
+- # if VIM_SIZEOF_INT <= 2
+- 			char *q = memchr(str_arg, '\0', precision);
+- # else
+  			/* memchr on HP does not like n > 2^31  !!! */
+  			char *q = memchr(str_arg, '\0',
+  				  precision <= (size_t)0x7fffffffL ? precision
+  						       : (size_t)0x7fffffffL);
+- # endif
+  			str_arg_l = (q == NULL) ? precision
+  						      : (size_t)(q - str_arg);
+  		    }
+--- 4492,4501 ----
+*** ../vim-8.1.0810/src/spell.h	2019-01-24 17:18:37.599462306 +0100
+--- src/spell.h	2019-01-24 17:27:09.008014383 +0100
+***************
+*** 38,48 ****
+  
+  /* Type used for indexes in the word tree need to be at least 4 bytes.  If int
+   * is 8 bytes we could use something smaller, but what? */
+- #if VIM_SIZEOF_INT > 3
+  typedef int idx_T;
+- #else
+- typedef long idx_T;
+- #endif
+  
+  typedef int salfirst_T;
+  
+--- 38,44 ----
+*** ../vim-8.1.0810/src/structs.h	2019-01-24 17:18:37.599462306 +0100
+--- src/structs.h	2019-01-24 17:28:05.915656687 +0100
+***************
+*** 416,427 ****
+  /*
+   * structures used in undo.c
+   */
+! #if VIM_SIZEOF_INT > 2
+! # define ALIGN_LONG	/* longword alignment and use filler byte */
+! # define ALIGN_SIZE (sizeof(long))
+! #else
+! # define ALIGN_SIZE (sizeof(short))
+! #endif
+  
+  #define ALIGN_MASK (ALIGN_SIZE - 1)
+  
+--- 416,423 ----
+  /*
+   * structures used in undo.c
+   */
+! #define ALIGN_LONG	/* longword alignment and use filler byte */
+! #define ALIGN_SIZE (sizeof(long))
+  
+  #define ALIGN_MASK (ALIGN_SIZE - 1)
+  
+***************
+*** 1229,1247 ****
+  # endif
+  #else
+  /* Use 32-bit Number. */
+- # if VIM_SIZEOF_INT <= 3	/* use long if int is smaller than 32 bits */
+- typedef long		    varnumber_T;
+- typedef unsigned long	    uvarnumber_T;
+- #define VARNUM_MIN	    LONG_MIN
+- #define VARNUM_MAX	    LONG_MAX
+- #define UVARNUM_MAX	    ULONG_MAX
+- # else
+  typedef int		    varnumber_T;
+  typedef unsigned int	    uvarnumber_T;
+  #define VARNUM_MIN	    INT_MIN
+  #define VARNUM_MAX	    INT_MAX
+  #define UVARNUM_MAX	    UINT_MAX
+- # endif
+  #endif
+  
+  typedef double	float_T;
+--- 1225,1235 ----
+*** ../vim-8.1.0810/src/config.h.in	2019-01-17 15:43:21.753878419 +0100
+--- src/config.h.in	2019-01-24 17:31:33.658326026 +0100
+***************
+*** 387,395 ****
+  /* Define if you want to include the Cscope interface. */
+  #undef FEAT_CSCOPE
+  
+- /* Define if you want to include multibyte support. */
+- #undef FEAT_MBYTE
+- 
+  /* Define if you don't want to include right-left support. */
+  #undef DISABLE_RIGHTLEFT
+  
+--- 387,392 ----
+*** ../vim-8.1.0810/src/configure.ac	2019-01-17 15:43:21.753878419 +0100
+--- src/configure.ac	2019-01-24 17:32:05.122121683 +0100
+***************
+*** 2124,2132 ****
+  	[  --enable-multibyte      Include multibyte editing support.], ,
+  	[enable_multibyte="yes"])
+  AC_MSG_RESULT($enable_multibyte)
+! if test "$enable_multibyte" = "yes"; then
+!   AC_DEFINE(FEAT_MBYTE)
+! else
+    AC_MSG_ERROR([The multi-byte feature can no longer be disabled. If you have
+  		a problem with this, discuss on the Vim mailing list.])
+  fi
+--- 2124,2130 ----
+  	[  --enable-multibyte      Include multibyte editing support.], ,
+  	[enable_multibyte="yes"])
+  AC_MSG_RESULT($enable_multibyte)
+! if test "$enable_multibyte" != "yes"; then
+    AC_MSG_ERROR([The multi-byte feature can no longer be disabled. If you have
+  		a problem with this, discuss on the Vim mailing list.])
+  fi
+*** ../vim-8.1.0810/src/auto/configure	2019-01-17 15:43:21.753878419 +0100
+--- src/auto/configure	2019-01-24 17:58:50.615374358 +0100
+***************
+*** 7937,7946 ****
+  
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_multibyte" >&5
+  $as_echo "$enable_multibyte" >&6; }
+! if test "$enable_multibyte" = "yes"; then
+!   $as_echo "#define FEAT_MBYTE 1" >>confdefs.h
+! 
+! else
+    as_fn_error $? "The multi-byte feature can no longer be disabled. If you have
+  		a problem with this, discuss on the Vim mailing list." "$LINENO" 5
+  fi
+--- 7937,7943 ----
+  
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $enable_multibyte" >&5
+  $as_echo "$enable_multibyte" >&6; }
+! if test "$enable_multibyte" != "yes"; then
+    as_fn_error $? "The multi-byte feature can no longer be disabled. If you have
+  		a problem with this, discuss on the Vim mailing list." "$LINENO" 5
+  fi
+*** ../vim-8.1.0810/src/testdir/runtest.vim	2019-01-06 15:29:52.540852980 +0100
+--- src/testdir/runtest.vim	2019-01-24 17:34:56.996995476 +0100
+***************
+*** 49,61 ****
+  " This also enables use of line continuation.
+  set nocp viminfo+=nviminfo
+  
+! " Use utf-8 or latin1 by default, instead of whatever the system default
+! " happens to be.  Individual tests can overrule this at the top of the file.
+! if has('multi_byte')
+!   set encoding=utf-8
+! else
+!   set encoding=latin1
+! endif
+  
+  " REDIR_TEST_TO_NULL has a very permissive SwapExists autocommand which is for
+  " the test_name.vim file itself. Replace it here with a more restrictive one,
+--- 49,57 ----
+  " This also enables use of line continuation.
+  set nocp viminfo+=nviminfo
+  
+! " Use utf-8 by default, instead of whatever the system default happens to be.
+! " Individual tests can overrule this at the top of the file.
+! set encoding=utf-8
+  
+  " REDIR_TEST_TO_NULL has a very permissive SwapExists autocommand which is for
+  " the test_name.vim file itself. Replace it here with a more restrictive one,
+*** ../vim-8.1.0810/src/testdir/test_alot_utf8.vim	2017-11-23 22:47:27.000000000 +0100
+--- src/testdir/test_alot_utf8.vim	2019-01-24 17:35:26.732799164 +0100
+***************
+*** 2,9 ****
+  " This makes testing go faster, since Vim doesn't need to restart.
+  
+  " These tests use utf8 'encoding'.  Setting 'encoding' is already done in
+! " runtest.vim.  Checking for the multi_byte feature is in the individual
+! " files, so that they can be run by themselves.
+  
+  source test_charsearch_utf8.vim
+  source test_expr_utf8.vim
+--- 2,8 ----
+  " This makes testing go faster, since Vim doesn't need to restart.
+  
+  " These tests use utf8 'encoding'.  Setting 'encoding' is already done in
+! " runtest.vim.
+  
+  source test_charsearch_utf8.vim
+  source test_expr_utf8.vim
+*** ../vim-8.1.0810/src/testdir/test_arabic.vim	2018-02-27 20:59:25.000000000 +0100
+--- src/testdir/test_arabic.vim	2019-01-24 17:35:46.320669645 +0100
+***************
+*** 2,8 ****
+  " NOTE: This just checks if the code works. If you know Arabic please add
+  " functional tests that check the shaping works with real text.
+  
+! if !has('arabic') || !has('multi_byte')
+    finish
+  endif
+  
+--- 2,8 ----
+  " NOTE: This just checks if the code works. If you know Arabic please add
+  " functional tests that check the shaping works with real text.
+  
+! if !has('arabic')
+    finish
+  endif
+  
+*** ../vim-8.1.0810/src/testdir/test_charsearch_utf8.vim	2019-01-09 23:00:57.997176121 +0100
+--- src/testdir/test_charsearch_utf8.vim	2019-01-24 17:36:06.932533187 +0100
+***************
+*** 1,7 ****
+  " Tests for related f{char} and t{char} using utf-8.
+- if !has('multi_byte')
+-   finish
+- endif
+  
+  " Test for t,f,F,T movement commands
+  func Test_search_cmds()
+--- 1,4 ----
+*** ../vim-8.1.0810/src/testdir/test_cmdline.vim	2018-12-31 21:02:58.334464236 +0100
+--- src/testdir/test_cmdline.vim	2019-01-24 17:36:50.348245230 +0100
+***************
+*** 582,588 ****
+  endfunc
+  
+  func Test_cmdline_overstrike()
+!   let encodings = has('multi_byte') ? [ 'latin1', 'utf8' ] : [ 'latin1' ]
+    let encoding_save = &encoding
+  
+    for e in encodings
+--- 582,588 ----
+  endfunc
+  
+  func Test_cmdline_overstrike()
+!   let encodings = ['latin1', 'utf8']
+    let encoding_save = &encoding
+  
+    for e in encodings
+***************
+*** 601,611 ****
+      call assert_equal('"ab0cd3ef4', @:)
+    endfor
+  
+!   if has('multi_byte')
+!     " Test overstrike with multi-byte characters.
+!     call feedkeys(":\"テキストエディタ\<home>\<right>\<right>ab\<right>\<insert>cd\<enter>", 'xt')
+!     call assert_equal('"テabキcdエディタ', @:)
+!   endif
+  
+    let &encoding = encoding_save
+  endfunc
+--- 601,609 ----
+      call assert_equal('"ab0cd3ef4', @:)
+    endfor
+  
+!   " Test overstrike with multi-byte characters.
+!   call feedkeys(":\"テキストエディタ\<home>\<right>\<right>ab\<right>\<insert>cd\<enter>", 'xt')
+!   call assert_equal('"テabキcdエディタ', @:)
+  
+    let &encoding = encoding_save
+  endfunc
+*** ../vim-8.1.0810/src/testdir/test_digraph.vim	2018-06-16 17:25:17.997346631 +0200
+--- src/testdir/test_digraph.vim	2019-01-24 17:37:12.784096155 +0100
+***************
+*** 1,6 ****
+  " Tests for digraphs
+  
+! if !has("digraphs") || !has("multi_byte")
+    finish
+  endif
+  
+--- 1,6 ----
+  " Tests for digraphs
+  
+! if !has("digraphs")
+    finish
+  endif
+  
+***************
+*** 466,474 ****
+  endfunc
+  
+  func Test_show_digraph_cp1251()
+-   if !has('multi_byte')
+-     return
+-   endif
+    new
+    set encoding=cp1251
+    call Put_Dig("='")
+--- 466,471 ----
+*** ../vim-8.1.0810/src/testdir/test_display.vim	2019-01-09 23:00:57.997176121 +0100
+--- src/testdir/test_display.vim	2019-01-24 17:37:18.536057908 +0100
+***************
+*** 39,45 ****
+  endfunc
+  
+  func Test_display_foldtext_mbyte()
+!   if !has("folding") || !has("multi_byte")
+      return
+    endif
+    call NewWindow(10, 40)
+--- 39,45 ----
+  endfunc
+  
+  func Test_display_foldtext_mbyte()
+!   if !has("folding")
+      return
+    endif
+    call NewWindow(10, 40)
+*** ../vim-8.1.0810/src/testdir/test_edit.vim	2019-01-09 23:00:57.997176121 +0100
+--- src/testdir/test_edit.vim	2019-01-24 17:37:56.615804425 +0100
+***************
+*** 37,48 ****
+    call assert_equal([''], getline(1,'$'))
+    %d
+    " 4) delete a multibyte character
+!   if has("multi_byte")
+!     call setline(1, "\u0401")
+!     call feedkeys("i\<del>\<esc>", 'tnix')
+!     call assert_equal([''], getline(1,'$'))
+!     %d
+!   endif
+    " 5.1) delete linebreak with 'bs' option containing eol
+    let _bs=&bs
+    set bs=eol
+--- 37,46 ----
+    call assert_equal([''], getline(1,'$'))
+    %d
+    " 4) delete a multibyte character
+!   call setline(1, "\u0401")
+!   call feedkeys("i\<del>\<esc>", 'tnix')
+!   call assert_equal([''], getline(1,'$'))
+!   %d
+    " 5.1) delete linebreak with 'bs' option containing eol
+    let _bs=&bs
+    set bs=eol
+***************
+*** 440,446 ****
+  
+  func Test_edit_CTRL_()
+    " disabled for Windows builds, why?
+!   if !has("multi_byte") || !has("rightleft") || has("win32")
+      return
+    endif
+    let _encoding=&encoding
+--- 438,444 ----
+  
+  func Test_edit_CTRL_()
+    " disabled for Windows builds, why?
+!   if !has("rightleft") || has("win32")
+      return
+    endif
+    let _encoding=&encoding
+***************
+*** 608,622 ****
+    endtry
+    call delete('Xdictionary.txt')
+  
+!   if has("multi_byte")
+!     call test_override("char_avail", 1)
+!     set showcmd
+!     %d
+!     call feedkeys("A\<c-k>a:\<esc>", 'tnix')
+!     call assert_equal(['ä'], getline(1, '$'))
+!     call test_override("char_avail", 0)
+!     set noshowcmd
+!   endif
+    bw!
+  endfunc
+  
+--- 606,619 ----
+    endtry
+    call delete('Xdictionary.txt')
+  
+!   call test_override("char_avail", 1)
+!   set showcmd
+!   %d
+!   call feedkeys("A\<c-k>a:\<esc>", 'tnix')
+!   call assert_equal(['ä'], getline(1, '$'))
+!   call test_override("char_avail", 0)
+!   set noshowcmd
+! 
+    bw!
+  endfunc
+  
+*** ../vim-8.1.0810/src/testdir/test_erasebackword.vim	2017-11-16 21:41:26.000000000 +0100
+--- src/testdir/test_erasebackword.vim	2019-01-24 17:38:22.383632644 +0100
+***************
+*** 1,10 ****
+  
+  func Test_erasebackword()
+-   if !has('multi_byte')
+-     return
+-   endif
+- 
+-   set encoding=utf-8
+    enew
+  
+    exe "normal o wwwこんにちわ世界ワールドvim \<C-W>"
+--- 1,5 ----
+***************
+*** 21,25 ****
+    call assert_equal('', getline('.'))
+  
+    enew!
+-   set encoding&
+  endfunc
+--- 16,19 ----
+*** ../vim-8.1.0810/src/testdir/test_expr_utf8.vim	2016-07-21 20:09:30.000000000 +0200
+--- src/testdir/test_expr_utf8.vim	2019-01-24 17:38:30.055581461 +0100
+***************
+*** 1,7 ****
+  " Tests for expressions using utf-8.
+- if !has('multi_byte')
+-   finish
+- endif
+  
+  func Test_strgetchar()
+    call assert_equal(char2nr('á'), strgetchar('áxb', 0))
+--- 1,4 ----
+*** ../vim-8.1.0810/src/testdir/test_functions.vim	2018-11-10 17:33:23.083518842 +0100
+--- src/testdir/test_functions.vim	2019-01-24 17:39:14.883282048 +0100
+***************
+*** 106,116 ****
+      call assert_equal(4, strwidth(1234))
+      call assert_equal(5, strwidth(-1234))
+  
+!     if has('multi_byte')
+!       call assert_equal(2, strwidth('😉'))
+!       call assert_equal(17, strwidth('Eĥoŝanĝo ĉiuĵaŭde'))
+!       call assert_equal((aw == 'single') ? 6 : 7, strwidth('Straße'))
+!     endif
+  
+      call assert_fails('call strwidth({->0})', 'E729:')
+      call assert_fails('call strwidth([])', 'E730:')
+--- 106,114 ----
+      call assert_equal(4, strwidth(1234))
+      call assert_equal(5, strwidth(-1234))
+  
+!     call assert_equal(2, strwidth('😉'))
+!     call assert_equal(17, strwidth('Eĥoŝanĝo ĉiuĵaŭde'))
+!     call assert_equal((aw == 'single') ? 6 : 7, strwidth('Straße'))
+  
+      call assert_fails('call strwidth({->0})', 'E729:')
+      call assert_fails('call strwidth([])', 'E730:')
+***************
+*** 277,286 ****
+    call assert_equal('fg', strpart('abcdefg', 5, 4))
+    call assert_equal('defg', strpart('abcdefg', 3))
+  
+!   if has('multi_byte')
+!     call assert_equal('lép', strpart('éléphant', 2, 4))
+!     call assert_equal('léphant', strpart('éléphant', 2))
+!   endif
+  endfunc
+  
+  func Test_tolower()
+--- 275,282 ----
+    call assert_equal('fg', strpart('abcdefg', 5, 4))
+    call assert_equal('defg', strpart('abcdefg', 3))
+  
+!   call assert_equal('lép', strpart('éléphant', 2, 4))
+!   call assert_equal('léphant', strpart('éléphant', 2))
+  endfunc
+  
+  func Test_tolower()
+***************
+*** 290,299 ****
+    call assert_equal(' !"#$%&''()*+,-./0123456789:;<=>?@abcdefghijklmnopqrstuvwxyz[\]^_`abcdefghijklmnopqrstuvwxyz{|}~',
+            \ tolower(' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'))
+  
+-   if !has('multi_byte')
+-     return
+-   endif
+- 
+    " Test with a few uppercase diacritics.
+    call assert_equal("aàáâãäåāăąǎǟǡả", tolower("AÀÁÂÃÄÅĀĂĄǍǞǠẢ"))
+    call assert_equal("bḃḇ", tolower("BḂḆ"))
+--- 286,291 ----
+***************
+*** 368,377 ****
+    call assert_equal(' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`ABCDEFGHIJKLMNOPQRSTUVWXYZ{|}~',
+            \ toupper(' !"#$%&''()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\]^_`abcdefghijklmnopqrstuvwxyz{|}~'))
+  
+-   if !has('multi_byte')
+-     return
+-   endif
+- 
+    " Test with a few lowercase diacritics.
+    call assert_equal("AÀÁÂÃÄÅĀĂĄǍǞǠẢ", toupper("aàáâãäåāăąǎǟǡả"))
+    call assert_equal("BḂḆ", toupper("bḃḇ"))
+--- 360,365 ----
+*** ../vim-8.1.0810/src/testdir/test_ga.vim	2018-02-27 20:52:25.000000000 +0100
+--- src/testdir/test_ga.vim	2019-01-24 17:39:20.407245117 +0100
+***************
+*** 21,30 ****
+  
+    call assert_equal("\n<e>  101,  Hex 65,  Octal 145",   Do_ga('e'))
+  
+-   if !has('multi_byte')
+-     return
+-   endif
+- 
+    " Test a few multi-bytes characters.
+    call assert_equal("\n<é> 233, Hex 00e9, Oct 351, Digr e'",    Do_ga('é'))
+    call assert_equal("\n<ẻ> 7867, Hex 1ebb, Oct 17273, Digr e2", Do_ga('ẻ'))
+--- 21,26 ----
+*** ../vim-8.1.0810/src/testdir/test_iminsert.vim	2017-11-26 14:35:32.000000000 +0100
+--- src/testdir/test_iminsert.vim	2019-01-24 17:39:35.019147377 +0100
+***************
+*** 1,7 ****
+- if !has('multi_byte')
+-   finish
+- endif
+- 
+  source view_util.vim
+  
+  let s:imactivatefunc_called = 0
+--- 1,3 ----
+*** ../vim-8.1.0810/src/testdir/test_increment_dbcs.vim	2016-08-18 23:00:23.000000000 +0200
+--- src/testdir/test_increment_dbcs.vim	2019-01-24 17:40:04.626949174 +0100
+***************
+*** 1,7 ****
+  " Tests for using Ctrl-A/Ctrl-X using DBCS.
+- if !has('multi_byte')
+-   finish
+- endif
+  set encoding=cp932
+  scriptencoding cp932
+  
+--- 1,4 ----
+*** ../vim-8.1.0810/src/testdir/test_json.vim	2019-01-12 14:24:22.627597552 +0100
+--- src/testdir/test_json.vim	2019-01-24 17:40:48.674653909 +0100
+***************
+*** 1,10 ****
+  " Test for JSON functions.
+  
+- " JSON requires using utf-8, because conversion breaks the asserts.
+- if !has('multi_byte')
+-   finish
+- endif
+- 
+  let s:json1 = '"str\"in\\g"'
+  let s:var1 = "str\"in\\g"
+  let s:json2 = '"\u0001\u0002\u0003\u0004\u0005\u0006\u0007"'
+--- 1,5 ----
+***************
+*** 79,88 ****
+    call assert_equal(s:json4, json_encode(s:var4))
+    call assert_equal(s:json5, json_encode(s:var5))
+  
+!   if has('multi_byte')
+!     call assert_equal(s:jsonmb, json_encode(s:varmb))
+!     " no test for surrogate pair, json_encode() doesn't create them.
+!   endif
+  
+    call assert_equal(s:jsonnr, json_encode(s:varnr))
+    if has('float')
+--- 74,81 ----
+    call assert_equal(s:json4, json_encode(s:var4))
+    call assert_equal(s:json5, json_encode(s:var5))
+  
+!   call assert_equal(s:jsonmb, json_encode(s:varmb))
+!   " no test for surrogate pair, json_encode() doesn't create them.
+  
+    call assert_equal(s:jsonnr, json_encode(s:varnr))
+    if has('float')
+***************
+*** 121,131 ****
+    call assert_equal(s:var4, json_decode(s:json4))
+    call assert_equal(s:var5, json_decode(s:json5))
+  
+!   if has('multi_byte')
+!     call assert_equal(s:varmb, json_decode(s:jsonmb))
+!     call assert_equal(s:varsp1, json_decode(s:jsonsp1))
+!     call assert_equal(s:varsp2, json_decode(s:jsonsp2))
+!   endif
+  
+    call assert_equal(s:varnr, json_decode(s:jsonnr))
+    if has('float')
+--- 114,122 ----
+    call assert_equal(s:var4, json_decode(s:json4))
+    call assert_equal(s:var5, json_decode(s:json5))
+  
+!   call assert_equal(s:varmb, json_decode(s:jsonmb))
+!   call assert_equal(s:varsp1, json_decode(s:jsonsp1))
+!   call assert_equal(s:varsp2, json_decode(s:jsonsp2))
+  
+    call assert_equal(s:varnr, json_decode(s:jsonnr))
+    if has('float')
+***************
+*** 197,206 ****
+    call assert_equal(s:json4, js_encode(s:var4))
+    call assert_equal(s:json5, js_encode(s:var5))
+  
+!   if has('multi_byte')
+!     call assert_equal(s:jsonmb, js_encode(s:varmb))
+!     " no test for surrogate pair, js_encode() doesn't create them.
+!   endif
+  
+    call assert_equal(s:jsonnr, js_encode(s:varnr))
+    if has('float')
+--- 188,195 ----
+    call assert_equal(s:json4, js_encode(s:var4))
+    call assert_equal(s:json5, js_encode(s:var5))
+  
+!   call assert_equal(s:jsonmb, js_encode(s:varmb))
+!   " no test for surrogate pair, js_encode() doesn't create them.
+  
+    call assert_equal(s:jsonnr, js_encode(s:varnr))
+    if has('float')
+***************
+*** 237,247 ****
+    call assert_equal(s:var4, js_decode(s:json4))
+    call assert_equal(s:var5, js_decode(s:json5))
+  
+!   if has('multi_byte')
+!     call assert_equal(s:varmb, js_decode(s:jsonmb))
+!     call assert_equal(s:varsp1, js_decode(s:jsonsp1))
+!     call assert_equal(s:varsp2, js_decode(s:jsonsp2))
+!   endif
+  
+    call assert_equal(s:varnr, js_decode(s:jsonnr))
+    if has('float')
+--- 226,234 ----
+    call assert_equal(s:var4, js_decode(s:json4))
+    call assert_equal(s:var5, js_decode(s:json5))
+  
+!   call assert_equal(s:varmb, js_decode(s:jsonmb))
+!   call assert_equal(s:varsp1, js_decode(s:jsonsp1))
+!   call assert_equal(s:varsp2, js_decode(s:jsonsp2))
+  
+    call assert_equal(s:varnr, js_decode(s:jsonnr))
+    if has('float')
+*** ../vim-8.1.0810/src/testdir/test_makeencoding.vim	2017-03-05 17:10:37.000000000 +0100
+--- src/testdir/test_makeencoding.vim	2019-01-24 17:41:03.986551165 +0100
+***************
+*** 1,7 ****
+  " Tests for 'makeencoding'.
+- if !has('multi_byte')
+-   finish
+- endif
+  
+  source shared.vim
+  
+--- 1,4 ----
+*** ../vim-8.1.0810/src/testdir/test_maparg.vim	2018-09-10 21:04:09.872392623 +0200
+--- src/testdir/test_maparg.vim	2019-01-24 17:41:13.038490403 +0100
+***************
+*** 1,8 ****
+  " Tests for maparg().
+  " Also test utf8 map with a 0x80 byte.
+- if !has("multi_byte")
+-   finish
+- endif
+  
+  function s:SID()     
+    return str2nr(matchstr(expand('<sfile>'), '<SNR>\zs\d\+\ze_SID$'))
+--- 1,5 ----
+*** ../vim-8.1.0810/src/testdir/test_mapping.vim	2018-12-27 23:44:34.797953474 +0100
+--- src/testdir/test_mapping.vim	2019-01-24 17:41:29.094382582 +0100
+***************
+*** 1,9 ****
+  " Tests for mappings and abbreviations
+  
+- if !has('multi_byte')
+-   finish
+- endif
+- 
+  func Test_abbreviation()
+    " abbreviation with 0x80 should work
+    inoreab чкпр   vim
+--- 1,5 ----
+*** ../vim-8.1.0810/src/testdir/test_marks.vim	2019-01-09 23:00:58.001176090 +0100
+--- src/testdir/test_marks.vim	2019-01-24 17:41:42.690291238 +0100
+***************
+*** 122,130 ****
+  endfunc
+  
+  func Test_marks_cmd_multibyte()
+-   if !has('multi_byte')
+-     return
+-   endif
+    new Xone
+    call setline(1, [repeat('á', &columns)])
+    norm! ma
+--- 122,127 ----
+*** ../vim-8.1.0810/src/testdir/test_match.vim	2018-07-28 16:55:51.439217124 +0200
+--- src/testdir/test_match.vim	2019-01-24 17:42:14.546077073 +0100
+***************
+*** 114,149 ****
+    call assert_equal([{'group': 'MyGroup1', 'id': 3, 'priority': 10, 'pos1': [1, 5, 1], 'pos2': [1, 8, 3]}], getmatches())
+    call clearmatches()
+  
+!   "
+!   if has('multi_byte')
+!     call setline(1, 'abcdΣabcdef')
+!     call matchaddpos("MyGroup1", [[1, 4, 2], [1, 9, 2]])
+!     1
+!     redraw!
+!     let v1 = screenattr(1, 1)
+!     let v4 = screenattr(1, 4)
+!     let v5 = screenattr(1, 5)
+!     let v6 = screenattr(1, 6)
+!     let v7 = screenattr(1, 7)
+!     let v8 = screenattr(1, 8)
+!     let v9 = screenattr(1, 9)
+!     let v10 = screenattr(1, 10)
+!     call assert_equal([{'group': 'MyGroup1', 'id': 11, 'priority': 10, 'pos1': [1, 4, 2], 'pos2': [1, 9, 2]}], getmatches())
+!     call assert_notequal(v1, v4)
+!     call assert_equal(v5, v4)
+!     call assert_equal(v6, v1)
+!     call assert_equal(v7, v1)
+!     call assert_equal(v8, v4)
+!     call assert_equal(v9, v4)
+!     call assert_equal(v10, v1)
+  
+!     " Check, that setmatches() can correctly restore the matches from matchaddpos()
+!     call matchadd('MyGroup1', '\%2lmatchadd')
+!     let m=getmatches()
+!     call clearmatches()
+!     call setmatches(m)
+!     call assert_equal([{'group': 'MyGroup1', 'id': 11, 'priority': 10, 'pos1': [1, 4, 2], 'pos2': [1,9, 2]}, {'group': 'MyGroup1', 'pattern': '\%2lmatchadd', 'priority': 10, 'id': 12}], getmatches())
+!   endif
+  
+    highlight MyGroup1 NONE
+    highlight MyGroup2 NONE
+--- 114,146 ----
+    call assert_equal([{'group': 'MyGroup1', 'id': 3, 'priority': 10, 'pos1': [1, 5, 1], 'pos2': [1, 8, 3]}], getmatches())
+    call clearmatches()
+  
+!   call setline(1, 'abcdΣabcdef')
+!   call matchaddpos("MyGroup1", [[1, 4, 2], [1, 9, 2]])
+!   1
+!   redraw!
+!   let v1 = screenattr(1, 1)
+!   let v4 = screenattr(1, 4)
+!   let v5 = screenattr(1, 5)
+!   let v6 = screenattr(1, 6)
+!   let v7 = screenattr(1, 7)
+!   let v8 = screenattr(1, 8)
+!   let v9 = screenattr(1, 9)
+!   let v10 = screenattr(1, 10)
+!   call assert_equal([{'group': 'MyGroup1', 'id': 11, 'priority': 10, 'pos1': [1, 4, 2], 'pos2': [1, 9, 2]}], getmatches())
+!   call assert_notequal(v1, v4)
+!   call assert_equal(v5, v4)
+!   call assert_equal(v6, v1)
+!   call assert_equal(v7, v1)
+!   call assert_equal(v8, v4)
+!   call assert_equal(v9, v4)
+!   call assert_equal(v10, v1)
+  
+!   " Check, that setmatches() can correctly restore the matches from matchaddpos()
+!   call matchadd('MyGroup1', '\%2lmatchadd')
+!   let m=getmatches()
+!   call clearmatches()
+!   call setmatches(m)
+!   call assert_equal([{'group': 'MyGroup1', 'id': 11, 'priority': 10, 'pos1': [1, 4, 2], 'pos2': [1,9, 2]}, {'group': 'MyGroup1', 'pattern': '\%2lmatchadd', 'priority': 10, 'id': 12}], getmatches())
+  
+    highlight MyGroup1 NONE
+    highlight MyGroup2 NONE
+*** ../vim-8.1.0810/src/testdir/test_matchadd_conceal_utf8.vim	2019-01-09 23:00:58.001176090 +0100
+--- src/testdir/test_matchadd_conceal_utf8.vim	2019-01-24 17:42:20.782035126 +0100
+***************
+*** 1,5 ****
+  " Test for matchadd() and conceal feature using utf-8.
+! if !has('conceal') || !has('multi_byte')
+    finish
+  endif
+  
+--- 1,5 ----
+  " Test for matchadd() and conceal feature using utf-8.
+! if !has('conceal')
+    finish
+  endif
+  
+*** ../vim-8.1.0810/src/testdir/test_mksession_utf8.vim	2017-11-23 22:47:27.000000000 +0100
+--- src/testdir/test_mksession_utf8.vim	2019-01-24 17:42:59.533774299 +0100
+***************
+*** 3,9 ****
+  set encoding=utf-8
+  scriptencoding utf-8
+  
+! if !has('multi_byte') || !has('mksession')
+    finish
+  endif
+  
+--- 3,9 ----
+  set encoding=utf-8
+  scriptencoding utf-8
+  
+! if !has('mksession')
+    finish
+  endif
+  
+*** ../vim-8.1.0810/src/testdir/test_normal.vim	2018-11-10 16:01:23.331381891 +0100
+--- src/testdir/test_normal.vim	2019-01-24 17:44:08.953306416 +0100
+***************
+*** 1368,1377 ****
+  endfunc
+  
+  func Test_normal24_rot13()
+-   " This test uses multi byte characters
+-   if !has("multi_byte")
+-     return
+-   endif
+    " Testing for g?? g?g?
+    new
+    call append(0, 'abcdefghijklmnopqrstuvwxyzäüö')
+--- 1368,1373 ----
+***************
+*** 1621,1630 ****
+  endfunc
+  
+  fun! Test_normal30_changecase()
+-   " This test uses multi byte characters
+-   if !has("multi_byte")
+-     return
+-   endif
+    new
+    call append(0, 'This is a simple test: äüöß')
+    norm! 1ggVu
+--- 1617,1622 ----
+***************
+*** 1894,1935 ****
+    call assert_equal("\nCol 1 of 10; Line 1 of 2; Word 1 of 4; Char 1 of 23; Byte 1 of 22", a)
+    set bin & eol&
+  
+!   if has('multi_byte')
+!     call setline(1, ['Français', '日本語'])
+  
+!     let a = execute(":norm! \<Esc>gojlg\<c-g>")
+!     call assert_equal("\nCol 4-3 of 9-6; Line 2 of 2; Word 2 of 2; Char 11 of 13; Byte 16 of 20", a)
+  
+!     let a = execute(":norm! \<Esc>gojvlg\<c-g>")
+!     call assert_equal("\nSelected 1 of 2 Lines; 1 of 2 Words; 2 of 13 Chars; 6 of 20 Bytes", a)
+  
+!     let a = execute(":norm! \<Esc>goll\<c-v>jlg\<c-g>")
+!     call assert_equal("\nSelected 4 Cols; 2 of 2 Lines; 2 of 2 Words; 6 of 13 Chars; 11 of 20 Bytes", a)
+  
+!     set fenc=utf8 bomb
+!     let a = execute(":norm! \<Esc>gojlg\<c-g>")
+!     call assert_equal("\nCol 4-3 of 9-6; Line 2 of 2; Word 2 of 2; Char 11 of 13; Byte 16 of 20(+3 for BOM)", a)
+  
+!     set fenc=utf16 bomb
+!     let a = execute(":norm! g\<c-g>")
+!     call assert_equal("\nCol 4-3 of 9-6; Line 2 of 2; Word 2 of 2; Char 11 of 13; Byte 16 of 20(+2 for BOM)", a)
+  
+!     set fenc=utf32 bomb
+!     let a = execute(":norm! g\<c-g>")
+!     call assert_equal("\nCol 4-3 of 9-6; Line 2 of 2; Word 2 of 2; Char 11 of 13; Byte 16 of 20(+4 for BOM)", a)
+  
+!     set fenc& bomb&
+!   endif
+  
+    set ff&
+    bwipe!
+  endfunc
+  
+  fun! Test_normal34_g_cmd3()
+-   if !has("multi_byte")
+-     return
+-   endif
+- 
+    " Test for g8
+    new
+    let a=execute(':norm! 1G0g8')
+--- 1886,1921 ----
+    call assert_equal("\nCol 1 of 10; Line 1 of 2; Word 1 of 4; Char 1 of 23; Byte 1 of 22", a)
+    set bin & eol&
+  
+!   call setline(1, ['Français', '日本語'])
+  
+!   let a = execute(":norm! \<Esc>gojlg\<c-g>")
+!   call assert_equal("\nCol 4-3 of 9-6; Line 2 of 2; Word 2 of 2; Char 11 of 13; Byte 16 of 20", a)
+  
+!   let a = execute(":norm! \<Esc>gojvlg\<c-g>")
+!   call assert_equal("\nSelected 1 of 2 Lines; 1 of 2 Words; 2 of 13 Chars; 6 of 20 Bytes", a)
+  
+!   let a = execute(":norm! \<Esc>goll\<c-v>jlg\<c-g>")
+!   call assert_equal("\nSelected 4 Cols; 2 of 2 Lines; 2 of 2 Words; 6 of 13 Chars; 11 of 20 Bytes", a)
+  
+!   set fenc=utf8 bomb
+!   let a = execute(":norm! \<Esc>gojlg\<c-g>")
+!   call assert_equal("\nCol 4-3 of 9-6; Line 2 of 2; Word 2 of 2; Char 11 of 13; Byte 16 of 20(+3 for BOM)", a)
+  
+!   set fenc=utf16 bomb
+!   let a = execute(":norm! g\<c-g>")
+!   call assert_equal("\nCol 4-3 of 9-6; Line 2 of 2; Word 2 of 2; Char 11 of 13; Byte 16 of 20(+2 for BOM)", a)
+  
+!   set fenc=utf32 bomb
+!   let a = execute(":norm! g\<c-g>")
+!   call assert_equal("\nCol 4-3 of 9-6; Line 2 of 2; Word 2 of 2; Char 11 of 13; Byte 16 of 20(+4 for BOM)", a)
+  
+!   set fenc& bomb&
+  
+    set ff&
+    bwipe!
+  endfunc
+  
+  fun! Test_normal34_g_cmd3()
+    " Test for g8
+    new
+    let a=execute(':norm! 1G0g8')
+***************
+*** 1948,1956 ****
+  endfunc
+  
+  func Test_normal_8g8()
+-   if !has("multi_byte")
+-     return
+-   endif
+    new
+  
+    " Test 8g8 which finds invalid utf8 at or after the cursor.
+--- 1934,1939 ----
+***************
+*** 2290,2300 ****
+  endfunc
+  
+  func Test_normal46_ignore()
+-   " This test uses multi byte characters
+-   if !has("multi_byte")
+-     return
+-   endif
+- 
+    new
+    " How to test this?
+    " let's just for now test, that the buffer
+--- 2273,2278 ----
+***************
+*** 2470,2478 ****
+    call assert_equal(['abcdefghijklmn'], getline(1,'$'))
+    exe "norm! df\<c-\>m"
+    call assert_equal(['abcdefghijklmn'], getline(1,'$'))
+!   if !has("multi_byte")
+!     return
+!   endif
+    call setline(2, 'abcdefghijklmnāf')
+    norm! 2gg0
+    exe "norm! df\<Char-0x101>"
+--- 2448,2454 ----
+    call assert_equal(['abcdefghijklmn'], getline(1,'$'))
+    exe "norm! df\<c-\>m"
+    call assert_equal(['abcdefghijklmn'], getline(1,'$'))
+! 
+    call setline(2, 'abcdefghijklmnāf')
+    norm! 2gg0
+    exe "norm! df\<Char-0x101>"
+***************
+*** 2494,2502 ****
+  endfunc
+  
+  func Test_delete_until_paragraph()
+-   if !has('multi_byte')
+-     return
+-   endif
+    new
+    normal grádv}
+    call assert_equal('á', getline(1))
+--- 2470,2475 ----
+*** ../vim-8.1.0810/src/testdir/test_plus_arg_edit.vim	2018-06-12 12:39:37.593152427 +0200
+--- src/testdir/test_plus_arg_edit.vim	2019-01-24 17:44:13.581275200 +0100
+***************
+*** 10,19 ****
+  endfunction
+  
+  func Test_edit_bad()
+-   if !has('multi_byte')
+-     finish
+-   endif
+- 
+    " Test loading a utf8 file with bad utf8 sequences.
+    call writefile(["[\xff][\xc0][\xe2\x89\xf0][\xc2\xc2]"], "Xfile")
+    new
+--- 10,15 ----
+*** ../vim-8.1.0810/src/testdir/test_profile.vim	2018-09-10 22:03:36.490401066 +0200
+--- src/testdir/test_profile.vim	2019-01-24 17:44:38.121109606 +0100
+***************
+*** 407,413 ****
+  endfunc
+  
+  func Test_profile_truncate_mbyte()
+!   if !has('multi_byte') || &enc !=# 'utf-8'
+      return
+    endif
+  
+--- 407,413 ----
+  endfunc
+  
+  func Test_profile_truncate_mbyte()
+!   if &enc !=# 'utf-8'
+      return
+    endif
+  
+*** ../vim-8.1.0810/src/testdir/test_put.vim	2018-06-27 23:12:30.608811033 +0200
+--- src/testdir/test_put.vim	2019-01-24 17:44:56.480985660 +0100
+***************
+*** 1,9 ****
+  " Tests for put commands, e.g. ":put", "p", "gp", "P", "gP", etc.
+  
+  func Test_put_block()
+-   if !has('multi_byte')
+-     return
+-   endif
+    new
+    call feedkeys("i\<C-V>u2500\<CR>x\<ESC>", 'x')
+    call feedkeys("\<C-V>y", 'x')
+--- 1,6 ----
+*** ../vim-8.1.0810/src/testdir/test_regex_char_classes.vim	2018-01-31 19:23:08.000000000 +0100
+--- src/testdir/test_regex_char_classes.vim	2019-01-24 17:45:04.528931312 +0100
+***************
+*** 1,9 ****
+  " Tests for regexp with backslash and other special characters inside []
+  " Also test backslash for hex/octal numbered character.
+  "
+- if !has('multi_byte')
+-   finish
+- endif
+  
+  scriptencoding utf-8
+  
+--- 1,6 ----
+*** ../vim-8.1.0810/src/testdir/test_regexp_utf8.vim	2017-06-05 16:40:52.000000000 +0200
+--- src/testdir/test_regexp_utf8.vim	2019-01-24 17:45:30.224757738 +0100
+***************
+*** 1,7 ****
+  " Tests for regexp in utf8 encoding
+- if !has('multi_byte')
+-   finish
+- endif
+  
+  func s:equivalence_test()
+    let str = "AÀÁÂÃÄÅĀĂĄǍǞǠẢ BḂḆ CÇĆĈĊČ DĎĐḊḎḐ EÈÉÊËĒĔĖĘĚẺẼ FḞ GĜĞĠĢǤǦǴḠ HĤĦḢḦḨ IÌÍÎÏĨĪĬĮİǏỈ JĴ KĶǨḰḴ LĹĻĽĿŁḺ MḾṀ NÑŃŅŇṄṈ OÒÓÔÕÖØŌŎŐƠǑǪǬỎ PṔṖ Q RŔŖŘṘṞ SŚŜŞŠṠ TŢŤŦṪṮ UÙÚÛÜŨŪŬŮŰŲƯǓỦ VṼ WŴẀẂẄẆ XẊẌ YÝŶŸẎỲỶỸ ZŹŻŽƵẐẔ aàáâãäåāăąǎǟǡả bḃḇ cçćĉċč dďđḋḏḑ eèéêëēĕėęěẻẽ fḟ gĝğġģǥǧǵḡ hĥħḣḧḩẖ iìíîïĩīĭįǐỉ jĵǰ kķǩḱḵ lĺļľŀłḻ mḿṁ nñńņňŉṅṉ oòóôõöøōŏőơǒǫǭỏ pṕṗ q rŕŗřṙṟ sśŝşšṡ tţťŧṫṯẗ uùúûüũūŭůűųưǔủ vṽ wŵẁẃẅẇẘ xẋẍ yýÿŷẏẙỳỷỹ zźżžƶẑẕ"
+--- 1,4 ----
+*** ../vim-8.1.0810/src/testdir/test_search.vim	2018-12-26 21:44:49.811970384 +0100
+--- src/testdir/test_search.vim	2019-01-24 17:46:04.128528587 +0100
+***************
+*** 1127,1135 ****
+  
+  " Test for search('multi-byte char', 'bce')
+  func Test_search_multibyte()
+-   if !has('multi_byte')
+-     return
+-   endif
+    let save_enc = &encoding
+    set encoding=utf8
+    enew!
+--- 1127,1132 ----
+***************
+*** 1178,1184 ****
+      " ' ̇' U+0307 Dec:775 COMBINING DOT ABOVE &#x307; /\%u307\Z "\u0307"
+      " ' ̣' U+0323 Dec:803 COMBINING DOT BELOW &#x323; /\%u323 "\u0323" 
+    " Those should also appear on the commandline
+!   if !has('multi_byte') || !exists('+incsearch')
+      return
+    endif
+    call Cmdline3_prep()
+--- 1175,1181 ----
+      " ' ̇' U+0307 Dec:775 COMBINING DOT ABOVE &#x307; /\%u307\Z "\u0307"
+      " ' ̣' U+0323 Dec:803 COMBINING DOT BELOW &#x323; /\%u323 "\u0323" 
+    " Those should also appear on the commandline
+!   if !exists('+incsearch')
+      return
+    endif
+    call Cmdline3_prep()
+*** ../vim-8.1.0810/src/testdir/test_source_utf8.vim	2017-10-26 19:57:28.000000000 +0200
+--- src/testdir/test_source_utf8.vim	2019-01-24 17:46:10.700484149 +0100
+***************
+*** 1,7 ****
+  " Test the :source! command
+- if !has('multi_byte')
+-   finish
+- endif
+  
+  func Test_source_utf8()
+    " check that sourcing a script with 0x80 as second byte works
+--- 1,4 ----
+*** ../vim-8.1.0810/src/testdir/test_spell.vim	2018-08-31 22:26:49.210912007 +0200
+--- src/testdir/test_spell.vim	2019-01-24 17:46:27.992367209 +0100
+***************
+*** 135,144 ****
+    set enc=cp1250 spell spelllang=en
+    call assert_match("^\nfile: .*/runtime/spell/en.ascii.spl\n$", execute('spellinfo'))
+  
+!   if has('multi_byte')
+!     set enc=utf-8 spell spelllang=en
+!     call assert_match("^\nfile: .*/runtime/spell/en.utf-8.spl\n$", execute('spellinfo'))
+!   endif
+  
+    set enc=latin1 spell spelllang=en_us,en_nz
+    call assert_match("^\n" .
+--- 135,142 ----
+    set enc=cp1250 spell spelllang=en
+    call assert_match("^\nfile: .*/runtime/spell/en.ascii.spl\n$", execute('spellinfo'))
+  
+!   set enc=utf-8 spell spelllang=en
+!   call assert_match("^\nfile: .*/runtime/spell/en.utf-8.spl\n$", execute('spellinfo'))
+  
+    set enc=latin1 spell spelllang=en_us,en_nz
+    call assert_match("^\n" .
+*** ../vim-8.1.0810/src/testdir/test_startup_utf8.vim	2018-09-13 20:46:48.994641008 +0200
+--- src/testdir/test_startup_utf8.vim	2019-01-24 17:46:39.036292505 +0100
+***************
+*** 1,7 ****
+  " Tests for startup using utf-8.
+- if !has('multi_byte')
+-   finish
+- endif
+  
+  source shared.vim
+  source screendump.vim
+--- 1,4 ----
+*** ../vim-8.1.0810/src/testdir/test_termencoding.vim	2019-01-17 13:04:05.765227482 +0100
+--- src/testdir/test_termencoding.vim	2019-01-24 17:46:56.020177592 +0100
+***************
+*** 2,8 ****
+  " setting 'termencoding' to make it work.
+  
+  " This only works with "iconv".
+! if !has('multi_byte') || !has('iconv')
+    finish
+  endif
+  
+--- 2,8 ----
+  " setting 'termencoding' to make it work.
+  
+  " This only works with "iconv".
+! if !has('iconv')
+    finish
+  endif
+  
+*** ../vim-8.1.0810/src/testdir/test_terminal.vim	2019-01-23 22:33:15.356020765 +0100
+--- src/testdir/test_terminal.vim	2019-01-24 17:47:10.100082302 +0100
+***************
+*** 209,217 ****
+  endfunc
+  
+  func Test_terminal_scrape_multibyte()
+-   if !has('multi_byte')
+-     return
+-   endif
+    call writefile(["léttまrs"], 'Xtext')
+    if has('win32')
+      " Run cmd with UTF-8 codepage to make the type command print the expected
+--- 209,214 ----
+*** ../vim-8.1.0810/src/testdir/test_utf8.vim	2019-01-09 23:00:58.001176090 +0100
+--- src/testdir/test_utf8.vim	2019-01-24 17:47:22.407998990 +0100
+***************
+*** 1,7 ****
+  " Tests for Unicode manipulations
+- if !has('multi_byte')
+-   finish
+- endif
+   
+  
+  " Visual block Insert adjusts for multi-byte char
+--- 1,4 ----
+*** ../vim-8.1.0810/src/testdir/test_utf8_comparisons.vim	2019-01-09 23:00:58.001176090 +0100
+--- src/testdir/test_utf8_comparisons.vim	2019-01-24 17:47:34.299918474 +0100
+***************
+*** 1,10 ****
+  " Tests for case-insensitive UTF-8 comparisons (utf_strnicmp() in mbyte.c)
+  " Also test "g~ap".
+  
+- if !has("multi_byte")
+-   finish
+- endif
+- 
+  func Ch(a, op, b, expected)
+    call assert_equal(eval(printf('"%s" %s "%s"', a:a, a:op, a:b)), a:expected,
+          \ printf('"%s" %s "%s" should return %d', a:a, a:op, a:b, a:expected))
+--- 1,6 ----
+*** ../vim-8.1.0810/src/testdir/test_viminfo.vim	2019-01-13 17:48:00.994125660 +0100
+--- src/testdir/test_viminfo.vim	2019-01-24 17:47:58.743752938 +0100
+***************
+*** 391,399 ****
+  endfunc
+  
+  func Test_viminfo_encoding()
+-   if !has('multi_byte')
+-     return
+-   endif
+    set enc=latin1
+    call histdel(':')
+    call histadd(':', "echo '\xe9'")
+--- 391,396 ----
+*** ../vim-8.1.0810/src/testdir/test_virtualedit.vim	2018-06-28 19:26:24.321655175 +0200
+--- src/testdir/test_virtualedit.vim	2019-01-24 17:48:05.827704953 +0100
+***************
+*** 48,58 ****
+    call setline(1, range(20))
+    exe "normal! gg2jv10lr-"
+    call assert_equal(["1", "-----------", "3"], getline(2,4))
+!   if has('multi_byte')
+!     call setline(1, range(20))
+!     exe "normal! gg2jv10lr\<c-k>hh"
+!     call assert_equal(["1", "───────────", "3"], getline(2,4))
+!   endif
+  
+    bwipe!
+    set virtualedit=
+--- 48,56 ----
+    call setline(1, range(20))
+    exe "normal! gg2jv10lr-"
+    call assert_equal(["1", "-----------", "3"], getline(2,4))
+!   call setline(1, range(20))
+!   exe "normal! gg2jv10lr\<c-k>hh"
+!   call assert_equal(["1", "───────────", "3"], getline(2,4))
+  
+    bwipe!
+    set virtualedit=
+*** ../vim-8.1.0810/src/testdir/test_visual.vim	2019-01-13 16:12:37.600472512 +0100
+--- src/testdir/test_visual.vim	2019-01-24 17:48:24.959575337 +0100
+***************
+*** 6,14 ****
+  
+  func Test_block_shift_multibyte()
+    " Uses double-wide character.
+-   if !has('multi_byte')
+-     return
+-   endif
+    split
+    call setline(1, ['xヹxxx', 'ヹxxx'])
+    exe "normal 1G0l\<C-V>jl>"
+--- 6,11 ----
+*** ../vim-8.1.0810/src/testdir/test_wordcount.vim	2017-12-11 22:41:51.000000000 +0100
+--- src/testdir/test_wordcount.vim	2019-01-24 17:48:34.515510584 +0100
+***************
+*** 1,9 ****
+  " Test for wordcount() function
+  
+- if !has('multi_byte')
+-   finish
+- endif
+- 
+  func Test_wordcount()
+    let save_enc = &enc
+    set encoding=utf-8
+--- 1,5 ----
+*** ../vim-8.1.0810/src/testdir/test_writefile.vim	2018-09-03 22:08:05.676736128 +0200
+--- src/testdir/test_writefile.vim	2019-01-24 17:48:50.015405537 +0100
+***************
+*** 33,39 ****
+  endfunc
+  
+  func Test_writefile_fails_conversion()
+!   if !has('multi_byte') || !has('iconv') || system('uname -s') =~ 'SunOS'
+      return
+    endif
+    set nobackup nowritebackup
+--- 33,39 ----
+  endfunc
+  
+  func Test_writefile_fails_conversion()
+!   if !has('iconv') || system('uname -s') =~ 'SunOS'
+      return
+    endif
+    set nobackup nowritebackup
+*** ../vim-8.1.0810/src/appveyor.bat	2016-09-02 22:21:47.000000000 +0200
+--- src/appveyor.bat	2019-01-24 17:50:35.562689678 +0100
+***************
+*** 7,13 ****
+  cd src
+  echo "Building MinGW 32bit console version"
+  set PATH=c:\msys64\mingw32\bin;%PATH%
+! mingw32-make.exe -f Make_ming.mak GUI=no OPTIMIZE=speed IME=yes MBYTE=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+  :: Save vim.exe before Make clean, moved back below.
+  copy vim.exe testdir
+  mingw32-make.exe -f Make_ming.mak clean
+--- 7,13 ----
+  cd src
+  echo "Building MinGW 32bit console version"
+  set PATH=c:\msys64\mingw32\bin;%PATH%
+! mingw32-make.exe -f Make_ming.mak GUI=no OPTIMIZE=speed IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+  :: Save vim.exe before Make clean, moved back below.
+  copy vim.exe testdir
+  mingw32-make.exe -f Make_ming.mak clean
+***************
+*** 16,39 ****
+  :: with specified features without python.
+  echo "Building MinGW 32bit GUI version"
+  if "%FEATURE%" == "HUGE" (
+!     mingw32-make.exe -f Make_ming.mak OPTIMIZE=speed CHANNEL=yes GUI=yes IME=yes MBYTE=yes ICONV=yes DEBUG=no PYTHON_VER=27 DYNAMIC_PYTHON=yes PYTHON=C:\Python27 PYTHON3_VER=35 DYNAMIC_PYTHON3=yes PYTHON3=C:\Python35 FEATURES=%FEATURE% || exit 1
+  ) ELSE (
+!     mingw32-make.exe -f Make_ming.mak OPTIMIZE=speed GUI=yes IME=yes MBYTE=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+  )
+  .\gvim -u NONE -c "redir @a | ver |0put a | wq" ver_ming.txt
+  
+  echo "Building MSVC 64bit console Version"
+  sed -e "s/\$(LINKARGS2)/\$(LINKARGS2) | sed -e 's#.*\\\\r.*##'/" Make_mvc.mak > Make_mvc2.mak
+! nmake -f Make_mvc2.mak CPU=AMD64 OLE=no GUI=no IME=yes MBYTE=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+  nmake -f Make_mvc2.mak clean
+  
+  :: build MSVC huge version with python and channel support
+  :: GUI needs to be last, so that testing works
+  echo "Building MSVC 64bit GUI Version"
+  if "%FEATURE%" == "HUGE" (
+!     nmake -f Make_mvc2.mak DIRECTX=yes CPU=AMD64 CHANNEL=yes OLE=no GUI=yes IME=yes MBYTE=yes ICONV=yes DEBUG=no PYTHON_VER=27 DYNAMIC_PYTHON=yes PYTHON=C:\Python27-x64 PYTHON3_VER=35 DYNAMIC_PYTHON3=yes PYTHON3=C:\Python35-x64 FEATURES=%FEATURE% || exit 1
+  ) ELSE (
+!     nmake -f Make_mvc2.mak CPU=AMD64 OLE=no GUI=yes IME=yes MBYTE=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+  )
+  .\gvim -u NONE -c "redir @a | ver |0put a | wq" ver_msvc.txt
+  
+--- 16,39 ----
+  :: with specified features without python.
+  echo "Building MinGW 32bit GUI version"
+  if "%FEATURE%" == "HUGE" (
+!     mingw32-make.exe -f Make_ming.mak OPTIMIZE=speed CHANNEL=yes GUI=yes IME=yes ICONV=yes DEBUG=no PYTHON_VER=27 DYNAMIC_PYTHON=yes PYTHON=C:\Python27 PYTHON3_VER=35 DYNAMIC_PYTHON3=yes PYTHON3=C:\Python35 FEATURES=%FEATURE% || exit 1
+  ) ELSE (
+!     mingw32-make.exe -f Make_ming.mak OPTIMIZE=speed GUI=yes IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+  )
+  .\gvim -u NONE -c "redir @a | ver |0put a | wq" ver_ming.txt
+  
+  echo "Building MSVC 64bit console Version"
+  sed -e "s/\$(LINKARGS2)/\$(LINKARGS2) | sed -e 's#.*\\\\r.*##'/" Make_mvc.mak > Make_mvc2.mak
+! nmake -f Make_mvc2.mak CPU=AMD64 OLE=no GUI=no IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+  nmake -f Make_mvc2.mak clean
+  
+  :: build MSVC huge version with python and channel support
+  :: GUI needs to be last, so that testing works
+  echo "Building MSVC 64bit GUI Version"
+  if "%FEATURE%" == "HUGE" (
+!     nmake -f Make_mvc2.mak DIRECTX=yes CPU=AMD64 CHANNEL=yes OLE=no GUI=yes IME=yes ICONV=yes DEBUG=no PYTHON_VER=27 DYNAMIC_PYTHON=yes PYTHON=C:\Python27-x64 PYTHON3_VER=35 DYNAMIC_PYTHON3=yes PYTHON3=C:\Python35-x64 FEATURES=%FEATURE% || exit 1
+  ) ELSE (
+!     nmake -f Make_mvc2.mak CPU=AMD64 OLE=no GUI=yes IME=yes ICONV=yes DEBUG=no FEATURES=%FEATURE% || exit 1
+  )
+  .\gvim -u NONE -c "redir @a | ver |0put a | wq" ver_msvc.txt
+  
+*** ../vim-8.1.0810/src/os_macosx.m	2018-10-08 20:07:35.597823052 +0200
+--- src/os_macosx.m	2019-01-24 17:51:43.974225250 +0100
+***************
+*** 130,147 ****
+      char_u *str = (char_u*)[string UTF8String];
+      int len = [string lengthOfBytesUsingEncoding:NSUTF8StringEncoding];
+  
+- #ifdef FEAT_MBYTE
+      if (input_conv.vc_type != CONV_NONE)
+  	str = string_convert(&input_conv, str, &len);
+- #endif
+  
+      if (str)
+  	clip_yank_selection(motion_type, str, len, cbd);
+  
+- #ifdef FEAT_MBYTE
+      if (input_conv.vc_type != CONV_NONE)
+  	vim_free(str);
+- #endif
+  
+  releasepool:
+      [pool release];
+--- 130,143 ----
+***************
+*** 169,175 ****
+  
+      /* TODO: Avoid overflow. */
+      int len = (int)llen;
+- #ifdef FEAT_MBYTE
+      if (output_conv.vc_type != CONV_NONE)
+      {
+  	char_u *conv_str = string_convert(&output_conv, str, &len);
+--- 165,170 ----
+***************
+*** 179,185 ****
+  	    str = conv_str;
+  	}
+      }
+- #endif
+  
+      if (len > 0)
+      {
+--- 174,179 ----
+*** ../vim-8.1.0810/src/version.c	2019-01-24 17:18:37.599462306 +0100
+--- src/version.c	2019-01-24 17:52:36.453868784 +0100
+***************
+*** 789,790 ****
+--- 789,792 ----
+  {   /* Add new patch number below this line */
++ /**/
++     811,
+  /**/
+
+-- 
+Just think of all the things we haven't thought of yet.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

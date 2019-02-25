@@ -1,0 +1,161 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0929
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0929
+Problem:    No error when requesting ConPTY but it's not available.
+Solution:   Add an error message. (Hirohito Higashi, closes #3967)
+Files:	    runtime/doc/terminal.txt, src/terminal.c
+
+
+*** ../vim-8.1.0928/runtime/doc/terminal.txt	2019-02-08 12:46:03.584784210 +0100
+--- runtime/doc/terminal.txt	2019-02-16 13:34:11.449969838 +0100
+***************
+*** 413,425 ****
+  to point to the right file, if needed.  If you have both the 32-bit and 64-bit
+  version, rename to winpty32.dll and winpty64.dll to match the way Vim was
+  build.
+! 							*ConPTY*
+  On more recent versions of MS-Windows 10 (beginning with the "October 2018
+  Update"), winpty is no longer required. On those versions, |:terminal| will use
+  Windows' built-in support for hosting terminal applications, "ConPTY".  When
+  ConPTY is in use, there may be rendering artifacts regarding ambiguous-width
+! characters. If you encounter any such issues, set 'termwintype' to "winpty"
+! (which you then must have instlled).
+  
+  Environment variables are used to pass information to the running job:
+      VIM_SERVERNAME	v:servername
+--- 413,425 ----
+  to point to the right file, if needed.  If you have both the 32-bit and 64-bit
+  version, rename to winpty32.dll and winpty64.dll to match the way Vim was
+  build.
+! 							*ConPTY* *E982*
+  On more recent versions of MS-Windows 10 (beginning with the "October 2018
+  Update"), winpty is no longer required. On those versions, |:terminal| will use
+  Windows' built-in support for hosting terminal applications, "ConPTY".  When
+  ConPTY is in use, there may be rendering artifacts regarding ambiguous-width
+! characters. If you encounter any such issues, install "winpty".  Until the
+! ConPTY problems have been fixed "winpty" will be preferred.
+  
+  Environment variables are used to pass information to the running job:
+      VIM_SERVERNAME	v:servername
+*** ../vim-8.1.0928/src/terminal.c	2019-02-15 00:16:10.750171037 +0100
+--- src/terminal.c	2019-02-16 13:32:09.466657781 +0100
+***************
+*** 5620,5629 ****
+      static int
+  dyn_conpty_init(int verbose)
+  {
+!     static BOOL	handled = FALSE;
+!     static int	result;
+!     HMODULE	hKerneldll;
+!     int		i;
+      static struct
+      {
+  	char	*name;
+--- 5620,5627 ----
+      static int
+  dyn_conpty_init(int verbose)
+  {
+!     static HMODULE	hKerneldll = NULL;
+!     int			i;
+      static struct
+      {
+  	char	*name;
+***************
+*** 5642,5657 ****
+  	{NULL, NULL}
+      };
+  
+-     if (handled)
+- 	return result;
+- 
+      if (!has_conpty_working())
+      {
+! 	handled = TRUE;
+! 	result = FAIL;
+  	return FAIL;
+      }
+  
+      hKerneldll = vimLoadLib("kernel32.dll");
+      for (i = 0; conpty_entry[i].name != NULL
+  					&& conpty_entry[i].ptr != NULL; ++i)
+--- 5640,5656 ----
+  	{NULL, NULL}
+      };
+  
+      if (!has_conpty_working())
+      {
+! 	if (verbose)
+! 	    emsg(_("E982: ConPTY is not available"));
+  	return FAIL;
+      }
+  
++     // No need to initialize twice.
++     if (hKerneldll)
++ 	return OK;
++ 
+      hKerneldll = vimLoadLib("kernel32.dll");
+      for (i = 0; conpty_entry[i].name != NULL
+  					&& conpty_entry[i].ptr != NULL; ++i)
+***************
+*** 5661,5672 ****
+  	{
+  	    if (verbose)
+  		semsg(_(e_loadfunc), conpty_entry[i].name);
+  	    return FAIL;
+  	}
+      }
+  
+-     handled = TRUE;
+-     result = OK;
+      return OK;
+  }
+  
+--- 5660,5670 ----
+  	{
+  	    if (verbose)
+  		semsg(_(e_loadfunc), conpty_entry[i].name);
++ 	    hKerneldll = NULL;
+  	    return FAIL;
+  	}
+      }
+  
+      return OK;
+  }
+  
+***************
+*** 6015,6020 ****
+--- 6013,6019 ----
+  	{
+  	    if (verbose)
+  		semsg(_(e_loadfunc), winpty_entry[i].name);
++ 	    hWinPtyDLL = NULL;
+  	    return FAIL;
+  	}
+      }
+*** ../vim-8.1.0928/src/version.c	2019-02-16 00:00:24.804989830 +0100
+--- src/version.c	2019-02-16 13:31:28.106890158 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     929,
+  /**/
+
+-- 
+BLACK KNIGHT: The Black Knight always triumphs. Have at you!
+   ARTHUR takes his last leg off.  The BLACK KNIGHT's body lands upright.
+BLACK KNIGHT: All right, we'll call it a draw.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

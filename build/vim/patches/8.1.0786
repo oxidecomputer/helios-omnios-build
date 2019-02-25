@@ -1,0 +1,133 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0786
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0786
+Problem:    ml_get error when updating the status line and a terminal had its
+            scrollback cleared.  (Chris Patuzzo)
+Solution:   Check the cursor position when drawing the status line.
+            (closes #3830)
+Files:	    src/buffer.c, src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.0785/src/buffer.c	2019-01-20 15:30:36.881328770 +0100
+--- src/buffer.c	2019-01-20 18:21:30.211582673 +0100
+***************
+*** 3869,3874 ****
+--- 3869,3876 ----
+      struct stl_hlrec *hltab,	/* return: HL attributes (can be NULL) */
+      struct stl_hlrec *tabtab)	/* return: tab page nrs (can be NULL) */
+  {
++     linenr_T	lnum;
++     size_t	len;
+      char_u	*p;
+      char_u	*s;
+      char_u	*t;
+***************
+*** 3943,3957 ****
+  	fillchar = '-';
+  #endif
+  
+!     /* Get line & check if empty (cursorpos will show "0-1").  Note that
+!      * p will become invalid when getting another buffer line. */
+!     p = ml_get_buf(wp->w_buffer, wp->w_cursor.lnum, FALSE);
+      empty_line = (*p == NUL);
+  
+!     /* Get the byte value now, in case we need it below. This is more
+!      * efficient than making a copy of the line. */
+!     if (wp->w_cursor.col > (colnr_T)STRLEN(p))
+  	byteval = 0;
+      else
+  #ifdef FEAT_MBYTE
+  	byteval = (*mb_ptr2char)(p + wp->w_cursor.col);
+--- 3945,3977 ----
+  	fillchar = '-';
+  #endif
+  
+!     // The cursor in windows other than the current one isn't always
+!     // up-to-date, esp. because of autocommands and timers.
+!     lnum = wp->w_cursor.lnum;
+!     if (lnum > wp->w_buffer->b_ml.ml_line_count)
+!     {
+! 	lnum = wp->w_buffer->b_ml.ml_line_count;
+! 	wp->w_cursor.lnum = lnum;
+!     }
+! 
+!     // Get line & check if empty (cursorpos will show "0-1").  Note that
+!     // p will become invalid when getting another buffer line.
+!     p = ml_get_buf(wp->w_buffer, lnum, FALSE);
+      empty_line = (*p == NUL);
+  
+!     // Get the byte value now, in case we need it below. This is more efficient
+!     // than making a copy of the line.
+!     len = STRLEN(p);
+!     if (wp->w_cursor.col > (colnr_T)len)
+!     {
+! 	// Line may have changed since checking the cursor column, or the lnum
+! 	// was adjusted above.
+! 	wp->w_cursor.col = (colnr_T)len;
+! #ifdef FEAT_VIRTUALEDIT
+! 	wp->w_cursor.coladd = 0;
+! #endif
+  	byteval = 0;
++     }
+      else
+  #ifdef FEAT_MBYTE
+  	byteval = (*mb_ptr2char)(p + wp->w_cursor.col);
+*** ../vim-8.1.0785/src/testdir/test_terminal.vim	2019-01-19 18:20:41.918390095 +0100
+--- src/testdir/test_terminal.vim	2019-01-20 18:21:24.023624845 +0100
+***************
+*** 1719,1721 ****
+--- 1719,1746 ----
+  
+    exe term . 'bwipe!'
+  endfunc
++ 
++ " When drawing the statusline the cursor position may not have been updated
++ " yet.
++ " 1. create a terminal, make it show 2 lines
++ " 2. 0.5 sec later: leave terminal window, execute "i"
++ " 3. 0.5 sec later: clear terminal window, now it's 1 line
++ " 4. 0.5 sec later: redraw, including statusline (used to trigger bug)
++ " 4. 0.5 sec later: should be done, clean up
++ func Test_terminal_statusline()
++   if !has('unix')
++     return
++   endif
++   set statusline=x
++   terminal
++   let tbuf = bufnr('')
++   call term_sendkeys(tbuf, "clear; echo a; echo b; sleep 1; clear\n")
++   call timer_start(500, { tid -> feedkeys("\<C-w>j", 'tx') })
++   call timer_start(1500, { tid -> feedkeys("\<C-l>", 'tx') })
++   au BufLeave * if &buftype == 'terminal' | silent! normal i | endif
++ 
++   sleep 2
++   exe tbuf . 'bwipe!'
++   au! BufLeave
++   set statusline=
++ endfunc
+*** ../vim-8.1.0785/src/version.c	2019-01-20 15:30:36.897328669 +0100
+--- src/version.c	2019-01-20 17:47:47.781180067 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     786,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+271. You collect hilarious signatures from all 250 mailing lists you
+     are subscribed to.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

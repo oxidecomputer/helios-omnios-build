@@ -1,0 +1,179 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0627
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0627
+Problem:    Python cannot handle function name of script-local function.
+Solution:   Use <SNR> instead of the special byte code. (Ozaki Kiichi, closes
+            #3681)
+Files:	    src/if_py_both.h, src/testdir/test_python2.vim,
+            src/testdir/test_python3.vim
+
+
+*** ../vim-8.1.0626/src/if_py_both.h	2018-08-07 19:45:22.619218432 +0200
+--- src/if_py_both.h	2018-12-22 18:54:43.284392984 +0100
+***************
+*** 2922,2929 ****
+  {
+      FunctionObject	*self;
+  
+!     self = (FunctionObject *) subtype->tp_alloc(subtype, 0);
+! 
+      if (self == NULL)
+  	return NULL;
+  
+--- 2922,2928 ----
+  {
+      FunctionObject	*self;
+  
+!     self = (FunctionObject *)subtype->tp_alloc(subtype, 0);
+      if (self == NULL)
+  	return NULL;
+  
+***************
+*** 2938,2952 ****
+  	self->name = vim_strsave(name);
+      }
+      else
+! 	if ((self->name = get_expanded_name(name,
+! 				    vim_strchr(name, AUTOLOAD_CHAR) == NULL))
+! 		== NULL)
+  	{
+  	    PyErr_FORMAT(PyExc_ValueError,
+  		    N_("function %s does not exist"), name);
+  	    return NULL;
+  	}
+  
+      func_ref(self->name);
+      self->argc = argc;
+      self->argv = argv;
+--- 2937,2972 ----
+  	self->name = vim_strsave(name);
+      }
+      else
+!     {
+! 	char_u *p;
+! 
+! 	if ((p = get_expanded_name(name,
+! 			    vim_strchr(name, AUTOLOAD_CHAR) == NULL)) == NULL)
+  	{
+  	    PyErr_FORMAT(PyExc_ValueError,
+  		    N_("function %s does not exist"), name);
+  	    return NULL;
+  	}
+  
++ 	if (p[0] == K_SPECIAL && p[1] == KS_EXTRA && p[2] == (int)KE_SNR)
++ 	{
++ 	    char_u *np;
++ 	    size_t len = STRLEN(p) + 1;
++ 
++ 	    if ((np = alloc(len + 2)) == NULL)
++ 	    {
++ 		vim_free(p);
++ 		return NULL;
++ 	    }
++ 	    mch_memmove(np, "<SNR>", 5);
++ 	    mch_memmove(np + 5, p + 3, len - 3);
++ 	    vim_free(p);
++ 	    self->name = np;
++ 	}
++ 	else
++ 	    self->name = p;
++     }
++ 
+      func_ref(self->name);
+      self->argc = argc;
+      self->argv = argv;
+*** ../vim-8.1.0626/src/testdir/test_python2.vim	2018-07-25 22:02:32.235966277 +0200
+--- src/testdir/test_python2.vim	2018-12-22 18:54:43.284392984 +0100
+***************
+*** 36,38 ****
+--- 36,65 ----
+    normal j
+    call assert_equal([2, 6], [line('.'), col('.')])
+  endfunc
++ 
++ func Test_vim_function()
++   " Check creating vim.Function object
++   py import vim
++ 
++   func s:foo()
++     return matchstr(expand('<sfile>'), '<SNR>\zs\d\+_foo$')
++   endfunc
++   let name = '<SNR>' . s:foo()
++ 
++   try
++     py f = vim.bindeval('function("s:foo")')
++     call assert_equal(name, pyeval('f.name'))
++   catch
++     call assert_false(v:exception)
++   endtry
++ 
++   try
++     py f = vim.Function('\x80\xfdR' + vim.eval('s:foo()'))
++     call assert_equal(name, pyeval('f.name'))
++   catch
++     call assert_false(v:exception)
++   endtry
++ 
++   py del f
++   delfunc s:foo
++ endfunc
+*** ../vim-8.1.0626/src/testdir/test_python3.vim	2018-07-25 22:02:32.235966277 +0200
+--- src/testdir/test_python3.vim	2018-12-22 18:54:43.284392984 +0100
+***************
+*** 36,38 ****
+--- 36,65 ----
+    normal j
+    call assert_equal([2, 6], [line('.'), col('.')])
+  endfunc
++ 
++ func Test_vim_function()
++   " Check creating vim.Function object
++   py3 import vim
++ 
++   func s:foo()
++     return matchstr(expand('<sfile>'), '<SNR>\zs\d\+_foo$')
++   endfunc
++   let name = '<SNR>' . s:foo()
++ 
++   try
++     py3 f = vim.bindeval('function("s:foo")')
++     call assert_equal(name, py3eval('f.name'))
++   catch
++     call assert_false(v:exception)
++   endtry
++ 
++   try
++     py3 f = vim.Function(b'\x80\xfdR' + vim.eval('s:foo()').encode())
++     call assert_equal(name, py3eval('f.name'))
++   catch
++     call assert_false(v:exception)
++   endtry
++ 
++   py3 del f
++   delfunc s:foo
++ endfunc
+*** ../vim-8.1.0626/src/version.c	2018-12-22 18:44:49.104612525 +0100
+--- src/version.c	2018-12-22 18:58:31.154751073 +0100
+***************
+*** 801,802 ****
+--- 801,804 ----
+  {   /* Add new patch number below this line */
++ /**/
++     627,
+  /**/
+
+-- 
+Portable Computer:  A device invented to force businessmen
+to work at home, on vacation, and on business trips.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

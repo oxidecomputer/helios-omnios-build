@@ -1,0 +1,186 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0742
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0742
+Problem:    Not all Blob operations are tested.
+Solution:   Add more testing for Blob.
+Files:	    src/testdir/test_blob.vim, src/evalfunc.c,
+            src/testdir/test_eval_stuff.vim
+
+
+*** ../vim-8.1.0741/src/testdir/test_blob.vim	2019-01-13 15:15:54.384762935 +0100
+--- src/testdir/test_blob.vim	2019-01-13 18:54:54.701693701 +0100
+***************
+*** 96,101 ****
+--- 96,103 ----
+    call assert_true(b1 != b2)
+    call assert_true(b1 != b3)
+    call assert_true(b1 == 0z0011)
++   call assert_fails('echo b1 == 9', 'E977:')
++   call assert_fails('echo b1 != 9', 'E977:')
+  
+    call assert_false(b1 is b2)
+    let b2 = b1
+***************
+*** 145,150 ****
+--- 147,168 ----
+    call assert_equal(0zDEADBEEF, b)
+  endfunc
+  
++ func Test_blob_add()
++   let b = 0z0011
++   call add(b, 0x22)
++   call assert_equal(0z001122, b)
++   call add(b, '51')
++   call assert_equal(0z00112233, b)
++ 
++   call assert_fails('call add(b, [9])', 'E745:')
++ endfunc
++ 
++ func Test_blob_empty()
++   call assert_false(empty(0z001122))
++   call assert_true(empty(0z))
++   call assert_true(empty(test_null_blob()))
++ endfunc
++ 
+  " Test removing items in blob
+  func Test_blob_func_remove()
+    " Test removing 1 element
+***************
+*** 198,208 ****
+--- 216,234 ----
+    let b = 0zDEADBEEF
+    call map(b, 'v:val + 1')
+    call assert_equal(0zDFAEBFF0, b)
++ 
++   call assert_fails("call map(b, '[9]')", 'E978:')
+  endfunc
+  
+  func Test_blob_index()
+    call assert_equal(2, index(0zDEADBEEF, 0xBE))
+    call assert_equal(-1, index(0zDEADBEEF, 0))
++   call assert_equal(2, index(0z11111111, 0x11, 2))
++   call assert_equal(3, index(0z11110111, 0x11, 2))
++   call assert_equal(2, index(0z11111111, 0x11, -2))
++   call assert_equal(3, index(0z11110111, 0x11, -2))
++ 
++   call assert_fails('call index("asdf", 0)', 'E714:')
+  endfunc
+  
+  func Test_blob_insert()
+***************
+*** 213,218 ****
+--- 239,248 ----
+    let b = 0zDEADBEEF
+    call insert(b, 0x33, 2)
+    call assert_equal(0zDEAD33BEEF, b)
++ 
++   call assert_fails('call insert(b, -1)', 'E475:')
++   call assert_fails('call insert(b, 257)', 'E475:')
++   call assert_fails('call insert(b, 0, [9])', 'E745:')
+  endfunc
+  
+  func Test_blob_reverse()
+*** ../vim-8.1.0741/src/evalfunc.c	2019-01-13 15:15:54.392762879 +0100
+--- src/evalfunc.c	2019-01-13 18:49:36.803924354 +0100
+***************
+*** 1258,1265 ****
+  		&& !tv_check_lock(b->bv_lock,
+  					 (char_u *)N_("add() argument"), TRUE))
+  	{
+! 	    ga_append(&b->bv_ga, (char_u)tv_get_number(&argvars[1]));
+! 	    copy_tv(&argvars[0], rettv);
+  	}
+      }
+      else
+--- 1258,1271 ----
+  		&& !tv_check_lock(b->bv_lock,
+  					 (char_u *)N_("add() argument"), TRUE))
+  	{
+! 	    int		error = FALSE;
+! 	    varnumber_T n = tv_get_number_chk(&argvars[1], &error);
+! 
+! 	    if (!error)
+! 	    {
+! 		ga_append(&b->bv_ga, (int)n);
+! 		copy_tv(&argvars[0], rettv);
+! 	    }
+  	}
+      }
+      else
+***************
+*** 3196,3202 ****
+  
+  	case VAR_BLOB:
+  	    n = argvars[0].vval.v_blob == NULL
+- 		|| argvars[0].vval.v_blob->bv_ga.ga_data == NULL
+  		|| argvars[0].vval.v_blob->bv_ga.ga_len == 0;
+  	    break;
+  
+--- 3202,3207 ----
+***************
+*** 7029,7034 ****
+--- 7034,7046 ----
+  	b = argvars[0].vval.v_blob;
+  	if (b == NULL)
+  	    return;
++ 	if (start < 0)
++ 	{
++ 	    start = blob_len(b) + start;
++ 	    if (start < 0)
++ 		start = 0;
++ 	}
++ 
+  	for (idx = start; idx < blob_len(b); ++idx)
+  	{
+  	    tv.v_type = VAR_NUMBER;
+*** ../vim-8.1.0741/src/testdir/test_eval_stuff.vim	2019-01-13 15:15:54.388762907 +0100
+--- src/testdir/test_eval_stuff.vim	2019-01-13 19:02:58.546308961 +0100
+***************
+*** 69,71 ****
+--- 69,89 ----
+    call assert_fails("for x in 'asdf'", 'E714:')
+    call assert_fails("for x in {'a': 9}", 'E714:')
+  endfunc
++ 
++ func Test_readfile_binary()
++   new
++   call setline(1, ['one', 'two', 'three'])
++   setlocal ff=dos
++   write XReadfile
++   let lines = readfile('XReadfile')
++   call assert_equal(['one', 'two', 'three'], lines)
++   let lines = readfile('XReadfile', '', 2)
++   call assert_equal(['one', 'two'], lines)
++   let lines = readfile('XReadfile', 'b')
++   call assert_equal(["one\r", "two\r", "three\r", ""], lines)
++   let lines = readfile('XReadfile', 'b', 2)
++   call assert_equal(["one\r", "two\r"], lines)
++ 
++   bwipe!
++   call delete('XReadfile')
++ endfunc
+*** ../vim-8.1.0741/src/version.c	2019-01-13 17:48:00.994125660 +0100
+--- src/version.c	2019-01-13 17:57:14.646414996 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     742,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+192. Your boss asks you to "go fer" coffee and you come up with 235 FTP sites.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,239 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0958
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0958
+Problem:    Compiling weird regexp pattern is very slow.
+Solution:   When reallocating post list increase size by 50%. (Kuang-che Wu,
+            closes #4012)  Make assert_inrange() accept float values.
+Files:	    src/regexp_nfa.c, src/eval.c, src/testdir/test_regexp_latin.vim,
+            src/testdir/test_assert.vim
+
+
+*** ../vim-8.1.0957/src/regexp_nfa.c	2019-02-17 20:16:58.101377164 +0100
+--- src/regexp_nfa.c	2019-02-20 21:57:19.818765782 +0100
+***************
+*** 509,518 ****
+  realloc_post_list(void)
+  {
+      int   nstate_max = (int)(post_end - post_start);
+!     int   new_max = nstate_max + 1000;
+      int   *new_start;
+      int	  *old_start;
+  
+      new_start = (int *)lalloc(new_max * sizeof(int), TRUE);
+      if (new_start == NULL)
+  	return FAIL;
+--- 509,521 ----
+  realloc_post_list(void)
+  {
+      int   nstate_max = (int)(post_end - post_start);
+!     int   new_max;
+      int   *new_start;
+      int	  *old_start;
+  
++     // For weird patterns the number of states can be very high. Increasing by
++     // 50% seems a reasonable compromise between memory use and speed.
++     new_max = nstate_max * 3 / 2;
+      new_start = (int *)lalloc(new_max * sizeof(int), TRUE);
+      if (new_start == NULL)
+  	return FAIL;
+*** ../vim-8.1.0957/src/eval.c	2019-02-17 17:44:36.203875545 +0100
+--- src/eval.c	2019-02-20 21:51:44.813447677 +0100
+***************
+*** 9365,9396 ****
+  {
+      garray_T	ga;
+      int		error = FALSE;
+-     varnumber_T	lower = tv_get_number_chk(&argvars[0], &error);
+-     varnumber_T	upper = tv_get_number_chk(&argvars[1], &error);
+-     varnumber_T	actual = tv_get_number_chk(&argvars[2], &error);
+      char_u	*tofree;
+      char	msg[200];
+      char_u	numbuf[NUMBUFLEN];
+  
+!     if (error)
+! 	return 0;
+!     if (actual < lower || actual > upper)
+!     {
+! 	prepare_assert_error(&ga);
+! 	if (argvars[3].v_type != VAR_UNKNOWN)
+  	{
+! 	    ga_concat(&ga, tv2string(&argvars[3], &tofree, numbuf, 0));
+! 	    vim_free(tofree);
+  	}
+! 	else
+  	{
+! 	    vim_snprintf(msg, 200, "Expected range %ld - %ld, but got %ld",
+  				       (long)lower, (long)upper, (long)actual);
+! 	    ga_concat(&ga, (char_u *)msg);
+  	}
+- 	assert_error(&ga);
+- 	ga_clear(&ga);
+- 	return 1;
+      }
+      return 0;
+  }
+--- 9365,9429 ----
+  {
+      garray_T	ga;
+      int		error = FALSE;
+      char_u	*tofree;
+      char	msg[200];
+      char_u	numbuf[NUMBUFLEN];
+  
+! #ifdef FEAT_FLOAT
+!     if (argvars[0].v_type == VAR_FLOAT
+! 	    || argvars[1].v_type == VAR_FLOAT
+! 	    || argvars[2].v_type == VAR_FLOAT)
+!     {
+! 	float_T flower = tv_get_float(&argvars[0]);
+! 	float_T fupper = tv_get_float(&argvars[1]);
+! 	float_T factual = tv_get_float(&argvars[2]);
+! 
+! 	if (factual < flower || factual > fupper)
+  	{
+! 	    prepare_assert_error(&ga);
+! 	    if (argvars[3].v_type != VAR_UNKNOWN)
+! 	    {
+! 		ga_concat(&ga, tv2string(&argvars[3], &tofree, numbuf, 0));
+! 		vim_free(tofree);
+! 	    }
+! 	    else
+! 	    {
+! 		vim_snprintf(msg, 200, "Expected range %g - %g, but got %g",
+! 						      flower, fupper, factual);
+! 		ga_concat(&ga, (char_u *)msg);
+! 	    }
+! 	    assert_error(&ga);
+! 	    ga_clear(&ga);
+! 	    return 1;
+  	}
+!     }
+!     else
+! #endif
+!     {
+! 	varnumber_T	lower = tv_get_number_chk(&argvars[0], &error);
+! 	varnumber_T	upper = tv_get_number_chk(&argvars[1], &error);
+! 	varnumber_T	actual = tv_get_number_chk(&argvars[2], &error);
+! 
+! 	if (error)
+! 	    return 0;
+! 	if (actual < lower || actual > upper)
+  	{
+! 	    prepare_assert_error(&ga);
+! 	    if (argvars[3].v_type != VAR_UNKNOWN)
+! 	    {
+! 		ga_concat(&ga, tv2string(&argvars[3], &tofree, numbuf, 0));
+! 		vim_free(tofree);
+! 	    }
+! 	    else
+! 	    {
+! 		vim_snprintf(msg, 200, "Expected range %ld - %ld, but got %ld",
+  				       (long)lower, (long)upper, (long)actual);
+! 		ga_concat(&ga, (char_u *)msg);
+! 	    }
+! 	    assert_error(&ga);
+! 	    ga_clear(&ga);
+! 	    return 1;
+  	}
+      }
+      return 0;
+  }
+***************
+*** 9822,9835 ****
+      {
+  	float_T f1, f2;
+  
+! 	if (typ1->v_type == VAR_FLOAT)
+! 	    f1 = typ1->vval.v_float;
+! 	else
+! 	    f1 = tv_get_number(typ1);
+! 	if (typ2->v_type == VAR_FLOAT)
+! 	    f2 = typ2->vval.v_float;
+! 	else
+! 	    f2 = tv_get_number(typ2);
+  	n1 = FALSE;
+  	switch (type)
+  	{
+--- 9855,9862 ----
+      {
+  	float_T f1, f2;
+  
+! 	f1 = tv_get_float(typ1);
+! 	f2 = tv_get_float(typ2);
+  	n1 = FALSE;
+  	switch (type)
+  	{
+*** ../vim-8.1.0957/src/testdir/test_regexp_latin.vim	2019-02-17 20:16:58.101377164 +0100
+--- src/testdir/test_regexp_latin.vim	2019-02-20 21:56:49.094997247 +0100
+***************
+*** 130,132 ****
+--- 130,143 ----
+    call assert_equal(0, search("[ -*\\t-\\n]"))
+    bwipe!
+  endfunc
++ 
++ func Test_pattern_compile_speed()
++   if !exists('+spellcapcheck') || !has('reltime')
++     return
++   endif
++   let start = reltime()
++   " this used to be very slow, not it should be about a second
++   set spc=\\v(((((Nxxxxxxx&&xxxx){179})+)+)+){179}
++   call assert_inrange(0.01, 10.0, reltimefloat(reltime(start)))
++   set spc=
++ endfunc
+*** ../vim-8.1.0957/src/testdir/test_assert.vim	2019-01-25 20:48:29.381157353 +0100
+--- src/testdir/test_assert.vim	2019-02-20 21:55:13.587732935 +0100
+***************
+*** 190,195 ****
+--- 190,211 ----
+    call remove(v:errors, 0)
+  
+    call assert_fails('call assert_inrange(1, 1)', 'E119:')
++ 
++   if has('float')
++     call assert_equal(0, assert_inrange(7.0, 7, 7))
++     call assert_equal(0, assert_inrange(7, 7.0, 7))
++     call assert_equal(0, assert_inrange(7, 7, 7.0))
++     call assert_equal(0, assert_inrange(5, 7, 5.0))
++     call assert_equal(0, assert_inrange(5, 7, 6.0))
++     call assert_equal(0, assert_inrange(5, 7, 7.0))
++ 
++     call assert_equal(1, assert_inrange(5, 7, 4.0))
++     call assert_match("Expected range 5.0 - 7.0, but got 4.0", v:errors[0])
++     call remove(v:errors, 0)
++     call assert_equal(1, assert_inrange(5, 7, 8.0))
++     call assert_match("Expected range 5.0 - 7.0, but got 8.0", v:errors[0])
++     call remove(v:errors, 0)
++   endif
+  endfunc
+  
+  func Test_assert_with_msg()
+*** ../vim-8.1.0957/src/version.c	2019-02-20 20:36:55.741352867 +0100
+--- src/version.c	2019-02-20 22:03:18.520201671 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     958,
+  /**/
+
+-- 
+If someone questions your market projections, simply point out that your
+target market is "People who are nuts" and "People who will buy any damn
+thing".  Nobody is going to tell you there aren't enough of those people
+to go around.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

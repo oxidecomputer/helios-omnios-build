@@ -1,0 +1,907 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0880
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0880
+Problem:    MS-Windows: inconsistent selection of winpty/conpty.
+Solution:   Name option 'termwintype', use ++type argument and "term_pty" for
+            term_start(). (Hirohito Higashi, closes #3915)
+Files:	    runtime/doc/eval.txt, runtime/doc/options.txt,
+            runtime/doc/terminal.txt, src/channel.c, src/option.c,
+            src/option.h, src/structs.h, src/terminal.c,
+            src/testdir/gen_opt_test.vim, runtime/optwin.vim,
+            runtime/doc/quickref.txt
+
+
+*** ../vim-8.1.0879/runtime/doc/eval.txt	2019-02-03 14:52:42.497867506 +0100
+--- runtime/doc/eval.txt	2019-02-08 12:30:53.693480446 +0100
+***************
+*** 5716,5721 ****
+--- 5750,5760 ----
+  				(See |job_stop()| for the values)
+  				only valid when "status" is "dead"
+  
++ 		   Only in MS-Windows:
++ 		   "tty_type"	Type of virtual console in use.
++ 				Values are "winpty" or "conpty".
++ 				See 'termwintype'.
++ 
+  		Without any arguments, returns a List with all Job objects.
+  
+  job_setoptions({job}, {options})			*job_setoptions()*
+***************
+*** 9410,9419 ****
+  		   "ansi_colors"     A list of 16 color names or hex codes
+  				     defining the ANSI palette used in GUI
+  				     color modes.  See |g:terminal_ansi_colors|.
+! 		   "term_mode"	     (MS-Windows only): Specify which pty to
+! 				     use:
+! 					"winpty": Use winpty
+! 					"conpty": Use ConPTY (if available)
+  
+  		{only available when compiled with the |+terminal| feature}
+  
+--- 9474,9481 ----
+  		   "ansi_colors"     A list of 16 color names or hex codes
+  				     defining the ANSI palette used in GUI
+  				     color modes.  See |g:terminal_ansi_colors|.
+! 		   "tty_type"	     (MS-Windows only): Specify which pty to
+! 				     use.  See 'termwintype' for the values.
+  
+  		{only available when compiled with the |+terminal| feature}
+  
+*** ../vim-8.1.0879/runtime/doc/options.txt	2019-02-03 14:52:42.497867506 +0100
+--- runtime/doc/options.txt	2019-02-08 12:30:53.693480446 +0100
+***************
+*** 8009,8031 ****
+  	Note that the "cterm" attributes are still used, not the "gui" ones.
+  	NOTE: This option is reset when 'compatible' is set.
+  
+- 						*'termmode'* *'tmod'*
+- 'termmode' 'tmod'	string  (default "")
+- 			local to window
+- 			{not in Vi, MS-Windows only}
+- 	Whether the window uses winpty or |ConPTY| as the virtual console.
+- 	When set before opening the terminal, it influences what pty is used.
+- 	When opening the terminal it will be set to the actually used pty.
+- 
+- 	Possible values are:
+- 	    ""		use ConPTY if possible, winpty otherwise
+- 	    "winpty"	use winpty, fail if not supported
+- 	    "conpty"	use |ConPTY|, fail if not supported
+- 
+- 	|ConPTY| support depends on the platform (Windows 10 October 2018
+- 	edition).  winpty support needs to be installed.  If neither is
+- 	supported then you cannot open a terminal window.
+- 
+  						*'termwinscroll'* *'twsl'*
+  'termwinscroll' 'twsl'	number	(default 10000)
+  			local to buffer
+--- 8054,8059 ----
+***************
+*** 8074,8079 ****
+--- 8102,8125 ----
+  	the size of the terminal.  In that case the Vim window will be
+  	adjusted to that size, if possible.
+  
++ 						*'termwintype'* *'twt'*
++ 'termwintype' 'twt'	string  (default "")
++ 			global
++ 			{not in Vi}
++ 			{only available when compiled with the |terminal|
++ 			feature on MS-Windows}
++ 	Specify the virtual console (pty) used when opening the terminal
++ 	window.
++ 
++ 	Possible values are:
++ 	    ""		use ConPTY if possible, winpty otherwise
++ 	    "winpty"	use winpty, fail if not supported
++ 	    "conpty"	use |ConPTY|, fail if not supported
++ 
++ 	|ConPTY| support depends on the platform (Windows 10 October 2018
++ 	edition).  winpty support needs to be installed.  If neither is
++ 	supported then you cannot open a terminal window.
++ 
+  						*'terse'* *'noterse'*
+  'terse'			boolean	(default off)
+  			global
+*** ../vim-8.1.0879/runtime/doc/terminal.txt	2019-02-03 14:52:42.497867506 +0100
+--- runtime/doc/terminal.txt	2019-02-08 12:30:53.693480446 +0100
+***************
+*** 228,235 ****
+  					for Python "++eof=exit()".  Special
+  					codes can be used like with `:map`,
+  					e.g. "<C-Z>" for CTRL-Z.
+! 			++winpty	Use winpty as the virtual console.
+! 			++conpty	Use |ConPTY| as the virtual console.
+  			If you want to use more options use the |term_start()|
+  			function.
+  			If you want to split the window vertically, use: >
+--- 228,237 ----
+  					for Python "++eof=exit()".  Special
+  					codes can be used like with `:map`,
+  					e.g. "<C-Z>" for CTRL-Z.
+! 			++type={pty}	(MS-Windows only): Use {pty} as the
+! 					virtual console.  See 'termwintype'
+! 					for the values.
+! 
+  			If you want to use more options use the |term_start()|
+  			function.
+  			If you want to split the window vertically, use: >
+***************
+*** 416,423 ****
+  Update"), winpty is no longer required. On those versions, |:terminal| will use
+  Windows' built-in support for hosting terminal applications, "ConPTY".  When
+  ConPTY is in use, there may be rendering artifacts regarding ambiguous-width
+! characters. If you encounter any such issues, set 'termmode' to winpty (which
+! you then must have instlled).
+  
+  Environment variables are used to pass information to the running job:
+      VIM_SERVERNAME	v:servername
+--- 418,425 ----
+  Update"), winpty is no longer required. On those versions, |:terminal| will use
+  Windows' built-in support for hosting terminal applications, "ConPTY".  When
+  ConPTY is in use, there may be rendering artifacts regarding ambiguous-width
+! characters. If you encounter any such issues, set 'termwintype' to "winpty"
+! (which you then must have instlled).
+  
+  Environment variables are used to pass information to the running job:
+      VIM_SERVERNAME	v:servername
+*** ../vim-8.1.0879/src/channel.c	2019-02-03 14:52:42.501867485 +0100
+--- src/channel.c	2019-02-08 12:30:53.693480446 +0100
+***************
+*** 4947,4973 ****
+  		opt->jo_set2 |= JO2_TERM_KILL;
+  		opt->jo_term_kill = tv_get_string_chk(item);
+  	    }
+! 	    else if (STRCMP(hi->hi_key, "term_mode") == 0)
+  	    {
+  		char_u *p;
+  
+! 		if (!(supported2 & JO2_TERM_MODE))
+  		    break;
+! 		opt->jo_set2 |= JO2_TERM_MODE;
+  		p = tv_get_string_chk(item);
+  		if (p == NULL)
+  		{
+! 		    semsg(_(e_invargval), "term_mode");
+  		    return FAIL;
+  		}
+  		// Allow empty string, "winpty", "conpty".
+  		if (!(*p == NUL || STRCMP(p, "winpty") == 0
+  					          || STRCMP(p, "conpty") == 0))
+  		{
+! 		    semsg(_(e_invargval), "term_mode");
+  		    return FAIL;
+  		}
+! 		opt->jo_term_mode = p[0];
+  	    }
+  # if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS)
+  	    else if (STRCMP(hi->hi_key, "ansi_colors") == 0)
+--- 4947,4973 ----
+  		opt->jo_set2 |= JO2_TERM_KILL;
+  		opt->jo_term_kill = tv_get_string_chk(item);
+  	    }
+! 	    else if (STRCMP(hi->hi_key, "tty_type") == 0)
+  	    {
+  		char_u *p;
+  
+! 		if (!(supported2 & JO2_TTY_TYPE))
+  		    break;
+! 		opt->jo_set2 |= JO2_TTY_TYPE;
+  		p = tv_get_string_chk(item);
+  		if (p == NULL)
+  		{
+! 		    semsg(_(e_invargval), "tty_type");
+  		    return FAIL;
+  		}
+  		// Allow empty string, "winpty", "conpty".
+  		if (!(*p == NUL || STRCMP(p, "winpty") == 0
+  					          || STRCMP(p, "conpty") == 0))
+  		{
+! 		    semsg(_(e_invargval), "tty_type");
+  		    return FAIL;
+  		}
+! 		opt->jo_tty_type = p[0];
+  	    }
+  # if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS)
+  	    else if (STRCMP(hi->hi_key, "ansi_colors") == 0)
+***************
+*** 5194,5199 ****
+--- 5194,5202 ----
+  #ifdef UNIX
+      vim_free(job->jv_termsig);
+  #endif
++ #ifdef WIN3264
++     vim_free(job->jv_tty_type);
++ #endif
+      free_callback(job->jv_exit_cb, job->jv_exit_partial);
+      if (job->jv_argv != NULL)
+      {
+***************
+*** 5963,5968 ****
+--- 5966,5974 ----
+  #ifdef UNIX
+      dict_add_string(dict, "termsig", job->jv_termsig);
+  #endif
++ #ifdef WIN3264
++     dict_add_string(dict, "tty_type", job->jv_tty_type);
++ #endif
+  
+      l = list_alloc();
+      if (l != NULL)
+*** ../vim-8.1.0879/src/option.c	2019-02-03 14:52:42.501867485 +0100
+--- src/option.c	2019-02-08 12:40:35.150595285 +0100
+***************
+*** 253,259 ****
+  # define PV_TWK		OPT_WIN(WV_TWK)
+  # define PV_TWS		OPT_WIN(WV_TWS)
+  # define PV_TWSL	OPT_BUF(BV_TWSL)
+- # define PV_TMOD	OPT_WIN(WV_TMOD)
+  #endif
+  #ifdef FEAT_SIGNS
+  # define PV_SCL		OPT_WIN(WV_SCL)
+--- 253,258 ----
+***************
+*** 2701,2715 ****
+  			    {(char_u *)FALSE, (char_u *)FALSE}
+  #endif
+  			    SCTX_INIT},
+-     {"termmode", "tmod",    P_STRING|P_ALLOCED|P_VI_DEF,
+- #ifdef FEAT_TERMINAL
+- 			    (char_u *)VAR_WIN, PV_TMOD,
+- 			    {(char_u *)"", (char_u *)NULL}
+- #else
+- 			    (char_u *)NULL, PV_NONE,
+- 			    {(char_u *)NULL, (char_u *)0L}
+- #endif
+- 			    SCTX_INIT},
+      {"termwinkey", "twk",   P_STRING|P_ALLOCED|P_RWIN|P_VI_DEF,
+  #ifdef FEAT_TERMINAL
+  			    (char_u *)VAR_WIN, PV_TWK,
+--- 2700,2705 ----
+***************
+*** 2737,2742 ****
+--- 2727,2741 ----
+  			    {(char_u *)NULL, (char_u *)0L}
+  #endif
+  			    SCTX_INIT},
++     {"termwintype", "twt",  P_STRING|P_ALLOCED|P_VI_DEF,
++ #if defined(WIN3264) && defined(FEAT_TERMINAL)
++ 			    (char_u *)&p_twt, PV_NONE,
++ 			    {(char_u *)"", (char_u *)NULL}
++ #else
++ 			    (char_u *)NULL, PV_NONE,
++ 			    {(char_u *)NULL, (char_u *)0L}
++ #endif
++ 			    SCTX_INIT},
+      {"terse",	    NULL,   P_BOOL|P_VI_DEF,
+  			    (char_u *)&p_terse, PV_NONE,
+  			    {(char_u *)FALSE, (char_u *)0L} SCTX_INIT},
+***************
+*** 3218,3225 ****
+  #ifdef FEAT_SIGNS
+  static char *(p_scl_values[]) = {"yes", "no", "auto", NULL};
+  #endif
+! #ifdef FEAT_TERMINAL
+! static char *(p_tmod_values[]) = {"winpty", "conpty", "", NULL};
+  #endif
+  
+  static void set_options_default(int opt_flags);
+--- 3217,3224 ----
+  #ifdef FEAT_SIGNS
+  static char *(p_scl_values[]) = {"yes", "no", "auto", NULL};
+  #endif
+! #if defined(WIN3264) && defined(FEAT_TERMINAL)
+! static char *(p_twt_values[]) = {"winpty", "conpty", "", NULL};
+  #endif
+  
+  static void set_options_default(int opt_flags);
+***************
+*** 7505,7516 ****
+  		errmsg = e_invarg;
+  	}
+      }
+!     // 'termmode'
+!     else if (varp == &curwin->w_p_tmod)
+      {
+! 	if (check_opt_strings(*varp, p_tmod_values, FALSE) != OK)
+  	    errmsg = e_invarg;
+      }
+  #endif
+  
+  #ifdef FEAT_VARTABS
+--- 7504,7517 ----
+  		errmsg = e_invarg;
+  	}
+      }
+! # if defined(WIN3264)
+!     // 'termwintype'
+!     else if (varp == &p_twt)
+      {
+! 	if (check_opt_strings(*varp, p_twt_values, FALSE) != OK)
+  	    errmsg = e_invarg;
+      }
++ # endif
+  #endif
+  
+  #ifdef FEAT_VARTABS
+***************
+*** 10952,10958 ****
+  	case PV_TWK:    return (char_u *)&(curwin->w_p_twk);
+  	case PV_TWS:    return (char_u *)&(curwin->w_p_tws);
+  	case PV_TWSL:	return (char_u *)&(curbuf->b_p_twsl);
+- 	case PV_TMOD:	return (char_u *)&(curwin->w_p_tmod);
+  #endif
+  
+  	case PV_AI:	return (char_u *)&(curbuf->b_p_ai);
+--- 10953,10958 ----
+***************
+*** 11153,11159 ****
+  #ifdef FEAT_TERMINAL
+      to->wo_twk = vim_strsave(from->wo_twk);
+      to->wo_tws = vim_strsave(from->wo_tws);
+-     to->wo_tmod = vim_strsave(from->wo_tmod);
+  #endif
+  #ifdef FEAT_FOLDING
+      to->wo_fdc = from->wo_fdc;
+--- 11153,11158 ----
+***************
+*** 11224,11230 ****
+  #ifdef FEAT_TERMINAL
+      check_string_option(&wop->wo_twk);
+      check_string_option(&wop->wo_tws);
+-     check_string_option(&wop->wo_tmod);
+  #endif
+  #ifdef FEAT_LINEBREAK
+      check_string_option(&wop->wo_briopt);
+--- 11223,11228 ----
+***************
+*** 11268,11274 ****
+  #ifdef FEAT_TERMINAL
+      clear_string_option(&wop->wo_twk);
+      clear_string_option(&wop->wo_tws);
+-     clear_string_option(&wop->wo_tmod);
+  #endif
+  }
+  
+--- 11266,11271 ----
+*** ../vim-8.1.0879/src/option.h	2019-02-03 14:52:42.501867485 +0100
+--- src/option.h	2019-02-08 12:30:53.697480429 +0100
+***************
+*** 834,839 ****
+--- 834,842 ----
+  #ifdef FEAT_TERMGUICOLORS
+  EXTERN int	p_tgc;		/* 'termguicolors' */
+  #endif
++ #if defined(WIN3264) && defined(FEAT_TERMINAL)
++ EXTERN char_u	*p_twt;		// 'termwintype'
++ #endif
+  EXTERN int	p_terse;	/* 'terse' */
+  EXTERN int	p_ta;		/* 'textauto' */
+  EXTERN int	p_to;		/* 'tildeop' */
+***************
+*** 1112,1118 ****
+  #ifdef FEAT_TERMINAL
+      , WV_TWK
+      , WV_TWS
+-     , WV_TMOD
+  #endif
+      , WV_CRBIND
+  #ifdef FEAT_LINEBREAK
+--- 1115,1120 ----
+*** ../vim-8.1.0879/src/structs.h	2019-02-03 14:52:42.505867463 +0100
+--- src/structs.h	2019-02-08 12:30:53.697480429 +0100
+***************
+*** 282,289 ****
+  # define w_p_twk w_onebuf_opt.wo_twk	/* 'termwinkey' */
+      char_u	*wo_tws;
+  # define w_p_tws w_onebuf_opt.wo_tws	/* 'termwinsize' */
+-     char_u	*wo_tmod;
+- # define w_p_tmod w_onebuf_opt.wo_tmod	/* 'termmode' */
+  #endif
+  
+  #ifdef FEAT_EVAL
+--- 282,287 ----
+***************
+*** 1556,1561 ****
+--- 1554,1562 ----
+  #ifdef UNIX
+      char_u	*jv_termsig;	/* allocated */
+  #endif
++ #ifdef WIN3264
++     char_u	*jv_tty_type;	// allocated
++ #endif
+      int		jv_exitval;
+      char_u	*jv_exit_cb;	/* allocated */
+      partial_T	*jv_exit_partial;
+***************
+*** 1791,1797 ****
+  #define JO2_NORESTORE	    0x2000	/* "norestore" */
+  #define JO2_TERM_KILL	    0x4000	/* "term_kill" */
+  #define JO2_ANSI_COLORS	    0x8000	/* "ansi_colors" */
+! #define JO2_TERM_MODE	    0x10000	/* "term_mode" */
+  
+  #define JO_MODE_ALL	(JO_MODE + JO_IN_MODE + JO_OUT_MODE + JO_ERR_MODE)
+  #define JO_CB_ALL \
+--- 1792,1798 ----
+  #define JO2_NORESTORE	    0x2000	/* "norestore" */
+  #define JO2_TERM_KILL	    0x4000	/* "term_kill" */
+  #define JO2_ANSI_COLORS	    0x8000	/* "ansi_colors" */
+! #define JO2_TTY_TYPE	    0x10000	/* "tty_type" */
+  
+  #define JO_MODE_ALL	(JO_MODE + JO_IN_MODE + JO_OUT_MODE + JO_ERR_MODE)
+  #define JO_CB_ALL \
+***************
+*** 1864,1870 ****
+  # if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS)
+      long_u	jo_ansi_colors[16];
+  # endif
+!     int		jo_term_mode;	    // first character of "term_mode"
+  #endif
+  } jobopt_T;
+  
+--- 1865,1871 ----
+  # if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS)
+      long_u	jo_ansi_colors[16];
+  # endif
+!     int		jo_tty_type;	    // first character of "tty_type"
+  #endif
+  } jobopt_T;
+  
+*** ../vim-8.1.0879/src/terminal.c	2019-02-03 14:52:42.505867463 +0100
+--- src/terminal.c	2019-02-08 12:30:53.697480429 +0100
+***************
+*** 742,757 ****
+  	    vim_free(buf);
+  	    *p = ' ';
+  	}
+! 	else if ((int)(p - cmd) == 6 && STRNICMP(cmd, "winpty", 6) == 0)
+! 	{
+! 	    opt.jo_set2 |= JO2_TERM_MODE;
+! 	    opt.jo_term_mode = 'w';
+! 	}
+! 	else if ((int)(p - cmd) == 6 && STRNICMP(cmd, "conpty", 6) == 0)
+  	{
+! 	    opt.jo_set2 |= JO2_TERM_MODE;
+! 	    opt.jo_term_mode = 'c';
+  	}
+  	else
+  	{
+  	    if (*p)
+--- 742,767 ----
+  	    vim_free(buf);
+  	    *p = ' ';
+  	}
+! #ifdef WIN3264
+! 	else if ((int)(p - cmd) == 4 && STRNICMP(cmd, "type", 4) == 0
+! 								 && ep != NULL)
+  	{
+! 	    int tty_type = NUL;
+! 
+! 	    p = skiptowhite(cmd);
+! 	    if (STRNICMP(ep + 1, "winpty", p - (ep + 1)) == 0)
+! 		tty_type = 'w';
+! 	    else if (STRNICMP(ep + 1, "conpty", p - (ep + 1)) == 0)
+! 		tty_type = 'c';
+! 	    else
+! 	    {
+! 		semsg(e_invargval, "type");
+! 		goto theend;
+! 	    }
+! 	    opt.jo_set2 |= JO2_TTY_TYPE;
+! 	    opt.jo_tty_type = tty_type;
+  	}
++ #endif
+  	else
+  	{
+  	    if (*p)
+***************
+*** 809,817 ****
+  		term->tl_cols, term->tl_rows) < 0)
+  	return FAIL;
+  #ifdef WIN3264
+!     if (*wp->w_p_tmod != NUL)
+! 	if (fprintf(fd, "++%s ", wp->w_p_tmod) < 0)
+! 	    return FAIL;
+  #endif
+      if (term->tl_command != NULL && fputs((char *)term->tl_command, fd) < 0)
+  	return FAIL;
+--- 819,826 ----
+  		term->tl_cols, term->tl_rows) < 0)
+  	return FAIL;
+  #ifdef WIN3264
+!     if (fprintf(fd, "++type=%s ", term->tl_job->jv_tty_type) < 0)
+! 	return FAIL;
+  #endif
+      if (term->tl_command != NULL && fputs((char *)term->tl_command, fd) < 0)
+  	return FAIL;
+***************
+*** 5369,5375 ****
+  		    + JO2_TERM_COLS + JO2_TERM_ROWS + JO2_VERTICAL + JO2_CURWIN
+  		    + JO2_CWD + JO2_ENV + JO2_EOF_CHARS
+  		    + JO2_NORESTORE + JO2_TERM_KILL
+! 		    + JO2_ANSI_COLORS + JO2_TERM_MODE) == FAIL)
+  	return;
+  
+      buf = term_start(&argvars[0], NULL, &opt, 0);
+--- 5378,5384 ----
+  		    + JO2_TERM_COLS + JO2_TERM_ROWS + JO2_VERTICAL + JO2_CURWIN
+  		    + JO2_CWD + JO2_ENV + JO2_EOF_CHARS
+  		    + JO2_NORESTORE + JO2_TERM_KILL
+! 		    + JO2_ANSI_COLORS + JO2_TTY_TYPE) == FAIL)
+  	return;
+  
+      buf = term_start(&argvars[0], NULL, &opt, 0);
+***************
+*** 5713,5718 ****
+--- 5722,5728 ----
+      job->jv_proc_info = proc_info;
+      job->jv_job_object = jo;
+      job->jv_status = JOB_STARTED;
++     job->jv_tty_type = vim_strsave("conpty");
+      ++job->jv_refcount;
+      term->tl_job = job;
+  
+***************
+*** 6046,6051 ****
+--- 6056,6062 ----
+  	    (short_u *)winpty_conin_name(term->tl_winpty), NULL);
+      job->jv_tty_out = utf16_to_enc(
+  	    (short_u *)winpty_conout_name(term->tl_winpty), NULL);
++     job->jv_tty_type = vim_strsave("winpty");
+      ++job->jv_refcount;
+      term->tl_job = job;
+  
+***************
+*** 6113,6118 ****
+--- 6124,6130 ----
+  {
+      int		    use_winpty = FALSE;
+      int		    use_conpty = FALSE;
++     int		    tty_type = *p_twt;
+  
+      has_winpty = dyn_winpty_init(FALSE) != FAIL ? TRUE : FALSE;
+      has_conpty = dyn_conpty_init(FALSE) != FAIL ? TRUE : FALSE;
+***************
+*** 6122,6135 ****
+  	// conpty is not available it can't be installed either.
+  	return dyn_winpty_init(TRUE);
+  
+!     if (opt->jo_term_mode == 'w')
+! 	set_string_option_direct((char_u *)"tmod", -1, (char_u *)"winpty",
+! 							OPT_FREE|OPT_LOCAL, 0);
+!     if (opt->jo_term_mode == 'c')
+! 	set_string_option_direct((char_u *)"tmod", -1, (char_u *)"conpty",
+! 							OPT_FREE|OPT_LOCAL, 0);
+  
+!     if (curwin->w_p_tmod == NULL || *curwin->w_p_tmod == NUL)
+      {
+  	if (has_conpty)
+  	    use_conpty = TRUE;
+--- 6134,6143 ----
+  	// conpty is not available it can't be installed either.
+  	return dyn_winpty_init(TRUE);
+  
+!     if (opt->jo_tty_type != NUL)
+! 	tty_type = opt->jo_tty_type;
+  
+!     if (tty_type == NUL)
+      {
+  	if (has_conpty)
+  	    use_conpty = TRUE;
+***************
+*** 6137,6148 ****
+  	    use_winpty = TRUE;
+  	// else: error
+      }
+!     else if (STRICMP(curwin->w_p_tmod, "winpty") == 0)
+      {
+  	if (has_winpty)
+  	    use_winpty = TRUE;
+      }
+!     else if (STRICMP(curwin->w_p_tmod, "conpty") == 0)
+      {
+  	if (has_conpty)
+  	    use_conpty = TRUE;
+--- 6145,6156 ----
+  	    use_winpty = TRUE;
+  	// else: error
+      }
+!     else if (tty_type == 'w')	// winpty
+      {
+  	if (has_winpty)
+  	    use_winpty = TRUE;
+      }
+!     else if (tty_type == 'c')	// conpty
+      {
+  	if (has_conpty)
+  	    use_conpty = TRUE;
+***************
+*** 6151,6168 ****
+      }
+  
+      if (use_conpty)
+-     {
+- 	set_string_option_direct((char_u *)"tmod", -1, (char_u *)"conpty",
+- 							OPT_FREE|OPT_LOCAL, 0);
+  	return conpty_term_and_job_init(term, argvar, argv, opt, orig_opt);
+-     }
+  
+      if (use_winpty)
+-     {
+- 	set_string_option_direct((char_u *)"tmod", -1, (char_u *)"winpty",
+- 							OPT_FREE|OPT_LOCAL, 0);
+  	return winpty_term_and_job_init(term, argvar, argv, opt, orig_opt);
+-     }
+  
+      // error
+      return dyn_winpty_init(TRUE);
+--- 6159,6168 ----
+*** ../vim-8.1.0879/src/testdir/gen_opt_test.vim	2019-02-03 14:52:42.505867463 +0100
+--- src/testdir/gen_opt_test.vim	2019-02-08 12:30:53.697480429 +0100
+***************
+*** 131,138 ****
+        \ 'term': [[], []],
+        \ 'termguicolors': [[], []],
+        \ 'termencoding': [has('gui_gtk') ? [] : ['', 'utf-8'], ['xxx']],
+-       \ 'termmode': [['', 'winpty', 'conpty'], ['xxx']],
+        \ 'termwinsize': [['', '24x80', '0x80', '32x0', '0x0'], ['xxx', '80', '8ax9', '24x80b']],
+        \ 'toolbar': [['', 'icons', 'text'], ['xxx']],
+        \ 'toolbariconsize': [['', 'tiny', 'huge'], ['xxx']],
+        \ 'ttymouse': [['', 'xterm'], ['xxx']],
+--- 131,138 ----
+        \ 'term': [[], []],
+        \ 'termguicolors': [[], []],
+        \ 'termencoding': [has('gui_gtk') ? [] : ['', 'utf-8'], ['xxx']],
+        \ 'termwinsize': [['', '24x80', '0x80', '32x0', '0x0'], ['xxx', '80', '8ax9', '24x80b']],
++       \ 'termwintype': [['', 'winpty', 'conpty'], ['xxx']],
+        \ 'toolbar': [['', 'icons', 'text'], ['xxx']],
+        \ 'toolbariconsize': [['', 'tiny', 'huge'], ['xxx']],
+        \ 'ttymouse': [['', 'xterm'], ['xxx']],
+*** ../vim-8.1.0879/runtime/optwin.vim	2018-06-23 19:22:45.598486362 +0200
+--- runtime/optwin.vim	2019-02-08 12:35:52.248072230 +0100
+***************
+*** 1,7 ****
+  " These commands create the option window.
+  "
+  " Maintainer:	Bram Moolenaar <Bram@vim.org>
+! " Last Change:	2018 May 15
+  
+  " If there already is an option window, jump to that one.
+  let buf = bufnr('option-window')
+--- 1,7 ----
+  " These commands create the option window.
+  "
+  " Maintainer:	Bram Moolenaar <Bram@vim.org>
+! " Last Change:	2019 Feb 08
+  
+  " If there already is an option window, jump to that one.
+  let buf = bufnr('option-window')
+***************
+*** 395,405 ****
+  call <SID>Header("syntax, highlighting and spelling")
+  call append("$", "background\t\"dark\" or \"light\"; the background color brightness")
+  call <SID>OptionG("bg", &bg)
+! if has("autocmd")
+!   call append("$", "filetype\ttype of file; triggers the FileType event when set")
+!   call append("$", "\t(local to buffer)")
+!   call <SID>OptionL("ft")
+! endif
+  if has("syntax")
+    call append("$", "syntax\tname of syntax highlighting used")
+    call append("$", "\t(local to buffer)")
+--- 395,403 ----
+  call <SID>Header("syntax, highlighting and spelling")
+  call append("$", "background\t\"dark\" or \"light\"; the background color brightness")
+  call <SID>OptionG("bg", &bg)
+! call append("$", "filetype\ttype of file; triggers the FileType event when set")
+! call append("$", "\t(local to buffer)")
+! call <SID>OptionL("ft")
+  if has("syntax")
+    call append("$", "syntax\tname of syntax highlighting used")
+    call append("$", "\t(local to buffer)")
+***************
+*** 454,463 ****
+  endif
+  call append("$", "equalalways\tmake all windows the same size when adding/removing windows")
+  call <SID>BinOptionG("ea", &ea)
+! if has("vertsplit")
+!   call append("$", "eadirection\tin which direction 'equalalways' works: \"ver\", \"hor\" or \"both\"")
+!   call <SID>OptionG("ead", &ead)
+! endif
+  call append("$", "winheight\tminimal number of lines used for the current window")
+  call append("$", " \tset wh=" . &wh)
+  call append("$", "winminheight\tminimal number of lines used for any window")
+--- 452,459 ----
+  endif
+  call append("$", "equalalways\tmake all windows the same size when adding/removing windows")
+  call <SID>BinOptionG("ea", &ea)
+! call append("$", "eadirection\tin which direction 'equalalways' works: \"ver\", \"hor\" or \"both\"")
+! call <SID>OptionG("ead", &ead)
+  call append("$", "winheight\tminimal number of lines used for the current window")
+  call append("$", " \tset wh=" . &wh)
+  call append("$", "winminheight\tminimal number of lines used for any window")
+***************
+*** 465,479 ****
+  call append("$", "winfixheight\tkeep the height of the window")
+  call append("$", "\t(local to window)")
+  call <SID>BinOptionL("wfh")
+- if has("vertsplit")
+  call append("$", "winfixwidth\tkeep the width of the window")
+  call append("$", "\t(local to window)")
+  call <SID>BinOptionL("wfw")
+!   call append("$", "winwidth\tminimal number of columns used for the current window")
+!   call append("$", " \tset wiw=" . &wiw)
+!   call append("$", "winminwidth\tminimal number of columns used for any window")
+!   call append("$", " \tset wmw=" . &wmw)
+! endif
+  call append("$", "helpheight\tinitial height of the help window")
+  call append("$", " \tset hh=" . &hh)
+  if has("quickfix")
+--- 461,473 ----
+  call append("$", "winfixheight\tkeep the height of the window")
+  call append("$", "\t(local to window)")
+  call <SID>BinOptionL("wfh")
+  call append("$", "winfixwidth\tkeep the width of the window")
+  call append("$", "\t(local to window)")
+  call <SID>BinOptionL("wfw")
+! call append("$", "winwidth\tminimal number of columns used for the current window")
+! call append("$", " \tset wiw=" . &wiw)
+! call append("$", "winminwidth\tminimal number of columns used for any window")
+! call append("$", " \tset wmw=" . &wmw)
+  call append("$", "helpheight\tinitial height of the help window")
+  call append("$", " \tset hh=" . &hh)
+  if has("quickfix")
+***************
+*** 490,511 ****
+  call <SID>OptionG("swb", &swb)
+  call append("$", "splitbelow\ta new window is put below the current one")
+  call <SID>BinOptionG("sb", &sb)
+! if has("vertsplit")
+!   call append("$", "splitright\ta new window is put right of the current one")
+!   call <SID>BinOptionG("spr", &spr)
+! endif
+! if has("scrollbind")
+!   call append("$", "scrollbind\tthis window scrolls together with other bound windows")
+!   call append("$", "\t(local to window)")
+!   call <SID>BinOptionL("scb")
+!   call append("$", "scrollopt\t\"ver\", \"hor\" and/or \"jump\"; list of options for 'scrollbind'")
+!   call <SID>OptionG("sbo", &sbo)
+! endif
+! if has("cursorbind")
+!   call append("$", "cursorbind\tthis window's cursor moves together with other bound windows")
+!   call append("$", "\t(local to window)")
+!   call <SID>BinOptionL("crb")
+! endif
+  if has("terminal")
+    call append("$", "termwinsize\tsize of a terminal window")
+    call append("$", "\t(local to window)")
+--- 484,499 ----
+  call <SID>OptionG("swb", &swb)
+  call append("$", "splitbelow\ta new window is put below the current one")
+  call <SID>BinOptionG("sb", &sb)
+! call append("$", "splitright\ta new window is put right of the current one")
+! call <SID>BinOptionG("spr", &spr)
+! call append("$", "scrollbind\tthis window scrolls together with other bound windows")
+! call append("$", "\t(local to window)")
+! call <SID>BinOptionL("scb")
+! call append("$", "scrollopt\t\"ver\", \"hor\" and/or \"jump\"; list of options for 'scrollbind'")
+! call <SID>OptionG("sbo", &sbo)
+! call append("$", "cursorbind\tthis window's cursor moves together with other bound windows")
+! call append("$", "\t(local to window)")
+! call <SID>BinOptionL("crb")
+  if has("terminal")
+    call append("$", "termwinsize\tsize of a terminal window")
+    call append("$", "\t(local to window)")
+***************
+*** 515,520 ****
+--- 503,512 ----
+    call <SID>OptionL("twk")
+    call append("$", "termwinscroll\tmax number of lines to keep for scrollback in a terminal window")
+    call append("$", "\t(local to window)")
++   if has('win32')
++     call append("$", "termwintype\ttype of pty to use for a terminal window")
++     call <SID>OptionG("twt", &twt)
++   endif
+    call <SID>OptionL("twsl")
+    if exists("&winptydll")
+      call append("$", "winptydll\tname of the winpty dynamic library")
+***************
+*** 1105,1116 ****
+    call append("$", "wildmenu\tcommand-line completion shows a list of matches")
+    call <SID>BinOptionG("wmnu", &wmnu)
+  endif
+! if has("vertsplit")
+!   call append("$", "cedit\tkey used to open the command-line window")
+!   call <SID>OptionG("cedit", &cedit)
+!   call append("$", "cmdwinheight\theight of the command-line window")
+!   call <SID>OptionG("cwh", &cwh)
+! endif
+  
+  
+  call <SID>Header("executing external commands")
+--- 1097,1106 ----
+    call append("$", "wildmenu\tcommand-line completion shows a list of matches")
+    call <SID>BinOptionG("wmnu", &wmnu)
+  endif
+! call append("$", "cedit\tkey used to open the command-line window")
+! call <SID>OptionG("cedit", &cedit)
+! call append("$", "cmdwinheight\theight of the command-line window")
+! call <SID>OptionG("cwh", &cwh)
+  
+  
+  call <SID>Header("executing external commands")
+***************
+*** 1292,1305 ****
+  
+  
+  call <SID>Header("various")
+! if has("virtualedit")
+!   call append("$", "virtualedit\twhen to use virtual editing: \"block\", \"insert\" and/or \"all\"")
+!   call <SID>OptionG("ve", &ve)
+! endif
+! if has("autocmd")
+!   call append("$", "eventignore\tlist of autocommand events which are to be ignored")
+!   call <SID>OptionG("ei", &ei)
+! endif
+  call append("$", "loadplugins\tload plugin scripts when starting up")
+  call <SID>BinOptionG("lpl", &lpl)
+  call append("$", "exrc\tenable reading .vimrc/.exrc/.gvimrc in the current directory")
+--- 1282,1291 ----
+  
+  
+  call <SID>Header("various")
+! call append("$", "virtualedit\twhen to use virtual editing: \"block\", \"insert\" and/or \"all\"")
+! call <SID>OptionG("ve", &ve)
+! call append("$", "eventignore\tlist of autocommand events which are to be ignored")
+! call <SID>OptionG("ei", &ei)
+  call append("$", "loadplugins\tload plugin scripts when starting up")
+  call <SID>BinOptionG("lpl", &lpl)
+  call append("$", "exrc\tenable reading .vimrc/.exrc/.gvimrc in the current directory")
+*** ../vim-8.1.0879/runtime/doc/quickref.txt	2018-05-17 13:42:02.000000000 +0200
+--- runtime/doc/quickref.txt	2019-02-08 12:36:39.643832362 +0100
+***************
+*** 930,935 ****
+--- 930,936 ----
+  'termwinkey'	  'twk'	    key that precedes a Vim command in a terminal
+  'termwinscroll'   'twsl'    max number of scrollback lines in a terminal window
+  'termwinsize'	  'tws'	    size of a terminal window
++ 'termwintype'	  'twt'	    MS-Windows: type of pty to use for terminal window
+  'terse'			    shorten some messages
+  'textauto'	  'ta'	    obsolete, use 'fileformats'
+  'textmode'	  'tx'	    obsolete, use 'fileformat'
+***************
+*** 957,962 ****
+--- 958,965 ----
+  'undoreload'	  'ur'	    max nr of lines to save for undo on a buffer reload
+  'updatecount'	  'uc'	    after this many characters flush swap file
+  'updatetime'	  'ut'	    after this many milliseconds flush swap file
++ 'varsofttabstop'  'vsts'    a list of number of spaces when typing <Tab>
++ 'vartabstop'	  'vts'	    a list of number of spaces for <Tab>s
+  'verbose'	  'vbs'     give informative messages
+  'verbosefile'	  'vfile'   file to write messages in
+  'viewdir'	  'vdir'    directory where to store files with :mkview
+*** ../vim-8.1.0879/src/version.c	2019-02-08 12:21:26.631222734 +0100
+--- src/version.c	2019-02-08 12:43:12.429737509 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     880,
+  /**/
+
+-- 
+There are only two hard things in programming: Cache invalidation,
+naming things and off-by-one errors.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,371 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0905
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0905
+Problem:    Complicated regexp causes a crash. (Kuang-che Wu)
+Solution:   Limit the recursiveness of addstate(). (closes #3941)
+Files:	    src/regexp_nfa.c, src/testdir/test_regexp_latin.vim
+
+
+*** ../vim-8.1.0904/src/regexp_nfa.c	2019-01-31 15:34:35.864056935 +0100
+--- src/regexp_nfa.c	2019-02-12 23:05:19.968038497 +0100
+***************
+*** 4284,4289 ****
+--- 4284,4290 ----
+  /*
+   * Add "state" and possibly what follows to state list ".".
+   * Returns "subs_arg", possibly copied into temp_subs.
++  * Returns NULL when recursiveness is too deep.
+   */
+      static regsubs_T *
+  addstate(
+***************
+*** 4310,4315 ****
+--- 4311,4325 ----
+  #ifdef ENABLE_LOG
+      int			did_print = FALSE;
+  #endif
++     static int		depth = 0;
++ 
++     // This function is called recursively.  When the depth is too much we run
++     // out of stack and crash, limit recursiveness here.
++     if (++depth >= 10000 || subs == NULL)
++     {
++ 	--depth;
++ 	return NULL;
++     }
+  
+      if (off_arg <= -ADDSTATE_HERE_OFFSET)
+      {
+***************
+*** 4421,4426 ****
+--- 4431,4437 ----
+  			    abs(state->id), l->id, state->c, code,
+  			    pim == NULL ? "NULL" : "yes", l->has_pim, found);
+  #endif
++ 			--depth;
+  			return subs;
+  		    }
+  		}
+***************
+*** 4595,4601 ****
+  	    }
+  
+  	    subs = addstate(l, state->out, subs, pim, off_arg);
+! 	    /* "subs" may have changed, need to set "sub" again */
+  #ifdef FEAT_SYN_HL
+  	    if (state->c >= NFA_ZOPEN && state->c <= NFA_ZOPEN9)
+  		sub = &subs->synt;
+--- 4606,4614 ----
+  	    }
+  
+  	    subs = addstate(l, state->out, subs, pim, off_arg);
+! 	    if (subs == NULL)
+! 		break;
+! 	    // "subs" may have changed, need to set "sub" again
+  #ifdef FEAT_SYN_HL
+  	    if (state->c >= NFA_ZOPEN && state->c <= NFA_ZOPEN9)
+  		sub = &subs->synt;
+***************
+*** 4619,4625 ****
+  			? subs->norm.list.multi[0].end_lnum >= 0
+  			: subs->norm.list.line[0].end != NULL))
+  	    {
+! 		/* Do not overwrite the position set by \ze. */
+  		subs = addstate(l, state->out, subs, pim, off_arg);
+  		break;
+  	    }
+--- 4632,4638 ----
+  			? subs->norm.list.multi[0].end_lnum >= 0
+  			: subs->norm.list.line[0].end != NULL))
+  	    {
+! 		// Do not overwrite the position set by \ze.
+  		subs = addstate(l, state->out, subs, pim, off_arg);
+  		break;
+  	    }
+***************
+*** 4695,4700 ****
+--- 4708,4715 ----
+  	    }
+  
+  	    subs = addstate(l, state->out, subs, pim, off_arg);
++ 	    if (subs == NULL)
++ 		break;
+  	    /* "subs" may have changed, need to set "sub" again */
+  #ifdef FEAT_SYN_HL
+  	    if (state->c >= NFA_ZCLOSE && state->c <= NFA_ZCLOSE9)
+***************
+*** 4710,4715 ****
+--- 4725,4731 ----
+  	    sub->in_use = save_in_use;
+  	    break;
+      }
++     --depth;
+      return subs;
+  }
+  
+***************
+*** 4719,4725 ****
+   * This makes sure the order of states to be tried does not change, which
+   * matters for alternatives.
+   */
+!     static void
+  addstate_here(
+      nfa_list_T		*l,	/* runtime state list */
+      nfa_state_T		*state,	/* state to update */
+--- 4735,4741 ----
+   * This makes sure the order of states to be tried does not change, which
+   * matters for alternatives.
+   */
+!     static regsubs_T *
+  addstate_here(
+      nfa_list_T		*l,	/* runtime state list */
+      nfa_state_T		*state,	/* state to update */
+***************
+*** 4730,4752 ****
+      int tlen = l->n;
+      int count;
+      int listidx = *ip;
+  
+      /* First add the state(s) at the end, so that we know how many there are.
+       * Pass the listidx as offset (avoids adding another argument to
+       * addstate(). */
+!     addstate(l, state, subs, pim, -listidx - ADDSTATE_HERE_OFFSET);
+  
+!     /* when "*ip" was at the end of the list, nothing to do */
+      if (listidx + 1 == tlen)
+! 	return;
+  
+!     /* re-order to put the new state at the current position */
+      count = l->n - tlen;
+      if (count == 0)
+! 	return; /* no state got added */
+      if (count == 1)
+      {
+! 	/* overwrite the current state */
+  	l->t[listidx] = l->t[l->n - 1];
+      }
+      else if (count > 1)
+--- 4746,4771 ----
+      int tlen = l->n;
+      int count;
+      int listidx = *ip;
++     regsubs_T *r;
+  
+      /* First add the state(s) at the end, so that we know how many there are.
+       * Pass the listidx as offset (avoids adding another argument to
+       * addstate(). */
+!     r = addstate(l, state, subs, pim, -listidx - ADDSTATE_HERE_OFFSET);
+!     if (r == NULL)
+! 	return r;
+  
+!     // when "*ip" was at the end of the list, nothing to do
+      if (listidx + 1 == tlen)
+! 	return r;
+  
+!     // re-order to put the new state at the current position
+      count = l->n - tlen;
+      if (count == 0)
+! 	return r; // no state got added
+      if (count == 1)
+      {
+! 	// overwrite the current state
+  	l->t[listidx] = l->t[l->n - 1];
+      }
+      else if (count > 1)
+***************
+*** 4760,4766 ****
+  	    l->len = l->len * 3 / 2 + 50;
+  	    newl = (nfa_thread_T *)alloc(l->len * sizeof(nfa_thread_T));
+  	    if (newl == NULL)
+! 		return;
+  	    mch_memmove(&(newl[0]),
+  		    &(l->t[0]),
+  		    sizeof(nfa_thread_T) * listidx);
+--- 4779,4785 ----
+  	    l->len = l->len * 3 / 2 + 50;
+  	    newl = (nfa_thread_T *)alloc(l->len * sizeof(nfa_thread_T));
+  	    if (newl == NULL)
+! 		return r;
+  	    mch_memmove(&(newl[0]),
+  		    &(l->t[0]),
+  		    sizeof(nfa_thread_T) * listidx);
+***************
+*** 4787,4792 ****
+--- 4806,4813 ----
+      }
+      --l->n;
+      *ip = listidx - 1;
++ 
++     return r;
+  }
+  
+  /*
+***************
+*** 5493,5498 ****
+--- 5514,5520 ----
+      int		add_count;
+      int		add_off = 0;
+      int		toplevel = start->c == NFA_MOPEN;
++     regsubs_T	*r;
+  #ifdef NFA_REGEXP_DEBUG_LOG
+      FILE	*debug;
+  #endif
+***************
+*** 5567,5576 ****
+  	else
+  	    m->norm.list.line[0].start = rex.input;
+  	m->norm.in_use = 1;
+! 	addstate(thislist, start->out, m, NULL, 0);
+      }
+      else
+! 	addstate(thislist, start, m, NULL, 0);
+  
+  #define	ADD_STATE_IF_MATCH(state)			\
+      if (result) {					\
+--- 5589,5603 ----
+  	else
+  	    m->norm.list.line[0].start = rex.input;
+  	m->norm.in_use = 1;
+! 	r = addstate(thislist, start->out, m, NULL, 0);
+      }
+      else
+! 	r = addstate(thislist, start, m, NULL, 0);
+!     if (r == NULL)
+!     {
+! 	nfa_match = NFA_TOO_EXPENSIVE;
+! 	goto theend;
+!     }
+  
+  #define	ADD_STATE_IF_MATCH(state)			\
+      if (result) {					\
+***************
+*** 5874,5881 ****
+  			/* t->state->out1 is the corresponding END_INVISIBLE
+  			 * node; Add its out to the current list (zero-width
+  			 * match). */
+! 			addstate_here(thislist, t->state->out1->out, &t->subs,
+! 							       &pim, &listidx);
+  		    }
+  		}
+  		break;
+--- 5901,5912 ----
+  			/* t->state->out1 is the corresponding END_INVISIBLE
+  			 * node; Add its out to the current list (zero-width
+  			 * match). */
+! 			if (addstate_here(thislist, t->state->out1->out,
+! 					     &t->subs, &pim, &listidx) == NULL)
+! 			{
+! 			    nfa_match = NFA_TOO_EXPENSIVE;
+! 			    goto theend;
+! 			}
+  		    }
+  		}
+  		break;
+***************
+*** 6749,6761 ****
+  		}
+  
+  		if (add_here)
+! 		    addstate_here(thislist, add_state, &t->subs, pim, &listidx);
+  		else
+  		{
+! 		    addstate(nextlist, add_state, &t->subs, pim, add_off);
+  		    if (add_count > 0)
+  			nextlist->t[nextlist->n - 1].count = add_count;
+  		}
+  	    }
+  
+  	} /* for (thislist = thislist; thislist->state; thislist++) */
+--- 6780,6798 ----
+  		}
+  
+  		if (add_here)
+! 		    r = addstate_here(thislist, add_state, &t->subs,
+! 								pim, &listidx);
+  		else
+  		{
+! 		    r = addstate(nextlist, add_state, &t->subs, pim, add_off);
+  		    if (add_count > 0)
+  			nextlist->t[nextlist->n - 1].count = add_count;
+  		}
++ 		if (r == NULL)
++ 		{
++ 		    nfa_match = NFA_TOO_EXPENSIVE;
++ 		    goto theend;
++ 		}
+  	    }
+  
+  	} /* for (thislist = thislist; thislist->state; thislist++) */
+***************
+*** 6831,6841 ****
+  					 (colnr_T)(rex.input - rex.line) + clen;
+  		    else
+  			m->norm.list.line[0].start = rex.input + clen;
+! 		    addstate(nextlist, start->out, m, NULL, clen);
+  		}
+  	    }
+  	    else
+! 		addstate(nextlist, start, m, NULL, clen);
+  	}
+  
+  #ifdef ENABLE_LOG
+--- 6868,6888 ----
+  					 (colnr_T)(rex.input - rex.line) + clen;
+  		    else
+  			m->norm.list.line[0].start = rex.input + clen;
+! 		    if (addstate(nextlist, start->out, m, NULL, clen) == NULL)
+! 		    {
+! 			nfa_match = NFA_TOO_EXPENSIVE;
+! 			goto theend;
+! 		    }
+  		}
+  	    }
+  	    else
+! 	    {
+! 		if (addstate(nextlist, start, m, NULL, clen) == NULL)
+! 		{
+! 		    nfa_match = NFA_TOO_EXPENSIVE;
+! 		    goto theend;
+! 		}
+! 	    }
+  	}
+  
+  #ifdef ENABLE_LOG
+*** ../vim-8.1.0904/src/testdir/test_regexp_latin.vim	2019-01-14 23:19:26.244853406 +0100
+--- src/testdir/test_regexp_latin.vim	2019-02-12 23:04:40.336347263 +0100
+***************
+*** 84,86 ****
+--- 84,92 ----
+    call assert_fails('/a\{a}', 'E870:')
+    set re=0
+  endfunc
++ 
++ func Test_recursive_addstate()
++   " This will call addstate() recursively until it runs into the limit.
++   let lnum = search('\v((){328}){389}')
++   call assert_equal(0, lnum)
++ endfunc
+*** ../vim-8.1.0904/src/version.c	2019-02-12 22:37:24.181961482 +0100
+--- src/version.c	2019-02-12 22:58:41.059230984 +0100
+***************
+*** 785,786 ****
+--- 785,788 ----
+  {   /* Add new patch number below this line */
++ /**/
++     905,
+  /**/
+
+-- 
+To keep milk from turning sour: Keep it in the cow.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

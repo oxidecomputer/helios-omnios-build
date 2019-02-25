@@ -1,0 +1,722 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0766
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0766
+Problem:    Various problems when using Vim on VMS.
+Solution:   Various fixes. Define long_long_T. (Zoltan Arpadffy)
+Files:	    src/eval.c, src/feature.h, src/fileio.c, src/gui_motif.c,
+            src/gui_x11.c, src/gui_xmebw.c, src/json.c, src/Make_vms.mms,
+            src/ops.c, src/os_vms_conf.h, src/vim.h, src/xdiff/xdiff.h,
+            src/xdiff/xinclude.h
+
+
+*** ../vim-8.1.0765/src/eval.c	2019-01-17 16:32:49.469289080 +0100
+--- src/eval.c	2019-01-17 16:58:23.559357386 +0100
+***************
+*** 7414,7420 ****
+      {
+  	case VAR_NUMBER:
+  	    vim_snprintf((char *)buf, NUMBUFLEN, "%lld",
+! 					    (long long)varp->vval.v_number);
+  	    return buf;
+  	case VAR_FUNC:
+  	case VAR_PARTIAL:
+--- 7414,7420 ----
+      {
+  	case VAR_NUMBER:
+  	    vim_snprintf((char *)buf, NUMBUFLEN, "%lld",
+! 					    (long_long_T)varp->vval.v_number);
+  	    return buf;
+  	case VAR_FUNC:
+  	case VAR_PARTIAL:
+*** ../vim-8.1.0765/src/feature.h	2019-01-17 15:43:21.757878392 +0100
+--- src/feature.h	2019-01-17 16:58:23.559357386 +0100
+***************
+*** 380,386 ****
+  /*
+   * +timers		timer_start()
+   */
+! #if defined(FEAT_RELTIME) && (defined(UNIX) || defined(WIN32))
+  # define FEAT_TIMERS
+  #endif
+  
+--- 380,386 ----
+  /*
+   * +timers		timer_start()
+   */
+! #if defined(FEAT_RELTIME) && (defined(UNIX) || defined(WIN32) || defined(VMS) )
+  # define FEAT_TIMERS
+  #endif
+  
+***************
+*** 1306,1312 ****
+   * +balloon_eval_term	Allow balloon expression evaluation in the terminal.
+   */
+  #if defined(FEAT_HUGE) && defined(FEAT_TIMERS) && \
+! 	(defined(UNIX) || (defined(WIN32) && !defined(FEAT_GUI_W32)))
+  # define FEAT_BEVAL_TERM
+  #endif
+  
+--- 1306,1312 ----
+   * +balloon_eval_term	Allow balloon expression evaluation in the terminal.
+   */
+  #if defined(FEAT_HUGE) && defined(FEAT_TIMERS) && \
+! 	(defined(UNIX) || defined(VMS) || (defined(WIN32) && !defined(FEAT_GUI_W32)))
+  # define FEAT_BEVAL_TERM
+  #endif
+  
+*** ../vim-8.1.0765/src/fileio.c	2019-01-17 15:43:21.761878368 +0100
+--- src/fileio.c	2019-01-17 16:58:23.563357359 +0100
+***************
+*** 5334,5347 ****
+  	*p++ = ' ';
+      if (shortmess(SHM_LINES))
+  	vim_snprintf((char *)p, IOSIZE - (p - IObuff),
+! 		"%ldL, %lldC", lnum, (long long)nchars);
+      else
+      {
+  	sprintf((char *)p, NGETTEXT("%ld line, ", "%ld lines, ", lnum), lnum);
+  	p += STRLEN(p);
+  	vim_snprintf((char *)p, IOSIZE - (p - IObuff),
+  		NGETTEXT("%lld character", "%lld characters", nchars),
+! 		(long long)nchars);
+      }
+  }
+  
+--- 5334,5347 ----
+  	*p++ = ' ';
+      if (shortmess(SHM_LINES))
+  	vim_snprintf((char *)p, IOSIZE - (p - IObuff),
+! 		"%ldL, %lldC", lnum, (long_long_T)nchars);
+      else
+      {
+  	sprintf((char *)p, NGETTEXT("%ld line, ", "%ld lines, ", lnum), lnum);
+  	p += STRLEN(p);
+  	vim_snprintf((char *)p, IOSIZE - (p - IObuff),
+  		NGETTEXT("%lld character", "%lld characters", nchars),
+! 		(long_long_T)nchars);
+      }
+  }
+  
+*** ../vim-8.1.0765/src/gui_motif.c	2019-01-17 15:43:21.761878368 +0100
+--- src/gui_motif.c	2019-01-17 16:58:23.563357359 +0100
+***************
+*** 34,42 ****
+  #include <X11/Xatom.h>
+  #include <X11/StringDefs.h>
+  #include <X11/Intrinsic.h>
+- 
+  #ifdef HAVE_X11_XPM_H
+! # include <X11/xpm.h>
+  #else
+  # ifdef HAVE_XM_XPMP_H
+  #  include <Xm/XpmP.h>
+--- 34,45 ----
+  #include <X11/Xatom.h>
+  #include <X11/StringDefs.h>
+  #include <X11/Intrinsic.h>
+  #ifdef HAVE_X11_XPM_H
+! # if defined(VMS)
+! #  include <xpm.h>
+! # else
+! #  include <X11/xpm.h>
+! # endif
+  #else
+  # ifdef HAVE_XM_XPMP_H
+  #  include <Xm/XpmP.h>
+*** ../vim-8.1.0765/src/gui_x11.c	2019-01-17 15:43:21.761878368 +0100
+--- src/gui_x11.c	2019-01-17 16:58:23.563357359 +0100
+***************
+*** 30,36 ****
+  # include <Xm/XpmP.h>
+  #else
+  # ifdef HAVE_X11_XPM_H
+! #  include <X11/xpm.h>
+  # endif
+  #endif
+  
+--- 30,40 ----
+  # include <Xm/XpmP.h>
+  #else
+  # ifdef HAVE_X11_XPM_H
+! #  ifdef VMS
+! #   include <xpm.h>
+! #  else
+! #   include <X11/xpm.h>
+! #  endif
+  # endif
+  #endif
+  
+*** ../vim-8.1.0765/src/gui_xmebw.c	2018-11-16 16:21:01.641310033 +0100
+--- src/gui_xmebw.c	2019-01-17 16:58:23.563357359 +0100
+***************
+*** 35,41 ****
+  # include <Xm/XpmP.h>
+  # define UNHIGHLIGHTT
+  #else
+! # include <X11/xpm.h>
+  #endif
+  #include <Xm/ManagerP.h>
+  #include <Xm/Display.h>
+--- 35,47 ----
+  # include <Xm/XpmP.h>
+  # define UNHIGHLIGHTT
+  #else
+! # ifdef HAVE_X11_XPM_H
+! #  ifdef VMS
+! #   include <xpm.h>
+! #  else
+! #   include <X11/xpm.h>
+! #  endif
+! # endif
+  #endif
+  #include <Xm/ManagerP.h>
+  #include <Xm/Display.h>
+*** ../vim-8.1.0765/src/json.c	2019-01-13 23:38:33.399773248 +0100
+--- src/json.c	2019-01-17 16:58:23.563357359 +0100
+***************
+*** 218,224 ****
+  
+  	case VAR_NUMBER:
+  	    vim_snprintf((char *)numbuf, NUMBUFLEN, "%lld",
+! 						(long long)val->vval.v_number);
+  	    ga_concat(gap, numbuf);
+  	    break;
+  
+--- 218,224 ----
+  
+  	case VAR_NUMBER:
+  	    vim_snprintf((char *)numbuf, NUMBUFLEN, "%lld",
+! 						(long_long_T)val->vval.v_number);
+  	    ga_concat(gap, numbuf);
+  	    break;
+  
+*** ../vim-8.1.0765/src/Make_vms.mms	2019-01-01 13:20:05.936711257 +0100
+--- src/Make_vms.mms	2019-01-17 17:04:52.852555202 +0100
+***************
+*** 2,8 ****
+  # Makefile for Vim on OpenVMS
+  #
+  # Maintainer:   Zoltan Arpadffy <arpadffy@polarhome.com>
+! # Last change:  2017 Nov 18
+  #
+  # This has script been tested on VMS 6.2 to 8.2 on DEC Alpha, VAX and IA64
+  # with MMS and MMK
+--- 2,8 ----
+  # Makefile for Vim on OpenVMS
+  #
+  # Maintainer:   Zoltan Arpadffy <arpadffy@polarhome.com>
+! # Last change:  2019 Jan 17
+  #
+  # This has script been tested on VMS 6.2 to 8.2 on DEC Alpha, VAX and IA64
+  # with MMS and MMK
+***************
+*** 43,48 ****
+--- 43,50 ----
+  # GUI with GTK
+  # If you have GTK installed you might want to enable this option.
+  # NOTE: you will need to properly define GTK_DIR below
++ # NOTE: since Vim 7.3 GTK 2+ is used that is not ported to VMS, 
++ #       therefore this option should not be used  
+  # GTK = YES
+  
+  # GUI/Motif with XPM
+***************
+*** 164,170 ****
+  # unique on every system - logicals are not accepted
+  # please note: directory should end with . in order to /trans=conc work
+  # This value for GTK_DIR is an example.
+! GTK_DIR  = $1$DGA104:[USERS.ZAY.WORK.GTK1210.]
+  DEFS     = "HAVE_CONFIG_H","FEAT_GUI_GTK"
+  LIBS     = ,OS_VMS_GTK.OPT/OPT
+  GUI_FLAG = /name=(as_is,short)/float=ieee/ieee=denorm
+--- 166,172 ----
+  # unique on every system - logicals are not accepted
+  # please note: directory should end with . in order to /trans=conc work
+  # This value for GTK_DIR is an example.
+! GTK_DIR  = DKA0:[WORK.GTK1210.]
+  DEFS     = "HAVE_CONFIG_H","FEAT_GUI_GTK"
+  LIBS     = ,OS_VMS_GTK.OPT/OPT
+  GUI_FLAG = /name=(as_is,short)/float=ieee/ieee=denorm
+***************
+*** 178,185 ****
+--- 180,189 ----
+  MOTIF	 = YES
+  .IFDEF XPM
+  DEFS     = "HAVE_CONFIG_H","FEAT_GUI_MOTIF","HAVE_XPM"
++ XPM_INC  = ,[.xpm.include]
+  .ELSE
+  DEFS     = "HAVE_CONFIG_H","FEAT_GUI_MOTIF"
++ XPM_INC  = 
+  .ENDIF
+  LIBS     = ,OS_VMS_MOTIF.OPT/OPT
+  GUI_FLAG =
+***************
+*** 269,274 ****
+--- 273,283 ----
+  ICONV_DEF = ,"USE_ICONV"
+  .ENDIF
+  
++ # XDIFF related setup.
++ XDIFF_SRC = xdiffi.c,xemit.c,xprepare.c,xutils.c,xhistogram.c,xpatience.c
++ XDIFF_OBJ = xdiffi.obj,xemit.obj,xprepare.obj,xutils.obj,xhistogram.obj,xpatience.obj 
++ XDIFF_INC = ,[.xdiff]
++ 
+  ######################################################################
+  # End of configuration section.
+  # Please, do not change anything below without programming experience.
+***************
+*** 283,300 ****
+  .SUFFIXES : .obj .c
+  
+  ALL_CFLAGS = /def=($(MODEL_DEF)$(DEFS)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
+!  $(TCL_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF)$(ICONV_DEF)) -
+   $(CFLAGS)$(GUI_FLAG) -
+!  /include=($(C_INC)$(GUI_INC_DIR)$(GUI_INC)$(PERL_INC)$(PYTHON_INC)$(TCL_INC))
+  
+  # CFLAGS displayed in :ver information
+  # It is specially formated for correct display of unix like includes
+  # as $(GUI_INC) - replaced with $(GUI_INC_VER)
+  # Otherwise should not be any other difference.
+  ALL_CFLAGS_VER = /def=($(MODEL_DEF)$(DEFS)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
+!  $(TCL_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF)$(ICONV_DEF)) -
+   $(CFLAGS)$(GUI_FLAG) -
+!  /include=($(C_INC)$(GUI_INC_DIR)$(GUI_INC_VER)$(PERL_INC)$(PYTHON_INC)$(TCL_INC))
+  
+  ALL_LIBS = $(LIBS) $(GUI_LIB_DIR) $(GUI_LIB) \
+  	   $(PERL_LIB) $(PYTHON_LIB) $(TCL_LIB) $(RUBY_LIB)
+--- 292,313 ----
+  .SUFFIXES : .obj .c
+  
+  ALL_CFLAGS = /def=($(MODEL_DEF)$(DEFS)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
+!  $(TCL_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF) -
+!  $(ICONV_DEF)) -
+   $(CFLAGS)$(GUI_FLAG) -
+!  /include=($(C_INC)$(GUI_INC_DIR)$(GUI_INC)$(PERL_INC)$(PYTHON_INC) -
+!  $(TCL_INC)$(XDIFF_INC)$(XPM_INC))
+  
+  # CFLAGS displayed in :ver information
+  # It is specially formated for correct display of unix like includes
+  # as $(GUI_INC) - replaced with $(GUI_INC_VER)
+  # Otherwise should not be any other difference.
+  ALL_CFLAGS_VER = /def=($(MODEL_DEF)$(DEFS)$(DEBUG_DEF)$(PERL_DEF)$(PYTHON_DEF) -
+!  $(TCL_DEF)$(RUBY_DEF)$(XIM_DEF)$(HANGULIN_DEF)$(TAG_DEF)$(MZSCH_DEF) - 
+!  $(ICONV_DEF)) -
+   $(CFLAGS)$(GUI_FLAG) -
+!  /include=($(C_INC)$(GUI_INC_DIR)$(GUI_INC_VER)$(PERL_INC)$(PYTHON_INC) -
+!  $(TCL_INC)$(XDIFF_INC)$(XPM_INC))
+  
+  ALL_LIBS = $(LIBS) $(GUI_LIB_DIR) $(GUI_LIB) \
+  	   $(PERL_LIB) $(PYTHON_LIB) $(TCL_LIB) $(RUBY_LIB)
+***************
+*** 303,323 ****
+  	ex_cmds.c ex_cmds2.c ex_docmd.c ex_eval.c ex_getln.c if_cscope.c if_xcmdsrv.c farsi.c fileio.c fold.c getchar.c \
+  	hardcopy.c hashtab.c json.c list.c main.c mark.c menu.c mbyte.c memfile.c memline.c message.c misc1.c \
+  	misc2.c move.c normal.c ops.c option.c popupmnu.c quickfix.c regexp.c search.c sha256.c sign.c \
+! 	spell.c spellfile.c syntax.c tag.c term.c termlib.c ui.c undo.c userfunc.c version.c screen.c \
+  	window.c os_unix.c os_vms.c pathdef.c \
+  	$(GUI_SRC) $(PERL_SRC) $(PYTHON_SRC) $(TCL_SRC) \
+! 	$(RUBY_SRC) $(HANGULIN_SRC) $(MZSCH_SRC)
+  
+  OBJ = 	arabic.obj beval.obj blowfish.obj buffer.obj charset.obj crypt.obj crypt_zip.obj dict.obj diff.obj digraph.obj edit.obj eval.obj \
+  	evalfunc.obj ex_cmds.obj ex_cmds2.obj ex_docmd.obj ex_eval.obj ex_getln.obj if_cscope.obj \
+  	if_xcmdsrv.obj farsi.obj fileio.obj fold.obj getchar.obj hardcopy.obj hashtab.obj json.obj list.obj main.obj mark.obj \
+  	menu.obj memfile.obj memline.obj message.obj misc1.obj misc2.obj \
+  	move.obj mbyte.obj normal.obj ops.obj option.obj popupmnu.obj quickfix.obj \
+! 	regexp.obj search.obj sha256.obj sign.obj spell.obj spellfile.obj syntax.obj tag.obj term.obj termlib.obj \
+  	ui.obj undo.obj userfunc.obj screen.obj version.obj window.obj os_unix.obj \
+  	os_vms.obj pathdef.obj if_mzsch.obj\
+  	$(GUI_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(TCL_OBJ) \
+! 	$(RUBY_OBJ) $(HANGULIN_OBJ) $(MZSCH_OBJ)
+  
+  # Default target is making the executable
+  all : [.auto]config.h mmk_compat motif_env gtk_env perl_env python_env tcl_env ruby_env $(TARGET)
+--- 316,336 ----
+  	ex_cmds.c ex_cmds2.c ex_docmd.c ex_eval.c ex_getln.c if_cscope.c if_xcmdsrv.c farsi.c fileio.c fold.c getchar.c \
+  	hardcopy.c hashtab.c json.c list.c main.c mark.c menu.c mbyte.c memfile.c memline.c message.c misc1.c \
+  	misc2.c move.c normal.c ops.c option.c popupmnu.c quickfix.c regexp.c search.c sha256.c sign.c \
+!  	spell.c spellfile.c syntax.c tag.c term.c termlib.c textprop.c ui.c undo.c userfunc.c version.c screen.c \
+  	window.c os_unix.c os_vms.c pathdef.c \
+  	$(GUI_SRC) $(PERL_SRC) $(PYTHON_SRC) $(TCL_SRC) \
+!  	$(RUBY_SRC) $(HANGULIN_SRC) $(MZSCH_SRC) $(XDIFF_SRC)
+  
+  OBJ = 	arabic.obj beval.obj blowfish.obj buffer.obj charset.obj crypt.obj crypt_zip.obj dict.obj diff.obj digraph.obj edit.obj eval.obj \
+  	evalfunc.obj ex_cmds.obj ex_cmds2.obj ex_docmd.obj ex_eval.obj ex_getln.obj if_cscope.obj \
+  	if_xcmdsrv.obj farsi.obj fileio.obj fold.obj getchar.obj hardcopy.obj hashtab.obj json.obj list.obj main.obj mark.obj \
+  	menu.obj memfile.obj memline.obj message.obj misc1.obj misc2.obj \
+  	move.obj mbyte.obj normal.obj ops.obj option.obj popupmnu.obj quickfix.obj \
+!  	regexp.obj search.obj sha256.obj sign.obj spell.obj spellfile.obj syntax.obj tag.obj term.obj termlib.obj textprop.obj \
+  	ui.obj undo.obj userfunc.obj screen.obj version.obj window.obj os_unix.obj \
+  	os_vms.obj pathdef.obj if_mzsch.obj\
+  	$(GUI_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(TCL_OBJ) \
+!  	$(RUBY_OBJ) $(HANGULIN_OBJ) $(MZSCH_OBJ) $(XDIFF_OBJ)
+  
+  # Default target is making the executable
+  all : [.auto]config.h mmk_compat motif_env gtk_env perl_env python_env tcl_env ruby_env $(TARGET)
+***************
+*** 705,710 ****
+--- 718,727 ----
+   ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
+   [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h farsi.h \
+   arabic.h
++ textprop.obj : textprop.c vim.h [.auto]config.h feature.h os_unix.h   \
++  ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
++  [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h farsi.h \
++  arabic.h
+  ui.obj : ui.c vim.h [.auto]config.h feature.h os_unix.h   \
+   ascii.h keymap.h term.h macros.h structs.h regexp.h gui.h beval.h \
+   [.proto]gui_beval.pro option.h ex_cmds.h proto.h globals.h farsi.h \
+***************
+*** 828,832 ****
+   ascii.h keymap.h term.h macros.h structs.h regexp.h \
+   gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+   globals.h farsi.h arabic.h version.h
+! gui_xmdlg.obj : gui_xmdlg.c
+! gui_xmebw.obj : gui_xmebw.c
+--- 845,855 ----
+   ascii.h keymap.h term.h macros.h structs.h regexp.h \
+   gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+   globals.h farsi.h arabic.h version.h
+! gui_xmdlg.obj : gui_xmdlg.c [.auto]config.h vim.h feature.h os_unix.h
+! gui_xmebw.obj : gui_xmebw.c [.auto]config.h vim.h feature.h os_unix.h
+! xdiffi.obj : [.xdiff]xdiffi.c [.xdiff]xinclude.h [.auto]config.h vim.h feature.h os_unix.h
+! xemit.obj : [.xdiff]xemit.c [.xdiff]xinclude.h [.auto]config.h vim.h feature.h os_unix.h
+! xprepare.obj : [.xdiff]xprepare.c [.xdiff]xinclude.h [.auto]config.h vim.h feature.h os_unix.h
+! xutils.obj : [.xdiff]xutils.c [.xdiff]xinclude.h [.auto]config.h vim.h feature.h os_unix.h
+! xhistogram.obj : [.xdiff]xhistogram.c [.xdiff]xinclude.h [.auto]config.h vim.h feature.h os_unix.h
+! xpatience.obj : [.xdiff]xpatience.c [.xdiff]xinclude.h [.auto]config.h vim.h feature.h os_unix.h	
+*** ../vim-8.1.0765/src/ops.c	2019-01-13 23:38:33.403773217 +0100
+--- src/ops.c	2019-01-17 16:58:23.567357333 +0100
+***************
+*** 6036,6051 ****
+  	}
+  	else if (pre == 0)
+  	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llu",
+! 							(long long unsigned)n);
+  	else if (pre == '0')
+  	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llo",
+! 							(long long unsigned)n);
+  	else if (pre && hexupper)
+  	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llX",
+! 							(long long unsigned)n);
+  	else
+  	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llx",
+! 							(long long unsigned)n);
+  	length -= (int)STRLEN(buf2);
+  
+  	/*
+--- 6036,6051 ----
+  	}
+  	else if (pre == 0)
+  	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llu",
+! 							(long_long_u_T)n);
+  	else if (pre == '0')
+  	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llo",
+! 							(long_long_u_T)n);
+  	else if (pre && hexupper)
+  	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llX",
+! 							(long_long_u_T)n);
+  	else
+  	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llx",
+! 							(long_long_u_T)n);
+  	length -= (int)STRLEN(buf2);
+  
+  	/*
+***************
+*** 7558,7578 ****
+  			    _("Selected %s%ld of %ld Lines; %lld of %lld Words; %lld of %lld Bytes"),
+  			    buf1, line_count_selected,
+  			    (long)curbuf->b_ml.ml_line_count,
+! 			    (long long)word_count_cursor,
+! 			    (long long)word_count,
+! 			    (long long)byte_count_cursor,
+! 			    (long long)byte_count);
+  		else
+  		    vim_snprintf((char *)IObuff, IOSIZE,
+  			    _("Selected %s%ld of %ld Lines; %lld of %lld Words; %lld of %lld Chars; %lld of %lld Bytes"),
+  			    buf1, line_count_selected,
+  			    (long)curbuf->b_ml.ml_line_count,
+! 			    (long long)word_count_cursor,
+! 			    (long long)word_count,
+! 			    (long long)char_count_cursor,
+! 			    (long long)char_count,
+! 			    (long long)byte_count_cursor,
+! 			    (long long)byte_count);
+  	    }
+  	    else
+  	    {
+--- 7558,7578 ----
+  			    _("Selected %s%ld of %ld Lines; %lld of %lld Words; %lld of %lld Bytes"),
+  			    buf1, line_count_selected,
+  			    (long)curbuf->b_ml.ml_line_count,
+! 			    (long_long_T)word_count_cursor,
+! 			    (long_long_T)word_count,
+! 			    (long_long_T)byte_count_cursor,
+! 			    (long_long_T)byte_count);
+  		else
+  		    vim_snprintf((char *)IObuff, IOSIZE,
+  			    _("Selected %s%ld of %ld Lines; %lld of %lld Words; %lld of %lld Chars; %lld of %lld Bytes"),
+  			    buf1, line_count_selected,
+  			    (long)curbuf->b_ml.ml_line_count,
+! 			    (long_long_T)word_count_cursor,
+! 			    (long_long_T)word_count,
+! 			    (long_long_T)char_count_cursor,
+! 			    (long_long_T)char_count,
+! 			    (long_long_T)byte_count_cursor,
+! 			    (long_long_T)byte_count);
+  	    }
+  	    else
+  	    {
+***************
+*** 7590,7606 ****
+  			(char *)buf1, (char *)buf2,
+  			(long)curwin->w_cursor.lnum,
+  			(long)curbuf->b_ml.ml_line_count,
+! 			(long long)word_count_cursor, (long long)word_count,
+! 			(long long)byte_count_cursor, (long long)byte_count);
+  		else
+  		    vim_snprintf((char *)IObuff, IOSIZE,
+  			_("Col %s of %s; Line %ld of %ld; Word %lld of %lld; Char %lld of %lld; Byte %lld of %lld"),
+  			(char *)buf1, (char *)buf2,
+  			(long)curwin->w_cursor.lnum,
+  			(long)curbuf->b_ml.ml_line_count,
+! 			(long long)word_count_cursor, (long long)word_count,
+! 			(long long)char_count_cursor, (long long)char_count,
+! 			(long long)byte_count_cursor, (long long)byte_count);
+  	    }
+  	}
+  
+--- 7590,7606 ----
+  			(char *)buf1, (char *)buf2,
+  			(long)curwin->w_cursor.lnum,
+  			(long)curbuf->b_ml.ml_line_count,
+! 			(long_long_T)word_count_cursor, (long_long_T)word_count,
+! 			(long_long_T)byte_count_cursor, (long_long_T)byte_count);
+  		else
+  		    vim_snprintf((char *)IObuff, IOSIZE,
+  			_("Col %s of %s; Line %ld of %ld; Word %lld of %lld; Char %lld of %lld; Byte %lld of %lld"),
+  			(char *)buf1, (char *)buf2,
+  			(long)curwin->w_cursor.lnum,
+  			(long)curbuf->b_ml.ml_line_count,
+! 			(long_long_T)word_count_cursor, (long_long_T)word_count,
+! 			(long_long_T)char_count_cursor, (long_long_T)char_count,
+! 			(long_long_T)byte_count_cursor, (long_long_T)byte_count);
+  	    }
+  	}
+  
+***************
+*** 7608,7614 ****
+  	bom_count = bomb_size();
+  	if (bom_count > 0)
+  	    vim_snprintf((char *)IObuff + STRLEN(IObuff), IOSIZE,
+! 				   _("(+%lld for BOM)"), (long long)bom_count);
+  #endif
+  	if (dict == NULL)
+  	{
+--- 7608,7614 ----
+  	bom_count = bomb_size();
+  	if (bom_count > 0)
+  	    vim_snprintf((char *)IObuff + STRLEN(IObuff), IOSIZE,
+! 				   _("(+%lld for BOM)"), (long_long_T)bom_count);
+  #endif
+  	if (dict == NULL)
+  	{
+*** ../vim-8.1.0765/src/os_vms_conf.h	2016-12-01 17:08:35.000000000 +0100
+--- src/os_vms_conf.h	2019-01-17 16:58:23.567357333 +0100
+***************
+*** 6,11 ****
+--- 6,12 ----
+  #define BINARY_FILE_IO		    /* Use binary fileio */
+  #define USE_GETCWD
+  #define USE_SYSTEM
++ #define XPMATTRIBUTES_TYPE XpmAttributes
+  
+  /* Define when terminfo support found */
+  #undef TERMINFO
+***************
+*** 23,29 ****
+  #define HAVE_DATE_TIME
+  
+  /* Defined to the size of an int */
+! #define VIM_SIZEOF_INT 4
+  
+  /* #undef USEBCOPY */
+  #define USEMEMMOVE
+--- 24,30 ----
+  #define HAVE_DATE_TIME
+  
+  /* Defined to the size of an int */
+! #define VIM_SIZEOF_INT  4 
+  
+  /* #undef USEBCOPY */
+  #define USEMEMMOVE
+***************
+*** 117,124 ****
+  #define HAVE_SETJMP_H
+  #define HAVE_MATH_H
+  #define HAVE_FLOAT_FUNCS
+  
+- #undef	HAVE_DIRENT_H
+  #undef	HAVE_SYS_NDIR_H
+  #undef	HAVE_SYS_DIR_H
+  #undef	HAVE_NDIR_H
+--- 118,128 ----
+  #define HAVE_SETJMP_H
+  #define HAVE_MATH_H
+  #define HAVE_FLOAT_FUNCS
++ #define HAVE_GETTIMEOFDAY
++ #define HAVE_PWD_H
++ #define HAVE_NETDB_H
++ #define	HAVE_DIRENT_H
+  
+  #undef	HAVE_SYS_NDIR_H
+  #undef	HAVE_SYS_DIR_H
+  #undef	HAVE_NDIR_H
+***************
+*** 138,144 ****
+  #undef	HAVE_LIBC_H
+  #undef	HAVE_SYS_STATFS_H
+  #undef	HAVE_SYS_POLL_H
+- #undef	HAVE_PWD_H
+  #undef  HAVE_FCHDIR
+  #undef  HAVE_LSTAT
+  
+--- 142,147 ----
+***************
+*** 150,162 ****
+  #undef  HAVE_STRINGS_H
+  #undef  HAVE_SIGSETJMP
+  #undef  HAVE_ISNAN
+! #else
+  #define HAVE_GETTIMEOFDAY
+  #define HAVE_USLEEP
+  #define HAVE_STRCASECMP
+  #define HAVE_STRINGS_H
+  #define HAVE_SIGSETJMP
+  #define HAVE_ISNAN
+  #endif
+  
+  /* Compiler specific */
+--- 153,168 ----
+  #undef  HAVE_STRINGS_H
+  #undef  HAVE_SIGSETJMP
+  #undef  HAVE_ISNAN
+! #define HAVE_NO_LONG_LONG
+! #define VIM_SIZEOF_LONG 4
+! #else /* AXP and IA64 */
+  #define HAVE_GETTIMEOFDAY
+  #define HAVE_USLEEP
+  #define HAVE_STRCASECMP
+  #define HAVE_STRINGS_H
+  #define HAVE_SIGSETJMP
+  #define HAVE_ISNAN
++ #define VIM_SIZEOF_LONG 8
+  #endif
+  
+  /* Compiler specific */
+***************
+*** 191,196 ****
+--- 197,205 ----
+  /* GUI support defines */
+  #if defined(FEAT_GUI_MOTIF) || defined(FEAT_GUI_GTK)
+  #define HAVE_X11
++ #ifdef HAVE_XPM
++ #define HAVE_X11_XPM_H
++ #endif
+  #define USE_FONTSET
+  #undef  X_LOCALE
+  #endif
+*** ../vim-8.1.0765/src/vim.h	2019-01-17 15:43:21.765878343 +0100
+--- src/vim.h	2019-01-17 16:58:23.567357333 +0100
+***************
+*** 337,342 ****
+--- 337,353 ----
+  typedef unsigned char	char_u;
+  typedef unsigned short	short_u;
+  typedef unsigned int	int_u;
++ 
++ /* Older systems do not have support for long long
++  * use a typedef instead of hadcoded long long */
++ #ifdef HAVE_NO_LONG_LONG
++  typedef long long_long_T;
++  typedef long unsigned long_long_u_T;
++ #else
++  typedef long long long_long_T;
++  typedef long long unsigned long_long_u_T;
++ #endif
++ 
+  /* Make sure long_u is big enough to hold a pointer.
+   * On Win64, longs are 32 bits and pointers are 64 bits.
+   * For printf() and scanf(), we need to take care of long_u specifically. */
+*** ../vim-8.1.0765/src/xdiff/xdiff.h	2018-09-13 15:58:55.745722402 +0200
+--- src/xdiff/xdiff.h	2019-01-17 16:58:23.571357307 +0100
+***************
+*** 108,114 ****
+  	long bsize;
+  } bdiffparam_t;
+  
+! #include "../vim.h"
+  
+  #define xdl_malloc(x) lalloc((x), TRUE)
+  #define xdl_free(ptr) vim_free(ptr)
+--- 108,118 ----
+  	long bsize;
+  } bdiffparam_t;
+  
+! #ifdef VMS
+! # include "[]vim.h"
+! #else
+! # include "../vim.h"
+! #endif
+  
+  #define xdl_malloc(x) lalloc((x), TRUE)
+  #define xdl_free(ptr) vim_free(ptr)
+*** ../vim-8.1.0765/src/xdiff/xinclude.h	2018-09-10 17:50:32.713306941 +0200
+--- src/xdiff/xinclude.h	2019-01-17 16:58:23.571357307 +0100
+***************
+*** 22,28 ****
+  
+  /* defines HAVE_ATTRIBUTE_UNUSED */
+  #ifdef HAVE_CONFIG_H
+! # include "../auto/config.h"
+  #endif
+  
+  /* Mark unused function arguments with UNUSED, so that gcc -Wunused-parameter
+--- 22,32 ----
+  
+  /* defines HAVE_ATTRIBUTE_UNUSED */
+  #ifdef HAVE_CONFIG_H
+! # ifdef VMS
+! #  include "[.auto]config.h"
+! # else
+! #  include "../auto/config.h"
+! # endif
+  #endif
+  
+  /* Mark unused function arguments with UNUSED, so that gcc -Wunused-parameter
+*** ../vim-8.1.0765/src/version.c	2019-01-17 16:32:49.469289080 +0100
+--- src/version.c	2019-01-17 17:05:49.708152017 +0100
+***************
+*** 793,794 ****
+--- 793,796 ----
+  {   /* Add new patch number below this line */
++ /**/
++     766,
+  /**/
+
+-- 
+"The amigos also appear to be guilty of not citing the work of others who had
+gone before them.  Even worse, they have a chapter about modeling time and
+space without making a single reference to Star Trek!"
+			(Scott Ambler, reviewing the UML User Guide)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

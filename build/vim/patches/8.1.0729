@@ -1,0 +1,200 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0729
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0729
+Problem:    There is a SourcePre autocommand event but not a SourcePost.
+Solution:   Add the SourcePost autocommand event. (closes #3739)
+Files:	    src/vim.h, src/fileio.c, src/ex_cmds2.c, runtime/doc/autocmd.txt,
+            src/testdir/test_source.vim, src/testdir/Make_all.mak
+
+
+*** ../vim-8.1.0728/src/vim.h	2018-11-16 16:21:01.637310049 +0100
+--- src/vim.h	2019-01-11 22:36:50.325271889 +0100
+***************
+*** 1324,1329 ****
+--- 1324,1330 ----
+      EVENT_SHELLFILTERPOST,	// after ":1,2!cmd", ":w !cmd", ":r !cmd".
+      EVENT_SOURCECMD,		// sourcing a Vim script using command
+      EVENT_SOURCEPRE,		// before sourcing a Vim script
++     EVENT_SOURCEPOST,		// after sourcing a Vim script
+      EVENT_SPELLFILEMISSING,	// spell file missing
+      EVENT_STDINREADPOST,	// after reading from stdin
+      EVENT_STDINREADPRE,		// before reading from stdin
+*** ../vim-8.1.0728/src/fileio.c	2018-12-24 00:22:35.739150151 +0100
+--- src/fileio.c	2019-01-12 13:24:18.082143365 +0100
+***************
+*** 7795,7802 ****
+      {"SessionLoadPost",	EVENT_SESSIONLOADPOST},
+      {"ShellCmdPost",	EVENT_SHELLCMDPOST},
+      {"ShellFilterPost",	EVENT_SHELLFILTERPOST},
+-     {"SourcePre",	EVENT_SOURCEPRE},
+      {"SourceCmd",	EVENT_SOURCECMD},
+      {"SpellFileMissing",EVENT_SPELLFILEMISSING},
+      {"StdinReadPost",	EVENT_STDINREADPOST},
+      {"StdinReadPre",	EVENT_STDINREADPRE},
+--- 7795,7803 ----
+      {"SessionLoadPost",	EVENT_SESSIONLOADPOST},
+      {"ShellCmdPost",	EVENT_SHELLCMDPOST},
+      {"ShellFilterPost",	EVENT_SHELLFILTERPOST},
+      {"SourceCmd",	EVENT_SOURCECMD},
++     {"SourcePre",	EVENT_SOURCEPRE},
++     {"SourcePost",	EVENT_SOURCEPOST},
+      {"SpellFileMissing",EVENT_SPELLFILEMISSING},
+      {"StdinReadPost",	EVENT_STDINREADPOST},
+      {"StdinReadPre",	EVENT_STDINREADPRE},
+*** ../vim-8.1.0728/src/ex_cmds2.c	2018-12-28 19:06:43.095216722 +0100
+--- src/ex_cmds2.c	2019-01-11 23:16:51.542941756 +0100
+***************
+*** 4360,4365 ****
+--- 4360,4366 ----
+  #ifdef FEAT_PROFILE
+      proftime_T		    wait_start;
+  #endif
++     int			    trigger_source_post = FALSE;
+  
+      p = expand_env_save(fname);
+      if (p == NULL)
+***************
+*** 4384,4389 ****
+--- 4385,4394 ----
+  #else
+  	retval = OK;
+  #endif
++ 	if (retval == OK)
++ 	    // Apply SourcePost autocommands.
++ 	    apply_autocmds(EVENT_SOURCEPOST, fname_exp, fname_exp,
++ 								FALSE, curbuf);
+  	goto theend;
+      }
+  
+***************
+*** 4653,4658 ****
+--- 4658,4666 ----
+      }
+  #endif
+  
++     if (!got_int)
++ 	trigger_source_post = TRUE;
++ 
+  #ifdef FEAT_EVAL
+      /*
+       * After a "finish" in debug mode, need to break at first command of next
+***************
+*** 4679,4684 ****
+--- 4687,4696 ----
+      convert_setup(&cookie.conv, NULL, NULL);
+  #endif
+  
++     if (trigger_source_post)
++ 	apply_autocmds(EVENT_SOURCEPOST, si->sn_name, si->sn_name,
++ 								FALSE, curbuf);
++ 
+  theend:
+      vim_free(fname_exp);
+      return retval;
+*** ../vim-8.1.0728/runtime/doc/autocmd.txt	2018-10-19 22:35:04.885189994 +0200
+--- runtime/doc/autocmd.txt	2019-01-11 22:49:53.065508811 +0100
+***************
+*** 917,922 ****
+--- 925,936 ----
+  							*SourcePre*
+  SourcePre			Before sourcing a Vim script. |:source|
+  				<afile> is the name of the file being sourced.
++ 							*SourcePost*
++ SourcePost			After sourcing a Vim script. |:source|
++ 				<afile> is the name of the file being sourced.
++ 				Not triggered when sourcing was interrupted.
++ 				Also triggered after a SourceCmd autocommand
++ 				was triggered.
+  							*SourceCmd*
+  SourceCmd			When sourcing a Vim script. |:source|
+  				<afile> is the name of the file being sourced.
+*** ../vim-8.1.0728/src/testdir/test_source.vim	2019-01-12 13:24:41.469959774 +0100
+--- src/testdir/test_source.vim	2019-01-11 23:21:39.817674439 +0100
+***************
+*** 0 ****
+--- 1,38 ----
++ " Tests for the :source command.
++ 
++ func Test_source_autocmd()
++   call writefile([
++ 	\ 'let did_source = 1',
++ 	\ ], 'Xsourced')
++   au SourcePre *source* let did_source_pre = 1
++   au SourcePost *source* let did_source_post = 1
++ 
++   source Xsourced
++ 
++   call assert_equal(g:did_source, 1)
++   call assert_equal(g:did_source_pre, 1)
++   call assert_equal(g:did_source_post, 1)
++ 
++   call delete('Xsourced')
++   au! SourcePre
++   au! SourcePost
++   unlet g:did_source
++   unlet g:did_source_pre
++   unlet g:did_source_post
++ endfunc
++ 
++ func Test_source_cmd()
++   au SourceCmd *source* let did_source = expand('<afile>')
++   au SourcePre *source* let did_source_pre = 2
++   au SourcePost *source* let did_source_post = 2
++ 
++   source Xsourced
++ 
++   call assert_equal(g:did_source, 'Xsourced')
++   call assert_false(exists('g:did_source_pre'))
++   call assert_equal(g:did_source_post, 2)
++ 
++   au! SourceCmd
++   au! SourcePre
++   au! SourcePost
++ endfunc
+*** ../vim-8.1.0728/src/testdir/Make_all.mak	2019-01-11 19:19:40.685585822 +0100
+--- src/testdir/Make_all.mak	2019-01-11 22:41:31.703179473 +0100
+***************
+*** 222,227 ****
+--- 222,228 ----
+  	test_signs \
+  	test_smartindent \
+  	test_sort \
++ 	test_source \
+  	test_source_utf8 \
+  	test_spell \
+  	test_startup \
+***************
+*** 376,381 ****
+--- 377,383 ----
+  	test_shortpathname.res \
+  	test_signs.res \
+  	test_smartindent.res \
++ 	test_source.res \
+  	test_spell.res \
+  	test_startup.res \
+  	test_stat.res \
+*** ../vim-8.1.0728/src/version.c	2019-01-11 22:15:00.519123428 +0100
+--- src/version.c	2019-01-12 13:21:41.247375355 +0100
+***************
+*** 797,798 ****
+--- 797,800 ----
+  {   /* Add new patch number below this line */
++ /**/
++     729,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+168. You have your own domain name.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///
