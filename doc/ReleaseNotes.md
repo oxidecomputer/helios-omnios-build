@@ -38,6 +38,11 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
 * Support for the SMB 2.1 client protocol has been added
   [illumos issue 9735](https://illumos.org/issues/9735).
 
+* The console now has full framebuffer support with variable resolution,
+  more colours and unicode fonts. This is also visible in the boot loader.
+
+* Support for UEFI boot.
+
 * Several 32-bit only packages have been moved to 64-bit only.
 
 * OmniOS userland is now built with gcc version 8.
@@ -47,10 +52,47 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
 
 ### Commands and Command Options
 
+* The `ipadm` and `dladm` commands now show IP and link information if invoked
+  without arguments.
+
+* `dladm show-vnic` now shows the zone which which each VNIC is assigned.
+
+* The default behaviour of recursive `chown` and `chgrp` has changed and these
+  commands are now safer with respect to following symbolic links. If only
+  the `-R` parameter is provided then these utilities now behave as if `-P`
+  was also specified. Refer to the chown(1) and chgrp(1) manual pages for more
+  information.
+
+* The `/usr/lib/fm/fmd/fmtopo` command has improved support for enumerating
+  USB topology.
+
+### Zones
+
+* The defaults for new zones have changed. Creating a new zone now initially
+  sets `brand=lipkg` and `ip-type=exclusive`.
+
+* Zone brand templates are available allowing zones to be created within
+  zonecfg via: `create -t <type>`.
+
+* `pkgsrc` branded zones are now available; these are sparse zones with pkgsrc
+  pre-installed.
+
+* Zone VNICs and networking information can now be dynamically managed as part
+  of the zone configuration. Refer to <https://omniosce.org/setup/zones>
+  for more details.
+
+* The memory footprint of zones has been reduced by disabling unecessary
+  services.
 
 ### LX zones
 
 * Many other fixes and compatibility updates from Joyent.
+
+### ZFS
+
+* Support for importing pools using a temporary name.
+
+* Support for variable-sized dnodes.
 
 ### Package Management
 
@@ -80,6 +122,11 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
 
 ### Hardware Support
 
+* Support for modern AMD and Intel systems.
+
+* Improved support for USB 3.1.
+
+* New `bnx` (Broadcom NetXtreme) network driver.
 
 ### Installer
 
@@ -87,6 +134,9 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
   This has resulted in a decrease in the size of all media. Kayak now
   supports installing from ZFS streams compressed with any of _gzip_, _bzip2_
   or _xz_.
+
+* The first boot of a newly installed system is now quicker due to
+  the service management framework being pre-seeded.
 
 ### Developer Features
 
@@ -98,11 +148,36 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
 
 * Perl has been upgraded to 5.30.
 
+* OpenJDK has been upgraded to 1.8.
+
 * A new native name demangling library is available
   [illumos issue 6375](https://illumos.org/issues/6375).
 
 * The `mdb` _::dcmds_ and _::walkers_ commands now take an optional filter
   argument to limit the returned results.
+
+* `mdb` has been extended with the ability to trace processes inside bhyve
+  virtual machines.
+
+* Rather than editing `/etc/system`, settings can be applied in fragment
+  files under `/etc/system.d/`. This allows for separation of settings
+  by function, and allows them to be delivered by packages.
+  Refer to the system(4) manual page for more information.
+
+* SMF method scripts that leave no processes running but should not be
+  considered to have failed may now exit with `$SMF_EXIT_NODAEMON` to
+  indicate this to the system. Refer to the smf\_method(5) manual page for
+  more information.
+
+* Sun Studio is no longer required to build OmniOS and is no longer shipped.
+
+* Lint libraries are no longer shipped.
+
+* New public `getrandom(2)` interface.
+
+* The linux-compatible inotify(5) driver is now a first-class citizen and
+  `/usr/include/sys/inotify.h` is present. NB: Some broken software spots
+  this file and uses it as a hint to use Linux-specific features.
 
 ### Deprecated features
 
