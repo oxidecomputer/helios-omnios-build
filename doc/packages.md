@@ -101,7 +101,7 @@
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
-| library/python-3/cffi-35		| 1.12.1		| https://pypi.org/project/cffi
+| library/python-3/cffi-35		| 1.12.2		| https://pypi.org/project/cffi
 | library/python-3/cheroot-35		| 6.5.4			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 18.1.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
