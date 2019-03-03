@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=bind
-VER=9.11.5-P4
+VER=9.11.6
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"
@@ -50,7 +50,6 @@ CONFIGURE_OPTS="
     --enable-devpoll=yes
     --enable-fixed-rrset
     --disable-getifaddrs
-    --with-pkcs11
     --enable-shared
     --disable-static
     --without-python

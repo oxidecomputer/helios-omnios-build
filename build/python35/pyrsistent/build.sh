@@ -16,26 +16,19 @@
 #
 . ../../../lib/functions.sh
 
-PKG=library/python-3/cffi-35
-PROG=cffi
-VER=1.12.2
-SUMMARY="cffi"
-DESC="Foreign Function Interface for Python calling C code"
+PKG=library/python-3/pyrsistent-35
+PROG=pyrsistent
+VER=0.14.11
+SUMMARY="Python pyrsistent"
+DESC="Persistent/Functional/Immutable data structures"
 
 . $SRCDIR/../common.sh
-
-RUN_DEPENDS_IPS+="
-    library/python-$PYMVER/pycparser-$SPYVER
-"
-
-REMOVE_PREVIOUS=1
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
-strip_install
 make_package
 clean_up
 

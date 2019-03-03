@@ -55,7 +55,7 @@
 | library/security/openssl-1.1		| 1.1.1b		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| network/dns/bind			| 9.11.5-P4		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.11.6		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 7.9p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -101,15 +101,16 @@
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
-| library/python-3/cffi-35		| 1.12.1		| https://pypi.org/project/cffi
+| library/python-3/attrs-35		| 18.2.0		| https://pypi.org/project/attrs
+| library/python-3/cffi-35		| 1.12.2		| https://pypi.org/project/cffi
 | library/python-3/cheroot-35		| 6.5.4			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 18.1.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.2			| https://pypi.org/project/coverage
-| library/python-3/cryptography-35	| 2.5			| https://pypi.org/project/cryptography
+| library/python-3/cryptography-35	| 2.6.1			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-35	| 2.6.0			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.0.7			| https://pypi.org/project/Mako
 | library/python-3/more-itertools-35	| 6.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
@@ -120,6 +121,7 @@
 | library/python-3/pycparser-35		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
+| library/python-3/pyrsistent-35	| 0.14.11		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-35		| 2018.9		| https://pypi.org/project/pytz
 | library/python-3/setuptools-35	| 40.8.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
