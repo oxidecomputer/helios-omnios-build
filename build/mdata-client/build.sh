@@ -21,17 +21,20 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
 PROG=mdata-client
-VER=20170105
-VERHUMAN=$VER
+VER=20190228
 PKG=system/management/mdata-client
-SUMMARY="Cross-platform metadata client tools for use in SDC guests (both Zones and KVM)"
-DESC="Metadata retrieval and manipulation tools for use within guests of the SmartOS (and SDC) hypervisor. These guests may be either SmartOS Zones or KVM virtual machines."
+SUMMARY="Cross-platform metadata client tools for use in SDC guests"
+DESC="Metadata retrieval and manipulation tools for use within guests of the "
+DESC+="SmartOS (and SDC) hypervisor. These guests may be either SmartOS Zones "
+DESC+="or KVM virtual machines."
+
+BUILDDIR=$PROG-release-$VER
 
 set_arch 32
 
