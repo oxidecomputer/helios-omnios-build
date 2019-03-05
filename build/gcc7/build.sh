@@ -112,6 +112,11 @@ make_install() {
         logerr "--- Make install failed"
 }
 
+tests() {
+    egrep -s gcc_cv_as_eh_frame=yes $TMPDIR/$BUILDDIR/gcc/config.log \
+        || logerr "The .eh_frame based unwinder is not enabled"
+}
+
 # gcc should be built out-of-tree
 OUT_OF_TREE_BUILD=1
 
@@ -120,6 +125,7 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
+tests
 logcmd cp $TMPDIR/$SRC_BUILDDIR/COPYING* $TMPDIR/$BUILDDIR
 make_package
 clean_up
