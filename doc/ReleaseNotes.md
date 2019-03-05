@@ -120,13 +120,23 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
   information for binary objects, alongside the existing SHA-1 information
   for backwards compatibility with older `pkg` versions.
 
+* Automatic boot-environment names can now be based on the current date and
+  time as well as the publication date of the update. Refer to the pkg(5)
+  man page for more information. Example:
+  ```
+  # pkg set-property auto-be-name time:omnios-%Y.%m.%d
+  ```
+
 ### Hardware Support
 
 * Support for modern AMD and Intel systems.
 
-* Improved support for USB 3.1.
+* New para-virtualisation drivers for running OmniOS under Microsoft
+  Hyper-V/Azure. These are delivered by the new `driver/hyperv/pv` package.
 
 * New `bnx` (Broadcom NetXtreme) network driver.
+
+* Improved support for USB 3.1.
 
 ### Installer
 
