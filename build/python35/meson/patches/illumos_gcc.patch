@@ -1,0 +1,80 @@
+diff -wpruN '--exclude=*.orig' a~/mesonbuild/compilers/c.py a/mesonbuild/compilers/c.py
+--- a~/mesonbuild/compilers/c.py	1970-01-01 00:00:00
++++ a/mesonbuild/compilers/c.py	1970-01-01 00:00:00
+@@ -1052,11 +1052,15 @@ class CCompiler(Compiler):
+     def thread_flags(self, env):
+         if for_haiku(self.is_cross, env) or for_darwin(self.is_cross, env):
+             return []
++        if self.compiler_type.is_illumos_compiler:
++            return []
+         return ['-pthread']
+ 
+     def thread_link_flags(self, env):
+         if for_haiku(self.is_cross, env) or for_darwin(self.is_cross, env):
+             return []
++        if self.compiler_type.is_illumos_compiler:
++            return []
+         return ['-pthread']
+ 
+     def linker_to_compiler_args(self, args):
+diff -wpruN '--exclude=*.orig' a~/mesonbuild/compilers/compilers.py a/mesonbuild/compilers/compilers.py
+--- a~/mesonbuild/compilers/compilers.py	1970-01-01 00:00:00
++++ a/mesonbuild/compilers/compilers.py	1970-01-01 00:00:00
+@@ -1295,6 +1295,7 @@ class CompilerType(enum.Enum):
+     GCC_OSX = 1
+     GCC_MINGW = 2
+     GCC_CYGWIN = 3
++    GCC_ILLUMOS = 4
+ 
+     CLANG_STANDARD = 10
+     CLANG_OSX = 11
+@@ -1318,6 +1319,10 @@ class CompilerType(enum.Enum):
+         return self.name in ('GCC_OSX', 'CLANG_OSX', 'ICC_OSX')
+ 
+     @property
++    def is_illumos_compiler(self):
++        return self.name in ('GCC_ILLUMOS')
++
++    @property
+     def is_windows_compiler(self):
+         return self.name in ('GCC_MINGW', 'GCC_CYGWIN', 'CLANG_MINGW', 'ICC_WIN', 'ARM_WIN', 'CCRX_WIN')
+ 
+@@ -1330,7 +1335,7 @@ def get_macos_dylib_install_name(prefix,
+     return '@rpath/' + install_name
+ 
+ def get_gcc_soname_args(compiler_type, prefix, shlib_name, suffix, soversion, darwin_versions, is_shared_module):
+-    if compiler_type.is_standard_compiler:
++    if compiler_type.is_standard_compiler or compiler_type.is_illumos_compiler:
+         sostr = '' if soversion is None else '.' + soversion
+         return ['-Wl,-soname,%s%s.%s%s' % (prefix, shlib_name, suffix, sostr)]
+     elif compiler_type.is_windows_compiler:
+@@ -1541,6 +1546,8 @@ class GnuLikeCompiler(abc.ABC):
+         elif self.compiler_type.is_windows_compiler:
+             # For PE/COFF this is impossible
+             return []
++        elif self.compiler_type.is_illumos_compiler:
++            return []
+         else:
+             # GNU ld and LLVM lld
+             return ['-Wl,--allow-shlib-undefined']
+diff -wpruN '--exclude=*.orig' a~/mesonbuild/environment.py a/mesonbuild/environment.py
+--- a~/mesonbuild/environment.py	1970-01-01 00:00:00
++++ a/mesonbuild/environment.py	1970-01-01 00:00:00
+@@ -398,7 +398,7 @@ class Environment:
+         self.default_rust = ['rustc']
+         self.default_swift = ['swiftc']
+         self.default_vala = ['valac']
+-        self.default_static_linker = ['ar']
++        self.default_static_linker = ['gar']
+         self.vs_static_linker = ['lib']
+         self.clang_cl_static_linker = ['llvm-lib']
+         self.gcc_static_linker = ['gcc-ar']
+@@ -528,6 +528,8 @@ class Environment:
+             return CompilerType.GCC_MINGW
+         elif '__CYGWIN__' in defines:
+             return CompilerType.GCC_CYGWIN
++        elif '__sun' in defines:
++            return CompilerType.GCC_ILLUMOS
+         return CompilerType.GCC_STANDARD
+ 
+     def _get_compilers(self, lang, want_cross):
