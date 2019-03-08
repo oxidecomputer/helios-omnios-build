@@ -21,17 +21,15 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=ntp
-VER=4.2.8p12
-VERHUMAN=$VER
+VER=4.2.8p13
 PKG=service/network/ntp
 SUMMARY="Network Time Services"
-DESC="$SUMMARY"
+DESC="An implementation of Network Time Protocol Version 4"
 
 set_arch 64
 
@@ -68,8 +66,7 @@ prep_build
 build
 overlay_root
 install_smf network ntp.xml ntp
-#NOTE: Uncomment these IFF we go back to ntp-dev versions or p-releases again.
-#VER=${VER//dev-/}
+VERHUMAN=$VER
 VER=${VER//p/.}
 make_package
 clean_up
