@@ -156,6 +156,7 @@ PERL_MAKE_TEST=1
 WGET=wget
 PATCH=gpatch
 MAKE=gmake
+TESTSUITE_MAKE="gmake --quiet"
 TAR="gtar --no-same-permissions --no-same-owner"
 GZIP=gzip
 BUNZIP2=bunzip2
