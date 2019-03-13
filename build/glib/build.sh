@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.58.3
+VER=2.60.0
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
@@ -34,59 +34,74 @@ DESC="The GNOME general-purpose utility library"
 set_python_version $PYTHON3VER
 BUILDARCH=both
 
+BUILD_DEPENDS_IPS="library/python-${PYTHONVER%%.*}/meson-$PYTHONPKGVER"
+
 RUN_DEPENDS_IPS="
     runtime/python-$PYTHONPKGVER
-    runtime/perl
+    runtime/perl-64
 "
 
-CFLAGS+=" -D_XPG6"
-LDFLAGS+=" -Wl,-z,ignore"
-
-CONFIGURE_OPTS="
-    --disable-fam
-    --disable-dtrace
-    --with-threads=posix
-    --disable-dependency-tracking
-    ac_cv_header_sys_inotify_h=no
-    ac_cv_func_inotify_init1=no
-"
-
-CONFIGURE_OPTS_64+=" --with-python=$PYTHON"
+# use GNU msgfmt; otherwise the build fails
+PATH="/usr/gnu/bin:$PATH:/opt/ooce/bin"
 
 # With gcc 6 and above, -Werror_format=2 produces errors like:
 #   error: format not a string literal, arguments not checked
 # Tell configure that this flag doesn't exist for the compiler.
-CONFIGURE_OPTS+=" cc_cv_CFLAGS__Werror_format_2=no"
+CFLAGS+=" -Wno-error=format-nonliteral -Wno-error=format=2"
 
-# As of glib 2.58.0, the sys/auxv.h header is spotted and then it is assumed
-# that we have getauxval() and the Linux glibc-specific AT_SECURE; we don't.
-CONFIGURE_OPTS+=" ac_cv_header_sys_auxv_h=no"
+# Required to enable the POSIX variants of getpwuid_r and getpwnam_r
+# See comment in /usr/include/pwd.h
+CFLAGS+=" -D_XPG6 -D_POSIX_PTHREAD_SEMANTICS"
 
-# glib 2.58.x does not contain a built autotools. This could be deliberate
-# since they are moving to Meson/ninja or it could be fixed in the next
-# release.
-build_autotools() {
-    pushd $TMPDIR/$BUILDDIR > /dev/null
-    [ -x configure ] && return
-    logmsg "-- Running autogen.sh"
-    # The OmniOS `which` command produces output on stdout if the file is
-    # not found. Adjust script accordingly.
-    logcmd sed -i '/^GTKDOCIZE=/s/=.*/=/' autogen.sh
-    NOCONFIGURE=1 logcmd ./autogen.sh || logerr "Failed to run autogen.sh"
-    popd > /dev/null
+LDFLAGS+=" -Wl,-z,ignore"
+
+CONFIGURE_CMD="$PYTHONLIB/python$PYTHONVER/bin/meson setup _build"
+
+MAKE="ninja -C _build"
+
+TESTSUITE_MAKE=$MAKE
+
+CONFIGURE_OPTS="
+    --prefix=$PREFIX
+    -Dfam=false
+    -Dxattr=false
+    -Dforce_posix_threads=true
+    -Ddtrace=false
+    -Db_asneeded=false
+"
+CONFIGURE_OPTS_32="
+    --bindir=$PREFIX/bin/$ISAPART
+    --libdir=$PREFIX/lib
+"
+CONFIGURE_OPTS_64="
+    --bindir=$PREFIX/bin
+    --libdir=$PREFIX/lib/$ISAPART64
+"
+
+TESTSUITE_SED='
+    # Remove elapsed time
+    s/ *[0-9][0-9]*\.[0-9][0-9] s .*//
+    # Strip failed test output
+    /^The output from .* first failed/,$d
+'
+
+make_clean() {
+    logmsg "--- make (dist)clean"
+    [ -d $TMPDIR/$BUILDDIR/_build ] && logcmd rm -rf $TMPDIR/$BUILDDIR/_build
 }
 
-TESTSUITE_FILTER='^[A-Z#][A-Z ]'
+make_install() {
+    logmsg "--- make install"
+    DESTDIR=$DESTDIR logcmd $MAKE $args $MAKE_INSTALL_ARGS install \
+        || logerr "--- Make install failed"
+}
 
 init
 download_source $PROG $PROG $VER
-build_autotools
 patch_source
-run_autoreconf
 prep_build
 build
-run_testsuite check
-make_isa_stub
+run_testsuite
 make_package
 clean_up
 

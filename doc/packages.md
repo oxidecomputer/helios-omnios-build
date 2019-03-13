@@ -93,7 +93,7 @@
 | text/less				| 530			| https://ftp.gnu.org/gnu/less/
 | web/curl				| 7.64.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.1		| https://git.savannah.gnu.org/cgit/wget.git/refs/tags
-| library/glib2				| 2.58.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.60.0		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.32			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/open-vm-tools	| 10.3.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
@@ -112,6 +112,7 @@
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.0.7			| https://pypi.org/project/Mako
+| library/python-3/meson-35		| 0.49.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-35	| 6.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
