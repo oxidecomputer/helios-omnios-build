@@ -1,0 +1,417 @@
+From https://github.com/joyent/illumos-extra/blob/master/openlldp/Patches/
+
+diff -wpruN '--exclude=*.orig' a~/configure.ac a/configure.ac
+--- a~/configure.ac	1970-01-01 00:00:00
++++ a/configure.ac	1970-01-01 00:00:00
+@@ -177,6 +177,11 @@ case "$host_os" in
+       platform="windows"
+    ;;
+ 
++   *solaris*)
++	framer="dlpi"
++	platform="sunos"
++   ;;
++
+    *)
+       framer="generic"
+    ;;
+@@ -202,12 +207,21 @@ AS_IF([test $framer = "generic"],
+   MORELIBS="${MORELIBS} -lwpcap -lpcap -ldnet",
+   [])
+ 
++AS_IF([test $framer = "dlpi"],
++  MORELIBS="${MORELIBS} -ldlpi",
++  [])
++
++AS_IF([test "$platform" = sunos],
++  MORELIBS="${MORELIBS} -lsocket -lnsl -ldladm",
++  [])
++
+ AM_CONDITIONAL([FRAMER_GENERIC], [test "$framer" = generic])
+ AM_CONDITIONAL([FRAMER_LINUX],   [test "$framer" = linux])
+ AM_CONDITIONAL([FRAMER_BPF], 	 [test "$framer" = bpf])
+ AM_CONDITIONAL([FRAMER_DARWIN],  [test "$framer" = darwin])
+ AM_CONDITIONAL([FRAMER_RADIUS],  [test "$framer" = radius])
+ AM_CONDITIONAL([FRAMER_WINDOWS], [test "$framer" = windows])
++AM_CONDITIONAL([FRAMER_DLPI], [test "$framer" = dlpi])
+ 
+ dnl what about __BSD__?
+ AM_CONDITIONAL([LINUX],   [test "$platform" = linux])
+diff -wpruN '--exclude=*.orig' a~/src/lldp_main.c a/src/lldp_main.c
+--- a~/src/lldp_main.c	1970-01-01 00:00:00
++++ a/src/lldp_main.c	1970-01-01 00:00:00
+@@ -54,7 +54,10 @@
+ #include <net/bpf.h>
+ #endif /* __FREEBSD __ */
+ 
+-
++#ifdef __sun
++#include <libdladm.h>
++#include <libdllink.h>
++#endif
+ 
+ #ifdef USE_CONFUSE
+ #include <confuse.h>		//for LLDP-MED Location config file
+@@ -85,7 +88,9 @@ int initializeLLDP();
+ void cleanupLLDP();
+ void handle_segfault();
+ 
++#ifndef IF_NAMESIZE
+ #define IF_NAMESIZE    16
++#endif
+ char *iface_list[IF_NAMESIZE];
+ int  iface_filter = 0;   /* boolean */
+ int process_loopback = 0;
+@@ -482,55 +487,45 @@ handle_hup()
+ #endif // USE_CONFUSE
+ }
+ 
+-int initializeLLDP()
++static int
++init_lldp_port(const char *if_name, int if_index)
+ {
+-    int if_index = 0;
+-    char if_name[IF_NAMESIZE];
+     struct lldp_port *lldp_port = NULL;
+-    int nb_ifaces = 0;
+-
+-    /* We need to initialize an LLDP port-per interface */
+-    /* "lldp_port" will be changed to point at the interface currently being serviced */
+-    for (if_index = MIN_INTERFACES; if_index < MAX_INTERFACES; if_index++)
+-    {
+ #ifndef WIN32
+-        if(if_indextoname(if_index, if_name) == NULL)
+-            continue;
+-
+         /* keep only the iface specified by -i */
+         if (iface_filter) {
+             if(strncmp(if_name, (const char*)iface_list, IF_NAMESIZE) != 0) {
+                 debug_printf(DEBUG_NORMAL, "Skipping interface %s (not %s)\n", if_name, iface_list);
+-                continue;
++		return (-1);
+             }
+         }
+ #endif // WIN32
+ 
+ 	// NB: Probably need to handle OS-specific instances such as "lo"?
+-	if((strstr(if_name, "lo") != NULL)) 
++	if((strncmp(if_name, "lo", 2) == 0)) 
+ 	  {
+ 	    // Don't process the loopback interface unless we were told to
+ 	    if(process_loopback == 0)
+ 	      {
+-		continue;
++		return (-1);
+ 	      }
+ 	  }
+ 
+         if(strncmp(if_name, "wlt", 3) == 0) {
+             debug_printf(DEBUG_NORMAL, "Skipping WLT interface because it's voodoo\n");
+-            continue;
++            return (-1);
+         }
+ 
+         if(strncmp(if_name, "sit", 3) == 0) {
+-            continue;
++            return (-1);
+         }
+ 
+         if(strncmp(if_name, "git", 3) == 0) {
+-            continue;
++            return (-1);
+         }
+ 
+         if(strncmp(if_name, "vmnet", 6) == 0) {
+-            continue;
++            return (-1);
+         }
+ 
+         /* Create our new interface struct */
+@@ -545,10 +540,9 @@ int initializeLLDP()
+         if(lldp_port->if_name == NULL) {
+             free(lldp_port);
+             lldp_port = NULL;
+-            continue;
++            return (-1);
+         }
+         
+-        nb_ifaces++;
+         memcpy(lldp_port->if_name, if_name, IF_NAMESIZE);
+ 
+         debug_printf(DEBUG_INT, "%s (index %d) found. Initializing...\n", lldp_port->if_name, lldp_port->if_index);
+@@ -563,7 +557,7 @@ int initializeLLDP()
+             lldp_port->if_name = NULL;
+             free(lldp_port);
+             lldp_port = NULL;
+-            continue;
++            return (-1);
+         } else {
+             debug_printf(DEBUG_EXCESSIVE, "Finished initializing socket for index %d with name %s\n", lldp_port->if_index, lldp_port->if_name);
+         }
+@@ -593,7 +587,82 @@ int initializeLLDP()
+         /* Reset the global list to point at the top of the list */
+         /* We only want to get here if initialization succeeded  */
+         lldp_ports = lldp_port;
++
++	return (0);
++}
++
++#ifdef __sun
++static int
++dladm_walk_cb(dladm_handle_t dah, datalink_id_t id, void *arg)
++{
++	char link[MAXLINKNAMELEN];
++	uint32_t flags;
++	dladm_status_t err;
++	datalink_class_t class;
++	uint32_t media;
++	int *nlinkp = arg;
++
++	if ((err = dladm_datalink_id2info(dah, id, &flags, &class, &media,
++	    link, MAXLINKNAMELEN)) != DLADM_STATUS_OK) {
++		debug_printf(DEBUG_NORMAL,
++		    "failed to obtain datalink info for %u\n", id);
++		return (DLADM_WALK_CONTINUE);
++	}
++
++	if (class != DATALINK_CLASS_PHYS)
++		return (DLADM_WALK_CONTINUE);
++
++	if (media != DL_ETHER)
++		return (DLADM_WALK_CONTINUE);
++
++	if (init_lldp_port(link, id) == 0)
++		++*nlinkp;
++
++	return (DLADM_WALK_CONTINUE);
++}
++
++static int
++dladm_iter_ports(void)
++{
++	dladm_handle_t dah;
++	dladm_status_t err;
++	static char errbuf[DLADM_STRSIZE];
++	int nlinks = 0;
++
++	if ((err = dladm_open(&dah)) != DLADM_STATUS_OK) {
++		debug_printf(DEBUG_NORMAL, "failed to open dladm handle: %s",
++		    dladm_status2str(err, errbuf));
++	} else {
++		(void) dladm_walk_datalink_id(dladm_walk_cb, dah,
++		    (void *)&nlinks, DATALINK_CLASS_PHYS,
++		    DL_ETHER, DLADM_OPT_ACTIVE);
++		dladm_close(dah);
++	}
++
++	return (nlinks);
++}
++#endif /* __sun */
++
++int initializeLLDP()
++{
++#ifndef __sun
++	int if_index = 0;
++	char if_name[IF_NAMESIZE];
++#endif
++	int nb_ifaces = 0;
++
++#ifndef __sun
++	for (if_index = MIN_INTERFACES; if_index < MAX_INTERFACES; if_index++) {
++#ifndef WIN32
++		if(if_indextoname(if_index, if_name) == NULL)
++			continue;
++#endif
++		if (init_lldp_port(if_name, if_index) == 0)
++			++nb_ifaces;
+     }
++#else
++	nb_ifaces = dladm_iter_ports();
++#endif
+ 
+     /* Don't forget to initialize the TLV validators... */
+     initializeTLVFunctionValidators();
+@@ -607,7 +676,7 @@ int initializeLLDP()
+     signal(SIGHUP, handle_hup);
+ #endif // WIN32
+ 
+-    return nb_ifaces;
++	return (nb_ifaces);
+ }
+ 
+ void cleanupLLDP(struct lldp_port *lldp_port) {
+diff -wpruN '--exclude=*.orig' a~/src/lldp_neighbor.c a/src/lldp_neighbor.c
+--- a~/src/lldp_neighbor.c	1970-01-01 00:00:00
++++ a/src/lldp_neighbor.c	1970-01-01 00:00:00
+@@ -77,6 +77,7 @@ int get_sys_fqdn() {
+         debug_printf(DEBUG_NORMAL, "gethostname() failed! retval = %d.\n", retval);
+     }
+ 
++#ifdef linux
+     strcat(lldp_systemname, ".");
+ 
+     retval = getdomainname(&lldp_systemname[strlen(lldp_systemname)], 255 - strlen(lldp_systemname));
+@@ -85,6 +86,7 @@ int get_sys_fqdn() {
+     {
+         debug_printf(DEBUG_NORMAL, "getdomainname() failed! retval = %d.\n", retval);
+     }
++#endif
+ 
+     debug_printf(DEBUG_NORMAL, "lldp_systemname: %s\n", lldp_systemname);
+ 
+diff -wpruN '--exclude=*.orig' a~/src/lldp_port.h a/src/lldp_port.h
+--- a~/src/lldp_port.h	1970-01-01 00:00:00
++++ a/src/lldp_port.h	1970-01-01 00:00:00
+@@ -124,6 +124,7 @@ enum portAdminStatus {
+ struct lldp_port {
+   struct lldp_port *next;
+   int socket;        // The socket descriptor for this interface.
++  void *lp_private;  // Implementation-specific state.
+   char *if_name;     // The interface name.
+   uint32_t if_index; // The interface index.
+   uint32_t mtu;      // The interface MTU.
+diff -wpruN '--exclude=*.orig' a~/src/platform/Makefile.am a/src/platform/Makefile.am
+--- a~/src/platform/Makefile.am	1970-01-01 00:00:00
++++ a/src/platform/Makefile.am	1970-01-01 00:00:00
+@@ -19,6 +19,9 @@ if FRAMER_BPF
+ 		\
+ 		${srcdir}/framehandlers/bpf/bpflib.c framehandlers/bpf/lldp_bpf_framer.c
+ endif
++if FRAMER_DLPI
++  FRAMER_SRCS = ${srcdir}/framehandlers/dlpi/lldp_dlpi_framer.c
++endif
+ 
+ if LINUX
+   PLATFORM_SRCS = 
+diff -wpruN '--exclude=*.orig' a~/src/platform/framehandlers/dlpi/lldp_dlpi_framer.c a/src/platform/framehandlers/dlpi/lldp_dlpi_framer.c
+--- a~/src/platform/framehandlers/dlpi/lldp_dlpi_framer.c	1970-01-01 00:00:00
++++ a/src/platform/framehandlers/dlpi/lldp_dlpi_framer.c	1970-01-01 00:00:00
+@@ -0,0 +1,128 @@
++/*
++ * Copyright (c) 2013 Joyent, Inc.  All rights reserved.
++ */
++
++#include "lldp_port.h"
++#include "lldp_debug.h"
++#include <libdlpi.h>
++#include <stdlib.h>
++#include <strings.h>
++
++ssize_t
++lldp_read(struct lldp_port *lpp)
++{
++	uint8_t saddr[DLPI_PHYSADDR_MAX];
++	size_t saddrlen;
++	size_t msglen = lpp->mtu;
++
++	if (dlpi_recv((dlpi_handle_t)lpp->lp_private, saddr, &saddrlen,
++	    lpp->rx.frame, &msglen, -1, NULL) != DLPI_SUCCESS) {
++		return (-1);
++	}
++
++	return (lpp->rx.recvsize = msglen);
++}
++
++ssize_t
++lldp_write(struct lldp_port *lpp)
++{
++	uint8_t daddr[6];
++	int err;
++
++	daddr[0] = 0x01;
++	daddr[1] = 0x80;
++	daddr[2] = 0xc2;
++	daddr[3] = 0x00;
++	daddr[4] = 0x00;
++	daddr[5] = 0x0e;
++
++	if ((err = dlpi_send((dlpi_handle_t)lpp->lp_private,
++	    daddr, sizeof (daddr), lpp->tx.frame, lpp->tx.sendsize, NULL)) !=
++	    DLPI_SUCCESS) {
++		debug_printf(DEBUG_NORMAL, "Unable to dlpi_send on %s: %s\n",
++		    lpp->if_name, dlpi_strerror(err));
++		return (-1);
++	}
++
++	return (lpp->tx.sendsize);
++}
++
++int
++socketInitializeLLDP(struct lldp_port *lpp)
++{
++	dlpi_handle_t hdl;
++	dlpi_info_t dli;
++	uint8_t mcaddr[6];
++	int err;
++
++	if ((err = dlpi_open(lpp->if_name, &hdl, DLPI_RAW)) != DLPI_SUCCESS) {
++		debug_printf(DEBUG_NORMAL, "Unable to dlpi_open %s: %s\n",
++		    lpp->if_name, dlpi_strerror(err));
++		return (-1);
++	}
++
++	if ((err = dlpi_bind(hdl, 0x88cc, NULL)) != DLPI_SUCCESS) {
++		debug_printf(DEBUG_NORMAL, "Unable to dlpi_bind %s: %s\n",
++		    lpp->if_name, dlpi_strerror(err));
++		dlpi_close(hdl);
++		return (-1);
++	}
++
++	mcaddr[0] = 0x01;
++	mcaddr[1] = 0x80;
++	mcaddr[2] = 0xc2;
++	mcaddr[3] = 0x00;
++	mcaddr[4] = 0x00;
++	mcaddr[5] = 0x0e;
++
++	if ((err = dlpi_enabmulti(hdl, mcaddr, sizeof (mcaddr)) !=
++	    DLPI_SUCCESS)) {
++		debug_printf(DEBUG_NORMAL,
++		    "Unable to enable multicast reception on %s: %s\n",
++		    lpp->if_name, dlpi_strerror(err));
++		dlpi_close(hdl);
++		return (-1);
++	}
++
++	if ((err = dlpi_info(hdl, &dli, 0)) != DLPI_SUCCESS) {
++		debug_printf(DEBUG_NORMAL, "Unable to get dlpi_info %s: %s\n",
++		    lpp->if_name, dlpi_strerror(err));
++		dlpi_close(hdl);
++		return (-1);
++	}
++
++	lpp->mtu = dli.di_max_sdu;
++	bcopy(dli.di_physaddr, lpp->source_mac, sizeof(lpp->source_mac));
++	lpp->rx.frame = malloc(lpp->mtu);
++	lpp->tx.frame = malloc(lpp->mtu);
++
++	if (lpp->rx.frame == NULL || lpp->tx.frame == NULL) {
++		debug_printf(DEBUG_NORMAL,
++		    "Unable to allocate port frame buffers for %s\n",
++		    lpp->if_name);
++		free(lpp->rx.frame);
++		free(lpp->tx.frame);
++		dlpi_close(hdl);
++		return (-1);
++	}
++
++	lpp->socket = dlpi_fd(hdl);
++	lpp->lp_private = (void *)hdl;
++
++	return (0);
++}
++
++void
++socketCleanupLLDP(struct lldp_port *lpp)
++{
++	free(lpp->rx.frame);
++	free(lpp->tx.frame);
++	dlpi_close((dlpi_handle_t)lpp->lp_private);
++	lpp->socket = -1;
++	lpp->lp_private = NULL;
++}
++
++void
++refreshInterfaceData(struct lldp_port *lpp)
++{
++}
