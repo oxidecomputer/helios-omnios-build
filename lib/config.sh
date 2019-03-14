@@ -165,9 +165,11 @@ UNZIP=unzip
 AWK=gawk
 GIT=git
 RIPGREP=/opt/ooce/bin/rg
+CMAKE=/opt/ooce/bin/cmake
 # Command for privilege escalation. Can be overridden in site.sh
 PFEXEC=sudo
 
+CTFCONVERT=/opt/onbld/bin/i386/ctfconvert
 PKGSEND=/usr/bin/pkgsend
 PKGLINT=/usr/bin/pkglint
 PKGMOGRIFY=/usr/bin/pkgmogrify

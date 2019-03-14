@@ -569,6 +569,7 @@ init() {
     # built in (i.e. what the tarball extracts to). This defaults to the name
     # and version of the program, which works in most cases.
     [ -z "$BUILDDIR" ] && BUILDDIR=$PROG-$VER
+    SRC_BUILDDIR=$BUILDDIR
 
     # Build each package in a sub-directory of the temporary area.
     # In addition to keeping everything related to a package together,
@@ -656,7 +657,9 @@ run_aclocal() { run_inbuild aclocal "$@"; }
 #############################################################################
 
 prep_build() {
-    logmsg "Preparing for build"
+    typeset style=${1:-autoconf}
+
+    logmsg "Preparing for $style build"
 
     # Get the current date/time for the package timestamp
     DATETIME=`TZ=UTC /usr/bin/date +"%Y%m%dT%H%M%SZ"`
@@ -675,10 +678,16 @@ prep_build() {
             logerr "Failed to create temporary install dir"
     fi
 
+    [ -n "$OUT_OF_TREE_BUILD" ] \
+        && CONFIGURE_CMD=$TMPDIR/$BUILDDIR/$CONFIGURE_CMD
+
+    if [ "$style" = cmake ]; then
+        OUT_OF_TREE_BUILD=1
+        CONFIGURE_CMD="$CMAKE $TMPDIR/$BUILDDIR"
+    fi
+
     if [ -n "$OUT_OF_TREE_BUILD" ]; then
         logmsg "-- Setting up for out-of-tree build"
-        CONFIGURE_CMD=$TMPDIR/$BUILDDIR/configure
-        SRC_BUILDDIR=$BUILDDIR
         BUILDDIR+=-build
         [ -d $TMPDIR/$BUILDDIR ] && logcmd rm -rf $TMPDIR/$BUILDDIR
         logcmd mkdir -p $TMPDIR/$BUILDDIR
@@ -1219,7 +1228,8 @@ make_package() {
         ask_to_continue
     fi
     if [ -n "$DESTDIR" ]; then
-        logcmd $PKGSEND -s $PKGSRVR publish -d $DESTDIR -d $TMPDIR/$BUILDDIR \
+        logcmd $PKGSEND -s $PKGSRVR publish -d $DESTDIR \
+            -d $TMPDIR/$SRC_BUILDDIR \
             -d $SRCDIR -T \*.py $P5M_FINAL || \
         logerr "------ Failed to publish package"
     else
@@ -1538,9 +1548,20 @@ make_install_in() {
 }
 
 build() {
+    while [[ "$1" == -* ]]; do
+        case "$1" in
+            -ctf)
+                CFLAGS+=" -gdwarf-2"
+                ENABLE_CTF=1
+                ;;
+        esac
+        shift
+    done
     for b in $BUILDORDER; do
         [[ $BUILDARCH =~ ^($b|both)$ ]] && build$b
     done
+
+    [ -n "$ENABLE_CTF" ] && convert_ctf
 }
 
 build32() {
@@ -1859,11 +1880,25 @@ strip_install() {
         file $file | egrep -s 'ELF.*stripped' || continue
         logmsg "------ stripping $file"
         MODE=$(stat -c %a "$file")
-        logcmd chmod 644 "$file" || logerr "chmod failed: $file"
+        logcmd chmod u+w "$file" || logerr "chmod failed: $file"
         logcmd strip -x "$file" || logerr "strip failed: $file"
         logcmd chmod $MODE "$file" || logerr "chmod failed: $file"
-    done < <(find . -depth -type f)
+    done < <(find . -depth -type f -perm -0100)
     popd > /dev/null
+}
+
+convert_ctf() {
+    pushd $DESTDIR >/dev/null
+    while read file; do
+        file $file | egrep -s 'ELF.*not stripped' || continue
+        logmsg "------ Converting CTF data for $file"
+        MODE=$(stat -c %a "$file")
+        logcmd chmod u+w "$file" || logerr "chmod failed: $file"
+        logcmd $CTFCONVERT -l "$PROG-$VER" -o $file $file
+        logcmd strip -x "$file" || logerr "strip failed: $file"
+        logcmd chmod $MODE "$file" || logerr "chmod failed: $file"
+    done < <(find . -depth -type f -perm -0100)
+    popd >/dev/null
 }
 
 #############################################################################
@@ -1958,7 +1993,7 @@ check_licences() {
 
         # Check if the "license" lines point to valid files
         flag=0
-        for dir in $DESTDIR $TMPDIR/$BUILDDIR $SRCDIR; do
+        for dir in $DESTDIR $TMPDIR/$SRC_BUILDDIR $SRCDIR; do
             if [ -f "$dir/$file" ]; then
                 #logmsg "   found in $dir/$file"
                 flag=1
