@@ -193,7 +193,7 @@ if [ -z "$FLAVOR" -o "$FLAVOR" = "1.0" ]; then
     OPENSSL_CONFIG_32_OPTS+=" --pk11-libname=/usr/lib/libpkcs11.so.1"
     OPENSSL_CONFIG_64_OPTS="$base_OPENSSL_CONFIG_64_OPTS"
     OPENSSL_CONFIG_64_OPTS+=" --pk11-libname=/usr/lib/64/libpkcs11.so.1"
-    BUILDDIR=$PROG-$LVER
+    set_builddir "$PROG-$LVER"
 
     # OpenSSL 1.0 uses INSTALL_PREFIX= instead of DESTDIR=
     make_install() {

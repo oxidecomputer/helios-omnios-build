@@ -31,7 +31,6 @@ VER=2.2.6
 PKG=library/expat
 SUMMARY="XML parser library"
 DESC="Fast streaming XML parser written in C"
-BUILDDIR=$PROG-$VER
 
 CONFIGURE_OPTS_64+=" --includedir=/usr/include"
 

@@ -106,7 +106,7 @@ fix_drivers() {
 
 PROG=illumos-kvm
 PKG=driver/virtualization/kvm
-BUILDDIR+="/$PROG"
+set_builddir "$BUILDDIR/$PROG"
 echo "TMPDIR: $TMPDIR"
 echo "BUILDDIR: $BUILDDIR"
 
@@ -142,7 +142,7 @@ make_install() {
 PROG=illumos-kvm-cmd
 PKG=system/kvm
 KVM_DIR="$TMPDIR/$BUILDDIR"
-BUILDDIR+="-cmd"
+set_builddir "$BUILDDIR-cmd"
 
 prep_build
 build

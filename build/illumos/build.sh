@@ -39,7 +39,7 @@ BUILD_DEPENDS_IPS="developer/illumos-tools"
 
 PKGPREFIX=""
 PREFIX=""
-BUILDDIR=$USER-$PROG-$VER
+set_builddir "$USER-$PROG-$VER"
 
 push_pkgs() {
     logmsg "Entering $CODEMGR_WS"

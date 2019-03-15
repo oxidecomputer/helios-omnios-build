@@ -42,7 +42,7 @@ SUMMARY="gcc ${VER} (illumos il-4_4_4 branch, tag gcc-4.4.4-${ILLUMOSVER})"
 DESC="GCC with the patches from Codesourcery/Sun Microsystems used in the "
 DESC+="3.4.3 and 4.3.3 shipped with Solaris."
 
-BUILDDIR=${PROG}-gcc-4.4.4-${ILLUMOSVER}
+set_builddir "${PROG}-gcc-4.4.4-${ILLUMOSVER}"
 
 # Build gcc44 with itself...
 set_gccver 4.4.4

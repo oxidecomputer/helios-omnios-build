@@ -27,13 +27,12 @@
 
 PROG=p7zip
 VER=16.02
-VERHUMAN=$VER
 PKG=compress/p7zip
 SUMMARY="The p7zip compression and archiving utility"
 DESC="$SUMMARY"
 
 SRCVER="${VER}_src_all"
-BUILDDIR=${PROG}_${VER}
+set_builddir "${PROG}_${VER}"
 BUILDARCH=32
 
 RUN_DEPENDS_IPS="

@@ -34,7 +34,7 @@ DESC="Metadata retrieval and manipulation tools for use within guests of the "
 DESC+="SmartOS (and SDC) hypervisor. These guests may be either SmartOS Zones "
 DESC+="or KVM virtual machines."
 
-BUILDDIR=$PROG-release-$VER
+set_builddir "$PROG-release-$VER"
 
 set_arch 32
 

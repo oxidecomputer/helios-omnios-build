@@ -35,7 +35,7 @@ DESC="Advanced text editor that provides the power of the UNIX vi editor "
 DESC+="with a more complete feature set."
 
 SVER=${VER//./}
-BUILDDIR=$PROG$SVER
+set_builddir "$PROG$SVER"
 
 set_arch 64
 

@@ -33,7 +33,7 @@ PKG=compress/zip
 SUMMARY="The Info-Zip (zip) compression utility"
 DESC="$SUMMARY"
 
-BUILDDIR=$PROG${VER//./}
+set_builddir "$PROG${VER//./}"
 set_arch 32
 
 SKIP_LICENCES="*"

@@ -21,27 +21,26 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=bmake
 VER=20181221
-VERHUMAN=$VER
 PKG=developer/bmake
-SUMMARY="portable version of NetBSD make(1)"
-DESC="$SUMMARY"
+SUMMARY="BSD make tool"
+DESC="Portable version of NetBSD make(1)"
 
-CONFIGURE_OPTS64="--prefix=$PREFIX"
+set_builddir bmake
+set_arch 64
+
+CONFIGURE_OPTS="--prefix=$PREFIX"
 # prefix doesn't get built into the binary correctly for some reason with just
 # configure
 export MAKEFLAGS="prefix=$PREFIX"
-BUILDARCH=64
 # bmake is apparently called with "-j observer-fds=3,4" or something if -j was
 # given to gmake, which makes no sense. just build non-parallel
 NO_PARALLEL_MAKE=1
-REMOVE_PREVIOUS=1
 
 extract_licence() {
     sed '/ifndef/{
@@ -51,12 +50,10 @@ extract_licence() {
 }
 
 init
-BUILDDIR="bmake"
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 extract_licence
 make_package
 clean_up
