@@ -21,11 +21,11 @@ VER=1.8
 DATE=20190219
 UPDATE=202
 VERHUMAN="jdk8u${UPDATE}"
-BUILDDIR=$PROG
 
 PKG=openjdk    ##IGNORE## - filled in later
 SUMMARY="tbc"; DESC="tbc"
 
+set_builddir "$PROG"
 set_arch 64
 MJOBS=8
 

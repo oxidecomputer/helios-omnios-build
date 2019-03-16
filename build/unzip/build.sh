@@ -33,7 +33,7 @@ PKG=compress/unzip
 SUMMARY="The Info-Zip (unzip) compression utility"
 DESC="$SUMMARY"
 
-BUILDDIR=$PROG${VER//./}
+set_builddir "$PROG${VER//./}"
 set_arch 32
 
 HARDLINK_TARGETS="

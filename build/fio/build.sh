@@ -34,8 +34,8 @@ VERHUMAN=$VER
 PKG=system/test/fio
 SUMMARY="Flexible IO Tester"
 DESC="Flexible IO Tester"
-BUILDDIR=$PROG-$PROG-$VER
 
+set_builddir "$PROG-$PROG-$VER"
 set_arch 64
 
 CONFIGURE_OPTS_64="--prefix=$PREFIX --extra-cflags=-m64"

@@ -39,7 +39,7 @@ DESC="The Open Virtual Machine Tools project aims to provide a suite of open sou
 
 DLVER=$VER
 if [ -n "$BUILD" ]; then
-    BUILDDIR=$PROG-$VER-$BUILD
+    set_builddir "$PROG-$VER-$BUILD"
     DLVER+=-$BUILD
 fi
 

@@ -31,7 +31,7 @@ VER=3.42.1
 # Include NSPR version since we're downloading a combined tarball.
 NSPRVER=4.20
 # But set BUILDDIR to just be the NSS version.
-BUILDDIR=$PROG-$VER
+set_builddir "$PROG-$VER"
 PKG=$PROG ##IGNORE##
 SUMMARY="Overridden for each package below"
 DESC="$SUMMARY"

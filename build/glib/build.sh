@@ -70,7 +70,7 @@ CONFIGURE_OPTS="
     -Db_asneeded=false
 "
 CONFIGURE_OPTS_32="
-    --bindir=$PREFIX/bin/$ISAPART
+    --bindir=$PREFIX/bin
     --libdir=$PREFIX/lib
 "
 CONFIGURE_OPTS_64="

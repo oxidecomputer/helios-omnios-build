@@ -42,7 +42,7 @@ prep_build
 # continue shipping the older version of the library to support anything
 # linked against it. This builds both versions in order.
 for VER in 1.34 $VER; do
-    BUILDDIR=$PROG-$VER
+    set_builddir "$PROG-$VER"
     download_source $PROG $PROG $VER
     patch_source
     build

@@ -352,35 +352,46 @@ baseline() {
     rm -f $TMPDIR/baseline.$$
 }
 
-hashline="`printf -- '#%.0s' {1..79}`"
-job_status() {
-    logmsg -h "$hashline"
-    logmsg -h "-- Job status $*--"
-    now=`date +%s`
-
-    # If nightly is running, include that status too
+nightly_running() {
     nightly=$PREBUILT_ILLUMOS/log/nightly.lock
     if [ -h "$nightly" ]; then
         nightly_pid="`readlink $nightly | cut -d. -f3`"
-        if kill -0 $nightly_pid; then
-            # Nightly is running
-            msg=`grep '^===' ${nightly/lock/log} | tail -1 | sed 's/===//'`
-            logmsg -h "`printf "    [=] %8d -  nightly %s\n" \
-                "$nightly_pid" "${msg:0:51}"`"
+        if [ -n "$nightly_pid" ] && kill -0 "$nightly_pid"; then
+            return 0
         fi
+    fi
+    return 1
+}
+
+hashline="`printf -- '#%.0s' {1..79}`"
+job_status() {
+    local _stat="$*"
+    elapsed=$((`date +%s` - build_start))
+    logmsg -h "$hashline"
+    logmsg -h "-- Job status $_stat-- `print_elapsed $elapsed` --"
+    now=`date +%s`
+
+    # If nightly is running, include that status too
+    if nightly_running; then
+        local msg=`grep '^===' ${nightly/lock/log} | tail -1 | sed 's/===//'`
+        logmsg -h "`printf "    [=] %8d -  nightly %s\n" \
+            "$nightly_pid" "${msg:0:51}"`"
     fi
     for i in `seq 0 $threads`; do
         [ -n "${slots[$i]}" ] || continue
         ((tm = now - ${slotstart[$i]}))
         e=' '
         p="${slottgt[$i]}"
-        if [ -n "${expensive[$p]}" ]; then
+        pid="${slots[$i]}"
+        if [ -f "$TMPDIR/.nw.$pid" ]; then
+            e='!'
+        elif [ -n "${expensive[$p]}" ]; then
             e='*'
         elif [ $tm -lt 70 ]; then
             e='+'
         fi
         logmsg -h "`printf "    [%d] %8d - (%5ds) %s\n" \
-            "$i" "${slots[$i]}" "$tm" "$e${slotdesc[$i]}"`"
+            "$i" "$pid" "$tm" "$e${slotdesc[$i]}"`"
     done
     logmsg -h "$hashline"
 }
@@ -434,7 +445,7 @@ wait_for_slot() {
 }
 
 wait_for_jobs() {
-    typeset msg="$1"
+    local msg="$1"
     while :; do
         typeset -i running=0
         for i in `seq 0 $threads`; do
@@ -474,6 +485,8 @@ parallel_build() {
 
     note "Starting parallel build with $threads thread(s)"
 
+    build_start=`date +%s`
+
     ((threads = threads - 1))
 
     pkgnum=0
@@ -491,9 +504,18 @@ parallel_build() {
     [ -n "$ETHROTTLE" ] || ETHROTTLE=0
 
     # Queue up the packages to build
+    declare -a defer
     for tgt in `buildorder`; do
         # Defer this until last
         [ "$tgt" = "system/install/kayak-kernel" ] && continue
+        # If nightly is running, defer dependant services to last
+        if nightly_running && [[ $tgt = *illumos-gate ]]; then
+                defer+=($tgt)
+                continue
+        fi
+        queue+=($tgt)
+    done
+    for tgt in ${defer[@]}; do
         queue+=($tgt)
     done
     [ -z "$SKIP_KAYAK_KERNEL" ] && queue+=(.WAIT system/install/kayak-kernel)
