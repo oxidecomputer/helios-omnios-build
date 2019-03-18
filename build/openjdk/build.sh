@@ -43,7 +43,6 @@ BUILD_DEPENDS_IPS="
     system/header/header-audio
     developer/java/jdk
     runtime/java
-    ooce/developer/build/ant
     ooce/library/freetype2
 "
 
