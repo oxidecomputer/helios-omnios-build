@@ -50,6 +50,10 @@ r151030 release repository: https://pkg.omniosce.org/r151030/core
 * A default installation now includes `ntpsec` in place of `ntp`; the package
   can still be removed if not required.
 
+* A default set of system default parameters are now installed in
+  `/etc/system.d/_omnios:system:defaults`. These can be overidden if necessary
+  by creating additional local files under `/etc/system.d/`.
+
 ### Commands and Command Options
 
 * The `ipadm` and `dladm` commands now show IP and link information if invoked
