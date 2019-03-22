@@ -28,15 +28,11 @@
 
 PROG=openssh
 VER=7.9p1
-VERHUMAN=$VER
 PKG=network/openssh
 SUMMARY="OpenSSH Client and utilities"
 DESC="OpenSSH Secure Shell protocol Client and associated Utilities"
 
 set_arch 64
-# Building OpenSSH with a newer GCC version causes terminal hangs; the cause
-# is not yet known.
-set_gccver 5
 
 SKIP_LICENCES=OpenSSH
 

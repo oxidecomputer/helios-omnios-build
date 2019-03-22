@@ -24,7 +24,7 @@
 | developer/parser/bison		| 3.3.2			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.21.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 4.9			| https://www.mercurial-scm.org/release/?M=D
+| developer/versioning/mercurial	| 4.9.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.1			| http://ftp.vim.org/pub/vim/unix
@@ -63,7 +63,7 @@
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
 | runtime/perl				| 5.28.1		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.16		| https://www.python.org/downloads/source/
-| runtime/python-35			| 3.5.6			| https://www.python.org/downloads/source/
+| runtime/python-35			| 3.5.7			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.27		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.3			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
