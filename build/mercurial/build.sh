@@ -32,6 +32,8 @@ PKG=developer/versioning/mercurial
 SUMMARY="Mercurial source control management"
 DESC="Free, distributed source control management tool"
 
+set_python_version $PYTHON2VER
+
 RUN_DEPENDS_IPS="web/curl library/security/openssl"
 
 init

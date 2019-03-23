@@ -31,9 +31,6 @@ PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
 
-set_python_version $PYTHON3VER
-BUILDARCH=both
-
 BUILD_DEPENDS_IPS="library/python-${PYTHONVER%%.*}/meson-$PYTHONPKGVER"
 
 RUN_DEPENDS_IPS="

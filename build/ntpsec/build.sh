@@ -23,7 +23,6 @@ SUMMARY="Network time services"
 DESC="A secure, hardened and improved Network Time Protocol implementation"
 
 set_arch 64
-set_python_version $PYTHON3VER
 
 # Required to generate man pages
 BUILD_DEPENDS_IPS="ooce/text/asciidoc"
