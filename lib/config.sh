@@ -218,7 +218,7 @@ CXX=g++
 DEFAULT_GCC_VER=8
 PYTHON2VER=2.7
 PYTHON3VER=3.5
-DEFAULT_PYTHON_VER=$PYTHON2VER
+DEFAULT_PYTHON_VER=$PYTHON3VER
 
 # Options to turn compiler features on and off. Associative array keyed by
 # compiler version or _ for all versions.

@@ -1660,7 +1660,6 @@ set_python_version() {
     PYTHON=$PYTHONPATH/bin/python$PYTHONVER
     PYTHONLIB=$PYTHONPATH/lib
     PYTHONVENDOR=$PYTHONLIB/python$PYTHONVER/vendor-packages
-    [[ $PYTHONVER = 3.* ]] && BUILDARCH=64
 }
 set_python_version $DEFAULT_PYTHON_VER
 
@@ -1722,6 +1721,9 @@ python_build() {
     logmsg "Building using python setup.py"
 
     pushd $TMPDIR/$BUILDDIR > /dev/null
+
+    # we only ship 64 bit python3
+    [[ $PYTHONVER = 3.* ]] && BUILDARCH=64
 
     for b in $BUILDORDER; do
         [[ $BUILDARCH =~ ^($b|both)$ ]] && python_build$b
