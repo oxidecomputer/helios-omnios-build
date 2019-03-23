@@ -10,14 +10,14 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-PYTHONVER=2.7
-PYVER=$PYTHONVER		# 2.7
-PYMVER=${PYTHONVER%%.*}		# 2
-SPYVER=${PYTHONVER//./}		# 27
+PYVER=$PYTHON2VER		# 2.7
+PYMVER=${PYTHON2VER%%.*}	# 2
+SPYVER=${PYTHON2VER//./}	# 27
 
-PYTHON=/usr/bin/python$PYTHONVER
+set_python_version $PYTHON2VER
+
 RUN_DEPENDS_IPS="runtime/python-$SPYVER "
 XFORM_ARGS="
 	-D PYTHONVER=$PYVER
