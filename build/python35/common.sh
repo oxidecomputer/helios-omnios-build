@@ -10,14 +10,14 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-PYTHONVER=3.5
-PYVER=$PYTHONVER		# 3.5
-PYMVER=${PYTHONVER%%.*}		# 3
-SPYVER=${PYTHONVER//./}		# 35
+PYVER=$PYTHON3VER		# 3.5
+PYMVER=${PYTHON3VER%%.*}	# 3
+SPYVER=${PYTHON3VER//./}	# 35
 
-PYTHON=/usr/bin/python$PYTHONVER
+set_python_version $PYTHON3VER
+
 RUN_DEPENDS_IPS="runtime/python-$SPYVER "
 XFORM_ARGS="
 	-D PYTHONVER=$PYVER
@@ -34,9 +34,6 @@ XFORM_ARGS="
 TMPDIR+="/python$PYVER"
 DTMPDIR+="/python$PYVER"
 BASE_TMPDIR=$TMPDIR
-
-# We only deliver Python 3 as 64-bit
-BUILDARCH=64
 
 # Vim hints
 # vim:ts=4:sw=4:et:fdm=marker
