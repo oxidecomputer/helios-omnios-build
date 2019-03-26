@@ -17,12 +17,13 @@
 . ../../lib/functions.sh
 
 PROG=libedit
-VER=20181209-3.1
+VER=20190324-3.1
 
 VERHUMAN=$VER
 PKG=library/libedit
 SUMMARY="Editline Library (libedit)"
-DESC="$SUMMARY"
+DESC="Command line editor library providing generic line editing, history "
+DESC+="and tokenisation functions."
 
 CONFIGURE_OPTS="--disable-static"
 CPPFLAGS+=" -I/usr/include/ncurses"
