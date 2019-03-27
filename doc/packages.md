@@ -17,7 +17,7 @@
 | developer/gcc5			| 5.5			| https://www.gnu.org/software/gcc/releases.html
 | developer/gcc7			| 7.4			| https://www.gnu.org/software/gcc/releases.html
 | developer/gcc8			| 8.3			| https://www.gnu.org/software/gcc/releases.html
-| developer/java/jdk			| 1.8.202-20190219	| https://ftp.netbsd.org/pub/pkgsrc/distfiles/openjdk7/
+| developer/java/openjdk8		| 1.8.202-20190219	| https://ftp.netbsd.org/pub/pkgsrc/distfiles/openjdk7/
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
