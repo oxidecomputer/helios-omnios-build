@@ -1,0 +1,123 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0985
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0985
+Problem:    Crash with large number in regexp. (Kuang-che Wu)
+Solution:   Check for long becoming negative int. (closes #)
+Files:	    src/regexp.c, src/testdir/test_search.vim
+
+
+*** ../vim-8.1.0984/src/regexp.c	2019-02-22 17:26:57.739029029 +0100
+--- src/regexp.c	2019-02-28 06:23:19.097348062 +0100
+***************
+*** 2228,2234 ****
+  				  default:  i = -1; break;
+  			      }
+  
+! 			      if (i < 0)
+  				  EMSG2_RET_NULL(
+  					_("E678: Invalid character after %s%%[dxouU]"),
+  					reg_magic == MAGIC_ALL);
+--- 2228,2234 ----
+  				  default:  i = -1; break;
+  			      }
+  
+! 			      if (i < 0 || i > INT_MAX)
+  				  EMSG2_RET_NULL(
+  					_("E678: Invalid character after %s%%[dxouU]"),
+  					reg_magic == MAGIC_ALL);
+***************
+*** 3293,3299 ****
+  	case 'u': nr = gethexchrs(4); break;
+  	case 'U': nr = gethexchrs(8); break;
+      }
+!     if (nr < 0)
+      {
+  	/* If getting the number fails be backwards compatible: the character
+  	 * is a backslash. */
+--- 3293,3299 ----
+  	case 'u': nr = gethexchrs(4); break;
+  	case 'U': nr = gethexchrs(8); break;
+      }
+!     if (nr < 0 || nr > INT_MAX)
+      {
+  	/* If getting the number fails be backwards compatible: the character
+  	 * is a backslash. */
+*** ../vim-8.1.0984/src/testdir/test_search.vim	2019-02-22 17:26:57.735029052 +0100
+--- src/testdir/test_search.vim	2019-02-28 06:22:23.121696028 +0100
+***************
+*** 1212,1224 ****
+    call Incsearch_cleanup()
+  endfunc
+  
+! func Test_large_hex_chars()
+    " This used to cause a crash, the character becomes an NFA state.
+    try
+      /\%Ufffffc23
+    catch
+      call assert_match('E678:', v:exception)
+    endtry
+  endfunc
+  
+  func Test_one_error_msg()
+--- 1212,1247 ----
+    call Incsearch_cleanup()
+  endfunc
+  
+! func Test_large_hex_chars1()
+    " This used to cause a crash, the character becomes an NFA state.
+    try
+      /\%Ufffffc23
+    catch
+      call assert_match('E678:', v:exception)
+    endtry
++   try
++     set re=1
++     /\%Ufffffc23
++   catch
++     call assert_match('E678:', v:exception)
++   endtry
++   set re&
++ endfunc
++ 
++ func Test_large_hex_chars2()
++   " This used to cause a crash, the character becomes an NFA state.
++   try
++     /[\Ufffffc1f]
++   catch
++     call assert_match('E486:', v:exception)
++   endtry
++   try
++     set re=1
++     /[\Ufffffc1f]
++   catch
++     call assert_match('E486:', v:exception)
++   endtry
++   set re&
+  endfunc
+  
+  func Test_one_error_msg()
+*** ../vim-8.1.0984/src/version.c	2019-02-27 14:11:56.977675599 +0100
+--- src/version.c	2019-02-28 06:24:21.756953772 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     985,
+  /**/
+
+-- 
+How To Keep A Healthy Level Of Insanity:
+12. Sing along at the opera.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

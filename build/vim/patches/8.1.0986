@@ -1,0 +1,186 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0986
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0986
+Problem:    rename() is not propertly tested.
+Solution:   Add tests. (Dominique Pelle, closes #4061)
+Files:	    src/testdir/Make_all.mak, src/testdir/test_alot.vim,
+            src/testdir/test_rename.vim
+
+
+*** ../vim-8.1.0985/src/testdir/Make_all.mak	2019-02-16 15:09:21.221946179 +0100
+--- src/testdir/Make_all.mak	2019-03-02 06:26:53.035719393 +0100
+***************
+*** 212,217 ****
+--- 212,218 ----
+  	test_regexp_utf8 \
+  	test_registers \
+  	test_reltime \
++ 	test_rename \
+  	test_restricted \
+  	test_retab \
+  	test_ruby \
+*** ../vim-8.1.0985/src/testdir/test_alot.vim	2019-02-15 20:14:56.740255481 +0100
+--- src/testdir/test_alot.vim	2019-03-02 06:26:53.035719393 +0100
+***************
+*** 48,53 ****
+--- 48,54 ----
+  source test_put.vim
+  source test_recover.vim
+  source test_reltime.vim
++ source test_rename.vim
+  source test_scroll_opt.vim
+  source test_searchpos.vim
+  source test_set.vim
+*** ../vim-8.1.0985/src/testdir/test_rename.vim	2019-03-02 06:41:13.965527235 +0100
+--- src/testdir/test_rename.vim	2019-03-02 06:26:53.035719393 +0100
+***************
+*** 0 ****
+--- 1,118 ----
++ " Test rename()
++ 
++ func Test_rename_file_to_file()
++   call writefile(['foo'], 'Xrename1')
++ 
++   call assert_equal(0, rename('Xrename1', 'Xrename2'))
++ 
++   call assert_equal('', glob('Xrename1'))
++   call assert_equal(['foo'], readfile('Xrename2'))
++ 
++   " When the destination file already exists, it should be overwritten.
++   call writefile(['foo'], 'Xrename1')
++   call writefile(['bar'], 'Xrename2')
++ 
++   call assert_equal(0, rename('Xrename1', 'Xrename2'))
++   call assert_equal('', glob('Xrename1'))
++   call assert_equal(['foo'], readfile('Xrename2'))
++ 
++   call delete('Xrename2')
++ endfunc
++ 
++ func Test_rename_file_ignore_case()
++   " With 'fileignorecase', renaming file will go through a temp file
++   " when the source and destination file only differ by case.
++   set fileignorecase
++   call writefile(['foo'], 'Xrename')
++ 
++   call assert_equal(0, rename('Xrename', 'XRENAME'))
++ 
++   call assert_equal(['foo'], readfile('XRENAME'))
++ 
++   set fileignorecase&
++   call delete('XRENAME')
++ endfunc
++ 
++ func Test_rename_same_file()
++   call writefile(['foo'], 'Xrename')
++ 
++   " When the source and destination are the same file, nothing
++   " should be done. The source file should not be deleted.
++   call assert_equal(0, rename('Xrename', 'Xrename'))
++   call assert_equal(['foo'], readfile('Xrename'))
++ 
++   call assert_equal(0, rename('./Xrename', 'Xrename'))
++   call assert_equal(['foo'], readfile('Xrename'))
++ 
++   call delete('Xrename')
++ endfunc
++ 
++ func Test_rename_dir_to_dir()
++   call mkdir('Xrenamedir1')
++   call writefile(['foo'], 'Xrenamedir1/Xrenamefile')
++ 
++   call assert_equal(0, rename('Xrenamedir1', 'Xrenamedir2'))
++ 
++   call assert_equal('', glob('Xrenamedir1'))
++   call assert_equal(['foo'], readfile('Xrenamedir2/Xrenamefile'))
++ 
++   call delete('Xrenamedir2/Xrenamefile')
++   call delete('Xrenamedir2', 'd')
++ endfunc
++ 
++ func Test_rename_same_dir()
++   call mkdir('Xrenamedir')
++   call writefile(['foo'], 'Xrenamedir/Xrenamefile')
++ 
++   call assert_equal(0, rename('Xrenamedir', 'Xrenamedir'))
++ 
++   call assert_equal(['foo'], readfile('Xrenamedir/Xrenamefile'))
++ 
++   call delete('Xrenamedir/Xrenamefile')
++   call delete('Xrenamedir', 'd')
++ endfunc
++ 
++ func Test_rename_copy()
++   " Check that when original file can't be deleted, rename()
++   " still succeeds but copies the file.
++   call mkdir('Xrenamedir')
++   call writefile(['foo'], 'Xrenamedir/Xrenamefile')
++   call setfperm('Xrenamedir', 'r-xr-xr-x')
++ 
++   call assert_equal(0, rename('Xrenamedir/Xrenamefile', 'Xrenamefile'))
++ 
++   if !has('win32')
++     " On Windows, the source file is removed despite
++     " its directory being made not writable.
++     call assert_equal(['foo'], readfile('Xrenamedir/Xrenamefile'))
++   endif
++   call assert_equal(['foo'], readfile('Xrenamefile'))
++ 
++   call setfperm('Xrenamedir', 'rwxrwxrwx')
++   call delete('Xrenamedir/Xrenamefile')
++   call delete('Xrenamedir', 'd')
++   call delete('Xrenamefile')
++ endfunc
++ 
++ func Test_rename_fails()
++   call writefile(['foo'], 'Xrenamefile')
++ 
++   " Can't rename into a non-existing directory.
++   call assert_notequal(0, rename('Xrenamefile', 'Xdoesnotexist/Xrenamefile'))
++ 
++   " Can't rename a non-existing file.
++   call assert_notequal(0, rename('Xdoesnotexist', 'Xrenamefile2'))
++   call assert_equal('', glob('Xrenamefile2'))
++ 
++   " When rename() fails, the destination file should not be deleted.
++   call assert_notequal(0, rename('Xdoesnotexist', 'Xrenamefile'))
++   call assert_equal(['foo'], readfile('Xrenamefile'))
++ 
++   " Can't rename to en empty file name.
++   call assert_notequal(0, rename('Xrenamefile', ''))
++ 
++   call assert_fails('call rename("Xrenamefile", [])', 'E730')
++   call assert_fails('call rename(0z, "Xrenamefile")', 'E976')
++ 
++   call delete('Xrenamefile')
++ endfunc
+*** ../vim-8.1.0985/src/version.c	2019-02-28 06:24:49.788775847 +0100
+--- src/version.c	2019-03-02 06:36:51.203611823 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     986,
+  /**/
+
+-- 
+This planet has -- or rather had -- a problem, which was this: most
+of the people living on it were unhappy for pretty much of the time.
+Many solutions were suggested for this problem, but most of these
+were largely concerned with the movements of small green pieces of
+paper, which is odd because on the whole it wasn't the small green
+pieces of paper that were unhappy.
+		-- Douglas Adams, "The Hitchhiker's Guide to the Galaxy"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

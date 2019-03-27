@@ -1,0 +1,128 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1031
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1031
+Problem:    Memory usage test may still fail.
+Solution:   Drop the unused min value. (Christian Brabandt)
+Files:	    src/testdir/test_memory_usage.vim
+
+
+*** ../vim-8.1.1030/src/testdir/test_memory_usage.vim	2019-03-20 22:44:58.439933744 +0100
+--- src/testdir/test_memory_usage.vim	2019-03-21 21:15:30.477266842 +0100
+***************
+*** 36,50 ****
+    let proc = {}
+    let proc.pid = a:pid
+    let proc.hist = []
+-   let proc.min = 0
+    let proc.max = 0
+  
+    func proc.op() abort
+      " Check the last 200ms.
+      let val = s:memory_usage(self.pid)
+!     if self.min > val
+!       let self.min = val
+!     elseif self.max < val
+        let self.max = val
+      endif
+      call add(self.hist, val)
+--- 36,47 ----
+    let proc = {}
+    let proc.pid = a:pid
+    let proc.hist = []
+    let proc.max = 0
+  
+    func proc.op() abort
+      " Check the last 200ms.
+      let val = s:memory_usage(self.pid)
+!     if self.max < val
+        let self.max = val
+      endif
+      call add(self.hist, val)
+***************
+*** 56,62 ****
+    endfunc
+  
+    call WaitFor({-> proc.op()}, 10000)
+!   return {'last': get(proc.hist, -1), 'min': proc.min, 'max': proc.max}
+  endfunc
+  
+  let s:term_vim = {}
+--- 53,59 ----
+    endfunc
+  
+    call WaitFor({-> proc.op()}, 10000)
+!   return {'last': get(proc.hist, -1), 'max': proc.max}
+  endfunc
+  
+  let s:term_vim = {}
+***************
+*** 101,108 ****
+  
+    " Estimate the limit of max usage as 2x initial usage.
+    call assert_inrange(before, 2 * before, after.max)
+!   " In this case, garbase collecting is not needed.
+!   call assert_equal(after.last, after.max)
+  
+    call vim.stop()
+    call delete(testfile)
+--- 98,108 ----
+  
+    " Estimate the limit of max usage as 2x initial usage.
+    call assert_inrange(before, 2 * before, after.max)
+!   " In this case, garbage collecting is not needed.  The value might fluctuate
+!   " a bit, allow for 3% tolerance.
+!   let lower = after.last * 97 / 100
+!   let upper = after.last * 103 / 100
+!   call assert_inrange(lower, upper, after.max)
+  
+    call vim.stop()
+    call delete(testfile)
+***************
+*** 137,145 ****
+      let last = s:monitor_memory_usage(vim.pid).last
+    endfor
+  
+!   " The usage may be a bit less than the last value 
+    let lower = before * 8 / 10
+!   call assert_inrange(lower, after.max + (after.last - before), last)
+  
+    call vim.stop()
+    call delete(testfile)
+--- 137,147 ----
+      let last = s:monitor_memory_usage(vim.pid).last
+    endfor
+  
+!   " The usage may be a bit less than the last value, use 80%.
+!   " Allow for 1% tolerance at the upper limit.
+    let lower = before * 8 / 10
+!   let upper = (after.max + (after.last - before)) * 101 / 100
+!   call assert_inrange(lower, upper, last)
+  
+    call vim.stop()
+    call delete(testfile)
+*** ../vim-8.1.1030/src/version.c	2019-03-21 21:12:46.282715864 +0100
+--- src/version.c	2019-03-21 21:14:25.381831859 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1031,
+  /**/
+
+-- 
+I AM THANKFUL...
+...for the mess to clean after a party because it means I have
+been surrounded by friends.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

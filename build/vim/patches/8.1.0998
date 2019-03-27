@@ -1,0 +1,90 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0998
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0998
+Problem:    getcurpos() unexpectedly changes "curswant".
+Solution:   Save and restore "curswant". (closes #4069)
+Files:	    src/evalfunc.c, src/testdir/test_visual.vim
+
+
+*** ../vim-8.1.0997/src/evalfunc.c	2019-03-05 12:24:04.795965374 +0100
+--- src/evalfunc.c	2019-03-07 11:22:40.709060946 +0100
+***************
+*** 5474,5482 ****
+--- 5474,5496 ----
+  							      (varnumber_T)0);
+  	if (getcurpos)
+  	{
++ 	    int	    save_set_curswant = curwin->w_set_curswant;
++ 	    colnr_T save_curswant = curwin->w_curswant;
++ 	    colnr_T save_virtcol = curwin->w_virtcol;
++ 
+  	    update_curswant();
+  	    list_append_number(l, curwin->w_curswant == MAXCOL ?
+  		    (varnumber_T)MAXCOL : (varnumber_T)curwin->w_curswant + 1);
++ 
++ 	    // Do not change "curswant", as it is unexpected that a get
++ 	    // function has a side effect.
++ 	    if (save_set_curswant)
++ 	    {
++ 		curwin->w_set_curswant = save_set_curswant;
++ 		curwin->w_curswant = save_curswant;
++ 		curwin->w_virtcol = save_virtcol;
++ 		curwin->w_valid &= ~VALID_VIRTCOL;
++ 	    }
+  	}
+      }
+      else
+*** ../vim-8.1.0997/src/testdir/test_visual.vim	2019-01-24 17:59:35.143217444 +0100
+--- src/testdir/test_visual.vim	2019-03-07 11:19:56.382273108 +0100
+***************
+*** 1,8 ****
+  " Tests for various Visual mode.
+- if !has('visual')
+-   finish
+- endif
+- 
+  
+  func Test_block_shift_multibyte()
+    " Uses double-wide character.
+--- 1,4 ----
+***************
+*** 397,399 ****
+--- 393,406 ----
+  
+    bwipe!
+  endfunc
++ 
++ func Test_curswant_not_changed()
++   new
++   call setline(1, ['one', 'two'])
++   au InsertLeave * call getcurpos()
++   call feedkeys("gg0\<C-V>jI123 \<Esc>j", 'xt')
++   call assert_equal([0, 2, 1, 0, 1], getcurpos())
++ 
++   bwipe!
++   au! InsertLeave
++ endfunc
+*** ../vim-8.1.0997/src/version.c	2019-03-07 06:40:23.950955576 +0100
+--- src/version.c	2019-03-07 11:21:38.637518405 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     998,
+  /**/
+
+-- 
+Nothing is fool-proof to a sufficiently talented fool.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

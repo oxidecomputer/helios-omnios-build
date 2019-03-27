@@ -1,0 +1,123 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1049
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1049
+Problem:    When user tries to exit with CTRL-C message is confusing.
+Solution:   Only mention ":qa!" when there is a changed buffer. (closes #4163)
+Files:	    src/undo.c, src/proto/undo.pro, src/normal.c,
+            src/testdir/test_normal.vim
+
+
+*** ../vim-8.1.1048/src/undo.c	2019-02-17 17:44:36.223875455 +0100
+--- src/undo.c	2019-03-25 21:52:25.512531373 +0100
+***************
+*** 3531,3536 ****
+--- 3531,3549 ----
+  }
+  
+  /*
++  * Return TRUE if any buffer has changes.  Also buffers that are not written.
++  */
++     int
++ anyBufIsChanged(void)
++ {
++     buf_T *buf;
++ 
++     FOR_ALL_BUFFERS(buf)
++ 	if (bufIsChanged(buf))
++ 	    return TRUE;
++ }
++ 
++ /*
+   * Like bufIsChanged() but ignoring a terminal window.
+   */
+      int
+*** ../vim-8.1.1048/src/proto/undo.pro	2018-05-17 13:52:54.000000000 +0200
+--- src/proto/undo.pro	2019-03-25 21:53:33.311966690 +0100
+***************
+*** 25,30 ****
+--- 25,31 ----
+  void u_undoline(void);
+  void u_blockfree(buf_T *buf);
+  int bufIsChanged(buf_T *buf);
++ int anyBufIsChanged(void);
+  int bufIsChangedNotTerm(buf_T *buf);
+  int curbufIsChanged(void);
+  void u_eval_tree(u_header_T *first_uhp, list_T *list);
+*** ../vim-8.1.1048/src/normal.c	2019-03-21 21:45:30.879282125 +0100
+--- src/normal.c	2019-03-25 21:59:53.073771115 +0100
+***************
+*** 8886,8892 ****
+  #endif
+  		&& !VIsual_active
+  		&& no_reason)
+! 	    msg(_("Type  :qa!  and press <Enter> to abandon all changes and exit Vim"));
+  
+  	/* Don't reset "restart_edit" when 'insertmode' is set, it won't be
+  	 * set again below when halfway a mapping. */
+--- 8886,8897 ----
+  #endif
+  		&& !VIsual_active
+  		&& no_reason)
+! 	{
+! 	    if (anyBufIsChanged())
+! 		msg(_("Type  :qa!  and press <Enter> to abandon all changes and exit Vim"));
+! 	    else
+! 		msg(_("Type  :qa  and press <Enter> to exit Vim"));
+! 	}
+  
+  	/* Don't reset "restart_edit" when 'insertmode' is set, it won't be
+  	 * set again below when halfway a mapping. */
+*** ../vim-8.1.1048/src/testdir/test_normal.vim	2019-01-24 17:59:35.139217458 +0100
+--- src/testdir/test_normal.vim	2019-03-25 22:00:48.625478173 +0100
+***************
+*** 1,5 ****
+--- 1,7 ----
+  " Test for various Normal mode commands
+  
++ source shared.vim
++ 
+  func Setup_NewWindow()
+    10new
+    call setline(1, range(1,100))
+***************
+*** 2542,2544 ****
+--- 2544,2556 ----
+  
+    %bwipeout!
+  endfunc
++ 
++ func Test_message_when_using_ctrl_c()
++   exe "normal \<C-C>"
++   call assert_match("Type  :qa  and press <Enter> to exit Vim", Screenline(&lines))
++   new
++   cal setline(1, 'hi!')
++   exe "normal \<C-C>"
++   call assert_match("Type  :qa!  and press <Enter> to abandon all changes and exit Vim", Screenline(&lines))
++   bwipe!
++ endfunc
+*** ../vim-8.1.1048/src/version.c	2019-03-24 20:18:36.827484226 +0100
+--- src/version.c	2019-03-25 21:59:16.845953994 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1049,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+119. You are reading a book and look for the scroll bar to get to
+     the next page.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

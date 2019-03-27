@@ -1,0 +1,301 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1055
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1055
+Problem:    CTRL-G U in Insert mode doesn't work to avoid splitting the undo
+            sequence for shift-left and shift-right.
+Solution:   Also check dont_sync_undo for shifted cursor keys. (Christian
+            Brabandt)
+Files:	    src/edit.c, src/testdir/test_mapping.vim
+
+
+*** ../vim-8.1.1054/src/edit.c	2019-03-21 21:45:30.875282175 +0100
+--- src/edit.c	2019-03-26 21:58:45.370578667 +0100
+***************
+*** 236,246 ****
+  #if defined(FEAT_GUI_TABLINE) || defined(PROTO)
+  static void ins_tabline(int c);
+  #endif
+! static void ins_left(int end_change);
+  static void ins_home(int c);
+  static void ins_end(int c);
+  static void ins_s_left(void);
+! static void ins_right(int end_change);
+  static void ins_s_right(void);
+  static void ins_up(int startcol);
+  static void ins_pageup(void);
+--- 236,246 ----
+  #if defined(FEAT_GUI_TABLINE) || defined(PROTO)
+  static void ins_tabline(int c);
+  #endif
+! static void ins_left(void);
+  static void ins_home(int c);
+  static void ins_end(int c);
+  static void ins_s_left(void);
+! static void ins_right(void);
+  static void ins_s_right(void);
+  static void ins_up(int startcol);
+  static void ins_pageup(void);
+***************
+*** 290,299 ****
+  					   char.  Set when edit() is called.
+  					   after that arrow_used is used. */
+  
+! static int	did_add_space = FALSE;	/* auto_format() added an extra space
+! 					   under the cursor */
+! static int	dont_sync_undo = FALSE;	/* CTRL-G U prevents syncing undo for
+! 					   the next left/right cursor */
+  
+  /*
+   * edit(): Start inserting text.
+--- 290,299 ----
+  					   char.  Set when edit() is called.
+  					   after that arrow_used is used. */
+  
+! static int	did_add_space = FALSE;	// auto_format() added an extra space
+! 					// under the cursor
+! static int	dont_sync_undo = FALSE;	// CTRL-G U prevents syncing undo for
+! 					// the next left/right cursor key
+  
+  /*
+   * edit(): Start inserting text.
+***************
+*** 1284,1290 ****
+  	    if (mod_mask & (MOD_MASK_SHIFT|MOD_MASK_CTRL))
+  		ins_s_left();
+  	    else
+! 		ins_left(dont_sync_undo == FALSE);
+  	    break;
+  
+  	case K_S_LEFT:	/* <S-Left> */
+--- 1284,1290 ----
+  	    if (mod_mask & (MOD_MASK_SHIFT|MOD_MASK_CTRL))
+  		ins_s_left();
+  	    else
+! 		ins_left();
+  	    break;
+  
+  	case K_S_LEFT:	/* <S-Left> */
+***************
+*** 1296,1302 ****
+  	    if (mod_mask & (MOD_MASK_SHIFT|MOD_MASK_CTRL))
+  		ins_s_right();
+  	    else
+! 		ins_right(dont_sync_undo == FALSE);
+  	    break;
+  
+  	case K_S_RIGHT:	/* <S-Right> */
+--- 1296,1302 ----
+  	    if (mod_mask & (MOD_MASK_SHIFT|MOD_MASK_CTRL))
+  		ins_s_right();
+  	    else
+! 		ins_right();
+  	    break;
+  
+  	case K_S_RIGHT:	/* <S-Right> */
+***************
+*** 9291,9300 ****
+  #endif
+  
+      static void
+! ins_left(
+!     int	    end_change) /* end undoable change */
+  {
+      pos_T	tpos;
+  
+  #ifdef FEAT_FOLDING
+      if ((fdo_flags & FDO_HOR) && KeyTyped)
+--- 9291,9300 ----
+  #endif
+  
+      static void
+! ins_left(void)
+  {
+      pos_T	tpos;
++     int		end_change = dont_sync_undo == FALSE; // end undoable change
+  
+  #ifdef FEAT_FOLDING
+      if ((fdo_flags & FDO_HOR) && KeyTyped)
+***************
+*** 9378,9385 ****
+  }
+  
+      static void
+! ins_s_left(void)
+  {
+  #ifdef FEAT_FOLDING
+      if ((fdo_flags & FDO_HOR) && KeyTyped)
+  	foldOpenCursor();
+--- 9378,9386 ----
+  }
+  
+      static void
+! ins_s_left()
+  {
++     int end_change = dont_sync_undo == FALSE; // end undoable change
+  #ifdef FEAT_FOLDING
+      if ((fdo_flags & FDO_HOR) && KeyTyped)
+  	foldOpenCursor();
+***************
+*** 9387,9404 ****
+      undisplay_dollar();
+      if (curwin->w_cursor.lnum > 1 || curwin->w_cursor.col > 0)
+      {
+! 	start_arrow(&curwin->w_cursor);
+  	(void)bck_word(1L, FALSE, FALSE);
+  	curwin->w_set_curswant = TRUE;
+      }
+      else
+  	vim_beep(BO_CRSR);
+  }
+  
+      static void
+! ins_right(
+!     int	    end_change) /* end undoable change */
+  {
+  #ifdef FEAT_FOLDING
+      if ((fdo_flags & FDO_HOR) && KeyTyped)
+  	foldOpenCursor();
+--- 9388,9409 ----
+      undisplay_dollar();
+      if (curwin->w_cursor.lnum > 1 || curwin->w_cursor.col > 0)
+      {
+! 	start_arrow_with_change(&curwin->w_cursor, end_change);
+! 	if (!end_change)
+! 	    AppendCharToRedobuff(K_S_LEFT);
+  	(void)bck_word(1L, FALSE, FALSE);
+  	curwin->w_set_curswant = TRUE;
+      }
+      else
+  	vim_beep(BO_CRSR);
++     dont_sync_undo = FALSE;
+  }
+  
+      static void
+! ins_right(void)
+  {
++     int end_change = dont_sync_undo == FALSE; // end undoable change
++ 
+  #ifdef FEAT_FOLDING
+      if ((fdo_flags & FDO_HOR) && KeyTyped)
+  	foldOpenCursor();
+***************
+*** 9442,9449 ****
+  }
+  
+      static void
+! ins_s_right(void)
+  {
+  #ifdef FEAT_FOLDING
+      if ((fdo_flags & FDO_HOR) && KeyTyped)
+  	foldOpenCursor();
+--- 9447,9455 ----
+  }
+  
+      static void
+! ins_s_right()
+  {
++     int end_change = dont_sync_undo == FALSE; // end undoable change
+  #ifdef FEAT_FOLDING
+      if ((fdo_flags & FDO_HOR) && KeyTyped)
+  	foldOpenCursor();
+***************
+*** 9452,9463 ****
+      if (curwin->w_cursor.lnum < curbuf->b_ml.ml_line_count
+  	    || gchar_cursor() != NUL)
+      {
+! 	start_arrow(&curwin->w_cursor);
+  	(void)fwd_word(1L, FALSE, 0);
+  	curwin->w_set_curswant = TRUE;
+      }
+      else
+  	vim_beep(BO_CRSR);
+  }
+  
+      static void
+--- 9458,9472 ----
+      if (curwin->w_cursor.lnum < curbuf->b_ml.ml_line_count
+  	    || gchar_cursor() != NUL)
+      {
+! 	start_arrow_with_change(&curwin->w_cursor, end_change);
+! 	if (!end_change)
+! 	    AppendCharToRedobuff(K_S_RIGHT);
+  	(void)fwd_word(1L, FALSE, 0);
+  	curwin->w_set_curswant = TRUE;
+      }
+      else
+  	vim_beep(BO_CRSR);
++     dont_sync_undo = FALSE;
+  }
+  
+      static void
+*** ../vim-8.1.1054/src/testdir/test_mapping.vim	2019-01-30 22:01:36.982854408 +0100
+--- src/testdir/test_mapping.vim	2019-03-26 21:53:59.040601292 +0100
+***************
+*** 140,148 ****
+    imapclear
+  endfunc
+  
+  " This isn't actually testing a mapping, but similar use of CTRL-G U as above.
+  func Test_break_undo()
+!   :set whichwrap=<,>,[,]
+    call feedkeys("G4o2k", "xt")
+    exe ":norm! iTest3: text with a (parenthesis here\<C-G>U\<Right>new line here\<esc>\<up>\<up>."
+    call assert_equal('new line here', getline(line('$') - 3))
+--- 140,171 ----
+    imapclear
+  endfunc
+  
++ func Test_map_cursor_ctrl_gU()
++   " <c-g>U<cursor> works only within a single line
++   nnoremap c<* *Ncgn<C-r>"<C-G>U<S-Left>
++   call setline(1, ['foo', 'foobar', '', 'foo'])
++   call cursor(1,2)
++   call feedkeys("c<*PREFIX\<esc>.", 'xt')
++   call assert_equal(['PREFIXfoo', 'foobar', '', 'PREFIXfoo'], getline(1,'$'))
++   " break undo manually
++   set ul=1000
++   exe ":norm! uu"
++   call assert_equal(['foo', 'foobar', '', 'foo'], getline(1,'$'))
++ 
++   " Test that it does not work if the cursor moves to the previous line
++   " 2 times <S-Left> move to the previous line
++   nnoremap c<* *Ncgn<C-r>"<C-G>U<S-Left><C-G>U<S-Left>
++   call setline(1, ['', ' foo', 'foobar', '', 'foo'])
++   call cursor(2,3)
++   call feedkeys("c<*PREFIX\<esc>.", 'xt')
++   call assert_equal(['PREFIXPREFIX', ' foo', 'foobar', '', 'foo'], getline(1,'$'))
++   nmapclear
++ endfunc
++ 
++ 
+  " This isn't actually testing a mapping, but similar use of CTRL-G U as above.
+  func Test_break_undo()
+!   set whichwrap=<,>,[,]
+    call feedkeys("G4o2k", "xt")
+    exe ":norm! iTest3: text with a (parenthesis here\<C-G>U\<Right>new line here\<esc>\<up>\<up>."
+    call assert_equal('new line here', getline(line('$') - 3))
+*** ../vim-8.1.1054/src/version.c	2019-03-26 21:44:16.825047310 +0100
+--- src/version.c	2019-03-26 22:45:04.210432805 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1055,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+127. You bring your laptop and cellular phone to church.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

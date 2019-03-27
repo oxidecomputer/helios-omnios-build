@@ -1,0 +1,464 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1034
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1034
+Problem:    Too many #ifdefs.
+Solution:   Merge FEAT_MOUSE_SGR into FEAT_MOUSE_XTERM / FEAT_MOUSE_TTY.
+Files:	    src/evalfunc.c, src/misc2.c, src/os_unix.c, src/term.c,
+            src/version.c, src/feature.h
+
+
+*** ../vim-8.1.1033/src/evalfunc.c	2019-03-07 11:25:24.455856096 +0100
+--- src/evalfunc.c	2019-03-22 11:50:43.386780312 +0100
+***************
+*** 6414,6420 ****
+  # ifdef FEAT_MOUSE_PTERM
+  	"mouse_pterm",
+  # endif
+! # ifdef FEAT_MOUSE_SGR
+  	"mouse_sgr",
+  # endif
+  # ifdef FEAT_SYSMOUSE
+--- 6414,6420 ----
+  # ifdef FEAT_MOUSE_PTERM
+  	"mouse_pterm",
+  # endif
+! # ifdef FEAT_MOUSE_XTERM
+  	"mouse_sgr",
+  # endif
+  # ifdef FEAT_SYSMOUSE
+*** ../vim-8.1.1033/src/misc2.c	2019-02-17 17:44:36.215875493 +0100
+--- src/misc2.c	2019-03-22 11:50:57.118697587 +0100
+***************
+*** 2453,2462 ****
+  #ifdef FEAT_MOUSE_URXVT
+      {K_URXVT_MOUSE,	(char_u *)"UrxvtMouse"},
+  #endif
+- #ifdef FEAT_MOUSE_SGR
+      {K_SGR_MOUSE,	(char_u *)"SgrMouse"},
+      {K_SGR_MOUSERELEASE, (char_u *)"SgrMouseRelelase"},
+- #endif
+      {K_LEFTMOUSE,	(char_u *)"LeftMouse"},
+      {K_LEFTMOUSE_NM,	(char_u *)"LeftMouseNM"},
+      {K_LEFTDRAG,	(char_u *)"LeftDrag"},
+--- 2453,2460 ----
+*** ../vim-8.1.1033/src/os_unix.c	2019-03-21 21:45:30.879282125 +0100
+--- src/os_unix.c	2019-03-22 11:51:47.062396710 +0100
+***************
+*** 3596,3602 ****
+      }
+  # endif
+  
+- # ifdef FEAT_MOUSE_SGR
+      if (ttym_flags == TTYM_SGR)
+      {
+  	/* SGR mode supports columns above 223 */
+--- 3596,3601 ----
+***************
+*** 3606,3612 ****
+  		   : IF_EB("\033[?1006l", ESC_STR "[?1006l")));
+  	mouse_ison = on;
+      }
+- # endif
+  
+  # ifdef FEAT_BEVAL_TERM
+      if (bevalterm_ison != (p_bevalterm && on))
+--- 3605,3610 ----
+***************
+*** 3864,3874 ****
+      else
+  	del_mouse_termcode(KS_URXVT_MOUSE);
+  # endif
+- # ifdef FEAT_MOUSE_SGR
+      if (use_xterm_mouse() == 4
+! #  ifdef FEAT_GUI
+  	    && !gui.in_use
+! #  endif
+  	    )
+      {
+  	set_mouse_termcode(KS_SGR_MOUSE, (char_u *)(term_is_8bit(T_NAME)
+--- 3862,3871 ----
+      else
+  	del_mouse_termcode(KS_URXVT_MOUSE);
+  # endif
+      if (use_xterm_mouse() == 4
+! # ifdef FEAT_GUI
+  	    && !gui.in_use
+! # endif
+  	    )
+      {
+  	set_mouse_termcode(KS_SGR_MOUSE, (char_u *)(term_is_8bit(T_NAME)
+***************
+*** 3890,3896 ****
+  	del_mouse_termcode(KS_SGR_MOUSE);
+  	del_mouse_termcode(KS_SGR_MOUSE_RELEASE);
+      }
+- # endif
+  }
+  #endif
+  
+--- 3887,3892 ----
+*** ../vim-8.1.1033/src/term.c	2019-02-17 17:44:36.219875473 +0100
+--- src/term.c	2019-03-22 11:54:14.909506042 +0100
+***************
+*** 2126,2138 ****
+  	has_mouse_termcode |= HMT_URXVT;
+      else
+  #   endif
+- #   ifdef FEAT_MOUSE_SGR
+      if (n == KS_SGR_MOUSE)
+  	has_mouse_termcode |= HMT_SGR;
+      else if (n == KS_SGR_MOUSE_RELEASE)
+  	has_mouse_termcode |= HMT_SGR_REL;
+      else
+- #   endif
+  	has_mouse_termcode |= HMT_NORMAL;
+  #  endif
+  }
+--- 2126,2136 ----
+***************
+*** 2175,2187 ****
+  	has_mouse_termcode &= ~HMT_URXVT;
+      else
+  #   endif
+- #   ifdef FEAT_MOUSE_SGR
+      if (n == KS_SGR_MOUSE)
+  	has_mouse_termcode &= ~HMT_SGR;
+      else if (n == KS_SGR_MOUSE_RELEASE)
+  	has_mouse_termcode &= ~HMT_SGR_REL;
+      else
+- #   endif
+  	has_mouse_termcode &= ~HMT_NORMAL;
+  #  endif
+  }
+--- 2173,2183 ----
+***************
+*** 4690,4696 ****
+  		    if (tp[1 + (tp[0] != CSI)] == '>' && semicols == 2)
+  		    {
+  			int need_flush = FALSE;
+- # ifdef FEAT_MOUSE_SGR
+  			int is_iterm2 = FALSE;
+  			int is_mintty = FALSE;
+  
+--- 4686,4691 ----
+***************
+*** 4698,4704 ****
+  			// (77 is ASCII 'M' for mintty.)
+  			if (STRNCMP(tp + extra - 3, "77;", 3) == 0)
+  			    is_mintty = TRUE;
+- # endif
+  
+  			/* if xterm version >= 141 try to get termcap codes */
+  			if (version >= 141)
+--- 4693,4698 ----
+***************
+*** 4718,4729 ****
+  			     * 256, libvterm supports even more. */
+  			    if (mch_getenv((char_u *)"COLORS") == NULL)
+  				may_adjust_color_count(256);
+- # ifdef FEAT_MOUSE_SGR
+  			    /* Libvterm can handle SGR mouse reporting. */
+  			    if (!option_was_set((char_u *)"ttym"))
+  				set_option_value((char_u *)"ttym", 0L,
+  							   (char_u *)"sgr", 0);
+- # endif
+  			}
+  
+  			if (version == 95)
+--- 4712,4721 ----
+***************
+*** 4734,4747 ****
+  				is_not_xterm = TRUE;
+  				is_mac_terminal = TRUE;
+  			    }
+- # ifdef FEAT_MOUSE_SGR
+  			    // iTerm2 sends 0;95;0
+  			    if (STRNCMP(tp + extra - 2, "0;95;0c", 7) == 0)
+  				is_iterm2 = TRUE;
+- 			    else
+- # endif
+  			    // old iTerm2 sends 0;95;
+! 			    if (STRNCMP(tp + extra - 2, "0;95;c", 6) == 0)
+  				is_not_xterm = TRUE;
+  			}
+  
+--- 4726,4736 ----
+  				is_not_xterm = TRUE;
+  				is_mac_terminal = TRUE;
+  			    }
+  			    // iTerm2 sends 0;95;0
+  			    if (STRNCMP(tp + extra - 2, "0;95;0c", 7) == 0)
+  				is_iterm2 = TRUE;
+  			    // old iTerm2 sends 0;95;
+! 			    else if (STRNCMP(tp + extra - 2, "0;95;c", 6) == 0)
+  				is_not_xterm = TRUE;
+  			}
+  
+***************
+*** 4749,4765 ****
+  			 * by the user already. */
+  			if (!option_was_set((char_u *)"ttym"))
+  			{
+- # ifdef FEAT_MOUSE_SGR
+  			    /* Xterm version 277 supports SGR.  Also support
+  			     * Terminal.app, iTerm2 and mintty. */
+  			    if (version >= 277 || is_iterm2 || is_mac_terminal
+  				    || is_mintty)
+  				set_option_value((char_u *)"ttym", 0L,
+  							  (char_u *)"sgr", 0);
+- 			    else
+- # endif
+  			    /* if xterm version >= 95 use mouse dragging */
+! 			    if (version >= 95)
+  				set_option_value((char_u *)"ttym", 0L,
+  						       (char_u *)"xterm2", 0);
+  			}
+--- 4738,4751 ----
+  			 * by the user already. */
+  			if (!option_was_set((char_u *)"ttym"))
+  			{
+  			    /* Xterm version 277 supports SGR.  Also support
+  			     * Terminal.app, iTerm2 and mintty. */
+  			    if (version >= 277 || is_iterm2 || is_mac_terminal
+  				    || is_mintty)
+  				set_option_value((char_u *)"ttym", 0L,
+  							  (char_u *)"sgr", 0);
+  			    /* if xterm version >= 95 use mouse dragging */
+! 			    else if (version >= 95)
+  				set_option_value((char_u *)"ttym", 0L,
+  						       (char_u *)"xterm2", 0);
+  			}
+***************
+*** 5127,5137 ****
+  # ifdef FEAT_MOUSE_URXVT
+  		|| key_name[0] == KS_URXVT_MOUSE
+  # endif
+- # ifdef FEAT_MOUSE_SGR
+  		|| key_name[0] == KS_SGR_MOUSE
+! 		|| key_name[0] == KS_SGR_MOUSE_RELEASE
+! # endif
+! 		)
+  	{
+  	    is_click = is_drag = FALSE;
+  
+--- 5113,5120 ----
+  # ifdef FEAT_MOUSE_URXVT
+  		|| key_name[0] == KS_URXVT_MOUSE
+  # endif
+  		|| key_name[0] == KS_SGR_MOUSE
+! 		|| key_name[0] == KS_SGR_MOUSE_RELEASE)
+  	{
+  	    is_click = is_drag = FALSE;
+  
+***************
+*** 5163,5169 ****
+  		 */
+  		for (;;)
+  		{
+! #ifdef FEAT_GUI
+  		    if (gui.in_use)
+  		    {
+  			/* GUI uses more bits for columns > 223 */
+--- 5146,5152 ----
+  		 */
+  		for (;;)
+  		{
+! #  ifdef FEAT_GUI
+  		    if (gui.in_use)
+  		    {
+  			/* GUI uses more bits for columns > 223 */
+***************
+*** 5177,5183 ****
+  							 + bytes[4] - ' ' - 1;
+  		    }
+  		    else
+! #endif
+  		    {
+  			num_bytes = get_bytes_from_buf(tp + slen, bytes, 3);
+  			if (num_bytes == -1)	/* not enough coordinates */
+--- 5160,5166 ----
+  							 + bytes[4] - ' ' - 1;
+  		    }
+  		    else
+! #  endif
+  		    {
+  			num_bytes = get_bytes_from_buf(tp + slen, bytes, 3);
+  			if (num_bytes == -1)	/* not enough coordinates */
+***************
+*** 5191,5211 ****
+  		    /* If the following bytes is also a mouse code and it has
+  		     * the same code, dump this one and get the next.  This
+  		     * makes dragging a whole lot faster. */
+! #ifdef FEAT_GUI
+  		    if (gui.in_use)
+  			j = 3;
+  		    else
+! #endif
+  			j = termcodes[idx].len;
+  		    if (STRNCMP(tp, tp + slen, (size_t)j) == 0
+  			    && tp[slen + j] == mouse_code
+  			    && tp[slen + j + 1] != NUL
+  			    && tp[slen + j + 2] != NUL
+! #ifdef FEAT_GUI
+  			    && (!gui.in_use
+  				|| (tp[slen + j + 3] != NUL
+  					&& tp[slen + j + 4] != NUL))
+! #endif
+  			    )
+  			slen += j;
+  		    else
+--- 5174,5194 ----
+  		    /* If the following bytes is also a mouse code and it has
+  		     * the same code, dump this one and get the next.  This
+  		     * makes dragging a whole lot faster. */
+! #  ifdef FEAT_GUI
+  		    if (gui.in_use)
+  			j = 3;
+  		    else
+! #  endif
+  			j = termcodes[idx].len;
+  		    if (STRNCMP(tp, tp + slen, (size_t)j) == 0
+  			    && tp[slen + j] == mouse_code
+  			    && tp[slen + j + 1] != NUL
+  			    && tp[slen + j + 2] != NUL
+! #  ifdef FEAT_GUI
+  			    && (!gui.in_use
+  				|| (tp[slen + j + 3] != NUL
+  					&& tp[slen + j + 4] != NUL))
+! #  endif
+  			    )
+  			slen += j;
+  		    else
+***************
+*** 5213,5219 ****
+  		}
+  	    }
+  
+- # if defined(FEAT_MOUSE_URXVT) || defined(FEAT_MOUSE_SGR)
+  	    if (key_name[0] == KS_URXVT_MOUSE
+  		|| key_name[0] == KS_SGR_MOUSE
+  		|| key_name[0] == KS_SGR_MOUSE_RELEASE)
+--- 5196,5201 ----
+***************
+*** 5267,5283 ****
+  		 * modifier keys (alt/shift/ctrl/meta) state. */
+  		modifiers = 0;
+  	    }
+- # endif
+  
+  	if (key_name[0] == (int)KS_MOUSE
+! #ifdef FEAT_MOUSE_URXVT
+  	    || key_name[0] == (int)KS_URXVT_MOUSE
+! #endif
+! #ifdef FEAT_MOUSE_SGR
+  	    || key_name[0] == KS_SGR_MOUSE
+! 	    || key_name[0] == KS_SGR_MOUSE_RELEASE
+! #endif
+! 	    )
+  	{
+  #  if !defined(MSWIN)
+  		/*
+--- 5249,5261 ----
+  		 * modifier keys (alt/shift/ctrl/meta) state. */
+  		modifiers = 0;
+  	    }
+  
+  	if (key_name[0] == (int)KS_MOUSE
+! #  ifdef FEAT_MOUSE_URXVT
+  	    || key_name[0] == (int)KS_URXVT_MOUSE
+! #  endif
+  	    || key_name[0] == KS_SGR_MOUSE
+! 	    || key_name[0] == KS_SGR_MOUSE_RELEASE)
+  	{
+  #  if !defined(MSWIN)
+  		/*
+*** ../vim-8.1.1033/src/version.c	2019-03-22 11:33:04.445160178 +0100
+--- src/version.c	2019-03-22 11:54:42.521339700 +0100
+***************
+*** 426,432 ****
+  #endif
+  
+  #if defined(UNIX) || defined(VMS)
+! # ifdef FEAT_MOUSE_SGR
+  	"+mouse_sgr",
+  # else
+  	"-mouse_sgr",
+--- 426,432 ----
+  #endif
+  
+  #if defined(UNIX) || defined(VMS)
+! # ifdef FEAT_MOUSE_XTERM
+  	"+mouse_sgr",
+  # else
+  	"-mouse_sgr",
+*** ../vim-8.1.1033/src/feature.h	2019-02-17 18:59:07.114686682 +0100
+--- src/feature.h	2019-03-22 11:55:41.280985721 +0100
+***************
+*** 1026,1034 ****
+  # ifdef FEAT_BIG
+  #  define FEAT_MOUSE_URXVT
+  # endif
+- # ifdef FEAT_BIG
+- #  define FEAT_MOUSE_SGR
+- # endif
+  # if defined(FEAT_NORMAL) && defined(MSWIN)
+  #  define DOS_MOUSE
+  # endif
+--- 1026,1031 ----
+***************
+*** 1057,1067 ****
+  # define FEAT_MOUSE_XTERM
+  #endif
+  
+- /* sgr is a small variation of mouse_xterm, and shares its code */
+- #if defined(FEAT_MOUSE_SGR) && !defined(FEAT_MOUSE_XTERM)
+- # define FEAT_MOUSE_XTERM
+- #endif
+- 
+  /* Define FEAT_MOUSE when any of the above is defined or FEAT_GUI. */
+  #if !defined(FEAT_MOUSE_TTY) \
+  	&& (defined(FEAT_MOUSE_XTERM) \
+--- 1054,1059 ----
+***************
+*** 1072,1079 ****
+  	    || defined(FEAT_MOUSE_JSB) \
+  	    || defined(FEAT_MOUSE_PTERM) \
+  	    || defined(FEAT_SYSMOUSE) \
+! 	    || defined(FEAT_MOUSE_URXVT) \
+! 	    || defined(FEAT_MOUSE_SGR))
+  # define FEAT_MOUSE_TTY		/* include non-GUI mouse support */
+  #endif
+  #if !defined(FEAT_MOUSE) && (defined(FEAT_MOUSE_TTY) || defined(FEAT_GUI))
+--- 1064,1070 ----
+  	    || defined(FEAT_MOUSE_JSB) \
+  	    || defined(FEAT_MOUSE_PTERM) \
+  	    || defined(FEAT_SYSMOUSE) \
+! 	    || defined(FEAT_MOUSE_URXVT))
+  # define FEAT_MOUSE_TTY		/* include non-GUI mouse support */
+  #endif
+  #if !defined(FEAT_MOUSE) && (defined(FEAT_MOUSE_TTY) || defined(FEAT_GUI))
+*** ../vim-8.1.1033/src/version.c	2019-03-22 11:33:04.445160178 +0100
+--- src/version.c	2019-03-22 11:54:42.521339700 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1034,
+  /**/
+
+-- 
+From "know your smileys":
+ [:-)	Frankenstein's monster
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

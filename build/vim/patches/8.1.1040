@@ -1,0 +1,240 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1040
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1040
+Problem:    FEAT_TAG_ANYWHITE is not enabled in any build.
+Solution:   Remove the feature.
+Files:	    src/feature.h, src/tag.c, src/evalfunc.c, src/version.c,
+            src/Make_vms.mms
+
+
+*** ../vim-8.1.1039/src/feature.h	2019-03-22 12:03:26.587533860 +0100
+--- src/feature.h	2019-03-22 16:38:39.508875325 +0100
+***************
+*** 313,324 ****
+  #endif
+  
+  /*
+-  * +tag_any_white	Allow any white space to separate the fields in a tags
+-  *			file.  When not defined, only a TAB is allowed.
+-  */
+- /* #define FEAT_TAG_ANYWHITE */
+- 
+- /*
+   * +cscope		Unix only: Cscope support.
+   */
+  #if defined(UNIX) && defined(FEAT_BIG) && !defined(FEAT_CSCOPE) && !defined(MACOS_X)
+--- 313,318 ----
+*** ../vim-8.1.1039/src/tag.c	2019-02-15 21:06:05.342289715 +0100
+--- src/tag.c	2019-03-22 16:41:08.227934510 +0100
+***************
+*** 1931,1943 ****
+  	    {
+  		vim_memset(&tagp, 0, sizeof(tagp));
+  		tagp.tagname = lbuf;
+- #ifdef FEAT_TAG_ANYWHITE
+- 		tagp.tagname_end = skiptowhite(lbuf);
+- 		if (*tagp.tagname_end == NUL)
+- #else
+  		tagp.tagname_end = vim_strchr(lbuf, TAB);
+  		if (tagp.tagname_end == NULL)
+- #endif
+  		{
+  		    if (vim_strchr(lbuf, NL) == NULL)
+  		    {
+--- 1931,1938 ----
+***************
+*** 1976,1995 ****
+  		    if (*p == ':')
+  		    {
+  			if (tagp.fname == NULL)
+- # ifdef FEAT_TAG_ANYWHITE
+- 			    tagp.fname = skipwhite(tagp.tagname_end);
+- # else
+  			    tagp.fname = tagp.tagname_end + 1;
+! # endif
+! 			if (	   fnamencmp(lbuf, tagp.fname, p - lbuf) == 0
+! # ifdef FEAT_TAG_ANYWHITE
+! 				&& VIM_ISWHITE(tagp.fname[p - lbuf])
+! # else
+! 				&& tagp.fname[p - lbuf] == TAB
+! # endif
+! 				    )
+  			{
+! 			    /* found one */
+  			    tagp.tagname = p + 1;
+  			    break;
+  			}
+--- 1971,1981 ----
+  		    if (*p == ':')
+  		    {
+  			if (tagp.fname == NULL)
+  			    tagp.fname = tagp.tagname_end + 1;
+! 			if (fnamencmp(lbuf, tagp.fname, p - lbuf) == 0
+! 						&& tagp.fname[p - lbuf] == TAB)
+  			{
+! 			    // found one
+  			    tagp.tagname = p + 1;
+  			    break;
+  			}
+***************
+*** 2112,2131 ****
+  #ifdef FEAT_TAG_OLDSTATIC
+  		if (tagp.fname == NULL)
+  #endif
+- #ifdef FEAT_TAG_ANYWHITE
+- 		    tagp.fname = skipwhite(tagp.tagname_end);
+- #else
+  		    tagp.fname = tagp.tagname_end + 1;
+- #endif
+- #ifdef FEAT_TAG_ANYWHITE
+- 		tagp.fname_end = skiptowhite(tagp.fname);
+- 		tagp.command = skipwhite(tagp.fname_end);
+- 		if (*tagp.command == NUL)
+- #else
+  		tagp.fname_end = vim_strchr(tagp.fname, TAB);
+  		tagp.command = tagp.fname_end + 1;
+  		if (tagp.fname_end == NULL)
+- #endif
+  		    i = FAIL;
+  		else
+  		    i = OK;
+--- 2098,2107 ----
+***************
+*** 2843,2883 ****
+      else	/* not an Emacs tag */
+      {
+  #endif
+! 	/* Isolate the tagname, from lbuf up to the first white */
+  	tagp->tagname = lbuf;
+- #ifdef FEAT_TAG_ANYWHITE
+- 	p = skiptowhite(lbuf);
+- #else
+  	p = vim_strchr(lbuf, TAB);
+  	if (p == NULL)
+  	    return FAIL;
+- #endif
+  	tagp->tagname_end = p;
+  
+! 	/* Isolate file name, from first to second white space */
+! #ifdef FEAT_TAG_ANYWHITE
+! 	p = skipwhite(p);
+! #else
+  	if (*p != NUL)
+  	    ++p;
+- #endif
+  	tagp->fname = p;
+- #ifdef FEAT_TAG_ANYWHITE
+- 	p = skiptowhite(p);
+- #else
+  	p = vim_strchr(p, TAB);
+  	if (p == NULL)
+  	    return FAIL;
+- #endif
+  	tagp->fname_end = p;
+  
+! 	/* find start of search command, after second white space */
+! #ifdef FEAT_TAG_ANYWHITE
+! 	p = skipwhite(p);
+! #else
+  	if (*p != NUL)
+  	    ++p;
+- #endif
+  	if (*p == NUL)
+  	    return FAIL;
+  	tagp->command = p;
+--- 2819,2843 ----
+      else	/* not an Emacs tag */
+      {
+  #endif
+! 	// Isolate the tagname, from lbuf up to the first white
+  	tagp->tagname = lbuf;
+  	p = vim_strchr(lbuf, TAB);
+  	if (p == NULL)
+  	    return FAIL;
+  	tagp->tagname_end = p;
+  
+! 	// Isolate file name, from first to second white space
+  	if (*p != NUL)
+  	    ++p;
+  	tagp->fname = p;
+  	p = vim_strchr(p, TAB);
+  	if (p == NULL)
+  	    return FAIL;
+  	tagp->fname_end = p;
+  
+! 	// find start of search command, after second white space
+  	if (*p != NUL)
+  	    ++p;
+  	if (*p == NUL)
+  	    return FAIL;
+  	tagp->command = p;
+*** ../vim-8.1.1039/src/evalfunc.c	2019-03-22 13:20:40.091897268 +0100
+--- src/evalfunc.c	2019-03-22 16:59:04.297176245 +0100
+***************
+*** 6533,6541 ****
+  #ifdef FEAT_TAG_OLDSTATIC
+  	"tag_old_static",
+  #endif
+- #ifdef FEAT_TAG_ANYWHITE
+- 	"tag_any_white",
+- #endif
+  #ifdef FEAT_TCL
+  # ifndef DYNAMIC_TCL
+  	"tcl",
+--- 6533,6538 ----
+*** ../vim-8.1.1039/src/version.c	2019-03-22 16:57:42.061691287 +0100
+--- src/version.c	2019-03-22 17:01:04.704422303 +0100
+***************
+*** 610,620 ****
+  #else
+  	"-tag_old_static",
+  #endif
+- #ifdef FEAT_TAG_ANYWHITE
+- 	"+tag_any_white",
+- #else
+  	"-tag_any_white",
+- #endif
+  #ifdef FEAT_TCL
+  # ifdef DYNAMIC_TCL
+  	"+tcl/dyn",
+--- 610,616 ----
+*** ../vim-8.1.1039/src/Make_vms.mms	2019-03-22 16:57:42.061691287 +0100
+--- src/Make_vms.mms	2019-03-22 16:59:53.828866076 +0100
+***************
+*** 256,266 ****
+  .ENDIF
+  .ENDIF
+  
+- .IFDEF VIM_TAG_ANYWHITE
+- # TAG_ANYWHITE related setup.
+- TAG_DEF = ,"FEAT_TAG_ANYWHITE"
+- .ENDIF
+- 
+  .IFDEF VIM_MZSCHEME
+  # MZSCHEME related setup
+  MZSCH_DEF = ,"FEAT_MZSCHEME"
+--- 256,261 ----
+*** ../vim-8.1.1039/src/version.c	2019-03-22 16:57:42.061691287 +0100
+--- src/version.c	2019-03-22 17:01:04.704422303 +0100
+***************
+*** 781,782 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1040,
+  /**/
+
+-- 
+Common sense is what tells you that the world is flat.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

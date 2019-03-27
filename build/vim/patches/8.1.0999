@@ -1,0 +1,176 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0999
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0999
+Problem:    Use register one too often and not properly tested.
+Solution:   Do not always use register one when specifying a register.
+            (closes #4085)  Add more tests.
+Files:	    src/ops.c, src/testdir/test_registers.vim
+
+
+*** ../vim-8.1.0998/src/ops.c	2019-03-02 10:13:36.796974835 +0100
+--- src/ops.c	2019-03-08 09:40:28.698980987 +0100
+***************
+*** 1747,1753 ****
+      struct block_def	bd;
+      linenr_T		old_lcount = curbuf->b_ml.ml_line_count;
+      int			did_yank = FALSE;
+-     int			orig_regname = oap->regname;
+  
+      if (curbuf->b_ml.ml_flags & ML_EMPTY)	    /* nothing to do */
+  	return OK;
+--- 1747,1752 ----
+***************
+*** 1833,1844 ****
+  
+  	/*
+  	 * Put deleted text into register 1 and shift number registers if the
+! 	 * delete contains a line break, or when a regname has been specified.
+  	 * Use the register name from before adjust_clip_reg() may have
+  	 * changed it.
+  	 */
+! 	if (orig_regname != 0 || oap->motion_type == MLINE
+! 				   || oap->line_count > 1 || oap->use_reg_one)
+  	{
+  	    shift_delete_registers();
+  	    if (op_yank(oap, TRUE, FALSE) == OK)
+--- 1832,1844 ----
+  
+  	/*
+  	 * Put deleted text into register 1 and shift number registers if the
+! 	 * delete contains a line break, or when using a specific operator (Vi
+! 	 * compatible)
+  	 * Use the register name from before adjust_clip_reg() may have
+  	 * changed it.
+  	 */
+! 	if (oap->motion_type == MLINE || oap->line_count > 1
+! 							   || oap->use_reg_one)
+  	{
+  	    shift_delete_registers();
+  	    if (op_yank(oap, TRUE, FALSE) == OK)
+*** ../vim-8.1.0998/src/testdir/test_registers.vim	2018-05-06 17:30:57.000000000 +0200
+--- src/testdir/test_registers.vim	2019-03-08 09:43:27.357600672 +0100
+***************
+*** 42,48 ****
+      call assert_match('^\n--- Registers ---\n'
+            \ .         '""   a\n'
+            \ .         '"0   ba\n'
+-           \ .         '"1   b\n'
+            \ .         '"a   b\n'
+            \ .         '.*'
+            \ .         '"-   a\n'
+--- 42,47 ----
+***************
+*** 63,65 ****
+--- 62,148 ----
+  
+      bwipe!
+  endfunc
++ 
++ func Test_register_one()
++   " delete a line goes into register one
++   new
++   call setline(1, "one")
++   normal dd
++   call assert_equal("one\n", @1)
++ 
++   " delete a word does not change register one, does change "-
++   call setline(1, "two")
++   normal de
++   call assert_equal("one\n", @1)
++   call assert_equal("two", @-)
++ 
++   " delete a word with a register does not change register one
++   call setline(1, "three")
++   normal "ade
++   call assert_equal("three", @a)
++   call assert_equal("one\n", @1)
++ 
++   " delete a word with register DOES change register one with one of a list of
++   " operators
++   " %
++   call setline(1, ["(12)3"])
++   normal "ad%
++   call assert_equal("(12)", @a)
++   call assert_equal("(12)", @1)
++ 
++   " (
++   call setline(1, ["first second"])
++   normal $"ad(
++   call assert_equal("first secon", @a)
++   call assert_equal("first secon", @1)
++ 
++   " )
++   call setline(1, ["First Second."])
++   normal gg0"ad)
++   call assert_equal("First Second.", @a)
++   call assert_equal("First Second.", @1)
++ 
++   " `
++   call setline(1, ["start here."])
++   normal gg0fhmx0"ad`x
++   call assert_equal("start ", @a)
++   call assert_equal("start ", @1)
++ 
++   " /
++   call setline(1, ["searchX"])
++   exe "normal gg0\"ad/X\<CR>"
++   call assert_equal("search", @a)
++   call assert_equal("search", @1)
++ 
++   " ?
++   call setline(1, ["Ysearch"])
++   exe "normal gg$\"ad?Y\<CR>"
++   call assert_equal("Ysearc", @a)
++   call assert_equal("Ysearc", @1)
++ 
++   " n
++   call setline(1, ["Ynext"])
++   normal gg$"adn
++   call assert_equal("Ynex", @a)
++   call assert_equal("Ynex", @1)
++ 
++   " N
++   call setline(1, ["prevY"])
++   normal gg0"adN
++   call assert_equal("prev", @a)
++   call assert_equal("prev", @1)
++ 
++   " }
++   call setline(1, ["one", ""])
++   normal gg0"ad}
++   call assert_equal("one\n", @a)
++   call assert_equal("one\n", @1)
++ 
++   " {
++   call setline(1, ["", "two"])
++   normal 2G$"ad{
++   call assert_equal("\ntw", @a)
++   call assert_equal("\ntw", @1)
++ 
++   bwipe!
++ endfunc
+*** ../vim-8.1.0998/src/version.c	2019-03-07 11:25:24.455856096 +0100
+--- src/version.c	2019-03-08 08:00:52.934102877 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     999,
+  /**/
+
+-- 
+Latest survey shows that 3 out of 4 people make up 75% of the
+world's population.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,387 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1032
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1032
+Problem:    Warnings from clang static analyzer. (Yegappan Lakshmanan)
+Solution:   Fix relevant warnings.
+Files:	    src/arabic.c, src/edit.c, src/eval.c, src/fileio.c, src/normal.c,
+            src/option.c, src/os_unix.c, src/regexp.c, src/screen.c,
+            src/channel.c, src/charset.c, src/message.c
+
+
+*** ../vim-8.1.1031/src/arabic.c	2018-09-30 21:43:17.175693433 +0200
+--- src/arabic.c	2019-03-20 22:22:35.211792256 +0100
+***************
+*** 578,586 ****
+      /* half-shape current and previous character */
+      shape_c = half_shape(prev_c);
+  
+-     /* Save away current character */
+-     curr_c = c;
+- 
+      curr_laa = A_firstc_laa(c, *c1p);
+      prev_laa = A_firstc_laa(prev_c, prev_c1);
+  
+--- 578,583 ----
+*** ../vim-8.1.1031/src/edit.c	2019-02-17 17:44:36.199875566 +0100
+--- src/edit.c	2019-03-20 22:27:34.349141549 +0100
+***************
+*** 4109,4119 ****
+      static buf_T *
+  ins_compl_next_buf(buf_T *buf, int flag)
+  {
+!     static win_T *wp;
+  
+!     if (flag == 'w')		/* just windows */
+      {
+! 	if (buf == curbuf)	/* first call for this flag/expansion */
+  	    wp = curwin;
+  	while ((wp = (wp->w_next != NULL ? wp->w_next : firstwin)) != curwin
+  		&& wp->w_buffer->b_scanned)
+--- 4109,4119 ----
+      static buf_T *
+  ins_compl_next_buf(buf_T *buf, int flag)
+  {
+!     static win_T *wp = NULL;
+  
+!     if (flag == 'w')		// just windows
+      {
+! 	if (buf == curbuf || wp == NULL)  // first call for this flag/expansion
+  	    wp = curwin;
+  	while ((wp = (wp->w_next != NULL ? wp->w_next : firstwin)) != curwin
+  		&& wp->w_buffer->b_scanned)
+*** ../vim-8.1.1031/src/eval.c	2019-03-19 23:04:13.762889231 +0100
+--- src/eval.c	2019-03-21 21:26:31.371960388 +0100
+***************
+*** 8544,8550 ****
+      char_u	*p;
+      garray_T	ga;
+      int		len;
+!     int		save_did_emsg = did_emsg;
+  
+      ga_init2(&ga, 1, 80);
+  
+--- 8544,8550 ----
+      char_u	*p;
+      garray_T	ga;
+      int		len;
+!     int		save_did_emsg;
+  
+      ga_init2(&ga, 1, 80);
+  
+***************
+*** 8552,8558 ****
+  	++emsg_skip;
+      while (*arg != NUL && *arg != '|' && *arg != '\n')
+      {
+- 	p = arg;
+  	ret = eval1_emsg(&arg, &rettv, !eap->skip);
+  	if (ret == FAIL)
+  	    break;
+--- 8552,8557 ----
+*** ../vim-8.1.1031/src/fileio.c	2019-02-21 12:16:06.196542536 +0100
+--- src/fileio.c	2019-03-21 21:27:36.035466453 +0100
+***************
+*** 2322,2331 ****
+  	vim_free(fenc);
+  #ifdef USE_ICONV
+      if (iconv_fd != (iconv_t)-1)
+-     {
+  	iconv_close(iconv_fd);
+- 	iconv_fd = (iconv_t)-1;
+-     }
+  #endif
+  
+      if (!read_buffer && !read_stdin)
+--- 2322,2328 ----
+*** ../vim-8.1.1031/src/normal.c	2019-02-17 17:44:36.215875493 +0100
+--- src/normal.c	2019-03-21 21:28:19.967132356 +0100
+***************
+*** 214,220 ****
+      {NL,	nv_down,	0,			FALSE},
+      {Ctrl_K,	nv_error,	0,			0},
+      {Ctrl_L,	nv_clear,	0,			0},
+!     {Ctrl_M,	nv_down,	0,			TRUE},
+      {Ctrl_N,	nv_down,	NV_STS,			FALSE},
+      {Ctrl_O,	nv_ctrlo,	0,			0},
+      {Ctrl_P,	nv_up,		NV_STS,			FALSE},
+--- 214,220 ----
+      {NL,	nv_down,	0,			FALSE},
+      {Ctrl_K,	nv_error,	0,			0},
+      {Ctrl_L,	nv_clear,	0,			0},
+!     {CAR,	nv_down,	0,			TRUE},
+      {Ctrl_N,	nv_down,	NV_STS,			FALSE},
+      {Ctrl_O,	nv_ctrlo,	0,			0},
+      {Ctrl_P,	nv_up,		NV_STS,			FALSE},
+***************
+*** 4263,4269 ****
+      CLEAR_POS(&found_pos);
+      for (;;)
+      {
+- 	valid = FALSE;
+  	t = searchit(curwin, curbuf, &curwin->w_cursor, NULL, FORWARD,
+  		       pat, 1L, searchflags, RE_LAST, (linenr_T)0, NULL, NULL);
+  	if (curwin->w_cursor.lnum >= old_pos.lnum)
+--- 4263,4268 ----
+*** ../vim-8.1.1031/src/option.c	2019-02-17 17:44:36.215875493 +0100
+--- src/option.c	2019-03-21 21:29:31.654589459 +0100
+***************
+*** 4405,4411 ****
+  	    key = 0;
+  	    if (*arg == '<')
+  	    {
+- 		nextchar = 0;
+  		opt_idx = -1;
+  		/* look out for <t_>;> */
+  		if (arg[1] == 't' && arg[2] == '_' && arg[3] && arg[4])
+--- 4405,4410 ----
+***************
+*** 7945,7951 ****
+  			&& p[len] == ':'
+  			&& p[len + 1] != NUL)
+  		{
+! 		    c1 = c2 = c3 = 0;
+  		    s = p + len + 1;
+  		    c1 = mb_ptr2char_adv(&s);
+  		    if (mb_char2cells(c1) > 1)
+--- 7944,7950 ----
+  			&& p[len] == ':'
+  			&& p[len + 1] != NUL)
+  		{
+! 		    c2 = c3 = 0;
+  		    s = p + len + 1;
+  		    c1 = mb_ptr2char_adv(&s);
+  		    if (mb_char2cells(c1) > 1)
+***************
+*** 9379,9384 ****
+--- 9378,9384 ----
+      if (!starting && errmsg == NULL && *get_vim_var_str(VV_OPTION_TYPE) == NUL)
+      {
+  	char_u buf_old[11], buf_new[11], buf_type[7];
++ 
+  	vim_snprintf((char *)buf_old, 10, "%ld", old_value);
+  	vim_snprintf((char *)buf_new, 10, "%ld", value);
+  	vim_snprintf((char *)buf_type, 7, "%s", (opt_flags & OPT_LOCAL) ? "local" : "global");
+*** ../vim-8.1.1031/src/os_unix.c	2019-03-02 10:13:36.796974835 +0100
+--- src/os_unix.c	2019-03-21 21:30:50.757993290 +0100
+***************
+*** 6147,6155 ****
+  	}
+  # endif
+  #ifdef FEAT_JOB_CHANNEL
+! 	/* also call when ret == 0, we may be polling a keep-open channel */
+  	if (ret >= 0)
+! 	    ret = channel_poll_check(ret, &fds);
+  #endif
+  
+  #else /* HAVE_SELECT */
+--- 6147,6155 ----
+  	}
+  # endif
+  #ifdef FEAT_JOB_CHANNEL
+! 	// also call when ret == 0, we may be polling a keep-open channel
+  	if (ret >= 0)
+! 	    channel_poll_check(ret, &fds);
+  #endif
+  
+  #else /* HAVE_SELECT */
+*** ../vim-8.1.1031/src/regexp.c	2019-03-20 21:18:31.233018949 +0100
+--- src/regexp.c	2019-03-21 21:31:39.977623686 +0100
+***************
+*** 2785,2791 ****
+      *place++ = op;
+      *place++ = NUL;
+      *place++ = NUL;
+!     place = re_put_long(place, (long_u)val);
+  }
+  
+  /*
+--- 2785,2791 ----
+      *place++ = op;
+      *place++ = NUL;
+      *place++ = NUL;
+!     re_put_long(place, (long_u)val);
+  }
+  
+  /*
+*** ../vim-8.1.1031/src/screen.c	2019-03-09 11:45:45.650134366 +0100
+--- src/screen.c	2019-03-21 21:34:18.596438405 +0100
+***************
+*** 4900,4906 ****
+  		    else
+  		    {
+  			char_u *p;
+! 			int	len = n_extra;
+  			int	i;
+  			int	saved_nextra = n_extra;
+  
+--- 4900,4906 ----
+  		    else
+  		    {
+  			char_u *p;
+! 			int	len;
+  			int	i;
+  			int	saved_nextra = n_extra;
+  
+***************
+*** 5505,5512 ****
+  	    if (vcol < v + col - win_col_off(wp))
+  		vcol = v + col - win_col_off(wp);
+  #ifdef FEAT_CONCEAL
+! 	    /* Get rid of the boguscols now, we want to draw until the right
+! 	     * edge for 'cursorcolumn'. */
+  	    col -= boguscols;
+  	    boguscols = 0;
+  #endif
+--- 5505,5512 ----
+  	    if (vcol < v + col - win_col_off(wp))
+  		vcol = v + col - win_col_off(wp);
+  #ifdef FEAT_CONCEAL
+! 	    // Get rid of the boguscols now, we want to draw until the right
+! 	    // edge for 'cursorcolumn'.
+  	    col -= boguscols;
+  	    boguscols = 0;
+  #endif
+***************
+*** 10466,10472 ****
+  
+  	attr = attr_nosel;
+  	tabcount = 0;
+- 	scol = 0;
+  	for (tp = first_tabpage; tp != NULL && col < Columns - 4;
+  							     tp = tp->tp_next)
+  	{
+--- 10466,10471 ----
+***************
+*** 10799,10805 ****
+      int		o;
+      int		this_ru_col;
+      int		off = 0;
+!     int		width = Columns;
+  
+      /* If 'ruler' off or redrawing disabled, don't do anything */
+      if (!p_ru)
+--- 10798,10804 ----
+      int		o;
+      int		this_ru_col;
+      int		off = 0;
+!     int		width;
+  
+      /* If 'ruler' off or redrawing disabled, don't do anything */
+      if (!p_ru)
+*** ../vim-8.1.1031/src/channel.c	2019-03-04 12:09:43.901396026 +0100
+--- src/channel.c	2019-03-21 21:35:28.531918170 +0100
+***************
+*** 1720,1726 ****
+  channel_get_all(channel_T *channel, ch_part_T part, int *outlen)
+  {
+      readq_T *head = &channel->ch_part[part].ch_head;
+!     readq_T *node = head->rq_next;
+      long_u  len = 0;
+      char_u  *res;
+      char_u  *p;
+--- 1720,1726 ----
+  channel_get_all(channel_T *channel, ch_part_T part, int *outlen)
+  {
+      readq_T *head = &channel->ch_part[part].ch_head;
+!     readq_T *node;
+      long_u  len = 0;
+      char_u  *res;
+      char_u  *p;
+*** ../vim-8.1.1031/src/charset.c	2019-02-16 15:09:21.213946217 +0100
+--- src/charset.c	2019-03-21 21:36:34.535428275 +0100
+***************
+*** 1055,1061 ****
+  	    if (col2 >= colmax)		/* doesn't fit */
+  	    {
+  		size = colmax - col + col_adj;
+- 		tab_corr = FALSE;
+  		break;
+  	    }
+  	}
+--- 1055,1060 ----
+***************
+*** 1108,1114 ****
+  		{
+  		    /* calculate effective window width */
+  		    int width = (colnr_T)wp->w_width - sbrlen - numberwidth;
+! 		    int prev_width = col ? ((colnr_T)wp->w_width - (sbrlen + col)) : 0;
+  		    if (width == 0)
+  			width = (colnr_T)wp->w_width;
+  		    added += ((size - prev_width) / width) * vim_strsize(p_sbr);
+--- 1107,1114 ----
+  		{
+  		    /* calculate effective window width */
+  		    int width = (colnr_T)wp->w_width - sbrlen - numberwidth;
+! 		    int prev_width = col
+! 				 ? ((colnr_T)wp->w_width - (sbrlen + col)) : 0;
+  		    if (width == 0)
+  			width = (colnr_T)wp->w_width;
+  		    added += ((size - prev_width) / width) * vim_strsize(p_sbr);
+***************
+*** 1963,1969 ****
+  
+  /*
+   * Return TRUE if "str" starts with a backslash that should be removed.
+!  * For MS-DOS, WIN32 and OS/2 this is only done when the character after the
+   * backslash is not a normal file name character.
+   * '$' is a valid file name character, we don't remove the backslash before
+   * it.  This means it is not possible to use an environment variable after a
+--- 1963,1969 ----
+  
+  /*
+   * Return TRUE if "str" starts with a backslash that should be removed.
+!  * For MS-DOS, MSWIN and OS/2 this is only done when the character after the
+   * backslash is not a normal file name character.
+   * '$' is a valid file name character, we don't remove the backslash before
+   * it.  This means it is not possible to use an environment variable after a
+*** ../vim-8.1.1031/src/message.c	2019-02-22 13:42:00.276540703 +0100
+--- src/message.c	2019-03-21 21:38:41.270490119 +0100
+***************
+*** 4491,4497 ****
+  	    case 'c':
+  	    case 's':
+  	    case 'S':
+- 		length_modifier = '\0';
+  		str_arg_l = 1;
+  		switch (fmt_spec)
+  		{
+--- 4491,4496 ----
+***************
+*** 4872,4878 ****
+  				 * zero value is formatted with an
+  				 * explicit precision of zero */
+  				precision = num_of_digits + 1;
+- 				precision_specified = 1;
+  			    }
+  			}
+  			/* zero padding to specified precision? */
+--- 4871,4876 ----
+*** ../vim-8.1.1031/src/version.c	2019-03-21 21:16:32.988734329 +0100
+--- src/version.c	2019-03-21 21:44:22.203978084 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1032,
+  /**/
+
+-- 
+The primary purpose of the DATA statement is to give names to constants;
+instead of referring to pi as 3.141592653589793 at every appearance, the
+variable PI can be given that value with a DATA statement and used instead
+of the longer form of the constant.  This also simplifies modifying the
+program, should the value of pi change.
+	-- FORTRAN manual for Xerox Computers
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///
