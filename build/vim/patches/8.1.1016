@@ -1,0 +1,189 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1016
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1016
+Problem:    MS-Windows: No color in shell when using "!" in 'guioptions.
+Solution:   Don't stop termcap when using a terminal window for the shell.
+            (vim-jp, closes #4117)
+Files:	    src/ex_cmds.c
+
+
+*** ../vim-8.1.1015/src/ex_cmds.c	2019-02-20 22:18:59.990044254 +0100
+--- src/ex_cmds.c	2019-03-17 16:56:37.691336310 +0100
+***************
+*** 1542,1547 ****
+--- 1542,1548 ----
+  #endif
+  #ifdef MSWIN
+      int		winstart = FALSE;
++     int		keep_termcap = FALSE;
+  #endif
+  
+      /*
+***************
+*** 1557,1604 ****
+  
+  #ifdef MSWIN
+      /*
+!      * Check if ":!start" is used.
+       */
+      if (cmd != NULL)
+! 	winstart = (STRNICMP(cmd, "start ", 6) == 0);
+  #endif
+  
+      /*
+       * For autocommands we want to get the output on the current screen, to
+       * avoid having to type return below.
+       */
+!     msg_putchar('\r');			/* put cursor at start of line */
+      if (!autocmd_busy)
+      {
+  #ifdef MSWIN
+! 	if (!winstart)
+  #endif
+  	    stoptermcap();
+      }
+  #ifdef MSWIN
+      if (!winstart)
+  #endif
+! 	msg_putchar('\n');		/* may shift screen one line up */
+  
+!     /* warning message before calling the shell */
+      if (p_warn && !autocmd_busy && msg_silent == 0)
+  	FOR_ALL_BUFFERS(buf)
+  	    if (bufIsChangedNotTerm(buf))
+  	    {
+  #ifdef FEAT_GUI_MSWIN
+! 		if (!winstart)
+! 		    starttermcap();	/* don't want a message box here */
+  #endif
+  		msg_puts(_("[No write since last change]\n"));
+  #ifdef FEAT_GUI_MSWIN
+! 		if (!winstart)
+  		    stoptermcap();
+  #endif
+  		break;
+  	    }
+  
+!     /* This windgoto is required for when the '\n' resulted in a "delete line
+!      * 1" command to the terminal. */
+      if (!swapping_screen())
+  	windgoto(msg_row, msg_col);
+      cursor_on();
+--- 1558,1611 ----
+  
+  #ifdef MSWIN
+      /*
+!      * Check if ":!start" is used.  This implies not stopping termcap mode.
+       */
+      if (cmd != NULL)
+! 	keep_termcap = winstart = (STRNICMP(cmd, "start ", 6) == 0);
+! 
+! # if defined(FEAT_GUI) && defined(FEAT_TERMINAL)
+!     // Don't stop termcap mode when using a terminal window for the shell.
+!     if (gui.in_use && vim_strchr(p_go, GO_TERMINAL) != NULL)
+! 	keep_termcap = TRUE;
+! # endif
+  #endif
+  
+      /*
+       * For autocommands we want to get the output on the current screen, to
+       * avoid having to type return below.
+       */
+!     msg_putchar('\r');			// put cursor at start of line
+      if (!autocmd_busy)
+      {
+  #ifdef MSWIN
+! 	if (!keep_termcap)
+  #endif
+  	    stoptermcap();
+      }
+  #ifdef MSWIN
+      if (!winstart)
+  #endif
+! 	msg_putchar('\n');		// may shift screen one line up
+  
+!     // warning message before calling the shell
+      if (p_warn && !autocmd_busy && msg_silent == 0)
+  	FOR_ALL_BUFFERS(buf)
+  	    if (bufIsChangedNotTerm(buf))
+  	    {
+  #ifdef FEAT_GUI_MSWIN
+! 		if (!keep_termcap)
+! 		    starttermcap();	// don't want a message box here
+  #endif
+  		msg_puts(_("[No write since last change]\n"));
+  #ifdef FEAT_GUI_MSWIN
+! 		if (!keep_termcap)
+  		    stoptermcap();
+  #endif
+  		break;
+  	    }
+  
+!     // This windgoto is required for when the '\n' resulted in a "delete line
+!     // 1" command to the terminal.
+      if (!swapping_screen())
+  	windgoto(msg_row, msg_col);
+      cursor_on();
+***************
+*** 1632,1638 ****
+  #ifndef FEAT_GUI_MSWIN
+  	if (cmd == NULL
+  # ifdef MSWIN
+! 		|| (winstart && !need_wait_return)
+  # endif
+  	   )
+  	{
+--- 1639,1645 ----
+  #ifndef FEAT_GUI_MSWIN
+  	if (cmd == NULL
+  # ifdef MSWIN
+! 		|| (keep_termcap && !need_wait_return)
+  # endif
+  	   )
+  	{
+***************
+*** 1659,1667 ****
+  #endif /* FEAT_GUI_MSWIN */
+  
+  #ifdef MSWIN
+! 	if (!winstart) /* if winstart==TRUE, never stopped termcap! */
+  #endif
+! 	    starttermcap();	/* start termcap if not done by wait_return() */
+  
+  	/*
+  	 * In an Amiga window redrawing is caused by asking the window size.
+--- 1666,1674 ----
+  #endif /* FEAT_GUI_MSWIN */
+  
+  #ifdef MSWIN
+! 	if (!keep_termcap)	// if keep_termcap is TRUE didn't stop termcap
+  #endif
+! 	    starttermcap();	// start termcap if not done by wait_return()
+  
+  	/*
+  	 * In an Amiga window redrawing is caused by asking the window size.
+*** ../vim-8.1.1015/src/version.c	2019-03-17 16:39:01.566006172 +0100
+--- src/version.c	2019-03-17 16:58:06.018782269 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1016,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+80. At parties, you introduce your spouse as your "service provider."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

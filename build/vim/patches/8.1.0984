@@ -1,0 +1,199 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0984
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0984
+Problem:    Unnecessary #ifdefs.
+Solution:   Remove the #ifdefs. (Ken Takata)
+Files:	    src/winclip.c
+
+
+*** ../vim-8.1.0983/src/winclip.c	2019-02-17 17:44:36.223875455 +0100
+--- src/winclip.c	2019-02-27 14:09:35.870685717 +0100
+***************
+*** 22,28 ****
+   * posix environment.
+   */
+  #ifdef FEAT_CYGWIN_WIN32_CLIPBOARD
+- # define MSWIN
+  # define WIN32_LEAN_AND_MEAN
+  # include <windows.h>
+  # include "winclip.pro"
+--- 22,27 ----
+***************
+*** 299,307 ****
+      VimClipType_t	metadata = { -1, -1, -1, -1 };
+      HGLOBAL		hMem = NULL;
+      char_u		*str = NULL;
+- #if defined(MSWIN)
+      char_u		*to_free = NULL;
+- #endif
+      HGLOBAL		rawh = NULL;
+      int			str_size = 0;
+      int			maxlen;
+--- 298,304 ----
+***************
+*** 361,367 ****
+      }
+      if (str == NULL)
+      {
+- #if defined(MSWIN)
+  	/* Try to get the clipboard in Unicode if it's not an empty string. */
+  	if (IsClipboardFormatAvailable(CF_UNICODETEXT) && metadata.ucslen != 0)
+  	{
+--- 358,363 ----
+***************
+*** 391,400 ****
+  		GlobalUnlock(hMemW);
+  	    }
+  	}
+! 	else
+! #endif
+! 	    /* Get the clipboard in the Active codepage. */
+! 	    if (IsClipboardFormatAvailable(CF_TEXT))
+  	{
+  	    if ((hMem = GetClipboardData(CF_TEXT)) != NULL)
+  	    {
+--- 387,394 ----
+  		GlobalUnlock(hMemW);
+  	    }
+  	}
+! 	/* Get the clipboard in the Active codepage. */
+! 	else if (IsClipboardFormatAvailable(CF_TEXT))
+  	{
+  	    if ((hMem = GetClipboardData(CF_TEXT)) != NULL)
+  	    {
+***************
+*** 417,423 ****
+  			    break;
+  		}
+  
+- #if defined(MSWIN)
+  		/* The text is in the active codepage.  Convert to
+  		 * 'encoding', going through UTF-16. */
+  		acp_to_enc(str, str_size, &to_free, &maxlen);
+--- 411,416 ----
+***************
+*** 426,432 ****
+  		    str_size = maxlen;
+  		    str = to_free;
+  		}
+- #endif
+  	    }
+  	}
+      }
+--- 419,424 ----
+***************
+*** 454,462 ****
+      if (rawh != NULL)
+  	GlobalUnlock(rawh);
+      CloseClipboard();
+- #if defined(MSWIN)
+      vim_free(to_free);
+- #endif
+  }
+  
+  /*
+--- 446,452 ----
+***************
+*** 471,479 ****
+      HGLOBAL		hMemRaw = NULL;
+      HGLOBAL		hMem = NULL;
+      HGLOBAL		hMemVim = NULL;
+- # if defined(MSWIN)
+      HGLOBAL		hMemW = NULL;
+- # endif
+  
+      /* If the '*' register isn't already filled in, fill it in now */
+      cbd->owned = TRUE;
+--- 461,467 ----
+***************
+*** 508,514 ****
+  	    metadata.rawlen = 0;
+      }
+  
+- # if defined(MSWIN)
+      {
+  	WCHAR		*out;
+  	int		len = metadata.txtlen;
+--- 496,501 ----
+***************
+*** 550,556 ****
+  	    metadata.ucslen = len;
+  	}
+      }
+- # endif
+  
+      /* Allocate memory for the text, add one NUL byte to terminate the string.
+       */
+--- 537,542 ----
+***************
+*** 590,602 ****
+  	{
+  	    SetClipboardData(cbd->format, hMemVim);
+  	    hMemVim = 0;
+- # if defined(MSWIN)
+  	    if (hMemW != NULL)
+  	    {
+  		if (SetClipboardData(CF_UNICODETEXT, hMemW) != NULL)
+  		    hMemW = NULL;
+  	    }
+- # endif
+  	    /* Always use CF_TEXT.  On Win98 Notepad won't obtain the
+  	     * CF_UNICODETEXT text, only CF_TEXT. */
+  	    SetClipboardData(CF_TEXT, hMem);
+--- 576,586 ----
+***************
+*** 611,620 ****
+  	GlobalFree(hMemRaw);
+      if (hMem)
+  	GlobalFree(hMem);
+- # if defined(MSWIN)
+      if (hMemW)
+  	GlobalFree(hMemW);
+- # endif
+      if (hMemVim)
+  	GlobalFree(hMemVim);
+  }
+--- 595,602 ----
+***************
+*** 746,752 ****
+      return enc_str;
+  }
+  
+- #if defined(MSWIN) || defined(PROTO)
+  /*
+   * Convert from the active codepage to 'encoding'.
+   * Input is "str[str_size]".
+--- 728,733 ----
+***************
+*** 796,799 ****
+  	vim_free(widestr);
+      }
+  }
+- #endif
+--- 777,779 ----
+*** ../vim-8.1.0983/src/version.c	2019-02-26 17:03:49.845487937 +0100
+--- src/version.c	2019-02-27 14:10:55.106118602 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     984,
+  /**/
+
+-- 
+How To Keep A Healthy Level Of Insanity:
+5. Put decaf in the coffee maker for 3 weeks. Once everyone has gotten
+   over their caffeine addictions, switch to espresso.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

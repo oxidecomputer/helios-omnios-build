@@ -1,0 +1,308 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0994
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0994
+Problem:    Relative cursor position is not calculated correctly.
+Solution:   Always set topline, also when window is one line only.
+            (Robert Webb) Add more info to getwininfo() for testing.
+Files:	    src/window.c, src/evalfunc.c, runtime/doc/eval.txt,
+            src/testdir/test_window_cmd.vim
+
+
+*** ../vim-8.1.0993/src/window.c	2019-02-22 17:56:02.787842436 +0100
+--- src/window.c	2019-03-04 13:13:19.387148607 +0100
+***************
+*** 5719,5726 ****
+  set_fraction(win_T *wp)
+  {
+      if (wp->w_height > 1)
+  	wp->w_fraction = ((long)wp->w_wrow * FRACTION_MULT
+! 				    + wp->w_height / 2) / (long)wp->w_height;
+  }
+  
+  /*
+--- 5719,5729 ----
+  set_fraction(win_T *wp)
+  {
+      if (wp->w_height > 1)
++ 	// When cursor is in the first line the percentage is computed as if
++ 	// it's halfway that line.  Thus with two lines it is 25%, with three
++ 	// lines 17%, etc.  Similarly for the last line: 75%, 83%, etc.
+  	wp->w_fraction = ((long)wp->w_wrow * FRACTION_MULT
+! 				     + FRACTION_MULT / 2) / (long)wp->w_height;
+  }
+  
+  /*
+***************
+*** 5770,5777 ****
+      int		sline, line_size;
+      int		height = wp->w_height;
+  
+!     /* Don't change w_topline when height is zero.  Don't set w_topline when
+!      * 'scrollbind' is set and this isn't the current window. */
+      if (height > 0 && (!wp->w_p_scb || wp == curwin))
+      {
+  	/*
+--- 5773,5780 ----
+      int		sline, line_size;
+      int		height = wp->w_height;
+  
+!     // Don't change w_topline when height is zero.  Don't set w_topline when
+!     // 'scrollbind' is set and this isn't the current window.
+      if (height > 0 && (!wp->w_p_scb || wp == curwin))
+      {
+  	/*
+***************
+*** 5781,5788 ****
+  	lnum = wp->w_cursor.lnum;
+  	if (lnum < 1)		/* can happen when starting up */
+  	    lnum = 1;
+! 	wp->w_wrow = ((long)wp->w_fraction * (long)height - 1L
+! 					 + FRACTION_MULT / 2) / FRACTION_MULT;
+  	line_size = plines_win_col(wp, lnum, (long)(wp->w_cursor.col)) - 1;
+  	sline = wp->w_wrow - line_size;
+  
+--- 5784,5791 ----
+  	lnum = wp->w_cursor.lnum;
+  	if (lnum < 1)		/* can happen when starting up */
+  	    lnum = 1;
+! 	wp->w_wrow = ((long)wp->w_fraction * (long)height - 1L)
+! 							       / FRACTION_MULT;
+  	line_size = plines_win_col(wp, lnum, (long)(wp->w_cursor.col)) - 1;
+  	sline = wp->w_wrow - line_size;
+  
+***************
+*** 5818,5824 ****
+  		    --wp->w_wrow;
+  		}
+  	    }
+- 	    set_topline(wp, lnum);
+  	}
+  	else if (sline > 0)
+  	{
+--- 5821,5826 ----
+***************
+*** 5859,5871 ****
+  	    }
+  	    else if (sline > 0)
+  	    {
+! 		/* First line of file reached, use that as topline. */
+  		lnum = 1;
+  		wp->w_wrow -= sline;
+  	    }
+- 
+- 	    set_topline(wp, lnum);
+  	}
+      }
+  
+      if (wp == curwin)
+--- 5861,5872 ----
+  	    }
+  	    else if (sline > 0)
+  	    {
+! 		// First line of file reached, use that as topline.
+  		lnum = 1;
+  		wp->w_wrow -= sline;
+  	    }
+  	}
++ 	set_topline(wp, lnum);
+      }
+  
+      if (wp == curwin)
+*** ../vim-8.1.0993/src/evalfunc.c	2019-03-02 10:13:36.792974862 +0100
+--- src/evalfunc.c	2019-03-02 14:10:35.133529737 +0100
+***************
+*** 5762,5767 ****
+--- 5762,5769 ----
+      dict_add_number(dict, "winid", wp->w_id);
+      dict_add_number(dict, "height", wp->w_height);
+      dict_add_number(dict, "winrow", wp->w_winrow + 1);
++     dict_add_number(dict, "topline", wp->w_topline);
++     dict_add_number(dict, "botline", wp->w_botline - 1);
+  #ifdef FEAT_MENU
+      dict_add_number(dict, "winbar", wp->w_winbar_height);
+  #endif
+*** ../vim-8.1.0993/runtime/doc/eval.txt	2019-02-12 22:28:27.841232690 +0100
+--- runtime/doc/eval.txt	2019-03-02 14:09:27.798085747 +0100
+***************
+*** 5195,5200 ****
+--- 5228,5234 ----
+  		tab pages is returned.
+  
+  		Each List item is a Dictionary with the following entries:
++ 			botline		last displayed buffer line
+  			bufnr		number of buffer in the window
+  			height		window height (excluding winbar)
+  			loclist		1 if showing a location list
+***************
+*** 5204,5209 ****
+--- 5238,5244 ----
+  			terminal	1 if a terminal window
+  					{only with the +terminal feature}
+  			tabnr		tab page number
++ 			topline		first displayed buffer line 
+  			variables	a reference to the dictionary with
+  					window-local variables
+  			width		window width
+*** ../vim-8.1.0993/src/testdir/test_window_cmd.vim	2019-01-09 23:00:58.001176090 +0100
+--- src/testdir/test_window_cmd.vim	2019-03-04 13:09:05.308910495 +0100
+***************
+*** 615,618 ****
+--- 615,746 ----
+    delfunc Fun_RenewFile
+  endfunc
+  
++ func Test_relative_cursor_position_in_one_line_window()
++   new
++   only
++   call setline(1, range(1, 10000))
++   normal 50%
++   let lnum = getcurpos()[1]
++   split
++   split
++   " make third window take as many lines as possible, other windows will
++   " become one line
++   3wincmd w
++   for i in range(1, &lines - 6)
++     wincmd +
++     redraw!
++   endfor
++ 
++   " first and second window should show cursor line
++   let wininfo = getwininfo()
++   call assert_equal(lnum, wininfo[0].topline)
++   call assert_equal(lnum, wininfo[1].topline)
++ 
++   only!
++   bwipe!
++ endfunc
++ 
++ func Test_relative_cursor_position_after_move_and_resize()
++   let so_save = &so
++   set so=0
++   enew
++   call setline(1, range(1, 10000))
++   normal 50%
++   split
++   1wincmd w
++   " Move cursor to first line in window
++   normal H
++   redraw!
++   " Reduce window height to two lines
++   let height = winheight(0)
++   while winheight(0) > 2
++     wincmd -
++     redraw!
++   endwhile
++   " move cursor to second/last line in window
++   normal j
++   " restore previous height
++   while winheight(0) < height
++     wincmd +
++     redraw!
++   endwhile
++   " make window two lines again
++   while winheight(0) > 2
++     wincmd -
++     redraw!
++   endwhile
++ 
++   " cursor should be at bottom line
++   let info = getwininfo(win_getid())[0]
++   call assert_equal(info.topline + 1, getcurpos()[1])
++ 
++   only!
++   bwipe!
++   let &so = so_save
++ endfunc
++ 
++ func Test_relative_cursor_position_after_resize()
++   let so_save = &so
++   set so=0
++   enew
++   call setline(1, range(1, 10000))
++   normal 50%
++   split
++   1wincmd w
++   let winid1 = win_getid()
++   let info = getwininfo(winid1)[0]
++   " Move cursor to second line in window
++   exe "normal " . (info.topline + 1) . "G"
++   redraw!
++   let lnum = getcurpos()[1]
++ 
++   " Make the window only two lines high, cursor should end up in top line
++   2wincmd w
++   exe (info.height - 2) . "wincmd +"
++   redraw!
++   let info = getwininfo(winid1)[0]
++   call assert_equal(lnum, info.topline)
++ 
++   only!
++   bwipe!
++   let &so = so_save
++ endfunc
++ 
++ func Test_relative_cursor_second_line_after_resize()
++   let so_save = &so
++   set so=0
++   enew
++   call setline(1, range(1, 10000))
++   normal 50%
++   split
++   1wincmd w
++   let winid1 = win_getid()
++   let info = getwininfo(winid1)[0]
++ 
++   " Make the window only two lines high
++   2wincmd _
++ 
++   " Move cursor to second line in window
++   normal H
++   normal j
++ 
++   " Make window size bigger, then back to 2 lines
++   for i in range(1, 10)
++     wincmd +
++     redraw!
++   endfor
++   for i in range(1, 10)
++     wincmd -
++     redraw!
++   endfor
++ 
++   " cursor should end up in bottom line
++   let info = getwininfo(winid1)[0]
++   call assert_equal(info.topline + 1, getcurpos()[1])
++ 
++   only!
++   bwipe!
++   let &so = so_save
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.0993/src/version.c	2019-03-04 12:09:43.905395998 +0100
+--- src/version.c	2019-03-04 13:16:17.053913047 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     994,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+36. You miss more than five meals a week downloading the latest games from
+    Apogee.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

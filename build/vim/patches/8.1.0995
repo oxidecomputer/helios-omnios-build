@@ -1,0 +1,96 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0995
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0995
+Problem:    A getchar() call while executing a register resets the
+            reg_executing() result.
+Solution:   Save and restore reg_executing. (closes #406
+Files:	    src/evalfunc.c, src/testdir/test_functions.vim
+
+
+*** ../vim-8.1.0994/src/evalfunc.c	2019-03-04 13:18:15.973053562 +0100
+--- src/evalfunc.c	2019-03-05 12:20:59.289230547 +0100
+***************
+*** 4811,4816 ****
+--- 4811,4817 ----
+  {
+      varnumber_T		n;
+      int			error = FALSE;
++     int			save_reg_executing = reg_executing;
+  
+  #ifdef MESSAGE_QUEUE
+      // vpeekc() used to check for messages, but that caused problems, invoking
+***************
+*** 4845,4850 ****
+--- 4846,4852 ----
+      }
+      --no_mapping;
+      --allow_keys;
++     reg_executing = save_reg_executing;
+  
+      set_vim_var_nr(VV_MOUSE_WIN, 0);
+      set_vim_var_nr(VV_MOUSE_WINID, 0);
+*** ../vim-8.1.0994/src/testdir/test_functions.vim	2019-03-04 11:40:06.274241644 +0100
+--- src/testdir/test_functions.vim	2019-03-05 12:23:17.332290854 +0100
+***************
+*** 1138,1143 ****
+--- 1138,1144 ----
+    call assert_equal('":', s:reg_stat)
+  
+    " :normal command saves and restores reg_executing
++   let s:reg_stat = ''
+    let @q = ":call TestFunc()\<CR>:call s:save_reg_stat()\<CR>"
+    func TestFunc() abort
+      normal! ia
+***************
+*** 1146,1151 ****
+--- 1147,1170 ----
+    call assert_equal(':q', s:reg_stat)
+    delfunc TestFunc
+  
++   " getchar() command saves and restores reg_executing
++   map W :call TestFunc()<CR>
++   let @q = "W"
++   func TestFunc() abort
++     let g:reg1 = reg_executing()
++     let g:typed = getchar(0)
++     let g:reg2 = reg_executing()
++   endfunc
++   call feedkeys("@qy", 'xt')
++   call assert_equal(char2nr("y"), g:typed)
++   call assert_equal('q', g:reg1)
++   call assert_equal('q', g:reg2)
++   delfunc TestFunc
++   unmap W
++   unlet g:typed
++   unlet g:reg1
++   unlet g:reg2
++ 
+    bwipe!
+    delfunc s:save_reg_stat
+    unlet s:reg_stat
+*** ../vim-8.1.0994/src/version.c	2019-03-04 13:18:15.977053527 +0100
+--- src/version.c	2019-03-05 12:22:11.840738054 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     995,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+38. You wake up at 3 a.m. to go to the bathroom and stop and check your e-mail
+    on the way back to bed.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

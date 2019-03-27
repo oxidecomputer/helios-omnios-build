@@ -1,0 +1,271 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.0993
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.0993
+Problem:    ch_read() may return garbage if terminating NL is missing.
+Solution:   Add terminating NUL. (Ozaki Kiichi, closes #4065)
+Files:	    src/channel.c, src/testdir/test_channel.vim
+
+
+*** ../vim-8.1.0992/src/channel.c	2019-02-20 22:45:01.723613804 +0100
+--- src/channel.c	2019-03-04 12:04:42.771564943 +0100
+***************
+*** 1797,1802 ****
+--- 1797,1803 ----
+  
+      mch_memmove(buf, buf + len, node->rq_buflen - len);
+      node->rq_buflen -= len;
++     node->rq_buffer[node->rq_buflen] = NUL;
+  }
+  
+  /*
+***************
+*** 1819,1825 ****
+  	return FAIL;
+  
+      last_node = node->rq_next;
+!     len = node->rq_buflen + last_node->rq_buflen + 1;
+      if (want_nl)
+  	while (last_node->rq_next != NULL
+  		&& channel_first_nl(last_node) == NULL)
+--- 1820,1826 ----
+  	return FAIL;
+  
+      last_node = node->rq_next;
+!     len = node->rq_buflen + last_node->rq_buflen;
+      if (want_nl)
+  	while (last_node->rq_next != NULL
+  		&& channel_first_nl(last_node) == NULL)
+***************
+*** 1828,1834 ****
+  	    len += last_node->rq_buflen;
+  	}
+  
+!     p = newbuf = alloc(len);
+      if (newbuf == NULL)
+  	return FAIL;	    /* out of memory */
+      mch_memmove(p, node->rq_buffer, node->rq_buflen);
+--- 1829,1835 ----
+  	    len += last_node->rq_buflen;
+  	}
+  
+!     p = newbuf = alloc(len + 1);
+      if (newbuf == NULL)
+  	return FAIL;	    /* out of memory */
+      mch_memmove(p, node->rq_buffer, node->rq_buflen);
+***************
+*** 1842,1847 ****
+--- 1843,1849 ----
+  	p += n->rq_buflen;
+  	vim_free(n->rq_buffer);
+      }
++     *p = NUL;
+      node->rq_buflen = (long_u)(p - newbuf);
+  
+      /* dispose of the collapsed nodes and their buffers */
+***************
+*** 2666,2695 ****
+  	    }
+  	    buf = node->rq_buffer;
+  
+! 	    if (nl == NULL)
+! 	    {
+! 		/* Flush remaining message that is missing a NL. */
+! 		char_u	*new_buf;
+! 
+! 		new_buf = vim_realloc(buf, node->rq_buflen + 1);
+! 		if (new_buf == NULL)
+! 		    /* This might fail over and over again, should the message
+! 		     * be dropped? */
+! 		    return FALSE;
+! 		buf = new_buf;
+! 		node->rq_buffer = buf;
+! 		nl = buf + node->rq_buflen++;
+! 		*nl = NUL;
+! 	    }
+! 
+! 	    /* Convert NUL to NL, the internal representation. */
+! 	    for (p = buf; p < nl && p < buf + node->rq_buflen; ++p)
+  		if (*p == NUL)
+  		    *p = NL;
+  
+! 	    if (nl + 1 == buf + node->rq_buflen)
+  	    {
+! 		/* get the whole buffer, drop the NL */
+  		msg = channel_get(channel, part, NULL);
+  		*nl = NUL;
+  	    }
+--- 2668,2687 ----
+  	    }
+  	    buf = node->rq_buffer;
+  
+! 	    // Convert NUL to NL, the internal representation.
+! 	    for (p = buf; (nl == NULL || p < nl)
+! 					    && p < buf + node->rq_buflen; ++p)
+  		if (*p == NUL)
+  		    *p = NL;
+  
+! 	    if (nl == NULL)
+! 	    {
+! 		// get the whole buffer, drop the NL
+! 		msg = channel_get(channel, part, NULL);
+! 	    }
+! 	    else if (nl + 1 == buf + node->rq_buflen)
+  	    {
+! 		// get the whole buffer
+  		msg = channel_get(channel, part, NULL);
+  		*nl = NUL;
+  	    }
+*** ../vim-8.1.0992/src/testdir/test_channel.vim	2019-02-11 22:00:07.671917613 +0100
+--- src/testdir/test_channel.vim	2019-03-04 12:01:07.813113919 +0100
+***************
+*** 203,210 ****
+    let start = reltime()
+    call assert_equal(v:none, ch_read(handle, {'timeout': 333}))
+    let elapsed = reltime(start)
+!   call assert_true(reltimefloat(elapsed) > 0.3)
+!   call assert_true(reltimefloat(elapsed) < 0.6)
+  
+    " Send without waiting for a response, then wait for a response.
+    call ch_sendexpr(handle, 'wait a bit')
+--- 203,209 ----
+    let start = reltime()
+    call assert_equal(v:none, ch_read(handle, {'timeout': 333}))
+    let elapsed = reltime(start)
+!   call assert_inrange(0.3, 0.6, reltimefloat(reltime(start)))
+  
+    " Send without waiting for a response, then wait for a response.
+    call ch_sendexpr(handle, 'wait a bit')
+***************
+*** 434,442 ****
+      else
+        " Failed connection should wait about 500 msec.  Can be longer if the
+        " computer is busy with other things.
+!       let elapsed = reltime(start)
+!       call assert_true(reltimefloat(elapsed) > 0.3)
+!       call assert_true(reltimefloat(elapsed) < 1.5)
+      endif
+    catch
+      if v:exception !~ 'Connection reset by peer'
+--- 433,439 ----
+      else
+        " Failed connection should wait about 500 msec.  Can be longer if the
+        " computer is busy with other things.
+!       call assert_inrange(0.3, 1.5, reltimefloat(reltime(start)))
+      endif
+    catch
+      if v:exception !~ 'Connection reset by peer'
+***************
+*** 1590,1597 ****
+    else
+      let elapsed = 1.0
+    endif
+!   call assert_true(elapsed > 0.5)
+!   call assert_true(elapsed < 1.0)
+  endfunc
+  
+  """""""""
+--- 1587,1593 ----
+    else
+      let elapsed = 1.0
+    endif
+!   call assert_inrange(0.5, 1.0, elapsed)
+  endfunc
+  
+  """""""""
+***************
+*** 1764,1773 ****
+    bwipe!
+  endfunc
+  
+- func MyLineCountCb(ch, msg)
+-   let g:linecount += 1
+- endfunc
+- 
+  func Test_read_nonl_line()
+    if !has('job')
+      return
+--- 1760,1765 ----
+***************
+*** 1775,1782 ****
+  
+    let g:linecount = 0
+    let arg = 'import sys;sys.stdout.write("1\n2\n3")'
+!   call job_start([s:python, '-c', arg], {'callback': 'MyLineCountCb'})
+    call WaitForAssert({-> assert_equal(3, g:linecount)})
+  endfunc
+  
+  func Test_read_from_terminated_job()
+--- 1767,1794 ----
+  
+    let g:linecount = 0
+    let arg = 'import sys;sys.stdout.write("1\n2\n3")'
+!   call job_start([s:python, '-c', arg], {'callback': {-> execute('let g:linecount += 1')}})
+    call WaitForAssert({-> assert_equal(3, g:linecount)})
++   unlet g:linecount
++ endfunc
++ 
++ func Test_read_nonl_in_close_cb()
++   if !has('job')
++     return
++   endif
++ 
++   func s:close_cb(ch)
++     while ch_status(a:ch) == 'buffered'
++       let g:out .= ch_read(a:ch)
++     endwhile
++   endfunc
++ 
++   let g:out = ''
++   let arg = 'import sys;sys.stdout.write("1\n2\n3")'
++   call job_start([s:python, '-c', arg], {'close_cb': function('s:close_cb')})
++   call WaitForAssert({-> assert_equal('123', g:out)})
++   unlet g:out
++   delfunc s:close_cb
+  endfunc
+  
+  func Test_read_from_terminated_job()
+***************
+*** 1786,1793 ****
+  
+    let g:linecount = 0
+    let arg = 'import os,sys;os.close(1);sys.stderr.write("test\n")'
+!   call job_start([s:python, '-c', arg], {'callback': 'MyLineCountCb'})
+    call WaitForAssert({-> assert_equal(1, g:linecount)})
+  endfunc
+  
+  func Test_job_start_windows()
+--- 1798,1806 ----
+  
+    let g:linecount = 0
+    let arg = 'import os,sys;os.close(1);sys.stderr.write("test\n")'
+!   call job_start([s:python, '-c', arg], {'callback': {-> execute('let g:linecount += 1')}})
+    call WaitForAssert({-> assert_equal(1, g:linecount)})
++   unlet g:linecount
+  endfunc
+  
+  func Test_job_start_windows()
+*** ../vim-8.1.0992/src/version.c	2019-03-04 11:40:06.274241644 +0100
+--- src/version.c	2019-03-04 12:07:44.178258107 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     993,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+35. Your husband tells you he's had that beard for 2 months.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

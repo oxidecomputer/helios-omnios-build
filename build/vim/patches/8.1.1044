@@ -1,0 +1,296 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1044
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1044
+Problem:    No way to check the reference count of objects.
+Solution:   Add test_refcount(). (Ozaki Kiichi, closes #4124)
+Files:	    runtime/doc/eval.txt, src/evalfunc.c,
+            src/testdir/test_vimscript.vim
+
+
+*** ../vim-8.1.1043/runtime/doc/eval.txt	2019-03-17 16:39:01.562006195 +0100
+--- runtime/doc/eval.txt	2019-03-23 14:11:43.603170194 +0100
+***************
+*** 2645,2650 ****
+--- 2672,2678 ----
+  test_null_string()		String	null value for testing
+  test_option_not_set({name})	none	reset flag indicating option was set
+  test_override({expr}, {val})	none	test with Vim internal overrides
++ test_refcount({expr})		Number	get the reference count of {expr}
+  test_scrollbar({which}, {value}, {dragging})
+  				none	scroll in the GUI for testing
+  test_settime({expr})		none	set current time for testing
+***************
+*** 9532,9537 ****
+--- 9590,9600 ----
+  <		The value of "starting" is saved.  It is restored by: >
+  			call test_override('starting', 0)
+  
++ test_refcount({expr})					*test_refcount()*
++ 		Return the reference count of {expr}.  When {expr} is of a
++ 		type that does not have a reference count, returns -1.  Only
++ 		to be used for testing.
++ 
+  test_scrollbar({which}, {value}, {dragging})		*test_scrollbar()*
+  		Pretend using scrollbar {which} to move it to position
+  		{value}.  {which} can be:
+*** ../vim-8.1.1043/src/evalfunc.c	2019-03-22 17:03:01.783689365 +0100
+--- src/evalfunc.c	2019-03-23 14:09:39.184057626 +0100
+***************
+*** 428,433 ****
+--- 428,434 ----
+  static void f_test_feedinput(typval_T *argvars, typval_T *rettv);
+  static void f_test_option_not_set(typval_T *argvars, typval_T *rettv);
+  static void f_test_override(typval_T *argvars, typval_T *rettv);
++ static void f_test_refcount(typval_T *argvars, typval_T *rettv);
+  static void f_test_garbagecollect_now(typval_T *argvars, typval_T *rettv);
+  static void f_test_ignore_error(typval_T *argvars, typval_T *rettv);
+  static void f_test_null_blob(typval_T *argvars, typval_T *rettv);
+***************
+*** 952,958 ****
+      {"test_feedinput",	1, 1, f_test_feedinput},
+      {"test_garbagecollect_now",	0, 0, f_test_garbagecollect_now},
+      {"test_ignore_error",	1, 1, f_test_ignore_error},
+!     {"test_null_blob", 0, 0, f_test_null_blob},
+  #ifdef FEAT_JOB_CHANNEL
+      {"test_null_channel", 0, 0, f_test_null_channel},
+  #endif
+--- 953,959 ----
+      {"test_feedinput",	1, 1, f_test_feedinput},
+      {"test_garbagecollect_now",	0, 0, f_test_garbagecollect_now},
+      {"test_ignore_error",	1, 1, f_test_ignore_error},
+!     {"test_null_blob",	0, 0, f_test_null_blob},
+  #ifdef FEAT_JOB_CHANNEL
+      {"test_null_channel", 0, 0, f_test_null_channel},
+  #endif
+***************
+*** 964,970 ****
+      {"test_null_partial", 0, 0, f_test_null_partial},
+      {"test_null_string", 0, 0, f_test_null_string},
+      {"test_option_not_set", 1, 1, f_test_option_not_set},
+!     {"test_override",    2, 2, f_test_override},
+  #ifdef FEAT_GUI
+      {"test_scrollbar",	3, 3, f_test_scrollbar},
+  #endif
+--- 965,972 ----
+      {"test_null_partial", 0, 0, f_test_null_partial},
+      {"test_null_string", 0, 0, f_test_null_string},
+      {"test_option_not_set", 1, 1, f_test_option_not_set},
+!     {"test_override",	2, 2, f_test_override},
+!     {"test_refcount",	1, 1, f_test_refcount},
+  #ifdef FEAT_GUI
+      {"test_scrollbar",	3, 3, f_test_scrollbar},
+  #endif
+***************
+*** 13847,13852 ****
+--- 13849,13915 ----
+  }
+  
+  /*
++  * "test_refcount({expr})" function
++  */
++     static void
++ f_test_refcount(typval_T *argvars, typval_T *rettv)
++ {
++     int retval = -1;
++ 
++     switch (argvars[0].v_type)
++     {
++ 	case VAR_UNKNOWN:
++ 	case VAR_NUMBER:
++ 	case VAR_FLOAT:
++ 	case VAR_SPECIAL:
++ 	case VAR_STRING:
++ 	    break;
++ 	case VAR_JOB:
++ #ifdef FEAT_JOB_CHANNEL
++ 	    if (argvars[0].vval.v_job != NULL)
++ 		retval = argvars[0].vval.v_job->jv_refcount - 1;
++ #endif
++ 	    break;
++ 	case VAR_CHANNEL:
++ #ifdef FEAT_JOB_CHANNEL
++ 	    if (argvars[0].vval.v_channel != NULL)
++ 		retval = argvars[0].vval.v_channel->ch_refcount - 1;
++ #endif
++ 	    break;
++ 	case VAR_FUNC:
++ 	    if (argvars[0].vval.v_string != NULL)
++ 	    {
++ 		ufunc_T *fp;
++ 
++ 		fp = find_func(argvars[0].vval.v_string);
++ 		if (fp != NULL)
++ 		    retval = fp->uf_refcount;
++ 	    }
++ 	    break;
++ 	case VAR_PARTIAL:
++ 	    if (argvars[0].vval.v_partial != NULL)
++ 		retval = argvars[0].vval.v_partial->pt_refcount - 1;
++ 	    break;
++ 	case VAR_BLOB:
++ 	    if (argvars[0].vval.v_blob != NULL)
++ 		retval = argvars[0].vval.v_blob->bv_refcount - 1;
++ 	    break;
++ 	case VAR_LIST:
++ 	    if (argvars[0].vval.v_list != NULL)
++ 		retval = argvars[0].vval.v_list->lv_refcount - 1;
++ 	    break;
++ 	case VAR_DICT:
++ 	    if (argvars[0].vval.v_dict != NULL)
++ 		retval = argvars[0].vval.v_dict->dv_refcount - 1;
++ 	    break;
++     }
++ 
++     rettv->v_type = VAR_NUMBER;
++     rettv->vval.v_number = retval;
++ 
++ }
++ 
++ /*
+   * "test_garbagecollect_now()" function
+   */
+      static void
+*** ../vim-8.1.1043/src/testdir/test_vimscript.vim	2019-03-02 11:57:06.159125888 +0100
+--- src/testdir/test_vimscript.vim	2019-03-23 14:21:08.991161181 +0100
+***************
+*** 1556,1561 ****
+--- 1556,1670 ----
+      let @/ = ''
+  endfunc
+  
++ func Test_refcount()
++     " Immediate values
++     call assert_equal(-1, test_refcount(1))
++     call assert_equal(-1, test_refcount('s'))
++     call assert_equal(-1, test_refcount(v:true))
++     call assert_equal(0, test_refcount([]))
++     call assert_equal(0, test_refcount({}))
++     call assert_equal(0, test_refcount(0zff))
++     call assert_equal(0, test_refcount({-> line('.')}))
++     if has('float')
++         call assert_equal(-1, test_refcount(0.1))
++     endif
++     if has('job')
++         call assert_equal(0, test_refcount(job_start([&shell, &shellcmdflag, 'echo .'])))
++     endif
++ 
++     " No refcount types
++     let x = 1
++     call assert_equal(-1, test_refcount(x))
++     let x = 's'
++     call assert_equal(-1, test_refcount(x))
++     let x = v:true
++     call assert_equal(-1, test_refcount(x))
++     if has('float')
++         let x = 0.1
++         call assert_equal(-1, test_refcount(x))
++     endif
++ 
++     " Check refcount
++     let x = []
++     call assert_equal(1, test_refcount(x))
++ 
++     let x = {}
++     call assert_equal(1, test_refcount(x))
++ 
++     let x = 0zff
++     call assert_equal(1, test_refcount(x))
++ 
++     let X = {-> line('.')}
++     call assert_equal(1, test_refcount(X))
++     let Y = X
++     call assert_equal(2, test_refcount(X))
++ 
++     if has('job')
++         let job = job_start([&shell, &shellcmdflag, 'echo .'])
++         call assert_equal(1, test_refcount(job))
++         call assert_equal(1, test_refcount(job_getchannel(job)))
++         call assert_equal(1, test_refcount(job))
++     endif
++ 
++     " Function arguments, copying and unassigning
++     func ExprCheck(x, i)
++         let i = a:i + 1
++         call assert_equal(i, test_refcount(a:x))
++         let Y = a:x
++         call assert_equal(i + 1, test_refcount(a:x))
++         call assert_equal(test_refcount(a:x), test_refcount(Y))
++         let Y = 0
++         call assert_equal(i, test_refcount(a:x))
++     endfunc
++     call ExprCheck([], 0)
++     call ExprCheck({}, 0)
++     call ExprCheck(0zff, 0)
++     call ExprCheck({-> line('.')}, 0)
++     if has('job')
++ 	call ExprCheck(job, 1)
++ 	call ExprCheck(job_getchannel(job), 1)
++ 	call job_stop(job)
++     endif
++     delfunc ExprCheck
++ 
++     " Regarding function
++     func Func(x) abort
++         call assert_equal(2, test_refcount(function('Func')))
++         call assert_equal(0, test_refcount(funcref('Func')))
++     endfunc
++     call assert_equal(1, test_refcount(function('Func')))
++     call assert_equal(0, test_refcount(function('Func', [1])))
++     call assert_equal(0, test_refcount(funcref('Func')))
++     call assert_equal(0, test_refcount(funcref('Func', [1])))
++     let X = function('Func')
++     let Y = X
++     call assert_equal(1, test_refcount(X))
++     let X = function('Func', [1])
++     let Y = X
++     call assert_equal(2, test_refcount(X))
++     let X = funcref('Func')
++     let Y = X
++     call assert_equal(2, test_refcount(X))
++     let X = funcref('Func', [1])
++     let Y = X
++     call assert_equal(2, test_refcount(X))
++     unlet X
++     unlet Y
++     call Func(1)
++     delfunc Func
++ 
++     " Function with dict
++     func DictFunc() dict
++         call assert_equal(3, test_refcount(self))
++     endfunc
++     let d = {'Func': function('DictFunc')}
++     call assert_equal(1, test_refcount(d))
++     call assert_equal(0, test_refcount(d.Func))
++     call d.Func()
++     unlet d
++     delfunc DictFunc
++ endfunc
++ 
+  "-------------------------------------------------------------------------------
+  " Modelines								    {{{1
+  " vim: ts=8 sw=4 tw=80 fdm=marker
+*** ../vim-8.1.1043/src/version.c	2019-03-23 13:56:30.189804811 +0100
+--- src/version.c	2019-03-23 14:10:54.583519509 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1044,
+  /**/
+
+-- 
+A meeting is an event at which the minutes are kept and the hours are lost.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

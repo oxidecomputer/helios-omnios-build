@@ -1,0 +1,163 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1021
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1021
+Problem:    pyeval() and py3eval() leak memory.
+Solution:   Do not increase the reference count twice. (Ozaki Kiichi,
+            closes #4129)
+Files:	    src/if_python.c, src/if_python3.c
+
+
+*** ../vim-8.1.1020/src/if_python.c	2019-02-18 22:04:52.949609091 +0100
+--- src/if_python.c	2019-03-19 22:21:25.028534491 +0100
+***************
+*** 1555,1584 ****
+  }
+  
+      void
+! do_pyeval (char_u *str, typval_T *rettv)
+  {
+      DoPyCommand((char *) str,
+  	    (rangeinitializer) init_range_eval,
+  	    (runner) run_eval,
+  	    (void *) rettv);
+!     switch (rettv->v_type)
+      {
+! 	case VAR_DICT: ++rettv->vval.v_dict->dv_refcount; break;
+! 	case VAR_LIST: ++rettv->vval.v_list->lv_refcount; break;
+! 	case VAR_FUNC: func_ref(rettv->vval.v_string);    break;
+! 	case VAR_PARTIAL: ++rettv->vval.v_partial->pt_refcount; break;
+! 	case VAR_UNKNOWN:
+! 	    rettv->v_type = VAR_NUMBER;
+! 	    rettv->vval.v_number = 0;
+! 	    break;
+! 	case VAR_NUMBER:
+! 	case VAR_STRING:
+! 	case VAR_FLOAT:
+! 	case VAR_SPECIAL:
+! 	case VAR_JOB:
+! 	case VAR_CHANNEL:
+! 	case VAR_BLOB:
+! 	    break;
+      }
+  }
+  
+--- 1555,1570 ----
+  }
+  
+      void
+! do_pyeval(char_u *str, typval_T *rettv)
+  {
+      DoPyCommand((char *) str,
+  	    (rangeinitializer) init_range_eval,
+  	    (runner) run_eval,
+  	    (void *) rettv);
+!     if (rettv->v_type == VAR_UNKNOWN)
+      {
+! 	rettv->v_type = VAR_NUMBER;
+! 	rettv->vval.v_number = 0;
+      }
+  }
+  
+***************
+*** 1594,1600 ****
+  #endif /* Python 1.4 */
+  
+      int
+! set_ref_in_python (int copyID)
+  {
+      return set_ref_in_py(copyID);
+  }
+--- 1580,1586 ----
+  #endif /* Python 1.4 */
+  
+      int
+! set_ref_in_python(int copyID)
+  {
+      return set_ref_in_py(copyID);
+  }
+*** ../vim-8.1.1020/src/if_python3.c	2019-03-19 22:11:37.933528483 +0100
+--- src/if_python3.c	2019-03-19 22:21:25.028534491 +0100
+***************
+*** 1663,1697 ****
+  }
+  
+      void
+! do_py3eval (char_u *str, typval_T *rettv)
+  {
+      DoPyCommand((char *) str,
+  	    (rangeinitializer) init_range_eval,
+  	    (runner) run_eval,
+  	    (void *) rettv);
+!     switch(rettv->v_type)
+      {
+! 	case VAR_DICT: ++rettv->vval.v_dict->dv_refcount; break;
+! 	case VAR_LIST: ++rettv->vval.v_list->lv_refcount; break;
+! 	case VAR_FUNC: func_ref(rettv->vval.v_string);    break;
+! 	case VAR_PARTIAL: ++rettv->vval.v_partial->pt_refcount; break;
+! 	case VAR_UNKNOWN:
+! 	    rettv->v_type = VAR_NUMBER;
+! 	    rettv->vval.v_number = 0;
+! 	    break;
+! 	case VAR_NUMBER:
+! 	case VAR_STRING:
+! 	case VAR_FLOAT:
+! 	case VAR_SPECIAL:
+! 	case VAR_JOB:
+! 	case VAR_CHANNEL:
+! 	case VAR_BLOB:
+! 	    break;
+      }
+  }
+  
+      int
+! set_ref_in_python3 (int copyID)
+  {
+      return set_ref_in_py(copyID);
+  }
+--- 1663,1683 ----
+  }
+  
+      void
+! do_py3eval(char_u *str, typval_T *rettv)
+  {
+      DoPyCommand((char *) str,
+  	    (rangeinitializer) init_range_eval,
+  	    (runner) run_eval,
+  	    (void *) rettv);
+!     if (rettv->v_type == VAR_UNKNOWN)
+      {
+! 	rettv->v_type = VAR_NUMBER;
+! 	rettv->vval.v_number = 0;
+      }
+  }
+  
+      int
+! set_ref_in_python3(int copyID)
+  {
+      return set_ref_in_py(copyID);
+  }
+*** ../vim-8.1.1020/src/version.c	2019-03-19 22:11:37.933528483 +0100
+--- src/version.c	2019-03-19 22:21:12.036641890 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1021,
+  /**/
+
+-- 
+In order for something to become clean, something else must become dirty;
+but you can get everything dirty without getting anything clean.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

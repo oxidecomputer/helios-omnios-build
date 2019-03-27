@@ -1,0 +1,171 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1035
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1035
+Problem:    prop_remove() second argument is not optional.
+Solution:   Fix argument count.  Use "buf" instead of "curbuf". (closes #4147)
+Files:	    src/evalfunc.c, src/testdir/test_textprop.vim, src/textprop.c
+
+
+*** ../vim-8.1.1034/src/evalfunc.c	2019-03-22 12:03:26.583533911 +0100
+--- src/evalfunc.c	2019-03-22 13:13:27.209011192 +0100
+***************
+*** 788,794 ****
+      {"prop_add",	3, 3, f_prop_add},
+      {"prop_clear",	1, 3, f_prop_clear},
+      {"prop_list",	1, 2, f_prop_list},
+!     {"prop_remove",	2, 3, f_prop_remove},
+      {"prop_type_add",	2, 2, f_prop_type_add},
+      {"prop_type_change", 2, 2, f_prop_type_change},
+      {"prop_type_delete", 1, 2, f_prop_type_delete},
+--- 788,794 ----
+      {"prop_add",	3, 3, f_prop_add},
+      {"prop_clear",	1, 3, f_prop_clear},
+      {"prop_list",	1, 2, f_prop_list},
+!     {"prop_remove",	1, 3, f_prop_remove},
+      {"prop_type_add",	2, 2, f_prop_type_add},
+      {"prop_type_change", 2, 2, f_prop_type_change},
+      {"prop_type_delete", 1, 2, f_prop_type_delete},
+*** ../vim-8.1.1034/src/testdir/test_textprop.vim	2019-02-22 14:38:46.447452832 +0100
+--- src/testdir/test_textprop.vim	2019-03-22 13:19:41.448110561 +0100
+***************
+*** 166,193 ****
+    new
+    let bufnr = bufnr('')
+    call AddPropTypes()
+!   call setline(1, 'one two three')
+    wincmd w
+!   call prop_add(1, 1, {'length': 3, 'id': 11, 'type': 'one', 'bufnr': bufnr})
+!   call prop_add(1, 5, {'length': 3, 'id': 12, 'type': 'two', 'bufnr': bufnr})
+!   call prop_add(1, 11, {'length': 3, 'id': 13, 'type': 'three', 'bufnr': bufnr})
+!   
+    let props = [
+  	\ {'col': 1, 'length': 3, 'id': 11, 'type': 'one', 'start': 1, 'end': 1},
+  	\ {'col': 5, 'length': 3, 'id': 12, 'type': 'two', 'start': 1, 'end': 1},
+  	\ {'col': 11, 'length': 3, 'id': 13, 'type': 'three', 'start': 1, 'end': 1},
+  	\]
+    call assert_equal(props, prop_list(1, {'bufnr': bufnr}))
+!  
+    " remove by id
+!   call prop_remove({'id': 12, 'bufnr': bufnr}, 1)
+    unlet props[1]
+    call assert_equal(props, prop_list(1, {'bufnr': bufnr}))
+  
+    " remove by type
+!   call prop_remove({'type': 'one', 'bufnr': bufnr}, 1)
+    unlet props[0]
+    call assert_equal(props, prop_list(1, {'bufnr': bufnr}))
+  
+    call DeletePropTypes()
+    wincmd w
+--- 166,229 ----
+    new
+    let bufnr = bufnr('')
+    call AddPropTypes()
+!   for lnum in range(1, 4)
+!     call setline(lnum, 'one two three')
+!   endfor
+    wincmd w
+!   for lnum in range(1, 4)
+!     call prop_add(lnum, 1, {'length': 3, 'id': 11, 'type': 'one', 'bufnr': bufnr})
+!     call prop_add(lnum, 5, {'length': 3, 'id': 12, 'type': 'two', 'bufnr': bufnr})
+!     call prop_add(lnum, 11, {'length': 3, 'id': 13, 'type': 'three', 'bufnr': bufnr})
+!   endfor
+! 
+    let props = [
+  	\ {'col': 1, 'length': 3, 'id': 11, 'type': 'one', 'start': 1, 'end': 1},
+  	\ {'col': 5, 'length': 3, 'id': 12, 'type': 'two', 'start': 1, 'end': 1},
+  	\ {'col': 11, 'length': 3, 'id': 13, 'type': 'three', 'start': 1, 'end': 1},
+  	\]
+    call assert_equal(props, prop_list(1, {'bufnr': bufnr}))
+! 
+    " remove by id
+!   let before_props = deepcopy(props)
+    unlet props[1]
++ 
++   call prop_remove({'id': 12, 'bufnr': bufnr}, 1)
++   call assert_equal(props, prop_list(1, {'bufnr': bufnr}))
++   call assert_equal(before_props, prop_list(2, {'bufnr': bufnr}))
++   call assert_equal(before_props, prop_list(3, {'bufnr': bufnr}))
++   call assert_equal(before_props, prop_list(4, {'bufnr': bufnr}))
++ 
++   call prop_remove({'id': 12, 'bufnr': bufnr}, 3, 4)
+    call assert_equal(props, prop_list(1, {'bufnr': bufnr}))
++   call assert_equal(before_props, prop_list(2, {'bufnr': bufnr}))
++   call assert_equal(props, prop_list(3, {'bufnr': bufnr}))
++   call assert_equal(props, prop_list(4, {'bufnr': bufnr}))
++ 
++   call prop_remove({'id': 12, 'bufnr': bufnr})
++   for lnum in range(1, 4)
++     call assert_equal(props, prop_list(lnum, {'bufnr': bufnr}))
++   endfor
+  
+    " remove by type
+!   let before_props = deepcopy(props)
+    unlet props[0]
++ 
++   call prop_remove({'type': 'one', 'bufnr': bufnr}, 1)
+    call assert_equal(props, prop_list(1, {'bufnr': bufnr}))
++   call assert_equal(before_props, prop_list(2, {'bufnr': bufnr}))
++   call assert_equal(before_props, prop_list(3, {'bufnr': bufnr}))
++   call assert_equal(before_props, prop_list(4, {'bufnr': bufnr}))
++ 
++   call prop_remove({'type': 'one', 'bufnr': bufnr}, 3, 4)
++   call assert_equal(props, prop_list(1, {'bufnr': bufnr}))
++   call assert_equal(before_props, prop_list(2, {'bufnr': bufnr}))
++   call assert_equal(props, prop_list(3, {'bufnr': bufnr}))
++   call assert_equal(props, prop_list(4, {'bufnr': bufnr}))
++ 
++   call prop_remove({'type': 'one', 'bufnr': bufnr})
++   for lnum in range(1, 4)
++     call assert_equal(props, prop_list(lnum, {'bufnr': bufnr}))
++   endfor
+  
+    call DeletePropTypes()
+    wincmd w
+*** ../vim-8.1.1034/src/textprop.c	2019-02-22 19:14:46.774074872 +0100
+--- src/textprop.c	2019-03-22 13:13:27.209011192 +0100
+***************
+*** 629,635 ****
+  			mch_memmove(newptr, buf->b_ml.ml_line_ptr,
+  							buf->b_ml.ml_line_len);
+  			buf->b_ml.ml_line_ptr = newptr;
+! 			curbuf->b_ml.ml_flags |= ML_LINE_DIRTY;
+  		    }
+  
+  		    taillen = buf->b_ml.ml_line_len - len
+--- 629,638 ----
+  			mch_memmove(newptr, buf->b_ml.ml_line_ptr,
+  							buf->b_ml.ml_line_len);
+  			buf->b_ml.ml_line_ptr = newptr;
+! 			buf->b_ml.ml_flags |= ML_LINE_DIRTY;
+! 
+! 			cur_prop = buf->b_ml.ml_line_ptr + len
+! 							+ idx * sizeof(textprop_T);
+  		    }
+  
+  		    taillen = buf->b_ml.ml_line_len - len
+*** ../vim-8.1.1034/src/version.c	2019-03-22 12:03:26.587533860 +0100
+--- src/version.c	2019-03-22 13:14:52.784892767 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1035,
+  /**/
+
+-- 
+From "know your smileys":
+ :-E	Has major dental problems
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

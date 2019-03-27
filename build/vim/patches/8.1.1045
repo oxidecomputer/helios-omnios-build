@@ -1,0 +1,262 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1045
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1045
+Problem:    E315 ml_get error when using Python and hidden buffer.
+Solution:   Make sure the cursor position is valid. (Ben Jackson,
+            closes #4153, closes #4154)
+Files:	    src/if_py_both.h, src/testdir/test_python2.vim,
+            src/testdir/test_python3.vim
+
+
+*** ../vim-8.1.1044/src/if_py_both.h	2019-02-14 13:28:42.143415639 +0100
+--- src/if_py_both.h	2019-03-23 17:26:05.958992217 +0100
+***************
+*** 4392,4398 ****
+  	    RAISE_DELETE_LINE_FAIL;
+  	else
+  	{
+! 	    if (buf == curbuf)
+  		py_fix_cursor((linenr_T)n, (linenr_T)n + 1, (linenr_T)-1);
+  	    if (save_curbuf.br_buf == NULL)
+  		/* Only adjust marks if we managed to switch to a window that
+--- 4392,4401 ----
+  	    RAISE_DELETE_LINE_FAIL;
+  	else
+  	{
+! 	    if (buf == curbuf && (save_curwin != NULL
+! 					   || save_curbuf.br_buf == NULL))
+! 		// Using an existing window for the buffer, adjust the cursor
+! 		// position.
+  		py_fix_cursor((linenr_T)n, (linenr_T)n + 1, (linenr_T)-1);
+  	    if (save_curbuf.br_buf == NULL)
+  		/* Only adjust marks if we managed to switch to a window that
+***************
+*** 4642,4648 ****
+  						  (long)MAXLNUM, (long)extra);
+  	changed_lines((linenr_T)lo, 0, (linenr_T)hi, (long)extra);
+  
+! 	if (buf == curbuf)
+  	    py_fix_cursor((linenr_T)lo, (linenr_T)hi, (linenr_T)extra);
+  
+  	/* END of region without "return". */
+--- 4645,4654 ----
+  						  (long)MAXLNUM, (long)extra);
+  	changed_lines((linenr_T)lo, 0, (linenr_T)hi, (long)extra);
+  
+! 	if (buf == curbuf && (save_curwin != NULL
+! 					   || save_curbuf.br_buf == NULL))
+! 	    // Using an existing window for the buffer, adjust the cursor
+! 	    // position.
+  	    py_fix_cursor((linenr_T)lo, (linenr_T)hi, (linenr_T)extra);
+  
+  	/* END of region without "return". */
+*** ../vim-8.1.1044/src/testdir/test_python2.vim	2019-02-18 22:04:52.949609091 +0100
+--- src/testdir/test_python2.vim	2019-03-23 17:19:39.117394146 +0100
+***************
+*** 71,73 ****
+--- 71,157 ----
+    endif
+    call assert_equal(0, &pyxversion)  " This assertion would have failed with Vim 8.0.0251. (pyxversion was introduced in 8.0.0251.)
+  endfunc
++ 
++ func _SetUpHiddenBuffer()
++   py import vim
++   new
++   edit hidden
++   setlocal bufhidden=hide
++ 
++   enew
++   let lnum = 0
++   while lnum < 10
++     call append( 1, string( lnum ) )
++     let lnum = lnum + 1
++   endwhile
++   normal G
++ 
++   call assert_equal( line( '.' ), 11 )
++ endfunc
++ 
++ func Test_Write_To_HiddenBuffer_Does_Not_Fix_Cursor_Clear()
++   call _SetUpHiddenBuffer()
++   py vim.buffers[ int( vim.eval( 'bufnr("hidden")' ) ) ][:] = None
++   call assert_equal( line( '.' ), 11 )
++   bwipe!
++ endfunc
++ 
++ func Test_Write_To_HiddenBuffer_Does_Not_Fix_Cursor_List()
++   call _SetUpHiddenBuffer()
++   py vim.buffers[ int( vim.eval( 'bufnr("hidden")' ) ) ][:] = [ 'test' ]
++   call assert_equal( line( '.' ), 11 )
++   bwipe!
++ endfunc
++ 
++ func Test_Write_To_HiddenBuffer_Does_Not_Fix_Cursor_Str()
++   call _SetUpHiddenBuffer()
++   py vim.buffers[ int( vim.eval( 'bufnr("hidden")' ) ) ][0] = 'test'
++   call assert_equal( line( '.' ), 11 )
++   bwipe!
++ endfunc
++ 
++ func Test_Write_To_HiddenBuffer_Does_Not_Fix_Cursor_ClearLine()
++   call _SetUpHiddenBuffer()
++   py vim.buffers[ int( vim.eval( 'bufnr("hidden")' ) ) ][0] = None
++   call assert_equal( line( '.' ), 11 )
++   bwipe!
++ endfunc
++ 
++ func _SetUpVisibleBuffer()
++   py import vim
++   new
++   let lnum = 0
++   while lnum < 10
++     call append( 1, string( lnum ) )
++     let lnum = lnum + 1
++   endwhile
++   normal G
++   call assert_equal( line( '.' ), 11 )
++ endfunc
++ 
++ func Test_Write_To_Current_Buffer_Fixes_Cursor_Clear()
++   call _SetUpVisibleBuffer()
++ 
++   py vim.current.buffer[:] = None
++   call assert_equal( line( '.' ), 1 )
++ 
++   bwipe!
++ endfunc
++ 
++ func Test_Write_To_Current_Buffer_Fixes_Cursor_List()
++   call _SetUpVisibleBuffer()
++ 
++   py vim.current.buffer[:] = [ 'test' ]
++   call assert_equal( line( '.' ), 1 )
++ 
++   bwipe!
++ endfunction
++ 
++ func Test_Write_To_Current_Buffer_Fixes_Cursor_Str()
++   call _SetUpVisibleBuffer()
++ 
++   py vim.current.buffer[-1] = None
++   call assert_equal( line( '.' ), 10 )
++ 
++   bwipe!
++ endfunction
+*** ../vim-8.1.1044/src/testdir/test_python3.vim	2019-02-18 22:04:52.949609091 +0100
+--- src/testdir/test_python3.vim	2019-03-23 17:19:39.117394146 +0100
+***************
+*** 71,73 ****
+--- 71,157 ----
+    endif
+    call assert_equal(0, &pyxversion)  " This assertion would have failed with Vim 8.0.0251. (pyxversion was introduced in 8.0.0251.)
+  endfunc
++ 
++ func _SetUpHiddenBuffer()
++   py3 import vim
++   new
++   edit hidden
++   setlocal bufhidden=hide
++ 
++   enew
++   let lnum = 0
++   while lnum < 10
++     call append( 1, string( lnum ) )
++     let lnum = lnum + 1
++   endwhile
++   normal G
++ 
++   call assert_equal( line( '.' ), 11 )
++ endfunc
++ 
++ func Test_Write_To_HiddenBuffer_Does_Not_Fix_Cursor_Clear()
++   call _SetUpHiddenBuffer()
++   py3 vim.buffers[ int( vim.eval( 'bufnr("hidden")' ) ) ][:] = None
++   call assert_equal( line( '.' ), 11 )
++   bwipe!
++ endfunc
++ 
++ func Test_Write_To_HiddenBuffer_Does_Not_Fix_Cursor_List()
++   call _SetUpHiddenBuffer()
++   py3 vim.buffers[ int( vim.eval( 'bufnr("hidden")' ) ) ][:] = [ 'test' ]
++   call assert_equal( line( '.' ), 11 )
++   bwipe!
++ endfunc
++ 
++ func Test_Write_To_HiddenBuffer_Does_Not_Fix_Cursor_Str()
++   call _SetUpHiddenBuffer()
++   py3 vim.buffers[ int( vim.eval( 'bufnr("hidden")' ) ) ][0] = 'test'
++   call assert_equal( line( '.' ), 11 )
++   bwipe!
++ endfunc
++ 
++ func Test_Write_To_HiddenBuffer_Does_Not_Fix_Cursor_ClearLine()
++   call _SetUpHiddenBuffer()
++   py3 vim.buffers[ int( vim.eval( 'bufnr("hidden")' ) ) ][0] = None
++   call assert_equal( line( '.' ), 11 )
++   bwipe!
++ endfunc
++ 
++ func _SetUpVisibleBuffer()
++   py3 import vim
++   new
++   let lnum = 0
++   while lnum < 10
++     call append( 1, string( lnum ) )
++     let lnum = lnum + 1
++   endwhile
++   normal G
++   call assert_equal( line( '.' ), 11 )
++ endfunc
++ 
++ func Test_Write_To_Current_Buffer_Fixes_Cursor_Clear()
++   call _SetUpVisibleBuffer()
++ 
++   py3 vim.current.buffer[:] = None
++   call assert_equal( line( '.' ), 1 )
++ 
++   bwipe!
++ endfunc
++ 
++ func Test_Write_To_Current_Buffer_Fixes_Cursor_List()
++   call _SetUpVisibleBuffer()
++ 
++   py3 vim.current.buffer[:] = [ 'test' ]
++   call assert_equal( line( '.' ), 1 )
++ 
++   bwipe!
++ endfunction
++ 
++ func Test_Write_To_Current_Buffer_Fixes_Cursor_Str()
++   call _SetUpVisibleBuffer()
++ 
++   py3 vim.current.buffer[-1] = None
++   call assert_equal( line( '.' ), 10 )
++ 
++   bwipe!
++ endfunction
+*** ../vim-8.1.1044/src/version.c	2019-03-23 14:23:02.138361658 +0100
+--- src/version.c	2019-03-23 17:40:28.001674801 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1045,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+106. When told to "go to your room" you inform your parents that you
+     can't...because you were kicked out and banned.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

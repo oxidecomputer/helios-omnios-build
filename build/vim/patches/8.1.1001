@@ -1,0 +1,116 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1001
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1001
+Problem:    Visual area not correct when using 'cursorline'.
+Solution:   Update w_last_cursorline also in Visual mode. (Hirohito Higashi,
+            closes #4086)
+Files:	    src/screen.c, src/testdir/test_highlight.vim,
+            src/testdir/dumps/Test_cursorline_with_visualmode_01.dump
+
+
+*** ../vim-8.1.1000/src/screen.c	2019-02-25 05:40:59.171067556 +0100
+--- src/screen.c	2019-03-09 11:42:45.459445530 +0100
+***************
+*** 3704,3717 ****
+  #endif
+  
+  #ifdef FEAT_SYN_HL
+!     /* Cursor line highlighting for 'cursorline' in the current window.  Not
+!      * when Visual mode is active, because it's not clear what is selected
+!      * then. */
+!     if (wp->w_p_cul && lnum == wp->w_cursor.lnum
+! 					 && !(wp == curwin && VIsual_active))
+      {
+! 	line_attr = HL_ATTR(HLF_CUL);
+! 	area_highlighting = TRUE;
+  	wp->w_last_cursorline = wp->w_cursor.lnum;
+      }
+  #endif
+--- 3704,3719 ----
+  #endif
+  
+  #ifdef FEAT_SYN_HL
+!     // Cursor line highlighting for 'cursorline' in the current window.
+!     if (wp->w_p_cul && lnum == wp->w_cursor.lnum)
+      {
+! 	// Do not show the cursor line when Visual mode is active, because it's
+! 	// not clear what is selected then.  Do update w_last_cursorline.
+! 	if (!(wp == curwin && VIsual_active))
+! 	{
+! 	    line_attr = HL_ATTR(HLF_CUL);
+! 	    area_highlighting = TRUE;
+! 	}
+  	wp->w_last_cursorline = wp->w_cursor.lnum;
+      }
+  #endif
+*** ../vim-8.1.1000/src/testdir/test_highlight.vim	2019-01-30 21:40:58.943219829 +0100
+--- src/testdir/test_highlight.vim	2019-03-09 11:31:13.860508767 +0100
+***************
+*** 552,554 ****
+--- 552,574 ----
+    call StopVimInTerminal(buf)
+    call delete('Xtest_cursorline_yank')
+  endfunc
++ 
++ func Test_cursorline_with_visualmode()
++   if !CanRunVimInTerminal()
++     return
++   endif
++ 
++   call writefile([
++ 	\ 'set cul',
++ 	\ 'call setline(1, repeat(["abc"], 50))',
++ 	\ ], 'Xtest_cursorline_with_visualmode')
++   let buf = RunVimInTerminal('-S Xtest_cursorline_with_visualmode', {'rows': 12})
++   call term_wait(buf)
++   call term_sendkeys(buf, "V\<C-f>kkkjk")
++ 
++   call VerifyScreenDump(buf, 'Test_cursorline_with_visualmode_01', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('Xtest_cursorline_with_visualmode')
++ endfunc
+*** ../vim-8.1.1000/src/testdir/dumps/Test_cursorline_with_visualmode_01.dump	2019-03-09 11:45:20.782315358 +0100
+--- src/testdir/dumps/Test_cursorline_with_visualmode_01.dump	2019-03-09 11:31:13.860508767 +0100
+***************
+*** 0 ****
+--- 1,12 ----
++ |a+0&#e0e0e08|b|c| | +0&#ffffff0@70
++ |a+0&#e0e0e08|b|c| | +0&#ffffff0@70
++ |a+0&#e0e0e08|b|c| | +0&#ffffff0@70
++ |a+0&#e0e0e08|b|c| | +0&#ffffff0@70
++ |a+0&#e0e0e08|b|c| | +0&#ffffff0@70
++ >a|b+0&#e0e0e08|c| | +0&#ffffff0@70
++ |a|b|c| @71
++ |a|b|c| @71
++ |a|b|c| @71
++ |a|b|c| @71
++ |a|b|c| @71
++ |-+2&&@1| |V|I|S|U|A|L| |L|I|N|E| |-@1| +0&&@29|1|2| @7|1|2|,|1| @9|1|5|%| 
+*** ../vim-8.1.1000/src/version.c	2019-03-09 11:23:53.215751899 +0100
+--- src/version.c	2019-03-09 11:34:32.823050052 +0100
+***************
+*** 781,782 ****
+--- 781,784 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1001,
+  /**/
+
+-- 
+Well, you come from nothing, you go back to nothing...  What have you
+lost?  Nothing!
+				-- Monty Python: The life of Brian
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///
