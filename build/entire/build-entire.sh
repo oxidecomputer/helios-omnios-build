@@ -56,7 +56,7 @@ add_constraints()
             if [[ "$flags" = *S* ]]; then
                 echo " variant.opensolaris.imagetype=full\\c"
             fi
-            echo " fmri=pkg://@PKGPUBLISHER@/$pkg@$ver,5.11-@PVER@ type=$typ"
+            echo " fmri=pkg://@PKGPUBLISHER@/$pkg@$ver,5.11-@RELVER@ type=$typ"
         ) >> $cmf
     done
 }
