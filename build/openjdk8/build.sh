@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -20,11 +20,24 @@ PROG=openjdk
 VER=1.8
 DATE=20190219
 UPDATE=202
-VERHUMAN="jdk8u${UPDATE}"
-
 PKG=openjdk    ##IGNORE## - filled in later
 SUMMARY="tbc"; DESC="tbc"
 
+MVER=`echo $VER | cut -d. -f2`
+VERHUMAN=jdk${MVER}u${UPDATE}
+IVER=${VER}.0
+
+IROOT=usr/jdk/instances
+IFULL=$IROOT/$PROG$IVER
+
+XFORM_ARGS="
+    -D VER=$VER
+    -D IVER=$IVER
+    -D IROOT=$IROOT
+    -D IFULL=$IFULL
+"
+
+# The archive extracts into just 'openjdk'
 set_builddir "$PROG"
 set_arch 64
 MJOBS=8
@@ -41,8 +54,7 @@ prep_build
 
 BUILD_DEPENDS_IPS="
     system/header/header-audio
-    developer/java/jdk
-    runtime/java
+    developer/java/openjdk8
     ooce/library/freetype2
 "
 
@@ -100,8 +112,6 @@ grab() {
     popd >/dev/null
 }
 
-make_install() { :; }
-
 # Some files are present in both the j2re and j2sdk images.
 # Generate a list of those files so that we deliver them in j2re only.
 find_dups() {
@@ -124,8 +134,8 @@ make_install_j2re() {
 
     # copy in our JRE files
     pushd $TMPDIR/$BUILDDIR/images/j2re-image > /dev/null || logerr "pushd"
-    logcmd mkdir -p $J2RE_INSTALLTMP/usr/java
-    find . | cpio -pmud $J2RE_INSTALLTMP/usr/java
+    logcmd mkdir -p $J2RE_INSTALLTMP/$IFULL
+    find . | cpio -pmud $J2RE_INSTALLTMP/$IFULL
     popd > /dev/null
 }
 
@@ -137,17 +147,24 @@ make_install_j2sdk() {
 
     # copy in our SDK files
     pushd $TMPDIR/$BUILDDIR/images/j2sdk-image > /dev/null || logerr "pushd"
-    logcmd mkdir -p $J2SDK_INSTALLTMP/usr/java
-    find . | cpio -pmud $J2SDK_INSTALLTMP/usr/java
+    logcmd mkdir -p $J2SDK_INSTALLTMP/$IFULL
+    find . | cpio -pmud $J2SDK_INSTALLTMP/$IFULL
     popd > /dev/null
 
     # Remove files which are also shipped as part of the JRE
     typeset -i num=`find_dups`
     logmsg "-- Pruning $num duplicates"
-    pushd $J2SDK_INSTALLTMP/usr/java > /dev/null || logerr "pushd"
+    pushd $J2SDK_INSTALLTMP/$IFULL > /dev/null || logerr "pushd"
     cat $TMPDIR/dups.files | xargs rm -f
     popd > /dev/null
 }
+
+make_install() {
+    make_install_j2re
+    make_install_j2sdk
+}
+
+#############################################################################
 
 grab cups/cups-headers.tar.gz cups/include
 grab Xstuff/openwin.tar.gz openwin/X11/include
@@ -157,29 +174,29 @@ build
 #############################################################################
 # Build packages
 
-make_install_j2re
-make_install_j2sdk
-VER=$VER.0.$UPDATE.$DATE
+VER=$IVER.$UPDATE.$DATE
 _DESC="Open-source implementation of the eighth edition of the Java SE Platform"
 
 #############################################################################
 # JRE package
 
-PKG=runtime/java
+# Need to keep the literal '8' here as the testsuite extracts from PKG=
+PKG=runtime/java/openjdk8
 PKGE=`url_encode $PKG`
 SUMMARY="openjdk ${VER#*.} JRE"
 DESC="$_DESC, runtime environment (JRE)"
 DESTDIR=$J2RE_INSTALLTMP
-make_package jre.mog
+make_package jre.mog jrefinal.mog
 
 #############################################################################
 # JDK package
 
-PKG=developer/java/jdk
+# Need to keep the literal '8' here as the testsuite extracts from PKG=
+PKG=developer/java/openjdk8
 PKGE=`url_encode $PKG`
 SUMMARY="openjdk ${VER#*.} JDK"
 DESC="$_DESC, development kit (JDK)"
-RUN_DEPENDS_IPS=runtime/java
+RUN_DEPENDS_IPS=runtime/java/openjdk$MVER
 DESTDIR=$J2SDK_INSTALLTMP
 make_package jdk.mog
 
