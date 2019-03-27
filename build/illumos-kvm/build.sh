@@ -85,6 +85,7 @@ make_prog() {
         KERNEL_SOURCE=$KERNEL_SOURCE \
         PROTO_AREA=$PROTO_AREA \
         CC=/opt/gcc-4.4.4/bin/gcc \
+        PRIMARY_COMPILER_VER=4 \
         || logerr "--- Make failed"
     logcmd cp $KERNEL_SOURCE/usr/src/OPENSOLARIS.LICENSE \
         $SRCDIR/OPENSOLARIS.LICENSE \
