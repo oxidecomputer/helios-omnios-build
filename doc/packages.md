@@ -114,7 +114,7 @@
 | library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.0.8			| https://pypi.org/project/Mako
 | library/python-3/meson-35		| 0.50.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-35	| 6.0.0			| https://pypi.org/project/more-itertools
+| library/python-3/more-itertools-35	| 7.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-35		| 2.3			| https://pypi.org/project/portend
