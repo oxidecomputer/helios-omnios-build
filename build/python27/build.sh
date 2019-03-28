@@ -31,6 +31,8 @@ PKG=runtime/python-27
 SUMMARY="$PROG ${VER%.*}"
 DESC="$SUMMARY"
 
+set_python_version $PYTHON2VER
+
 BUILD_DEPENDS_IPS="developer/build/autoconf developer/pkg-config"
 RUN_DEPENDS_IPS="
     compress/bzip2
