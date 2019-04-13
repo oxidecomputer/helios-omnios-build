@@ -117,17 +117,17 @@
 | library/python-3/more-itertools-35	| 7.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
-| library/python-3/portend-35		| 2.3			| https://pypi.org/project/portend
+| library/python-3/portend-35		| 2.4			| https://pypi.org/project/portend
 | library/python-3/prettytable-35	| 0.7.2			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-35		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycparser-35		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-35	| 0.14.11		| https://pypi.org/project/pyrsistent
-| library/python-3/pytz-35		| 2018.9		| https://pypi.org/project/pytz
-| library/python-3/setuptools-35	| 40.8.0		| https://pypi.org/project/setuptools
+| library/python-3/pytz-35		| 2019.1		| https://pypi.org/project/pytz
+| library/python-3/setuptools-35	| 41.0.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
-| library/python-3/tempora-35		| 1.14			| https://pypi.org/project/tempora
+| library/python-3/tempora-35		| 1.14.1		| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-35	| 1.4			| https://pypi.org/project/zc.lockfile
 
