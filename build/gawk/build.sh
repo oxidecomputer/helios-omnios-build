@@ -21,21 +21,21 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=gawk
-VER=4.2.1
+VER=5.0.0
 VERHUMAN=$VER
 PKG=text/gawk
-SUMMARY="gawk - GNU implementation of awk"
-DESC="$SUMMARY"
+SUMMARY="GNU awk"
+DESC="gawk - GNU implementation of awk"
 
 RUN_DEPENDS_IPS="system/prerequisite/gnu"
 
-set_arch 32
+set_arch 64
+
 CPPFLAGS+=" -I/usr/include/gmp"
 CFLAGS+=" -D_XPG6"
 
