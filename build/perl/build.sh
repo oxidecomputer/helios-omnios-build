@@ -21,14 +21,14 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 
 . ../../lib/functions.sh
 
 PROG=perl
-VER=5.28.1
+VER=5.28.2
 NODOTVER=${VER//./} # 5xxy
 SVER=${VER%.*}      # 5.xx
 PKG=runtime/perl-$NODOTVER ##IGNORE##
