@@ -8,7 +8,7 @@
 | compress/xz				| 5.2.4			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | data/iso-codes			| 4.2			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3270200		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3280000		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.1		| https://git.savannah.gnu.org/cgit/automake.git/refs/tags https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.2.1			| http://git.savannah.gnu.org/cgit/make.git/refs/tags
@@ -46,7 +46,7 @@
 | library/nss				| 3.43			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.21			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
-| library/pcre2				| 10.32			| https://ftp.pcre.org/pub/pcre/
+| library/pcre2				| 10.33			| https://ftp.pcre.org/pub/pcre/
 | library/readline			| 8.0			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
 | library/readline7-patchlvl		| 005			| https://ftp.gnu.org/gnu/readline/readline-7.0-patches/
@@ -60,7 +60,7 @@
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
-| runtime/perl				| 5.28.1		| http://www.cpan.org/src/README.html
+| runtime/perl				| 5.28.2		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.16		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.7			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.27		| https://www.sudo.ws/
@@ -112,7 +112,7 @@
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.0.8			| https://pypi.org/project/Mako
-| library/python-3/meson-35		| 0.50.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-35		| 0.50.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-35	| 7.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
