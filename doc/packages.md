@@ -42,7 +42,7 @@
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20190323		| http://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
-| library/nghttp2			| 1.37.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nghttp2			| 1.38.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.43			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.21			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
@@ -54,7 +54,7 @@
 | library/security/openssl-1.1		| 1.1.1b		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| network/dns/bind			| 9.11.6		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.11.6-P1		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 7.9p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -102,7 +102,7 @@
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-35		| 19.1.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-35		| 1.12.2		| https://pypi.org/project/cffi
+| library/python-3/cffi-35		| 1.12.3		| https://pypi.org/project/cffi
 | library/python-3/cheroot-35		| 6.5.4			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 18.1.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
@@ -111,7 +111,7 @@
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
-| library/python-3/mako-35		| 1.0.8			| https://pypi.org/project/Mako
+| library/python-3/mako-35		| 1.0.9			| https://pypi.org/project/Mako
 | library/python-3/meson-35		| 0.50.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-35	| 7.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
@@ -124,7 +124,7 @@
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-35	| 0.14.11		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-35		| 2019.1		| https://pypi.org/project/pytz
-| library/python-3/setuptools-35	| 41.0.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-35	| 41.0.1		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.14.1		| https://pypi.org/project/tempora
