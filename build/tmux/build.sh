@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=tmux
-VER=2.9
+VER=2.9a
 VERHUMAN=$VER
 PKG=terminal/tmux
 SUMMARY="Terminal multiplexer"
@@ -66,7 +66,10 @@ download_source $PROG $PROG $VER
 patch_source
 build
 strip_install
-make_package
+# Unusually, there was a 2.9a. Change this to 2.9.1
+# Can likely be removed once 2.10 is released or if tmux begin to make a habit
+# of using letter suffixes, it can be extended to make use of 'ord26'
+VER=${VER//a/.1} make_package
 clean_up
 
 # Vim hints
