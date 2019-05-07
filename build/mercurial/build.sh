@@ -27,10 +27,15 @@
 . ../../lib/functions.sh
 
 PROG=mercurial
-VER=4.9.1
+VER=5.0
 PKG=developer/versioning/mercurial
 SUMMARY="Mercurial source control management"
 DESC="Free, distributed source control management tool"
+
+# Mercurial currently has beta support for Python 3 and use of Python 2.7 is
+# recommended for the best experience.
+# See https://www.mercurial-scm.org/wiki/Python3 for more on Mercurial's
+# Python 3 support.
 
 set_python_version $PYTHON2VER
 
