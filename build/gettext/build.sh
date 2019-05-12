@@ -21,21 +21,19 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=gettext
-VER=0.19.8.1
+VER=0.20
 PKG=text/gnu-gettext
 SUMMARY="gettext - GNU gettext utility"
 DESC="GNU gettext - GNU gettext utility"
 
-NO_PARALLEL_MAKE=1
-set_arch 32
+set_arch 64
 
-DEPENDS_IPS="system/prerequisite/gnu developer/macro/gnu-m4"
+RUN_DEPENDS_IPS="system/prerequisite/gnu developer/macro/gnu-m4"
 
 CONFIGURE_OPTS="
     --infodir=$PREFIX/share/info
