@@ -21,9 +21,8 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=m4
@@ -33,7 +32,7 @@ SUMMARY="GNU m4"
 DESC="GNU m4 - A macro processor (gm4)"
 
 PREFIX=/usr/gnu
-set_arch 32
+set_arch 64
 
 CONFIGURE_OPTS="--infodir=/usr/share/info"
 

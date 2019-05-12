@@ -21,22 +21,23 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=screen
 VER=4.6.2
 PKG=terminal/screen
 SUMMARY="GNU Screen terminal multiplexer"
-DESC="$SUMMARY"
+DESC="A full-screen window manager that multiplexes a physical "
+DESC+="terminal between several processes"
 
-set_arch 32
-CONFIGURE_OPTS="
-	--with-sys-screenrc=/etc/screenrc
-	--enable-colors256
-	LDFLAGS=-lxnet
+set_arch 64
+
+CONFIGURE_OPTS_WS="
+    --with-sys-screenrc=/etc/screenrc
+    --enable-colors256
+    LDFLAGS=\"-m64 -lxnet\"
 "
 
 save_function make_install make_install_orig
@@ -45,15 +46,15 @@ make_install() {
     logmsg "Installing /etc/screenrc"
     logcmd mkdir $DESTDIR/etc || logerr "-- Failed to mkdir $DESTDIR/etc"
     sed '
-	# Remove header that says it is an example that should be installed
-	# in /etc
-	1,/^$/ {
-		/^#/d
-	}
-	/^#autodetach off/c\
+        # Remove header that says it is an example that should be installed
+        # in /etc
+        1,/^$/ {
+            /^#/d
+        }
+        /^#autodetach off/c\
 autodetach on\
 defscrollback 1000
-	/^#startup_message off/s/#//
+        /^#startup_message off/s/#//
     ' < etc/etcscreenrc > $DESTDIR/etc/screenrc
 }
 

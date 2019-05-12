@@ -21,18 +21,18 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=less
 VER=530
 PKG=text/less
 SUMMARY="$PROG - GNU paginator"
-DESC="$SUMMARY"
+DESC="A program similar to more, but which allows backward movement "
+DESC+="in the file as well as forward movement"
 
-set_arch 32
+set_arch 64
 
 init
 download_source $PROG $PROG $VER
