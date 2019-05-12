@@ -111,7 +111,7 @@
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
-| library/python-3/mako-35		| 1.0.9			| https://pypi.org/project/Mako
+| library/python-3/mako-35		| 1.0.10		| https://pypi.org/project/Mako
 | library/python-3/meson-35		| 0.50.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-35	| 7.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
@@ -122,7 +122,7 @@
 | library/python-3/pycparser-35		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-35	| 0.14.11		| https://pypi.org/project/pyrsistent
+| library/python-3/pyrsistent-35	| 0.15.1		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-35		| 2019.1		| https://pypi.org/project/pytz
 | library/python-3/setuptools-35	| 41.0.1		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
