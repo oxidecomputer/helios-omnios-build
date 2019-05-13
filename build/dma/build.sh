@@ -12,35 +12,37 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=dma
 VER=0.11
-VERHUMAN=$VER
 PKG=service/network/smtp/dma
 SUMMARY="The DragonFly Mail Agent"
 DESC="$SUMMARY"
 
-set_arch 32
+set_arch 64
 
 # adding ASLR flags to compiler and linker since
 # dma:             gets ASLR if linker flag is set
 # dma-mbox-create: gets ASLR if compiler flag is set
 CFLAGS+=" -pipe -Wl,-z,aslr -DHAVE_STRLCPY -DHAVE_GETPROGNAME"
 LDADD="-Wl,-z,aslr -lssl -lcrypto -lresolv -lsocket -lnsl"
-export CFLAGS LDADD
 
 export PREFIX=/usr
 export SBIN=${PREFIX}/lib/smtp/dma
 export LIBEXEC=${PREFIX}/lib/smtp/dma
 
 # No configure
-configure32() {
+configure64() {
     export CC=gcc
     export YACC=bison
     export LEX=flex
+
+    CFLAGS+=" $CFLAGS64"
+    LDADD+=" $LDFLAGS64"
+    export CFLAGS LDADD
 }
 
 move_manpage() {
@@ -54,8 +56,7 @@ move_manpage() {
     if [ -f $page.$old ]; then
         mv $page.$old $page.$new
         # change manpage header
-        uc=`echo $new | tr '[:lower:]' '[:upper:]'`
-        sed -E -i "s/^(\.Dt +[^ ]+).*$/\1 $uc/" $page.$new
+        sed -E -i "s/^(\.Dt +[^ ]+).*$/\1 ${new^^}/" $page.$new
     elif [ -f $page.$new ]; then
         logmsg "---- Was already moved"
     else

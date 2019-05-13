@@ -21,9 +21,8 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=ipmitool
@@ -36,8 +35,8 @@ DESC+="Intelligent Platform Management Interface"
 
 BUILD_DEPENDS_IPS="driver/ipmi developer/build/libtool"
 
-set_arch 32
-CONFIGURE_OPTS_32+=" --bindir=/usr/sbin --sbindir=/usr/lib"
+set_arch 64
+CONFIGURE_OPTS_64+=" --bindir=/usr/sbin --sbindir=/usr/lib"
 CONFIGURE_OPTS+="
     --mandir=/usr/share/man
     --enable-intf-free=yes

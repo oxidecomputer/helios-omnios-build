@@ -22,15 +22,17 @@
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Use is subject to license terms.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=swig
-VER=3.0.12
+VER=4.0.0
 PKG=developer/swig
 SUMMARY="The Simplified Wrapper and Interface Generator (swig)"
-DESC="$SUMMARY"
+DESC="A compiler that integrates C and C++ with languages including Perl, "
+DESC+="Python, Tcl, Ruby, PHP, Java, C#, D, Go, Lua, Octave, R, "
+DESC+="Scheme (Guile, MzScheme/Racket), Scilab, Ocaml."
 
 BUILD_DEPENDS_IPS="runtime/perl runtime/python-27"
 

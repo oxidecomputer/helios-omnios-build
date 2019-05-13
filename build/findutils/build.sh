@@ -21,20 +21,19 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=findutils
 VER=4.6.0
 PKG=file/gnu-findutils
 SUMMARY="GNU utilities find and xargs"
-DESC="$SUMMARY"
+DESC="GNU Find Utilities are the basic directory searching utilities"
 
 RUN_DEPENDS_IPS="system/prerequisite/gnu"
 
-set_arch 32
+set_arch 64
 CONFIGURE_OPTS="--program-prefix=g"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'

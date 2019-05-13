@@ -21,9 +21,8 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=pciutils
@@ -35,18 +34,19 @@ DESC="Programs (lspci, setpci) for inspecting and manipulating configuration of 
 
 RUN_DEPENDS_IPS="system/pciutils/pci.ids"
 
-set_arch 32
+set_arch 64
 
 export PATH=/usr/gnu/bin:$PATH
 
-configure32() {
-    export CC PREFIX
+configure64() {
+    LDFLAGS+=" $LDFLAGS64"
+    export LDFLAGS CC PREFIX
 }
 
 make_prog() {
     logmsg "--- make"
     logcmd $MAKE PREFIX=$PREFIX \
-        OPT="-O2 -DBYTE_ORDER=1234 -DLITTLE_ENDIAN=1234" \
+        OPT="-O2 -m64 -DBYTE_ORDER=1234 -DLITTLE_ENDIAN=1234" \
         || logerr "--- Make failed"
 }
 

@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-#
+
 . ../../../lib/functions.sh
 
 PKG=library/python-3/pyrsistent-35
 PROG=pyrsistent
-VER=0.14.11
+VER=0.15.1
 SUMMARY="Python pyrsistent"
 DESC="Persistent/Functional/Immutable data structures"
 
