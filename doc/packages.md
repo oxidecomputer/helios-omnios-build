@@ -20,7 +20,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.3.2			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.3.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.21.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.0			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
