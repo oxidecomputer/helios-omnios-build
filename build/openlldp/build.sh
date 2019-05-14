@@ -25,6 +25,9 @@ DESC+="Link Layer Discovery Protocol"
 
 set_arch 64
 
+# The openlldp source has empty C files.
+CTFCONVERTFLAGS+=" -m"
+
 init
 download_source $PROG $PROG $VER
 patch_source
