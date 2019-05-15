@@ -20,7 +20,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.3.2			| https://git.savannah.gnu.org/cgit/bison.git/refs/tags https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.3.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.21.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.0			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
@@ -85,7 +85,7 @@
 | terminal/tmux				| 2.9			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.0.0			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.7			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
-| text/gnu-gettext			| 0.20			| https://ftp.gnu.org/pub/gnu/gettext/
+| text/gnu-gettext			| 0.20.1		| https://ftp.gnu.org/pub/gnu/gettext/
 | text/gnu-grep				| 3.3			| http://git.savannah.gnu.org/cgit/grep.git/refs/tags
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
 | text/gnu-sed				| 4.7			| http://git.savannah.gnu.org/cgit/sed.git/refs/tags https://savannah.gnu.org/news/?group=sed
@@ -122,7 +122,7 @@
 | library/python-3/pycparser-35		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-35	| 0.15.1		| https://pypi.org/project/pyrsistent
+| library/python-3/pyrsistent-35	| 0.15.2		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-35		| 2019.1		| https://pypi.org/project/pytz
 | library/python-3/setuptools-35	| 41.0.1		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
