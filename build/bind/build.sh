@@ -22,12 +22,11 @@
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+
 . ../../lib/functions.sh
 
 PROG=bind
-VER=9.11.6-P1
+VER=9.11.7
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"
@@ -60,6 +59,7 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
+strip_install
 VER=${VER//-P/.}
 VER=${VER//-W/.}
 make_package
