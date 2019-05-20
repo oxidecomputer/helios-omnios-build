@@ -21,13 +21,12 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=dbus
-VER=1.12.12
+VER=1.12.14
 PKG=dbus ##IGNORE##
 SUMMARY="filled in below"
 DESC="$SUMMARY"
@@ -43,9 +42,6 @@ CONFIGURE_OPTS="
     --disable-static
 "
 
-# We build backwards here on purpose so that 32bit binaries win
-# (for install collisions).
-BUILDORDER="64 32"
 export MAKE
 
 post_install() {
@@ -62,6 +58,7 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
+strip_install
 run_testsuite check
 make_isa_stub
 install_smf system dbus.xml svc-dbus
