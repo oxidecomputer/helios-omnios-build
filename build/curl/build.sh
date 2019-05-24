@@ -22,12 +22,11 @@
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+
 . ../../lib/functions.sh
 
 PROG=curl
-VER=7.64.1
+VER=7.65.0
 PKG=web/curl
 SUMMARY="Command line tool for transferring data with URL syntax"
 DESC="Curl is a command line tool for transferring data with URL syntax, "

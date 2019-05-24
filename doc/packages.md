@@ -20,7 +20,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.4			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.4.1			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.21.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.0			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
@@ -91,7 +91,7 @@
 | text/gnu-sed				| 4.7			| http://git.savannah.gnu.org/cgit/sed.git/refs/tags https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 530			| https://ftp.gnu.org/gnu/less/
-| web/curl				| 7.64.1		| https://curl.haxx.se/download.html
+| web/curl				| 7.65.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.60.0		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.32			| https://ftp.gnu.org/gnu/binutils
