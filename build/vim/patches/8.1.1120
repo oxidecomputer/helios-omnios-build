@@ -1,0 +1,424 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1120
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1120
+Problem:    Cannot easily get directory entry matches.
+Solution:   Add the readdir() function. (Yasuhiro Matsumoto, closes #2439)
+Files:	    runtime/doc/eval.txt, src/eval.c, src/evalfunc.c, src/misc1.c,
+            src/proto/eval.pro, src/testdir/test_functions.vim
+
+
+*** ../vim-8.1.1119/runtime/doc/eval.txt	2019-04-04 18:15:05.762857109 +0200
+--- runtime/doc/eval.txt	2019-04-05 22:34:13.788012348 +0200
+***************
+*** 2486,2491 ****
+--- 2507,2515 ----
+  pyxeval({expr})			any	evaluate |python_x| expression
+  range({expr} [, {max} [, {stride}]])
+  				List	items from {expr} to {max}
++ readdir({directory} [, {expr}])
++ 				List	file names on {dir} with evalating
++ 					{expr}
+  readfile({fname} [, {type} [, {max}]])
+  				List	get list of lines from file {fname}
+  reg_executing()			String	get the executing register name
+***************
+*** 7206,7211 ****
+--- 7259,7291 ----
+  			range(0)		" []
+  			range(2, 0)		" error!
+  <
++ 							*readdir()*
++ readdir({directory} [, {expr}])
++ 		Return a list with file and directory names in {directory}.
++ 
++ 		When {expr} is omitted all entries are included.
++ 		When {expr} is given, it is evaluated to check what to do:
++ 			If {expr} results in -1 then no further entries will
++ 			be handled.
++ 			If {expr} results in 0 then this entry will not be
++ 			added to the list.
++ 			If {expr} results in 1 then this entry will be added
++ 			to the list.
++ 		Each time {expr} is evaluated |v:val| is set to the entry name.
++ 		When {expr} is a function the name is passed as the argument.
++ 		For example, to get a list of files ending in ".txt": >
++ 		  readdir(dirname, {n -> n =~ '.txt$'})
++ <		To skip hidden and backup files: >
++ 		  readdir(dirname, {n -> n !~ '^\.\|\~$'})
++ 
++ <		If you want to get a directory tree: >
++                   function! s:tree(dir)
++                       return {a:dir : map(readdir(a:dir),
++ 		      \ {_, x -> isdirectory(x) ?
++ 		      \          {x : s:tree(a:dir . '/' . x)} : x})}
++                   endfunction
++                   echo s:tree(".")
++ <
+  							*readfile()*
+  readfile({fname} [, {type} [, {max}]])
+  		Read file {fname} and return a |List|, each line of the file
+*** ../vim-8.1.1119/src/eval.c	2019-04-04 18:15:05.766857086 +0200
+--- src/eval.c	2019-04-05 22:05:53.228139171 +0200
+***************
+*** 753,759 ****
+      return ret;
+  }
+  
+!     static int
+  eval_expr_typval(typval_T *expr, typval_T *argv, int argc, typval_T *rettv)
+  {
+      char_u	*s;
+--- 753,759 ----
+      return ret;
+  }
+  
+!     int
+  eval_expr_typval(typval_T *expr, typval_T *argv, int argc, typval_T *rettv)
+  {
+      char_u	*s;
+***************
+*** 966,972 ****
+   * Save the current typeval in "save_tv".
+   * When not used yet add the variable to the v: hashtable.
+   */
+!     static void
+  prepare_vimvar(int idx, typval_T *save_tv)
+  {
+      *save_tv = vimvars[idx].vv_tv;
+--- 966,972 ----
+   * Save the current typeval in "save_tv".
+   * When not used yet add the variable to the v: hashtable.
+   */
+!     void
+  prepare_vimvar(int idx, typval_T *save_tv)
+  {
+      *save_tv = vimvars[idx].vv_tv;
+***************
+*** 978,984 ****
+   * Restore v: variable "idx" to typeval "save_tv".
+   * When no longer defined, remove the variable from the v: hashtable.
+   */
+!     static void
+  restore_vimvar(int idx, typval_T *save_tv)
+  {
+      hashitem_T	*hi;
+--- 978,984 ----
+   * Restore v: variable "idx" to typeval "save_tv".
+   * When no longer defined, remove the variable from the v: hashtable.
+   */
+!     void
+  restore_vimvar(int idx, typval_T *save_tv)
+  {
+      hashitem_T	*hi;
+*** ../vim-8.1.1119/src/evalfunc.c	2019-04-04 18:15:05.766857086 +0200
+--- src/evalfunc.c	2019-04-05 22:46:34.967258329 +0200
+***************
+*** 319,324 ****
+--- 319,325 ----
+  static void f_pyxeval(typval_T *argvars, typval_T *rettv);
+  #endif
+  static void f_range(typval_T *argvars, typval_T *rettv);
++ static void f_readdir(typval_T *argvars, typval_T *rettv);
+  static void f_readfile(typval_T *argvars, typval_T *rettv);
+  static void f_reg_executing(typval_T *argvars, typval_T *rettv);
+  static void f_reg_recording(typval_T *argvars, typval_T *rettv);
+***************
+*** 819,824 ****
+--- 820,826 ----
+      {"pyxeval",		1, 1, f_pyxeval},
+  #endif
+      {"range",		1, 3, f_range},
++     {"readdir",		1, 2, f_readdir},
+      {"readfile",	1, 3, f_readfile},
+      {"reg_executing",	0, 0, f_reg_executing},
+      {"reg_recording",	0, 0, f_reg_recording},
+***************
+*** 9118,9123 ****
+--- 9120,9308 ----
+  }
+  
+  /*
++  * Evaluate "expr" for readdir().
++  */
++     static int
++ readdir_checkitem(typval_T *expr, char_u *name)
++ {
++     typval_T	save_val;
++     typval_T	rettv;
++     typval_T	argv[2];
++     int		retval = 0;
++     int		error = FALSE;
++ 
++     prepare_vimvar(VV_VAL, &save_val);
++     set_vim_var_string(VV_VAL, name, -1);
++     argv[0].v_type = VAR_STRING;
++     argv[0].vval.v_string = name;
++ 
++     if (eval_expr_typval(expr, argv, 1, &rettv) == FAIL)
++ 	goto theend;
++ 
++     retval = tv_get_number_chk(&rettv, &error);
++     if (error)
++ 	retval = -1;
++     clear_tv(&rettv);
++ 
++ theend:
++     set_vim_var_string(VV_VAL, NULL, 0);
++     restore_vimvar(VV_VAL, &save_val);
++     return retval;
++ }
++ 
++ /*
++  * "readdir()" function
++  */
++     static void
++ f_readdir(typval_T *argvars, typval_T *rettv)
++ {
++     typval_T	*expr;
++     int		failed = FALSE;
++     char_u	*path;
++     garray_T	ga;
++     int		i;
++ #ifdef MSWIN
++     char_u		*buf, *p;
++     WIN32_FIND_DATA	fb;
++     int			ok;
++     HANDLE		hFind = INVALID_HANDLE_VALUE;
++     WIN32_FIND_DATAW    wfb;
++     WCHAR		*wn = NULL;	// UCS-2 name, NULL when not used.
++ #endif
++ 
++     if (rettv_list_alloc(rettv) == FAIL)
++ 	return;
++     path = tv_get_string(&argvars[0]);
++     expr = &argvars[1];
++     ga_init2(&ga, (int)sizeof(char *), 20);
++ 
++ #ifdef MSWIN
++     buf = alloc((int)MAXPATHL);
++     if (buf == NULL)
++ 	return;
++     STRNCPY(buf, path, MAXPATHL-5);
++     p = vim_strpbrk(path, (char_u *)"\\/");
++     if (p != NULL)
++ 	*p = NUL;
++     STRCAT(buf, "\\*");
++ 
++     wn = enc_to_utf16(buf, NULL);
++     if (wn != NULL)
++ 	hFind = FindFirstFileW(wn, &wfb);
++     ok = (hFind != INVALID_HANDLE_VALUE);
++     if (!ok)
++ 	smsg(_(e_notopen), path);
++     else
++     {
++ 	while (ok)
++ 	{
++ 	    int	ignore;
++ 
++ 	    p = utf16_to_enc(wfb.cFileName, NULL);   // p is allocated here
++ 	    if (p == NULL)
++ 		break;  // out of memory
++ 
++ 	    ignore = p[0] == '.' && (p[1] == NUL
++ 					      || (p[1] == '.' && p[2] == NUL));
++ 	    if (!ignore && expr->v_type != VAR_UNKNOWN)
++ 	    {
++ 		int r = readdir_checkitem(expr, p);
++ 
++ 		if (r < 0)
++ 		{
++ 		    vim_free(p);
++ 		    break;
++ 		}
++ 		if (r == 0)
++ 		    ignore = TRUE;
++ 	    }
++ 
++ 	    if (!ignore)
++ 	    {
++ 		if (ga_grow(&ga, 1) == OK)
++ 		    ((char_u**)ga.ga_data)[ga.ga_len++] = vim_strsave(p);
++ 		else
++ 		{
++ 		    failed = TRUE;
++ 		    vim_free(p);
++ 		    break;
++ 		}
++ 	    }
++ 
++ 	    vim_free(p);
++ 	    ok = FindNextFileW(hFind, &wfb);
++ 	}
++ 	FindClose(hFind);
++     }
++ 
++     vim_free(buf);
++     vim_free(wn);
++ #else
++     DIR		*dirp;
++     struct dirent *dp;
++     char_u	*p;
++ 
++     dirp = opendir((char *)path);
++     if (dirp == NULL)
++ 	smsg(_(e_notopen), path);
++     else
++     {
++ 	for (;;)
++ 	{
++ 	    int	ignore;
++ 
++ 	    dp = readdir(dirp);
++ 	    if (dp == NULL)
++ 		break;
++ 	    p = (char_u *)dp->d_name;
++ 
++ 	    ignore = p[0] == '.' &&
++ 		    (p[1] == NUL ||
++ 		     (p[1] == '.' && p[2] == NUL));
++ 	    if (!ignore && expr->v_type != VAR_UNKNOWN)
++ 	    {
++ 		int r = readdir_checkitem(expr, p);
++ 
++ 		if (r < 0)
++ 		    break;
++ 		if (r == 0)
++ 		    ignore = TRUE;
++ 	    }
++ 
++ 	    if (!ignore)
++ 	    {
++ 		if (ga_grow(&ga, 1) == OK)
++ 		    ((char_u**)ga.ga_data)[ga.ga_len++] = vim_strsave(p);
++ 		else
++ 		{
++ 		    failed = TRUE;
++ 		    break;
++ 		}
++ 	    }
++ 	}
++ 
++ 	closedir(dirp);
++     }
++ #endif
++ 
++     rettv->vval.v_list = list_alloc();
++     if (!failed && rettv->vval.v_list != NULL)
++     {
++ 	++rettv->vval.v_list->lv_refcount;
++ 	sort_strings((char_u **)ga.ga_data, ga.ga_len);
++ 	for (i = 0; i < ga.ga_len; i++)
++ 	{
++ 	    p = ((char_u **)ga.ga_data)[i];
++ 	    list_append_string(rettv->vval.v_list, p, -1);
++ 	}
++     }
++     for (i = 0; i < ga.ga_len; i++)
++ 	vim_free(((char_u **)ga.ga_data)[i]);
++ 
++     ga_clear(&ga);
++ }
++ 
++ /*
+   * "readfile()" function
+   */
+      static void
+*** ../vim-8.1.1119/src/misc1.c	2019-04-02 22:15:51.344273531 +0200
+--- src/misc1.c	2019-04-05 22:16:03.227748463 +0200
+***************
+*** 5790,5795 ****
+--- 5790,5798 ----
+      while (ok)
+      {
+  	p = utf16_to_enc(wfb.cFileName, NULL);   // p is allocated here
++ 	if (p == NULL)
++ 	    break;  // out of memory
++ 
+  	// Ignore entries starting with a dot, unless when asked for.  Accept
+  	// all entries found with "matchname".
+  	if ((p[0] != '.' || starts_with_dot
+*** ../vim-8.1.1119/src/proto/eval.pro	2019-02-11 22:00:07.667917634 +0100
+--- src/proto/eval.pro	2019-04-05 22:47:22.082959411 +0200
+***************
+*** 10,21 ****
+--- 10,24 ----
+  void eval_diff(char_u *origfile, char_u *newfile, char_u *outfile);
+  void eval_patch(char_u *origfile, char_u *difffile, char_u *outfile);
+  int eval_to_bool(char_u *arg, int *error, char_u **nextcmd, int skip);
++ int eval_expr_typval(typval_T *expr, typval_T *argv, int argc, typval_T *rettv);
+  int eval_expr_to_bool(typval_T *expr, int *error);
+  char_u *eval_to_string_skip(char_u *arg, char_u **nextcmd, int skip);
+  int skip_expr(char_u **pp);
+  char_u *eval_to_string(char_u *arg, char_u **nextcmd, int convert);
+  char_u *eval_to_string_safe(char_u *arg, char_u **nextcmd, int use_sandbox);
+  varnumber_T eval_to_number(char_u *expr);
++ void prepare_vimvar(int idx, typval_T *save_tv);
++ void restore_vimvar(int idx, typval_T *save_tv);
+  list_T *eval_spell_expr(char_u *badword, char_u *expr);
+  int get_spellword(list_T *list, char_u **pp);
+  typval_T *eval_expr(char_u *arg, char_u **nextcmd);
+*** ../vim-8.1.1119/src/testdir/test_functions.vim	2019-03-30 21:51:25.021550461 +0100
+--- src/testdir/test_functions.vim	2019-04-05 22:38:40.294287555 +0200
+***************
+*** 1401,1403 ****
+--- 1401,1433 ----
+      call assert_equal(uname =~? 'CYGWIN\|MSYS', has('win32unix'))
+    endif
+  endfunc
++ 
++ func Test_readdir()
++   call mkdir('Xdir')
++   call writefile([], 'Xdir/foo.txt')
++   call writefile([], 'Xdir/bar.txt')
++   call mkdir('Xdir/dir')
++ 
++   " All results
++   let files = readdir('Xdir')
++   call assert_equal(['bar.txt', 'dir', 'foo.txt'], sort(files))
++ 
++   " Only results containing "f"
++   let files = readdir('Xdir', { x -> stridx(x, 'f') !=- 1 })
++   call assert_equal(['foo.txt'], sort(files))
++ 
++   " Only .txt files
++   let files = readdir('Xdir', { x -> x =~ '.txt$' })
++   call assert_equal(['bar.txt', 'foo.txt'], sort(files))
++ 
++   " Only .txt files with string
++   let files = readdir('Xdir', 'v:val =~ ".txt$"')
++   call assert_equal(['bar.txt', 'foo.txt'], sort(files))
++ 
++   " Limit to 1 result.
++   let l = []
++   let files = readdir('Xdir', {x -> len(add(l, x)) == 2 ? -1 : 1})
++   call assert_equal(1, len(files))
++ 
++   call delete('Xdir', 'rf')
++ endfunc
+*** ../vim-8.1.1119/src/version.c	2019-04-04 20:31:59.094873282 +0200
+--- src/version.c	2019-04-05 22:06:37.875886164 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1120,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+205. You're constantly yelling at your spouse, family, roommate, whatever,
+     for using the phone for stupid things...like talking.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

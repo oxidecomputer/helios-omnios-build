@@ -1,0 +1,405 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1321
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1321
+Problem:    No docs or tests for listener functions.
+Solution:   Add help and tests for listener_add() and listener_remove().
+            Invoke the callbacks before redrawing.
+Files:	    runtime/doc/eval.txt, runtime/doc/usr_41.txt,
+            src/testdir/test_listener.vim, src/testdir/Make_all.mak,
+            src/change.c, src/screen.c, src/evalfunc.c, src/proto/evalfunc.pro
+
+
+*** ../vim-8.1.1320/runtime/doc/eval.txt	2019-05-09 21:08:53.764083394 +0200
+--- runtime/doc/eval.txt	2019-05-11 20:54:59.593866827 +0200
+***************
+*** 2457,2462 ****
+--- 2457,2465 ----
+  line2byte({lnum})		Number	byte count of line {lnum}
+  lispindent({lnum})		Number	Lisp indent for line {lnum}
+  list2str({list} [, {utf8}])	String	turn numbers in {list} into a String
++ listener_add({callback} [, {buf}])
++ 				Number	add a callback to listen to changes
++ listener_remove({id})		none	remove a listener callback
+  localtime()			Number	current time
+  log({expr})			Float	natural logarithm (base e) of {expr}
+  log10({expr})			Float	logarithm of Float {expr} to base 10
+***************
+*** 6311,6316 ****
+--- 6314,6366 ----
+  		With utf-8 composing characters work as expected: >
+  			list2str([97, 769])	returns "á"
+  <
++ listener_add({callback} [, {buf}])			*listener_add()*
++ 		Add a callback function that will be invoked when changes have
++ 		been made to buffer {buf}.
++ 		{buf} refers to a buffer name or number. For the accepted
++ 		values, see |bufname()|.  When {buf} is omitted the current
++ 		buffer is used.
++ 		Returns a unique ID that can be passed to |listener_remove()|.
++ 
++ 		The {callback} is invoked with a list of items that indicate a
++ 		change.  Each list item is a dictionary with these entries:
++ 		    lnum	the first line number of the change
++ 		    end		the first line below the change
++ 		    added	number of lines added; negative if lines were
++ 				deleted
++ 		    col		first column in "lnum" that was affected by
++ 				the change; one if unknown or the whole line
++ 				was affected; this is a byte index, first
++ 				character has a value of one.
++ 		When lines are inserted the values are:
++ 		    lnum	line below which the new line is added
++ 		    end		equal to "lnum"
++ 		    added	number of lines inserted
++ 		    col		one
++ 		When lines are deleted the values are:
++ 		    lnum	the first deleted line
++ 		    end		the line below the first deleted line, before
++ 				the deletion was done
++ 		    added	negative, number of lines deleted
++ 		    col		one
++ 		When lines are changed:
++ 		    lnum	the first changed line
++ 		    end		the line below the last changed line
++ 		    added	zero
++ 		    col		first column with a change or one
++ 
++ 		The {callback} is invoked just before the screen is updated.
++ 		To trigger this in a script use the `:redraw` command.
++ 
++ 		The {callback} is not invoked when the buffer is first loaded.
++ 		Use the |BufReadPost| autocmd event to handle the initial text
++ 		of a buffer.
++ 		The {callback} is also not invoked when the buffer is
++ 		unloaded, use the |BufUnload| autocmd event for that.
++ 
++ listener_remove({id})					*listener_remove()*
++ 		Remove a listener previously added with listener_add().
++ 
+  localtime()						*localtime()*
+  		Return the current time, measured as seconds since 1st Jan
+  		1970.  See also |strftime()| and |getftime()|.
+*** ../vim-8.1.1320/runtime/doc/usr_41.txt	2019-05-09 14:52:22.079358841 +0200
+--- runtime/doc/usr_41.txt	2019-05-11 19:31:29.403995607 +0200
+***************
+*** 812,817 ****
+--- 812,819 ----
+  	setbufline()		replace a line in the specified buffer
+  	appendbufline()		append a list of lines in the specified buffer
+  	deletebufline()		delete lines from a specified buffer
++ 	listener_add()		add a callback to listen to changes
++ 	listener_remove()	remove a listener callback
+  	win_findbuf()		find windows containing a buffer
+  	win_getid()		get window ID of a window
+  	win_gotoid()		go to window with ID
+*** ../vim-8.1.1320/src/testdir/test_listener.vim	2019-05-11 21:10:55.957195196 +0200
+--- src/testdir/test_listener.vim	2019-05-11 20:52:44.750502230 +0200
+***************
+*** 0 ****
+--- 1,77 ----
++ " tests for listener_add() and listener_remove()
++ 
++ func StoreList(l)
++   let g:list = a:l
++ endfunc
++ 
++ func AnotherStoreList(l)
++   let g:list2 = a:l
++ endfunc
++ 
++ func EvilStoreList(l)
++   let g:list3 = a:l
++   call assert_fails("call add(a:l, 'myitem')", "E742:")
++ endfunc
++ 
++ func Test_listening()
++   new
++   call setline(1, ['one', 'two'])
++   let id = listener_add({l -> StoreList(l)})
++   call setline(1, 'one one')
++   redraw
++   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], g:list)
++ 
++   " Two listeners, both get called.
++   let id2 = listener_add({l -> AnotherStoreList(l)})
++   let g:list = []
++   let g:list2 = []
++   exe "normal $asome\<Esc>"
++   redraw
++   call assert_equal([{'lnum': 1, 'end': 2, 'col': 8, 'added': 0}], g:list)
++   call assert_equal([{'lnum': 1, 'end': 2, 'col': 8, 'added': 0}], g:list2)
++ 
++   call listener_remove(id2)
++   let g:list = []
++   let g:list2 = []
++   call setline(3, 'three')
++   redraw
++   call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1}], g:list)
++   call assert_equal([], g:list2)
++ 
++   " the "o" command first adds an empty line and then changes it
++   let g:list = []
++   exe "normal Gofour\<Esc>"
++   redraw
++   call assert_equal([{'lnum': 4, 'end': 4, 'col': 1, 'added': 1},
++ 	\ {'lnum': 4, 'end': 5, 'col': 1, 'added': 0}], g:list)
++ 
++   let g:list = []
++   call listener_remove(id)
++   call setline(1, 'asdfasdf')
++   redraw
++   call assert_equal([], g:list)
++ 
++   " Trying to change the list fails
++   let id = listener_add({l -> EvilStoreList(l)})
++   let g:list3 = []
++   call setline(1, 'asdfasdf')
++   redraw
++   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], g:list3)
++ 
++   bwipe!
++ endfunc
++ 
++ func Test_listening_other_buf()
++   new
++   call setline(1, ['one', 'two'])
++   let bufnr = bufnr('')
++   normal ww
++   let id = listener_add({l -> StoreList(l)}, bufnr)
++   let g:list = []
++   call setbufline(bufnr, 1, 'hello')
++   redraw
++   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], g:list)
++ 
++   exe "buf " .. bufnr
++   bwipe!
++ endfunc
+*** ../vim-8.1.1320/src/testdir/Make_all.mak	2019-05-09 14:52:22.083358820 +0200
+--- src/testdir/Make_all.mak	2019-05-11 19:33:38.615264428 +0200
+***************
+*** 168,173 ****
+--- 168,174 ----
+  	test_lispwords \
+  	test_listchars \
+  	test_listdict \
++ 	test_listener \
+  	test_listlbr \
+  	test_listlbr_utf8 \
+  	test_lua \
+***************
+*** 359,364 ****
+--- 360,366 ----
+  	test_lineending.res \
+  	test_listchars.res \
+  	test_listdict.res \
++ 	test_listener.res \
+  	test_listlbr.res \
+  	test_lua.res \
+  	test_makeencoding.res \
+*** ../vim-8.1.1320/src/change.c	2019-05-11 19:14:11.585314006 +0200
+--- src/change.c	2019-05-11 21:13:09.368532894 +0200
+***************
+*** 184,190 ****
+      dict_add_number(dict, "lnum", (varnumber_T)lnum);
+      dict_add_number(dict, "end", (varnumber_T)lnume);
+      dict_add_number(dict, "added", (varnumber_T)xtra);
+!     dict_add_number(dict, "col", (varnumber_T)col);
+  
+      list_append_dict(recorded_changes, dict);
+  }
+--- 184,190 ----
+      dict_add_number(dict, "lnum", (varnumber_T)lnum);
+      dict_add_number(dict, "end", (varnumber_T)lnume);
+      dict_add_number(dict, "added", (varnumber_T)xtra);
+!     dict_add_number(dict, "col", (varnumber_T)col + 1);
+  
+      list_append_dict(recorded_changes, dict);
+  }
+***************
+*** 198,216 ****
+      char_u	*callback;
+      partial_T	*partial;
+      listener_T	*lnr;
+  
+      callback = get_callback(&argvars[0], &partial);
+      if (callback == NULL)
+  	return;
+  
+      lnr = (listener_T *)alloc_clear((sizeof(listener_T)));
+      if (lnr == NULL)
+      {
+  	free_callback(callback, partial);
+  	return;
+      }
+!     lnr->lr_next = curbuf->b_listener;
+!     curbuf->b_listener = lnr;
+  
+      if (partial == NULL)
+  	lnr->lr_callback = vim_strsave(callback);
+--- 198,224 ----
+      char_u	*callback;
+      partial_T	*partial;
+      listener_T	*lnr;
++     buf_T	*buf = curbuf;
+  
+      callback = get_callback(&argvars[0], &partial);
+      if (callback == NULL)
+  	return;
+  
++     if (argvars[1].v_type != VAR_UNKNOWN)
++     {
++ 	buf = get_buf_arg(&argvars[1]);
++ 	if (buf == NULL)
++ 	    return;
++     }
++ 
+      lnr = (listener_T *)alloc_clear((sizeof(listener_T)));
+      if (lnr == NULL)
+      {
+  	free_callback(callback, partial);
+  	return;
+      }
+!     lnr->lr_next = buf->b_listener;
+!     buf->b_listener = lnr;
+  
+      if (partial == NULL)
+  	lnr->lr_callback = vim_strsave(callback);
+***************
+*** 232,253 ****
+      listener_T	*next;
+      listener_T	*prev = NULL;
+      int		id = tv_get_number(argvars);
+!     buf_T	*buf = curbuf;
+  
+!     for (lnr = buf->b_listener; lnr != NULL; lnr = next)
+!     {
+! 	next = lnr->lr_next;
+! 	if (lnr->lr_id == id)
+  	{
+! 	    if (prev != NULL)
+! 		prev->lr_next = lnr->lr_next;
+! 	    else
+! 		buf->b_listener = lnr->lr_next;
+! 	    free_callback(lnr->lr_callback, lnr->lr_partial);
+! 	    vim_free(lnr);
+  	}
+- 	prev = lnr;
+-     }
+  }
+  
+  /*
+--- 240,262 ----
+      listener_T	*next;
+      listener_T	*prev = NULL;
+      int		id = tv_get_number(argvars);
+!     buf_T	*buf;
+  
+!     for (buf = firstbuf; buf != NULL; buf = buf->b_next)
+! 	for (lnr = buf->b_listener; lnr != NULL; lnr = next)
+  	{
+! 	    next = lnr->lr_next;
+! 	    if (lnr->lr_id == id)
+! 	    {
+! 		if (prev != NULL)
+! 		    prev->lr_next = lnr->lr_next;
+! 		else
+! 		    buf->b_listener = lnr->lr_next;
+! 		free_callback(lnr->lr_callback, lnr->lr_partial);
+! 		vim_free(lnr);
+! 	    }
+! 	    prev = lnr;
+  	}
+  }
+  
+  /*
+*** ../vim-8.1.1320/src/screen.c	2019-05-09 15:12:45.176723907 +0200
+--- src/screen.c	2019-05-11 19:53:53.403623537 +0200
+***************
+*** 564,569 ****
+--- 564,574 ----
+  	type = 0;
+      }
+  
++ #ifdef FEAT_EVAL
++     // Before updating the screen, notify any listeners of changed text.
++     invoke_listeners();
++ #endif
++ 
+      if (must_redraw)
+      {
+  	if (type < must_redraw)	    /* use maximal type */
+*** ../vim-8.1.1320/src/evalfunc.c	2019-05-11 18:28:41.351611622 +0200
+--- src/evalfunc.c	2019-05-11 20:44:57.028591441 +0200
+***************
+*** 2009,2020 ****
+      return buf;
+  }
+  
+- #ifdef FEAT_SIGNS
+  /*
+   * Get the buffer from "arg" and give an error and return NULL if it is not
+   * valid.
+   */
+!     static buf_T *
+  get_buf_arg(typval_T *arg)
+  {
+      buf_T *buf;
+--- 2009,2019 ----
+      return buf;
+  }
+  
+  /*
+   * Get the buffer from "arg" and give an error and return NULL if it is not
+   * valid.
+   */
+!     buf_T *
+  get_buf_arg(typval_T *arg)
+  {
+      buf_T *buf;
+***************
+*** 2026,2032 ****
+  	semsg(_("E158: Invalid buffer name: %s"), tv_get_string(arg));
+      return buf;
+  }
+- #endif
+  
+  /*
+   * "bufname(expr)" function
+--- 2025,2030 ----
+*** ../vim-8.1.1320/src/proto/evalfunc.pro	2019-01-03 22:19:22.227686199 +0100
+--- src/proto/evalfunc.pro	2019-05-11 20:45:17.040507331 +0200
+***************
+*** 5,10 ****
+--- 5,11 ----
+  int call_internal_func(char_u *name, int argcount, typval_T *argvars, typval_T *rettv);
+  buf_T *buflist_find_by_name(char_u *name, int curtab_only);
+  buf_T *tv_get_buf(typval_T *tv, int curtab_only);
++ buf_T *get_buf_arg(typval_T *arg);
+  void execute_redir_str(char_u *value, int value_len);
+  void mzscheme_call_vim(char_u *name, typval_T *args, typval_T *rettv);
+  float_T vim_round(float_T f);
+*** ../vim-8.1.1320/src/version.c	2019-05-11 19:14:11.589313987 +0200
+--- src/version.c	2019-05-11 19:37:27.213616239 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1321,
+  /**/
+
+-- 
+System administrators are just like women: You can't live with them and you
+can't live without them.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

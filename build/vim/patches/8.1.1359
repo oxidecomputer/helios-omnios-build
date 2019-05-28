@@ -1,0 +1,356 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1359
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1359
+Problem:    Text property wrong after :substitute with backslash.
+Solution:   Adjust text property columns when removing backslashes.
+            (closes #4397)
+Files:	    src/ex_cmds.c, src/testdir/test_textprop.vim, src/vim.h,
+            src/textprop.c, src/proto/textprop.pro, src/change.c, src/edit.c,
+            src/misc1.c, src/ops.c
+
+
+*** ../vim-8.1.1358/src/ex_cmds.c	2019-05-19 19:59:30.160255591 +0200
+--- src/ex_cmds.c	2019-05-19 22:48:46.318349388 +0200
+***************
+*** 5189,5195 ****
+  	    int		skip_match = FALSE;
+  	    linenr_T	sub_firstlnum;	/* nr of first sub line */
+  #ifdef FEAT_TEXT_PROP
+! 	    int		save_for_undo = TRUE;
+  #endif
+  
+  	    /*
+--- 5189,5195 ----
+  	    int		skip_match = FALSE;
+  	    linenr_T	sub_firstlnum;	/* nr of first sub line */
+  #ifdef FEAT_TEXT_PROP
+! 	    int		apc_flags = APC_SAVE_FOR_UNDO | APC_SUBSTITUTE;
+  #endif
+  
+  	    /*
+***************
+*** 5612,5619 ****
+  			// undo first, unless done already.
+  			if (adjust_prop_columns(lnum, regmatch.startpos[0].col,
+  			      sublen - 1 - (regmatch.endpos[0].col
+! 				   - regmatch.startpos[0].col), save_for_undo))
+! 			    save_for_undo = FALSE;
+  		    }
+  #endif
+  		}
+--- 5612,5620 ----
+  			// undo first, unless done already.
+  			if (adjust_prop_columns(lnum, regmatch.startpos[0].col,
+  			      sublen - 1 - (regmatch.endpos[0].col
+! 						   - regmatch.startpos[0].col),
+! 								    apc_flags))
+! 			    apc_flags &= ~APC_SAVE_FOR_UNDO;
+  		    }
+  #endif
+  		}
+***************
+*** 5715,5721 ****
+--- 5716,5735 ----
+  		for (p1 = new_end; *p1; ++p1)
+  		{
+  		    if (p1[0] == '\\' && p1[1] != NUL)  /* remove backslash */
++ 		    {
+  			STRMOVE(p1, p1 + 1);
++ #ifdef FEAT_TEXT_PROP
++ 			if (curbuf->b_has_textprop)
++ 			{
++ 			    // When text properties are changed, need to save
++ 			    // for undo first, unless done already.
++ 			    if (adjust_prop_columns(lnum,
++ 					(colnr_T)(p1 - new_start), -1,
++ 					apc_flags))
++ 				apc_flags &= ~APC_SAVE_FOR_UNDO;
++ 			}
++ #endif
++ 		    }
+  		    else if (*p1 == CAR)
+  		    {
+  			if (u_inssub(lnum) == OK)   // prepare for undo
+*** ../vim-8.1.1358/src/testdir/test_textprop.vim	2019-05-19 15:19:53.820445439 +0200
+--- src/testdir/test_textprop.vim	2019-05-19 22:21:11.306734761 +0200
+***************
+*** 620,625 ****
+--- 620,644 ----
+    undo
+    let expected[0].col = 12
+    call assert_equal(expected, prop_list(1))
++   call prop_clear(1)
++ 
++   " substitute with backslash
++   call setline(1, 'the number 123 is highlighted.')
++   call prop_add(1, 12, {'length': 3, 'type': 'comment'})
++   let expected = [{'col': 12, 'length': 3, 'id': 0, 'type': 'comment', 'start': 1, 'end': 1} ]
++   call assert_equal(expected, prop_list(1))
++   1s/the/\The
++   call assert_equal(expected, prop_list(1))
++   1s/^/\\
++   let expected[0].col += 1
++   call assert_equal(expected, prop_list(1))
++   1s/^/\~
++   let expected[0].col += 1
++   call assert_equal(expected, prop_list(1))
++   1s/123/12\\3
++   let expected[0].length += 1
++   call assert_equal(expected, prop_list(1))
++   call prop_clear(1)
+  
+    bwipe!
+    call prop_type_delete('comment')
+*** ../vim-8.1.1358/src/vim.h	2019-05-09 15:12:45.180723879 +0200
+--- src/vim.h	2019-05-19 22:42:35.548288020 +0200
+***************
+*** 2571,2574 ****
+--- 2571,2578 ----
+  #define SAVE_RESTORE_ICON	2
+  #define SAVE_RESTORE_BOTH	(SAVE_RESTORE_TITLE | SAVE_RESTORE_ICON)
+  
++ // Flags for adjust_prop_columns()
++ #define APC_SAVE_FOR_UNDO	1   // call u_savesub() before making changes
++ #define APC_SUBSTITUTE		2   // text is replaced, not inserted
++ 
+  #endif /* VIM__H */
+*** ../vim-8.1.1358/src/textprop.c	2019-05-19 15:19:53.820445439 +0200
+--- src/textprop.c	2019-05-19 22:46:38.843017116 +0200
+***************
+*** 957,964 ****
+   * shift by "bytes_added" (can be negative).
+   * Note that "col" is zero-based, while tp_col is one-based.
+   * Only for the current buffer.
+!  * When "save_for_undo" is TRUE then call u_savesub() before making changes to
+!  * the line.
+   * Caller is expected to check b_has_textprop and "bytes_added" being non-zero.
+   * Returns TRUE when props were changed.
+   */
+--- 957,965 ----
+   * shift by "bytes_added" (can be negative).
+   * Note that "col" is zero-based, while tp_col is one-based.
+   * Only for the current buffer.
+!  * "flags" can have:
+!  * APC_SAVE_FOR_UNDO:	Call u_savesub() before making changes to the line.
+!  * APC_SUBSTITUTE:	Text is replaced, not inserted.
+   * Caller is expected to check b_has_textprop and "bytes_added" being non-zero.
+   * Returns TRUE when props were changed.
+   */
+***************
+*** 967,973 ****
+  	linenr_T    lnum,
+  	colnr_T	    col,
+  	int	    bytes_added,
+! 	int	    save_for_undo)
+  {
+      int		proplen;
+      char_u	*props;
+--- 968,974 ----
+  	linenr_T    lnum,
+  	colnr_T	    col,
+  	int	    bytes_added,
+! 	int	    flags)
+  {
+      int		proplen;
+      char_u	*props;
+***************
+*** 988,1002 ****
+      wi = 0; // write index
+      for (ri = 0; ri < proplen; ++ri)
+      {
+  	mch_memmove(&tmp_prop, props + ri * sizeof(textprop_T),
+  							   sizeof(textprop_T));
+  	pt = text_prop_type_by_id(curbuf, tmp_prop.tp_type);
+  
+  	if (bytes_added > 0
+! 		? (tmp_prop.tp_col >= col
+! 		       + (pt != NULL && (pt->pt_flags & PT_FLAG_INS_START_INCL)
+! 								      ? 2 : 1))
+! 		: (tmp_prop.tp_col > col + 1))
+  	{
+  	    if (tmp_prop.tp_col + bytes_added < col + 1)
+  	    {
+--- 989,1018 ----
+      wi = 0; // write index
+      for (ri = 0; ri < proplen; ++ri)
+      {
++ 	int start_incl;
++ 
+  	mch_memmove(&tmp_prop, props + ri * sizeof(textprop_T),
+  							   sizeof(textprop_T));
+  	pt = text_prop_type_by_id(curbuf, tmp_prop.tp_type);
++ 	start_incl = (flags & APC_SUBSTITUTE) ||
++ 		       (pt != NULL && (pt->pt_flags & PT_FLAG_INS_START_INCL));
+  
+  	if (bytes_added > 0
+! 		&& (tmp_prop.tp_col >= col + (start_incl ? 2 : 1)))
+! 	{
+! 	    if (tmp_prop.tp_col < col + (start_incl ? 2 : 1))
+! 	    {
+! 		tmp_prop.tp_len += (tmp_prop.tp_col - 1 - col) + bytes_added;
+! 		tmp_prop.tp_col = col + 1;
+! 	    }
+! 	    else
+! 		tmp_prop.tp_col += bytes_added;
+! 	    // Save for undo if requested and not done yet.
+! 	    if ((flags & APC_SAVE_FOR_UNDO) && !dirty)
+! 		u_savesub(lnum);
+! 	    dirty = TRUE;
+! 	}
+! 	else if (bytes_added <= 0 && (tmp_prop.tp_col > col + 1))
+  	{
+  	    if (tmp_prop.tp_col + bytes_added < col + 1)
+  	    {
+***************
+*** 1006,1012 ****
+  	    else
+  		tmp_prop.tp_col += bytes_added;
+  	    // Save for undo if requested and not done yet.
+! 	    if (save_for_undo && !dirty)
+  		u_savesub(lnum);
+  	    dirty = TRUE;
+  	    if (tmp_prop.tp_len <= 0)
+--- 1022,1028 ----
+  	    else
+  		tmp_prop.tp_col += bytes_added;
+  	    // Save for undo if requested and not done yet.
+! 	    if ((flags & APC_SAVE_FOR_UNDO) && !dirty)
+  		u_savesub(lnum);
+  	    dirty = TRUE;
+  	    if (tmp_prop.tp_len <= 0)
+***************
+*** 1024,1030 ****
+  	    else
+  		tmp_prop.tp_len += bytes_added;
+  	    // Save for undo if requested and not done yet.
+! 	    if (save_for_undo && !dirty)
+  		u_savesub(lnum);
+  	    dirty = TRUE;
+  	    if (tmp_prop.tp_len <= 0)
+--- 1040,1046 ----
+  	    else
+  		tmp_prop.tp_len += bytes_added;
+  	    // Save for undo if requested and not done yet.
+! 	    if ((flags & APC_SAVE_FOR_UNDO) && !dirty)
+  		u_savesub(lnum);
+  	    dirty = TRUE;
+  	    if (tmp_prop.tp_len <= 0)
+*** ../vim-8.1.1358/src/proto/textprop.pro	2019-05-19 15:19:53.820445439 +0200
+--- src/proto/textprop.pro	2019-05-19 22:46:51.950948502 +0200
+***************
+*** 13,19 ****
+  void f_prop_type_list(typval_T *argvars, typval_T *rettv);
+  void clear_global_prop_types(void);
+  void clear_buf_prop_types(buf_T *buf);
+! int adjust_prop_columns(linenr_T lnum, colnr_T col, int bytes_added, int save_for_undo);
+  void adjust_props_for_split(linenr_T lnum_props, linenr_T lnum_top, int kept, int deleted);
+  void adjust_props_for_join(linenr_T lnum, textprop_T **prop_line, int *prop_length, long col, int removed);
+  void join_prop_lines(linenr_T lnum, char_u *newp, textprop_T **prop_lines, int *prop_lengths, int count);
+--- 13,19 ----
+  void f_prop_type_list(typval_T *argvars, typval_T *rettv);
+  void clear_global_prop_types(void);
+  void clear_buf_prop_types(buf_T *buf);
+! int adjust_prop_columns(linenr_T lnum, colnr_T col, int bytes_added, int flags);
+  void adjust_props_for_split(linenr_T lnum_props, linenr_T lnum_top, int kept, int deleted);
+  void adjust_props_for_join(linenr_T lnum, textprop_T **prop_line, int *prop_length, long col, int removed);
+  void join_prop_lines(linenr_T lnum, char_u *newp, textprop_T **prop_lines, int *prop_lengths, int count);
+*** ../vim-8.1.1358/src/change.c	2019-05-19 15:19:53.820445439 +0200
+--- src/change.c	2019-05-19 22:44:47.379600018 +0200
+***************
+*** 684,690 ****
+  {
+  #ifdef FEAT_TEXT_PROP
+      if (curbuf->b_has_textprop && added != 0)
+! 	adjust_prop_columns(lnum, col, added, FALSE);
+  #endif
+  
+      changed_bytes(lnum, col);
+--- 684,690 ----
+  {
+  #ifdef FEAT_TEXT_PROP
+      if (curbuf->b_has_textprop && added != 0)
+! 	adjust_prop_columns(lnum, col, added, 0);
+  #endif
+  
+      changed_bytes(lnum, col);
+*** ../vim-8.1.1358/src/edit.c	2019-05-19 15:19:53.824445415 +0200
+--- src/edit.c	2019-05-19 22:44:58.571541520 +0200
+***************
+*** 4104,4110 ****
+  
+  	    --text_prop_frozen;
+  	    adjust_prop_columns(curwin->w_cursor.lnum, curwin->w_cursor.col,
+! 					   (int)(len_now - len_before), FALSE);
+  	}
+  #endif
+      }
+--- 4104,4110 ----
+  
+  	    --text_prop_frozen;
+  	    adjust_prop_columns(curwin->w_cursor.lnum, curwin->w_cursor.col,
+! 					   (int)(len_now - len_before), 0);
+  	}
+  #endif
+      }
+*** ../vim-8.1.1358/src/misc1.c	2019-05-19 15:19:53.824445415 +0200
+--- src/misc1.c	2019-05-19 22:46:00.163219479 +0200
+***************
+*** 441,447 ****
+  	    // the old indent, when decreasing indent it behaves like spaces
+  	    // were deleted at the new indent.
+  	    adjust_prop_columns(curwin->w_cursor.lnum,
+! 		 (colnr_T)(added > 0 ? (p - oldline) : ind_len), added, FALSE);
+  	}
+  #endif
+  	retval = TRUE;
+--- 441,447 ----
+  	    // the old indent, when decreasing indent it behaves like spaces
+  	    // were deleted at the new indent.
+  	    adjust_prop_columns(curwin->w_cursor.lnum,
+! 		 (colnr_T)(added > 0 ? (p - oldline) : ind_len), added, 0);
+  	}
+  #endif
+  	retval = TRUE;
+*** ../vim-8.1.1358/src/ops.c	2019-05-19 19:59:30.164255569 +0200
+--- src/ops.c	2019-05-19 22:46:05.079193770 +0200
+***************
+*** 1937,1943 ****
+  
+  #ifdef FEAT_TEXT_PROP
+  	    if (curbuf->b_has_textprop && n != 0)
+! 		adjust_prop_columns(lnum, bd.textcol, -n, FALSE);
+  #endif
+  	}
+  
+--- 1937,1943 ----
+  
+  #ifdef FEAT_TEXT_PROP
+  	    if (curbuf->b_has_textprop && n != 0)
+! 		adjust_prop_columns(lnum, bd.textcol, -n, 0);
+  #endif
+  	}
+  
+*** ../vim-8.1.1358/src/version.c	2019-05-19 21:57:05.670320399 +0200
+--- src/version.c	2019-05-19 22:17:50.879624047 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1359,
+  /**/
+
+-- 
+I used to be indecisive, now I'm not sure.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,161 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1211
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1211
+Problem:    Not all user command code is tested.
+Solution:   Add more tests.
+Files:	    src/testdir/test_usercommands.vim
+
+
+*** ../vim-8.1.1210/src/testdir/test_usercommands.vim	2019-04-25 22:42:02.313959805 +0200
+--- src/testdir/test_usercommands.vim	2019-04-27 15:04:04.256811206 +0200
+***************
+*** 73,78 ****
+--- 73,169 ----
+    unlet g:mods
+  endfunction
+  
++ func SaveCmdArgs(...)
++   let g:args = a:000
++ endfunc
++ 
++ func Test_f_args()
++   command -nargs=* TestFArgs call SaveCmdArgs(<f-args>)
++ 
++   TestFArgs
++   call assert_equal([], g:args)
++ 
++   TestFArgs one two three
++   call assert_equal(['one', 'two', 'three'], g:args)
++ 
++   TestFArgs one\\two three
++   call assert_equal(['one\two', 'three'], g:args)
++ 
++   TestFArgs one\ two three
++   call assert_equal(['one two', 'three'], g:args)
++ 
++   TestFArgs one\"two three
++   call assert_equal(['one\"two', 'three'], g:args)
++ 
++   delcommand TestFArgs
++ endfunc
++ 
++ func Test_q_args()
++   command -nargs=* TestQArgs call SaveCmdArgs(<q-args>)
++ 
++   TestQArgs
++   call assert_equal([''], g:args)
++ 
++   TestQArgs one two three
++   call assert_equal(['one two three'], g:args)
++ 
++   TestQArgs one\\two three
++   call assert_equal(['one\\two three'], g:args)
++ 
++   TestQArgs one\ two three
++   call assert_equal(['one\ two three'], g:args)
++ 
++   TestQArgs one\"two three
++   call assert_equal(['one\"two three'], g:args)
++ 
++   delcommand TestQArgs
++ endfunc
++ 
++ func Test_reg_arg()
++   command -nargs=* -reg TestRegArg call SaveCmdArgs("<reg>", "<register>")
++ 
++   TestRegArg
++   call assert_equal(['', ''], g:args)
++ 
++   TestRegArg x
++   call assert_equal(['x', 'x'], g:args)
++ 
++   delcommand TestRegArg
++ endfunc
++ 
++ func Test_no_arg()
++   command -nargs=* TestNoArg call SaveCmdArgs("<args>", "<>", "<x>", "<lt>")
++ 
++   TestNoArg
++   call assert_equal(['', '<>', '<x>', '<'], g:args)
++ 
++   TestNoArg one
++   call assert_equal(['one', '<>', '<x>', '<'], g:args)
++ 
++   delcommand TestNoArg
++ endfunc
++ 
++ func Test_range_arg()
++   command -range TestRangeArg call SaveCmdArgs(<range>, <line1>, <line2>)
++   new
++   call setline(1, range(100))
++   let lnum = line('.')
++ 
++   TestRangeArg
++   call assert_equal([0, lnum, lnum], g:args)
++ 
++   99TestRangeArg
++   call assert_equal([1, 99, 99], g:args)
++ 
++   88,99TestRangeArg
++   call assert_equal([2, 88, 99], g:args)
++ 
++   call assert_fails('102TestRangeArg', 'E16:')
++ 
++   bwipe!
++   delcommand TestRangeArg
++ endfunc
++ 
+  func Test_Ambiguous()
+    command Doit let g:didit = 'yes'
+    command Dothat let g:didthat = 'also'
+***************
+*** 88,93 ****
+--- 179,186 ----
+    Do
+    call assert_equal('also', g:didthat)
+    delcommand Dothat
++ 
++   call assert_fails("\x4ei\041", ' you demand a ')
+  endfunc
+  
+  func Test_redefine_on_reload()
+***************
+*** 139,144 ****
+--- 232,238 ----
+    call assert_fails('com! - DoCmd :', 'E175:')
+    call assert_fails('com! -xxx DoCmd :', 'E181:')
+    call assert_fails('com! -addr DoCmd :', 'E179:')
++   call assert_fails('com! -addr=asdf DoCmd :', 'E180:')
+    call assert_fails('com! -complete DoCmd :', 'E179:')
+    call assert_fails('com! -complete=xxx DoCmd :', 'E180:')
+    call assert_fails('com! -complete=custom DoCmd :', 'E467:')
+*** ../vim-8.1.1210/src/version.c	2019-04-27 13:03:20.012715914 +0200
+--- src/version.c	2019-04-27 14:03:48.652580023 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1211,
+  /**/
+
+-- 
+DEAD PERSON:  I don't want to go in the cart!
+CUSTOMER:     Oh, don't be such a baby.
+MORTICIAN:    I can't take him...
+DEAD PERSON:  I feel fine!
+CUSTOMER:     Oh, do us a favor...
+MORTICIAN:    I can't.
+                                  The Quest for the Holy Grail (Monty Python)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

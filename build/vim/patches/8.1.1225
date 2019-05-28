@@ -1,0 +1,155 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1225
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1225
+Problem:    Cannot create a pty to use with :terminal on FreeBSD.
+Solution:   Add support for posix_openpt(). (Ozaki Kiichi, closes #4306,
+            closes #4289)
+Files:	    src/configure.ac, src/config.h.in, src/auto/configure, src/pty.c
+
+
+*** ../vim-8.1.1224/src/configure.ac	2019-04-11 15:25:36.983065343 +0200
+--- src/configure.ac	2019-04-28 14:36:00.332840687 +0200
+***************
+*** 3746,3752 ****
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+  	strnicmp strpbrk strtol tgetent towlower towupper iswupper \
+! 	usleep utime utimes mblen ftruncate unsetenv)
+  AC_FUNC_SELECT_ARGTYPES
+  AC_FUNC_FSEEKO
+  
+--- 3746,3752 ----
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+  	strnicmp strpbrk strtol tgetent towlower towupper iswupper \
+! 	usleep utime utimes mblen ftruncate unsetenv posix_openpt)
+  AC_FUNC_SELECT_ARGTYPES
+  AC_FUNC_FSEEKO
+  
+*** ../vim-8.1.1224/src/config.h.in	2019-02-16 15:09:21.221946179 +0100
+--- src/config.h.in	2019-04-28 14:36:00.332840687 +0200
+***************
+*** 180,185 ****
+--- 180,186 ----
+  #undef HAVE_NANOSLEEP
+  #undef HAVE_NL_LANGINFO_CODESET
+  #undef HAVE_OPENDIR
++ #undef HAVE_POSIX_OPENPT
+  #undef HAVE_PUTENV
+  #undef HAVE_QSORT
+  #undef HAVE_READLINK
+*** ../vim-8.1.1224/src/auto/configure	2019-04-11 15:25:36.983065343 +0200
+--- src/auto/configure	2019-04-28 14:42:11.567032096 +0200
+***************
+*** 12658,12664 ****
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+  	strnicmp strpbrk strtol tgetent towlower towupper iswupper \
+! 	usleep utime utimes mblen ftruncate unsetenv
+  do :
+    as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+  ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
+--- 12658,12664 ----
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+  	strnicmp strpbrk strtol tgetent towlower towupper iswupper \
+! 	usleep utime utimes mblen ftruncate unsetenv posix_openpt
+  do :
+    as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+  ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
+*** ../vim-8.1.1224/src/pty.c	2019-01-26 15:12:52.558260916 +0100
+--- src/pty.c	2019-04-28 14:42:05.411065909 +0200
+***************
+*** 136,141 ****
+--- 136,148 ----
+  # define O_NOCTTY 0
+  #endif
+  
++ #if defined(HAVE_SVR4_PTYS) || defined(HAVE_POSIX_OPENPT)
++ // These should be in stdlib.h, but it depends on _XOPEN_SOURCE.
++ char *ptsname(int);
++ int unlockpt(int);
++ int grantpt(int);
++ #endif
++ 
+      static void
+  initmaster(int f UNUSED)
+  {
+***************
+*** 178,183 ****
+--- 185,219 ----
+      return 0;
+  }
+  
++ #if defined(HAVE_POSIX_OPENPT) && !defined(PTY_DONE)
++ #define PTY_DONE
++     int
++ mch_openpty(char **ttyn)
++ {
++     int		f;
++     char	*m;
++     RETSIGTYPE (*sigcld) SIGPROTOARG;
++     static char TtyName[32];  // used for opening a new pty-pair
++ 
++     if ((f = posix_openpt(O_RDWR | O_NOCTTY | O_EXTRA)) == -1)
++ 	return -1;
++ 
++     // SIGCHLD set to SIG_DFL for grantpt() because it fork()s and
++     // exec()s pt_chmod
++     sigcld = signal(SIGCHLD, SIG_DFL);
++     if ((m = ptsname(f)) == NULL || grantpt(f) || unlockpt(f))
++     {
++ 	signal(SIGCHLD, sigcld);
++ 	close(f);
++ 	return -1;
++     }
++     signal(SIGCHLD, sigcld);
++     vim_strncpy((char_u *)TtyName, (char_u *)m, sizeof(TtyName) - 1);
++     initmaster(f);
++     *ttyn = TtyName;
++     return f;
++ }
++ #endif
+  
+  #if defined(OSX) && !defined(PTY_DONE)
+  #define PTY_DONE
+***************
+*** 280,288 ****
+  {
+      int		f;
+      char	*m;
+-     char	*(ptsname(int));
+-     int		unlockpt(int);
+-     int		grantpt(int);
+      RETSIGTYPE (*sigcld) SIGPROTOARG;
+      /* used for opening a new pty-pair: */
+      static char TtyName[32];
+--- 316,321 ----
+*** ../vim-8.1.1224/src/version.c	2019-04-28 14:02:25.414687593 +0200
+--- src/version.c	2019-04-28 14:39:18.375877759 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1225,
+  /**/
+
+-- 
+ARTHUR:  I am your king!
+WOMAN:   Well, I didn't vote for you.
+ARTHUR:  You don't vote for kings.
+WOMAN:   Well, 'ow did you become king then?
+                                  The Quest for the Holy Grail (Monty Python)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

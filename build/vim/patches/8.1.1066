@@ -1,0 +1,370 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1066
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1066
+Problem:    VIMDLL isn't actually used.
+Solution:   Remove VIMDLL support.
+Files:	    src/gui_w32.c, src/main.c, src/os_w32exe.c, src/Make_bc5.mak,
+            src/os_w32dll.c
+
+
+*** ../vim-8.1.1065/src/gui_w32.c	2019-03-27 21:59:40.899552980 +0100
+--- src/gui_w32.c	2019-03-28 22:34:37.623933989 +0100
+***************
+*** 2280,2288 ****
+  
+  #ifndef PROTO
+  void
+- #ifdef VIMDLL
+- _export
+- #endif
+  _cdecl
+  SaveInst(HINSTANCE hInst)
+  {
+--- 2280,2285 ----
+*** ../vim-8.1.1065/src/main.c	2019-02-17 17:44:36.211875510 +0100
+--- src/main.c	2019-03-28 22:34:52.943815136 +0100
+***************
+*** 96,104 ****
+  static int has_dash_c_arg = FALSE;
+  
+      int
+- # ifdef VIMDLL
+- _export
+- # endif
+  # ifdef FEAT_GUI_MSWIN
+  #  ifdef __BORLANDC__
+  _cdecl
+--- 96,101 ----
+*** ../vim-8.1.1065/src/os_w32exe.c	2019-03-27 21:59:40.899552980 +0100
+--- src/os_w32exe.c	2019-03-28 22:36:24.711105859 +0100
+***************
+*** 32,40 ****
+  
+  #ifndef PROTO
+  #ifdef FEAT_GUI
+- #ifndef VIMDLL
+  void _cdecl SaveInst(HINSTANCE hInst);
+- #endif
+  static void (_cdecl *pSaveInst)(HINSTANCE);
+  #endif
+  
+--- 32,38 ----
+***************
+*** 47,106 ****
+  {
+      int		argc = 0;
+      char	**argv = NULL;
+! #ifdef VIMDLL
+!     char	prog[256];
+!     char	*p;
+!     HANDLE	hLib;
+! 
+!     /* Ron: added full path name so that the $VIM variable will get set to our
+!      * startup path (so the .vimrc file can be found w/o a VIM env. var.) */
+!     GetModuleFileName(NULL, prog, 255);
+! 
+! # ifdef DYNAMIC_GETTEXT
+!     /* Initialize gettext library */
+!     dyn_libintl_init();
+! # endif
+! 
+!     // LoadLibrary - get name of dll to load in here:
+!     p = strrchr(prog, '\\');
+!     if (p != NULL)
+!     {
+! # ifdef DEBUG
+! 	strcpy(p+1, "vim32d.dll");
+! # else
+! 	strcpy(p+1, "vim32.dll");
+! # endif
+!     }
+!     hLib = LoadLibrary(prog);
+!     if (hLib == NULL)
+!     {
+! 	MessageBox(0, _("Could not load vim32.dll!"), _("VIM Error"), 0);
+! 	goto errout;
+!     }
+!     // fix up the function pointers
+! # ifdef FEAT_GUI
+!     pSaveInst = GetProcAddress(hLib, (LPCSTR)2);
+! # endif
+!     pmain = GetProcAddress(hLib, (LPCSTR)1);
+!     if (pmain == NULL)
+!     {
+! 	MessageBox(0, _("Could not fix up function pointers to the DLL!"),
+! 							    _("VIM Error"),0);
+! 	goto errout;
+!     }
+! #else
+! # ifdef FEAT_GUI
+      pSaveInst = SaveInst;
+! # endif
+      pmain =
+! # if defined(FEAT_GUI_MSWIN)
+      //&& defined(__MINGW32__)
+  	VimMain
+! # else
+  	main
+- # endif
+- 	;
+  #endif
+  #ifdef FEAT_GUI
+      pSaveInst(
+  #ifdef __MINGW32__
+--- 45,61 ----
+  {
+      int		argc = 0;
+      char	**argv = NULL;
+! #ifdef FEAT_GUI
+      pSaveInst = SaveInst;
+! #endif
+      pmain =
+! #if defined(FEAT_GUI_MSWIN)
+      //&& defined(__MINGW32__)
+  	VimMain
+! #else
+  	main
+  #endif
++ 	;
+  #ifdef FEAT_GUI
+      pSaveInst(
+  #ifdef __MINGW32__
+***************
+*** 112,121 ****
+  #endif
+      pmain(argc, argv);
+  
+- #ifdef VIMDLL
+-     FreeLibrary(hLib);
+- errout:
+- #endif
+      free_cmd_argsW();
+  
+      return 0;
+--- 67,72 ----
+*** ../vim-8.1.1065/src/Make_bc5.mak	2019-02-18 21:41:34.477750367 +0100
+--- src/Make_bc5.mak	2019-03-28 22:41:57.052566361 +0100
+***************
+*** 72,78 ****
+  #		3 for 386, 4 for 486, 5 for pentium, 6 for pentium pro.
+  # USEDLL	no or yes: set to yes to use the Runtime library DLL (no)
+  #		For USEDLL=yes the cc3250.dll is required to run Vim.
+- # VIMDLL	no or yes: create vim32.dll, and stub (g)vim.exe (no)
+  # ALIGN		1, 2 or 4: Alignment to use (4 for Win32)
+  # FASTCALL	no or yes: set to yes to use register-based function protocol (yes)
+  # OPTIMIZE	SPACE, SPEED, or MAXSPEED: type of optimization (MAXSPEED)
+--- 72,77 ----
+***************
+*** 187,195 ****
+  USEDLL = no
+  !endif
+  
+- ### VIMDLL: yes for a DLL version of VIM (NOT RECOMMENDED), no otherwise
+- #VIMDLL = yes
+- 
+  ### ALIGN: alignment you desire: (1,2 or 4: s/b 4 for Win32)
+  !if ("$(ALIGN)"=="")
+  ALIGN = 4
+--- 186,191 ----
+***************
+*** 411,422 ****
+  !else
+  TARGET = gvim.exe
+  !endif
+- !if ("$(VIMDLL)"=="yes")
+- EXETYPE=-WD
+- DEFINES = $(DEFINES) -DVIMDLL
+- !else
+  EXETYPE=-W
+- !endif
+  STARTUPOBJ = c0w32.obj
+  LINK2 = -aa
+  RESFILE = vim.res
+--- 407,413 ----
+***************
+*** 424,430 ****
+  !undef NETBEANS
+  !undef CHANNEL
+  !undef XPM
+- !undef VIMDLL
+  !if ("$(DEBUG)"=="yes")
+  TARGET = vimd.exe
+  !else
+--- 415,420 ----
+***************
+*** 515,527 ****
+  
+  vimmain = \
+  	$(OBJDIR)\os_w32exe.obj
+- !if ("$(VIMDLL)"=="yes")
+- vimwinmain = \
+- 	$(OBJDIR)\os_w32dll.obj
+- !else
+  vimwinmain = \
+  	$(OBJDIR)\os_w32exe.obj
+- !endif
+  
+  vimobj =  \
+  	$(OBJDIR)\arabic.obj \
+--- 505,512 ----
+***************
+*** 638,654 ****
+      $(OBJDIR)\xpm_w32.obj
+  !endif
+  
+- !if ("$(VIMDLL)"=="yes")
+- vimdllobj = $(vimobj)
+- !if ("$(DEBUG)"=="yes")
+- DLLTARGET = vim32d.dll
+- !else
+- DLLTARGET = vim32.dll
+- !endif
+- !else
+- DLLTARGET = joebob
+- !endif
+- 
+  !if ("$(GUI)"=="yes")
+  vimobj = $(vimobj) \
+  	$(vimwinmain) \
+--- 623,628 ----
+***************
+*** 670,678 ****
+  !if ("$(USEDLL)"=="yes")
+  MSG = $(MSG) USEDLL
+  !endif
+- !if ("$(VIMDLL)"=="yes")
+- MSG = $(MSG) VIMDLL
+- !endif
+  !if ("$(FASTCALL)"=="yes")
+  MSG = $(MSG) FASTCALL
+  !endif
+--- 644,649 ----
+***************
+*** 747,755 ****
+  
+  !message $(MSG)
+  
+- !if ("$(VIMDLL)"=="yes")
+- TARGETS = $(DLLTARGET)
+- !endif
+  TARGETS = $(TARGETS) $(TARGET)
+  
+  # Targets:
+--- 718,723 ----
+***************
+*** 832,891 ****
+  	$(MAKE) /f Make_bc5.mak BOR="$(BOR)" clean
+  	cd ..
+  
+- $(DLLTARGET): $(OBJDIR) $(vimdllobj)
+-   $(LINK) @&&|
+- 	$(LFLAGSDLL) +
+- 	c0d32.obj +
+- 	$(vimdllobj)
+- 	$<,$*
+- !if ("$(CODEGUARD)"=="yes")
+- 	cg32.lib+
+- !endif
+- # $(OSTYPE)==WIN32 causes os_mswin.c compilation. FEAT_SHORTCUT in it needs OLE
+- 	ole2w32.lib +
+- 	import32.lib+
+- !ifdef LUA
+- 	$(LUA_LIB_FLAG)lua.lib+
+- !endif
+- !ifdef PERL
+- 	$(PERL_LIB_FLAG)perl.lib+
+- !endif
+- !ifdef PYTHON
+- 	$(PYTHON_LIB_FLAG)python.lib+
+- !endif
+- !ifdef PYTHON3
+- 	$(PYTHON3_LIB_FLAG)python3.lib+
+- !endif
+- !ifdef RUBY
+- 	$(RUBY_LIB_FLAG)ruby.lib+
+- !endif
+- !ifdef TCL
+- 	$(TCL_LIB_FLAG)tcl.lib+
+- !endif
+- !ifdef XPM
+- 	xpm.lib+
+- !endif
+- !if ("$(USEDLL)"=="yes")
+- 	cw32i.lib
+- !else
+- 	cw32.lib
+- !endif
+- 	vim.def
+- |
+  
+- !if ("$(VIMDLL)"=="yes")
+- $(TARGET): $(OBJDIR) $(DLLTARGET) $(vimmain) $(OBJDIR)\$(RESFILE)
+- !else
+  $(TARGET): $(OBJDIR) $(vimobj) $(OBJDIR)\$(RESFILE)
+- !endif
+    $(LINK) @&&|
+  	$(LFLAGS) +
+  	$(STARTUPOBJ) +
+- !if ("$(VIMDLL)"=="yes")
+- 	$(vimmain)
+- !else
+  	$(vimobj)
+- !endif
+  	$<,$*
+  !if ("$(CODEGUARD)"=="yes")
+  	cg32.lib+
+--- 800,811 ----
+*** ../vim-8.1.1065/src/os_w32dll.c	2016-08-29 22:42:20.000000000 +0200
+--- src/os_w32dll.c	1970-01-01 01:00:00.000000000 +0100
+***************
+*** 1,24 ****
+- /* vi:set ts=8 sts=4 sw=4 noet:
+-  *
+-  * VIM - Vi IMproved		by Bram Moolenaar
+-  *				GUI support by Robert Webb
+-  *
+-  * Do ":help uganda"  in Vim to read copying and usage conditions.
+-  * Do ":help credits" in Vim to see a list of people who contributed.
+-  * See README.txt for an overview of the Vim source code.
+-  */
+- /*
+-  * Windows GUI: main program (DLL) entry point:
+-  *
+-  * Ron Aaron <ronaharon@yahoo.com> wrote this and  the DLL support code.
+-  */
+- #ifndef WIN32_LEAN_AND_MEAN
+- # define WIN32_LEAN_AND_MEAN
+- #endif
+- #include <windows.h>
+- 
+- BOOL WINAPI DllMain(HINSTANCE  hinstDLL, DWORD	fdwReason, LPVOID  lpvReserved)
+- {
+-     return TRUE;
+- }
+- 
+--- 0 ----
+*** ../vim-8.1.1065/src/version.c	2019-03-28 22:04:53.290665042 +0100
+--- src/version.c	2019-03-28 22:42:21.808378560 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1066,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+141. You'd rather go to http://www.weather.com/ than look out your window.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,477 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1203
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1203
+Problem:    Some autocmd tests are old style.
+Solution:   Turn the tests into new style. (Yegappan Lakshmanan, closes #4295)
+Files:	    src/Makefile, src/testdir/Make_all.mak,
+            src/testdir/Make_amiga.mak, src/testdir/Make_vms.mms,
+            src/testdir/test11.in, src/testdir/test11.ok,
+            src/testdir/test_autocmd.vim
+
+
+*** ../vim-8.1.1202/src/Makefile	2019-04-21 15:22:35.485067386 +0200
+--- src/Makefile	2019-04-25 20:23:53.866986203 +0200
+***************
+*** 2172,2178 ****
+  # These do not depend on the executable, compile it when needed.
+  test1 \
+  	test_eval \
+! 	test3 test11 test14 test17 \
+  	test29 test30 test37 test39 \
+  	test42 test44 test48 test49 \
+  	test52 test59 \
+--- 2172,2178 ----
+  # These do not depend on the executable, compile it when needed.
+  test1 \
+  	test_eval \
+! 	test3 test14 test17 \
+  	test29 test30 test37 test39 \
+  	test42 test44 test48 test49 \
+  	test52 test59 \
+*** ../vim-8.1.1202/src/testdir/Make_all.mak	2019-04-17 16:53:44.925357857 +0200
+--- src/testdir/Make_all.mak	2019-04-25 20:23:53.866986203 +0200
+***************
+*** 33,39 ****
+  
+  # Tests that run on most systems, but not on Amiga.
+  SCRIPTS_MORE1 = \
+- 	test11.out \
+  	test52.out \
+  	test86.out \
+  	test87.out
+--- 33,38 ----
+*** ../vim-8.1.1202/src/testdir/Make_amiga.mak	2019-01-11 17:30:13.290241872 +0100
+--- src/testdir/Make_amiga.mak	2019-04-25 20:23:53.866986203 +0200
+***************
+*** 12,18 ****
+  # These tests don't work (yet):
+  # test2		"\\tmp" doesn't work
+  # test10	'errorformat' is different
+- # test11	"cat" doesn't work properly
+  # test52	only for Win32
+  # test86, 87	no Python interface
+  
+--- 12,17 ----
+*** ../vim-8.1.1202/src/testdir/Make_vms.mms	2019-04-17 16:53:44.925357857 +0200
+--- src/testdir/Make_vms.mms	2019-04-25 20:23:53.866986203 +0200
+***************
+*** 122,131 ****
+  SCRIPT_ODS5 = test102.out
+  .ENDIF
+  
+- .IFDEF HAVE_GZIP
+- SCRIPT_GZIP = test11.out
+- .ENDIF
+- 
+  .IFDEF HAVE_GDIFF
+  SCRIPT_GDIFF = test47.out
+  .ENDIF
+--- 122,127 ----
+***************
+*** 154,160 ****
+  	-@ if "''F$SEARCH("Xdotest.*")'"  .NES. "" then delete/noconfirm/nolog Xdotest.*.*
+  	-@ if "''F$SEARCH("Xtest.*")'"    .NES. "" then delete/noconfirm/nolog Xtest.*.*
+  
+! all : clean nolog $(START_WITH) $(SCRIPT) $(SCRIPT_GUI) $(SCRIPT_UNIX) $(SCRIPT_WIN) $(SCRIPT_SPELL) $(SCRIPT_ODS5) $(SCRIPT_GZIP) \
+      $(SCRIPT_GDIFF) $(SCRIPT_MZSCH) $(SCRIPT_LUA) $(SCRIPT_PYTHON) nolog 
+  	-@ write sys$output " "
+  	-@ write sys$output "-----------------------------------------------"
+--- 150,156 ----
+  	-@ if "''F$SEARCH("Xdotest.*")'"  .NES. "" then delete/noconfirm/nolog Xdotest.*.*
+  	-@ if "''F$SEARCH("Xtest.*")'"    .NES. "" then delete/noconfirm/nolog Xtest.*.*
+  
+! all : clean nolog $(START_WITH) $(SCRIPT) $(SCRIPT_GUI) $(SCRIPT_UNIX) $(SCRIPT_WIN) $(SCRIPT_SPELL) $(SCRIPT_ODS5) \
+      $(SCRIPT_GDIFF) $(SCRIPT_MZSCH) $(SCRIPT_LUA) $(SCRIPT_PYTHON) nolog 
+  	-@ write sys$output " "
+  	-@ write sys$output "-----------------------------------------------"
+*** ../vim-8.1.1202/src/testdir/test11.in	2014-10-09 15:34:19.000000000 +0200
+--- src/testdir/test11.in	1970-01-01 01:00:00.000000000 +0100
+***************
+*** 1,84 ****
+- Tests for autocommands:
+- - FileWritePre		writing a compressed file
+- - FileReadPost		reading a compressed file
+- - BufNewFile		reading a file template
+- - BufReadPre		decompressing the file to be read
+- - FilterReadPre		substituting characters in the temp file
+- - FilterReadPost	substituting characters after filtering
+- - FileReadPre		set options for decompression
+- - FileReadPost		decompress the file
+- 
+- Note: This test is skipped if "gzip" is not available.
+- $GZIP is made empty, "-v" would cause trouble.
+- Use a FileChangedShell autocommand to avoid a prompt for "Xtestfile.gz" being
+- modified outside of Vim (noticed on Solaris).
+- 
+- STARTTEST
+- :so small.vim
+- :" drop out when there is no gzip program
+- :if !executable("gzip")
+- : e! test.ok
+- : w! test.out
+- : qa!
+- :endif
+- :let $GZIP = ""
+- :au FileChangedShell * echo "caught FileChangedShell"
+- :set bin
+- :au FileWritePre    *.gz   '[,']!gzip
+- :au FileWritePost   *.gz   undo
+- :/^start of testfile/,/^end of testfile/w! Xtestfile.gz
+- :au FileReadPost    *.gz   '[,']!gzip -d
+- :$r Xtestfile.gz                " Read and decompress the testfile
+- :?startstart?,$w! test.out      " Write contents of this file
+- :au BufNewFile      *.c    read Xtest.c
+- :/^start of test.c/+1,/^end of test.c/-1w! Xtest.c
+- :e! foo.c                       " Will load Xtest.c
+- :au FileAppendPre   *.out  '[,']s/new/NEW/
+- :au FileAppendPost  *.out  !cat Xtest.c >>test.out
+- :w>>test.out                    " Append it to the output file
+- :au! FileAppendPre
+- :" setup autocommands to decompress before reading and re-compress afterwards
+- :au BufReadPre      *.gz   exe '!gzip -d ' . shellescape(expand("<afile>"))
+- :au BufReadPre      *.gz   call rename(expand("<afile>:r"), expand("<afile>"))
+- :au BufReadPost     *.gz   call rename(expand("<afile>"), expand("<afile>:r"))
+- :au BufReadPost     *.gz   exe '!gzip ' . shellescape(expand("<afile>:r"))
+- :e! Xtestfile.gz                " Edit compressed file
+- :w>>test.out                    " Append it to the output file
+- :set shelltemp                  " need temp files here
+- :au FilterReadPre   *.out  call rename(expand("<afile>"), expand("<afile>") . ".t")
+- :au FilterReadPre   *.out  exe 'silent !sed s/e/E/ ' . shellescape(expand("<afile>")) . ".t >" . shellescape(expand("<afile>"))
+- :au FilterReadPre   *.out  exe 'silent !rm ' . shellescape(expand("<afile>")) . '.t'
+- :au FilterReadPost  *.out  '[,']s/x/X/g
+- :e! test.out                    " Edit the output file
+- :23,$!cat
+- :23,$s/\r$//                 " remove CR for when sed adds them
+- :au! FileReadPre    *.gz   exe 'silent !gzip -d ' . shellescape(expand("<afile>"))
+- :au  FileReadPre    *.gz   call rename(expand("<afile>:r"), expand("<afile>"))
+- :au! FileReadPost   *.gz   '[,']s/l/L/
+- :$r Xtestfile.gz             " Read compressed file
+- :w                           " write it, after filtering
+- :au!             " remove all autocommands
+- :e               " Edit test.out again
+- :set nobin ff&   " use the default fileformat for writing
+- :w
+- :qa!
+- ENDTEST
+- 
+- startstart
+- start of testfile
+- line 2	Abcdefghijklmnopqrstuvwxyz
+- line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- line 4	Abcdefghijklmnopqrstuvwxyz
+- line 5	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- line 6	Abcdefghijklmnopqrstuvwxyz
+- line 7	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- line 8	Abcdefghijklmnopqrstuvwxyz
+- line 9	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- line 10 Abcdefghijklmnopqrstuvwxyz
+- end of testfile
+- 
+- start of test.c
+- /*
+-  * Here is a new .c file
+-  */
+- end of test.c
+--- 0 ----
+*** ../vim-8.1.1202/src/testdir/test11.ok	2010-05-15 13:04:10.000000000 +0200
+--- src/testdir/test11.ok	1970-01-01 01:00:00.000000000 +0100
+***************
+*** 1,61 ****
+- startstart
+- start of testfile
+- line 2	Abcdefghijklmnopqrstuvwxyz
+- line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- line 4	Abcdefghijklmnopqrstuvwxyz
+- line 5	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- line 6	Abcdefghijklmnopqrstuvwxyz
+- line 7	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- line 8	Abcdefghijklmnopqrstuvwxyz
+- line 9	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- line 10 Abcdefghijklmnopqrstuvwxyz
+- end of testfile
+- 
+- start of test.c
+- /*
+-  * Here is a new .c file
+-  */
+- end of test.c
+- start of testfile
+- line 2	Abcdefghijklmnopqrstuvwxyz
+- line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- line 4	Abcdefghijklmnopqrstuvwxyz
+- linE 5	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+- linE 6	AbcdefghijklmnopqrstuvwXyz
+- linE 7	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+- linE 8	AbcdefghijklmnopqrstuvwXyz
+- linE 9	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+- linE 10 AbcdefghijklmnopqrstuvwXyz
+- End of testfile
+- 
+- /*
+-  * HEre is a NEW .c file
+-  */
+- /*
+-  * HEre is a new .c file
+-  */
+- start of tEstfile
+- linE 2	AbcdefghijklmnopqrstuvwXyz
+- linE 3	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+- linE 4	AbcdefghijklmnopqrstuvwXyz
+- linE 5	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+- linE 6	AbcdefghijklmnopqrstuvwXyz
+- linE 7	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+- linE 8	AbcdefghijklmnopqrstuvwXyz
+- linE 9	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+- linE 10 AbcdefghijklmnopqrstuvwXyz
+- End of testfile
+- /*
+-  * HEre is a new .c file
+-  */
+- start of testfiLe
+- Line 2	Abcdefghijklmnopqrstuvwxyz
+- Line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- Line 4	Abcdefghijklmnopqrstuvwxyz
+- Line 5	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- Line 6	Abcdefghijklmnopqrstuvwxyz
+- Line 7	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- Line 8	Abcdefghijklmnopqrstuvwxyz
+- Line 9	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+- Line 10 Abcdefghijklmnopqrstuvwxyz
+- end of testfiLe
+--- 0 ----
+*** ../vim-8.1.1202/src/testdir/test_autocmd.vim	2019-04-04 15:04:32.966792195 +0200
+--- src/testdir/test_autocmd.vim	2019-04-25 20:23:53.870985923 +0200
+***************
+*** 1486,1488 ****
+--- 1486,1690 ----
+  endfunc
+  
+  " FileChangedShell tested in test_filechanged.vim
++ 
++ " Tests for the following autocommands:
++ " - FileWritePre	writing a compressed file
++ " - FileReadPost	reading a compressed file
++ " - BufNewFile		reading a file template
++ " - BufReadPre		decompressing the file to be read
++ " - FilterReadPre	substituting characters in the temp file
++ " - FilterReadPost	substituting characters after filtering
++ " - FileReadPre		set options for decompression
++ " - FileReadPost	decompress the file
++ func Test_ReadWrite_Autocmds()
++   " Run this test only on Unix-like systems and if gzip is available
++   if !has('unix') || !executable("gzip")
++     return
++   endif
++ 
++   " Make $GZIP empty, "-v" would cause trouble.
++   let $GZIP = ""
++ 
++   " Use a FileChangedShell autocommand to avoid a prompt for 'Xtestfile.gz'
++   " being modified outside of Vim (noticed on Solaris).
++   au FileChangedShell * echo 'caught FileChangedShell'
++ 
++   " Test for the FileReadPost, FileWritePre and FileWritePost autocmds
++   augroup Test1
++     au!
++     au FileWritePre    *.gz   '[,']!gzip
++     au FileWritePost   *.gz   undo
++     au FileReadPost    *.gz   '[,']!gzip -d
++   augroup END
++ 
++   new
++   set bin
++   call append(0, [
++ 	      \ 'line 2	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 4	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 5	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 6	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 7	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 8	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 9	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 10 Abcdefghijklmnopqrstuvwxyz'
++ 	      \ ])
++   1,9write! Xtestfile.gz
++   enew! | close
++ 
++   new
++   " Read and decompress the testfile
++   0read Xtestfile.gz
++   call assert_equal([
++ 	      \ 'line 2	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 4	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 5	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 6	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 7	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 8	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 9	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 10 Abcdefghijklmnopqrstuvwxyz'
++ 	      \ ], getline(1, 9))
++   enew! | close
++ 
++   augroup Test1
++     au!
++   augroup END
++ 
++   " Test for the FileAppendPre and FileAppendPost autocmds
++   augroup Test2
++     au!
++     au BufNewFile      *.c    read Xtest.c
++     au FileAppendPre   *.out  '[,']s/new/NEW/
++     au FileAppendPost  *.out  !cat Xtest.c >> test.out
++   augroup END
++ 
++   call writefile(['/*', ' * Here is a new .c file', ' */'], 'Xtest.c')
++   new foo.c			" should load Xtest.c
++   call assert_equal(['/*', ' * Here is a new .c file', ' */'], getline(2, 4))
++   w! >> test.out		" append it to the output file
++ 
++   let contents = readfile('test.out')
++   call assert_equal(' * Here is a NEW .c file', contents[2])
++   call assert_equal(' * Here is a new .c file', contents[5])
++ 
++   call delete('test.out')
++   enew! | close
++   augroup Test2
++     au!
++   augroup END
++ 
++   " Test for the BufReadPre and BufReadPost autocmds
++   augroup Test3
++     au!
++     " setup autocommands to decompress before reading and re-compress
++     " afterwards
++     au BufReadPre  *.gz  exe '!gzip -d ' . shellescape(expand("<afile>"))
++     au BufReadPre  *.gz  call rename(expand("<afile>:r"), expand("<afile>"))
++     au BufReadPost *.gz  call rename(expand("<afile>"), expand("<afile>:r"))
++     au BufReadPost *.gz  exe '!gzip ' . shellescape(expand("<afile>:r"))
++   augroup END
++ 
++   e! Xtestfile.gz		" Edit compressed file
++   call assert_equal([
++ 	      \ 'line 2	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 4	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 5	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 6	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 7	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 8	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 9	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 10 Abcdefghijklmnopqrstuvwxyz'
++ 	      \ ], getline(1, 9))
++ 
++   w! >> test.out		" Append it to the output file
++ 
++   augroup Test3
++     au!
++   augroup END
++ 
++   " Test for the FilterReadPre and FilterReadPost autocmds.
++   set shelltemp			" need temp files here
++   augroup Test4
++     au!
++     au FilterReadPre   *.out  call rename(expand("<afile>"), expand("<afile>") . ".t")
++     au FilterReadPre   *.out  exe 'silent !sed s/e/E/ ' . shellescape(expand("<afile>")) . ".t >" . shellescape(expand("<afile>"))
++     au FilterReadPre   *.out  exe 'silent !rm ' . shellescape(expand("<afile>")) . '.t'
++     au FilterReadPost  *.out  '[,']s/x/X/g
++   augroup END
++ 
++   e! test.out			" Edit the output file
++   1,$!cat
++   call assert_equal([
++ 	      \ 'linE 2	AbcdefghijklmnopqrstuvwXyz',
++ 	      \ 'linE 3	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
++ 	      \ 'linE 4	AbcdefghijklmnopqrstuvwXyz',
++ 	      \ 'linE 5	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
++ 	      \ 'linE 6	AbcdefghijklmnopqrstuvwXyz',
++ 	      \ 'linE 7	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
++ 	      \ 'linE 8	AbcdefghijklmnopqrstuvwXyz',
++ 	      \ 'linE 9	XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
++ 	      \ 'linE 10 AbcdefghijklmnopqrstuvwXyz'
++ 	      \ ], getline(1, 9))
++   call assert_equal([
++ 	      \ 'line 2	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 4	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 5	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 6	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 7	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 8	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 9	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 10 Abcdefghijklmnopqrstuvwxyz'
++ 	      \ ], readfile('test.out'))
++ 
++   augroup Test4
++     au!
++   augroup END
++   set shelltemp&vim
++ 
++   " Test for the FileReadPre and FileReadPost autocmds.
++   augroup Test5
++     au!
++     au FileReadPre *.gz exe 'silent !gzip -d ' . shellescape(expand("<afile>"))
++     au FileReadPre *.gz call rename(expand("<afile>:r"), expand("<afile>"))
++     au FileReadPost *.gz '[,']s/l/L/
++   augroup END
++ 
++   new
++   0r Xtestfile.gz		" Read compressed file
++   call assert_equal([
++ 	      \ 'Line 2	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'Line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'Line 4	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'Line 5	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'Line 6	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'Line 7	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'Line 8	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'Line 9	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'Line 10 Abcdefghijklmnopqrstuvwxyz'
++ 	      \ ], getline(1, 9))
++   call assert_equal([
++ 	      \ 'line 2	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 3	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 4	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 5	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 6	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 7	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 8	Abcdefghijklmnopqrstuvwxyz',
++ 	      \ 'line 9	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
++ 	      \ 'line 10 Abcdefghijklmnopqrstuvwxyz'
++ 	      \ ], readfile('Xtestfile.gz'))
++ 
++   augroup Test5
++     au!
++   augroup END
++ 
++   au! FileChangedShell
++   call delete('Xtestfile.gz')
++   call delete('Xtest.c')
++   call delete('test.out')
++ endfunc
+*** ../vim-8.1.1202/src/version.c	2019-04-25 20:07:44.171328174 +0200
+--- src/version.c	2019-04-25 20:25:59.985374027 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1203,
+  /**/
+
+-- 
+A real patriot is the fellow who gets a parking ticket and rejoices
+that the system works.
+
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

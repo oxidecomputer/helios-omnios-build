@@ -1,0 +1,4519 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1384
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1384
+Problem:    Using "int" for alloc() often results in compiler warnings.
+Solution:   Use "size_t" and remove type casts.  Remove alloc_check(), Vim
+            only works with 32 bit ints anyway.
+Files:	    src/misc2.c, src/proto/misc2.pro, src/autocmd.c, src/buffer.c,
+	    src/change.c, src/channel.c, src/charset.c, src/debugger.c,
+	    src/dict.c, src/diff.c, src/digraph.c, src/edit.c, src/eval.c,
+	    src/evalfunc.c, src/ex_cmds.c, src/ex_cmds2.c, src/ex_docmd.c,
+	    src/ex_eval.c, src/ex_getln.c, src/fileio.c, src/findfile.c,
+	    src/fold.c, src/getchar.c, src/gui.c, src/gui_at_fs.c,
+	    src/gui_gtk.c, src/gui_gtk_x11.c, src/gui_motif.c, src/gui_w32.c,
+	    src/hashtab.c, src/if_cscope.c, src/if_perlsfio.c,
+	    src/if_python3.c, src/if_xcmdsrv.c, src/indent.c, src/insexpand.c,
+	    src/main.c, src/mbyte.c, src/memfile.c, src/memline.c, src/menu.c,
+	    src/message.c, src/misc1.c, src/netbeans.c, src/ops.c,
+	    src/option.c, src/os_amiga.c, src/os_mswin.c, src/os_unix.c,
+	    src/os_vms.c, src/os_win32.c, src/quickfix.c, src/regexp.c,
+	    src/screen.c, src/spell.c, src/spellfile.c, src/syntax.c,
+	    src/term.c, src/undo.c, src/usercmd.c, src/userfunc.c,
+	    src/version.c, src/winclip.c
+
+
+*** ../vim-8.1.1383/src/misc2.c	2019-05-19 19:59:30.164255569 +0200
+--- src/misc2.c	2019-05-24 18:27:24.407952680 +0200
+***************
+*** 711,717 ****
+  }
+  
+      static void
+! mem_pre_alloc_l(long_u *sizep)
+  {
+      *sizep += sizeof(size_t);
+  }
+--- 711,717 ----
+  }
+  
+      static void
+! mem_pre_alloc_l(size_t *sizep)
+  {
+      *sizep += sizeof(size_t);
+  }
+***************
+*** 796,802 ****
+  
+  #ifdef FEAT_EVAL
+      int
+! alloc_does_fail(long_u size)
+  {
+      if (alloc_fail_countdown == 0)
+      {
+--- 796,802 ----
+  
+  #ifdef FEAT_EVAL
+      int
+! alloc_does_fail(size_t size)
+  {
+      if (alloc_fail_countdown == 0)
+      {
+***************
+*** 818,856 ****
+  #define KEEP_ROOM_KB (KEEP_ROOM / 1024L)
+  
+  /*
+!  * Note: if unsigned is 16 bits we can only allocate up to 64K with alloc().
+!  * Use lalloc for larger blocks.
+   */
+      char_u *
+! alloc(unsigned size)
+  {
+!     return (lalloc((long_u)size, TRUE));
+  }
+  
+  /*
+   * alloc() with an ID for alloc_fail().
+   */
+      char_u *
+! alloc_id(unsigned size, alloc_id_T id UNUSED)
+  {
+  #ifdef FEAT_EVAL
+!     if (alloc_fail_id == id && alloc_does_fail((long_u)size))
+  	return NULL;
+  #endif
+!     return (lalloc((long_u)size, TRUE));
+  }
+  
+  /*
+   * Allocate memory and set all bytes to zero.
+   */
+      char_u *
+! alloc_clear(unsigned size)
+  {
+      char_u *p;
+  
+!     p = lalloc((long_u)size, TRUE);
+      if (p != NULL)
+! 	(void)vim_memset(p, 0, (size_t)size);
+      return p;
+  }
+  
+--- 818,856 ----
+  #define KEEP_ROOM_KB (KEEP_ROOM / 1024L)
+  
+  /*
+!  * The normal way to allocate memory.  This handles an out-of-memory situation
+!  * as well as possible, still returns NULL when we're completely out.
+   */
+      char_u *
+! alloc(size_t size)
+  {
+!     return lalloc(size, TRUE);
+  }
+  
+  /*
+   * alloc() with an ID for alloc_fail().
+   */
+      char_u *
+! alloc_id(size_t size, alloc_id_T id UNUSED)
+  {
+  #ifdef FEAT_EVAL
+!     if (alloc_fail_id == id && alloc_does_fail(size))
+  	return NULL;
+  #endif
+!     return lalloc(size, TRUE);
+  }
+  
+  /*
+   * Allocate memory and set all bytes to zero.
+   */
+      char_u *
+! alloc_clear(size_t size)
+  {
+      char_u *p;
+  
+!     p = lalloc(size, TRUE);
+      if (p != NULL)
+! 	(void)vim_memset(p, 0, size);
+      return p;
+  }
+  
+***************
+*** 858,901 ****
+   * Same as alloc_clear() but with allocation id for testing
+   */
+      char_u *
+! alloc_clear_id(unsigned size, alloc_id_T id UNUSED)
+  {
+  #ifdef FEAT_EVAL
+!     if (alloc_fail_id == id && alloc_does_fail((long_u)size))
+  	return NULL;
+  #endif
+      return alloc_clear(size);
+  }
+  
+  /*
+-  * alloc() with check for maximum line length
+-  */
+-     char_u *
+- alloc_check(unsigned size)
+- {
+- #if !defined(UNIX)
+-     if (sizeof(int) == 2 && size > 0x7fff)
+-     {
+- 	/* Don't hide this message */
+- 	emsg_silent = 0;
+- 	emsg(_("E340: Line is becoming too long"));
+- 	return NULL;
+-     }
+- #endif
+-     return (lalloc((long_u)size, TRUE));
+- }
+- 
+- /*
+   * Allocate memory like lalloc() and set all bytes to zero.
+   */
+      char_u *
+! lalloc_clear(long_u size, int message)
+  {
+      char_u *p;
+  
+      p = (lalloc(size, message));
+      if (p != NULL)
+! 	(void)vim_memset(p, 0, (size_t)size);
+      return p;
+  }
+  
+--- 858,883 ----
+   * Same as alloc_clear() but with allocation id for testing
+   */
+      char_u *
+! alloc_clear_id(size_t size, alloc_id_T id UNUSED)
+  {
+  #ifdef FEAT_EVAL
+!     if (alloc_fail_id == id && alloc_does_fail(size))
+  	return NULL;
+  #endif
+      return alloc_clear(size);
+  }
+  
+  /*
+   * Allocate memory like lalloc() and set all bytes to zero.
+   */
+      char_u *
+! lalloc_clear(size_t size, int message)
+  {
+      char_u *p;
+  
+      p = (lalloc(size, message));
+      if (p != NULL)
+! 	(void)vim_memset(p, 0, size);
+      return p;
+  }
+  
+***************
+*** 904,924 ****
+   * This is used often, KEEP IT FAST!
+   */
+      char_u *
+! lalloc(long_u size, int message)
+  {
+      char_u	*p;		    /* pointer to new storage space */
+      static int	releasing = FALSE;  /* don't do mf_release_all() recursive */
+      int		try_again;
+  #if defined(HAVE_AVAIL_MEM)
+!     static long_u allocated = 0;    /* allocated since last avail check */
+  #endif
+  
+!     /* Safety check for allocating zero bytes */
+      if (size == 0)
+      {
+! 	/* Don't hide this message */
+  	emsg_silent = 0;
+! 	siemsg(_("E341: Internal error: lalloc(%ld, )"), size);
+  	return NULL;
+      }
+  
+--- 886,906 ----
+   * This is used often, KEEP IT FAST!
+   */
+      char_u *
+! lalloc(size_t size, int message)
+  {
+      char_u	*p;		    /* pointer to new storage space */
+      static int	releasing = FALSE;  /* don't do mf_release_all() recursive */
+      int		try_again;
+  #if defined(HAVE_AVAIL_MEM)
+!     static size_t allocated = 0;    /* allocated since last avail check */
+  #endif
+  
+!     // Safety check for allocating zero bytes
+      if (size == 0)
+      {
+! 	// Don't hide this message
+  	emsg_silent = 0;
+! 	iemsg(_("E341: Internal error: lalloc(0, )"));
+  	return NULL;
+      }
+  
+***************
+*** 939,945 ****
+  	 *    allocating KEEP_ROOM amount of memory.
+  	 * 3. Strict check for available memory: call mch_avail_mem()
+  	 */
+! 	if ((p = (char_u *)malloc((size_t)size)) != NULL)
+  	{
+  #ifndef HAVE_AVAIL_MEM
+  	    /* 1. No check for available memory: Just return. */
+--- 921,927 ----
+  	 *    allocating KEEP_ROOM amount of memory.
+  	 * 3. Strict check for available memory: call mch_avail_mem()
+  	 */
+! 	if ((p = (char_u *)malloc(size)) != NULL)
+  	{
+  #ifndef HAVE_AVAIL_MEM
+  	    /* 1. No check for available memory: Just return. */
+***************
+*** 983,989 ****
+  
+  theend:
+  #ifdef MEM_PROFILE
+!     mem_post_alloc((void **)&p, (size_t)size);
+  #endif
+      return p;
+  }
+--- 965,971 ----
+  
+  theend:
+  #ifdef MEM_PROFILE
+!     mem_post_alloc((void **)&p, size);
+  #endif
+      return p;
+  }
+***************
+*** 993,1005 ****
+   */
+  #if defined(FEAT_SIGNS) || defined(PROTO)
+      char_u *
+! lalloc_id(long_u size, int message, alloc_id_T id UNUSED)
+  {
+  #ifdef FEAT_EVAL
+      if (alloc_fail_id == id && alloc_does_fail(size))
+  	return NULL;
+  #endif
+!     return (lalloc((long_u)size, message));
+  }
+  #endif
+  
+--- 975,987 ----
+   */
+  #if defined(FEAT_SIGNS) || defined(PROTO)
+      char_u *
+! lalloc_id(size_t size, int message, alloc_id_T id UNUSED)
+  {
+  #ifdef FEAT_EVAL
+      if (alloc_fail_id == id && alloc_does_fail(size))
+  	return NULL;
+  #endif
+!     return (lalloc(size, message));
+  }
+  #endif
+  
+***************
+*** 1028,1034 ****
+  * Did_outofmem_msg is reset when a character is read.
+  */
+      void
+! do_outofmem_msg(long_u size)
+  {
+      if (!did_outofmem_msg)
+      {
+--- 1010,1016 ----
+  * Did_outofmem_msg is reset when a character is read.
+  */
+      void
+! do_outofmem_msg(size_t size)
+  {
+      if (!did_outofmem_msg)
+      {
+***************
+*** 1039,1045 ****
+  	 * message fails, e.g. when setting v:errmsg. */
+  	did_outofmem_msg = TRUE;
+  
+! 	semsg(_("E342: Out of memory!  (allocating %lu bytes)"), size);
+      }
+  }
+  
+--- 1021,1027 ----
+  	 * message fails, e.g. when setting v:errmsg. */
+  	did_outofmem_msg = TRUE;
+  
+! 	semsg(_("E342: Out of memory!  (allocating %lu bytes)"), (long_u)size);
+      }
+  }
+  
+***************
+*** 1288,1299 ****
+  vim_strsave(char_u *string)
+  {
+      char_u	*p;
+!     unsigned	len;
+  
+!     len = (unsigned)STRLEN(string) + 1;
+      p = alloc(len);
+      if (p != NULL)
+! 	mch_memmove(p, string, (size_t)len);
+      return p;
+  }
+  
+--- 1270,1281 ----
+  vim_strsave(char_u *string)
+  {
+      char_u	*p;
+!     size_t	len;
+  
+!     len = STRLEN(string) + 1;
+      p = alloc(len);
+      if (p != NULL)
+! 	mch_memmove(p, string, len);
+      return p;
+  }
+  
+***************
+*** 1308,1314 ****
+  {
+      char_u	*p;
+  
+!     p = alloc((unsigned)(len + 1));
+      if (p != NULL)
+      {
+  	STRNCPY(p, string, len);
+--- 1290,1296 ----
+  {
+      char_u	*p;
+  
+!     p = alloc((size_t)(len + 1));
+      if (p != NULL)
+      {
+  	STRNCPY(p, string, len);
+***************
+*** 1322,1333 ****
+   * Returns NULL when out of memory.
+   */
+      char_u *
+! vim_memsave(char_u *p, int len)
+  {
+!     char_u *ret = alloc((unsigned)len);
+  
+      if (ret != NULL)
+! 	mch_memmove(ret, p, (size_t)len);
+      return ret;
+  }
+  
+--- 1304,1315 ----
+   * Returns NULL when out of memory.
+   */
+      char_u *
+! vim_memsave(char_u *p, size_t len)
+  {
+!     char_u *ret = alloc(len);
+  
+      if (ret != NULL)
+! 	mch_memmove(ret, p, len);
+      return ret;
+  }
+  
+***************
+*** 1622,1628 ****
+  		newl = utf_char2len(uc);
+  		if (newl != l)
+  		{
+! 		    s = alloc((unsigned)STRLEN(res) + 1 + newl - l);
+  		    if (s == NULL)
+  		    {
+  			vim_free(res);
+--- 1604,1610 ----
+  		newl = utf_char2len(uc);
+  		if (newl != l)
+  		{
+! 		    s = alloc(STRLEN(res) + 1 + newl - l);
+  		    if (s == NULL)
+  		    {
+  			vim_free(res);
+***************
+*** 1689,1695 ****
+  		newl = utf_char2len(lc);
+  		if (newl != l)
+  		{
+! 		    s = alloc((unsigned)STRLEN(res) + 1 + newl - l);
+  		    if (s == NULL)
+  		    {
+  			vim_free(res);
+--- 1671,1677 ----
+  		newl = utf_char2len(lc);
+  		if (newl != l)
+  		{
+! 		    s = alloc(STRLEN(res) + 1 + newl - l);
+  		    if (s == NULL)
+  		    {
+  			vim_free(res);
+***************
+*** 2077,2083 ****
+  	    n = gap->ga_growsize;
+  	new_len = gap->ga_itemsize * (gap->ga_len + n);
+  	pp = (gap->ga_data == NULL)
+! 	      ? alloc((unsigned)new_len) : vim_realloc(gap->ga_data, new_len);
+  	if (pp == NULL)
+  	    return FAIL;
+  	old_len = gap->ga_itemsize * gap->ga_maxlen;
+--- 2059,2065 ----
+  	    n = gap->ga_growsize;
+  	new_len = gap->ga_itemsize * (gap->ga_len + n);
+  	pp = (gap->ga_data == NULL)
+! 	      ? alloc(new_len) : vim_realloc(gap->ga_data, new_len);
+  	if (pp == NULL)
+  	    return FAIL;
+  	old_len = gap->ga_itemsize * gap->ga_maxlen;
+***************
+*** 3261,3267 ****
+  		if (ecmd == NULL)
+  		    ecmd = cmd;
+  	    }
+! 	    ncmd = alloc((unsigned)(STRLEN(ecmd) + STRLEN(p_sxq) * 2 + 1));
+  	    if (ncmd != NULL)
+  	    {
+  		STRCPY(ncmd, p_sxq);
+--- 3243,3249 ----
+  		if (ecmd == NULL)
+  		    ecmd = cmd;
+  	    }
+! 	    ncmd = alloc(STRLEN(ecmd) + STRLEN(p_sxq) * 2 + 1);
+  	    if (ncmd != NULL)
+  	    {
+  		STRCPY(ncmd, p_sxq);
+***************
+*** 3896,3902 ****
+      int		i, j;
+      int		gap;
+  
+!     buf = alloc((unsigned)elm_size);
+      if (buf == NULL)
+  	return;
+  
+--- 3878,3884 ----
+      int		i, j;
+      int		gap;
+  
+!     buf = alloc(elm_size);
+      if (buf == NULL)
+  	return;
+  
+***************
+*** 4073,4079 ****
+  	    if (moreenv() < 0)
+  		return -1;
+  	}
+! 	p = (char *)alloc((unsigned)(strlen(string) + 1));
+  	if (p == NULL)		/* not enough core */
+  	    return -1;
+  	environ[i + 1] = 0;	/* new end of env. */
+--- 4055,4061 ----
+  	    if (moreenv() < 0)
+  		return -1;
+  	}
+! 	p = (char *)alloc(strlen(string) + 1);
+  	if (p == NULL)		/* not enough core */
+  	    return -1;
+  	environ[i + 1] = 0;	/* new end of env. */
+***************
+*** 4121,4133 ****
+  	;
+  
+      esize = i + EXTRASIZE + 1;
+!     env = (char **)alloc((unsigned)(esize * sizeof (elem)));
+      if (env == NULL)
+  	return -1;
+  
+      for (i = 0; environ[i]; i++)
+      {
+! 	elem = (char *)alloc((unsigned)(strlen(environ[i]) + 1));
+  	if (elem == NULL)
+  	    return -1;
+  	env[i] = elem;
+--- 4103,4115 ----
+  	;
+  
+      esize = i + EXTRASIZE + 1;
+!     env = (char **)alloc(esize * sizeof (elem));
+      if (env == NULL)
+  	return -1;
+  
+      for (i = 0; environ[i]; i++)
+      {
+! 	elem = (char *)alloc(strlen(environ[i]) + 1);
+  	if (elem == NULL)
+  	    return -1;
+  	env[i] = elem;
+***************
+*** 4310,4316 ****
+      int		c;
+  
+      /* allocate memory */
+!     str = alloc((unsigned)cnt + 1);
+      if (str != NULL)
+      {
+  	/* Read the string.  Quit when running into the EOF. */
+--- 4292,4298 ----
+      int		c;
+  
+      /* allocate memory */
+!     str = alloc(cnt + 1);
+      if (str != NULL)
+      {
+  	/* Read the string.  Quit when running into the EOF. */
+***************
+*** 4593,4599 ****
+  		}
+  	    }
+  
+! 	    *argv = (char **)alloc((unsigned)((*argc + 4) * sizeof(char *)));
+  	    if (*argv == NULL)	    /* out of memory */
+  		return FAIL;
+  	}
+--- 4575,4581 ----
+  		}
+  	    }
+  
+! 	    *argv = (char **)alloc((*argc + 4) * sizeof(char *));
+  	    if (*argv == NULL)	    /* out of memory */
+  		return FAIL;
+  	}
+*** ../vim-8.1.1383/src/proto/misc2.pro	2019-04-28 19:46:17.034060084 +0200
+--- src/proto/misc2.pro	2019-05-24 18:04:26.055775822 +0200
+***************
+*** 20,40 ****
+  void adjust_cursor_col(void);
+  int leftcol_changed(void);
+  void vim_mem_profile_dump(void);
+! int alloc_does_fail(long_u size);
+! char_u *alloc(unsigned size);
+! char_u *alloc_id(unsigned size, alloc_id_T id);
+! char_u *alloc_clear(unsigned size);
+! char_u *alloc_clear_id(unsigned size, alloc_id_T id);
+! char_u *alloc_check(unsigned size);
+! char_u *lalloc_clear(long_u size, int message);
+! char_u *lalloc(long_u size, int message);
+! char_u *lalloc_id(long_u size, int message, alloc_id_T id);
+  void *mem_realloc(void *ptr, size_t size);
+! void do_outofmem_msg(long_u size);
+  void free_all_mem(void);
+  char_u *vim_strsave(char_u *string);
+  char_u *vim_strnsave(char_u *string, int len);
+! char_u *vim_memsave(char_u *p, int len);
+  char_u *vim_strsave_escaped(char_u *string, char_u *esc_chars);
+  char_u *vim_strsave_escaped_ext(char_u *string, char_u *esc_chars, int cc, int bsl);
+  int csh_like_shell(void);
+--- 20,39 ----
+  void adjust_cursor_col(void);
+  int leftcol_changed(void);
+  void vim_mem_profile_dump(void);
+! int alloc_does_fail(size_t size);
+! char_u *alloc(size_t size);
+! char_u *alloc_id(size_t size, alloc_id_T id);
+! char_u *alloc_clear(size_t size);
+! char_u *alloc_clear_id(size_t size, alloc_id_T id);
+! char_u *lalloc_clear(size_t size, int message);
+! char_u *lalloc(size_t size, int message);
+! char_u *lalloc_id(size_t size, int message, alloc_id_T id);
+  void *mem_realloc(void *ptr, size_t size);
+! void do_outofmem_msg(size_t size);
+  void free_all_mem(void);
+  char_u *vim_strsave(char_u *string);
+  char_u *vim_strnsave(char_u *string, int len);
+! char_u *vim_memsave(char_u *p, size_t len);
+  char_u *vim_strsave_escaped(char_u *string, char_u *esc_chars);
+  char_u *vim_strsave_escaped_ext(char_u *string, char_u *esc_chars, int cc, int bsl);
+  int csh_like_shell(void);
+*** ../vim-8.1.1383/src/autocmd.c	2019-04-25 22:21:56.931749183 +0200
+--- src/autocmd.c	2019-05-24 18:09:55.101695900 +0200
+***************
+*** 1193,1199 ****
+  		    return FAIL;
+  		}
+  
+! 		ap = (AutoPat *)alloc((unsigned)sizeof(AutoPat));
+  		if (ap == NULL)
+  		    return FAIL;
+  		ap->pat = vim_strnsave(pat, patlen);
+--- 1193,1199 ----
+  		    return FAIL;
+  		}
+  
+! 		ap = (AutoPat *)alloc(sizeof(AutoPat));
+  		if (ap == NULL)
+  		    return FAIL;
+  		ap->pat = vim_strnsave(pat, patlen);
+***************
+*** 1242,1248 ****
+  	    prev_ac = &(ap->cmds);
+  	    while ((ac = *prev_ac) != NULL)
+  		prev_ac = &ac->next;
+! 	    ac = (AutoCmd *)alloc((unsigned)sizeof(AutoCmd));
+  	    if (ac == NULL)
+  		return FAIL;
+  	    ac->cmd = vim_strsave(cmd);
+--- 1242,1248 ----
+  	    prev_ac = &(ap->cmds);
+  	    while ((ac = *prev_ac) != NULL)
+  		prev_ac = &ac->next;
+! 	    ac = (AutoCmd *)alloc(sizeof(AutoCmd));
+  	    if (ac == NULL)
+  		return FAIL;
+  	    ac->cmd = vim_strsave(cmd);
+***************
+*** 2303,2310 ****
+  	    {
+  		name = event_nr2name(apc->event);
+  		s = _("%s Autocommands for \"%s\"");
+! 		sourcing_name = alloc((unsigned)(STRLEN(s)
+! 					    + STRLEN(name) + ap->patlen + 1));
+  		if (sourcing_name != NULL)
+  		{
+  		    sprintf((char *)sourcing_name, s,
+--- 2303,2310 ----
+  	    {
+  		name = event_nr2name(apc->event);
+  		s = _("%s Autocommands for \"%s\"");
+! 		sourcing_name = alloc(STRLEN(s)
+! 					      + STRLEN(name) + ap->patlen + 1);
+  		if (sourcing_name != NULL)
+  		{
+  		    sprintf((char *)sourcing_name, s,
+*** ../vim-8.1.1383/src/buffer.c	2019-05-23 22:11:56.284893258 +0200
+--- src/buffer.c	2019-05-24 18:10:23.957518220 +0200
+***************
+*** 2577,2583 ****
+      /* Make a copy of "pat" and change "^" to "\(^\|[\/]\)". */
+      if (*pat == '^')
+      {
+! 	patc = alloc((unsigned)STRLEN(pat) + 11);
+  	if (patc == NULL)
+  	    return FAIL;
+  	STRCPY(patc, "\\(^\\|[\\/]\\)");
+--- 2577,2583 ----
+      /* Make a copy of "pat" and change "^" to "\(^\|[\/]\)". */
+      if (*pat == '^')
+      {
+! 	patc = alloc(STRLEN(pat) + 11);
+  	if (patc == NULL)
+  	    return FAIL;
+  	STRCPY(patc, "\\(^\\|[\\/]\\)");
+***************
+*** 2634,2640 ****
+  		break;
+  	    if (round == 1)
+  	    {
+! 		*file = (char_u **)alloc((unsigned)(count * sizeof(char_u *)));
+  		if (*file == NULL)
+  		{
+  		    vim_regfree(regmatch.regprog);
+--- 2634,2640 ----
+  		break;
+  	    if (round == 1)
+  	    {
+! 		*file = (char_u **)alloc(count * sizeof(char_u *));
+  		if (*file == NULL)
+  		{
+  		    vim_regfree(regmatch.regprog);
+*** ../vim-8.1.1383/src/change.c	2019-05-19 22:53:36.504914607 +0200
+--- src/change.c	2019-05-24 18:10:37.033437887 +0200
+***************
+*** 985,991 ****
+  	}
+      }
+  
+!     newp = alloc_check((unsigned)(linelen + newlen - oldlen));
+      if (newp == NULL)
+  	return;
+  
+--- 985,991 ----
+  	}
+      }
+  
+!     newp = alloc(linelen + newlen - oldlen);
+      if (newp == NULL)
+  	return;
+  
+***************
+*** 1060,1066 ****
+      oldp = ml_get(lnum);
+      oldlen = (int)STRLEN(oldp);
+  
+!     newp = alloc_check((unsigned)(oldlen + newlen + 1));
+      if (newp == NULL)
+  	return;
+      if (col > 0)
+--- 1060,1066 ----
+      oldp = ml_get(lnum);
+      oldlen = (int)STRLEN(oldp);
+  
+!     newp = alloc(oldlen + newlen + 1);
+      if (newp == NULL)
+  	return;
+      if (col > 0)
+***************
+*** 1213,1219 ****
+  	newp = oldp;			    // use same allocated memory
+      else
+      {					    // need to allocate a new line
+! 	newp = alloc((unsigned)(newlen + 1));
+  	if (newp == NULL)
+  	    return FAIL;
+  	mch_memmove(newp, oldp, (size_t)col);
+--- 1213,1219 ----
+  	newp = oldp;			    // use same allocated memory
+      else
+      {					    // need to allocate a new line
+! 	newp = alloc(newlen + 1);
+  	if (newp == NULL)
+  	    return FAIL;
+  	mch_memmove(newp, oldp, (size_t)col);
+*** ../vim-8.1.1383/src/channel.c	2019-05-11 18:28:41.351611622 +0200
+--- src/channel.c	2019-05-24 18:10:54.849328634 +0200
+***************
+*** 2024,2030 ****
+  	}
+  	else
+  	{
+! 	    item = (jsonq_T *)alloc((unsigned)sizeof(jsonq_T));
+  	    if (item == NULL)
+  		clear_tv(&listtv);
+  	    else
+--- 2024,2030 ----
+  	}
+  	else
+  	{
+! 	    item = (jsonq_T *)alloc(sizeof(jsonq_T));
+  	    if (item == NULL)
+  		clear_tv(&listtv);
+  	    else
+***************
+*** 2223,2229 ****
+  	/* append after the last item that was pushed back */
+  	item = item->jq_next;
+  
+!     newitem = (jsonq_T *)alloc((unsigned)sizeof(jsonq_T));
+      if (newitem == NULL)
+  	clear_tv(rettv);
+      else
+--- 2223,2229 ----
+  	/* append after the last item that was pushed back */
+  	item = item->jq_next;
+  
+!     newitem = (jsonq_T *)alloc(sizeof(jsonq_T));
+      if (newitem == NULL)
+  	clear_tv(rettv);
+      else
+*** ../vim-8.1.1383/src/charset.c	2019-05-19 19:59:30.160255591 +0200
+--- src/charset.c	2019-05-24 18:11:12.589220044 +0200
+***************
+*** 355,364 ****
+  		    len += 4;	/* illegal byte sequence */
+  	    }
+  	}
+! 	res = alloc((unsigned)(len + 1));
+      }
+      else
+! 	res = alloc((unsigned)(vim_strsize(s) + 1));
+      if (res != NULL)
+      {
+  	*res = NUL;
+--- 355,364 ----
+  		    len += 4;	/* illegal byte sequence */
+  	    }
+  	}
+! 	res = alloc(len + 1);
+      }
+      else
+! 	res = alloc(vim_strsize(s) + 1);
+      if (res != NULL)
+      {
+  	*res = NUL;
+*** ../vim-8.1.1383/src/debugger.c	2019-04-23 18:39:43.694863660 +0200
+--- src/debugger.c	2019-05-24 18:11:26.453135323 +0200
+***************
+*** 873,879 ****
+      // Replace K_SNR in function name with "<SNR>".
+      if (!file && fname[0] == K_SPECIAL)
+      {
+! 	name = alloc((unsigned)STRLEN(fname) + 3);
+  	if (name == NULL)
+  	    name = fname;
+  	else
+--- 873,879 ----
+      // Replace K_SNR in function name with "<SNR>".
+      if (!file && fname[0] == K_SPECIAL)
+      {
+! 	name = alloc(STRLEN(fname) + 3);
+  	if (name == NULL)
+  	    name = fname;
+  	else
+*** ../vim-8.1.1383/src/dict.c	2019-04-28 18:04:56.058492178 +0200
+--- src/dict.c	2019-05-24 18:11:44.409025803 +0200
+***************
+*** 210,216 ****
+  {
+      dictitem_T *di;
+  
+!     di = (dictitem_T *)alloc((unsigned)(sizeof(dictitem_T) + STRLEN(key)));
+      if (di != NULL)
+      {
+  	STRCPY(di->di_key, key);
+--- 210,216 ----
+  {
+      dictitem_T *di;
+  
+!     di = (dictitem_T *)alloc(sizeof(dictitem_T) + STRLEN(key));
+      if (di != NULL)
+      {
+  	STRCPY(di->di_key, key);
+***************
+*** 228,235 ****
+  {
+      dictitem_T *di;
+  
+!     di = (dictitem_T *)alloc((unsigned)(sizeof(dictitem_T)
+! 						      + STRLEN(org->di_key)));
+      if (di != NULL)
+      {
+  	STRCPY(di->di_key, org->di_key);
+--- 228,234 ----
+  {
+      dictitem_T *di;
+  
+!     di = (dictitem_T *)alloc(sizeof(dictitem_T) + STRLEN(org->di_key));
+      if (di != NULL)
+      {
+  	STRCPY(di->di_key, org->di_key);
+*** ../vim-8.1.1383/src/diff.c	2019-03-03 14:42:04.782109771 +0100
+--- src/diff.c	2019-05-24 18:12:01.012924672 +0200
+***************
+*** 537,543 ****
+  {
+      diff_T	*dnew;
+  
+!     dnew = (diff_T *)alloc((unsigned)sizeof(diff_T));
+      if (dnew != NULL)
+      {
+  	dnew->df_next = dp;
+--- 537,543 ----
+  {
+      diff_T	*dnew;
+  
+!     dnew = (diff_T *)alloc(sizeof(diff_T));
+      if (dnew != NULL)
+      {
+  	dnew->df_next = dp;
+***************
+*** 1123,1129 ****
+      {
+  	len = STRLEN(tmp_orig) + STRLEN(tmp_new)
+  				      + STRLEN(tmp_diff) + STRLEN(p_srr) + 27;
+! 	cmd = alloc((unsigned)len);
+  	if (cmd == NULL)
+  	    return FAIL;
+  
+--- 1123,1129 ----
+      {
+  	len = STRLEN(tmp_orig) + STRLEN(tmp_new)
+  				      + STRLEN(tmp_diff) + STRLEN(p_srr) + 27;
+! 	cmd = alloc(len);
+  	if (cmd == NULL)
+  	    return FAIL;
+  
+***************
+*** 1218,1224 ****
+      if (esc_name == NULL)
+  	goto theend;
+      buflen = STRLEN(tmp_orig) + STRLEN(esc_name) + STRLEN(tmp_new) + 16;
+!     buf = alloc((unsigned)buflen);
+      if (buf == NULL)
+  	goto theend;
+  
+--- 1218,1224 ----
+      if (esc_name == NULL)
+  	goto theend;
+      buflen = STRLEN(tmp_orig) + STRLEN(esc_name) + STRLEN(tmp_new) + 16;
+!     buf = alloc(buflen);
+      if (buf == NULL)
+  	goto theend;
+  
+*** ../vim-8.1.1383/src/digraph.c	2019-01-24 15:04:44.662887892 +0100
+--- src/digraph.c	2019-05-24 18:12:12.464855041 +0200
+***************
+*** 2317,2323 ****
+  	/* Source the keymap file.  It will contain a ":loadkeymap" command
+  	 * which will call ex_loadkeymap() below. */
+  	buflen = STRLEN(curbuf->b_p_keymap) + STRLEN(p_enc) + 14;
+! 	buf = alloc((unsigned)buflen);
+  	if (buf == NULL)
+  	    return e_outofmem;
+  
+--- 2317,2323 ----
+  	/* Source the keymap file.  It will contain a ":loadkeymap" command
+  	 * which will call ex_loadkeymap() below. */
+  	buflen = STRLEN(curbuf->b_p_keymap) + STRLEN(p_enc) + 14;
+! 	buf = alloc(buflen);
+  	if (buf == NULL)
+  	    return e_outofmem;
+  
+*** ../vim-8.1.1383/src/edit.c	2019-05-19 22:53:36.504914607 +0200
+--- src/edit.c	2019-05-24 18:12:48.592635815 +0200
+***************
+*** 1943,1949 ****
+  	{
+  	    curwin->w_cursor.col = (colnr_T)new_cursor_col;
+  	    i = (int)curwin->w_virtcol - vcol;
+! 	    ptr = alloc((unsigned)(i + 1));
+  	    if (ptr != NULL)
+  	    {
+  		new_cursor_col += i;
+--- 1943,1949 ----
+  	{
+  	    curwin->w_cursor.col = (colnr_T)new_cursor_col;
+  	    i = (int)curwin->w_virtcol - vcol;
+! 	    ptr = alloc(i + 1);
+  	    if (ptr != NULL)
+  	    {
+  		new_cursor_col += i;
+*** ../vim-8.1.1383/src/eval.c	2019-05-19 19:59:30.160255591 +0200
+--- src/eval.c	2019-05-24 18:13:34.400358802 +0200
+***************
+*** 5151,5157 ****
+       * Copy the string into allocated memory, handling backslashed
+       * characters.
+       */
+!     name = alloc((unsigned)(p - *arg + extra));
+      if (name == NULL)
+  	return FAIL;
+      rettv->v_type = VAR_STRING;
+--- 5151,5157 ----
+       * Copy the string into allocated memory, handling backslashed
+       * characters.
+       */
+!     name = alloc(p - *arg + extra);
+      if (name == NULL)
+  	return FAIL;
+      rettv->v_type = VAR_STRING;
+***************
+*** 5285,5291 ****
+      /*
+       * Copy the string into allocated memory, handling '' to ' reduction.
+       */
+!     str = alloc((unsigned)((p - *arg) - reduce));
+      if (str == NULL)
+  	return FAIL;
+      rettv->v_type = VAR_STRING;
+--- 5285,5291 ----
+      /*
+       * Copy the string into allocated memory, handling '' to ' reduction.
+       */
+!     str = alloc((p - *arg) - reduce);
+      if (str == NULL)
+  	return FAIL;
+      rettv->v_type = VAR_STRING;
+***************
+*** 6782,6789 ****
+      temp_result = eval_to_string(expr_start + 1, &nextcmd, FALSE);
+      if (temp_result != NULL && nextcmd == NULL)
+      {
+! 	retval = alloc((unsigned)(STRLEN(temp_result) + (expr_start - in_start)
+! 						   + (in_end - expr_end) + 1));
+  	if (retval != NULL)
+  	{
+  	    STRCPY(retval, in_start);
+--- 6782,6789 ----
+      temp_result = eval_to_string(expr_start + 1, &nextcmd, FALSE);
+      if (temp_result != NULL && nextcmd == NULL)
+      {
+! 	retval = alloc(STRLEN(temp_result) + (expr_start - in_start)
+! 						   + (in_end - expr_end) + 1);
+  	if (retval != NULL)
+  	{
+  	    STRCPY(retval, in_start);
+***************
+*** 8130,8137 ****
+  	if (!valid_varname(varname))
+  	    return;
+  
+! 	v = (dictitem_T *)alloc((unsigned)(sizeof(dictitem_T)
+! 							  + STRLEN(varname)));
+  	if (v == NULL)
+  	    return;
+  	STRCPY(v->di_key, varname);
+--- 8130,8136 ----
+  	if (!valid_varname(varname))
+  	    return;
+  
+! 	v = (dictitem_T *)alloc(sizeof(dictitem_T) + STRLEN(varname));
+  	if (v == NULL)
+  	    return;
+  	STRCPY(v->di_key, varname);
+***************
+*** 8993,8999 ****
+  	    }
+  	    else
+  	    {
+! 		winvarname = alloc((unsigned)STRLEN(varname) + 3);
+  		if (winvarname != NULL)
+  		{
+  		    STRCPY(winvarname, "w:");
+--- 8992,8998 ----
+  	    }
+  	    else
+  	    {
+! 		winvarname = alloc(STRLEN(varname) + 3);
+  		if (winvarname != NULL)
+  		{
+  		    STRCPY(winvarname, "w:");
+***************
+*** 9056,9062 ****
+      char_u	*scriptname;
+  
+      /* Get the script file name: replace '#' with '/', append ".vim". */
+!     scriptname = alloc((unsigned)(STRLEN(name) + 14));
+      if (scriptname == NULL)
+  	return FALSE;
+      STRCPY(scriptname, "autoload/");
+--- 9055,9061 ----
+      char_u	*scriptname;
+  
+      /* Get the script file name: replace '#' with '/', append ".vim". */
+!     scriptname = alloc(STRLEN(name) + 14);
+      if (scriptname == NULL)
+  	return FALSE;
+      STRCPY(scriptname, "autoload/");
+*** ../vim-8.1.1383/src/evalfunc.c	2019-05-24 14:14:10.260307596 +0200
+--- src/evalfunc.c	2019-05-24 18:14:16.804103312 +0200
+***************
+*** 4272,4281 ****
+  	}
+  	count = (long)(foldend - foldstart + 1);
+  	txt = NGETTEXT("+-%s%3ld line: ", "+-%s%3ld lines: ", count);
+! 	r = alloc((unsigned)(STRLEN(txt)
+! 		    + STRLEN(dashes)	    /* for %s */
+! 		    + 20		    /* for %3ld */
+! 		    + STRLEN(s)));	    /* concatenated */
+  	if (r != NULL)
+  	{
+  	    sprintf((char *)r, txt, dashes, count);
+--- 4272,4281 ----
+  	}
+  	count = (long)(foldend - foldstart + 1);
+  	txt = NGETTEXT("+-%s%3ld line: ", "+-%s%3ld lines: ", count);
+! 	r = alloc(STRLEN(txt)
+! 		    + STRLEN(dashes)	    // for %s
+! 		    + 20		    // for %3ld
+! 		    + STRLEN(s));	    // concatenated
+  	if (r != NULL)
+  	{
+  	    sprintf((char *)r, txt, dashes, count);
+***************
+*** 10386,10392 ****
+  		if (q > p && !mch_isFullName(buf))
+  		{
+  		    /* symlink is relative to directory of argument */
+! 		    cpy = alloc((unsigned)(STRLEN(p) + STRLEN(buf) + 1));
+  		    if (cpy != NULL)
+  		    {
+  			STRCPY(cpy, p);
+--- 10386,10392 ----
+  		if (q > p && !mch_isFullName(buf))
+  		{
+  		    /* symlink is relative to directory of argument */
+! 		    cpy = alloc(STRLEN(p) + STRLEN(buf) + 1);
+  		    if (cpy != NULL)
+  		    {
+  			STRCPY(cpy, p);
+***************
+*** 11067,11074 ****
+  
+      /* Make two search patterns: start/end (pat2, for in nested pairs) and
+       * start/middle/end (pat3, for the top pair). */
+!     pat2 = alloc((unsigned)(STRLEN(spat) + STRLEN(epat) + 17));
+!     pat3 = alloc((unsigned)(STRLEN(spat) + STRLEN(mpat) + STRLEN(epat) + 25));
+      if (pat2 == NULL || pat3 == NULL)
+  	goto theend;
+      sprintf((char *)pat2, "\\m\\(%s\\m\\)\\|\\(%s\\m\\)", spat, epat);
+--- 11067,11074 ----
+  
+      /* Make two search patterns: start/end (pat2, for in nested pairs) and
+       * start/middle/end (pat3, for the top pair). */
+!     pat2 = alloc(STRLEN(spat) + STRLEN(epat) + 17);
+!     pat3 = alloc(STRLEN(spat) + STRLEN(mpat) + STRLEN(epat) + 25);
+      if (pat2 == NULL || pat3 == NULL)
+  	goto theend;
+      sprintf((char *)pat2, "\\m\\(%s\\m\\)\\|\\(%s\\m\\)", spat, epat);
+***************
+*** 11328,11334 ****
+  	{
+  	    buf_T *save_curbuf = curbuf;
+  
+! 	    bufvarname = alloc((unsigned)STRLEN(varname) + 3);
+  	    if (bufvarname != NULL)
+  	    {
+  		curbuf = buf;
+--- 11328,11334 ----
+  	{
+  	    buf_T *save_curbuf = curbuf;
+  
+! 	    bufvarname = alloc(STRLEN(varname) + 3);
+  	    if (bufvarname != NULL)
+  	    {
+  		curbuf = buf;
+***************
+*** 11850,11856 ****
+  	save_curtab = curtab;
+  	goto_tabpage_tp(tp, FALSE, FALSE);
+  
+! 	tabvarname = alloc((unsigned)STRLEN(varname) + 3);
+  	if (tabvarname != NULL)
+  	{
+  	    STRCPY(tabvarname, "t:");
+--- 11850,11856 ----
+  	save_curtab = curtab;
+  	goto_tabpage_tp(tp, FALSE, FALSE);
+  
+! 	tabvarname = alloc(STRLEN(varname) + 3);
+  	if (tabvarname != NULL)
+  	{
+  	    STRCPY(tabvarname, "t:");
+***************
+*** 13921,13927 ****
+  		++i;
+  	    end = res + i;
+  
+! 	    s = alloc((unsigned)(end - start + 1));
+  	    if (s == NULL)
+  		goto errret;
+  
+--- 13921,13927 ----
+  		++i;
+  	    end = res + i;
+  
+! 	    s = alloc(end - start + 1);
+  	    if (s == NULL)
+  		goto errret;
+  
+*** ../vim-8.1.1383/src/ex_cmds.c	2019-05-23 21:35:44.451922663 +0200
+--- src/ex_cmds.c	2019-05-24 18:14:53.383883545 +0200
+***************
+*** 595,604 ****
+      }
+  
+      /* Allocate a buffer that can hold the longest line. */
+!     sortbuf1 = alloc((unsigned)maxlen + 1);
+      if (sortbuf1 == NULL)
+  	goto sortend;
+!     sortbuf2 = alloc((unsigned)maxlen + 1);
+      if (sortbuf2 == NULL)
+  	goto sortend;
+  
+--- 595,604 ----
+      }
+  
+      /* Allocate a buffer that can hold the longest line. */
+!     sortbuf1 = alloc(maxlen + 1);
+      if (sortbuf1 == NULL)
+  	goto sortend;
+!     sortbuf2 = alloc(maxlen + 1);
+      if (sortbuf2 == NULL)
+  	goto sortend;
+  
+***************
+*** 1146,1152 ****
+  	    }
+  	    len += (int)STRLEN(prevcmd);
+  	}
+! 	if ((t = alloc((unsigned)len)) == NULL)
+  	{
+  	    vim_free(newcmd);
+  	    return;
+--- 1146,1152 ----
+  	    }
+  	    len += (int)STRLEN(prevcmd);
+  	}
+! 	if ((t = alloc(len)) == NULL)
+  	{
+  	    vim_free(newcmd);
+  	    return;
+***************
+*** 1209,1215 ****
+       */
+      if (*p_shq != NUL)
+      {
+! 	newcmd = alloc((unsigned)(STRLEN(prevcmd) + 2 * STRLEN(p_shq) + 1));
+  	if (newcmd == NULL)
+  	    return;
+  	STRCPY(newcmd, p_shq);
+--- 1209,1215 ----
+       */
+      if (*p_shq != NUL)
+      {
+! 	newcmd = alloc(STRLEN(prevcmd) + 2 * STRLEN(p_shq) + 1);
+  	if (newcmd == NULL)
+  	    return;
+  	STRCPY(newcmd, p_shq);
+***************
+*** 3908,3914 ****
+  	    len = (int)STRLEN(command) + 3;
+  	else
+  	    len = 30;
+! 	p = alloc((unsigned)len);
+  	if (p != NULL)
+  	{
+  	    if (command != NULL)
+--- 3908,3914 ----
+  	    len = (int)STRLEN(command) + 3;
+  	else
+  	    len = 30;
+! 	p = alloc(len);
+  	if (p != NULL)
+  	{
+  	    if (command != NULL)
+***************
+*** 5634,5640 ****
+  		     * too many calls to alloc()/free()).
+  		     */
+  		    new_start_len = needed_len + 50;
+! 		    if ((new_start = alloc_check(new_start_len)) == NULL)
+  			goto outofmem;
+  		    *new_start = NUL;
+  		    new_end = new_start;
+--- 5634,5640 ----
+  		     * too many calls to alloc()/free()).
+  		     */
+  		    new_start_len = needed_len + 50;
+! 		    if ((new_start = alloc(new_start_len)) == NULL)
+  			goto outofmem;
+  		    *new_start = NUL;
+  		    new_end = new_start;
+***************
+*** 5651,5657 ****
+  		    if (needed_len > (int)new_start_len)
+  		    {
+  			new_start_len = needed_len + 50;
+! 			if ((p1 = alloc_check(new_start_len)) == NULL)
+  			{
+  			    vim_free(new_start);
+  			    goto outofmem;
+--- 5651,5657 ----
+  		    if (needed_len > (int)new_start_len)
+  		    {
+  			new_start_len = needed_len + 50;
+! 			if ((p1 = alloc(new_start_len)) == NULL)
+  			{
+  			    vim_free(new_start);
+  			    goto outofmem;
+***************
+*** 7320,7326 ****
+  			    got_int = TRUE;
+  			    break;
+  			}
+! 			s = alloc((unsigned)(p2 - p1 + STRLEN(fname) + 2));
+  			if (s == NULL)
+  			{
+  			    got_int = TRUE;
+--- 7320,7326 ----
+  			    got_int = TRUE;
+  			    break;
+  			}
+! 			s = alloc(p2 - p1 + STRLEN(fname) + 2);
+  			if (s == NULL)
+  			{
+  			    got_int = TRUE;
+*** ../vim-8.1.1383/src/ex_cmds2.c	2019-05-23 21:35:44.451922663 +0200
+--- src/ex_cmds2.c	2019-05-24 18:15:16.167746968 +0200
+***************
+*** 2366,2372 ****
+      }
+      else
+      {
+! 	buf = alloc((unsigned)(STRLEN(eap->arg) + 14));
+  	if (buf != NULL)
+  	{
+  	    if (eap->forceit)
+--- 2366,2372 ----
+      }
+      else
+      {
+! 	buf = alloc(STRLEN(eap->arg) + 14);
+  	if (buf != NULL)
+  	{
+  	    if (eap->forceit)
+*** ../vim-8.1.1383/src/ex_docmd.c	2019-05-23 21:35:44.451922663 +0200
+--- src/ex_docmd.c	2019-05-24 18:15:52.379530286 +0200
+***************
+*** 5094,5100 ****
+      i = (int)(src - *cmdlinep) + (int)STRLEN(src + srclen) + len + 3;
+      if (eap->nextcmd != NULL)
+  	i += (int)STRLEN(eap->nextcmd);/* add space for next command */
+!     if ((new_cmdline = alloc((unsigned)i)) == NULL)
+  	return NULL;			/* out of memory! */
+  
+      /*
+--- 5094,5100 ----
+      i = (int)(src - *cmdlinep) + (int)STRLEN(src + srclen) + len + 3;
+      if (eap->nextcmd != NULL)
+  	i += (int)STRLEN(eap->nextcmd);/* add space for next command */
+!     if ((new_cmdline = alloc(i)) == NULL)
+  	return NULL;			/* out of memory! */
+  
+      /*
+***************
+*** 6547,6553 ****
+      void
+  alist_new(void)
+  {
+!     curwin->w_alist = (alist_T *)alloc((unsigned)sizeof(alist_T));
+      if (curwin->w_alist == NULL)
+      {
+  	curwin->w_alist = &global_alist;
+--- 6547,6553 ----
+      void
+  alist_new(void)
+  {
+!     curwin->w_alist = (alist_T *)alloc(sizeof(alist_T));
+      if (curwin->w_alist == NULL)
+      {
+  	curwin->w_alist = &global_alist;
+***************
+*** 6581,6587 ****
+       * expansion.  Also, the vimrc file isn't read yet, thus the user
+       * can't set the options. */
+      p_su = empty_option;
+!     old_arg_files = (char_u **)alloc((unsigned)(sizeof(char_u *) * GARGCOUNT));
+      if (old_arg_files != NULL)
+      {
+  	for (i = 0; i < GARGCOUNT; ++i)
+--- 6581,6587 ----
+       * expansion.  Also, the vimrc file isn't read yet, thus the user
+       * can't set the options. */
+      p_su = empty_option;
+!     old_arg_files = (char_u **)alloc(sizeof(char_u *) * GARGCOUNT);
+      if (old_arg_files != NULL)
+      {
+  	for (i = 0; i < GARGCOUNT; ++i)
+***************
+*** 8839,8845 ****
+  	}
+  	if (len > 0)
+  	{
+! 	    arg = alloc((unsigned)(STRLEN(eap->arg) + len + 1));
+  	    if (arg != NULL)
+  	    {
+  		len = 0;
+--- 8839,8845 ----
+  	}
+  	if (len > 0)
+  	{
+! 	    arg = alloc(STRLEN(eap->arg) + len + 1);
+  	    if (arg != NULL)
+  	    {
+  		len = 0;
+***************
+*** 9628,9634 ****
+  	}
+  
+  	/* allocate memory */
+! 	retval = alloc((unsigned)len + 1);
+  	if (retval == NULL)
+  	    break;
+      }
+--- 9628,9634 ----
+  	}
+  
+  	/* allocate memory */
+! 	retval = alloc(len + 1);
+  	if (retval == NULL)
+  	    break;
+      }
+***************
+*** 10622,10628 ****
+      for (p = sname; *p; ++p)
+  	if (*p == '=' || vim_ispathsep(*p))
+  	    ++len;
+!     retval = alloc((unsigned)(STRLEN(sname) + len + STRLEN(p_vdir) + 9));
+      if (retval != NULL)
+      {
+  	STRCPY(retval, p_vdir);
+--- 10622,10628 ----
+      for (p = sname; *p; ++p)
+  	if (*p == '=' || vim_ispathsep(*p))
+  	    ++len;
+!     retval = alloc(STRLEN(sname) + len + STRLEN(p_vdir) + 9);
+      if (retval != NULL)
+      {
+  	STRCPY(retval, p_vdir);
+*** ../vim-8.1.1383/src/ex_eval.c	2019-01-19 17:43:03.433449041 +0100
+--- src/ex_eval.c	2019-05-24 18:16:08.883431670 +0200
+***************
+*** 251,257 ****
+  	    while (*plist != NULL)
+  		plist = &(*plist)->next;
+  
+! 	    elem = (struct msglist *)alloc((unsigned)sizeof(struct msglist));
+  	    if (elem == NULL)
+  	    {
+  		suppress_errthrow = TRUE;
+--- 251,257 ----
+  	    while (*plist != NULL)
+  		plist = &(*plist)->next;
+  
+! 	    elem = (struct msglist *)alloc(sizeof(struct msglist));
+  	    if (elem == NULL)
+  	    {
+  		suppress_errthrow = TRUE;
+***************
+*** 519,525 ****
+  	}
+      }
+  
+!     excp = (except_T *)alloc((unsigned)sizeof(except_T));
+      if (excp == NULL)
+  	goto nomem;
+  
+--- 519,525 ----
+  	}
+      }
+  
+!     excp = (except_T *)alloc(sizeof(except_T));
+      if (excp == NULL)
+  	goto nomem;
+  
+***************
+*** 1441,1447 ****
+  	    {
+  		eslist_T	*elem;
+  
+! 		elem = (eslist_T *)alloc((unsigned)sizeof(struct eslist_elem));
+  		if (elem == NULL)
+  		    emsg(_(e_outofmem));
+  		else
+--- 1441,1447 ----
+  	    {
+  		eslist_T	*elem;
+  
+! 		elem = (eslist_T *)alloc(sizeof(struct eslist_elem));
+  		if (elem == NULL)
+  		    emsg(_(e_outofmem));
+  		else
+*** ../vim-8.1.1383/src/ex_getln.c	2019-05-19 19:59:30.164255569 +0200
+--- src/ex_getln.c	2019-05-24 18:16:43.123227368 +0200
+***************
+*** 4154,4160 ****
+  	    }
+  	}
+  
+! 	ss = alloc((unsigned)len + 1);
+  	if (ss)
+  	    vim_strncpy(ss, xp->xp_files[0], (size_t)len);
+  	findex = -1;			    /* next p_wc gets first one */
+--- 4154,4160 ----
+  	    }
+  	}
+  
+! 	ss = alloc(len + 1);
+  	if (ss)
+  	    vim_strncpy(ss, xp->xp_files[0], (size_t)len);
+  	findex = -1;			    /* next p_wc gets first one */
+***************
+*** 4362,4368 ****
+  {
+      char_u	*p;
+  
+!     p = alloc((unsigned)(STRLEN(*pp) + 2));
+      if (p != NULL)
+      {
+  	p[0] = '\\';
+--- 4362,4368 ----
+  {
+      char_u	*p;
+  
+!     p = alloc(STRLEN(*pp) + 2);
+      if (p != NULL)
+      {
+  	p[0] = '\\';
+***************
+*** 5294,5300 ****
+  	    if (count == 0)
+  		return OK;
+  	    *num_file = count;
+! 	    *file = (char_u **)alloc((unsigned)(count * sizeof(char_u *)));
+  	    if (*file == NULL)
+  	    {
+  		*file = (char_u **)"";
+--- 5294,5300 ----
+  	    if (count == 0)
+  		return OK;
+  	    *num_file = count;
+! 	    *file = (char_u **)alloc(count * sizeof(char_u *));
+  	    if (*file == NULL)
+  	    {
+  		*file = (char_u **)"";
+***************
+*** 5636,5642 ****
+  
+      for (i = 0; dirnames[i] != NULL; ++i)
+      {
+! 	s = alloc((unsigned)(STRLEN(dirnames[i]) + pat_len + 7));
+  	if (s == NULL)
+  	{
+  	    ga_clear_strings(&ga);
+--- 5636,5642 ----
+  
+      for (i = 0; dirnames[i] != NULL; ++i)
+      {
+! 	s = alloc(STRLEN(dirnames[i]) + pat_len + 7);
+  	if (s == NULL)
+  	{
+  	    ga_clear_strings(&ga);
+***************
+*** 5650,5656 ****
+      if (flags & DIP_START) {
+  	for (i = 0; dirnames[i] != NULL; ++i)
+  	{
+! 	    s = alloc((unsigned)(STRLEN(dirnames[i]) + pat_len + 22));
+  	    if (s == NULL)
+  	    {
+  		ga_clear_strings(&ga);
+--- 5650,5656 ----
+      if (flags & DIP_START) {
+  	for (i = 0; dirnames[i] != NULL; ++i)
+  	{
+! 	    s = alloc(STRLEN(dirnames[i]) + pat_len + 22);
+  	    if (s == NULL)
+  	    {
+  		ga_clear_strings(&ga);
+***************
+*** 5665,5671 ****
+      if (flags & DIP_OPT) {
+  	for (i = 0; dirnames[i] != NULL; ++i)
+  	{
+! 	    s = alloc((unsigned)(STRLEN(dirnames[i]) + pat_len + 20));
+  	    if (s == NULL)
+  	    {
+  		ga_clear_strings(&ga);
+--- 5665,5671 ----
+      if (flags & DIP_OPT) {
+  	for (i = 0; dirnames[i] != NULL; ++i)
+  	{
+! 	    s = alloc(STRLEN(dirnames[i]) + pat_len + 20);
+  	    if (s == NULL)
+  	    {
+  		ga_clear_strings(&ga);
+***************
+*** 5728,5734 ****
+      pat_len = (int)STRLEN(pat);
+      ga_init2(&ga, (int)sizeof(char *), 10);
+  
+!     s = alloc((unsigned)(pat_len + 26));
+      if (s == NULL)
+      {
+  	ga_clear_strings(&ga);
+--- 5728,5734 ----
+      pat_len = (int)STRLEN(pat);
+      ga_init2(&ga, (int)sizeof(char *), 10);
+  
+!     s = alloc(pat_len + 26);
+      if (s == NULL)
+      {
+  	ga_clear_strings(&ga);
+*** ../vim-8.1.1383/src/fileio.c	2019-05-24 16:45:57.690428744 +0200
+--- src/fileio.c	2019-05-24 18:17:11.455058638 +0200
+***************
+*** 6203,6209 ****
+       */
+      if (fname == NULL || *fname == NUL)
+      {
+! 	retval = alloc((unsigned)(MAXPATHL + extlen + 3));
+  	if (retval == NULL)
+  	    return NULL;
+  	if (mch_dirname(retval, MAXPATHL) == FAIL ||
+--- 6203,6209 ----
+       */
+      if (fname == NULL || *fname == NUL)
+      {
+! 	retval = alloc(MAXPATHL + extlen + 3);
+  	if (retval == NULL)
+  	    return NULL;
+  	if (mch_dirname(retval, MAXPATHL) == FAIL ||
+***************
+*** 6222,6228 ****
+      else
+      {
+  	fnamelen = (int)STRLEN(fname);
+! 	retval = alloc((unsigned)(fnamelen + extlen + 3));
+  	if (retval == NULL)
+  	    return NULL;
+  	STRCPY(retval, fname);
+--- 6222,6228 ----
+      else
+      {
+  	fnamelen = (int)STRLEN(fname);
+! 	retval = alloc(fnamelen + extlen + 3);
+  	if (retval == NULL)
+  	    return NULL;
+  	STRCPY(retval, fname);
+***************
+*** 6894,6901 ****
+  	{
+  	    if (!helpmesg)
+  		mesg2 = "";
+! 	    tbuf = (char *)alloc((unsigned)(STRLEN(path) + STRLEN(mesg)
+! 							+ STRLEN(mesg2) + 2));
+  	    sprintf(tbuf, mesg, path);
+  #ifdef FEAT_EVAL
+  	    /* Set warningmsg here, before the unimportant and output-specific
+--- 6894,6901 ----
+  	{
+  	    if (!helpmesg)
+  		mesg2 = "";
+! 	    tbuf = (char *)alloc(STRLEN(path) + STRLEN(mesg)
+! 							  + STRLEN(mesg2) + 2);
+  	    sprintf(tbuf, mesg, path);
+  #ifdef FEAT_EVAL
+  	    /* Set warningmsg here, before the unimportant and output-specific
+***************
+*** 7391,7397 ****
+  {
+      char_u	*buf;
+  
+!     buf = alloc((unsigned)MAXPATHL + 2);
+      if (buf != NULL)
+      {
+  	if (vim_FullName(tempdir, buf, MAXPATHL, FALSE) == FAIL)
+--- 7391,7397 ----
+  {
+      char_u	*buf;
+  
+!     buf = alloc(MAXPATHL + 2);
+      if (buf != NULL)
+      {
+  	if (vim_FullName(tempdir, buf, MAXPATHL, FALSE) == FAIL)
+*** ../vim-8.1.1383/src/findfile.c	2019-03-31 19:40:03.818129110 +0200
+--- src/findfile.c	2019-05-24 18:17:53.290809924 +0200
+***************
+*** 319,325 ****
+  	search_ctx = search_ctx_arg;
+      else
+      {
+! 	search_ctx = (ff_search_ctx_T*)alloc((unsigned)sizeof(ff_search_ctx_T));
+  	if (search_ctx == NULL)
+  	    goto error_return;
+  	vim_memset(search_ctx, 0, sizeof(ff_search_ctx_T));
+--- 319,325 ----
+  	search_ctx = search_ctx_arg;
+      else
+      {
+! 	search_ctx = (ff_search_ctx_T*)alloc(sizeof(ff_search_ctx_T));
+  	if (search_ctx == NULL)
+  	    goto error_return;
+  	vim_memset(search_ctx, 0, sizeof(ff_search_ctx_T));
+***************
+*** 430,437 ****
+  	    walker++;
+  
+  	dircount = 1;
+! 	search_ctx->ffsc_stopdirs_v =
+! 				 (char_u **)alloc((unsigned)sizeof(char_u *));
+  
+  	if (search_ctx->ffsc_stopdirs_v != NULL)
+  	{
+--- 430,436 ----
+  	    walker++;
+  
+  	dircount = 1;
+! 	search_ctx->ffsc_stopdirs_v = (char_u **)alloc(sizeof(char_u *));
+  
+  	if (search_ctx->ffsc_stopdirs_v != NULL)
+  	{
+***************
+*** 926,933 ****
+  		 */
+  		if (path_with_url(dirptrs[0]))
+  		{
+! 		    stackp->ffs_filearray = (char_u **)
+! 					      alloc((unsigned)sizeof(char *));
+  		    if (stackp->ffs_filearray != NULL
+  			    && (stackp->ffs_filearray[0]
+  				= vim_strsave(dirptrs[0])) != NULL)
+--- 925,931 ----
+  		 */
+  		if (path_with_url(dirptrs[0]))
+  		{
+! 		    stackp->ffs_filearray = (char_u **)alloc(sizeof(char *));
+  		    if (stackp->ffs_filearray != NULL
+  			    && (stackp->ffs_filearray[0]
+  				= vim_strsave(dirptrs[0])) != NULL)
+***************
+*** 1285,1291 ****
+      /*
+       * if we reach this we didn't find a list and we have to allocate new list
+       */
+!     retptr = (ff_visited_list_hdr_T*)alloc((unsigned)sizeof(*retptr));
+      if (retptr == NULL)
+  	return NULL;
+  
+--- 1283,1289 ----
+      /*
+       * if we reach this we didn't find a list and we have to allocate new list
+       */
+!     retptr = (ff_visited_list_hdr_T*)alloc(sizeof(*retptr));
+      if (retptr == NULL)
+  	return NULL;
+  
+***************
+*** 1413,1420 ****
+      /*
+       * New file/dir.  Add it to the list of visited files/dirs.
+       */
+!     vp = (ff_visited_T *)alloc((unsigned)(sizeof(ff_visited_T)
+! 						 + STRLEN(ff_expand_buffer)));
+  
+      if (vp != NULL)
+      {
+--- 1411,1417 ----
+      /*
+       * New file/dir.  Add it to the list of visited files/dirs.
+       */
+!     vp = (ff_visited_T *)alloc(sizeof(ff_visited_T) + STRLEN(ff_expand_buffer));
+  
+      if (vp != NULL)
+      {
+***************
+*** 1462,1468 ****
+  {
+      ff_stack_T	*new;
+  
+!     new = (ff_stack_T *)alloc((unsigned)sizeof(ff_stack_T));
+      if (new == NULL)
+  	return NULL;
+  
+--- 1459,1465 ----
+  {
+      ff_stack_T	*new;
+  
+!     new = (ff_stack_T *)alloc(sizeof(ff_stack_T));
+      if (new == NULL)
+  	return NULL;
+  
+***************
+*** 2579,2585 ****
+      char_u	*paths = NULL;
+      int		glob_flags = 0;
+  
+!     if ((curdir = alloc((unsigned)MAXPATHL)) == NULL)
+  	return 0;
+      mch_dirname(curdir, MAXPATHL);
+  
+--- 2576,2582 ----
+      char_u	*paths = NULL;
+      int		glob_flags = 0;
+  
+!     if ((curdir = alloc(MAXPATHL)) == NULL)
+  	return 0;
+      mch_dirname(curdir, MAXPATHL);
+  
+*** ../vim-8.1.1383/src/fold.c	2019-01-24 15:04:44.670887836 +0100
+--- src/fold.c	2019-05-24 18:18:11.314702942 +0200
+***************
+*** 1770,1776 ****
+  	/* Check if the line ends with an unclosed comment */
+  	(void)skip_comment(line, FALSE, FALSE, &line_is_comment);
+  #endif
+! 	newline = alloc((unsigned)(line_len + markerlen + STRLEN(cms) + 1));
+  	if (newline == NULL)
+  	    return;
+  	STRCPY(newline, line);
+--- 1770,1776 ----
+  	/* Check if the line ends with an unclosed comment */
+  	(void)skip_comment(line, FALSE, FALSE, &line_is_comment);
+  #endif
+! 	newline = alloc(line_len + markerlen + STRLEN(cms) + 1);
+  	if (newline == NULL)
+  	    return;
+  	STRCPY(newline, line);
+***************
+*** 1849,1855 ****
+  	    if (u_save(lnum - 1, lnum + 1) == OK)
+  	    {
+  		/* Make new line: text-before-marker + text-after-marker */
+! 		newline = alloc((unsigned)(STRLEN(line) - len + 1));
+  		if (newline != NULL)
+  		{
+  		    STRNCPY(newline, line, p - line);
+--- 1849,1855 ----
+  	    if (u_save(lnum - 1, lnum + 1) == OK)
+  	    {
+  		/* Make new line: text-before-marker + text-after-marker */
+! 		newline = alloc(STRLEN(line) - len + 1);
+  		if (newline != NULL)
+  		{
+  		    STRNCPY(newline, line, p - line);
+*** ../vim-8.1.1383/src/getchar.c	2019-05-22 22:38:21.660405578 +0200
+--- src/getchar.c	2019-05-24 18:18:37.122549890 +0200
+***************
+*** 3731,3737 ****
+      /*
+       * Get here when adding a new entry to the maphash[] list or abbrlist.
+       */
+!     mp = (mapblock_T *)alloc((unsigned)sizeof(mapblock_T));
+      if (mp == NULL)
+      {
+  	retval = 4;	    /* no mem */
+--- 3731,3737 ----
+      /*
+       * Get here when adding a new entry to the maphash[] list or abbrlist.
+       */
+!     mp = (mapblock_T *)alloc(sizeof(mapblock_T));
+      if (mp == NULL)
+      {
+  	retval = 4;	    /* no mem */
+***************
+*** 4375,4381 ****
+  
+  	if (round == 1)
+  	{
+! 	    *file = (char_u **)alloc((unsigned)(count * sizeof(char_u *)));
+  	    if (*file == NULL)
+  		return FAIL;
+  	}
+--- 4375,4381 ----
+  
+  	if (round == 1)
+  	{
+! 	    *file = (char_u **)alloc(count * sizeof(char_u *));
+  	    if (*file == NULL)
+  		return FAIL;
+  	}
+***************
+*** 4695,4701 ****
+      /* Need a buffer to hold up to three times as much.  Four in case of an
+       * illegal utf-8 byte:
+       * 0xc0 -> 0xc3 0x80 -> 0xc3 K_SPECIAL KS_SPECIAL KE_FILLER */
+!     res = alloc((unsigned)(STRLEN(p) * 4) + 1);
+      if (res != NULL)
+      {
+  	d = res;
+--- 4695,4701 ----
+      /* Need a buffer to hold up to three times as much.  Four in case of an
+       * illegal utf-8 byte:
+       * 0xc0 -> 0xc3 0x80 -> 0xc3 K_SPECIAL KS_SPECIAL KE_FILLER */
+!     res = alloc(STRLEN(p) * 4 + 1);
+      if (res != NULL)
+      {
+  	d = res;
+*** ../vim-8.1.1383/src/gui.c	2019-05-23 21:35:44.451922663 +0200
+--- src/gui.c	2019-05-24 18:18:55.070443551 +0200
+***************
+*** 2162,2168 ****
+  
+      if (enc_utf8)
+      {
+! 	buf = alloc((unsigned)(len * MB_MAXBYTES + 1));
+  	if (buf == NULL)
+  	    return OK; /* not much we could do here... */
+  
+--- 2162,2168 ----
+  
+      if (enc_utf8)
+      {
+! 	buf = alloc(len * MB_MAXBYTES + 1);
+  	if (buf == NULL)
+  	    return OK; /* not much we could do here... */
+  
+***************
+*** 2185,2191 ****
+      }
+      else if (enc_dbcs == DBCS_JPNU)
+      {
+! 	buf = alloc((unsigned)(len * 2 + 1));
+  	if (buf == NULL)
+  	    return OK; /* not much we could do here... */
+  
+--- 2185,2191 ----
+      }
+      else if (enc_dbcs == DBCS_JPNU)
+      {
+! 	buf = alloc(len * 2 + 1);
+  	if (buf == NULL)
+  	    return OK; /* not much we could do here... */
+  
+*** ../vim-8.1.1383/src/gui_at_fs.c	2019-01-13 23:38:33.391773303 +0100
+--- src/gui_at_fs.c	2019-05-24 18:19:22.602280613 +0200
+***************
+*** 499,505 ****
+  					 (unsigned)(Alloc * sizeof(SFLogin)));
+  	}
+  	len = strlen(pw->pw_name);
+! 	entries[i].real = XtMalloc((unsigned) (len + 3));
+  	(void) strcat(strcpy(entries[i].real, "~"), pw->pw_name);
+  	entries[i].shown = entries[i].real;
+  	entries[i].statDone = 1;
+--- 499,505 ----
+  					 (unsigned)(Alloc * sizeof(SFLogin)));
+  	}
+  	len = strlen(pw->pw_name);
+! 	entries[i].real = XtMalloc((unsigned)(len + 3));
+  	(void) strcat(strcpy(entries[i].real, "~"), pw->pw_name);
+  	entries[i].shown = entries[i].real;
+  	entries[i].statDone = 1;
+***************
+*** 1307,1313 ****
+  			int len;
+  
+  			len = strlen(shown);
+! 			entry->shown = XtMalloc((unsigned) (len + 2));
+  			(void) strcpy(entry->shown, shown);
+  			SFwriteStatChar(entry->shown, len, &statBuf);
+  			entry->shown[len + 1] = 0;
+--- 1307,1313 ----
+  			int len;
+  
+  			len = strlen(shown);
+! 			entry->shown = XtMalloc((unsigned)(len + 2));
+  			(void) strcpy(entry->shown, shown);
+  			SFwriteStatChar(entry->shown, len, &statBuf);
+  			entry->shown[len + 1] = 0;
+***************
+*** 2032,2038 ****
+  	result[i].statDone = 0;
+  	str = dp->d_name;
+  	len = strlen(str);
+! 	result[i].real = XtMalloc((unsigned) (len + 2));
+  	(void) strcat(strcpy(result[i].real, str), " ");
+  	if (len > maxChars)
+  	    maxChars = len;
+--- 2032,2038 ----
+  	result[i].statDone = 0;
+  	str = dp->d_name;
+  	len = strlen(str);
+! 	result[i].real = XtMalloc((unsigned)(len + 2));
+  	(void) strcat(strcpy(result[i].real, str), " ");
+  	if (len > maxChars)
+  	    maxChars = len;
+*** ../vim-8.1.1383/src/gui_gtk.c	2019-03-30 18:46:57.352077376 +0100
+--- src/gui_gtk.c	2019-05-24 18:19:34.550209963 +0200
+***************
+*** 559,565 ****
+  	if (*psrc == '_')
+  	    ++n_underscores;
+  
+!     buf = alloc((unsigned)(psrc - name + n_underscores + 1));
+      if (buf != NULL)
+      {
+  	pdest = buf;
+--- 559,565 ----
+  	if (*psrc == '_')
+  	    ++n_underscores;
+  
+!     buf = alloc(psrc - name + n_underscores + 1);
+      if (buf != NULL)
+      {
+  	pdest = buf;
+*** ../vim-8.1.1383/src/gui_gtk_x11.c	2019-04-28 19:46:17.026060122 +0200
+--- src/gui_gtk_x11.c	2019-05-24 18:20:02.498044846 +0200
+***************
+*** 429,435 ****
+       * into gui_argv.  Freed later in gui_mch_init().
+       */
+      gui_argc = 0;
+!     gui_argv = (char **)alloc((unsigned)((*argc + 1) * sizeof(char *)));
+  
+      g_return_if_fail(gui_argv != NULL);
+  
+--- 429,435 ----
+       * into gui_argv.  Freed later in gui_mch_init().
+       */
+      gui_argc = 0;
+!     gui_argv = (char **)alloc((*argc + 1) * sizeof(char *));
+  
+      g_return_if_fail(gui_argv != NULL);
+  
+***************
+*** 1544,1550 ****
+  
+      if (info == (guint)TARGET_VIM)
+      {
+! 	tmpbuf = alloc((unsigned)length + 1);
+  	if (tmpbuf != NULL)
+  	{
+  	    tmpbuf[0] = motion_type;
+--- 1544,1550 ----
+  
+      if (info == (guint)TARGET_VIM)
+      {
+! 	tmpbuf = alloc(length + 1);
+  	if (tmpbuf != NULL)
+  	{
+  	    tmpbuf[0] = motion_type;
+***************
+*** 1603,1609 ****
+  	int l = STRLEN(p_enc);
+  
+  	/* contents: motion_type 'encoding' NUL text */
+! 	tmpbuf = alloc((unsigned)length + l + 2);
+  	if (tmpbuf != NULL)
+  	{
+  	    tmpbuf[0] = motion_type;
+--- 1603,1609 ----
+  	int l = STRLEN(p_enc);
+  
+  	/* contents: motion_type 'encoding' NUL text */
+! 	tmpbuf = alloc(length + l + 2);
+  	if (tmpbuf != NULL)
+  	{
+  	    tmpbuf[0] = motion_type;
+***************
+*** 2512,2519 ****
+  	    if (i == count)
+  	    {
+  		/* allocate an Atoms array which is one item longer */
+! 		new_atoms = (Atom *)alloc((unsigned)((count + 1)
+! 							     * sizeof(Atom)));
+  		if (new_atoms != NULL)
+  		{
+  		    memcpy(new_atoms, existing_atoms, count * sizeof(Atom));
+--- 2512,2518 ----
+  	    if (i == count)
+  	    {
+  		/* allocate an Atoms array which is one item longer */
+! 		new_atoms = (Atom *)alloc((count + 1) * sizeof(Atom));
+  		if (new_atoms != NULL)
+  		{
+  		    memcpy(new_atoms, existing_atoms, count * sizeof(Atom));
+*** ../vim-8.1.1383/src/gui_motif.c	2019-03-30 18:46:57.352077376 +0100
+--- src/gui_motif.c	2019-05-24 18:20:16.981959328 +0200
+***************
+*** 2538,2544 ****
+      for (p = buts; *p; ++p)
+  	if (*p == DLG_BUTTON_SEP)
+  	    ++butcount;
+!     buttons = (Widget *)alloc((unsigned)(butcount * sizeof(Widget)));
+      if (buttons == NULL)
+      {
+  	vim_free(buts);
+--- 2538,2544 ----
+      for (p = buts; *p; ++p)
+  	if (*p == DLG_BUTTON_SEP)
+  	    ++butcount;
+!     buttons = (Widget *)alloc(butcount * sizeof(Widget));
+      if (buttons == NULL)
+      {
+  	vim_free(buts);
+*** ../vim-8.1.1383/src/gui_w32.c	2019-05-09 15:12:45.168723969 +0200
+--- src/gui_w32.c	2019-05-24 18:20:49.505767490 +0200
+***************
+*** 3120,3128 ****
+      charset_name = charset_id2name((int)lf.lfCharSet);
+      quality_name = quality_id2name((int)lf.lfQuality);
+  
+!     res = (char *)alloc((unsigned)(strlen(font_name) + 30
+  		    + (charset_name == NULL ? 0 : strlen(charset_name) + 2)
+! 		    + (quality_name == NULL ? 0 : strlen(quality_name) + 2)));
+      if (res != NULL)
+      {
+  	p = res;
+--- 3120,3128 ----
+      charset_name = charset_id2name((int)lf.lfCharSet);
+      quality_name = quality_id2name((int)lf.lfQuality);
+  
+!     res = (char *)alloc(strlen(font_name) + 30
+  		    + (charset_name == NULL ? 0 : strlen(charset_name) + 2)
+! 		    + (quality_name == NULL ? 0 : strlen(quality_name) + 2));
+      if (res != NULL)
+      {
+  	p = res;
+***************
+*** 7718,7724 ****
+  	}
+  
+  	/* Allocate menu label and fill it in */
+! 	text = label = alloc((unsigned)len + 1);
+  	if (label == NULL)
+  	    break;
+  
+--- 7718,7724 ----
+  	}
+  
+  	/* Allocate menu label and fill it in */
+! 	text = label = alloc(len + 1);
+  	if (label == NULL)
+  	    break;
+  
+*** ../vim-8.1.1383/src/hashtab.c	2019-01-20 15:30:36.885328746 +0100
+--- src/hashtab.c	2019-05-24 18:21:05.553672909 +0200
+***************
+*** 400,407 ****
+      else
+      {
+  	/* Allocate an array. */
+! 	newarray = (hashitem_T *)alloc((unsigned)
+! 					      (sizeof(hashitem_T) * newsize));
+  	if (newarray == NULL)
+  	{
+  	    /* Out of memory.  When there are NULL items still return OK.
+--- 400,406 ----
+      else
+      {
+  	/* Allocate an array. */
+! 	newarray = (hashitem_T *)alloc(sizeof(hashitem_T) * newsize);
+  	if (newarray == NULL)
+  	{
+  	    /* Out of memory.  When there are NULL items still return OK.
+*** ../vim-8.1.1383/src/if_cscope.c	2019-05-23 21:35:44.455922641 +0200
+--- src/if_cscope.c	2019-05-24 18:22:00.389350117 +0200
+***************
+*** 466,472 ****
+  cs_stat_emsg(char *fname)
+  {
+      char *stat_emsg = _("E563: stat(%s) error: %d");
+!     char *buf = (char *)alloc((unsigned)strlen(stat_emsg) + MAXPATHL + 10);
+  
+      if (buf != NULL)
+      {
+--- 466,472 ----
+  cs_stat_emsg(char *fname)
+  {
+      char *stat_emsg = _("E563: stat(%s) error: %d");
+!     char *buf = (char *)alloc(strlen(stat_emsg) + MAXPATHL + 10);
+  
+      if (buf != NULL)
+      {
+***************
+*** 543,549 ****
+      /* if filename is a directory, append the cscope database name to it */
+      if (S_ISDIR(statbuf.st_mode))
+      {
+! 	fname2 = (char *)alloc((unsigned)(strlen(CSCOPE_DBFILE) + strlen(fname) + 2));
+  	if (fname2 == NULL)
+  	    goto add_err;
+  
+--- 543,549 ----
+      /* if filename is a directory, append the cscope database name to it */
+      if (S_ISDIR(statbuf.st_mode))
+      {
+! 	fname2 = (char *)alloc(strlen(CSCOPE_DBFILE) + strlen(fname) + 2);
+  	if (fname2 == NULL)
+  	    goto add_err;
+  
+***************
+*** 769,775 ****
+  	while VIM_ISWHITE(*pat)
+  	    ++pat;
+  
+!     if ((cmd = (char *)alloc((unsigned)(strlen(pat) + 2))) == NULL)
+  	return NULL;
+  
+      (void)sprintf(cmd, "%d%s", search, pat);
+--- 769,775 ----
+  	while VIM_ISWHITE(*pat)
+  	    ++pat;
+  
+!     if ((cmd = (char *)alloc(strlen(pat) + 2)) == NULL)
+  	return NULL;
+  
+      (void)sprintf(cmd, "%d%s", search, pat);
+***************
+*** 1121,1127 ****
+  	if (strchr(CSQF_FLAGS, *qfpos) == NULL)
+  	{
+  	    char *nf = _("E469: invalid cscopequickfix flag %c for %c");
+! 	    char *buf = (char *)alloc((unsigned)strlen(nf));
+  
+  	    /* strlen will be enough because we use chars */
+  	    if (buf != NULL)
+--- 1121,1127 ----
+  	if (strchr(CSQF_FLAGS, *qfpos) == NULL)
+  	{
+  	    char *nf = _("E469: invalid cscopequickfix flag %c for %c");
+! 	    char *buf = (char *)alloc(strlen(nf));
+  
+  	    /* strlen will be enough because we use chars */
+  	    if (buf != NULL)
+***************
+*** 1192,1198 ****
+  	    return FALSE;
+  	}
+  
+! 	buf = (char *)alloc((unsigned)(strlen(opt) + strlen(pat) + strlen(nf)));
+  	if (buf == NULL)
+  	    (void)emsg(nf);
+  	else
+--- 1192,1198 ----
+  	    return FALSE;
+  	}
+  
+! 	buf = (char *)alloc(strlen(opt) + strlen(pat) + strlen(nf));
+  	if (buf == NULL)
+  	    (void)emsg(nf);
+  	else
+***************
+*** 1450,1463 ****
+  	    clear_csinfo(j);
+      }
+  
+!     if ((csinfo[i].fname = (char *)alloc((unsigned)strlen(fname)+1)) == NULL)
+  	return -1;
+  
+      (void)strcpy(csinfo[i].fname, (const char *)fname);
+  
+      if (ppath != NULL)
+      {
+! 	if ((csinfo[i].ppath = (char *)alloc((unsigned)strlen(ppath) + 1)) == NULL)
+  	{
+  	    VIM_CLEAR(csinfo[i].fname);
+  	    return -1;
+--- 1450,1463 ----
+  	    clear_csinfo(j);
+      }
+  
+!     if ((csinfo[i].fname = (char *)alloc(strlen(fname)+1)) == NULL)
+  	return -1;
+  
+      (void)strcpy(csinfo[i].fname, (const char *)fname);
+  
+      if (ppath != NULL)
+      {
+! 	if ((csinfo[i].ppath = (char *)alloc(strlen(ppath) + 1)) == NULL)
+  	{
+  	    VIM_CLEAR(csinfo[i].fname);
+  	    return -1;
+***************
+*** 1468,1474 ****
+  
+      if (flags != NULL)
+      {
+! 	if ((csinfo[i].flags = (char *)alloc((unsigned)strlen(flags) + 1)) == NULL)
+  	{
+  	    VIM_CLEAR(csinfo[i].fname);
+  	    VIM_CLEAR(csinfo[i].ppath);
+--- 1468,1474 ----
+  
+      if (flags != NULL)
+      {
+! 	if ((csinfo[i].flags = (char *)alloc(strlen(flags) + 1)) == NULL)
+  	{
+  	    VIM_CLEAR(csinfo[i].fname);
+  	    VIM_CLEAR(csinfo[i].ppath);
+***************
+*** 1820,1826 ****
+  			   &slno, &search)) == NULL)
+  	       continue;
+  
+! 	   context = (char *)alloc((unsigned)strlen(cntx)+5);
+  	   if (context == NULL)
+  	       continue;
+  
+--- 1820,1826 ----
+  			   &slno, &search)) == NULL)
+  	       continue;
+  
+! 	   context = (char *)alloc(strlen(cntx)+5);
+  	   if (context == NULL)
+  	       continue;
+  
+***************
+*** 1975,1981 ****
+  
+      assert(num_matches > 0);
+  
+!     if ((tbuf = (char *)alloc((unsigned)strlen(matches[0]) + 1)) == NULL)
+  	return;
+  
+      strcpy(tbuf, matches[0]);
+--- 1975,1981 ----
+  
+      assert(num_matches > 0);
+  
+!     if ((tbuf = (char *)alloc(strlen(matches[0]) + 1)) == NULL)
+  	return;
+  
+      strcpy(tbuf, matches[0]);
+***************
+*** 2010,2016 ****
+  	 * by parsing matches[i] on the fly and placing stuff into buf
+  	 * directly, but that's too much of a hassle
+  	 */
+! 	if ((tbuf = (char *)alloc((unsigned)strlen(matches[idx]) + 1)) == NULL)
+  	    continue;
+  	(void)strcpy(tbuf, matches[idx]);
+  
+--- 2010,2016 ----
+  	 * by parsing matches[i] on the fly and placing stuff into buf
+  	 * directly, but that's too much of a hassle
+  	 */
+! 	if ((tbuf = (char *)alloc(strlen(matches[idx]) + 1)) == NULL)
+  	    continue;
+  	(void)strcpy(tbuf, matches[idx]);
+  
+*** ../vim-8.1.1383/src/if_perlsfio.c	2016-08-29 22:42:20.000000000 +0200
+--- src/if_perlsfio.c	2019-05-24 18:22:17.913247076 +0200
+***************
+*** 51,57 ****
+  {
+      Sfdisc_t	*disc;
+  
+!     disc = (Sfdisc_t *)alloc((unsigned)sizeof(Sfdisc_t));
+      if (disc == NULL)
+  	return NULL;
+  
+--- 51,57 ----
+  {
+      Sfdisc_t	*disc;
+  
+!     disc = (Sfdisc_t *)alloc(sizeof(Sfdisc_t));
+      if (disc == NULL)
+  	return NULL;
+  
+*** ../vim-8.1.1383/src/if_python3.c	2019-03-30 18:46:57.352077376 +0100
+--- src/if_python3.c	2019-05-24 18:22:32.969158589 +0200
+***************
+*** 1629,1635 ****
+      Py_ssize_t len = strlen(str);
+      char *tmp,*p;
+  
+!     tmp = (char *)alloc((unsigned)(len+1));
+      p = tmp;
+      if (p == NULL)
+      {
+--- 1629,1635 ----
+      Py_ssize_t len = strlen(str);
+      char *tmp,*p;
+  
+!     tmp = (char *)alloc(len + 1);
+      p = tmp;
+      if (p == NULL)
+      {
+*** ../vim-8.1.1383/src/if_xcmdsrv.c	2019-01-24 15:54:17.786847003 +0100
+--- src/if_xcmdsrv.c	2019-05-24 18:22:52.685042739 +0200
+***************
+*** 441,447 ****
+       * Length must be computed exactly!
+       */
+      length = STRLEN(name) + STRLEN(p_enc) + STRLEN(cmd) + 14;
+!     property = (char_u *)alloc((unsigned)length + 30);
+  
+      sprintf((char *)property, "%c%c%c-n %s%c-E %s%c-s %s",
+  		      0, asExpr ? 'c' : 'k', 0, name, 0, p_enc, 0, cmd);
+--- 441,447 ----
+       * Length must be computed exactly!
+       */
+      length = STRLEN(name) + STRLEN(p_enc) + STRLEN(cmd) + 14;
+!     property = (char_u *)alloc(length + 30);
+  
+      sprintf((char *)property, "%c%c%c-n %s%c-E %s%c-s %s",
+  		      0, asExpr ? 'c' : 'k', 0, name, 0, p_enc, 0, cmd);
+***************
+*** 750,756 ****
+  	return -1;
+  
+      length = STRLEN(p_enc) + STRLEN(str) + 14;
+!     if ((property = (char_u *)alloc((unsigned)length + 30)) != NULL)
+      {
+  	sprintf((char *)property, "%cn%c-E %s%c-n %s%c-w %x",
+  			    0, 0, p_enc, 0, str, 0, (unsigned int)commWindow);
+--- 750,756 ----
+  	return -1;
+  
+      length = STRLEN(p_enc) + STRLEN(str) + 14;
+!     if ((property = (char_u *)alloc(length + 30)) != NULL)
+      {
+  	sprintf((char *)property, "%cn%c-E %s%c-n %s%c-w %x",
+  			    0, 0, p_enc, 0, str, 0, (unsigned int)commWindow);
+*** ../vim-8.1.1383/src/indent.c	2019-03-30 18:46:57.356077354 +0100
+--- src/indent.c	2019-05-24 18:23:04.764971811 +0200
+***************
+*** 28,34 ****
+      int		len;
+  
+      cinw_len = (int)STRLEN(curbuf->b_p_cinw) + 1;
+!     cinw_buf = alloc((unsigned)cinw_len);
+      if (cinw_buf != NULL)
+      {
+  	line = skipwhite(line);
+--- 28,34 ----
+      int		len;
+  
+      cinw_len = (int)STRLEN(curbuf->b_p_cinw) + 1;
+!     cinw_buf = alloc(cinw_len);
+      if (cinw_buf != NULL)
+      {
+  	line = skipwhite(line);
+*** ../vim-8.1.1383/src/insexpand.c	2019-04-28 18:04:56.058492178 +0200
+--- src/insexpand.c	2019-05-24 18:23:29.828824711 +0200
+***************
+*** 473,479 ****
+  					   ? actual_len : actual_compl_length;
+  
+  	// Allocate wide character array for the completion and fill it.
+! 	wca = (int *)alloc((unsigned)(actual_len * sizeof(int)));
+  	if (wca != NULL)
+  	{
+  	    p = str;
+--- 473,479 ----
+  					   ? actual_len : actual_compl_length;
+  
+  	// Allocate wide character array for the completion and fill it.
+! 	wca = (int *)alloc(actual_len * sizeof(int));
+  	if (wca != NULL)
+  	{
+  	    p = str;
+***************
+*** 1230,1236 ****
+  	if (pat_esc == NULL)
+  	    goto theend;
+  	len = STRLEN(pat_esc) + 10;
+! 	ptr = alloc((unsigned)len);
+  	if (ptr == NULL)
+  	{
+  	    vim_free(pat_esc);
+--- 1230,1236 ----
+  	if (pat_esc == NULL)
+  	    goto theend;
+  	len = STRLEN(pat_esc) + 10;
+! 	ptr = alloc(len);
+  	if (ptr == NULL)
+  	{
+  	    vim_free(pat_esc);
+*** ../vim-8.1.1383/src/main.c	2019-05-24 13:11:44.311032841 +0200
+--- src/main.c	2019-05-24 18:23:48.016718008 +0200
+***************
+*** 2300,2306 ****
+  			}
+  			else
+  			    a = argv[0];
+! 			p = alloc((unsigned)(STRLEN(a) + 4));
+  			if (p == NULL)
+  			    mch_exit(2);
+  			sprintf((char *)p, "so %s", a);
+--- 2300,2306 ----
+  			}
+  			else
+  			    a = argv[0];
+! 			p = alloc(STRLEN(a) + 4);
+  			if (p == NULL)
+  			    mch_exit(2);
+  			sprintf((char *)p, "so %s", a);
+***************
+*** 2526,2532 ****
+       * one. */
+      if (parmp->n_commands > 0)
+      {
+! 	p = alloc((unsigned)STRLEN(parmp->commands[0]) + 3);
+  	if (p != NULL)
+  	{
+  	    sprintf((char *)p, ":%s\r", parmp->commands[0]);
+--- 2526,2532 ----
+       * one. */
+      if (parmp->n_commands > 0)
+      {
+! 	p = alloc(STRLEN(parmp->commands[0]) + 3);
+  	if (p != NULL)
+  	{
+  	    sprintf((char *)p, ":%s\r", parmp->commands[0]);
+***************
+*** 4263,4269 ****
+  		size_t	len = STRLEN(cmd) + STRLEN(err) + 5;
+  		char_u	*msg;
+  
+! 		msg = alloc((unsigned)len);
+  		if (msg != NULL)
+  		    vim_snprintf((char *)msg, len, "%s: \"%s\"", err, cmd);
+  		*result = msg;
+--- 4263,4269 ----
+  		size_t	len = STRLEN(cmd) + STRLEN(err) + 5;
+  		char_u	*msg;
+  
+! 		msg = alloc(len);
+  		if (msg != NULL)
+  		    vim_snprintf((char *)msg, len, "%s: \"%s\"", err, cmd);
+  		*result = msg;
+*** ../vim-8.1.1383/src/mbyte.c	2019-04-28 19:46:17.030060105 +0200
+--- src/mbyte.c	2019-05-24 18:24:05.176617375 +0200
+***************
+*** 4317,4323 ****
+      }
+  
+      /* copy "enc" to allocated memory, with room for two '-' */
+!     r = alloc((unsigned)(STRLEN(enc) + 3));
+      if (r != NULL)
+      {
+  	/* Make it all lower case and replace '_' with '-'. */
+--- 4317,4323 ----
+      }
+  
+      /* copy "enc" to allocated memory, with room for two '-' */
+!     r = alloc(STRLEN(enc) + 3);
+      if (r != NULL)
+      {
+  	/* Make it all lower case and replace '_' with '-'. */
+***************
+*** 4603,4609 ****
+  	    /* Allocate enough room for most conversions.  When re-allocating
+  	     * increase the buffer size. */
+  	    len = len + fromlen * 2 + 40;
+! 	    p = alloc((unsigned)len);
+  	    if (p != NULL && done > 0)
+  		mch_memmove(p, result, done);
+  	    vim_free(result);
+--- 4603,4609 ----
+  	    /* Allocate enough room for most conversions.  When re-allocating
+  	     * increase the buffer size. */
+  	    len = len + fromlen * 2 + 40;
+! 	    p = alloc(len);
+  	    if (p != NULL && done > 0)
+  		mch_memmove(p, result, done);
+  	    vim_free(result);
+*** ../vim-8.1.1383/src/memfile.c	2019-02-17 17:44:36.211875510 +0100
+--- src/memfile.c	2019-05-24 18:24:20.648526679 +0200
+***************
+*** 130,136 ****
+      struct STATFS	stf;
+  #endif
+  
+!     if ((mfp = (memfile_T *)alloc((unsigned)sizeof(memfile_T))) == NULL)
+  	return NULL;
+  
+      if (fname == NULL)	    /* no file for this memfile, use memory only */
+--- 130,136 ----
+      struct STATFS	stf;
+  #endif
+  
+!     if ((mfp = (memfile_T *)alloc(sizeof(memfile_T))) == NULL)
+  	return NULL;
+  
+      if (fname == NULL)	    /* no file for this memfile, use memory only */
+***************
+*** 893,899 ****
+  {
+      bhdr_T	*hp;
+  
+!     if ((hp = (bhdr_T *)alloc((unsigned)sizeof(bhdr_T))) != NULL)
+      {
+  	if ((hp->bh_data = (char_u *)alloc(mfp->mf_page_size * page_count))
+  								      == NULL)
+--- 893,899 ----
+  {
+      bhdr_T	*hp;
+  
+!     if ((hp = (bhdr_T *)alloc(sizeof(bhdr_T))) != NULL)
+      {
+  	if ((hp->bh_data = (char_u *)alloc(mfp->mf_page_size * page_count))
+  								      == NULL)
+***************
+*** 1108,1114 ****
+      if (hp->bh_bnum >= 0)		    /* it's already positive */
+  	return OK;
+  
+!     if ((np = (NR_TRANS *)alloc((unsigned)sizeof(NR_TRANS))) == NULL)
+  	return FAIL;
+  
+  /*
+--- 1108,1114 ----
+      if (hp->bh_bnum >= 0)		    /* it's already positive */
+  	return OK;
+  
+!     if ((np = (NR_TRANS *)alloc(sizeof(NR_TRANS))) == NULL)
+  	return FAIL;
+  
+  /*
+*** ../vim-8.1.1383/src/memline.c	2019-05-23 21:35:44.455922641 +0200
+--- src/memline.c	2019-05-24 18:25:09.856334524 +0200
+***************
+*** 1189,1195 ****
+       * Allocate a buffer structure for the swap file that is used for recovery.
+       * Only the memline and crypt information in it are really used.
+       */
+!     buf = (buf_T *)alloc((unsigned)sizeof(buf_T));
+      if (buf == NULL)
+  	goto theend;
+  
+--- 1189,1195 ----
+       * Allocate a buffer structure for the swap file that is used for recovery.
+       * Only the memline and crypt information in it are really used.
+       */
+!     buf = (buf_T *)alloc(sizeof(buf_T));
+      if (buf == NULL)
+  	goto theend;
+  
+***************
+*** 1787,1793 ****
+       * Do the loop for every directory in 'directory'.
+       * First allocate some memory to put the directory name in.
+       */
+!     dir_name = alloc((unsigned)STRLEN(p_dir) + 1);
+      dirp = p_dir;
+      while (dir_name != NULL && *dirp)
+      {
+--- 1787,1793 ----
+       * Do the loop for every directory in 'directory'.
+       * First allocate some memory to put the directory name in.
+       */
+!     dir_name = alloc(STRLEN(p_dir) + 1);
+      dirp = p_dir;
+      while (dir_name != NULL && *dirp)
+      {
+***************
+*** 1913,1919 ****
+  	    {
+  		if (mch_stat((char *)swapname, &st) != -1)	    /* It exists! */
+  		{
+! 		    files = (char_u **)alloc((unsigned)sizeof(char_u *));
+  		    if (files != NULL)
+  		    {
+  			files[0] = swapname;
+--- 1913,1919 ----
+  	    {
+  		if (mch_stat((char *)swapname, &st) != -1)	    /* It exists! */
+  		{
+! 		    files = (char_u **)alloc(sizeof(char_u *));
+  		    if (files != NULL)
+  		    {
+  			files[0] = swapname;
+***************
+*** 2015,2021 ****
+      f = fix_fname(name != NULL ? name : (char_u *)"");
+      if (f != NULL)
+      {
+! 	s = alloc((unsigned)(STRLEN(f) + 1));
+  	if (s != NULL)
+  	{
+  	    STRCPY(s, f);
+--- 2015,2021 ----
+      f = fix_fname(name != NULL ? name : (char_u *)"");
+      if (f != NULL)
+      {
+! 	s = alloc(STRLEN(f) + 1);
+  	if (s != NULL)
+  	{
+  	    STRCPY(s, f);
+***************
+*** 2674,2680 ****
+  	    if (new_prop_count == 0)
+  		return;  // nothing to do
+  	    new_len = *len + new_prop_count * sizeof(textprop_T);
+! 	    new_line = alloc((unsigned)new_len);
+  	    if (new_line == NULL)
+  		return;
+  	    mch_memmove(new_line, *line, *len);
+--- 2674,2680 ----
+  	    if (new_prop_count == 0)
+  		return;  // nothing to do
+  	    new_len = *len + new_prop_count * sizeof(textprop_T);
+! 	    new_line = alloc(new_len);
+  	    if (new_line == NULL)
+  		return;
+  	    mch_memmove(new_line, *line, *len);
+***************
+*** 4201,4207 ****
+      {
+  	CHECK(top > 0, _("Stack size increases")); /* more than 5 levels??? */
+  
+! 	newstack = (infoptr_T *)alloc((unsigned)sizeof(infoptr_T) *
+  					(buf->b_ml.ml_stack_size + STACK_INCR));
+  	if (newstack == NULL)
+  	    return -1;
+--- 4201,4207 ----
+      {
+  	CHECK(top > 0, _("Stack size increases")); /* more than 5 levels??? */
+  
+! 	newstack = (infoptr_T *)alloc(sizeof(infoptr_T) *
+  					(buf->b_ml.ml_stack_size + STACK_INCR));
+  	if (newstack == NULL)
+  	    return -1;
+***************
+*** 4596,4602 ****
+       * Isolate a directory name from *dirp and put it in dir_name.
+       * First allocate some memory to put the directory name in.
+       */
+!     dir_name = alloc((unsigned)STRLEN(*dirp) + 1);
+      if (dir_name == NULL)
+  	*dirp = NULL;
+      else
+--- 4596,4602 ----
+       * Isolate a directory name from *dirp and put it in dir_name.
+       * First allocate some memory to put the directory name in.
+       */
+!     dir_name = alloc(STRLEN(*dirp) + 1);
+      if (dir_name == NULL)
+  	*dirp = NULL;
+      else
+***************
+*** 4920,4928 ****
+  		    {
+  			char_u	*name;
+  
+! 			name = alloc((unsigned)(STRLEN(fname)
+  				+ STRLEN(_("Swap file \""))
+! 				+ STRLEN(_("\" already exists!")) + 5));
+  			if (name != NULL)
+  			{
+  			    STRCPY(name, _("Swap file \""));
+--- 4920,4928 ----
+  		    {
+  			char_u	*name;
+  
+! 			name = alloc(STRLEN(fname)
+  				+ STRLEN(_("Swap file \""))
+! 				+ STRLEN(_("\" already exists!")) + 5);
+  			if (name != NULL)
+  			{
+  			    STRCPY(name, _("Swap file \""));
+***************
+*** 5371,5378 ****
+  	return;
+      if (buf->b_ml.ml_chunksize == NULL)
+      {
+! 	buf->b_ml.ml_chunksize = (chunksize_T *)
+! 				  alloc((unsigned)sizeof(chunksize_T) * 100);
+  	if (buf->b_ml.ml_chunksize == NULL)
+  	{
+  	    buf->b_ml.ml_usedchunks = -1;
+--- 5371,5378 ----
+  	return;
+      if (buf->b_ml.ml_chunksize == NULL)
+      {
+! 	buf->b_ml.ml_chunksize =
+! 			       (chunksize_T *)alloc(sizeof(chunksize_T) * 100);
+  	if (buf->b_ml.ml_chunksize == NULL)
+  	{
+  	    buf->b_ml.ml_usedchunks = -1;
+*** ../vim-8.1.1383/src/menu.c	2019-05-05 14:19:17.594303166 +0200
+--- src/menu.c	2019-05-24 18:25:34.852270671 +0200
+***************
+*** 694,700 ****
+  		 * \'s and ^V's stripped out. But menu_path is a "raw"
+  		 * string, so we must correct for special characters.
+  		 */
+! 		tearpath = alloc((unsigned int)STRLEN(menu_path) + TEAR_LEN + 2);
+  		if (tearpath != NULL)
+  		{
+  		    char_u  *s;
+--- 694,700 ----
+  		 * \'s and ^V's stripped out. But menu_path is a "raw"
+  		 * string, so we must correct for special characters.
+  		 */
+! 		tearpath = alloc(STRLEN(menu_path) + TEAR_LEN + 2);
+  		if (tearpath != NULL)
+  		{
+  		    char_u  *s;
+***************
+*** 780,786 ****
+  
+  		if (c != 0)
+  		{
+! 		    menu->strings[i] = alloc((unsigned)(STRLEN(call_data) + 5 ));
+  		    if (menu->strings[i] != NULL)
+  		    {
+  			menu->strings[i][0] = c;
+--- 780,786 ----
+  
+  		if (c != 0)
+  		{
+! 		    menu->strings[i] = alloc(STRLEN(call_data) + 5);
+  		    if (menu->strings[i] != NULL)
+  		    {
+  			menu->strings[i][0] = c;
+***************
+*** 1316,1322 ****
+  	menu = root_menu;
+  	if (after_dot != arg)
+  	{
+! 	    path_name = alloc((unsigned)(after_dot - arg));
+  	    if (path_name == NULL)
+  		return NULL;
+  	    vim_strncpy(path_name, arg, after_dot - arg - 1);
+--- 1316,1322 ----
+  	menu = root_menu;
+  	if (after_dot != arg)
+  	{
+! 	    path_name = alloc(after_dot - arg);
+  	    if (path_name == NULL)
+  		return NULL;
+  	    vim_strncpy(path_name, arg, after_dot - arg - 1);
+*** ../vim-8.1.1383/src/message.c	2019-05-09 15:12:45.172723940 +0200
+--- src/message.c	2019-05-24 18:25:53.980219465 +0200
+***************
+*** 437,443 ****
+      if (sourcing_name != NULL && other_sourcing_name())
+      {
+  	p = (char_u *)_("Error detected while processing %s:");
+! 	Buf = alloc((unsigned)(STRLEN(sourcing_name) + STRLEN(p)));
+  	if (Buf != NULL)
+  	    sprintf((char *)Buf, (char *)p, sourcing_name);
+  	return Buf;
+--- 437,443 ----
+      if (sourcing_name != NULL && other_sourcing_name())
+      {
+  	p = (char_u *)_("Error detected while processing %s:");
+! 	Buf = alloc(STRLEN(sourcing_name) + STRLEN(p));
+  	if (Buf != NULL)
+  	    sprintf((char *)Buf, (char *)p, sourcing_name);
+  	return Buf;
+***************
+*** 462,468 ****
+  	    && sourcing_lnum != 0)
+      {
+  	p = (char_u *)_("line %4ld:");
+! 	Buf = alloc((unsigned)(STRLEN(p) + 20));
+  	if (Buf != NULL)
+  	    sprintf((char *)Buf, (char *)p, (long)sourcing_lnum);
+  	return Buf;
+--- 462,468 ----
+  	    && sourcing_lnum != 0)
+      {
+  	p = (char_u *)_("line %4ld:");
+! 	Buf = alloc(STRLEN(p) + 20);
+  	if (Buf != NULL)
+  	    sprintf((char *)Buf, (char *)p, (long)sourcing_lnum);
+  	return Buf;
+*** ../vim-8.1.1383/src/misc1.c	2019-05-23 21:35:44.455922641 +0200
+--- src/misc1.c	2019-05-24 18:26:40.432087320 +0200
+***************
+*** 2180,2186 ****
+  		pend1 = remove_tail(p, pend, (char_u *)"MacOS");
+  		if (pend1 != pend)
+  		{
+! 		    pnew = alloc((unsigned)(pend1 - p) + 15);
+  		    if (pnew != NULL)
+  		    {
+  			STRNCPY(pnew, p, (pend1 - p));
+--- 2180,2186 ----
+  		pend1 = remove_tail(p, pend, (char_u *)"MacOS");
+  		if (pend1 != pend)
+  		{
+! 		    pnew = alloc(pend1 - p + 15);
+  		    if (pnew != NULL)
+  		    {
+  			STRNCPY(pnew, p, (pend1 - p));
+***************
+*** 2341,2347 ****
+       * Putenv does not copy the string, it has to remain
+       * valid.  The allocated memory will never be freed.
+       */
+!     envbuf = alloc((unsigned)(STRLEN(name) + STRLEN(val) + 2));
+      if (envbuf != NULL)
+      {
+  	sprintf((char *)envbuf, "%s=%s", name, val);
+--- 2341,2347 ----
+       * Putenv does not copy the string, it has to remain
+       * valid.  The allocated memory will never be freed.
+       */
+!     envbuf = alloc(STRLEN(name) + STRLEN(val) + 2);
+      if (envbuf != NULL)
+      {
+  	sprintf((char *)envbuf, "%s=%s", name, val);
+***************
+*** 3019,3025 ****
+  {
+      char_u  *dest;
+  
+!     dest = alloc((unsigned)(STRLEN(fname1) + STRLEN(fname2) + 3));
+      if (dest != NULL)
+      {
+  	STRCPY(dest, fname1);
+--- 3019,3025 ----
+  {
+      char_u  *dest;
+  
+!     dest = alloc(STRLEN(fname1) + STRLEN(fname2) + 3);
+      if (dest != NULL)
+      {
+  	STRCPY(dest, fname1);
+***************
+*** 3040,3046 ****
+      char_u  *dest;
+      size_t  l = STRLEN(str1);
+  
+!     dest = alloc((unsigned)(l + STRLEN(str2) + 1L));
+      if (dest != NULL)
+      {
+  	STRCPY(dest, str1);
+--- 3040,3046 ----
+      char_u  *dest;
+      size_t  l = STRLEN(str1);
+  
+!     dest = alloc(l + STRLEN(str2) + 1L);
+      if (dest != NULL)
+      {
+  	STRCPY(dest, str1);
+***************
+*** 3076,3082 ****
+      if (fname == NULL)
+  	return NULL;
+  
+!     buf = alloc((unsigned)MAXPATHL);
+      if (buf != NULL)
+      {
+  	if (vim_FullName(fname, buf, MAXPATHL, force) != FAIL)
+--- 3076,3082 ----
+      if (fname == NULL)
+  	return NULL;
+  
+!     buf = alloc(MAXPATHL);
+      if (buf != NULL)
+      {
+  	if (vim_FullName(fname, buf, MAXPATHL, force) != FAIL)
+***************
+*** 4231,4237 ****
+      if (ga_grow(gap, 1) == FAIL)
+  	return;
+  
+!     p = alloc((unsigned)(STRLEN(f) + 1 + isdir));
+      if (p == NULL)
+  	return;
+  
+--- 4231,4237 ----
+      if (ga_grow(gap, 1) == FAIL)
+  	return;
+  
+!     p = alloc(STRLEN(f) + 1 + isdir);
+      if (p == NULL)
+  	return;
+  
+*** ../vim-8.1.1383/src/netbeans.c	2019-03-30 18:46:57.356077354 +0100
+--- src/netbeans.c	2019-05-24 18:27:53.783857939 +0200
+***************
+*** 790,796 ****
+  
+      nbdebug(("REP %d: %s\n", cmdno, (char *)result));
+  
+!     reply = alloc((unsigned)STRLEN(result) + 32);
+      sprintf((char *)reply, "%d %s\n", cmdno, (char *)result);
+      nb_send((char *)reply, "nb_reply_text");
+  
+--- 790,796 ----
+  
+      nbdebug(("REP %d: %s\n", cmdno, (char *)result));
+  
+!     reply = alloc(STRLEN(result) + 32);
+      sprintf((char *)reply, "%d %s\n", cmdno, (char *)result);
+      nb_send((char *)reply, "nb_reply_text");
+  
+***************
+*** 819,825 ****
+      static char_u *
+  nb_quote(char_u *txt)
+  {
+!     char_u *buf = alloc((unsigned)(2 * STRLEN(txt) + 1));
+      char_u *p = txt;
+      char_u *q = buf;
+  
+--- 819,825 ----
+      static char_u *
+  nb_quote(char_u *txt)
+  {
+!     char_u *buf = alloc(2 * STRLEN(txt) + 1);
+      char_u *p = txt;
+      char_u *q = buf;
+  
+***************
+*** 951,957 ****
+  
+      len_first = (int)STRLEN(ml_get(first));
+      len_other = (int)STRLEN(ml_get(other));
+!     p = alloc((unsigned)(len_first + len_other + 1));
+      if (p != NULL)
+      {
+        mch_memmove(p, ml_get(first), len_first);
+--- 951,957 ----
+  
+      len_first = (int)STRLEN(ml_get(first));
+      len_other = (int)STRLEN(ml_get(other));
+!     p = alloc(len_first + len_other + 1);
+      if (p != NULL)
+      {
+        mch_memmove(p, ml_get(first), len_first);
+***************
+*** 1084,1091 ****
+  	    {
+  		len = get_buf_size(buf->bufp);
+  		nlines = buf->bufp->b_ml.ml_line_count;
+! 		text = alloc((unsigned)((len > 0)
+! 						 ? ((len + nlines) * 2) : 4));
+  		if (text == NULL)
+  		{
+  		    nbdebug(("    nb_do_cmd: getText has null text field\n"));
+--- 1084,1090 ----
+  	    {
+  		len = get_buf_size(buf->bufp);
+  		nlines = buf->bufp->b_ml.ml_line_count;
+! 		text = alloc((len > 0) ? ((len + nlines) * 2) : 4);
+  		if (text == NULL)
+  		{
+  		    nbdebug(("    nb_do_cmd: getText has null text field\n"));
+***************
+*** 1395,1402 ****
+  			char_u *newline;
+  
+  			/* Insert halfway a line. */
+! 			newline = alloc_check(
+! 				       (unsigned)(STRLEN(oldline) + len + 1));
+  			if (newline != NULL)
+  			{
+  			    mch_memmove(newline, oldline, (size_t)pos->col);
+--- 1394,1400 ----
+  			char_u *newline;
+  
+  			/* Insert halfway a line. */
+! 			newline = alloc(STRLEN(oldline) + len + 1);
+  			if (newline != NULL)
+  			{
+  			    mch_memmove(newline, oldline, (size_t)pos->col);
+*** ../vim-8.1.1383/src/ops.c	2019-05-19 22:53:36.508914587 +0200
+--- src/ops.c	2019-05-24 18:29:06.455608724 +0200
+***************
+*** 456,462 ****
+  	/* if we're splitting a TAB, allow for it */
+  	bd.textcol -= bd.pre_whitesp_c - (bd.startspaces != 0);
+  	len = (int)STRLEN(bd.textstart) + 1;
+! 	newp = alloc_check((unsigned)(bd.textcol + i + j + len));
+  	if (newp == NULL)
+  	    return;
+  	vim_memset(newp, NUL, (size_t)(bd.textcol + i + j + len));
+--- 456,462 ----
+  	/* if we're splitting a TAB, allow for it */
+  	bd.textcol -= bd.pre_whitesp_c - (bd.startspaces != 0);
+  	len = (int)STRLEN(bd.textstart) + 1;
+! 	newp = alloc(bd.textcol + i + j + len);
+  	if (newp == NULL)
+  	    return;
+  	vim_memset(newp, NUL, (size_t)(bd.textcol + i + j + len));
+***************
+*** 550,556 ****
+  		       + fill
+  		       + (unsigned)STRLEN(non_white) + 1;
+  
+! 	newp = alloc_check(new_line_len);
+  	if (newp == NULL)
+  	    return;
+  	mch_memmove(newp, oldp, (size_t)(verbatim_copy_end - oldp));
+--- 550,556 ----
+  		       + fill
+  		       + (unsigned)STRLEN(non_white) + 1;
+  
+! 	newp = alloc(new_line_len);
+  	if (newp == NULL)
+  	    return;
+  	mch_memmove(newp, oldp, (size_t)(verbatim_copy_end - oldp));
+***************
+*** 644,650 ****
+  	    count -= off;
+  	}
+  
+! 	newp = alloc_check((unsigned)(STRLEN(oldp)) + s_len + count + 1);
+  	if (newp == NULL)
+  	    continue;
+  
+--- 644,650 ----
+  	    count -= off;
+  	}
+  
+! 	newp = alloc(STRLEN(oldp) + s_len + count + 1);
+  	if (newp == NULL)
+  	    continue;
+  
+***************
+*** 1003,1009 ****
+  #endif
+  
+      get_yank_register(name, 0);
+!     reg = (yankreg_T *)alloc((unsigned)sizeof(yankreg_T));
+      if (reg != NULL)
+      {
+  	*reg = *y_current;
+--- 1003,1009 ----
+  #endif
+  
+      get_yank_register(name, 0);
+!     reg = (yankreg_T *)alloc(sizeof(yankreg_T));
+      if (reg != NULL)
+      {
+  	*reg = *y_current;
+***************
+*** 1013,1020 ****
+  	    if (reg->y_size == 0)
+  		reg->y_array = NULL;
+  	    else
+! 		reg->y_array = (char_u **)alloc((unsigned)(sizeof(char_u *)
+! 							      * reg->y_size));
+  	    if (reg->y_array != NULL)
+  	    {
+  		for (i = 0; i < reg->y_size; ++i)
+--- 1013,1019 ----
+  	    if (reg->y_size == 0)
+  		reg->y_array = NULL;
+  	    else
+! 		reg->y_array = (char_u **)alloc(sizeof(char_u *) * reg->y_size);
+  	    if (reg->y_array != NULL)
+  	    {
+  		for (i = 0; i < reg->y_size; ++i)
+***************
+*** 1177,1183 ****
+      {
+  	free_yank_all();
+  	if ((y_current->y_array =
+! 			(char_u **)alloc((unsigned)sizeof(char_u *))) == NULL)
+  	{
+  	    vim_free(p);
+  	    return FAIL;
+--- 1176,1182 ----
+      {
+  	free_yank_all();
+  	if ((y_current->y_array =
+! 			(char_u **)alloc(sizeof(char_u *))) == NULL)
+  	{
+  	    vim_free(p);
+  	    return FAIL;
+***************
+*** 1921,1927 ****
+  	    // Thus the number of characters may increase!
+  	    n = bd.textlen - bd.startspaces - bd.endspaces;
+  	    oldp = ml_get(lnum);
+! 	    newp = alloc_check((unsigned)STRLEN(oldp) + 1 - n);
+  	    if (newp == NULL)
+  		continue;
+  	    /* copy up to deleted part */
+--- 1920,1926 ----
+  	    // Thus the number of characters may increase!
+  	    n = bd.textlen - bd.startspaces - bd.endspaces;
+  	    oldp = ml_get(lnum);
+! 	    newp = alloc(STRLEN(oldp) + 1 - n);
+  	    if (newp == NULL)
+  		continue;
+  	    /* copy up to deleted part */
+***************
+*** 2227,2233 ****
+  
+  	    oldp = ml_get_curline();
+  	    oldlen = STRLEN(oldp);
+! 	    newp = alloc_check((unsigned)oldlen + 1 + n);
+  	    if (newp == NULL)
+  		continue;
+  	    vim_memset(newp, NUL, (size_t)(oldlen + 1 + n));
+--- 2226,2232 ----
+  
+  	    oldp = ml_get_curline();
+  	    oldlen = STRLEN(oldp);
+! 	    newp = alloc(oldlen + 1 + n);
+  	    if (newp == NULL)
+  		continue;
+  	    vim_memset(newp, NUL, (size_t)(oldlen + 1 + n));
+***************
+*** 2260,2267 ****
+  	    else
+  	    {
+  		/* Replacing with \r or \n means splitting the line. */
+! 		after_p = alloc_check(
+! 				   (unsigned)(oldlen + 1 + n - STRLEN(newp)));
+  		if (after_p != NULL)
+  		    STRMOVE(after_p, oldp);
+  	    }
+--- 2259,2265 ----
+  	    else
+  	    {
+  		/* Replacing with \r or \n means splitting the line. */
+! 		after_p = alloc(oldlen + 1 + n - STRLEN(newp));
+  		if (after_p != NULL)
+  		    STRMOVE(after_p, oldp);
+  	    }
+***************
+*** 2869,2875 ****
+  	{
+  	    /* Subsequent calls to ml_get() flush the firstline data - take a
+  	     * copy of the inserted text.  */
+! 	    if ((ins_text = alloc_check((unsigned)(ins_len + 1))) != NULL)
+  	    {
+  		vim_strncpy(ins_text, firstline + bd.textcol, (size_t)ins_len);
+  		for (linenr = oap->start.lnum + 1; linenr <= oap->end.lnum;
+--- 2867,2873 ----
+  	{
+  	    /* Subsequent calls to ml_get() flush the firstline data - take a
+  	     * copy of the inserted text.  */
+! 	    if ((ins_text = alloc(ins_len + 1)) != NULL)
+  	    {
+  		vim_strncpy(ins_text, firstline + bd.textcol, (size_t)ins_len);
+  		for (linenr = oap->start.lnum + 1; linenr <= oap->end.lnum;
+***************
+*** 2890,2897 ****
+  			else
+  			    vpos.coladd = 0;
+  			oldp = ml_get(linenr);
+! 			newp = alloc_check((unsigned)(STRLEN(oldp)
+! 						 + vpos.coladd + ins_len + 1));
+  			if (newp == NULL)
+  			    continue;
+  			/* copy up to block start */
+--- 2888,2894 ----
+  			else
+  			    vpos.coladd = 0;
+  			oldp = ml_get(linenr);
+! 			newp = alloc(STRLEN(oldp) + vpos.coladd + ins_len + 1);
+  			if (newp == NULL)
+  			    continue;
+  			/* copy up to block start */
+***************
+*** 3494,3501 ****
+  		}
+  		if (y_array != NULL)
+  		    break;
+! 		y_array = (char_u **)alloc((unsigned)
+! 						 (y_size * sizeof(char_u *)));
+  		if (y_array == NULL)
+  		    goto end;
+  	    }
+--- 3491,3497 ----
+  		}
+  		if (y_array != NULL)
+  		    break;
+! 		y_array = (char_u **)alloc((y_size * sizeof(char_u *)));
+  		if (y_array == NULL)
+  		    goto end;
+  	    }
+***************
+*** 3741,3747 ****
+  
+  	    /* insert the new text */
+  	    totlen = count * (yanklen + spaces) + bd.startspaces + bd.endspaces;
+! 	    newp = alloc_check((unsigned)totlen + oldlen + 1);
+  	    if (newp == NULL)
+  		break;
+  	    /* copy part up to cursor to new line */
+--- 3737,3743 ----
+  
+  	    /* insert the new text */
+  	    totlen = count * (yanklen + spaces) + bd.startspaces + bd.endspaces;
+! 	    newp = alloc(totlen + oldlen + 1);
+  	    if (newp == NULL)
+  		break;
+  	    /* copy part up to cursor to new line */
+***************
+*** 3868,3874 ****
+  			lnum++;
+  			continue;
+  		    }
+! 		    newp = alloc_check((unsigned)(STRLEN(oldp) + totlen + 1));
+  		    if (newp == NULL)
+  			goto end;	/* alloc() gave an error message */
+  		    mch_memmove(newp, oldp, (size_t)col);
+--- 3864,3870 ----
+  			lnum++;
+  			continue;
+  		    }
+! 		    newp = alloc(STRLEN(oldp) + totlen + 1);
+  		    if (newp == NULL)
+  			goto end;	/* alloc() gave an error message */
+  		    mch_memmove(newp, oldp, (size_t)col);
+***************
+*** 3920,3926 ****
+  		    lnum = new_cursor.lnum;
+  		    ptr = ml_get(lnum) + col;
+  		    totlen = (int)STRLEN(y_array[y_size - 1]);
+! 		    newp = alloc_check((unsigned)(STRLEN(ptr) + totlen + 1));
+  		    if (newp == NULL)
+  			goto error;
+  		    STRCPY(newp, y_array[y_size - 1]);
+--- 3916,3922 ----
+  		    lnum = new_cursor.lnum;
+  		    ptr = ml_get(lnum) + col;
+  		    totlen = (int)STRLEN(y_array[y_size - 1]);
+! 		    newp = alloc(STRLEN(ptr) + totlen + 1);
+  		    if (newp == NULL)
+  			goto error;
+  		    STRCPY(newp, y_array[y_size - 1]);
+***************
+*** 3930,3936 ****
+  		    vim_free(newp);
+  
+  		    oldp = ml_get(lnum);
+! 		    newp = alloc_check((unsigned)(col + yanklen + 1));
+  		    if (newp == NULL)
+  			goto error;
+  					    /* copy first part of line */
+--- 3926,3932 ----
+  		    vim_free(newp);
+  
+  		    oldp = ml_get(lnum);
+! 		    newp = alloc(col + yanklen + 1);
+  		    if (newp == NULL)
+  			goto error;
+  					    /* copy first part of line */
+***************
+*** 4563,4569 ****
+      col = sumsize - currsize - spaces[count - 1];
+  
+      /* allocate the space for the new line */
+!     newp = alloc_check((unsigned)(sumsize + 1));
+      cend = newp + sumsize;
+      *cend = 0;
+  
+--- 4559,4565 ----
+      col = sumsize - currsize - spaces[count - 1];
+  
+      /* allocate the space for the new line */
+!     newp = alloc(sumsize + 1);
+      cend = newp + sumsize;
+      *cend = 0;
+  
+***************
+*** 5880,5886 ****
+  	 * When there are many leading zeros it could be very long.
+  	 * Allocate a bit too much.
+  	 */
+! 	buf1 = alloc((unsigned)length + NUMBUFLEN);
+  	if (buf1 == NULL)
+  	    goto theend;
+  	ptr = buf1;
+--- 5876,5882 ----
+  	 * When there are many leading zeros it could be very long.
+  	 * Allocate a bit too much.
+  	 */
+! 	buf1 = alloc(length + NUMBUFLEN);
+  	if (buf1 == NULL)
+  	    goto theend;
+  	ptr = buf1;
+***************
+*** 6055,6061 ****
+  	 */
+  	if (set_prev)
+  	    y_previous = y_current;
+! 	array = (char_u **)alloc((unsigned)(limit * sizeof(char_u *)));
+  	str = skipwhite(skiptowhite(str));
+  	if (STRNCMP(str, "CHAR", 4) == 0)
+  	    new_type = MCHAR;
+--- 6051,6057 ----
+  	 */
+  	if (set_prev)
+  	    y_previous = y_current;
+! 	array = (char_u **)alloc(limit * sizeof(char_u *));
+  	str = skipwhite(skiptowhite(str));
+  	if (STRNCMP(str, "CHAR", 4) == 0)
+  	    new_type = MCHAR;
+***************
+*** 6076,6082 ****
+  	    if (size == limit)
+  	    {
+  		char_u **new_array = (char_u **)
+! 			      alloc((unsigned)(limit * 2 * sizeof(char_u *)));
+  
+  		if (new_array == NULL)
+  		{
+--- 6072,6078 ----
+  	    if (size == limit)
+  	    {
+  		char_u **new_array = (char_u **)
+! 					   alloc(limit * 2 * sizeof(char_u *));
+  
+  		if (new_array == NULL)
+  		{
+***************
+*** 6116,6123 ****
+  	else
+  	{
+  	    /* Move the lines from array[] to y_array[]. */
+! 	    y_current->y_array =
+! 			(char_u **)alloc((unsigned)(size * sizeof(char_u *)));
+  	    for (i = 0; i < size; i++)
+  	    {
+  		if (y_current->y_array == NULL)
+--- 6112,6118 ----
+  	else
+  	{
+  	    /* Move the lines from array[] to y_array[]. */
+! 	    y_current->y_array = (char_u **)alloc(size * sizeof(char_u *));
+  	    for (i = 0; i < size; i++)
+  	    {
+  		if (y_current->y_array == NULL)
+***************
+*** 6214,6220 ****
+  	y_ptr->y_array = NULL;
+  	return;
+      }
+!     y_ptr->y_array = (char_u **)alloc((unsigned)(linecount * sizeof(char_u *)));
+      if (y_ptr->y_array == NULL)
+      {
+  	y_ptr->y_size = 0; // ensure object state is consistent
+--- 6209,6215 ----
+  	y_ptr->y_array = NULL;
+  	return;
+      }
+!     y_ptr->y_array = (char_u **)alloc(linecount * sizeof(char_u *));
+      if (y_ptr->y_array == NULL)
+      {
+  	y_ptr->y_size = 0; // ensure object state is consistent
+***************
+*** 7145,7151 ****
+  	    }
+  	    else
+  		extra = 0;
+! 	    s = alloc((unsigned)(i + extra + 1));
+  	    if (s == NULL)
+  		break;
+  	    if (extra)
+--- 7140,7146 ----
+  	    }
+  	    else
+  		extra = 0;
+! 	    s = alloc(i + extra + 1);
+  	    if (s == NULL)
+  		break;
+  	    if (extra)
+*** ../vim-8.1.1383/src/option.c	2019-05-23 17:08:40.824565813 +0200
+--- src/option.c	2019-05-24 18:29:56.039427541 +0200
+***************
+*** 3430,3436 ****
+  	cdpath = vim_getenv((char_u *)"CDPATH", &mustfree);
+  	if (cdpath != NULL)
+  	{
+! 	    buf = alloc((unsigned)((STRLEN(cdpath) << 1) + 2));
+  	    if (buf != NULL)
+  	    {
+  		buf[0] = ',';	    /* start with ",", current dir first */
+--- 3430,3436 ----
+  	cdpath = vim_getenv((char_u *)"CDPATH", &mustfree);
+  	if (cdpath != NULL)
+  	{
+! 	    buf = alloc((STRLEN(cdpath) << 1) + 2);
+  	    if (buf != NULL)
+  	    {
+  		buf[0] = ',';	    /* start with ",", current dir first */
+***************
+*** 7913,7919 ****
+  	wp->w_p_cc_cols = NULL;
+      else
+      {
+! 	wp->w_p_cc_cols = (int *)alloc((unsigned)sizeof(int) * (count + 1));
+  	if (wp->w_p_cc_cols != NULL)
+  	{
+  	    /* sort the columns for faster usage on screen redraw inside
+--- 7913,7919 ----
+  	wp->w_p_cc_cols = NULL;
+      else
+      {
+! 	wp->w_p_cc_cols = (int *)alloc(sizeof(int) * (count + 1));
+  	if (wp->w_p_cc_cols != NULL)
+  	{
+  	    /* sort the columns for faster usage on screen redraw inside
+***************
+*** 10053,10060 ****
+  #define INC 20
+  #define GAP 3
+  
+!     items = (struct vimoption **)alloc((unsigned)(sizeof(struct vimoption *) *
+! 								PARAM_COUNT));
+      if (items == NULL)
+  	return;
+  
+--- 10053,10060 ----
+  #define INC 20
+  #define GAP 3
+  
+!     items = (struct vimoption **)alloc(sizeof(struct vimoption *)
+! 								* PARAM_COUNT);
+      if (items == NULL)
+  	return;
+  
+***************
+*** 11941,11947 ****
+  		*num_file = num_term;
+  	    else
+  		return OK;
+! 	    *file = (char_u **)alloc((unsigned)(*num_file * sizeof(char_u *)));
+  	    if (*file == NULL)
+  	    {
+  		*file = (char_u **)"";
+--- 11941,11947 ----
+  		*num_file = num_term;
+  	    else
+  		return OK;
+! 	    *file = (char_u **)alloc(*num_file * sizeof(char_u *));
+  	    if (*file == NULL)
+  	    {
+  		*file = (char_u **)"";
+***************
+*** 11959,11965 ****
+      char_u  *buf;
+  
+      *num_file = 0;
+!     *file = (char_u **)alloc((unsigned)sizeof(char_u *));
+      if (*file == NULL)
+  	return FAIL;
+  
+--- 11959,11965 ----
+      char_u  *buf;
+  
+      *num_file = 0;
+!     *file = (char_u **)alloc(sizeof(char_u *));
+      if (*file == NULL)
+  	return FAIL;
+  
+***************
+*** 12822,12828 ****
+  	return FALSE;
+      }
+  
+!     *array = (int *)alloc((unsigned) ((valcount + 1) * sizeof(int)));
+      if (*array == NULL)
+  	return FALSE;
+      (*array)[0] = valcount;
+--- 12822,12828 ----
+  	return FALSE;
+      }
+  
+!     *array = (int *)alloc((valcount + 1) * sizeof(int));
+      if (*array == NULL)
+  	return FALSE;
+      (*array)[0] = valcount;
+***************
+*** 13045,13051 ****
+  
+      if (oldts == NULL)
+  	return NULL;
+!     newts = (int *)alloc((unsigned)((oldts[0] + 1) * sizeof(int)));
+      if (newts != NULL)
+  	for (t = 0; t <= oldts[0]; ++t)
+  	    newts[t] = oldts[t];
+--- 13045,13051 ----
+  
+      if (oldts == NULL)
+  	return NULL;
+!     newts = (int *)alloc((oldts[0] + 1) * sizeof(int));
+      if (newts != NULL)
+  	for (t = 0; t <= oldts[0]; ++t)
+  	    newts[t] = oldts[t];
+*** ../vim-8.1.1383/src/os_amiga.c	2019-01-24 16:38:58.272712472 +0100
+--- src/os_amiga.c	2019-05-24 18:30:12.755364635 +0200
+***************
+*** 1467,1473 ****
+      {
+  #endif
+  	/* hack to replace '*' by '#?' */
+! 	starbuf = alloc((unsigned)(2 * STRLEN(pat) + 1));
+  	if (starbuf == NULL)
+  	    goto Return;
+  	for (sp = pat, dp = starbuf; *sp; ++sp)
+--- 1467,1473 ----
+      {
+  #endif
+  	/* hack to replace '*' by '#?' */
+! 	starbuf = alloc(2 * STRLEN(pat) + 1);
+  	if (starbuf == NULL)
+  	    goto Return;
+  	for (sp = pat, dp = starbuf; *sp; ++sp)
+*** ../vim-8.1.1383/src/os_mswin.c	2019-05-09 15:12:45.176723907 +0200
+--- src/os_mswin.c	2019-05-24 18:30:31.887291592 +0200
+***************
+*** 1466,1473 ****
+  	char_u	*port_name = utf16_to_enc(wport_name, NULL);
+  
+  	if (printer_name != NULL && port_name != NULL)
+! 	    prt_name = alloc((unsigned)(STRLEN(printer_name)
+! 					+ STRLEN(port_name) + STRLEN(text)));
+  	if (prt_name != NULL)
+  	    wsprintf((char *)prt_name, (const char *)text,
+  		    printer_name, port_name);
+--- 1466,1473 ----
+  	char_u	*port_name = utf16_to_enc(wport_name, NULL);
+  
+  	if (printer_name != NULL && port_name != NULL)
+! 	    prt_name = alloc(STRLEN(printer_name)
+! 					   + STRLEN(port_name) + STRLEN(text));
+  	if (prt_name != NULL)
+  	    wsprintf((char *)prt_name, (const char *)text,
+  		    printer_name, port_name);
+***************
+*** 2111,2117 ****
+  		char	*err = _(e_invexprmsg);
+  		size_t	len = STRLEN(str) + STRLEN(err) + 5;
+  
+! 		res = alloc((unsigned)len);
+  		if (res != NULL)
+  		    vim_snprintf((char *)res, len, "%s: \"%s\"", err, str);
+  		reply.dwData = COPYDATA_ERROR_RESULT;
+--- 2111,2117 ----
+  		char	*err = _(e_invexprmsg);
+  		size_t	len = STRLEN(str) + STRLEN(err) + 5;
+  
+! 		res = alloc(len);
+  		if (res != NULL)
+  		    vim_snprintf((char *)res, len, "%s: \"%s\"", err, str);
+  		reply.dwData = COPYDATA_ERROR_RESULT;
+***************
+*** 2340,2346 ****
+      char_u	*p;
+  
+      /* Leave enough space for a 9-digit suffix to ensure uniqueness! */
+!     ok_name = alloc((unsigned)STRLEN(name) + 10);
+  
+      STRCPY(ok_name, name);
+      p = ok_name + STRLEN(name);
+--- 2340,2346 ----
+      char_u	*p;
+  
+      /* Leave enough space for a 9-digit suffix to ensure uniqueness! */
+!     ok_name = alloc(STRLEN(name) + 10);
+  
+      STRCPY(ok_name, name);
+      p = ok_name + STRLEN(name);
+*** ../vim-8.1.1383/src/os_unix.c	2019-05-09 18:59:27.228463605 +0200
+--- src/os_unix.c	2019-05-24 18:30:50.731218535 +0200
+***************
+*** 2447,2453 ****
+  #endif
+  
+  /*
+!  * Get name of current directory into buffer 'buf' of length 'len' bytes.
+   * Return OK for success, FAIL for failure.
+   */
+      int
+--- 2447,2454 ----
+  #endif
+  
+  /*
+!  * Get name of current directory into buffer "buf" of length "len" bytes.
+!  * "len" must be at least PATH_MAX.
+   * Return OK for success, FAIL for failure.
+   */
+      int
+***************
+*** 2516,2522 ****
+      {
+  	/*
+  	 * If the file name has a path, change to that directory for a moment,
+! 	 * and then do the getwd() (and get back to where we were).
+  	 * This will get the correct path name with "../" things.
+  	 */
+  	if (p != NULL)
+--- 2517,2523 ----
+      {
+  	/*
+  	 * If the file name has a path, change to that directory for a moment,
+! 	 * and then get the directory (and get back to where we were).
+  	 * This will get the correct path name with "../" things.
+  	 */
+  	if (p != NULL)
+***************
+*** 3124,3130 ****
+      p = (char_u *)getenv("PATH");
+      if (p == NULL || *p == NUL)
+  	return -1;
+!     buf = alloc((unsigned)(STRLEN(name) + STRLEN(p) + 2));
+      if (buf == NULL)
+  	return -1;
+  
+--- 3125,3131 ----
+      p = (char_u *)getenv("PATH");
+      if (p == NULL || *p == NUL)
+  	return -1;
+!     buf = alloc(STRLEN(name) + STRLEN(p) + 2);
+      if (buf == NULL)
+  	return -1;
+  
+***************
+*** 4323,4329 ****
+  
+  	/* Break 'shellcmdflag' into white separated parts.  This doesn't
+  	 * handle quoted strings, they are very unlikely to appear. */
+! 	*shcf_tofree = alloc((unsigned)STRLEN(p_shcf) + 1);
+  	if (*shcf_tofree == NULL)    /* out of memory */
+  	    return FAIL;
+  	s = *shcf_tofree;
+--- 4324,4330 ----
+  
+  	/* Break 'shellcmdflag' into white separated parts.  This doesn't
+  	 * handle quoted strings, they are very unlikely to appear. */
+! 	*shcf_tofree = alloc(STRLEN(p_shcf) + 1);
+  	if (*shcf_tofree == NULL)    /* out of memory */
+  	    return FAIL;
+  	s = *shcf_tofree;
+***************
+*** 6899,6905 ****
+  		    && !mch_can_exe((*file)[i], NULL, !(flags & EW_SHELLCMD)))
+  	    continue;
+  
+! 	p = alloc((unsigned)(STRLEN((*file)[i]) + 1 + dir));
+  	if (p)
+  	{
+  	    STRCPY(p, (*file)[i]);
+--- 6900,6906 ----
+  		    && !mch_can_exe((*file)[i], NULL, !(flags & EW_SHELLCMD)))
+  	    continue;
+  
+! 	p = alloc(STRLEN((*file)[i]) + 1 + dir);
+  	if (p)
+  	{
+  	    STRCPY(p, (*file)[i]);
+*** ../vim-8.1.1383/src/os_vms.c	2018-04-23 20:39:51.000000000 +0200
+--- src/os_vms.c	2019-05-24 18:31:05.687159822 +0200
+***************
+*** 238,244 ****
+      if (sys$trnlnm(&attrib, &d_file_dev, &d_lognam, NULL,&itmlst) == SS$_NORMAL)
+      {
+  	buffer[lengte] = '\0';
+! 	if (cp = (char_u *)alloc((unsigned)(lengte+1)))
+  	    strcpy((char *)cp, buffer);
+  	return(cp);
+      }
+--- 238,244 ----
+      if (sys$trnlnm(&attrib, &d_file_dev, &d_lognam, NULL,&itmlst) == SS$_NORMAL)
+      {
+  	buffer[lengte] = '\0';
+! 	if (cp = (char_u *)alloc(lengte + 1))
+  	    strcpy((char *)cp, buffer);
+  	return(cp);
+      }
+*** ../vim-8.1.1383/src/os_win32.c	2019-05-24 13:32:33.148376324 +0200
+--- src/os_win32.c	2019-05-24 18:31:46.874994828 +0200
+***************
+*** 2075,2082 ****
+  	return FALSE;
+  
+      wcurpath = _wgetenv(L"PATH");
+!     wnewpath = (WCHAR*)alloc((unsigned)(wcslen(wcurpath) + 3)
+! 	    * sizeof(WCHAR));
+      if (wnewpath == NULL)
+  	return FALSE;
+      wcscpy(wnewpath, L".;");
+--- 2075,2081 ----
+  	return FALSE;
+  
+      wcurpath = _wgetenv(L"PATH");
+!     wnewpath = (WCHAR *)alloc((wcslen(wcurpath) + 3) * sizeof(WCHAR));
+      if (wnewpath == NULL)
+  	return FALSE;
+      wcscpy(wnewpath, L".;");
+***************
+*** 7205,7211 ****
+      char_u	*envbuf;
+      WCHAR	*p;
+  
+!     envbuf = alloc((unsigned)(STRLEN(var) + STRLEN(value) + 2));
+      if (envbuf == NULL)
+  	return -1;
+  
+--- 7204,7210 ----
+      char_u	*envbuf;
+      WCHAR	*p;
+  
+!     envbuf = alloc(STRLEN(var) + STRLEN(value) + 2);
+      if (envbuf == NULL)
+  	return -1;
+  
+*** ../vim-8.1.1383/src/quickfix.c	2019-05-09 21:48:29.033295465 +0200
+--- src/quickfix.c	2019-05-24 18:32:11.446894295 +0200
+***************
+*** 1346,1352 ****
+  	if (*fields->errmsg && !qfl->qf_multiignore)
+  	{
+  	    len = (int)STRLEN(qfprev->qf_text);
+! 	    if ((ptr = alloc((unsigned)(len + STRLEN(fields->errmsg) + 2)))
+  		    == NULL)
+  		return QF_FAIL;
+  	    STRCPY(ptr, qfprev->qf_text);
+--- 1346,1352 ----
+  	if (*fields->errmsg && !qfl->qf_multiignore)
+  	{
+  	    len = (int)STRLEN(qfprev->qf_text);
+! 	    if ((ptr = alloc(len + STRLEN(fields->errmsg) + 2))
+  		    == NULL)
+  		return QF_FAIL;
+  	    STRCPY(ptr, qfprev->qf_text);
+***************
+*** 1890,1896 ****
+  {
+      qf_delq_T	*q;
+  
+!     q = (qf_delq_T *)alloc((unsigned)sizeof(qf_delq_T));
+      if (q != NULL)
+      {
+  	q->qi = qi;
+--- 1890,1896 ----
+  {
+      qf_delq_T	*q;
+  
+!     q = (qf_delq_T *)alloc(sizeof(qf_delq_T));
+      if (q != NULL)
+      {
+  	q->qi = qi;
+***************
+*** 2063,2069 ****
+      qfline_T	*qfp;
+      qfline_T	**lastp;	// pointer to qf_last or NULL
+  
+!     if ((qfp = (qfline_T *)alloc((unsigned)sizeof(qfline_T))) == NULL)
+  	return QF_FAIL;
+      if (bufnum != 0)
+      {
+--- 2063,2069 ----
+      qfline_T	*qfp;
+      qfline_T	**lastp;	// pointer to qf_last or NULL
+  
+!     if ((qfp = (qfline_T *)alloc(sizeof(qfline_T))) == NULL)
+  	return QF_FAIL;
+      if (bufnum != 0)
+      {
+***************
+*** 2429,2435 ****
+      struct dir_stack_T  *ds_ptr;
+  
+      // allocate new stack element and hook it in
+!     ds_new = (struct dir_stack_T *)alloc((unsigned)sizeof(struct dir_stack_T));
+      if (ds_new == NULL)
+  	return NULL;
+  
+--- 2429,2435 ----
+      struct dir_stack_T  *ds_ptr;
+  
+      // allocate new stack element and hook it in
+!     ds_new = (struct dir_stack_T *)alloc(sizeof(struct dir_stack_T));
+      if (ds_new == NULL)
+  	return NULL;
+  
+***************
+*** 4707,4713 ****
+  	else
+  	    off += 19;
+  
+! 	name = alloc((unsigned)STRLEN(p_mef) + 30);
+  	if (name == NULL)
+  	    break;
+  	STRCPY(name, p_mef);
+--- 4707,4713 ----
+  	else
+  	    off += 19;
+  
+! 	name = alloc(STRLEN(p_mef) + 30);
+  	if (name == NULL)
+  	    break;
+  	STRCPY(name, p_mef);
+*** ../vim-8.1.1383/src/regexp.c	2019-05-11 18:28:41.351611622 +0200
+--- src/regexp.c	2019-05-24 18:32:23.502844410 +0200
+***************
+*** 7145,7151 ****
+  	    {
+  		/* length = len(newsub) - 1 + len(prev_sub) + 1 */
+  		prevlen = (int)STRLEN(reg_prev_sub);
+! 		tmpsub = alloc((unsigned)(STRLEN(newsub) + prevlen));
+  		if (tmpsub != NULL)
+  		{
+  		    /* copy prefix */
+--- 7145,7151 ----
+  	    {
+  		/* length = len(newsub) - 1 + len(prev_sub) + 1 */
+  		prevlen = (int)STRLEN(reg_prev_sub);
+! 		tmpsub = alloc(STRLEN(newsub) + prevlen);
+  		if (tmpsub != NULL)
+  		{
+  		    /* copy prefix */
+*** ../vim-8.1.1383/src/screen.c	2019-05-17 13:05:03.795770160 +0200
+--- src/screen.c	2019-05-24 18:32:45.106754126 +0200
+***************
+*** 4948,4954 ****
+  			if (n_extra > 0)
+  			    len += n_extra - tab_len;
+  			c = lcs_tab1;
+! 			p = alloc((unsigned)(len + 1));
+  			vim_memset(p, ' ', len);
+  			p[len] = NUL;
+  			vim_free(p_extra_free);
+--- 4948,4954 ----
+  			if (n_extra > 0)
+  			    len += n_extra - tab_len;
+  			c = lcs_tab1;
+! 			p = alloc(len + 1);
+  			vim_memset(p, ' ', len);
+  			p[len] = NUL;
+  			vim_free(p_extra_free);
+***************
+*** 5107,5113 ****
+  			char_u *p;
+  
+  			c = *p_extra;
+! 			p = alloc((unsigned)n_extra + 1);
+  			vim_memset(p, ' ', n_extra);
+  			STRNCPY(p, p_extra + 1, STRLEN(p_extra) - 1);
+  			p[n_extra] = NUL;
+--- 5107,5113 ----
+  			char_u *p;
+  
+  			c = *p_extra;
+! 			p = alloc(n_extra + 1);
+  			vim_memset(p, ' ', n_extra);
+  			STRNCPY(p, p_extra + 1, STRLEN(p_extra) - 1);
+  			p[n_extra] = NUL;
+***************
+*** 6680,6688 ****
+  	return;
+  
+      if (has_mbyte)
+! 	buf = alloc((unsigned)Columns * MB_MAXBYTES + 1);
+      else
+! 	buf = alloc((unsigned)Columns + 1);
+      if (buf == NULL)
+  	return;
+  
+--- 6680,6688 ----
+  	return;
+  
+      if (has_mbyte)
+! 	buf = alloc(Columns * MB_MAXBYTES + 1);
+      else
+! 	buf = alloc(Columns + 1);
+      if (buf == NULL)
+  	return;
+  
+*** ../vim-8.1.1383/src/spell.c	2019-05-23 21:35:44.459922615 +0200
+--- src/spell.c	2019-05-24 18:33:22.506595221 +0200
+***************
+*** 2083,2089 ****
+      hi = hash_lookup(&lp->sl_wordcount, p, hash);
+      if (HASHITEM_EMPTY(hi))
+      {
+! 	wc = (wordcount_T *)alloc((unsigned)(sizeof(wordcount_T) + STRLEN(p)));
+  	if (wc == NULL)
+  	    return;
+  	STRCPY(wc->wc_word, p);
+--- 2083,2089 ----
+      hi = hash_lookup(&lp->sl_wordcount, p, hash);
+      if (HASHITEM_EMPTY(hi))
+      {
+! 	wc = (wordcount_T *)alloc(sizeof(wordcount_T) + STRLEN(p));
+  	if (wc == NULL)
+  	    return;
+  	STRCPY(wc->wc_word, p);
+***************
+*** 3432,3439 ****
+  	}
+  
+  	/* Replace the word. */
+! 	p = alloc((unsigned)STRLEN(line) - stp->st_orglen
+! 						       + stp->st_wordlen + 1);
+  	if (p != NULL)
+  	{
+  	    c = (int)(sug.su_badptr - line);
+--- 3432,3438 ----
+  	}
+  
+  	/* Replace the word. */
+! 	p = alloc(STRLEN(line) - stp->st_orglen + stp->st_wordlen + 1);
+  	if (p != NULL)
+  	{
+  	    c = (int)(sug.su_badptr - line);
+***************
+*** 3552,3558 ****
+      }
+      addlen = (int)(STRLEN(repl_to) - STRLEN(repl_from));
+  
+!     frompat = alloc((unsigned)STRLEN(repl_from) + 7);
+      if (frompat == NULL)
+  	return;
+      sprintf((char *)frompat, "\\V\\<%s\\>", repl_from);
+--- 3551,3557 ----
+      }
+      addlen = (int)(STRLEN(repl_to) - STRLEN(repl_from));
+  
+!     frompat = alloc(STRLEN(repl_from) + 7);
+      if (frompat == NULL)
+  	return;
+      sprintf((char *)frompat, "\\V\\<%s\\>", repl_from);
+***************
+*** 3573,3579 ****
+  	if (addlen <= 0 || STRNCMP(line + curwin->w_cursor.col,
+  					       repl_to, STRLEN(repl_to)) != 0)
+  	{
+! 	    p = alloc((unsigned)STRLEN(line) + addlen + 1);
+  	    if (p == NULL)
+  		break;
+  	    mch_memmove(p, line, curwin->w_cursor.col);
+--- 3572,3578 ----
+  	if (addlen <= 0 || STRNCMP(line + curwin->w_cursor.col,
+  					       repl_to, STRLEN(repl_to)) != 0)
+  	{
+! 	    p = alloc(STRLEN(line) + addlen + 1);
+  	    if (p == NULL)
+  		break;
+  	    mch_memmove(p, line, curwin->w_cursor.col);
+***************
+*** 6224,6231 ****
+      hi = hash_lookup(&slang->sl_sounddone, goodword, hash);
+      if (HASHITEM_EMPTY(hi))
+      {
+! 	sft = (sftword_T *)alloc((unsigned)(sizeof(sftword_T)
+! 							 + STRLEN(goodword)));
+  	if (sft != NULL)
+  	{
+  	    sft->sft_score = score;
+--- 6223,6229 ----
+      hi = hash_lookup(&slang->sl_sounddone, goodword, hash);
+      if (HASHITEM_EMPTY(hi))
+      {
+! 	sft = (sftword_T *)alloc(sizeof(sftword_T) + STRLEN(goodword));
+  	if (sft != NULL)
+  	{
+  	    sft->sft_score = score;
+*** ../vim-8.1.1383/src/spellfile.c	2019-05-23 21:35:44.459922615 +0200
+--- src/spellfile.c	2019-05-24 18:34:23.734328606 +0200
+***************
+*** 1264,1270 ****
+      c = todo * 2 + 7;
+      if (enc_utf8)
+  	c += todo * 2;
+!     pat = alloc((unsigned)c);
+      if (pat == NULL)
+  	return SP_OTHERERROR;
+  
+--- 1264,1270 ----
+      c = todo * 2 + 7;
+      if (enc_utf8)
+  	c += todo * 2;
+!     pat = alloc(c);
+      if (pat == NULL)
+  	return SP_OTHERERROR;
+  
+***************
+*** 6615,6621 ****
+  		hash_T	    hash;
+  		hashitem_T  *hi;
+  
+! 		b = alloc((unsigned)(cl + headcl + 2));
+  		if (b == NULL)
+  		    return;
+  		mb_char2bytes(c, b);
+--- 6615,6621 ----
+  		hash_T	    hash;
+  		hashitem_T  *hi;
+  
+! 		b = alloc(cl + headcl + 2);
+  		if (b == NULL)
+  		    return;
+  		mb_char2bytes(c, b);
+*** ../vim-8.1.1383/src/syntax.c	2019-05-09 19:26:34.132388790 +0200
+--- src/syntax.c	2019-05-24 18:35:02.090157843 +0200
+***************
+*** 4757,4763 ****
+      if (curwin->w_s->b_syn_topgrp >= SYNID_CLUSTER)
+      {
+  	/* We have to alloc this, because syn_combine_list() will free it. */
+! 	short	    *grp_list = (short *)alloc((unsigned)(2 * sizeof(short)));
+  	int	    tlg_id = curwin->w_s->b_syn_topgrp - SYNID_CLUSTER;
+  
+  	if (grp_list != NULL)
+--- 4757,4763 ----
+      if (curwin->w_s->b_syn_topgrp >= SYNID_CLUSTER)
+      {
+  	/* We have to alloc this, because syn_combine_list() will free it. */
+! 	short	    *grp_list = (short *)alloc(2 * sizeof(short));
+  	int	    tlg_id = curwin->w_s->b_syn_topgrp - SYNID_CLUSTER;
+  
+  	if (grp_list != NULL)
+***************
+*** 4872,4878 ****
+  	    syn_id = syn_check_group(arg, (int)(group_name_end - arg));
+  	if (syn_id != 0)
+  	    /* allocate a buffer, for removing backslashes in the keyword */
+! 	    keyword_copy = alloc((unsigned)STRLEN(rest) + 1);
+  	if (keyword_copy != NULL)
+  	{
+  	    syn_opt_arg.flags = 0;
+--- 4872,4878 ----
+  	    syn_id = syn_check_group(arg, (int)(group_name_end - arg));
+  	if (syn_id != 0)
+  	    /* allocate a buffer, for removing backslashes in the keyword */
+! 	    keyword_copy = alloc(STRLEN(rest) + 1);
+  	if (keyword_copy != NULL)
+  	{
+  	    syn_opt_arg.flags = 0;
+***************
+*** 5208,5214 ****
+  	     * syn_patterns for this item, at the start (because the list is
+  	     * used from end to start).
+  	     */
+! 	    ppp = (struct pat_ptr *)alloc((unsigned)sizeof(struct pat_ptr));
+  	    if (ppp == NULL)
+  	    {
+  		rest = NULL;
+--- 5208,5214 ----
+  	     * syn_patterns for this item, at the start (because the list is
+  	     * used from end to start).
+  	     */
+! 	    ppp = (struct pat_ptr *)alloc(sizeof(struct pat_ptr));
+  	    if (ppp == NULL)
+  	    {
+  		rest = NULL;
+***************
+*** 5465,5471 ****
+  		clstr = NULL;
+  		break;
+  	    }
+! 	    clstr = (short *)alloc((unsigned)((count + 1) * sizeof(short)));
+  	    if (clstr == NULL)
+  		break;
+  	    clstr[count] = 0;
+--- 5465,5471 ----
+  		clstr = NULL;
+  		break;
+  	    }
+! 	    clstr = (short *)alloc((count + 1) * sizeof(short));
+  	    if (clstr == NULL)
+  		break;
+  	    clstr[count] = 0;
+***************
+*** 6124,6130 ****
+  	    break;
+  	if (round == 1)
+  	{
+! 	    retval = (short *)alloc((unsigned)((count + 1) * sizeof(short)));
+  	    if (retval == NULL)
+  		break;
+  	    retval[count] = 0;	    /* zero means end of the list */
+--- 6124,6130 ----
+  	    break;
+  	if (round == 1)
+  	{
+! 	    retval = (short *)alloc((count + 1) * sizeof(short));
+  	    if (retval == NULL)
+  		break;
+  	    retval[count] = 0;	    /* zero means end of the list */
+***************
+*** 6163,6169 ****
+      for (count = 0; list[count]; ++count)
+  	;
+      len = (count + 1) * sizeof(short);
+!     retval = (short *)alloc((unsigned)len);
+      if (retval != NULL)
+  	mch_memmove(retval, list, (size_t)len);
+  
+--- 6163,6169 ----
+      for (count = 0; list[count]; ++count)
+  	;
+      len = (count + 1) * sizeof(short);
+!     retval = (short *)alloc(len);
+      if (retval != NULL)
+  	mch_memmove(retval, list, (size_t)len);
+  
+***************
+*** 7167,7173 ****
+  	return OK;
+  
+      recursive = TRUE;
+!     buf = alloc((unsigned)(STRLEN(name) + 12));
+      if (buf != NULL)
+      {
+  	apply_autocmds(EVENT_COLORSCHEMEPRE, name,
+--- 7167,7173 ----
+  	return OK;
+  
+      recursive = TRUE;
+!     buf = alloc(STRLEN(name) + 12);
+      if (buf != NULL)
+      {
+  	apply_autocmds(EVENT_COLORSCHEMEPRE, name,
+*** ../vim-8.1.1383/src/term.c	2019-05-11 21:38:54.076825521 +0200
+--- src/term.c	2019-05-24 18:35:17.846086915 +0200
+***************
+*** 6165,6171 ****
+       * Allocate space for the translation.  Worst case a single character is
+       * replaced by 6 bytes (shifted special key), plus a NUL at the end.
+       */
+!     result = alloc((unsigned)STRLEN(from) * 6 + 1);
+      if (result == NULL)		/* out of memory */
+      {
+  	*bufp = NULL;
+--- 6165,6171 ----
+       * Allocate space for the translation.  Worst case a single character is
+       * replaced by 6 bytes (shifted special key), plus a NUL at the end.
+       */
+!     result = alloc(STRLEN(from) * 6 + 1);
+      if (result == NULL)		/* out of memory */
+      {
+  	*bufp = NULL;
+***************
+*** 6420,6426 ****
+  
+      if (tc_len == 0)	    /* no terminal codes (must be GUI) */
+  	return;
+!     items = (int *)alloc((unsigned)(sizeof(int) * tc_len));
+      if (items == NULL)
+  	return;
+  
+--- 6420,6426 ----
+  
+      if (tc_len == 0)	    /* no terminal codes (must be GUI) */
+  	return;
+!     items = (int *)alloc(sizeof(int) * tc_len);
+      if (items == NULL)
+  	return;
+  
+*** ../vim-8.1.1383/src/undo.c	2019-05-11 13:09:39.131391135 +0200
+--- src/undo.c	2019-05-24 18:35:35.814005483 +0200
+***************
+*** 367,372 ****
+--- 367,374 ----
+      }
+      else
+      {
++ 	// This uses the length in the memline, thus text properties are
++ 	// included.
+  	ul->ul_len = curbuf->b_ml.ml_line_len;
+  	ul->ul_line = vim_memsave(line, ul->ul_len);
+      }
+***************
+*** 1121,1127 ****
+      static char_u *
+  read_string_decrypt(bufinfo_T *bi, int len)
+  {
+!     char_u  *ptr = alloc((unsigned)len + 1);
+  
+      if (ptr != NULL)
+      {
+--- 1123,1129 ----
+      static char_u *
+  read_string_decrypt(bufinfo_T *bi, int len)
+  {
+!     char_u  *ptr = alloc(len + 1);
+  
+      if (ptr != NULL)
+      {
+***************
+*** 2689,2695 ****
+  		    char_u *p = ml_get(top + 1 + i);
+  
+  		    if (curbuf->b_ml.ml_line_len != uep->ue_array[i].ul_len
+! 			    || memcmp(uep->ue_array[i].ul_line, p, curbuf->b_ml.ml_line_len) != 0)
+  			break;
+  		}
+  		if (i == newsize && newlnum == MAXLNUM && uep->ue_next == NULL)
+--- 2691,2698 ----
+  		    char_u *p = ml_get(top + 1 + i);
+  
+  		    if (curbuf->b_ml.ml_line_len != uep->ue_array[i].ul_len
+! 			    || memcmp(uep->ue_array[i].ul_line, p,
+! 						curbuf->b_ml.ml_line_len) != 0)
+  			break;
+  		}
+  		if (i == newsize && newlnum == MAXLNUM && uep->ue_next == NULL)
+***************
+*** 2750,2758 ****
+  		// If the file is empty, there is an empty line 1 that we
+  		// should get rid of, by replacing it with the new line.
+  		if (empty_buffer && lnum == 0)
+! 		    ml_replace_len((linenr_T)1, uep->ue_array[i].ul_line, uep->ue_array[i].ul_len, TRUE, TRUE);
+  		else
+! 		    ml_append(lnum, uep->ue_array[i].ul_line, (colnr_T)uep->ue_array[i].ul_len, FALSE);
+  		vim_free(uep->ue_array[i].ul_line);
+  	    }
+  	    vim_free((char_u *)uep->ue_array);
+--- 2753,2763 ----
+  		// If the file is empty, there is an empty line 1 that we
+  		// should get rid of, by replacing it with the new line.
+  		if (empty_buffer && lnum == 0)
+! 		    ml_replace_len((linenr_T)1, uep->ue_array[i].ul_line,
+! 					  uep->ue_array[i].ul_len, TRUE, TRUE);
+  		else
+! 		    ml_append(lnum, uep->ue_array[i].ul_line,
+! 				      (colnr_T)uep->ue_array[i].ul_len, FALSE);
+  		vim_free(uep->ue_array[i].ul_line);
+  	    }
+  	    vim_free((char_u *)uep->ue_array);
+*** ../vim-8.1.1383/src/usercmd.c	2019-05-04 14:05:05.210240329 +0200
+--- src/usercmd.c	2019-05-24 18:35:50.509938477 +0200
+***************
+*** 1637,1643 ****
+  	}
+  
+  	totlen += STRLEN(p);	    // Add on the trailing characters
+! 	buf = alloc((unsigned)(totlen + 1));
+  	if (buf == NULL)
+  	{
+  	    vim_free(split_buf);
+--- 1637,1643 ----
+  	}
+  
+  	totlen += STRLEN(p);	    // Add on the trailing characters
+! 	buf = alloc(totlen + 1);
+  	if (buf == NULL)
+  	{
+  	    vim_free(split_buf);
+*** ../vim-8.1.1383/src/userfunc.c	2019-05-19 21:37:14.189063500 +0200
+--- src/userfunc.c	2019-05-24 18:36:15.301824670 +0200
+***************
+*** 557,563 ****
+  	}
+  	else
+  	{
+! 	    fname = alloc((unsigned)(i + STRLEN(name + llen) + 1));
+  	    if (fname == NULL)
+  		*error = ERROR_OTHER;
+  	    else
+--- 557,563 ----
+  	}
+  	else
+  	{
+! 	    fname = alloc(i + STRLEN(name + llen) + 1);
+  	    if (fname == NULL)
+  		*error = ERROR_OTHER;
+  	    else
+***************
+*** 978,984 ****
+      /* need space for function name + ("function " + 3) or "[number]" */
+      len = (save_sourcing_name == NULL ? 0 : STRLEN(save_sourcing_name))
+  						   + STRLEN(fp->uf_name) + 20;
+!     sourcing_name = alloc((unsigned)len);
+      if (sourcing_name != NULL)
+      {
+  	if (save_sourcing_name != NULL
+--- 978,984 ----
+      /* need space for function name + ("function " + 3) or "[number]" */
+      len = (save_sourcing_name == NULL ? 0 : STRLEN(save_sourcing_name))
+  						   + STRLEN(fp->uf_name) + 20;
+!     sourcing_name = alloc(len);
+      if (sourcing_name != NULL)
+      {
+  	if (save_sourcing_name != NULL
+***************
+*** 1932,1938 ****
+  	}
+      }
+  
+!     name = alloc((unsigned)(len + lead + 1));
+      if (name != NULL)
+      {
+  	if (lead > 0)
+--- 1932,1938 ----
+  	}
+      }
+  
+!     name = alloc(len + lead + 1);
+      if (name != NULL)
+      {
+  	if (lead > 0)
+***************
+*** 2787,2793 ****
+      if (todo == 0)
+  	return;     /* nothing to dump */
+  
+!     sorttab = (ufunc_T **)alloc((unsigned)(sizeof(ufunc_T *) * todo));
+  
+      for (hi = func_hashtab.ht_array; todo > 0; ++hi)
+      {
+--- 2787,2793 ----
+      if (todo == 0)
+  	return;     /* nothing to dump */
+  
+!     sorttab = (ufunc_T **)alloc(sizeof(ufunc_T *) * todo);
+  
+      for (hi = func_hashtab.ht_array; todo > 0; ++hi)
+      {
+*** ../vim-8.1.1383/src/version.c	2019-05-24 17:55:47.511425702 +0200
+--- src/version.c	2019-05-24 18:39:19.684951278 +0200
+***************
+*** 61,67 ****
+  		+ strlen(VIM_VERSION_DATE_ONLY)
+  		+ strlen(date_time);
+  
+!     longVersion = (char *)alloc((unsigned)len);
+      if (longVersion == NULL)
+  	longVersion = VIM_VERSION_LONG;
+      else
+--- 61,67 ----
+  		+ strlen(VIM_VERSION_DATE_ONLY)
+  		+ strlen(date_time);
+  
+!     longVersion = (char *)alloc(len);
+      if (longVersion == NULL)
+  	longVersion = VIM_VERSION_LONG;
+      else
+*** ../vim-8.1.1383/src/winclip.c	2019-02-27 14:11:56.977675599 +0100
+--- src/winclip.c	2019-05-24 18:37:01.665609331 +0200
+***************
+*** 169,175 ****
+  {
+      *outlen = WideCharToMultiByte(cp, flags, in, inlen, NULL, 0, def, useddef);
+      /* Add one one byte to avoid a zero-length alloc(). */
+!     *out = (LPSTR)alloc((unsigned)*outlen + 1);
+      if (*out != NULL)
+      {
+  	WideCharToMultiByte(cp, flags, in, inlen, *out, *outlen, def, useddef);
+--- 169,175 ----
+  {
+      *outlen = WideCharToMultiByte(cp, flags, in, inlen, NULL, 0, def, useddef);
+      /* Add one one byte to avoid a zero-length alloc(). */
+!     *out = (LPSTR)alloc(*outlen + 1);
+      if (*out != NULL)
+      {
+  	WideCharToMultiByte(cp, flags, in, inlen, *out, *outlen, def, useddef);
+***************
+*** 512,519 ****
+  	    metadata.txtlen = WideCharToMultiByte(GetACP(), 0, out, len,
+  							       NULL, 0, 0, 0);
+  	    vim_free(str);
+! 	    str = (char_u *)alloc((unsigned)(metadata.txtlen == 0 ? 1
+! 							  : metadata.txtlen));
+  	    if (str == NULL)
+  	    {
+  		vim_free(out);
+--- 512,518 ----
+  	    metadata.txtlen = WideCharToMultiByte(GetACP(), 0, out, len,
+  							       NULL, 0, 0, 0);
+  	    vim_free(str);
+! 	    str = (char_u *)alloc(metadata.txtlen == 0 ? 1 : metadata.txtlen);
+  	    if (str == NULL)
+  	    {
+  		vim_free(out);
+***************
+*** 655,661 ****
+  	convert_setup(&conv, NULL, NULL);
+  
+  	length = utf8_to_utf16(str, *lenp, NULL, NULL);
+! 	ret = (WCHAR *)alloc((unsigned)((length + 1) * sizeof(WCHAR)));
+  	if (ret != NULL)
+  	{
+  	    utf8_to_utf16(str, *lenp, (short_u *)ret, NULL);
+--- 654,660 ----
+  	convert_setup(&conv, NULL, NULL);
+  
+  	length = utf8_to_utf16(str, *lenp, NULL, NULL);
+! 	ret = (WCHAR *)alloc((length + 1) * sizeof(WCHAR));
+  	if (ret != NULL)
+  	{
+  	    utf8_to_utf16(str, *lenp, (short_u *)ret, NULL);
+*** ../vim-8.1.1383/src/version.c	2019-05-24 17:55:47.511425702 +0200
+--- src/version.c	2019-05-24 18:39:19.684951278 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1384,
+  /**/
+
+-- 
+How To Keep A Healthy Level Of Insanity:
+14. Put mosquito netting around your work area. Play a tape of jungle
+    sounds all day.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

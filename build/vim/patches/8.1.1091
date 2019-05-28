@@ -1,0 +1,213 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1091
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1091
+Problem:    MS-Windows: cannot use multi-byte chars in environment var.
+Solution:   Use the wide API. (Ken Takata, closes #4008)
+Files:	    src/misc1.c, src/testdir/test_let.vim
+
+
+*** ../vim-8.1.1090/src/misc1.c	2019-03-30 18:46:57.356077354 +0100
+--- src/misc1.c	2019-03-30 20:10:00.966173750 +0100
+***************
+*** 4301,4341 ****
+      char_u *
+  vim_getenv(char_u *name, int *mustfree)
+  {
+!     char_u	*p;
+      char_u	*pend;
+      int		vimruntime;
+  
+! #if defined(MSWIN)
+!     /* use "C:/" when $HOME is not set */
+      if (STRCMP(name, "HOME") == 0)
+  	return homedir;
+- #endif
+  
+!     p = mch_getenv(name);
+!     if (p != NULL && *p == NUL)	    /* empty is the same as not set */
+! 	p = NULL;
+  
+!     if (p != NULL)
+      {
+! #if defined(MSWIN)
+! 	if (enc_utf8)
+! 	{
+! 	    int	    len;
+! 	    char_u  *pp = NULL;
+  
+! 	    /* Convert from active codepage to UTF-8.  Other conversions are
+! 	     * not done, because they would fail for non-ASCII characters. */
+! 	    acp_to_enc(p, (int)STRLEN(p), &pp, &len);
+! 	    if (pp != NULL)
+! 	    {
+! 		p = pp;
+! 		*mustfree = TRUE;
+! 	    }
+! 	}
+! #endif
+  	return p;
+      }
+  
+      vimruntime = (STRCMP(name, "VIMRUNTIME") == 0);
+      if (!vimruntime && STRCMP(name, "VIM") != 0)
+  	return NULL;
+--- 4301,4346 ----
+      char_u *
+  vim_getenv(char_u *name, int *mustfree)
+  {
+!     char_u	*p = NULL;
+      char_u	*pend;
+      int		vimruntime;
++ #ifdef MSWIN
++     WCHAR	*wn, *wp;
+  
+!     // use "C:/" when $HOME is not set
+      if (STRCMP(name, "HOME") == 0)
+  	return homedir;
+  
+!     // Use Wide function
+!     wn = enc_to_utf16(name, NULL);
+!     if (wn == NULL)
+! 	return NULL;
+  
+!     wp = _wgetenv(wn);
+!     vim_free(wn);
+! 
+!     if (wp != NULL && *wp == NUL)   // empty is the same as not set
+! 	wp = NULL;
+! 
+!     if (wp != NULL)
+      {
+! 	p = utf16_to_enc(wp, NULL);
+! 	if (p == NULL)
+! 	    return NULL;
+  
+! 	*mustfree = TRUE;
+  	return p;
+      }
++ #else
++     p = mch_getenv(name);
++     if (p != NULL && *p == NUL)	    // empty is the same as not set
++ 	p = NULL;
+  
++     if (p != NULL)
++ 	return p;
++ #endif
++ 
++     // handling $VIMRUNTIME and $VIM is below, bail out if it's another name.
+      vimruntime = (STRCMP(name, "VIMRUNTIME") == 0);
+      if (!vimruntime && STRCMP(name, "VIM") != 0)
+  	return NULL;
+***************
+*** 4350,4357 ****
+  #endif
+         )
+      {
+  	p = mch_getenv((char_u *)"VIM");
+! 	if (p != NULL && *p == NUL)	    /* empty is the same as not set */
+  	    p = NULL;
+  	if (p != NULL)
+  	{
+--- 4355,4379 ----
+  #endif
+         )
+      {
++ #ifdef MSWIN
++ 	// Use Wide function
++ 	wp = _wgetenv(L"VIM");
++ 	if (wp != NULL && *wp == NUL)	    // empty is the same as not set
++ 	    wp = NULL;
++ 	if (wp != NULL)
++ 	{
++ 	    char_u *q = utf16_to_enc(wp, NULL);
++ 	    if (q != NULL)
++ 	    {
++ 		p = vim_version_dir(q);
++ 		*mustfree = TRUE;
++ 		if (p == NULL)
++ 		    p = q;
++ 	    }
++ 	}
++ #else
+  	p = mch_getenv((char_u *)"VIM");
+! 	if (p != NULL && *p == NUL)	    // empty is the same as not set
+  	    p = NULL;
+  	if (p != NULL)
+  	{
+***************
+*** 4360,4386 ****
+  		*mustfree = TRUE;
+  	    else
+  		p = mch_getenv((char_u *)"VIM");
+- 
+- #if defined(MSWIN)
+- 	    if (enc_utf8)
+- 	    {
+- 		int	len;
+- 		char_u  *pp = NULL;
+- 
+- 		/* Convert from active codepage to UTF-8.  Other conversions
+- 		 * are not done, because they would fail for non-ASCII
+- 		 * characters. */
+- 		acp_to_enc(p, (int)STRLEN(p), &pp, &len);
+- 		if (pp != NULL)
+- 		{
+- 		    if (*mustfree)
+- 			vim_free(p);
+- 		    p = pp;
+- 		    *mustfree = TRUE;
+- 		}
+- 	    }
+- #endif
+  	}
+      }
+  
+      /*
+--- 4382,4389 ----
+  		*mustfree = TRUE;
+  	    else
+  		p = mch_getenv((char_u *)"VIM");
+  	}
++ #endif
+      }
+  
+      /*
+*** ../vim-8.1.1090/src/testdir/test_let.vim	2019-02-11 22:00:07.671917613 +0100
+--- src/testdir/test_let.vim	2019-03-30 20:07:06.947341962 +0100
+***************
+*** 146,148 ****
+--- 146,153 ----
+    call assert_fails('call s:set_varg8(1)', 'E742:')
+    call s:set_varg9([0])
+  endfunction
++ 
++ func Test_let_utf8_environment()
++   let $a = 'ĀĒĪŌŪあいうえお'
++   call assert_equal('ĀĒĪŌŪあいうえお', $a)
++ endfunc
+*** ../vim-8.1.1090/src/version.c	2019-03-30 20:04:05.024567549 +0100
+--- src/version.c	2019-03-30 20:07:53.131031588 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1091,
+  /**/
+
+-- 
+Microsoft says that MS-Windows is much better for you than Linux.
+That's like the Pope saying that catholicism is much better for
+you than protestantism.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

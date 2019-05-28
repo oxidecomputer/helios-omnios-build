@@ -1,0 +1,320 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1372
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1372
+Problem:    When evaluating 'statusline' the current window is unknown.
+            (Daniel Hahler)
+Solution:   Set "g:actual_curwin" for %{} items.  Set "g:statusline_winid"
+            when evaluationg %!. (closes #4406, closes #3299)
+Files:	    src/buffer.c, runtime/doc/options.txt,
+            src/testdir/test_statusline.vim
+
+
+*** ../vim-8.1.1371/src/buffer.c	2019-05-23 21:35:44.451922663 +0200
+--- src/buffer.c	2019-05-23 22:05:41.446687352 +0200
+***************
+*** 3893,3899 ****
+      char_u	base;
+      char_u	opt;
+  #define TMPLEN 70
+!     char_u	tmp[TMPLEN];
+      char_u	*usefmt = fmt;
+      struct stl_hlrec *sp;
+      int		save_must_redraw = must_redraw;
+--- 3893,3900 ----
+      char_u	base;
+      char_u	opt;
+  #define TMPLEN 70
+!     char_u	buf_tmp[TMPLEN];
+!     char_u	win_tmp[TMPLEN];
+      char_u	*usefmt = fmt;
+      struct stl_hlrec *sp;
+      int		save_must_redraw = must_redraw;
+***************
+*** 3906,3914 ****
+--- 3907,3923 ----
+       */
+      if (fmt[0] == '%' && fmt[1] == '!')
+      {
++ 	typval_T	tv;
++ 
++ 	tv.v_type = VAR_NUMBER;
++ 	tv.vval.v_number = wp->w_id;
++ 	set_var((char_u *)"g:statusline_winid", &tv, FALSE);
++ 
+  	usefmt = eval_to_string_safe(fmt + 2, NULL, use_sandbox);
+  	if (usefmt == NULL)
+  	    usefmt = fmt;
++ 
++ 	do_unlet((char_u *)"g:statusline_winid", TRUE);
+      }
+  #endif
+  
+***************
+*** 4225,4232 ****
+  	    p = t;
+  
+  #ifdef FEAT_EVAL
+! 	    vim_snprintf((char *)tmp, sizeof(tmp), "%d", curbuf->b_fnum);
+! 	    set_internal_string_var((char_u *)"g:actual_curbuf", tmp);
+  
+  	    save_curbuf = curbuf;
+  	    save_curwin = curwin;
+--- 4234,4244 ----
+  	    p = t;
+  
+  #ifdef FEAT_EVAL
+! 	    vim_snprintf((char *)buf_tmp, sizeof(buf_tmp),
+! 							 "%d", curbuf->b_fnum);
+! 	    set_internal_string_var((char_u *)"g:actual_curbuf", buf_tmp);
+! 	    vim_snprintf((char *)win_tmp, sizeof(win_tmp), "%d", curwin->w_id);
+! 	    set_internal_string_var((char_u *)"g:actual_curwin", win_tmp);
+  
+  	    save_curbuf = curbuf;
+  	    save_curwin = curwin;
+***************
+*** 4238,4243 ****
+--- 4250,4256 ----
+  	    curwin = save_curwin;
+  	    curbuf = save_curbuf;
+  	    do_unlet((char_u *)"g:actual_curbuf", TRUE);
++ 	    do_unlet((char_u *)"g:actual_curwin", TRUE);
+  
+  	    if (str != NULL && *str != 0)
+  	    {
+***************
+*** 4290,4310 ****
+  	    break;
+  
+  	case STL_ALTPERCENT:
+! 	    str = tmp;
+  	    get_rel_pos(wp, str, TMPLEN);
+  	    break;
+  
+  	case STL_ARGLISTSTAT:
+  	    fillable = FALSE;
+! 	    tmp[0] = 0;
+! 	    if (append_arg_number(wp, tmp, (int)sizeof(tmp), FALSE))
+! 		str = tmp;
+  	    break;
+  
+  	case STL_KEYMAP:
+  	    fillable = FALSE;
+! 	    if (get_keymap_str(wp, (char_u *)"<%s>", tmp, TMPLEN))
+! 		str = tmp;
+  	    break;
+  	case STL_PAGENUM:
+  #if defined(FEAT_PRINTER) || defined(FEAT_GUI_TABLINE)
+--- 4303,4323 ----
+  	    break;
+  
+  	case STL_ALTPERCENT:
+! 	    str = buf_tmp;
+  	    get_rel_pos(wp, str, TMPLEN);
+  	    break;
+  
+  	case STL_ARGLISTSTAT:
+  	    fillable = FALSE;
+! 	    buf_tmp[0] = 0;
+! 	    if (append_arg_number(wp, buf_tmp, (int)sizeof(buf_tmp), FALSE))
+! 		str = buf_tmp;
+  	    break;
+  
+  	case STL_KEYMAP:
+  	    fillable = FALSE;
+! 	    if (get_keymap_str(wp, (char_u *)"<%s>", buf_tmp, TMPLEN))
+! 		str = buf_tmp;
+  	    break;
+  	case STL_PAGENUM:
+  #if defined(FEAT_PRINTER) || defined(FEAT_GUI_TABLINE)
+***************
+*** 4360,4368 ****
+  	    if (*wp->w_buffer->b_p_ft != NUL
+  		    && STRLEN(wp->w_buffer->b_p_ft) < TMPLEN - 3)
+  	    {
+! 		vim_snprintf((char *)tmp, sizeof(tmp), "[%s]",
+  							wp->w_buffer->b_p_ft);
+! 		str = tmp;
+  	    }
+  	    break;
+  
+--- 4373,4381 ----
+  	    if (*wp->w_buffer->b_p_ft != NUL
+  		    && STRLEN(wp->w_buffer->b_p_ft) < TMPLEN - 3)
+  	    {
+! 		vim_snprintf((char *)buf_tmp, sizeof(buf_tmp), "[%s]",
+  							wp->w_buffer->b_p_ft);
+! 		str = buf_tmp;
+  	    }
+  	    break;
+  
+***************
+*** 4371,4381 ****
+  	    if (*wp->w_buffer->b_p_ft != NUL
+  		    && STRLEN(wp->w_buffer->b_p_ft) < TMPLEN - 2)
+  	    {
+! 		vim_snprintf((char *)tmp, sizeof(tmp), ",%s",
+  							wp->w_buffer->b_p_ft);
+! 		for (t = tmp; *t != 0; t++)
+  		    *t = TOUPPER_LOC(*t);
+! 		str = tmp;
+  	    }
+  	    break;
+  
+--- 4384,4394 ----
+  	    if (*wp->w_buffer->b_p_ft != NUL
+  		    && STRLEN(wp->w_buffer->b_p_ft) < TMPLEN - 2)
+  	    {
+! 		vim_snprintf((char *)buf_tmp, sizeof(buf_tmp), ",%s",
+  							wp->w_buffer->b_p_ft);
+! 		for (t = buf_tmp; *t != 0; t++)
+  		    *t = TOUPPER_LOC(*t);
+! 		str = buf_tmp;
+  	    }
+  	    break;
+  
+*** ../vim-8.1.1371/runtime/doc/options.txt	2019-05-23 15:37:41.961634991 +0200
+--- runtime/doc/options.txt	2019-05-23 22:10:41.405260815 +0200
+***************
+*** 5082,5087 ****
+--- 5082,5089 ----
+  	When on allow some options that are an expression to be set in the
+  	modeline.  Check the option for whether it is affected by
+  	'modelineexpr'.  Also see |modeline|.
++ 	This option cannot be set from a |modeline| or in the |sandbox|, for
++ 	security reasons.
+  
+  						*'modelines'* *'mls'*
+  'modelines' 'mls'	number	(default 5)
+***************
+*** 7089,7095 ****
+  	When the option starts with "%!" then it is used as an expression,
+  	evaluated and the result is used as the option value.  Example: >
+  		:set statusline=%!MyStatusLine()
+! <	The result can contain %{} items that will be evaluated too.
+  	Note that the "%!" expression is evaluated in the context of the
+  	current window and buffer, while %{} items are evaluated in the
+  	context of the window that the statusline belongs to.
+--- 7091,7099 ----
+  	When the option starts with "%!" then it is used as an expression,
+  	evaluated and the result is used as the option value.  Example: >
+  		:set statusline=%!MyStatusLine()
+! <	The *g:statusline_winid* variable will be set to the |window-ID| of the
+! 	window that the status line belongs to.
+! 	The result can contain %{} items that will be evaluated too.
+  	Note that the "%!" expression is evaluated in the context of the
+  	current window and buffer, while %{} items are evaluated in the
+  	context of the window that the statusline belongs to.
+***************
+*** 7192,7204 ****
+  	become empty.  This will make a group like the following disappear
+  	completely from the statusline when none of the flags are set. >
+  		:set statusline=...%(\ [%M%R%H]%)...
+! <							*g:actual_curbuf*
+! 	Beware that an expression is evaluated each and every time the status
+! 	line is displayed.  The current buffer and current window will be set
+! 	temporarily to that of the window (and buffer) whose statusline is
+! 	currently being drawn.  The expression will evaluate in this context.
+! 	The variable "g:actual_curbuf" is set to the `bufnr()` number of the
+! 	real current buffer.
+  
+  	The 'statusline' option will be evaluated in the |sandbox| if set from
+  	a modeline, see |sandbox-option|.
+--- 7196,7210 ----
+  	become empty.  This will make a group like the following disappear
+  	completely from the statusline when none of the flags are set. >
+  		:set statusline=...%(\ [%M%R%H]%)...
+! <	Beware that an expression is evaluated each and every time the status
+! 	line is displayed.
+! 					*g:actual_curbuf* *g:actual_curwin*
+! 	The current buffer and current window will be set temporarily to that
+! 	of the window (and buffer) whose statusline is currently being drawn.
+! 	The expression will evaluate in this context.  The variable
+! 	"g:actual_curbuf" is set to the `bufnr()` number of the real current
+! 	buffer and "g:actual_curwin" to the |window-ID| of the real current
+! 	window.  These values are strings.
+  
+  	The 'statusline' option will be evaluated in the |sandbox| if set from
+  	a modeline, see |sandbox-option|.
+*** ../vim-8.1.1371/src/testdir/test_statusline.vim	2019-04-14 13:23:36.911963919 +0200
+--- src/testdir/test_statusline.vim	2019-05-23 22:08:43.121833219 +0200
+***************
+*** 29,35 ****
+  
+  " Function used to display syntax group.
+  func SyntaxItem()
+!   return synIDattr(synID(line("."),col("."),1),"name")
+  endfunc
+  
+  func Test_caught_error_in_statusline()
+--- 29,37 ----
+  
+  " Function used to display syntax group.
+  func SyntaxItem()
+!   call assert_equal(s:expected_curbuf, g:actual_curbuf)
+!   call assert_equal(s:expected_curwin, g:actual_curwin)
+!   return synIDattr(synID(line("."), col("."),1), "name")
+  endfunc
+  
+  func Test_caught_error_in_statusline()
+***************
+*** 218,223 ****
+--- 220,227 ----
+  
+    "%{: Evaluate expression between '%{' and '}' and substitute result.
+    syntax on
++   let s:expected_curbuf = string(bufnr(''))
++   let s:expected_curwin = string(win_getid())
+    set statusline=%{SyntaxItem()}
+    call assert_match('^vimNumber\s*$', s:get_statusline())
+    s/^/"/
+***************
+*** 332,337 ****
+--- 336,358 ----
+    set statusline=%!2*3+1
+    call assert_match('7\s*$', s:get_statusline())
+  
++   func GetNested()
++     call assert_equal(string(win_getid()), g:actual_curwin)
++     call assert_equal(string(bufnr('')), g:actual_curbuf)
++     return 'nested'
++   endfunc
++   func GetStatusLine()
++     call assert_equal(win_getid(), g:statusline_winid)
++     return 'the %{GetNested()} line'
++   endfunc
++   set statusline=%!GetStatusLine()
++   call assert_match('the nested line', s:get_statusline())
++   call assert_false(exists('g:actual_curwin'))
++   call assert_false(exists('g:actual_curbuf'))
++   call assert_false(exists('g:statusline_winid'))
++   delfunc GetNested
++   delfunc GetStatusLine
++ 
+    " Check statusline in current and non-current window
+    " with the 'fillchars' option.
+    set fillchars=stl:^,stlnc:=,vert:\|,fold:-,diff:-
+*** ../vim-8.1.1371/src/version.c	2019-05-23 21:35:44.459922615 +0200
+--- src/version.c	2019-05-23 21:45:13.452621087 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1372,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+27. You refer to your age as 3.x.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

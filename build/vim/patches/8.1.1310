@@ -1,0 +1,619 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1310
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1310
+Problem:    Named function arguments are never optional.
+Solution:   Support optional function arguments with a default value. (Andy
+            Massimino, closes #3952)
+Files:	    runtime/doc/eval.txt, src/structs.h,
+            src/testdir/test_user_func.vim, src/userfunc.c
+
+
+
+*** ../vim-8.1.1309/runtime/doc/eval.txt	2019-05-09 14:52:22.079358841 +0200
+--- runtime/doc/eval.txt	2019-05-09 21:01:03.326681151 +0200
+***************
+*** 10920,10934 ****
+  function add an item to it.  If you want to make sure the function cannot
+  change a |List| or |Dictionary| use |:lockvar|.
+  
+- When not using "...", the number of arguments in a function call must be equal
+- to the number of named arguments.  When using "...", the number of arguments
+- may be larger.
+- 
+  It is also possible to define a function without any arguments.  You must
+  still supply the () then.
+  
+  It is allowed to define another function inside a function body.
+  
+  							*local-variables*
+  Inside a function local variables can be used.  These will disappear when the
+  function returns.  Global variables need to be accessed with "g:".
+--- 10920,10977 ----
+  function add an item to it.  If you want to make sure the function cannot
+  change a |List| or |Dictionary| use |:lockvar|.
+  
+  It is also possible to define a function without any arguments.  You must
+  still supply the () then.
+  
+  It is allowed to define another function inside a function body.
+  
++ 						*optional-function-argument*
++ You can provide default values for positional named arguments.  This makes
++ them optional for function calls.  When a positional argument is not
++ specified at a call, the default expression is used to initialize it.
++ This only works for functions declared with |function|, not for lambda
++ expressions |expr-lambda|.
++ 
++ Example: >
++   function Something(key, value = 10)
++      echo a:key .. ": " .. value
++   endfunction
++   call Something('empty')	"empty: 10"
++   call Something('key, 20)	"key: 20"
++ 
++ The argument default expressions are evaluated at the time of the function
++ call, not definition.  Thus it is possible to use an expression which is
++ invalid the moment the function is defined.  The expressions are are also only
++ evaluated when arguments are not specified during a call.
++ 
++ You can pass |v:none| to use the default expression.  Note that this means you
++ cannot pass v:none as an ordinary value when an argument has a default
++ expression.
++ 
++ Example: >
++   function Something(a = 10, b = 20, c = 30)
++   endfunction
++   call Something(1, v:none, 3)	    " b = 20
++ <
++ 								*E989*
++ Optional arguments with default expressions must occur after any mandatory
++ arguments.  You can use "..." after all optional named arguments.
++ 
++ It is possible for later argument defaults to refer to prior arguments,
++ but not the other way around.  They must be prefixed with "a:", as with all
++ arguments.
++ 
++ Example that works: >
++   :function Okay(mandatory, optional = a:mandatory)
++   :endfunction
++ Example that does NOT work: >
++   :function NoGood(first = a:second, second = 10)
++   :endfunction
++ <
++ When not using "...", the number of arguments in a function call must be equal
++ to the number of mandatory named arguments.  When using "...", the number of
++ arguments may be larger.
++ 
+  							*local-variables*
+  Inside a function local variables can be used.  These will disappear when the
+  function returns.  Global variables need to be accessed with "g:".
+*** ../vim-8.1.1309/src/structs.h	2019-05-07 22:06:48.679310672 +0200
+--- src/structs.h	2019-05-09 20:38:28.386453855 +0200
+***************
+*** 1402,1443 ****
+   */
+  typedef struct
+  {
+!     int		uf_varargs;	/* variable nr of arguments */
+      int		uf_flags;
+!     int		uf_calls;	/* nr of active calls */
+!     int		uf_cleared;	/* func_clear() was already called */
+!     garray_T	uf_args;	/* arguments */
+!     garray_T	uf_lines;	/* function lines */
+  # ifdef FEAT_PROFILE
+!     int		uf_profiling;	/* TRUE when func is being profiled */
+      int		uf_prof_initialized;
+!     /* profiling the function as a whole */
+!     int		uf_tm_count;	/* nr of calls */
+!     proftime_T	uf_tm_total;	/* time spent in function + children */
+!     proftime_T	uf_tm_self;	/* time spent in function itself */
+!     proftime_T	uf_tm_children;	/* time spent in children this call */
+!     /* profiling the function per line */
+!     int		*uf_tml_count;	/* nr of times line was executed */
+!     proftime_T	*uf_tml_total;	/* time spent in a line + children */
+!     proftime_T	*uf_tml_self;	/* time spent in a line itself */
+!     proftime_T	uf_tml_start;	/* start time for current line */
+!     proftime_T	uf_tml_children; /* time spent in children for this line */
+!     proftime_T	uf_tml_wait;	/* start wait time for current line */
+!     int		uf_tml_idx;	/* index of line being timed; -1 if none */
+!     int		uf_tml_execed;	/* line being timed was executed */
+  # endif
+!     sctx_T	uf_script_ctx;	/* SCTX where function was defined,
+! 				   used for s: variables */
+!     int		uf_refcount;	/* reference count, see func_name_refcount() */
+!     funccall_T	*uf_scoped;	/* l: local variables for closure */
+!     char_u	uf_name[1];	/* name of function (actually longer); can
+! 				   start with <SNR>123_ (<SNR> is K_SPECIAL
+! 				   KS_EXTRA KE_SNR) */
+  } ufunc_T;
+  
+! #define MAX_FUNC_ARGS	20	/* maximum number of function arguments */
+! #define VAR_SHORT_LEN	20	/* short variable name length */
+! #define FIXVAR_CNT	12	/* number of fixed variables */
+  
+  /* structure to hold info for a function that is currently being executed. */
+  struct funccall_S
+--- 1402,1444 ----
+   */
+  typedef struct
+  {
+!     int		uf_varargs;	// variable nr of arguments
+      int		uf_flags;
+!     int		uf_calls;	// nr of active calls
+!     int		uf_cleared;	// func_clear() was already called
+!     garray_T	uf_args;	// arguments
+!     garray_T	uf_def_args;	// default argument expressions
+!     garray_T	uf_lines;	// function lines
+  # ifdef FEAT_PROFILE
+!     int		uf_profiling;	// TRUE when func is being profiled
+      int		uf_prof_initialized;
+!     // profiling the function as a whole
+!     int		uf_tm_count;	// nr of calls
+!     proftime_T	uf_tm_total;	// time spent in function + children
+!     proftime_T	uf_tm_self;	// time spent in function itself
+!     proftime_T	uf_tm_children;	// time spent in children this call
+!     // profiling the function per line
+!     int		*uf_tml_count;	// nr of times line was executed
+!     proftime_T	*uf_tml_total;	// time spent in a line + children
+!     proftime_T	*uf_tml_self;	// time spent in a line itself
+!     proftime_T	uf_tml_start;	// start time for current line
+!     proftime_T	uf_tml_children; // time spent in children for this line
+!     proftime_T	uf_tml_wait;	// start wait time for current line
+!     int		uf_tml_idx;	// index of line being timed; -1 if none
+!     int		uf_tml_execed;	// line being timed was executed
+  # endif
+!     sctx_T	uf_script_ctx;	// SCTX where function was defined,
+! 				// used for s: variables
+!     int		uf_refcount;	// reference count, see func_name_refcount()
+!     funccall_T	*uf_scoped;	// l: local variables for closure
+!     char_u	uf_name[1];	// name of function (actually longer); can
+! 				// start with <SNR>123_ (<SNR> is K_SPECIAL
+! 				// KS_EXTRA KE_SNR)
+  } ufunc_T;
+  
+! #define MAX_FUNC_ARGS	20	// maximum number of function arguments
+! #define VAR_SHORT_LEN	20	// short variable name length
+! #define FIXVAR_CNT	12	// number of fixed variables
+  
+  /* structure to hold info for a function that is currently being executed. */
+  struct funccall_S
+*** ../vim-8.1.1309/src/testdir/test_user_func.vim	2017-10-22 14:08:57.000000000 +0200
+--- src/testdir/test_user_func.vim	2019-05-09 21:01:29.390540850 +0200
+***************
+*** 94,96 ****
+--- 94,146 ----
+    unlet g:retval g:counter
+    enew!
+  endfunc
++ 
++ func Log(val, base = 10)
++   return log(a:val) / log(a:base)
++ endfunc
++ 
++ func Args(mandatory, optional = v:null, ...)
++   return deepcopy(a:)
++ endfunc
++ 
++ func Args2(a = 1, b = 2, c = 3)
++   return deepcopy(a:)
++ endfunc
++ 
++ func MakeBadFunc()
++   func s:fcn(a, b=1, c)
++   endfunc
++ endfunc
++ 
++ func Test_default_arg()
++   call assert_equal(1.0, Log(10))
++   call assert_equal(log(10), Log(10, exp(1)))
++   call assert_fails("call Log(1,2,3)", 'E118')
++ 
++   let res = Args(1)
++   call assert_equal(res.mandatory, 1)
++   call assert_equal(res.optional, v:null)
++   call assert_equal(res['0'], 0)
++ 
++   let res = Args(1,2)
++   call assert_equal(res.mandatory, 1)
++   call assert_equal(res.optional, 2)
++   call assert_equal(res['0'], 0)
++ 
++   let res = Args(1,2,3)
++   call assert_equal(res.mandatory, 1)
++   call assert_equal(res.optional, 2)
++   call assert_equal(res['0'], 1)
++ 
++   call assert_fails("call MakeBadFunc()", 'E989')
++   call assert_fails("fu F(a=1 ,) | endf", 'E475')
++ 
++   let d = Args2(7, v:none, 9)
++   call assert_equal([7, 2, 9], [d.a, d.b, d.c])
++ 
++   call assert_equal("\n"
++ 	\ .. "   function Args2(a = 1, b = 2, c = 3)\n"
++ 	\ .. "1    return deepcopy(a:)\n"
++ 	\ .. "   endfunction",
++ 	\ execute('func Args2'))
++ endfunc
+*** ../vim-8.1.1309/src/userfunc.c	2019-05-09 15:12:45.180723879 +0200
+--- src/userfunc.c	2019-05-09 21:03:36.645848343 +0200
+***************
+*** 75,80 ****
+--- 75,81 ----
+      char_u	endchar,
+      garray_T	*newargs,
+      int		*varargs,
++     garray_T	*default_args,
+      int		skip)
+  {
+      int		mustend = FALSE;
+***************
+*** 82,90 ****
+--- 83,95 ----
+      char_u	*p = arg;
+      int		c;
+      int		i;
++     int		any_default = FALSE;
++     char_u	*expr;
+  
+      if (newargs != NULL)
+  	ga_init2(newargs, (int)sizeof(char_u *), 3);
++     if (default_args != NULL)
++ 	ga_init2(default_args, (int)sizeof(char_u *), 3);
+  
+      if (varargs != NULL)
+  	*varargs = FALSE;
+***************
+*** 140,145 ****
+--- 145,187 ----
+  
+  		*p = c;
+  	    }
++ 	    if (*skipwhite(p) == '=' && default_args != NULL)
++ 	    {
++ 		typval_T	rettv;
++ 
++ 		any_default = TRUE;
++ 		p = skipwhite(p) + 1;
++ 		p = skipwhite(p);
++ 		expr = p;
++ 		if (eval1(&p, &rettv, FALSE) != FAIL)
++ 		{
++ 		    if (ga_grow(default_args, 1) == FAIL)
++ 			goto err_ret;
++ 
++ 		    // trim trailing whitespace
++ 		    while (p > expr && VIM_ISWHITE(p[-1]))
++ 			p--;
++ 		    c = *p;
++ 		    *p = NUL;
++ 		    expr = vim_strsave(expr);
++ 		    if (expr == NULL)
++ 		    {
++ 			*p = c;
++ 			goto err_ret;
++ 		    }
++ 		    ((char_u **)(default_args->ga_data))
++ 						 [default_args->ga_len] = expr;
++ 		    default_args->ga_len++;
++ 		    *p = c;
++ 		}
++ 		else
++ 		    mustend = TRUE;
++ 	    }
++ 	    else if (any_default)
++ 	    {
++ 		emsg(_("E989: Non-default argument follows default argument"));
++ 		mustend = TRUE;
++ 	    }
+  	    if (*p == ',')
+  		++p;
+  	    else
+***************
+*** 163,168 ****
+--- 205,212 ----
+  err_ret:
+      if (newargs != NULL)
+  	ga_clear_strings(newargs);
++     if (default_args != NULL)
++ 	ga_clear_strings(default_args);
+      return FAIL;
+  }
+  
+***************
+*** 210,216 ****
+      ga_init(&newlines);
+  
+      /* First, check if this is a lambda expression. "->" must exist. */
+!     ret = get_function_args(&start, '-', NULL, NULL, TRUE);
+      if (ret == FAIL || *start != '>')
+  	return NOTDONE;
+  
+--- 254,260 ----
+      ga_init(&newlines);
+  
+      /* First, check if this is a lambda expression. "->" must exist. */
+!     ret = get_function_args(&start, '-', NULL, NULL, NULL, TRUE);
+      if (ret == FAIL || *start != '>')
+  	return NOTDONE;
+  
+***************
+*** 220,226 ****
+      else
+  	pnewargs = NULL;
+      *arg = skipwhite(*arg + 1);
+!     ret = get_function_args(arg, '-', pnewargs, &varargs, FALSE);
+      if (ret == FAIL || **arg != '>')
+  	goto errret;
+  
+--- 264,270 ----
+      else
+  	pnewargs = NULL;
+      *arg = skipwhite(*arg + 1);
+!     ret = get_function_args(arg, '-', pnewargs, &varargs, NULL, FALSE);
+      if (ret == FAIL || **arg != '>')
+  	goto errret;
+  
+***************
+*** 272,277 ****
+--- 316,322 ----
+  	STRCPY(fp->uf_name, name);
+  	hash_add(&func_hashtab, UF2HIKEY(fp));
+  	fp->uf_args = newargs;
++ 	ga_init(&fp->uf_def_args);
+  	fp->uf_lines = newlines;
+  	if (current_funccal != NULL && eval_lavars)
+  	{
+***************
+*** 729,734 ****
+--- 774,780 ----
+      int		using_sandbox = FALSE;
+      funccall_T	*fc;
+      int		save_did_emsg;
++     int		default_arg_err = FALSE;
+      static int	depth = 0;
+      dictitem_T	*v;
+      int		fixvar_idx = 0;	/* index in fixvar[] */
+***************
+*** 805,816 ****
+  
+      /*
+       * Init a: variables.
+!      * Set a:0 to "argcount".
+       * Set a:000 to a list with room for the "..." arguments.
+       */
+      init_var_dict(&fc->l_avars, &fc->l_avars_var, VAR_SCOPE);
+      add_nr_var(&fc->l_avars, &fc->fixvar[fixvar_idx++].var, "0",
+! 				(varnumber_T)(argcount - fp->uf_args.ga_len));
+      fc->l_avars.dv_lock = VAR_FIXED;
+      /* Use "name" to avoid a warning from some compiler that checks the
+       * destination size. */
+--- 851,863 ----
+  
+      /*
+       * Init a: variables.
+!      * Set a:0 to "argcount" less number of named arguments, if >= 0.
+       * Set a:000 to a list with room for the "..." arguments.
+       */
+      init_var_dict(&fc->l_avars, &fc->l_avars_var, VAR_SCOPE);
+      add_nr_var(&fc->l_avars, &fc->fixvar[fixvar_idx++].var, "0",
+! 				(varnumber_T)(argcount >= fp->uf_args.ga_len
+! 				    ? argcount - fp->uf_args.ga_len : 0));
+      fc->l_avars.dv_lock = VAR_FIXED;
+      /* Use "name" to avoid a warning from some compiler that checks the
+       * destination size. */
+***************
+*** 835,843 ****
+  						      (varnumber_T)firstline);
+      add_nr_var(&fc->l_avars, &fc->fixvar[fixvar_idx++].var, "lastline",
+  						       (varnumber_T)lastline);
+!     for (i = 0; i < argcount; ++i)
+      {
+  	int	    addlocal = FALSE;
+  
+  	ai = i - fp->uf_args.ga_len;
+  	if (ai < 0)
+--- 882,892 ----
+  						      (varnumber_T)firstline);
+      add_nr_var(&fc->l_avars, &fc->fixvar[fixvar_idx++].var, "lastline",
+  						       (varnumber_T)lastline);
+!     for (i = 0; i < argcount || i < fp->uf_args.ga_len; ++i)
+      {
+  	int	    addlocal = FALSE;
++ 	typval_T    def_rettv;
++ 	int	    isdefault = FALSE;
+  
+  	ai = i - fp->uf_args.ga_len;
+  	if (ai < 0)
+***************
+*** 846,851 ****
+--- 895,919 ----
+  	    name = FUNCARG(fp, i);
+  	    if (islambda)
+  		addlocal = TRUE;
++ 
++ 	    // evaluate named argument default expression
++ 	    isdefault = ai + fp->uf_def_args.ga_len >= 0
++ 		       && (i >= argcount || (argvars[i].v_type == VAR_SPECIAL
++ 				   && argvars[i].vval.v_number == VVAL_NONE));
++ 	    if (isdefault)
++ 	    {
++ 		char_u	    *default_expr = NULL;
++ 		def_rettv.v_type = VAR_NUMBER;
++ 		def_rettv.vval.v_number = -1;
++ 
++ 		default_expr = ((char_u **)(fp->uf_def_args.ga_data))
++ 						 [ai + fp->uf_def_args.ga_len];
++ 		if (eval1(&default_expr, &def_rettv, TRUE) == FAIL)
++ 		{
++ 		    default_arg_err = 1;
++ 		    break;
++ 		}
++ 	    }
+  	}
+  	else
+  	{
+***************
+*** 867,875 ****
+  	    v->di_flags |= DI_FLAGS_RO | DI_FLAGS_FIX;
+  	}
+  
+! 	/* Note: the values are copied directly to avoid alloc/free.
+! 	 * "argvars" must have VAR_FIXED for v_lock. */
+! 	v->di_tv = argvars[i];
+  	v->di_tv.v_lock = VAR_FIXED;
+  
+  	if (addlocal)
+--- 935,946 ----
+  	    v->di_flags |= DI_FLAGS_RO | DI_FLAGS_FIX;
+  	}
+  
+! 	if (isdefault)
+! 	    v->di_tv = def_rettv;
+! 	else
+! 	    // Note: the values are copied directly to avoid alloc/free.
+! 	    // "argvars" must have VAR_FIXED for v_lock.
+! 	    v->di_tv = argvars[i];
+  	v->di_tv.v_lock = VAR_FIXED;
+  
+  	if (addlocal)
+***************
+*** 988,995 ****
+      save_did_emsg = did_emsg;
+      did_emsg = FALSE;
+  
+!     /* call do_cmdline() to execute the lines */
+!     do_cmdline(NULL, get_func_line, (void *)fc,
+  				     DOCMD_NOWAIT|DOCMD_VERBOSE|DOCMD_REPEAT);
+  
+      --RedrawingDisabled;
+--- 1059,1069 ----
+      save_did_emsg = did_emsg;
+      did_emsg = FALSE;
+  
+!     if (default_arg_err && (fp->uf_flags & FC_ABORT))
+! 	did_emsg = TRUE;
+!     else
+! 	// call do_cmdline() to execute the lines
+! 	do_cmdline(NULL, get_func_line, (void *)fc,
+  				     DOCMD_NOWAIT|DOCMD_VERBOSE|DOCMD_REPEAT);
+  
+      --RedrawingDisabled;
+***************
+*** 1145,1150 ****
+--- 1219,1225 ----
+  func_clear_items(ufunc_T *fp)
+  {
+      ga_clear_strings(&(fp->uf_args));
++     ga_clear_strings(&(fp->uf_def_args));
+      ga_clear_strings(&(fp->uf_lines));
+  #ifdef FEAT_PROFILE
+      vim_free(fp->uf_tml_count);
+***************
+*** 1498,1504 ****
+  
+  		if (fp->uf_flags & FC_RANGE)
+  		    *doesrange = TRUE;
+! 		if (argcount < fp->uf_args.ga_len)
+  		    error = ERROR_TOOFEW;
+  		else if (!fp->uf_varargs && argcount > fp->uf_args.ga_len)
+  		    error = ERROR_TOOMANY;
+--- 1573,1579 ----
+  
+  		if (fp->uf_flags & FC_RANGE)
+  		    *doesrange = TRUE;
+! 		if (argcount < fp->uf_args.ga_len - fp->uf_def_args.ga_len)
+  		    error = ERROR_TOOFEW;
+  		else if (!fp->uf_varargs && argcount > fp->uf_args.ga_len)
+  		    error = ERROR_TOOMANY;
+***************
+*** 1624,1629 ****
+--- 1699,1710 ----
+  	if (j)
+  	    msg_puts(", ");
+  	msg_puts((char *)FUNCARG(fp, j));
++ 	if (j >= fp->uf_args.ga_len - fp->uf_def_args.ga_len)
++ 	{
++ 	    msg_puts(" = ");
++ 	    msg_puts(((char **)(fp->uf_def_args.ga_data))
++ 		       [j - fp->uf_args.ga_len + fp->uf_def_args.ga_len]);
++ 	}
+      }
+      if (fp->uf_varargs)
+      {
+***************
+*** 1889,1894 ****
+--- 1970,1976 ----
+      char_u	*arg;
+      char_u	*line_arg = NULL;
+      garray_T	newargs;
++     garray_T	default_args;
+      garray_T	newlines;
+      int		varargs = FALSE;
+      int		flags = 0;
+***************
+*** 2103,2109 ****
+  	    emsg(_("E862: Cannot use g: here"));
+      }
+  
+!     if (get_function_args(&p, ')', &newargs, &varargs, eap->skip) == FAIL)
+  	goto errret_2;
+  
+      /* find extra arguments "range", "dict", "abort" and "closure" */
+--- 2185,2192 ----
+  	    emsg(_("E862: Cannot use g: here"));
+      }
+  
+!     if (get_function_args(&p, ')', &newargs, &varargs,
+! 					    &default_args, eap->skip) == FAIL)
+  	goto errret_2;
+  
+      /* find extra arguments "range", "dict", "abort" and "closure" */
+***************
+*** 2511,2516 ****
+--- 2594,2600 ----
+  	fp->uf_refcount = 1;
+      }
+      fp->uf_args = newargs;
++     fp->uf_def_args = default_args;
+      fp->uf_lines = newlines;
+      if ((flags & FC_CLOSURE) != 0)
+      {
+***************
+*** 2535,2540 ****
+--- 2619,2625 ----
+  
+  erret:
+      ga_clear_strings(&newargs);
++     ga_clear_strings(&default_args);
+  errret_2:
+      ga_clear_strings(&newlines);
+  ret_free:
+*** ../vim-8.1.1309/src/version.c	2019-05-09 20:07:30.310817540 +0200
+--- src/version.c	2019-05-09 20:30:13.721679453 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1310,
+  /**/
+
+-- 
+The MS-Windows registry is no more hostile than any other bunch of state
+information... that is held in a binary format... a format that nobody
+understands... and is replicated and cached in a complex and largely
+undocumented way... and contains large amounts of duplicate and obfuscated
+information...  (Ben Peterson)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,201 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1131
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1131
+Problem:    getwinpos() does not work in the MS-Windows console.
+Solution:   Implement getwinpos().
+Files:	    src/ui.c, src/evalfunc.c, src/terminal.c,
+            src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.1130/src/ui.c	2019-04-06 20:00:15.429129945 +0200
+--- src/ui.c	2019-04-06 21:49:45.780723617 +0200
+***************
+*** 629,634 ****
+--- 629,635 ----
+  
+  #if ((defined(FEAT_EVAL) || defined(FEAT_TERMINAL)) \
+  	    && (defined(FEAT_GUI) \
++ 		|| defined(MSWIN) \
+  		|| (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)))) \
+  	|| defined(PROTO)
+  /*
+***************
+*** 642,651 ****
+      if (gui.in_use)
+  	return gui_mch_get_winpos(x, y);
+  # endif
+! # if defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)
+!     return term_get_winpos(x, y, timeout);
+  # else
+      return FAIL;
+  # endif
+  }
+  #endif
+--- 643,656 ----
+      if (gui.in_use)
+  	return gui_mch_get_winpos(x, y);
+  # endif
+! # if defined(MSWIN) && !defined(FEAT_GUI)
+!     return mch_get_winpos(x, y);
+  # else
++ #  if defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)
++     return term_get_winpos(x, y, timeout);
++ #  else
+      return FAIL;
++ #  endif
+  # endif
+  }
+  #endif
+*** ../vim-8.1.1130/src/evalfunc.c	2019-04-06 20:53:26.042494665 +0200
+--- src/evalfunc.c	2019-04-06 21:47:10.709543453 +0200
+***************
+*** 5985,5991 ****
+  
+      if (rettv_list_alloc(rettv) == FAIL)
+  	return;
+! #if defined(FEAT_GUI) || (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE))
+      {
+  	varnumber_T timeout = 100;
+  
+--- 5985,5993 ----
+  
+      if (rettv_list_alloc(rettv) == FAIL)
+  	return;
+! #if defined(FEAT_GUI) \
+! 	|| (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)) \
+! 	|| defined(MSWIN)
+      {
+  	varnumber_T timeout = 100;
+  
+***************
+*** 6007,6013 ****
+  f_getwinposx(typval_T *argvars UNUSED, typval_T *rettv)
+  {
+      rettv->vval.v_number = -1;
+! #if defined(FEAT_GUI) || (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE))
+      {
+  	int	    x, y;
+  
+--- 6009,6018 ----
+  f_getwinposx(typval_T *argvars UNUSED, typval_T *rettv)
+  {
+      rettv->vval.v_number = -1;
+! #if defined(FEAT_GUI) \
+! 	|| (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)) \
+! 	|| defined(MSWIN)
+! 
+      {
+  	int	    x, y;
+  
+***************
+*** 6024,6030 ****
+  f_getwinposy(typval_T *argvars UNUSED, typval_T *rettv)
+  {
+      rettv->vval.v_number = -1;
+! #if defined(FEAT_GUI) || (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE))
+      {
+  	int	    x, y;
+  
+--- 6029,6037 ----
+  f_getwinposy(typval_T *argvars UNUSED, typval_T *rettv)
+  {
+      rettv->vval.v_number = -1;
+! #if defined(FEAT_GUI) \
+! 	|| (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)) \
+! 	|| defined(MSWIN)
+      {
+  	int	    x, y;
+  
+*** ../vim-8.1.1130/src/terminal.c	2019-04-06 20:00:15.433129920 +0200
+--- src/terminal.c	2019-04-06 21:47:28.685448823 +0200
+***************
+*** 3868,3874 ****
+  
+      // When getting the window position is not possible or it fails it results
+      // in zero/zero.
+! #if defined(FEAT_GUI) || (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE))
+      (void)ui_get_winpos(&x, &y, (varnumber_T)100);
+  #endif
+  
+--- 3868,3876 ----
+  
+      // When getting the window position is not possible or it fails it results
+      // in zero/zero.
+! #if defined(FEAT_GUI) \
+! 	|| (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)) \
+! 	|| defined(MSWIN)
+      (void)ui_get_winpos(&x, &y, (varnumber_T)100);
+  #endif
+  
+*** ../vim-8.1.1130/src/testdir/test_terminal.vim	2019-04-06 20:40:32.362959652 +0200
+--- src/testdir/test_terminal.vim	2019-04-06 21:58:50.945799533 +0200
+***************
+*** 1889,1900 ****
+  endfunc
+  
+  func Test_terminal_getwinpos()
+-   " getwinpos() does not work in the MS-Windows console, and the GUI runs the
+-   " console version in the terminal window.
+-   if has('win32')
+-     return
+-   endif
+- 
+    " split, go to the bottom-right window
+    split
+    wincmd j
+--- 1889,1894 ----
+***************
+*** 1913,1922 ****
+    let xpos = str2nr(substitute(line, '\[\(\d\+\), \d\+\]', '\1', ''))
+    let ypos = str2nr(substitute(line, '\[\d\+, \(\d\+\)\]', '\1', ''))
+  
+!   " Position must be bigger than the getwinpos() result of Vim itself.
+!   let [xroot, yroot] = getwinpos()
+!   call assert_inrange(xroot + 2, xroot + 1000, xpos)
+!   call assert_inrange(yroot + 2, yroot + 1000, ypos)
+  
+    call term_wait(buf)
+    call term_sendkeys(buf, ":q\<CR>")
+--- 1907,1923 ----
+    let xpos = str2nr(substitute(line, '\[\(\d\+\), \d\+\]', '\1', ''))
+    let ypos = str2nr(substitute(line, '\[\d\+, \(\d\+\)\]', '\1', ''))
+  
+!   " getwinpos() in the MS-Windows console returns the screen position of the
+!   " emulated console.
+!   if has('win32')
+!     call assert_inrange(0, 4000, xpos)
+!     call assert_inrange(0, 2000, ypos)
+!   else
+!     " Position must be bigger than the getwinpos() result of Vim itself.
+!     let [xroot, yroot] = getwinpos()
+!     call assert_inrange(xroot + 2, xroot + 1000, xpos)
+!     call assert_inrange(yroot + 2, yroot + 1000, ypos)
+!   endif
+  
+    call term_wait(buf)
+    call term_sendkeys(buf, ":q\<CR>")
+*** ../vim-8.1.1130/src/version.c	2019-04-06 20:53:26.042494665 +0200
+--- src/version.c	2019-04-06 21:59:10.497693909 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1131,
+  /**/
+
+-- 
+Don't be humble ... you're not that great.
+                      -- Golda Meir
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

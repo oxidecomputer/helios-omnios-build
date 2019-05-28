@@ -1,0 +1,622 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1332
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1332
+Problem:    Cannot flush change listeners without also redrawing.  The line
+            numbers in the list of changes may become invalid.
+Solution:   Add listener_flush().  Invoke listeners before adding a change
+            that makes line numbers invalid.
+Files:	    src/evalfunc.c, src/change.c, src/proto/change.pro,
+            src/screen.c, runtime/doc/eval.txt, src/testdir/test_listener.vim
+
+
+*** ../vim-8.1.1331/src/evalfunc.c	2019-05-12 13:07:10.563191431 +0200
+--- src/evalfunc.c	2019-05-14 18:48:29.245329088 +0200
+***************
+*** 768,773 ****
+--- 768,774 ----
+      {"lispindent",	1, 1, f_lispindent},
+      {"list2str",	1, 2, f_list2str},
+      {"listener_add",	1, 2, f_listener_add},
++     {"listener_flush",	0, 1, f_listener_flush},
+      {"listener_remove",	1, 1, f_listener_remove},
+      {"localtime",	0, 0, f_localtime},
+  #ifdef FEAT_FLOAT
+*** ../vim-8.1.1331/src/change.c	2019-05-11 21:14:02.332269584 +0200
+--- src/change.c	2019-05-14 20:20:30.221554995 +0200
+***************
+*** 169,174 ****
+--- 169,214 ----
+  
+      if (curbuf->b_listener == NULL)
+  	return;
++ 
++     // If the new change is going to change the line numbers in already listed
++     // changes, then flush.
++     if (recorded_changes != NULL && xtra != 0)
++     {
++ 	listitem_T *li;
++ 	linenr_T    nr;
++ 
++ 	for (li = recorded_changes->lv_first; li != NULL; li = li->li_next)
++ 	{
++ 	    nr = (linenr_T)dict_get_number(
++ 				      li->li_tv.vval.v_dict, (char_u *)"lnum");
++ 	    if (nr >= lnum || nr > lnume)
++ 	    {
++ 		if (li->li_next == NULL && lnum == nr
++ 			&& col + 1 == (colnr_T)dict_get_number(
++ 				      li->li_tv.vval.v_dict, (char_u *)"col"))
++ 		{
++ 		    dictitem_T	*di;
++ 
++ 		    // Same start point and nothing is following, entries can
++ 		    // be merged.
++ 		    di = dict_find(li->li_tv.vval.v_dict, (char_u *)"end", -1);
++ 		    nr = tv_get_number(&di->di_tv);
++ 		    if (lnume > nr)
++ 			di->di_tv.vval.v_number = lnume;
++ 		    di = dict_find(li->li_tv.vval.v_dict,
++ 							(char_u *)"added", -1);
++ 		    di->di_tv.vval.v_number += xtra;
++ 		    return;
++ 		}
++ 
++ 		// the current change is going to make the line number in the
++ 		// older change invalid, flush now
++ 		invoke_listeners(curbuf);
++ 		break;
++ 	    }
++ 	}
++     }
++ 
+      if (recorded_changes == NULL)
+      {
+  	recorded_changes = list_alloc();
+***************
+*** 231,236 ****
+--- 271,293 ----
+  }
+  
+  /*
++  * listener_flush() function
++  */
++     void
++ f_listener_flush(typval_T *argvars, typval_T *rettv UNUSED)
++ {
++     buf_T	*buf = curbuf;
++ 
++     if (argvars[0].v_type != VAR_UNKNOWN)
++     {
++ 	buf = get_buf_arg(&argvars[0]);
++ 	if (buf == NULL)
++ 	    return;
++     }
++     invoke_listeners(buf);
++ }
++ 
++ /*
+   * listener_remove() function
+   */
+      void
+***************
+*** 264,288 ****
+   * listener_add().
+   */
+      void
+! invoke_listeners(void)
+  {
+      listener_T	*lnr;
+      typval_T	rettv;
+      int		dummy;
+!     typval_T	argv[2];
+  
+!     if (recorded_changes == NULL)  // nothing changed
+  	return;
+-     argv[0].v_type = VAR_LIST;
+-     argv[0].vval.v_list = recorded_changes;
+  
+!     for (lnr = curbuf->b_listener; lnr != NULL; lnr = lnr->lr_next)
+      {
+  	call_func(lnr->lr_callback, -1, &rettv,
+! 		   1, argv, NULL, 0L, 0L, &dummy, TRUE, lnr->lr_partial, NULL);
+  	clear_tv(&rettv);
+      }
+  
+      list_unref(recorded_changes);
+      recorded_changes = NULL;
+  }
+--- 321,376 ----
+   * listener_add().
+   */
+      void
+! invoke_listeners(buf_T *buf)
+  {
+      listener_T	*lnr;
+      typval_T	rettv;
+      int		dummy;
+!     typval_T	argv[6];
+!     listitem_T	*li;
+!     linenr_T	start = MAXLNUM;
+!     linenr_T	end = 0;
+!     linenr_T	added = 0;
+  
+!     if (recorded_changes == NULL  // nothing changed
+! 	    || buf->b_listener == NULL)  // no listeners
+  	return;
+  
+!     argv[0].v_type = VAR_NUMBER;
+!     argv[0].vval.v_number = buf->b_fnum; // a:bufnr
+! 
+! 
+!     for (li = recorded_changes->lv_first; li != NULL; li = li->li_next)
+!     {
+! 	varnumber_T lnum;
+! 
+! 	lnum = dict_get_number(li->li_tv.vval.v_dict, (char_u *)"lnum");
+! 	if (start > lnum)
+! 	    start = lnum;
+! 	lnum = dict_get_number(li->li_tv.vval.v_dict, (char_u *)"end");
+! 	if (lnum > end)
+! 	    end = lnum;
+! 	added = dict_get_number(li->li_tv.vval.v_dict, (char_u *)"added");
+!     }
+!     argv[1].v_type = VAR_NUMBER;
+!     argv[1].vval.v_number = start;
+!     argv[2].v_type = VAR_NUMBER;
+!     argv[2].vval.v_number = end;
+!     argv[3].v_type = VAR_NUMBER;
+!     argv[3].vval.v_number = added;
+! 
+!     argv[4].v_type = VAR_LIST;
+!     argv[4].vval.v_list = recorded_changes;
+!     ++textlock;
+! 
+!     for (lnr = buf->b_listener; lnr != NULL; lnr = lnr->lr_next)
+      {
+  	call_func(lnr->lr_callback, -1, &rettv,
+! 		   5, argv, NULL, 0L, 0L, &dummy, TRUE, lnr->lr_partial, NULL);
+  	clear_tv(&rettv);
+      }
+  
++     --textlock;
+      list_unref(recorded_changes);
+      recorded_changes = NULL;
+  }
+*** ../vim-8.1.1331/src/proto/change.pro	2019-05-11 19:14:11.589313987 +0200
+--- src/proto/change.pro	2019-05-14 19:02:12.920839840 +0200
+***************
+*** 3,10 ****
+  void changed(void);
+  void changed_internal(void);
+  void f_listener_add(typval_T *argvars, typval_T *rettv);
+  void f_listener_remove(typval_T *argvars, typval_T *rettv);
+! void invoke_listeners(void);
+  void changed_bytes(linenr_T lnum, colnr_T col);
+  void inserted_bytes(linenr_T lnum, colnr_T col, int added);
+  void appended_lines(linenr_T lnum, long count);
+--- 3,11 ----
+  void changed(void);
+  void changed_internal(void);
+  void f_listener_add(typval_T *argvars, typval_T *rettv);
++ void f_listener_flush(typval_T *argvars, typval_T *rettv);
+  void f_listener_remove(typval_T *argvars, typval_T *rettv);
+! void invoke_listeners(buf_T *buf);
+  void changed_bytes(linenr_T lnum, colnr_T col);
+  void inserted_bytes(linenr_T lnum, colnr_T col, int added);
+  void appended_lines(linenr_T lnum, long count);
+*** ../vim-8.1.1331/src/screen.c	2019-05-11 21:14:02.336269566 +0200
+--- src/screen.c	2019-05-14 18:52:55.103887107 +0200
+***************
+*** 565,572 ****
+      }
+  
+  #ifdef FEAT_EVAL
+!     // Before updating the screen, notify any listeners of changed text.
+!     invoke_listeners();
+  #endif
+  
+      if (must_redraw)
+--- 565,577 ----
+      }
+  
+  #ifdef FEAT_EVAL
+!     {
+! 	buf_T *buf;
+! 
+! 	// Before updating the screen, notify any listeners of changed text.
+! 	FOR_ALL_BUFFERS(buf)
+! 	    invoke_listeners(buf);
+!     }
+  #endif
+  
+      if (must_redraw)
+*** ../vim-8.1.1331/runtime/doc/eval.txt	2019-05-12 13:53:46.906851000 +0200
+--- runtime/doc/eval.txt	2019-05-14 21:17:56.054323991 +0200
+***************
+*** 2459,2464 ****
+--- 2459,2465 ----
+  list2str({list} [, {utf8}])	String	turn numbers in {list} into a String
+  listener_add({callback} [, {buf}])
+  				Number	add a callback to listen to changes
++ listener_flush([{buf}])		none	invoke listener callbacks
+  listener_remove({id})		none	remove a listener callback
+  localtime()			Number	current time
+  log({expr})			Float	natural logarithm (base e) of {expr}
+***************
+*** 6322,6329 ****
+  		buffer is used.
+  		Returns a unique ID that can be passed to |listener_remove()|.
+  
+! 		The {callback} is invoked with a list of items that indicate a
+! 		change.  The list cannot be changed.  Each list item is a
+  		dictionary with these entries:
+  		    lnum	the first line number of the change
+  		    end		the first line below the change
+--- 6323,6343 ----
+  		buffer is used.
+  		Returns a unique ID that can be passed to |listener_remove()|.
+  
+! 		The {callback} is invoked with four arguments:
+! 		    a:bufnr	the buffer that was changed
+! 		    a:start	first changed line number
+! 		    a:end	first line number below the change
+! 		    a:added	total number of lines added, negative if lines
+! 				were deleted
+! 		    a:changes	a List of items with details about the changes
+! 
+! 		Example: >
+! 	    func Listener(bufnr, start, end, added, changes)
+! 	      echo 'lines ' .. a:start .. ' until ' .. a:end .. ' changed'
+! 	    endfunc
+! 	    call listener_add('Listener', bufnr)
+! 
+! <		The List cannot be changed.  Each item in a:changes is a
+  		dictionary with these entries:
+  		    lnum	the first line number of the change
+  		    end		the first line below the change
+***************
+*** 6337,6371 ****
+  		    lnum	line below which the new line is added
+  		    end		equal to "lnum"
+  		    added	number of lines inserted
+! 		    col		one
+  		When lines are deleted the values are:
+  		    lnum	the first deleted line
+  		    end		the line below the first deleted line, before
+  				the deletion was done
+  		    added	negative, number of lines deleted
+! 		    col		one
+  		When lines are changed:
+  		    lnum	the first changed line
+  		    end		the line below the last changed line
+! 		    added	zero
+! 		    col		first column with a change or one
+  
+! 		The entries are in the order the changes was made, thus the
+! 		most recent change is at the end.  One has to go through the
+! 		list from end to start to compute the line numbers in the
+! 		current state of the text.
+! 
+! 		When using the same function for multiple buffers, you can
+! 		pass the buffer to that function using a |Partial|.
+! 		Example: >
+! 		    func Listener(bufnr, changes)
+! 		      " ...
+! 		    endfunc
+! 		    let bufnr = ...
+! 		    call listener_add(function('Listener', [bufnr]), bufnr)
+! 
+! <		The {callback} is invoked just before the screen is updated.
+! 		To trigger this in a script use the `:redraw` command.
+  
+  		The {callback} is not invoked when the buffer is first loaded.
+  		Use the |BufReadPost| autocmd event to handle the initial text
+--- 6351,6382 ----
+  		    lnum	line below which the new line is added
+  		    end		equal to "lnum"
+  		    added	number of lines inserted
+! 		    col		1
+  		When lines are deleted the values are:
+  		    lnum	the first deleted line
+  		    end		the line below the first deleted line, before
+  				the deletion was done
+  		    added	negative, number of lines deleted
+! 		    col		1
+  		When lines are changed:
+  		    lnum	the first changed line
+  		    end		the line below the last changed line
+! 		    added	0
+! 		    col		first column with a change or 1
+  
+! 		The entries are in the order the changes were made, thus the
+! 		most recent change is at the end.  The line numbers are valid
+! 		when the callback is invoked, but later changes may make them
+! 		invalid, thus keeping a copy for later might not work.
+! 
+! 		The {callback} is invoked just before the screen is updated,
+! 		when |listener_flush()| is called or when a change is being
+! 		made that changes the line count in a way it causes a line
+! 		number in the list of changes to become invalid.
+! 
+! 		The {callback} is invoked with the text locked, see
+! 		|textlock|.  If you do need to make changes to the buffer, use
+! 		a timer to do this later |timer_start()|.
+  
+  		The {callback} is not invoked when the buffer is first loaded.
+  		Use the |BufReadPost| autocmd event to handle the initial text
+***************
+*** 6373,6378 ****
+--- 6384,6397 ----
+  		The {callback} is also not invoked when the buffer is
+  		unloaded, use the |BufUnload| autocmd event for that.
+  
++ listener_flush([{buf}])					*listener_flush()*
++ 		Invoke listener callbacks for buffer {buf}.  If there are no
++ 		pending changes then no callbacks are invoked.
++ 
++ 		{buf} refers to a buffer name or number. For the accepted
++ 		values, see |bufname()|.  When {buf} is omitted the current
++ 		buffer is used.
++ 
+  listener_remove({id})					*listener_remove()*
+  		Remove a listener previously added with listener_add().
+  
+*** ../vim-8.1.1331/src/testdir/test_listener.vim	2019-05-12 14:36:22.938437845 +0200
+--- src/testdir/test_listener.vim	2019-05-14 20:56:05.034204412 +0200
+***************
+*** 16,24 ****
+  func Test_listening()
+    new
+    call setline(1, ['one', 'two'])
+!   let id = listener_add({l -> s:StoreList(l)})
+    call setline(1, 'one one')
+!   redraw
+    call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
+  
+    " Undo is also a change
+--- 16,25 ----
+  func Test_listening()
+    new
+    call setline(1, ['one', 'two'])
+!   let s:list = []
+!   let id = listener_add({b, s, e, a, l -> s:StoreList(l)})
+    call setline(1, 'one one')
+!   call listener_flush()
+    call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
+  
+    " Undo is also a change
+***************
+*** 26,37 ****
+    call append(2, 'two two')
+    undo
+    redraw
+!   call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1},
+! 	\ {'lnum': 3, 'end': 4, 'col': 1, 'added': -1}, ], s:list)
+    1
+  
+!   " Two listeners, both get called.
+!   let id2 = listener_add({l -> s:AnotherStoreList(l)})
+    let s:list = []
+    let s:list2 = []
+    exe "normal $asome\<Esc>"
+--- 27,40 ----
+    call append(2, 'two two')
+    undo
+    redraw
+!   " the two changes get merged
+!   call assert_equal([{'lnum': 3, 'end': 4, 'col': 1, 'added': 0}], s:list)
+    1
+  
+!   " Two listeners, both get called.  Also check column.
+!   call setline(1, ['one one', 'two'])
+!   call listener_flush()
+!   let id2 = listener_add({b, s, e, a, l -> s:AnotherStoreList(l)})
+    let s:list = []
+    let s:list2 = []
+    exe "normal $asome\<Esc>"
+***************
+*** 39,45 ****
+--- 42,51 ----
+    call assert_equal([{'lnum': 1, 'end': 2, 'col': 8, 'added': 0}], s:list)
+    call assert_equal([{'lnum': 1, 'end': 2, 'col': 8, 'added': 0}], s:list2)
+  
++   " removing listener works
+    call listener_remove(id2)
++   call setline(1, ['one one', 'two'])
++   call listener_flush()
+    let s:list = []
+    let s:list2 = []
+    call setline(3, 'three')
+***************
+*** 47,58 ****
+    call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1}], s:list)
+    call assert_equal([], s:list2)
+  
+    " the "o" command first adds an empty line and then changes it
+    let s:list = []
+    exe "normal Gofour\<Esc>"
+    redraw
+!   call assert_equal([{'lnum': 4, 'end': 4, 'col': 1, 'added': 1},
+! 	\ {'lnum': 4, 'end': 5, 'col': 1, 'added': 0}], s:list)
+  
+    " Remove last listener
+    let s:list = []
+--- 53,94 ----
+    call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1}], s:list)
+    call assert_equal([], s:list2)
+  
++   " a change above a previous change without a line number change is reported
++   " together
++   call setline(1, ['one one', 'two'])
++   call listener_flush()
++   call append(2, 'two two')
++   call setline(1, 'something')
++   call listener_flush()
++   call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1},
++ 	\ {'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
++ 
++   " an insert just above a previous change that was the last one gets merged
++   call setline(1, ['one one', 'two'])
++   call listener_flush()
++   call setline(2, 'something')
++   call append(1, 'two two')
++   call listener_flush()
++   call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': 1}], s:list)
++ 
++   " an insert above a previous change causes a flush
++   call setline(1, ['one one', 'two'])
++   call listener_flush()
++   call setline(2, 'something')
++   call append(0, 'two two')
++   call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': 0}], s:list)
++   call listener_flush()
++   call assert_equal([{'lnum': 1, 'end': 1, 'col': 1, 'added': 1}], s:list)
++ 
+    " the "o" command first adds an empty line and then changes it
++   %del
++   call setline(1, ['one one', 'two'])
++   call listener_flush()
+    let s:list = []
+    exe "normal Gofour\<Esc>"
+    redraw
+!   call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1},
+! 	\ {'lnum': 3, 'end': 4, 'col': 1, 'added': 0}], s:list)
+  
+    " Remove last listener
+    let s:list = []
+***************
+*** 62,68 ****
+    call assert_equal([], s:list)
+  
+    " Trying to change the list fails
+!   let id = listener_add({l -> s:EvilStoreList(l)})
+    let s:list3 = []
+    call setline(1, 'asdfasdf')
+    redraw
+--- 98,104 ----
+    call assert_equal([], s:list)
+  
+    " Trying to change the list fails
+!   let id = listener_add({b, s, e, a, l -> s:EvilStoreList(l)})
+    let s:list3 = []
+    call setline(1, 'asdfasdf')
+    redraw
+***************
+*** 72,80 ****
+    bwipe!
+  endfunc
+  
+! func s:StoreBufList(buf, l)
+    let s:bufnr = a:buf
+!   let s:list = a:l
+  endfunc
+  
+  func Test_listening_other_buf()
+--- 108,171 ----
+    bwipe!
+  endfunc
+  
+! func s:StoreListArgs(buf, start, end, added, list)
+!   let s:buf = a:buf
+!   let s:start = a:start
+!   let s:end = a:end
+!   let s:added = a:added
+!   let s:list = a:list
+! endfunc
+! 
+! func Test_listener_args()
+!   new
+!   call setline(1, ['one', 'two'])
+!   let s:list = []
+!   let id = listener_add('s:StoreListArgs')
+! 
+!   " just one change
+!   call setline(1, 'one one')
+!   call listener_flush()
+!   call assert_equal(bufnr(''), s:buf)
+!   call assert_equal(1, s:start)
+!   call assert_equal(2, s:end)
+!   call assert_equal(0, s:added)
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
+! 
+!   " two disconnected changes
+!   call setline(1, ['one', 'two', 'three', 'four'])
+!   call listener_flush()
+!   call setline(1, 'one one')
+!   call setline(3, 'three three')
+!   call listener_flush()
+!   call assert_equal(bufnr(''), s:buf)
+!   call assert_equal(1, s:start)
+!   call assert_equal(4, s:end)
+!   call assert_equal(0, s:added)
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0},
+! 	\ {'lnum': 3, 'end': 4, 'col': 1, 'added': 0}], s:list)
+! 
+!   " add and remove lines
+!   call setline(1, ['one', 'two', 'three', 'four', 'five', 'six'])
+!   call listener_flush()
+!   call append(2, 'two two')
+!   4del
+!   call append(5, 'five five')
+!   call listener_flush()
+!   call assert_equal(bufnr(''), s:buf)
+!   call assert_equal(3, s:start)
+!   call assert_equal(6, s:end)
+!   call assert_equal(1, s:added)
+!   call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1},
+! 	\ {'lnum': 4, 'end': 5, 'col': 1, 'added': -1},
+! 	\ {'lnum': 6, 'end': 6, 'col': 1, 'added': 1}], s:list)
+! 
+!   call listener_remove(id)
+!   bwipe!
+! endfunc
+! 
+! func s:StoreBufList(buf, start, end, added, list)
+    let s:bufnr = a:buf
+!   let s:list = a:list
+  endfunc
+  
+  func Test_listening_other_buf()
+***************
+*** 82,88 ****
+    call setline(1, ['one', 'two'])
+    let bufnr = bufnr('')
+    normal ww
+!   let id = listener_add(function('s:StoreBufList', [bufnr]), bufnr)
+    let s:list = []
+    call setbufline(bufnr, 1, 'hello')
+    redraw
+--- 173,179 ----
+    call setline(1, ['one', 'two'])
+    let bufnr = bufnr('')
+    normal ww
+!   let id = listener_add(function('s:StoreBufList'), bufnr)
+    let s:list = []
+    call setbufline(bufnr, 1, 'hello')
+    redraw
+*** ../vim-8.1.1331/src/version.c	2019-05-14 17:57:14.861402461 +0200
+--- src/version.c	2019-05-14 21:18:19.926188697 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1332,
+  /**/
+
+-- 
+Hanson's Treatment of Time:
+	There are never enough hours in a day, but always too
+	many days before Saturday.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

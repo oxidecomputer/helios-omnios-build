@@ -1,0 +1,160 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1136
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1136
+Problem:    Decoding of mouse click escape sequence is not tested.
+Solution:   Add a test for xterm and SGR using low-level input.  Make
+            low-level input execution with feedkeys() work.
+Files:	    src/testdir/test_termcodes.vim, src/testdir/Make_all.mak,
+            src/evalfunc.c, src/ex_docmd.c
+
+
+*** ../vim-8.1.1135/src/testdir/test_termcodes.vim	2019-04-07 14:20:33.310644684 +0200
+--- src/testdir/test_termcodes.vim	2019-04-07 14:13:21.705198866 +0200
+***************
+*** 0 ****
+--- 1,47 ----
++ " Tests for decoding escape sequences sent by the terminal.
++ 
++ " This only works for Unix in a terminal
++ if has('gui_running') || !has('unix')
++   finish
++ endif
++ 
++ func Test_xterm_mouse_click()
++   new
++   let save_mouse = &mouse
++   let save_term = &term
++   let save_ttymouse = &ttymouse
++   set mouse=a
++   set term=xterm
++   call setline(1, ['line 1', 'line 2', 'line 3 is a bit longer'])
++   redraw
++ 
++   " Xterm mouse click
++   set ttymouse=xterm
++   let button = 0x20  " left down
++   let row = 2 + 32
++   let col = 6 + 32
++   call feedkeys("\<Esc>[M" .. list2str([button, col, row]), 'Lx!')
++ 
++   let button = 0x23  " release
++   call feedkeys("\<Esc>[M" .. list2str([button, col, row]), 'Lx!')
++ 
++   call assert_equal([0, 2, 6, 0], getpos('.'))
++ 
++   " SGR mouse click
++   set ttymouse=sgr
++   let button = 0  " left down
++   let row = 3
++   let col = 9
++   call feedkeys(printf("\<Esc>[<%d;%d;%dM", button, col, row), 'Lx!')
++ 
++   let button = 3  " release
++   call feedkeys(printf("\<Esc>[<%d;%d;%dm", button, col, row), 'Lx!')
++ 
++   call assert_equal([0, 3, 9, 0], getpos('.'))
++ 
++   let &mouse = save_mouse
++   let &term = save_term
++   let &ttymouse = save_ttymouse
++   bwipe!
++ endfunc
++ 
+*** ../vim-8.1.1135/src/testdir/Make_all.mak	2019-03-24 20:18:36.827484226 +0100
+--- src/testdir/Make_all.mak	2019-04-07 12:14:19.864037012 +0200
+***************
+*** 250,255 ****
+--- 250,256 ----
+  	test_taglist \
+  	test_tcl \
+  	test_termencoding \
++ 	test_termcodes \
+  	test_terminal \
+  	test_terminal_fail \
+  	test_textformat \
+***************
+*** 402,407 ****
+--- 403,409 ----
+  	test_tab.res \
+  	test_tcl.res \
+  	test_termencoding.res \
++ 	test_termcodes.res \
+  	test_terminal.res \
+  	test_terminal_fail.res \
+  	test_textformat.res \
+*** ../vim-8.1.1135/src/evalfunc.c	2019-04-06 22:01:20.756989404 +0200
+--- src/evalfunc.c	2019-04-07 13:41:30.844418341 +0200
+***************
+*** 3792,3798 ****
+  
+  		if (!dangerous)
+  		    ++ex_normal_busy;
+! 		exec_normal(TRUE, FALSE, TRUE);
+  		if (!dangerous)
+  		    --ex_normal_busy;
+  
+--- 3792,3798 ----
+  
+  		if (!dangerous)
+  		    ++ex_normal_busy;
+! 		exec_normal(TRUE, lowlevel, TRUE);
+  		if (!dangerous)
+  		    --ex_normal_busy;
+  
+*** ../vim-8.1.1135/src/ex_docmd.c	2019-03-30 18:46:57.348077402 +0100
+--- src/ex_docmd.c	2019-04-07 13:42:08.252219954 +0200
+***************
+*** 10487,10498 ****
+  exec_normal(int was_typed, int use_vpeekc, int may_use_terminal_loop UNUSED)
+  {
+      oparg_T	oa;
+  
+      clear_oparg(&oa);
+      finish_op = FALSE;
+      while ((!stuff_empty()
+  		|| ((was_typed || !typebuf_typed()) && typebuf.tb_len > 0)
+! 		|| (use_vpeekc && vpeekc() != NUL))
+  	    && !got_int)
+      {
+  	update_topline_cursor();
+--- 10487,10501 ----
+  exec_normal(int was_typed, int use_vpeekc, int may_use_terminal_loop UNUSED)
+  {
+      oparg_T	oa;
++     int		c;
+  
++     // When calling vpeekc() from feedkeys() it will return Ctrl_C when there
++     // is nothing to get, so also check for Ctrl_C.
+      clear_oparg(&oa);
+      finish_op = FALSE;
+      while ((!stuff_empty()
+  		|| ((was_typed || !typebuf_typed()) && typebuf.tb_len > 0)
+! 		|| (use_vpeekc && (c = vpeekc()) != NUL && c != Ctrl_C))
+  	    && !got_int)
+      {
+  	update_topline_cursor();
+*** ../vim-8.1.1135/src/version.c	2019-04-07 14:19:06.323149516 +0200
+--- src/version.c	2019-04-07 14:20:18.542730124 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1136,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+222. You send more than 20 personal e-mails a day.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,1036 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1261
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1261
+Problem:    No error for quickfix commands with negative range.
+Solution:   Add ADDR_UNSIGNED and use it for quickfix commands.  Make
+            assert_fails() show the command if the error doesn't match.
+Files:	    src/ex_cmds.h, src/ex_docmd.c, src/testdir/test_quickfix.vim,
+            runtime/doc/quickfix.txt, src/eval.c, src/quickfix.c,
+            src/proto/quickfix.pro, src/ex_cmds2.c
+
+
+*** ../vim-8.1.1260/src/ex_cmds.h	2019-05-03 21:56:31.363540578 +0200
+--- src/ex_cmds.h	2019-05-04 14:45:32.177702667 +0200
+***************
+*** 73,80 ****
+      ADDR_BUFFERS,	 // buffer number
+      ADDR_TABS,		 // tab page number
+      ADDR_TABS_RELATIVE,	 // Tab page that only relative
+      ADDR_QUICKFIX,	 // quickfix list entry number
+!     ADDR_OTHER,		 // something else
+      ADDR_NONE		 // no range used
+  } cmd_addr_T;
+  #endif
+--- 73,82 ----
+      ADDR_BUFFERS,	 // buffer number
+      ADDR_TABS,		 // tab page number
+      ADDR_TABS_RELATIVE,	 // Tab page that only relative
++     ADDR_QUICKFIX_VALID, // quickfix list valid entry number
+      ADDR_QUICKFIX,	 // quickfix list entry number
+!     ADDR_UNSIGNED,	 // positive count or zero, defaults to 1
+!     ADDR_OTHER,		 // something else, use line number for '$', '%', etc.
+      ADDR_NONE		 // no range used
+  } cmd_addr_T;
+  #endif
+***************
+*** 92,98 ****
+   * Not supported commands are included to avoid ambiguities.
+   */
+  #ifdef EX
+! # undef EX	    /* just in case */
+  #endif
+  #ifdef DO_DECLARE_EXCMD
+  # define EX(a, b, c, d, e)  {(char_u *)b, c, (long_u)(d), e}
+--- 94,100 ----
+   * Not supported commands are included to avoid ambiguities.
+   */
+  #ifdef EX
+! # undef EX	    // just in case
+  #endif
+  #ifdef DO_DECLARE_EXCMD
+  # define EX(a, b, c, d, e)  {(char_u *)b, c, (long_u)(d), e}
+***************
+*** 242,251 ****
+  			ADDR_LINES),
+  EX(CMD_cNext,		"cNext",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_cNfile,		"cNfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_cabbrev,		"cabbrev",	ex_abbreviate,
+  			EXTRA|TRLBAR|NOTRLCOM|USECTRLV|CMDWIN,
+  			ADDR_NONE),
+--- 244,253 ----
+  			ADDR_LINES),
+  EX(CMD_cNext,		"cNext",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_cNfile,		"cNfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_cabbrev,		"cabbrev",	ex_abbreviate,
+  			EXTRA|TRLBAR|NOTRLCOM|USECTRLV|CMDWIN,
+  			ADDR_NONE),
+***************
+*** 253,260 ****
+  			EXTRA|TRLBAR|CMDWIN,
+  			ADDR_NONE),
+  EX(CMD_cabove,		"cabove",	ex_cbelow,
+! 			RANGE|TRLBAR,
+! 			ADDR_OTHER),
+  EX(CMD_caddbuffer,	"caddbuffer",	ex_cbuffer,
+  			RANGE|WORD1|TRLBAR,
+  			ADDR_OTHER),
+--- 255,262 ----
+  			EXTRA|TRLBAR|CMDWIN,
+  			ADDR_NONE),
+  EX(CMD_cabove,		"cabove",	ex_cbelow,
+! 			RANGE|COUNT|TRLBAR,
+! 			ADDR_UNSIGNED),
+  EX(CMD_caddbuffer,	"caddbuffer",	ex_cbuffer,
+  			RANGE|WORD1|TRLBAR,
+  			ADDR_OTHER),
+***************
+*** 274,287 ****
+  			BANG|RANGE|WORD1|TRLBAR,
+  			ADDR_OTHER),
+  EX(CMD_cbelow,		"cbelow",	ex_cbelow,
+! 			RANGE|TRLBAR,
+! 			ADDR_OTHER),
+  EX(CMD_cbottom,		"cbottom",	ex_cbottom,
+  			TRLBAR,
+  			ADDR_NONE),
+  EX(CMD_cc,		"cc",		ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_cclose,		"cclose",	ex_cclose,
+  			TRLBAR,
+  			ADDR_NONE),
+--- 276,289 ----
+  			BANG|RANGE|WORD1|TRLBAR,
+  			ADDR_OTHER),
+  EX(CMD_cbelow,		"cbelow",	ex_cbelow,
+! 			RANGE|COUNT|TRLBAR,
+! 			ADDR_UNSIGNED),
+  EX(CMD_cbottom,		"cbottom",	ex_cbottom,
+  			TRLBAR,
+  			ADDR_NONE),
+  EX(CMD_cc,		"cc",		ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_QUICKFIX),
+  EX(CMD_cclose,		"cclose",	ex_cclose,
+  			TRLBAR,
+  			ADDR_NONE),
+***************
+*** 290,296 ****
+  			ADDR_NONE),
+  EX(CMD_cdo,		"cdo",		ex_listdo,
+  			BANG|NEEDARG|EXTRA|NOTRLCOM|RANGE|DFLALL,
+! 			ADDR_QUICKFIX),
+  EX(CMD_center,		"center",	ex_align,
+  			TRLBAR|RANGE|WHOLEFOLD|EXTRA|CMDWIN|MODIFY,
+  			ADDR_LINES),
+--- 292,298 ----
+  			ADDR_NONE),
+  EX(CMD_cdo,		"cdo",		ex_listdo,
+  			BANG|NEEDARG|EXTRA|NOTRLCOM|RANGE|DFLALL,
+! 			ADDR_QUICKFIX_VALID),
+  EX(CMD_center,		"center",	ex_align,
+  			TRLBAR|RANGE|WHOLEFOLD|EXTRA|CMDWIN|MODIFY,
+  			ADDR_LINES),
+***************
+*** 302,311 ****
+  			ADDR_NONE),
+  EX(CMD_cfdo,		"cfdo",		ex_listdo,
+  			BANG|NEEDARG|EXTRA|NOTRLCOM|RANGE|DFLALL,
+! 			ADDR_QUICKFIX),
+  EX(CMD_cfirst,		"cfirst",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_cgetfile,	"cgetfile",	ex_cfile,
+  			TRLBAR|FILE1,
+  			ADDR_NONE),
+--- 304,313 ----
+  			ADDR_NONE),
+  EX(CMD_cfdo,		"cfdo",		ex_listdo,
+  			BANG|NEEDARG|EXTRA|NOTRLCOM|RANGE|DFLALL,
+! 			ADDR_QUICKFIX_VALID),
+  EX(CMD_cfirst,		"cfirst",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_cgetfile,	"cgetfile",	ex_cfile,
+  			TRLBAR|FILE1,
+  			ADDR_NONE),
+***************
+*** 335,341 ****
+  			ADDR_NONE),
+  EX(CMD_clast,		"clast",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_close,		"close",	ex_close,
+  			BANG|RANGE|COUNT|TRLBAR|CMDWIN,
+  			ADDR_WINDOWS),
+--- 337,343 ----
+  			ADDR_NONE),
+  EX(CMD_clast,		"clast",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_close,		"close",	ex_close,
+  			BANG|RANGE|COUNT|TRLBAR|CMDWIN,
+  			ADDR_WINDOWS),
+***************
+*** 353,365 ****
+  			ADDR_OTHER),
+  EX(CMD_cnext,		"cnext",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_cnewer,		"cnewer",	qf_age,
+  			RANGE|COUNT|TRLBAR,
+! 			ADDR_OTHER),
+  EX(CMD_cnfile,		"cnfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_cnoremap,	"cnoremap",	ex_map,
+  			EXTRA|TRLBAR|NOTRLCOM|USECTRLV|CMDWIN,
+  			ADDR_NONE),
+--- 355,367 ----
+  			ADDR_OTHER),
+  EX(CMD_cnext,		"cnext",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_cnewer,		"cnewer",	qf_age,
+  			RANGE|COUNT|TRLBAR,
+! 			ADDR_UNSIGNED),
+  EX(CMD_cnfile,		"cnfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_cnoremap,	"cnoremap",	ex_map,
+  			EXTRA|TRLBAR|NOTRLCOM|USECTRLV|CMDWIN,
+  			ADDR_NONE),
+***************
+*** 374,380 ****
+  			ADDR_LINES),
+  EX(CMD_colder,		"colder",	qf_age,
+  			RANGE|COUNT|TRLBAR,
+! 			ADDR_OTHER),
+  EX(CMD_colorscheme,	"colorscheme",	ex_colorscheme,
+  			WORD1|TRLBAR|CMDWIN,
+  			ADDR_NONE),
+--- 376,382 ----
+  			ADDR_LINES),
+  EX(CMD_colder,		"colder",	qf_age,
+  			RANGE|COUNT|TRLBAR,
+! 			ADDR_UNSIGNED),
+  EX(CMD_colorscheme,	"colorscheme",	ex_colorscheme,
+  			WORD1|TRLBAR|CMDWIN,
+  			ADDR_NONE),
+***************
+*** 398,404 ****
+  			ADDR_OTHER),
+  EX(CMD_cprevious,	"cprevious",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_cpfile,		"cpfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+  			ADDR_OTHER),
+--- 400,406 ----
+  			ADDR_OTHER),
+  EX(CMD_cprevious,	"cprevious",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_cpfile,		"cpfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+  			ADDR_OTHER),
+***************
+*** 407,413 ****
+  			ADDR_NONE),
+  EX(CMD_crewind,		"crewind",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_cscope,		"cscope",	ex_cscope,
+  			EXTRA|NOTRLCOM|XFILE,
+  			ADDR_NONE),
+--- 409,415 ----
+  			ADDR_NONE),
+  EX(CMD_crewind,		"crewind",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_cscope,		"cscope",	ex_cscope,
+  			EXTRA|NOTRLCOM|XFILE,
+  			ADDR_NONE),
+***************
+*** 725,740 ****
+  			ADDR_LINES),
+  EX(CMD_lNext,		"lNext",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_lNfile,		"lNfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_last,		"last",		ex_last,
+  			EXTRA|BANG|EDITCMD|ARGOPT|TRLBAR,
+  			ADDR_NONE),
+  EX(CMD_labove,		"labove",	ex_cbelow,
+! 			RANGE|TRLBAR,
+! 			ADDR_OTHER),
+  EX(CMD_language,	"language",	ex_language,
+  			EXTRA|TRLBAR|CMDWIN,
+  			ADDR_NONE),
+--- 727,742 ----
+  			ADDR_LINES),
+  EX(CMD_lNext,		"lNext",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_lNfile,		"lNfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_last,		"last",		ex_last,
+  			EXTRA|BANG|EDITCMD|ARGOPT|TRLBAR,
+  			ADDR_NONE),
+  EX(CMD_labove,		"labove",	ex_cbelow,
+! 			RANGE|COUNT|TRLBAR,
+! 			ADDR_UNSIGNED),
+  EX(CMD_language,	"language",	ex_language,
+  			EXTRA|TRLBAR|CMDWIN,
+  			ADDR_NONE),
+***************
+*** 754,761 ****
+  			BANG|RANGE|WORD1|TRLBAR,
+  			ADDR_OTHER),
+  EX(CMD_lbelow,		"lbelow",	ex_cbelow,
+! 			RANGE|TRLBAR,
+! 			ADDR_OTHER),
+  EX(CMD_lbottom,		"lbottom",	ex_cbottom,
+  			TRLBAR,
+  			ADDR_NONE),
+--- 756,763 ----
+  			BANG|RANGE|WORD1|TRLBAR,
+  			ADDR_OTHER),
+  EX(CMD_lbelow,		"lbelow",	ex_cbelow,
+! 			RANGE|COUNT|TRLBAR,
+! 			ADDR_UNSIGNED),
+  EX(CMD_lbottom,		"lbottom",	ex_cbottom,
+  			TRLBAR,
+  			ADDR_NONE),
+***************
+*** 773,779 ****
+  			ADDR_NONE),
+  EX(CMD_ldo,		"ldo",		ex_listdo,
+  			BANG|NEEDARG|EXTRA|NOTRLCOM|RANGE|DFLALL,
+! 			ADDR_QUICKFIX),
+  EX(CMD_left,		"left",		ex_align,
+  			TRLBAR|RANGE|WHOLEFOLD|EXTRA|CMDWIN|MODIFY,
+  			ADDR_LINES),
+--- 775,781 ----
+  			ADDR_NONE),
+  EX(CMD_ldo,		"ldo",		ex_listdo,
+  			BANG|NEEDARG|EXTRA|NOTRLCOM|RANGE|DFLALL,
+! 			ADDR_QUICKFIX_VALID),
+  EX(CMD_left,		"left",		ex_align,
+  			TRLBAR|RANGE|WHOLEFOLD|EXTRA|CMDWIN|MODIFY,
+  			ADDR_LINES),
+***************
+*** 791,800 ****
+  			ADDR_NONE),
+  EX(CMD_lfdo,		"lfdo",		ex_listdo,
+  			BANG|NEEDARG|EXTRA|NOTRLCOM|RANGE|DFLALL,
+! 			ADDR_QUICKFIX),
+  EX(CMD_lfirst,		"lfirst",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_lgetfile,	"lgetfile",	ex_cfile,
+  			TRLBAR|FILE1,
+  			ADDR_NONE),
+--- 793,802 ----
+  			ADDR_NONE),
+  EX(CMD_lfdo,		"lfdo",		ex_listdo,
+  			BANG|NEEDARG|EXTRA|NOTRLCOM|RANGE|DFLALL,
+! 			ADDR_QUICKFIX_VALID),
+  EX(CMD_lfirst,		"lfirst",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_lgetfile,	"lgetfile",	ex_cfile,
+  			TRLBAR|FILE1,
+  			ADDR_NONE),
+***************
+*** 818,827 ****
+  			ADDR_NONE),
+  EX(CMD_ll,		"ll",		ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_llast,		"llast",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_llist,		"llist",	qf_list,
+  			BANG|EXTRA|TRLBAR|CMDWIN,
+  			ADDR_NONE),
+--- 820,829 ----
+  			ADDR_NONE),
+  EX(CMD_ll,		"ll",		ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_QUICKFIX),
+  EX(CMD_llast,		"llast",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_llist,		"llist",	qf_list,
+  			BANG|EXTRA|TRLBAR|CMDWIN,
+  			ADDR_NONE),
+***************
+*** 839,851 ****
+  			ADDR_NONE),
+  EX(CMD_lnext,		"lnext",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_lnewer,		"lnewer",	qf_age,
+  			RANGE|COUNT|TRLBAR,
+! 			ADDR_OTHER),
+  EX(CMD_lnfile,		"lnfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_loadview,	"loadview",	ex_loadview,
+  			FILE1|TRLBAR,
+  			ADDR_NONE),
+--- 841,853 ----
+  			ADDR_NONE),
+  EX(CMD_lnext,		"lnext",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_lnewer,		"lnewer",	qf_age,
+  			RANGE|COUNT|TRLBAR,
+! 			ADDR_UNSIGNED),
+  EX(CMD_lnfile,		"lnfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_loadview,	"loadview",	ex_loadview,
+  			FILE1|TRLBAR,
+  			ADDR_NONE),
+***************
+*** 860,878 ****
+  			ADDR_NONE),
+  EX(CMD_lolder,		"lolder",	qf_age,
+  			RANGE|COUNT|TRLBAR,
+! 			ADDR_OTHER),
+  EX(CMD_lopen,		"lopen",	ex_copen,
+  			RANGE|COUNT|TRLBAR,
+  			ADDR_OTHER),
+  EX(CMD_lprevious,	"lprevious",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_lpfile,		"lpfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+  			ADDR_OTHER),
+  EX(CMD_lrewind,		"lrewind",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_OTHER),
+  EX(CMD_ltag,		"ltag",	ex_tag,
+  			TRLBAR|BANG|WORD1,
+  			ADDR_NONE),
+--- 862,880 ----
+  			ADDR_NONE),
+  EX(CMD_lolder,		"lolder",	qf_age,
+  			RANGE|COUNT|TRLBAR,
+! 			ADDR_UNSIGNED),
+  EX(CMD_lopen,		"lopen",	ex_copen,
+  			RANGE|COUNT|TRLBAR,
+  			ADDR_OTHER),
+  EX(CMD_lprevious,	"lprevious",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_lpfile,		"lpfile",	ex_cnext,
+  			RANGE|COUNT|TRLBAR|BANG,
+  			ADDR_OTHER),
+  EX(CMD_lrewind,		"lrewind",	ex_cc,
+  			RANGE|COUNT|TRLBAR|BANG,
+! 			ADDR_UNSIGNED),
+  EX(CMD_ltag,		"ltag",	ex_tag,
+  			TRLBAR|BANG|WORD1,
+  			ADDR_NONE),
+*** ../vim-8.1.1260/src/ex_docmd.c	2019-05-03 21:56:31.363540578 +0200
+--- src/ex_docmd.c	2019-05-04 14:56:42.118125419 +0200
+***************
+*** 1786,1792 ****
+   * is equal to the lower.
+   */
+  
+!     /* ea.addr_type for user commands is set by find_ucmd */
+      if (!IS_USER_CMDIDX(ea.cmdidx))
+      {
+  	if (ea.cmdidx != CMD_SIZE)
+--- 1786,1792 ----
+   * is equal to the lower.
+   */
+  
+!     // ea.addr_type for user commands is set by find_ucmd
+      if (!IS_USER_CMDIDX(ea.cmdidx))
+      {
+  	if (ea.cmdidx != CMD_SIZE)
+***************
+*** 1794,1802 ****
+  	else
+  	    ea.addr_type = ADDR_LINES;
+  
+! 	/* :wincmd range depends on the argument. */
+  	if (ea.cmdidx == CMD_wincmd && p != NULL)
+  	    get_wincmd_addr_type(skipwhite(p), &ea);
+      }
+  
+      ea.cmd = cmd;
+--- 1794,1807 ----
+  	else
+  	    ea.addr_type = ADDR_LINES;
+  
+! 	// :wincmd range depends on the argument.
+  	if (ea.cmdidx == CMD_wincmd && p != NULL)
+  	    get_wincmd_addr_type(skipwhite(p), &ea);
++ #ifdef FEAT_QUICKFIX
++ 	// :.cc in quickfix window uses line number
++ 	if ((ea.cmdidx == CMD_cc || ea.cmdidx == CMD_ll) && bt_quickfix(curbuf))
++ 	    ea.addr_type = ADDR_OTHER;
++ #endif
+      }
+  
+      ea.cmd = cmd;
+***************
+*** 2229,2243 ****
+  		else
+  		    ea.line2 = ARGCOUNT;
+  		break;
+! 	    case ADDR_QUICKFIX:
+  #ifdef FEAT_QUICKFIX
+! 		ea.line2 = qf_get_size(&ea);
+  		if (ea.line2 == 0)
+  		    ea.line2 = 1;
+  #endif
+  		break;
+  	    case ADDR_NONE:
+! 		iemsg(_("INTERNAL: Cannot use DFLALL with ADDR_NONE"));
+  		break;
+  	}
+      }
+--- 2234,2250 ----
+  		else
+  		    ea.line2 = ARGCOUNT;
+  		break;
+! 	    case ADDR_QUICKFIX_VALID:
+  #ifdef FEAT_QUICKFIX
+! 		ea.line2 = qf_get_valid_size(&ea);
+  		if (ea.line2 == 0)
+  		    ea.line2 = 1;
+  #endif
+  		break;
+  	    case ADDR_NONE:
+! 	    case ADDR_UNSIGNED:
+! 	    case ADDR_QUICKFIX:
+! 		iemsg(_("INTERNAL: Cannot use DFLALL with ADDR_NONE, ADDR_UNSIGNED or ADDR_QUICKFIX"));
+  		break;
+  	}
+      }
+***************
+*** 2905,2914 ****
+--- 2912,2927 ----
+  		eap->line2 = CURRENT_TAB_NR;
+  		break;
+  	    case ADDR_TABS_RELATIVE:
++ 	    case ADDR_UNSIGNED:
+  		eap->line2 = 1;
+  		break;
+  	    case ADDR_QUICKFIX:
+  #ifdef FEAT_QUICKFIX
++ 		eap->line2 = qf_get_cur_idx(eap);
++ #endif
++ 		break;
++ 	    case ADDR_QUICKFIX_VALID:
++ #ifdef FEAT_QUICKFIX
+  		eap->line2 = qf_get_cur_valid_idx(eap);
+  #endif
+  		break;
+***************
+*** 2969,2974 ****
+--- 2982,2989 ----
+  			}
+  			break;
+  		    case ADDR_TABS_RELATIVE:
++ 		    case ADDR_UNSIGNED:
++ 		    case ADDR_QUICKFIX:
+  			*errormsg = _(e_invrange);
+  			return FAIL;
+  		    case ADDR_ARGUMENTS:
+***************
+*** 2980,2989 ****
+  			    eap->line2 = ARGCOUNT;
+  			}
+  			break;
+! 		    case ADDR_QUICKFIX:
+  #ifdef FEAT_QUICKFIX
+  			eap->line1 = 1;
+! 			eap->line2 = qf_get_size(eap);
+  			if (eap->line2 == 0)
+  			    eap->line2 = 1;
+  #endif
+--- 2995,3004 ----
+  			    eap->line2 = ARGCOUNT;
+  			}
+  			break;
+! 		    case ADDR_QUICKFIX_VALID:
+  #ifdef FEAT_QUICKFIX
+  			eap->line1 = 1;
+! 			eap->line2 = qf_get_valid_size(eap);
+  			if (eap->line2 == 0)
+  			    eap->line2 = 1;
+  #endif
+***************
+*** 3102,3108 ****
+  /*
+   * Find an Ex command by its name, either built-in or user.
+   * Start of the name can be found at eap->cmd.
+!  * Returns pointer to char after the command name.
+   * "full" is set to TRUE if the whole command name matched.
+   * Returns NULL for an ambiguous user command.
+   */
+--- 3117,3123 ----
+  /*
+   * Find an Ex command by its name, either built-in or user.
+   * Start of the name can be found at eap->cmd.
+!  * Sets eap->cmdidx and returns a pointer to char after the command name.
+   * "full" is set to TRUE if the whole command name matched.
+   * Returns NULL for an ambiguous user command.
+   */
+***************
+*** 4268,4279 ****
+--- 4283,4300 ----
+  			break;
+  		    case ADDR_TABS_RELATIVE:
+  		    case ADDR_NONE:
++ 		    case ADDR_UNSIGNED:
+  			emsg(_(e_invrange));
+  			cmd = NULL;
+  			goto error;
+  			break;
+  		    case ADDR_QUICKFIX:
+  #ifdef FEAT_QUICKFIX
++ 			lnum = qf_get_cur_idx(eap);
++ #endif
++ 			break;
++ 		    case ADDR_QUICKFIX_VALID:
++ #ifdef FEAT_QUICKFIX
+  			lnum = qf_get_cur_valid_idx(eap);
+  #endif
+  			break;
+***************
+*** 4312,4317 ****
+--- 4333,4339 ----
+  			break;
+  		    case ADDR_TABS_RELATIVE:
+  		    case ADDR_NONE:
++ 		    case ADDR_UNSIGNED:
+  			emsg(_(e_invrange));
+  			cmd = NULL;
+  			goto error;
+***************
+*** 4323,4328 ****
+--- 4345,4357 ----
+  			    lnum = 1;
+  #endif
+  			break;
++ 		    case ADDR_QUICKFIX_VALID:
++ #ifdef FEAT_QUICKFIX
++ 			lnum = qf_get_valid_size(eap);
++ 			if (lnum == 0)
++ 			    lnum = 1;
++ #endif
++ 			break;
+  		}
+  		break;
+  
+***************
+*** 4503,4512 ****
+--- 4532,4548 ----
+  			break;
+  		    case ADDR_QUICKFIX:
+  #ifdef FEAT_QUICKFIX
++ 			lnum = qf_get_cur_idx(eap);
++ #endif
++ 			break;
++ 		    case ADDR_QUICKFIX_VALID:
++ #ifdef FEAT_QUICKFIX
+  			lnum = qf_get_cur_valid_idx(eap);
+  #endif
+  			break;
+  		    case ADDR_NONE:
++ 		    case ADDR_UNSIGNED:
++ 			lnum = 0;
+  			break;
+  		}
+  	    }
+***************
+*** 4603,4608 ****
+--- 4639,4645 ----
+  invalid_range(exarg_T *eap)
+  {
+      buf_T	*buf;
++ 
+      if (       eap->line1 < 0
+  	    || eap->line2 < 0
+  	    || eap->line1 > eap->line2)
+***************
+*** 4664,4673 ****
+  		break;
+  	    case ADDR_QUICKFIX:
+  #ifdef FEAT_QUICKFIX
+! 		if (eap->line2 != 1 && eap->line2 > qf_get_size(eap))
+  		    return _(e_invrange);
+  #endif
+  		break;
+  	    case ADDR_NONE:
+  		// Will give an error elsewhere.
+  		break;
+--- 4701,4722 ----
+  		break;
+  	    case ADDR_QUICKFIX:
+  #ifdef FEAT_QUICKFIX
+! 		// No error for value that is too big, will use the last entry.
+! 		if (eap->line2 <= 0)
+  		    return _(e_invrange);
+  #endif
+  		break;
++ 	    case ADDR_QUICKFIX_VALID:
++ #ifdef FEAT_QUICKFIX
++ 		if ((eap->line2 != 1 && eap->line2 > qf_get_valid_size(eap))
++ 			|| eap->line2 < 0)
++ 		    return _(e_invrange);
++ #endif
++ 		break;
++ 	    case ADDR_UNSIGNED:
++ 		if (eap->line2 < 0)
++ 		    return _(e_invrange);
++ 		break;
+  	    case ADDR_NONE:
+  		// Will give an error elsewhere.
+  		break;
+*** ../vim-8.1.1260/src/testdir/test_quickfix.vim	2019-05-03 21:56:31.367540560 +0200
+--- src/testdir/test_quickfix.vim	2019-05-04 14:33:20.713745971 +0200
+***************
+*** 28,34 ****
+      command! -count -nargs=* -bang Xprev <mods><count>cprev<bang> <args>
+      command! -nargs=* -bang Xfirst <mods>cfirst<bang> <args>
+      command! -nargs=* -bang Xlast <mods>clast<bang> <args>
+!     command! -nargs=* -bang -range Xnfile <mods><count>cnfile<bang> <args>
+      command! -nargs=* -bang Xpfile <mods>cpfile<bang> <args>
+      command! -nargs=* Xexpr <mods>cexpr <args>
+      command! -range -nargs=* Xvimgrep <mods><count>vimgrep <args>
+--- 28,34 ----
+      command! -count -nargs=* -bang Xprev <mods><count>cprev<bang> <args>
+      command! -nargs=* -bang Xfirst <mods>cfirst<bang> <args>
+      command! -nargs=* -bang Xlast <mods>clast<bang> <args>
+!     command! -count -nargs=* -bang Xnfile <mods><count>cnfile<bang> <args>
+      command! -nargs=* -bang Xpfile <mods>cpfile<bang> <args>
+      command! -nargs=* Xexpr <mods>cexpr <args>
+      command! -range -nargs=* Xvimgrep <mods><count>vimgrep <args>
+***************
+*** 63,69 ****
+      command! -count -nargs=* -bang Xprev <mods><count>lprev<bang> <args>
+      command! -nargs=* -bang Xfirst <mods>lfirst<bang> <args>
+      command! -nargs=* -bang Xlast <mods>llast<bang> <args>
+!     command! -nargs=* -bang -range Xnfile <mods><count>lnfile<bang> <args>
+      command! -nargs=* -bang Xpfile <mods>lpfile<bang> <args>
+      command! -nargs=* Xexpr <mods>lexpr <args>
+      command! -range -nargs=* Xvimgrep <mods><count>lvimgrep <args>
+--- 63,69 ----
+      command! -count -nargs=* -bang Xprev <mods><count>lprev<bang> <args>
+      command! -nargs=* -bang Xfirst <mods>lfirst<bang> <args>
+      command! -nargs=* -bang Xlast <mods>llast<bang> <args>
+!     command! -count -nargs=* -bang Xnfile <mods><count>lnfile<bang> <args>
+      command! -nargs=* -bang Xpfile <mods>lpfile<bang> <args>
+      command! -nargs=* Xexpr <mods>lexpr <args>
+      command! -range -nargs=* Xvimgrep <mods><count>lvimgrep <args>
+***************
+*** 4126,4138 ****
+  
+    " Invalid range
+    if a:cchar == 'c'
+!     call assert_fails('-2cbelow', 'E553:')
+!     " TODO: should go to first error in the current line?
+!     0cabove
+    else
+!     call assert_fails('-2lbelow', 'E553:')
+!     " TODO: should go to first error in the current line?
+!     0labove
+    endif
+  
+    call delete('X1')
+--- 4126,4134 ----
+  
+    " Invalid range
+    if a:cchar == 'c'
+!     call assert_fails('-2cbelow', 'E16:')
+    else
+!     call assert_fails('-2lbelow', 'E16:')
+    endif
+  
+    call delete('X1')
+***************
+*** 4145,4147 ****
+--- 4141,4179 ----
+    call Xtest_below('c')
+    call Xtest_below('l')
+  endfunc
++ 
++ func Test_quickfix_count()
++   let commands = [
++ 	\ 'cNext',
++ 	\ 'cNfile',
++ 	\ 'cabove',
++ 	\ 'cbelow',
++ 	\ 'cfirst',
++ 	\ 'clast',
++ 	\ 'cnewer',
++ 	\ 'cnext',
++ 	\ 'cnfile',
++ 	\ 'colder',
++ 	\ 'cprevious',
++ 	\ 'crewind',
++ 	\
++ 	\ 'lNext',
++ 	\ 'lNfile',
++ 	\ 'labove',
++ 	\ 'lbelow',
++ 	\ 'lfirst',
++ 	\ 'llast',
++ 	\ 'lnewer',
++ 	\ 'lnext',
++ 	\ 'lnfile',
++ 	\ 'lolder',
++ 	\ 'lprevious',
++ 	\ 'lrewind',
++ 	\ ]
++   for cmd in commands
++     call assert_fails('-1' .. cmd, 'E16:')
++     call assert_fails('.' .. cmd, 'E16:')
++     call assert_fails('%' .. cmd, 'E16:')
++     call assert_fails('$' .. cmd, 'E16:')
++   endfor
++ endfunc
+*** ../vim-8.1.1260/runtime/doc/quickfix.txt	2019-05-03 21:56:31.363540578 +0200
+--- runtime/doc/quickfix.txt	2019-05-04 14:13:00.932098180 +0200
+***************
+*** 87,93 ****
+  
+  							*:cc*
+  :cc[!] [nr]		Display error [nr].  If [nr] is omitted, the same
+! 			error is displayed again.  Without [!] this doesn't
+  			work when jumping to another buffer, the current buffer
+  			has been changed, there is the only window for the
+  			buffer and both 'hidden' and 'autowrite' are off.
+--- 87,93 ----
+  
+  							*:cc*
+  :cc[!] [nr]		Display error [nr].  If [nr] is omitted, the same
+! :[nr]cc[!]		error is displayed again.  Without [!] this doesn't
+  			work when jumping to another buffer, the current buffer
+  			has been changed, there is the only window for the
+  			buffer and both 'hidden' and 'autowrite' are off.
+***************
+*** 96,105 ****
+  			there is another window for this buffer.
+  			The 'switchbuf' settings are respected when jumping
+  			to a buffer.
+  
+  							*:ll*
+  :ll[!] [nr]		Same as ":cc", except the location list for the
+! 			current window is used instead of the quickfix list.
+  
+  							*:cn* *:cnext* *E553*
+  :[count]cn[ext][!]	Display the [count] next error in the list that
+--- 96,108 ----
+  			there is another window for this buffer.
+  			The 'switchbuf' settings are respected when jumping
+  			to a buffer.
++ 			When used in the quickfix window the line number can
++ 			be used, including "." for the current line and "$"
++ 			for the last line.
+  
+  							*:ll*
+  :ll[!] [nr]		Same as ":cc", except the location list for the
+! :[nr]ll[!]		current window is used instead of the quickfix list.
+  
+  							*:cn* *:cnext* *E553*
+  :[count]cn[ext][!]	Display the [count] next error in the list that
+*** ../vim-8.1.1260/src/eval.c	2019-04-27 20:36:52.530303581 +0200
+--- src/eval.c	2019-05-04 14:31:49.086276905 +0200
+***************
+*** 9595,9608 ****
+      return ret;
+  }
+  
+      int
+  assert_fails(typval_T *argvars)
+  {
+      char_u	*cmd = tv_get_string_chk(&argvars[0]);
+      garray_T	ga;
+      int		ret = 0;
+-     char_u	numbuf[NUMBUFLEN];
+-     char_u	*tofree;
+  
+      called_emsg = FALSE;
+      suppress_errthrow = TRUE;
+--- 9595,9621 ----
+      return ret;
+  }
+  
++     static void
++ assert_append_cmd_or_arg(garray_T *gap, typval_T *argvars, char_u *cmd)
++ {
++     char_u	*tofree;
++     char_u	numbuf[NUMBUFLEN];
++ 
++     if (argvars[1].v_type != VAR_UNKNOWN && argvars[2].v_type != VAR_UNKNOWN)
++     {
++ 	ga_concat(gap, echo_string(&argvars[2], &tofree, numbuf, 0));
++ 	vim_free(tofree);
++     }
++     else
++ 	ga_concat(gap, cmd);
++ }
++ 
+      int
+  assert_fails(typval_T *argvars)
+  {
+      char_u	*cmd = tv_get_string_chk(&argvars[0]);
+      garray_T	ga;
+      int		ret = 0;
+  
+      called_emsg = FALSE;
+      suppress_errthrow = TRUE;
+***************
+*** 9612,9625 ****
+      {
+  	prepare_assert_error(&ga);
+  	ga_concat(&ga, (char_u *)"command did not fail: ");
+! 	if (argvars[1].v_type != VAR_UNKNOWN
+! 					   && argvars[2].v_type != VAR_UNKNOWN)
+! 	{
+! 	    ga_concat(&ga, echo_string(&argvars[2], &tofree, numbuf, 0));
+! 	    vim_free(tofree);
+! 	}
+! 	else
+! 	    ga_concat(&ga, cmd);
+  	assert_error(&ga);
+  	ga_clear(&ga);
+  	ret = 1;
+--- 9625,9631 ----
+      {
+  	prepare_assert_error(&ga);
+  	ga_concat(&ga, (char_u *)"command did not fail: ");
+! 	assert_append_cmd_or_arg(&ga, argvars, cmd);
+  	assert_error(&ga);
+  	ga_clear(&ga);
+  	ret = 1;
+***************
+*** 9635,9640 ****
+--- 9641,9648 ----
+  	    prepare_assert_error(&ga);
+  	    fill_assert_error(&ga, &argvars[2], NULL, &argvars[1],
+  				     &vimvars[VV_ERRMSG].vv_tv, ASSERT_OTHER);
++ 	    ga_concat(&ga, (char_u *)": ");
++ 	    assert_append_cmd_or_arg(&ga, argvars, cmd);
+  	    assert_error(&ga);
+  	    ga_clear(&ga);
+  	ret = 1;
+*** ../vim-8.1.1260/src/quickfix.c	2019-05-03 21:56:31.367540560 +0200
+--- src/quickfix.c	2019-05-04 14:50:58.215954924 +0200
+***************
+*** 4828,4839 ****
+  }
+  
+  /*
+!  * Returns the number of valid entries in the current quickfix/location list.
+   */
+      int
+  qf_get_size(exarg_T *eap)
+  {
+      qf_info_T	*qi;
+      qf_list_T	*qfl;
+      qfline_T	*qfp;
+      int		i, sz = 0;
+--- 4828,4852 ----
+  }
+  
+  /*
+!  * Returns the number of entries in the current quickfix/location list.
+   */
+      int
+  qf_get_size(exarg_T *eap)
+  {
+      qf_info_T	*qi;
++ 
++     if ((qi = qf_cmd_get_stack(eap, FALSE)) == NULL)
++ 	return 0;
++     return qf_get_curlist(qi)->qf_count;
++ }
++ 
++ /*
++  * Returns the number of valid entries in the current quickfix/location list.
++  */
++     int
++ qf_get_valid_size(exarg_T *eap)
++ {
++     qf_info_T	*qi;
+      qf_list_T	*qfl;
+      qfline_T	*qfp;
+      int		i, sz = 0;
+*** ../vim-8.1.1260/src/proto/quickfix.pro	2019-05-03 21:56:31.363540578 +0200
+--- src/proto/quickfix.pro	2019-05-04 14:48:27.644759952 +0200
+***************
+*** 19,24 ****
+--- 19,25 ----
+  int grep_internal(cmdidx_T cmdidx);
+  void ex_make(exarg_T *eap);
+  int qf_get_size(exarg_T *eap);
++ int qf_get_valid_size(exarg_T *eap);
+  int qf_get_cur_idx(exarg_T *eap);
+  int qf_get_cur_valid_idx(exarg_T *eap);
+  void ex_cc(exarg_T *eap);
+*** ../vim-8.1.1260/src/ex_cmds2.c	2019-04-21 11:34:36.335256531 +0200
+--- src/ex_cmds2.c	2019-05-04 14:46:24.961418476 +0200
+***************
+*** 2132,2138 ****
+  	else if (eap->cmdidx == CMD_cdo || eap->cmdidx == CMD_ldo
+  		|| eap->cmdidx == CMD_cfdo || eap->cmdidx == CMD_lfdo)
+  	{
+! 	    qf_size = qf_get_size(eap);
+  	    if (qf_size <= 0 || eap->line1 > qf_size)
+  		buf = NULL;
+  	    else
+--- 2132,2138 ----
+  	else if (eap->cmdidx == CMD_cdo || eap->cmdidx == CMD_ldo
+  		|| eap->cmdidx == CMD_cfdo || eap->cmdidx == CMD_lfdo)
+  	{
+! 	    qf_size = qf_get_valid_size(eap);
+  	    if (qf_size <= 0 || eap->line1 > qf_size)
+  		buf = NULL;
+  	    else
+*** ../vim-8.1.1260/src/version.c	2019-05-04 14:05:05.210240329 +0200
+--- src/version.c	2019-05-04 14:05:40.050094734 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1261,
+  /**/
+
+-- 
+I just planted an Algebra tree. It has square roots.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

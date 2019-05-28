@@ -1,0 +1,120 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1317
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1317
+Problem:    Output from Travis can be improved.
+Solution:   Add section headers.  Handle errors better. (closes #4098)
+Files:	    .travis.yml, configure
+
+
+*** ../vim-8.1.1316/.travis.yml	2019-04-13 22:44:48.325154165 +0200
+--- .travis.yml	2019-05-11 14:31:35.947081575 +0200
+***************
+*** 130,135 ****
+--- 130,137 ----
+  
+  script:
+    - NPROC=$(getconf _NPROCESSORS_ONLN)
++   - set -o errexit
++   - echo -e "\\033[33;1mConfiguring Vim\\033[0m" && echo -en "travis_fold:start:configure\\r\\033[0K"
+    - |
+      if [[ "${CHECK_AUTOCONF}" = "yes" ]] && [[ "${CC}" = "gcc" ]]; then
+        make -C src autoconf
+***************
+*** 138,150 ****
+      if [[ -n "${SHADOWOPT}" ]]; then
+        make -C src shadow
+      fi
+    - |
+!     (
+!     cd "${SRCDIR}" \
+!       && ./configure --with-features=${FEATURES} ${CONFOPT} --enable-fail-if-missing
+!     ) && if [[ "${BUILD}" = "yes" ]]; then
+        make ${SHADOWOPT} -j${NPROC}
+      fi
+    # Show Vim version and also if_xx versions.
+    - |
+      if [[ "${BUILD}" = "yes" ]]; then
+--- 140,156 ----
+      if [[ -n "${SHADOWOPT}" ]]; then
+        make -C src shadow
+      fi
++   # "./configure" changes its working directory into "$SRCDIR".
++   - ./configure --with-features=${FEATURES} ${CONFOPT} --enable-fail-if-missing
++   - echo -en "travis_fold:end:configure\\r\\033[0K"
++   - echo -e "\\033[33;1mBuilding Vim\\033[0m" && echo -en "travis_fold:start:build\\r\\033[0K"
+    - |
+!     if [[ "${BUILD}" = "yes" ]]; then
+        make ${SHADOWOPT} -j${NPROC}
+      fi
++   - echo -en "travis_fold:end:build\\r\\033[0K"
++   - set +o errexit
++   - echo -e "\\033[33;1mTesting Vim\\033[0m" && echo -en "travis_fold:start:test\\r\\033[0K"
+    # Show Vim version and also if_xx versions.
+    - |
+      if [[ "${BUILD}" = "yes" ]]; then
+***************
+*** 154,165 ****
+        cat if_ver.txt
+      fi
+    - make ${SHADOWOPT} ${TEST}
+    - |
+      if [[ -n "${ASAN_OPTIONS}" ]]; then
+        while read log; do
+          asan_symbolize < "${log}"
+        done < <(find . -type f -name 'asan.*' -size +0)
+-       [[ -z "${log}" ]] # exit 1 if there are ASAN logs
+      fi
+  
+  after_success:
+--- 160,172 ----
+        cat if_ver.txt
+      fi
+    - make ${SHADOWOPT} ${TEST}
++   - echo -en "travis_fold:end:test\\r\\033[0K"
+    - |
+      if [[ -n "${ASAN_OPTIONS}" ]]; then
+        while read log; do
+          asan_symbolize < "${log}"
++         false # exit 1 if there are ASAN logs
+        done < <(find . -type f -name 'asan.*' -size +0)
+      fi
+  
+  after_success:
+*** ../vim-8.1.1316/configure	2010-05-15 13:03:08.000000000 +0200
+--- configure	2019-05-11 14:31:35.947081575 +0200
+***************
+*** 3,6 ****
+  # This is just a stub for the Unix configure script, to provide support for
+  # doing "./configure" in the top Vim directory.
+  
+! cd src && exec ./configure "$@"
+--- 3,6 ----
+  # This is just a stub for the Unix configure script, to provide support for
+  # doing "./configure" in the top Vim directory.
+  
+! cd "${SRCDIR:-src}" && exec ./configure "$@"
+*** ../vim-8.1.1316/src/version.c	2019-05-11 13:09:39.131391135 +0200
+--- src/version.c	2019-05-11 14:33:55.150281541 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1317,
+  /**/
+
+-- 
+A M00se once bit my sister ...
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

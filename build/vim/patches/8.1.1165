@@ -1,0 +1,173 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1165
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1165
+Problem:    No test for mouse clicks in the terminal tabpage line.
+Solution:   Add a test. (Dominique Pelle, closes #4247).  Also init
+            TabPageIdxs[], in case it's used before a redraw.
+Files:	    src/screen.c, src/testdir/test_termcodes.vim
+
+
+*** ../vim-8.1.1164/src/screen.c	2019-04-04 13:28:41.201589932 +0200
+--- src/screen.c	2019-04-13 14:47:58.600353953 +0200
+***************
+*** 8639,8644 ****
+--- 8639,8656 ----
+  }
+  
+  /*
++  * Init TabPageIdxs[] to zero: Clicking outside of tabs has no effect.
++  */
++     static void
++ clear_TabPageIdxs(void)
++ {
++     int		scol;
++ 
++     for (scol = 0; scol < Columns; ++scol)
++ 	TabPageIdxs[scol] = 0;
++ }
++ 
++ /*
+   * screen_valid -  allocate screen buffers if size changed
+   *   If "doclear" is TRUE: clear screen if it has been resized.
+   *	Returns TRUE if there is a valid screen to write to.
+***************
+*** 8899,8905 ****
+      must_redraw = CLEAR;	/* need to clear the screen later */
+      if (doclear)
+  	screenclear2();
+- 
+  #ifdef FEAT_GUI
+      else if (gui.in_use
+  	    && !gui.starting
+--- 8911,8916 ----
+***************
+*** 8919,8924 ****
+--- 8930,8936 ----
+  	    msg_col = Columns - 1;	/* put cursor at last column */
+      }
+  #endif
++     clear_TabPageIdxs();
+  
+      entered = FALSE;
+      --RedrawingDisabled;
+***************
+*** 10435,10444 ****
+  	return;
+  
+  #if defined(FEAT_STL_OPT)
+! 
+!     /* Init TabPageIdxs[] to zero: Clicking outside of tabs has no effect. */
+!     for (scol = 0; scol < Columns; ++scol)
+! 	TabPageIdxs[scol] = 0;
+  
+      /* Use the 'tabline' option if it's set. */
+      if (*p_tal != NUL)
+--- 10447,10453 ----
+  	return;
+  
+  #if defined(FEAT_STL_OPT)
+!     clear_TabPageIdxs();
+  
+      /* Use the 'tabline' option if it's set. */
+      if (*p_tal != NUL)
+*** ../vim-8.1.1164/src/testdir/test_termcodes.vim	2019-04-12 21:42:48.692539315 +0200
+--- src/testdir/test_termcodes.vim	2019-04-13 14:50:27.563448008 +0200
+***************
+*** 165,171 ****
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+!   set mouse=a term=xterm
+  
+    for ttymouse_val in ['xterm', 'sgr']
+      exe 'set ttymouse=' . ttymouse_val
+--- 165,172 ----
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+!   let save_laststatus = &laststatus
+!   set mouse=a term=xterm laststatus=2
+  
+    for ttymouse_val in ['xterm', 'sgr']
+      exe 'set ttymouse=' . ttymouse_val
+***************
+*** 195,200 ****
+--- 196,248 ----
+    endfor
+  
+    let &mouse = save_mouse
++   let &term = save_term
++   let &ttymouse = save_ttymouse
++   let &laststatus = save_laststatus
++ endfunc
++ 
++ func Test_xterm_mouse_click_tab()
++   let save_mouse = &mouse
++   let save_term = &term
++   let save_ttymouse = &ttymouse
++   set mouse=a term=xterm
++   let row = 1
++ 
++   for ttymouse_val in ['xterm', 'sgr']
++     exe 'set ttymouse=' . ttymouse_val
++     e Xfoo
++     tabnew Xbar
++ 
++     let a = split(execute(':tabs'), "\n")
++     call assert_equal(['Tab page 1',
++         \              '    Xfoo',
++         \              'Tab page 2',
++         \              '>   Xbar'], a)
++ 
++     " Test clicking on tab names in the tabline at the top.
++     let col = 2
++     redraw!
++     call MouseLeftClick(row, col)
++     call MouseLeftRelease(row, col)
++     let a = split(execute(':tabs'), "\n")
++     call assert_equal(['Tab page 1',
++         \              '>   Xfoo',
++         \              'Tab page 2',
++         \              '    Xbar'], a)
++ 
++     let col = 9
++     call MouseLeftClick(row, col)
++     call MouseLeftRelease(row, col)
++     let a = split(execute(':tabs'), "\n")
++     call assert_equal(['Tab page 1',
++         \              '    Xfoo',
++         \              'Tab page 2',
++         \              '>   Xbar'], a)
++ 
++     %bwipe!
++   endfor
++ 
++   let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
+  endfunc
+*** ../vim-8.1.1164/src/version.c	2019-04-13 14:21:15.846609628 +0200
+--- src/version.c	2019-04-13 14:52:28.490713831 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1165,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+10E. You start counting in hex.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

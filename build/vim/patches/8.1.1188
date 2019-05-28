@@ -1,0 +1,201 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1188
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1188
+Problem:    Not all Vim variables require the v: prefix.
+Solution:   When scriptversion is 3 all Vim variables can only be used with
+            the v: prefix.  (Ken Takata, closes #4274)
+Files:	    src/eval.c, src/ex_cmds2.c, src/testdir/test_eval_stuff.vim,
+            runtime/doc/eval.txt
+
+
+*** ../vim-8.1.1187/src/eval.c	2019-04-05 22:50:35.021737378 +0200
+--- src/eval.c	2019-04-20 14:31:43.242750787 +0200
+***************
+*** 7672,7681 ****
+  	    return NULL;
+  	*varname = name;
+  
+! 	/* "version" is "v:version" in all scopes */
+! 	hi = hash_find(&compat_hashtab, name);
+! 	if (!HASHITEM_EMPTY(hi))
+! 	    return &compat_hashtab;
+  
+  	ht = get_funccal_local_ht();
+  	if (ht == NULL)
+--- 7672,7685 ----
+  	    return NULL;
+  	*varname = name;
+  
+! 	// "version" is "v:version" in all scopes if scriptversion < 3.
+! 	// Same for a few other variables marked with VV_COMPAT.
+! 	if (current_sctx.sc_version < 3)
+! 	{
+! 	    hi = hash_find(&compat_hashtab, name);
+! 	    if (!HASHITEM_EMPTY(hi))
+! 		return &compat_hashtab;
+! 	}
+  
+  	ht = get_funccal_local_ht();
+  	if (ht == NULL)
+*** ../vim-8.1.1187/src/ex_cmds2.c	2019-04-04 19:06:11.147333162 +0200
+--- src/ex_cmds2.c	2019-04-20 14:14:58.164709785 +0200
+***************
+*** 5127,5133 ****
+      nr = getdigits(&eap->arg);
+      if (nr == 0 || *eap->arg != NUL)
+  	emsg(_(e_invarg));
+!     else if (nr > 2)
+  	semsg(_("E999: scriptversion not supported: %d"), nr);
+      else
+  	current_sctx.sc_version = nr;
+--- 5127,5133 ----
+      nr = getdigits(&eap->arg);
+      if (nr == 0 || *eap->arg != NUL)
+  	emsg(_(e_invarg));
+!     else if (nr > 3)
+  	semsg(_("E999: scriptversion not supported: %d"), nr);
+      else
+  	current_sctx.sc_version = nr;
+*** ../vim-8.1.1187/src/testdir/test_eval_stuff.vim	2019-04-04 18:15:05.770857065 +0200
+--- src/testdir/test_eval_stuff.vim	2019-04-20 14:36:27.533187729 +0200
+***************
+*** 154,159 ****
+--- 154,175 ----
+    endif
+  endfunc
+  
++ scriptversion 3
++ func Test_vvar_scriptversion3()
++   call assert_fails('echo version', 'E121:')
++   call assert_false(exists('version'))
++   let version = 1
++   call assert_equal(1, version)
++ endfunc
++ 
++ scriptversion 2
++ func Test_vvar_scriptversion2()
++   call assert_true(exists('version'))
++   echo version
++   call assert_fails('let version = 1', 'E46:')
++   call assert_equal(v:version, version)
++ endfunc
++ 
+  func Test_scriptversion()
+    call writefile(['scriptversion 9'], 'Xversionscript')
+    call assert_fails('source Xversionscript', 'E999:')
+*** ../vim-8.1.1187/runtime/doc/eval.txt	2019-04-08 20:01:42.873179461 +0200
+--- runtime/doc/eval.txt	2019-04-20 14:27:47.172154658 +0200
+***************
+*** 1668,1674 ****
+  		When there are two counts, as in "3d2w", they are multiplied,
+  		just like what happens in the command, "d6w" for the example.
+  		Also used for evaluating the 'formatexpr' option.
+! 		"count" also works, for backwards compatibility.
+  
+  					*v:count1* *count1-variable*
+  v:count1	Just like "v:count", but defaults to one when no count is
+--- 1688,1695 ----
+  		When there are two counts, as in "3d2w", they are multiplied,
+  		just like what happens in the command, "d6w" for the example.
+  		Also used for evaluating the 'formatexpr' option.
+! 		"count" also works, for backwards compatibility, unless
+! 		|scriptversion| is 3 or higher.
+  
+  					*v:count1* *count1-variable*
+  v:count1	Just like "v:count", but defaults to one when no count is
+***************
+*** 1700,1706 ****
+  	:silent! next
+  	:if v:errmsg != ""
+  	:  ... handle error
+! <		"errmsg" also works, for backwards compatibility.
+  
+  				*v:errors* *errors-variable* *assert-return*
+  v:errors	Errors found by assert functions, such as |assert_true()|.
+--- 1721,1728 ----
+  	:silent! next
+  	:if v:errmsg != ""
+  	:  ... handle error
+! <		"errmsg" also works, for backwards compatibility, unless
+! 		|scriptversion| is 3 or higher.
+  
+  				*v:errors* *errors-variable* *assert-return*
+  v:errors	Errors found by assert functions, such as |assert_true()|.
+***************
+*** 2003,2009 ****
+  	:if v:shell_error
+  	:  echo 'could not rename "foo" to "bar"!'
+  	:endif
+! <		"shell_error" also works, for backwards compatibility.
+  
+  					*v:statusmsg* *statusmsg-variable*
+  v:statusmsg	Last given status message.  It's allowed to set this variable.
+--- 2025,2032 ----
+  	:if v:shell_error
+  	:  echo 'could not rename "foo" to "bar"!'
+  	:endif
+! <		"shell_error" also works, for backwards compatibility, unless
+! 		|scriptversion| is 3 or higher.
+  
+  					*v:statusmsg* *statusmsg-variable*
+  v:statusmsg	Last given status message.  It's allowed to set this variable.
+***************
+*** 2103,2109 ****
+  v:this_session	Full filename of the last loaded or saved session file.  See
+  		|:mksession|.  It is allowed to set this variable.  When no
+  		session file has been saved, this variable is empty.
+! 		"this_session" also works, for backwards compatibility.
+  
+  					*v:throwpoint* *throwpoint-variable*
+  v:throwpoint	The point where the exception most recently caught and not
+--- 2126,2133 ----
+  v:this_session	Full filename of the last loaded or saved session file.  See
+  		|:mksession|.  It is allowed to set this variable.  When no
+  		session file has been saved, this variable is empty.
+! 		"this_session" also works, for backwards compatibility, unless
+! 		|scriptversion| is 3 or higher
+  
+  					*v:throwpoint* *throwpoint-variable*
+  v:throwpoint	The point where the exception most recently caught and not
+***************
+*** 2134,2140 ****
+  v:version	Version number of Vim: Major version number times 100 plus
+  		minor version number.  Version 5.0 is 500.  Version 5.1 (5.01)
+  		is 501.  Read-only.  "version" also works, for backwards
+! 		compatibility.
+  		Use |has()| to check if a certain patch was included, e.g.: >
+  			if has("patch-7.4.123")
+  <		Note that patch numbers are specific to the version, thus both
+--- 2158,2164 ----
+  v:version	Version number of Vim: Major version number times 100 plus
+  		minor version number.  Version 5.0 is 500.  Version 5.1 (5.01)
+  		is 501.  Read-only.  "version" also works, for backwards
+! 		compatibility, unless |scriptversion| is 3 or higher.
+  		Use |has()| to check if a certain patch was included, e.g.: >
+  			if has("patch-7.4.123")
+  <		Note that patch numbers are specific to the version, thus both
+*** ../vim-8.1.1187/src/version.c	2019-04-19 23:32:45.193715199 +0200
+--- src/version.c	2019-04-20 14:17:05.791957040 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1188,
+  /**/
+
+-- 
+TALL KNIGHT OF NI: Ni!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

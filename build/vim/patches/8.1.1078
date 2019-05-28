@@ -1,0 +1,134 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1078
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1078
+Problem:    When 'listchars' is set a composing char on a space is wrong.
+Solution:   Separate handling a non-breaking space and a space. (Yasuhiro
+            Matsumoto, closes #4046)
+Files:	    src/screen.c, src/testdir/test_listchars.vim
+
+
+*** ../vim-8.1.1077/src/screen.c	2019-03-29 18:29:28.448854292 +0100
+--- src/screen.c	2019-03-30 15:28:43.077813100 +0100
+***************
+*** 4808,4837 ****
+  		}
+  #endif
+  
+! 		/* 'list': change char 160 to lcs_nbsp and space to lcs_space.
+! 		 */
+! 		if (wp->w_p_list
+! 			&& (((c == 160
+! 			      || (mb_utf8 && (mb_c == 160 || mb_c == 0x202f)))
+! 				&& lcs_nbsp)
+! 			|| (c == ' ' && lcs_space && ptr - line <= trailcol)))
+  		{
+! 		    c = (c == ' ') ? lcs_space : lcs_nbsp;
+! 		    if (area_attr == 0 && search_attr == 0)
+  		    {
+! 			n_attr = 1;
+! 			extra_attr = HL_ATTR(HLF_8);
+! 			saved_attr2 = char_attr; /* save current attr */
+  		    }
+! 		    mb_c = c;
+! 		    if (enc_utf8 && utf_char2len(c) > 1)
+  		    {
+! 			mb_utf8 = TRUE;
+! 			u8cc[0] = 0;
+! 			c = 0xc0;
+  		    }
+- 		    else
+- 			mb_utf8 = FALSE;
+  		}
+  
+  		if (trailcol != MAXCOL && ptr > line + trailcol && c == ' ')
+--- 4808,4841 ----
+  		}
+  #endif
+  
+! 		// 'list': change char 160 to lcs_nbsp and space to lcs_space.
+! 		if (wp->w_p_list)
+  		{
+! 		    if ((c == 160
+! 			      || (mb_utf8 && (mb_c == 160 || mb_c == 0x202f)))
+! 			    && lcs_nbsp)
+  		    {
+! 			c = lcs_nbsp;
+! 			mb_c = c;
+! 			if (enc_utf8 && utf_char2len(c) > 1)
+! 			{
+! 			    mb_utf8 = TRUE;
+! 			    u8cc[0] = 0;
+! 			    c = 0xc0;
+! 			}
+! 			else
+! 			    mb_utf8 = FALSE;
+  		    }
+! 		    else if (c == ' ' && lcs_space && ptr - line <= trailcol)
+  		    {
+! 			c = lcs_space;
+! 			if (mb_utf8 == FALSE && area_attr == 0 && search_attr == 0)
+! 			{
+! 			    n_attr = 1;
+! 			    extra_attr = HL_ATTR(HLF_8);
+! 			    saved_attr2 = char_attr; // save current attr
+! 			}
+  		    }
+  		}
+  
+  		if (trailcol != MAXCOL && ptr > line + trailcol && c == ' ')
+*** ../vim-8.1.1077/src/testdir/test_listchars.vim	2019-01-31 21:57:15.517462657 +0100
+--- src/testdir/test_listchars.vim	2019-03-30 15:23:31.463867726 +0100
+***************
+*** 113,115 ****
+--- 113,138 ----
+    enew!
+    set listchars& ff&
+  endfunc
++ 
++ func Test_listchars_composing()
++   enew!
++   let oldencoding=&encoding
++   set encoding=utf-8
++   set ff=unix
++   set list
++ 
++   set listchars=eol:$,space:_
++   call append(0, [
++         \ "  \u3099	 \u309A"
++         \ ])
++   let expected = [
++         \ "_ \u3099^I \u309A$"
++         \ ]
++   redraw!
++   call cursor(1, 1)
++   let got = ScreenLinesUtf8(1, virtcol('$'))
++   bw!
++   call assert_equal(expected, got)
++   let &encoding=oldencoding
++   set listchars& ff&
++ endfunction
+*** ../vim-8.1.1077/src/version.c	2019-03-30 14:26:15.268619122 +0100
+--- src/version.c	2019-03-30 15:34:33.791529846 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1078,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+158. You get a tuner card so you can watch TV while surfing.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

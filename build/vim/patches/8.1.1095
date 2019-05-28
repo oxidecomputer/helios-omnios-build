@@ -1,0 +1,124 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1095
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1095
+Problem:    MS-Windows: executable() fails on very long filename.
+Solution:   (Ken Takata, closes #4015)
+Files:	    src/os_win32.c, src/testdir/test_functions.vim
+
+
+*** ../vim-8.1.1094/src/os_win32.c	2019-03-30 18:46:57.360077328 +0100
+--- src/os_win32.c	2019-03-30 21:48:58.918721126 +0100
+***************
+*** 3299,3312 ****
+      int
+  mch_can_exe(char_u *name, char_u **path, int use_path)
+  {
+!     char_u	buf[_MAX_PATH];
+      int		len = (int)STRLEN(name);
+      char_u	*p, *saved;
+  
+!     if (len >= _MAX_PATH)	/* safety check */
+  	return FALSE;
+  
+!     /* Ty using the name directly when a Unix-shell like 'shell'. */
+      if (strstr((char *)gettail(p_sh), "sh") != NULL)
+  	if (executable_exists((char *)name, path, use_path))
+  	    return TRUE;
+--- 3299,3315 ----
+      int
+  mch_can_exe(char_u *name, char_u **path, int use_path)
+  {
+!     // WinNT and later can use _MAX_PATH wide characters for a pathname, which
+!     // means that the maximum pathname is _MAX_PATH * 3 bytes when 'enc' is
+!     // UTF-8.
+!     char_u	buf[_MAX_PATH * 3];
+      int		len = (int)STRLEN(name);
+      char_u	*p, *saved;
+  
+!     if (len >= sizeof(buf))	// safety check
+  	return FALSE;
+  
+!     // Try using the name directly when a Unix-shell like 'shell'.
+      if (strstr((char *)gettail(p_sh), "sh") != NULL)
+  	if (executable_exists((char *)name, path, use_path))
+  	    return TRUE;
+***************
+*** 3339,3345 ****
+      }
+      vim_free(saved);
+  
+!     vim_strncpy(buf, name, _MAX_PATH - 1);
+      p = mch_getenv("PATHEXT");
+      if (p == NULL)
+  	p = (char_u *)".com;.exe;.bat;.cmd";
+--- 3342,3348 ----
+      }
+      vim_free(saved);
+  
+!     vim_strncpy(buf, name, sizeof(buf) - 1);
+      p = mch_getenv("PATHEXT");
+      if (p == NULL)
+  	p = (char_u *)".com;.exe;.bat;.cmd";
+***************
+*** 3354,3360 ****
+  		++p;
+  	}
+  	else
+! 	    copy_option_part(&p, buf + len, _MAX_PATH - len, ";");
+  	if (executable_exists((char *)buf, path, use_path))
+  	    return TRUE;
+      }
+--- 3357,3363 ----
+  		++p;
+  	}
+  	else
+! 	    copy_option_part(&p, buf + len, sizeof(buf) - len, ";");
+  	if (executable_exists((char *)buf, path, use_path))
+  	    return TRUE;
+      }
+*** ../vim-8.1.1094/src/testdir/test_functions.vim	2019-03-30 14:26:15.268619122 +0100
+--- src/testdir/test_functions.vim	2019-03-30 21:48:58.918721126 +0100
+***************
+*** 944,949 ****
+--- 944,960 ----
+    endif
+  endfunc
+  
++ func Test_executable_longname()
++   if !has('win32')
++     return
++   endif
++ 
++   let fname = 'X' . repeat('あ', 200) . '.bat'
++   call writefile([], fname)
++   call assert_equal(1, executable(fname))
++   call delete(fname)
++ endfunc
++ 
+  func Test_hostname()
+    let hostname_vim = hostname()
+    if has('unix')
+*** ../vim-8.1.1094/src/version.c	2019-03-30 21:41:44.218279831 +0100
+--- src/version.c	2019-03-30 21:49:22.994527582 +0100
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1095,
+  /**/
+
+-- 
+"Hit any key to continue" it said, but nothing happened after F sharp.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

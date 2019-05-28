@@ -1,0 +1,334 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1122
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1122
+Problem:    char2nr() does not handle composing characters.
+Solution:   Add str2list() and list2str(). (Ozaki Kiichi, closes #4190)
+Files:	    runtime/doc/eval.txt, runtime/doc/usr_41.txt, src/evalfunc.c,
+            src/testdir/test_utf8.vim
+
+
+*** ../vim-8.1.1121/runtime/doc/eval.txt	2019-04-05 22:50:35.021737378 +0200
+--- runtime/doc/eval.txt	2019-04-06 12:56:01.827098437 +0200
+***************
+*** 2421,2426 ****
+--- 2442,2448 ----
+  line({expr})			Number	line nr of cursor, last line or mark
+  line2byte({lnum})		Number	byte count of line {lnum}
+  lispindent({lnum})		Number	Lisp indent for line {lnum}
++ list2str({list} [, {utf8}])	String	turn numbers in {list} into a String
+  localtime()			Number	current time
+  log({expr})			Float	natural logarithm (base e) of {expr}
+  log10({expr})			Float	logarithm of Float {expr} to base 10
+***************
+*** 2588,2593 ****
+--- 2608,2615 ----
+  				List	make |List| from {pat} separated {expr}
+  sqrt({expr})			Float	square root of {expr}
+  str2float({expr})		Float	convert String to Float
++ str2list({expr} [, {utf8}])	List	convert each character of {expr} to
++ 					ASCII/UTF8 value
+  str2nr({expr} [, {base}])	Number	convert String to Number
+  strchars({expr} [, {skipcc}])	Number	character length of the String {expr}
+  strcharpart({str}, {start} [, {len}])
+***************
+*** 6157,6162 ****
+--- 6197,6216 ----
+  		When {lnum} is invalid or Vim was not compiled the
+  		|+lispindent| feature, -1 is returned.
+  
++ list2str({list} [, {utf8}])				*list2str()*
++ 		Convert each number in {list} to a character string can
++ 		concatenate them all.  Examples: >
++ 			list2str([32])		returns " "
++ 			list2str([65, 66, 67])	returns "ABC"
++ <		The same can be done (slowly) with: >
++ 			join(map(list, {nr, val -> nr2char(val)}), '')
++ <		|str2list()| does the opposite.
++ 
++ 		When {utf8} is omitted or zero, the current 'encoding' is used.
++ 		With {utf8} is 1, always return utf-8 characters.
++ 		With utf-8 composing characters work as expected: >
++ 			list2str([97, 769])	returns "á"
++ <
+  localtime()						*localtime()*
+  		Return the current time, measured as seconds since 1st Jan
+  		1970.  See also |strftime()| and |getftime()|.
+***************
+*** 8667,8672 ****
+--- 8742,8759 ----
+  			let f = str2float(substitute(text, ',', '', 'g'))
+  <		{only available when compiled with the |+float| feature}
+  
++ str2list({expr} [, {utf8}])				*str2list()*
++ 		Return a list containing the number values which represent
++ 		each character in String {expr}.  Examples: >
++ 			str2list(" ")		returns [32]
++ 			str2list("ABC")		returns [65, 66, 67]
++ <		|list2str()| does the opposite.
++ 
++ 		When {utf8} is omitted or zero, the current 'encoding' is used.
++ 		With {utf8} set to 1, always treat the String as utf-8
++ 		characters.  With utf-8 composing characters are handled
++ 		properly: >
++ 			str2list("á")		returns [97, 769]
+  
+  str2nr({expr} [, {base}])				*str2nr()*
+  		Convert string {expr} to a number.
+*** ../vim-8.1.1121/runtime/doc/usr_41.txt	2019-03-29 14:16:34.142861770 +0100
+--- runtime/doc/usr_41.txt	2019-04-06 12:52:38.452115001 +0200
+***************
+*** 577,584 ****
+  the function name to jump to detailed help on it.
+  
+  String manipulation:					*string-functions*
+! 	nr2char()		get a character by its ASCII value
+! 	char2nr()		get ASCII value of a character
+  	str2nr()		convert a string to a Number
+  	str2float()		convert a string to a Float
+  	printf()		format a string according to % items
+--- 577,586 ----
+  the function name to jump to detailed help on it.
+  
+  String manipulation:					*string-functions*
+! 	nr2char()		get a character by its number value
+! 	list2str()		get a character string from a list of numbers
+! 	char2nr()		get number value of a character
+! 	str2list()		get list of numbers from a string
+  	str2nr()		convert a string to a Number
+  	str2float()		convert a string to a Float
+  	printf()		format a string according to % items
+*** ../vim-8.1.1121/src/evalfunc.c	2019-04-05 22:50:35.021737378 +0200
+--- src/evalfunc.c	2019-04-06 13:15:54.342175479 +0200
+***************
+*** 262,267 ****
+--- 262,268 ----
+  static void f_line(typval_T *argvars, typval_T *rettv);
+  static void f_line2byte(typval_T *argvars, typval_T *rettv);
+  static void f_lispindent(typval_T *argvars, typval_T *rettv);
++ static void f_list2str(typval_T *argvars, typval_T *rettv);
+  static void f_localtime(typval_T *argvars, typval_T *rettv);
+  #ifdef FEAT_FLOAT
+  static void f_log(typval_T *argvars, typval_T *rettv);
+***************
+*** 401,406 ****
+--- 402,408 ----
+  static void f_sqrt(typval_T *argvars, typval_T *rettv);
+  static void f_str2float(typval_T *argvars, typval_T *rettv);
+  #endif
++ static void f_str2list(typval_T *argvars, typval_T *rettv);
+  static void f_str2nr(typval_T *argvars, typval_T *rettv);
+  static void f_strchars(typval_T *argvars, typval_T *rettv);
+  #ifdef HAVE_STRFTIME
+***************
+*** 752,757 ****
+--- 754,760 ----
+      {"line",		1, 1, f_line},
+      {"line2byte",	1, 1, f_line2byte},
+      {"lispindent",	1, 1, f_lispindent},
++     {"list2str",	1, 2, f_list2str},
+      {"localtime",	0, 0, f_localtime},
+  #ifdef FEAT_FLOAT
+      {"log",		1, 1, f_log},
+***************
+*** 902,907 ****
+--- 905,911 ----
+      {"sqrt",		1, 1, f_sqrt},
+      {"str2float",	1, 1, f_str2float},
+  #endif
++     {"str2list",	1, 2, f_str2list},
+      {"str2nr",		1, 2, f_str2nr},
+      {"strcharpart",	2, 3, f_strcharpart},
+      {"strchars",	1, 2, f_strchars},
+***************
+*** 7850,7855 ****
+--- 7854,7914 ----
+  }
+  
+  /*
++  * "list2str()" function
++  */
++     static void
++ f_list2str(typval_T *argvars, typval_T *rettv)
++ {
++     list_T	*l;
++     listitem_T	*li;
++     garray_T	ga;
++     int		utf8 = FALSE;
++ 
++     rettv->v_type = VAR_STRING;
++     rettv->vval.v_string = NULL;
++     if (argvars[0].v_type != VAR_LIST)
++     {
++ 	emsg(_(e_invarg));
++ 	return;
++     }
++ 
++     l = argvars[0].vval.v_list;
++     if (l == NULL)
++ 	return;  // empty list results in empty string
++ 
++     if (argvars[1].v_type != VAR_UNKNOWN)
++ 	utf8 = (int)tv_get_number_chk(&argvars[1], NULL);
++ 
++     ga_init2(&ga, 1, 80);
++     if (has_mbyte || utf8)
++     {
++ 	char_u	buf[MB_MAXBYTES + 1];
++ 	int	(*char2bytes)(int, char_u *);
++ 
++ 	if (utf8 || enc_utf8)
++ 	    char2bytes = utf_char2bytes;
++ 	else
++ 	    char2bytes = mb_char2bytes;
++ 
++ 	for (li = l->lv_first; li != NULL; li = li->li_next)
++ 	{
++ 	    buf[(*char2bytes)(tv_get_number(&li->li_tv), buf)] = NUL;
++ 	    ga_concat(&ga, buf);
++ 	}
++ 	ga_append(&ga, NUL);
++     }
++     else if (ga_grow(&ga, list_len(l) + 1) == OK)
++     {
++ 	for (li = l->lv_first; li != NULL; li = li->li_next)
++ 	    ga_append(&ga, tv_get_number(&li->li_tv));
++ 	ga_append(&ga, NUL);
++     }
++ 
++     rettv->v_type = VAR_STRING;
++     rettv->vval.v_string = ga.ga_data;
++ }
++ 
++ /*
+   * "localtime()" function
+   */
+      static void
+***************
+*** 12901,12906 ****
+--- 12960,13006 ----
+  #endif
+  
+  /*
++  * "str2list()" function
++  */
++     static void
++ f_str2list(typval_T *argvars, typval_T *rettv)
++ {
++     char_u	*p;
++     int		utf8 = FALSE;
++ 
++     if (rettv_list_alloc(rettv) == FAIL)
++ 	return;
++ 
++     if (argvars[1].v_type != VAR_UNKNOWN)
++ 	utf8 = (int)tv_get_number_chk(&argvars[1], NULL);
++ 
++     p = tv_get_string(&argvars[0]);
++ 
++     if (has_mbyte || utf8)
++     {
++ 	int (*ptr2len)(char_u *);
++ 	int (*ptr2char)(char_u *);
++ 
++ 	if (utf8 || enc_utf8)
++ 	{
++ 	    ptr2len = utf_ptr2len;
++ 	    ptr2char = utf_ptr2char;
++ 	}
++ 	else
++ 	{
++ 	    ptr2len = mb_ptr2len;
++ 	    ptr2char = mb_ptr2char;
++ 	}
++ 
++ 	for ( ; *p != NUL; p += (*ptr2len)(p))
++ 	    list_append_number(rettv->vval.v_list, (*ptr2char)(p));
++     }
++     else
++ 	for ( ; *p != NUL; ++p)
++ 	    list_append_number(rettv->vval.v_list, *p);
++ }
++ 
++ /*
+   * "str2nr()" function
+   */
+      static void
+*** ../vim-8.1.1121/src/testdir/test_utf8.vim	2019-03-30 15:44:14.027783548 +0100
+--- src/testdir/test_utf8.vim	2019-04-06 13:13:15.575213851 +0200
+***************
+*** 62,67 ****
+--- 62,110 ----
+    call assert_equal(2, virtcol("']"))
+  endfunc
+  
++ func Test_list2str_str2list_utf8()
++   " One Unicode codepoint
++   let s = "\u3042\u3044"
++   let l = [0x3042, 0x3044]
++   call assert_equal(l, str2list(s, 1))
++   call assert_equal(s, list2str(l, 1))
++   if &enc ==# 'utf-8'
++     call assert_equal(str2list(s), str2list(s, 1))
++     call assert_equal(list2str(l), list2str(l, 1))
++   endif
++ 
++   " With composing characters
++   let s = "\u304b\u3099\u3044"
++   let l = [0x304b, 0x3099, 0x3044]
++   call assert_equal(l, str2list(s, 1))
++   call assert_equal(s, list2str(l, 1))
++   if &enc ==# 'utf-8'
++     call assert_equal(str2list(s), str2list(s, 1))
++     call assert_equal(list2str(l), list2str(l, 1))
++   endif
++ 
++   " Null list is the same as an empty list
++   call assert_equal('', list2str([]))
++   call assert_equal('', list2str(test_null_list()))
++ endfunc
++ 
++ func Test_list2str_str2list_latin1()
++   " When 'encoding' is not multi-byte can still get utf-8 string.
++   " But we need to create the utf-8 string while 'encoding' is utf-8.
++   let s = "\u3042\u3044"
++   let l = [0x3042, 0x3044]
++ 
++   let save_encoding = &encoding
++   set encoding=latin1
++   
++   let lres = str2list(s, 1)
++   let sres = list2str(l, 1)
++ 
++   let &encoding = save_encoding
++   call assert_equal(l, lres)
++   call assert_equal(s, sres)
++ endfunc
++ 
+  func Test_screenchar_utf8()
+    new
+  
+*** ../vim-8.1.1121/src/version.c	2019-04-06 12:39:47.439967638 +0200
+--- src/version.c	2019-04-06 12:45:29.802257255 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1122,
+  /**/
+
+-- 
+Your mouse has moved.  Windows must be restarted for the change
+to take effect.  Reboot now?
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

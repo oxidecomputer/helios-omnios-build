@@ -1,0 +1,335 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1303
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1303
+Problem:    Not possible to hide a balloon.
+Solution:   Hide the balloon when balloon_show() is called with an empty
+            string or list.  Add balloon_gettext().
+Files:	    src/evalfunc.c, src/popupmnu.c, src/gui_beval.c, src/gui_w32.c,
+            src/beval.h, src/testdir/test_balloon.vim, runtime/doc/eval.txt
+
+
+*** ../vim-8.1.1302/src/evalfunc.c	2019-05-07 22:06:48.675310695 +0200
+--- src/evalfunc.c	2019-05-09 13:37:08.630549700 +0200
+***************
+*** 63,68 ****
+--- 63,69 ----
+  static void f_atan2(typval_T *argvars, typval_T *rettv);
+  #endif
+  #ifdef FEAT_BEVAL
++ static void f_balloon_gettext(typval_T *argvars, typval_T *rettv);
+  static void f_balloon_show(typval_T *argvars, typval_T *rettv);
+  # if defined(FEAT_BEVAL_TERM)
+  static void f_balloon_split(typval_T *argvars, typval_T *rettv);
+***************
+*** 552,557 ****
+--- 553,559 ----
+      {"atan2",		2, 2, f_atan2},
+  #endif
+  #ifdef FEAT_BEVAL
++     {"balloon_gettext",	0, 0, f_balloon_gettext},
+      {"balloon_show",	1, 1, f_balloon_show},
+  # if defined(FEAT_BEVAL_TERM)
+      {"balloon_split",	1, 1, f_balloon_split},
+***************
+*** 1764,1769 ****
+--- 1766,1784 ----
+   */
+  #ifdef FEAT_BEVAL
+      static void
++ f_balloon_gettext(typval_T *argvars UNUSED, typval_T *rettv)
++ {
++     rettv->v_type = VAR_STRING;
++     if (balloonEval != NULL)
++     {
++ 	if (balloonEval->msg == NULL)
++ 	    rettv->vval.v_string = NULL;
++ 	else
++ 	    rettv->vval.v_string = vim_strsave(balloonEval->msg);
++     }
++ }
++ 
++     static void
+  f_balloon_show(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+      if (balloonEval != NULL)
+***************
+*** 1773,1781 ****
+  		&& !gui.in_use
+  # endif
+  	   )
+! 	    post_balloon(balloonEval, NULL, argvars[0].vval.v_list);
+  	else
+! 	    post_balloon(balloonEval, tv_get_string_chk(&argvars[0]), NULL);
+      }
+  }
+  
+--- 1788,1808 ----
+  		&& !gui.in_use
+  # endif
+  	   )
+! 	{
+! 	    list_T *l = argvars[0].vval.v_list;
+! 
+! 	    // empty list removes the balloon
+! 	    post_balloon(balloonEval, NULL,
+! 				       l == NULL || l->lv_len == 0 ? NULL : l);
+! 	}
+  	else
+! 	{
+! 	    char_u *mesg = tv_get_string_chk(&argvars[0]);
+! 
+! 	    if (mesg != NULL)
+! 		// empty string removes the balloon
+! 		post_balloon(balloonEval, *mesg == NUL ? NULL : mesg, NULL);
+! 	}
+      }
+  }
+  
+*** ../vim-8.1.1302/src/popupmnu.c	2019-04-27 22:06:33.348200718 +0200
+--- src/popupmnu.c	2019-05-09 13:00:32.746821137 +0200
+***************
+*** 1154,1160 ****
+--- 1154,1163 ----
+      ui_remove_balloon();
+  
+      if (mesg == NULL && list == NULL)
++     {
++ 	pum_undisplay();
+  	return;
++     }
+      if (list != NULL)
+      {
+  	listitem_T  *li;
+*** ../vim-8.1.1302/src/gui_beval.c	2019-02-17 17:44:36.207875527 +0100
+--- src/gui_beval.c	2019-05-09 13:22:36.063032440 +0200
+***************
+*** 117,123 ****
+  	beval->appContext = XtWidgetToApplicationContext((Widget)target);
+  #endif
+  	beval->showState = ShS_NEUTRAL;
+! 	beval->msg = mesg;
+  	beval->msgCB = mesgCB;
+  	beval->clientData = clientData;
+  
+--- 117,124 ----
+  	beval->appContext = XtWidgetToApplicationContext((Widget)target);
+  #endif
+  	beval->showState = ShS_NEUTRAL;
+! 	vim_free(beval->msg);
+! 	beval->msg = mesg == NULL ? NULL : vim_strsave(mesg);
+  	beval->msgCB = mesgCB;
+  	beval->clientData = clientData;
+  
+***************
+*** 208,215 ****
+      void
+  gui_mch_post_balloon(BalloonEval *beval, char_u *mesg)
+  {
+!     beval->msg = mesg;
+!     if (mesg != NULL)
+  	drawBalloon(beval);
+      else
+  	undrawBalloon(beval);
+--- 209,217 ----
+      void
+  gui_mch_post_balloon(BalloonEval *beval, char_u *mesg)
+  {
+!     vim_free(beval->msg);
+!     beval->msg = mesg == NULL ? NULL : vim_strsave(mesg);
+!     if (beval->msg != NULL)
+  	drawBalloon(beval);
+      else
+  	undrawBalloon(beval);
+***************
+*** 225,230 ****
+--- 227,233 ----
+      void
+  gui_mch_unpost_balloon(BalloonEval *beval)
+  {
++     VIM_CLEAR(beval->msg);
+      undrawBalloon(beval);
+  }
+  #endif
+***************
+*** 975,980 ****
+--- 978,984 ----
+  	gtk_widget_show(beval->balloonShell);
+  
+  	beval->showState = ShS_SHOWING;
++ 	gui_mch_update();
+      }
+  }
+  
+*** ../vim-8.1.1302/src/gui_w32.c	2019-05-08 22:28:41.677765838 +0200
+--- src/gui_w32.c	2019-05-09 13:25:57.537884363 +0200
+***************
+*** 8506,8511 ****
+--- 8506,8520 ----
+  {
+      POINT   pt;
+  
++     vim_free(beval->msg);
++     beval->msg = mesg == NULL ? NULL : vim_strsave(mesg);
++     if (beval->msg == NULL)
++     {
++ 	delete_tooltip(beval);
++ 	beval->showState = ShS_NEUTRAL;
++ 	return;
++     }
++ 
+      // TRACE0("gui_mch_post_balloon {{{");
+      if (beval->showState == ShS_SHOWING)
+  	return;
+*** ../vim-8.1.1302/src/beval.h	2019-02-17 17:44:36.199875566 +0100
+--- src/beval.h	2019-05-09 13:23:08.630846624 +0200
+***************
+*** 75,81 ****
+  #ifdef FEAT_VARTABS
+      int			*vts;		// vartabstop setting for this buffer
+  #endif
+!     char_u		*msg;
+  #ifdef FEAT_GUI_MSWIN
+      void		*tofree;
+  #endif
+--- 75,81 ----
+  #ifdef FEAT_VARTABS
+      int			*vts;		// vartabstop setting for this buffer
+  #endif
+!     char_u		*msg;		// allocated: current text
+  #ifdef FEAT_GUI_MSWIN
+      void		*tofree;
+  #endif
+*** ../vim-8.1.1302/src/testdir/test_balloon.vim	2019-05-08 22:54:26.023509040 +0200
+--- src/testdir/test_balloon.vim	2019-05-09 13:44:47.320155388 +0200
+***************
+*** 1,8 ****
+  " Tests for 'balloonevalterm'.
+  
+! if !has('balloon_eval_term') || has('gui_running')
+!   finish
+! endif
+  
+  source screendump.vim
+  if !CanRunVimInTerminal()
+--- 1,7 ----
+  " Tests for 'balloonevalterm'.
+  
+! " Tests that only work in the terminal.
+! if has('balloon_eval_term') && !has('gui_running')
+  
+  source screendump.vim
+  if !CanRunVimInTerminal()
+***************
+*** 53,55 ****
+--- 52,75 ----
+    call StopVimInTerminal(buf)
+    call delete('XTest_beval_visual')
+  endfunc
++ 
++ endif
++ 
++ " Tests that only work in the GUI
++ if has('gui_running')
++ 
++ func Test_balloon_show_gui()
++   let msg = 'this this this this'
++   call balloon_show(msg)
++   call assert_equal(msg, balloon_gettext())
++   sleep 10m
++   call balloon_show('')
++ 
++   let msg = 'that that'
++   call balloon_show(msg)
++   call assert_equal(msg, balloon_gettext())
++   sleep 10m
++   call balloon_show('')
++ endfunc
++ 
++ endif
+*** ../vim-8.1.1302/runtime/doc/eval.txt	2019-05-07 22:06:48.675310695 +0200
+--- runtime/doc/eval.txt	2019-05-09 13:38:34.266112489 +0200
+***************
+*** 2226,2231 ****
+--- 2226,2232 ----
+  asin({expr})			Float	arc sine of {expr}
+  atan({expr})			Float	arc tangent of {expr}
+  atan2({expr1}, {expr2})		Float	arc tangent of {expr1} / {expr2}
++ balloon_gettext()		String	current text in the balloon
+  balloon_show({expr})		none	show {expr} inside the balloon
+  balloon_split({msg})		List	split {msg} as used for a balloon
+  browse({save}, {title}, {initdir}, {default})
+***************
+*** 3007,3021 ****
+  <			2.356194
+  		{only available when compiled with the |+float| feature}
+  
+  balloon_show({expr})					*balloon_show()*
+  		Show {expr} inside the balloon.  For the GUI {expr} is used as
+  		a string.  For a terminal {expr} can be a list, which contains
+  		the lines of the balloon.  If {expr} is not a list it will be
+  		split with |balloon_split()|.
+  
+  		Example: >
+  			func GetBalloonContent()
+! 			   " initiate getting the content
+  			   return ''
+  			endfunc
+  			set balloonexpr=GetBalloonContent()
+--- 3008,3027 ----
+  <			2.356194
+  		{only available when compiled with the |+float| feature}
+  
++ balloon_gettext()					*balloon_gettext()*
++ 		Return the current text in the balloon.  Only for the string,
++ 		not used for the List.
++ 
+  balloon_show({expr})					*balloon_show()*
+  		Show {expr} inside the balloon.  For the GUI {expr} is used as
+  		a string.  For a terminal {expr} can be a list, which contains
+  		the lines of the balloon.  If {expr} is not a list it will be
+  		split with |balloon_split()|.
++ 		If {expr} is an empty string any existing balloon is removed.
+  
+  		Example: >
+  			func GetBalloonContent()
+! 			   " ... initiate getting the content
+  			   return ''
+  			endfunc
+  			set balloonexpr=GetBalloonContent()
+***************
+*** 4229,4234 ****
+--- 4235,4242 ----
+  		and "\..." notation |expr-quote|. For example,
+  		feedkeys("\<CR>") simulates pressing of the <Enter> key. But
+  		feedkeys('\<CR>') pushes 5 characters.
++ 		A special code that might be useful is <Ignore>, it exits the
++ 		wait for a character without doing anything.  *<Ignore>*
+  
+  		{mode} is a String, which can contain these character flags:
+  		'm'	Remap keys. This is default.  If {mode} is absent,
+*** ../vim-8.1.1302/src/version.c	2019-05-08 22:54:26.023509040 +0200
+--- src/version.c	2019-05-09 13:47:18.087347922 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1303,
+  /**/
+
+-- 
+   [The rest of the ARMY stand around looking at a loss.]
+INSPECTOR END OF FILM: (picks up megaphone) All right!  Clear off!  Go on!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

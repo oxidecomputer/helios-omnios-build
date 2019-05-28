@@ -1,0 +1,141 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1148
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1148
+Problem:    CTRL-L with 'incsearch' does not pick up char under cursor.
+            (Smylers)
+Solution:   Do not compare the position with the cursor position. (Hirohito
+            Higashi, closes #3620)
+Files:	    src/ex_getln.c, src/testdir/test_search.vim
+
+
+*** ../vim-8.1.1147/src/ex_getln.c	2019-03-30 18:46:57.348077402 +0100
+--- src/ex_getln.c	2019-04-11 13:44:00.013994955 +0200
+***************
+*** 745,783 ****
+      if (is_state->did_incsearch)
+      {
+  	curwin->w_cursor = is_state->match_end;
+! 	if (!EQUAL_POS(curwin->w_cursor, is_state->search_start))
+  	{
+- 	    *c = gchar_cursor();
+- 
+  	    // If 'ignorecase' and 'smartcase' are set and the
+  	    // command line has no uppercase characters, convert
+  	    // the character to lowercase.
+  	    if (p_ic && p_scs && !pat_has_uppercase(ccline.cmdbuff + skiplen))
+  		*c = MB_TOLOWER(*c);
+! 	    if (*c != NUL)
+  	    {
+! 		if (*c == firstc || vim_strchr((char_u *)(
+! 				   p_magic ? "\\~^$.*[" : "\\^$"), *c) != NULL)
+  		{
+! 		    // put a backslash before special characters
+  		    stuffcharReadbuff(*c);
+- 		    *c = '\\';
+- 		}
+- 		// add any composing characters
+- 		if (mb_char2len(*c) != mb_ptr2len(ml_get_cursor()))
+- 		{
+- 		    int save_c = *c;
+- 
+- 		    while (mb_char2len(*c) != mb_ptr2len(ml_get_cursor()))
+- 		    {
+- 			curwin->w_cursor.col += mb_char2len(*c);
+- 			*c = gchar_cursor();
+- 			stuffcharReadbuff(*c);
+- 		    }
+- 		    *c = save_c;
+  		}
+! 		return FAIL;
+  	    }
+  	}
+      }
+      return OK;
+--- 745,779 ----
+      if (is_state->did_incsearch)
+      {
+  	curwin->w_cursor = is_state->match_end;
+! 	*c = gchar_cursor();
+! 	if (*c != NUL)
+  	{
+  	    // If 'ignorecase' and 'smartcase' are set and the
+  	    // command line has no uppercase characters, convert
+  	    // the character to lowercase.
+  	    if (p_ic && p_scs && !pat_has_uppercase(ccline.cmdbuff + skiplen))
+  		*c = MB_TOLOWER(*c);
+! 	    if (*c == firstc || vim_strchr((char_u *)(
+! 			       p_magic ? "\\~^$.*[" : "\\^$"), *c) != NULL)
+! 	    {
+! 		// put a backslash before special characters
+! 		stuffcharReadbuff(*c);
+! 		*c = '\\';
+! 	    }
+! 	    // add any composing characters
+! 	    if (mb_char2len(*c) != mb_ptr2len(ml_get_cursor()))
+  	    {
+! 		int save_c = *c;
+! 
+! 		while (mb_char2len(*c) != mb_ptr2len(ml_get_cursor()))
+  		{
+! 		    curwin->w_cursor.col += mb_char2len(*c);
+! 		    *c = gchar_cursor();
+  		    stuffcharReadbuff(*c);
+  		}
+! 		*c = save_c;
+  	    }
++ 	    return FAIL;
+  	}
+      }
+      return OK;
+*** ../vim-8.1.1147/src/testdir/test_search.vim	2019-02-28 06:24:49.788775847 +0100
+--- src/testdir/test_search.vim	2019-04-11 13:44:53.725735332 +0200
+***************
+*** 1248,1250 ****
+--- 1248,1267 ----
+    " This  was also giving an internal error
+    call assert_fails('call search(" \\((\\v[[=P=]]){185}+             ")', 'E871:')
+  endfunc
++ 
++ func Test_incsearch_add_char_under_cursor()
++   if !exists('+incsearch')
++     return
++   endif
++   set incsearch
++   new
++   call setline(1, ['find match', 'anything'])
++   1
++   call test_override('char_avail', 1)
++   call feedkeys("fc/m\<C-L>\<C-L>\<C-L>\<C-L>\<C-L>\<CR>", 'tx')
++   call assert_equal('match', @/)
++   call test_override('char_avail', 0)
++ 
++   set incsearch&
++   bwipe!
++ endfunc
+*** ../vim-8.1.1147/src/version.c	2019-04-11 13:09:57.790699857 +0200
+--- src/version.c	2019-04-11 13:45:43.457370024 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1148,
+  /**/
+
+-- 
+"After a few years of marriage a man can look right at a woman
+without seeing her and a woman can see right through a man
+without looking at him."
+ - Helen Rowland
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

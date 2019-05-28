@@ -1,0 +1,273 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1114
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1114
+Problem:    Confusing overloaded operator "." for string concatenation.
+Solution:   Add ".." for string concatenation.  Also "let a ..= b".
+Files:	    src/eval.c, src/testdir/test_eval_stuff.vim, runtime/doc/eval.txt
+
+
+*** ../vim-8.1.1113/src/eval.c	2019-03-30 20:04:05.024567549 +0100
+--- src/eval.c	2019-04-04 15:23:48.333402717 +0200
+***************
+*** 1234,1239 ****
+--- 1234,1240 ----
+   * ":let var /= expr"		assignment command.
+   * ":let var %= expr"		assignment command.
+   * ":let var .= expr"		assignment command.
++  * ":let var ..= expr"		assignment command.
+   * ":let [var1, var2] = expr"	unpack list.
+   */
+      void
+***************
+*** 1255,1262 ****
+      if (argend > arg && argend[-1] == '.')  // for var.='str'
+  	--argend;
+      expr = skipwhite(argend);
+!     if (*expr != '=' && !(vim_strchr((char_u *)"+-*/%.", *expr) != NULL
+! 			  && expr[1] == '='))
+      {
+  	/*
+  	 * ":let" without "=": list variables
+--- 1256,1263 ----
+      if (argend > arg && argend[-1] == '.')  // for var.='str'
+  	--argend;
+      expr = skipwhite(argend);
+!     if (*expr != '=' && !((vim_strchr((char_u *)"+-*/%.", *expr) != NULL
+! 			   && expr[1] == '=') || STRNCMP(expr, "..=", 3) == 0))
+      {
+  	/*
+  	 * ":let" without "=": list variables
+***************
+*** 1286,1292 ****
+--- 1287,1297 ----
+  	if (*expr != '=')
+  	{
+  	    if (vim_strchr((char_u *)"+-*/%.", *expr) != NULL)
++ 	    {
+  		op[0] = *expr;   // +=, -=, *=, /=, %= or .=
++ 		if (expr[0] == '.' && expr[1] == '.') // ..=
++ 		    ++expr;
++ 	    }
+  	    expr = skipwhite(expr + 2);
+  	}
+  	else
+***************
+*** 3813,3818 ****
+--- 3818,3824 ----
+   *	+	number addition
+   *	-	number subtraction
+   *	.	string concatenation
++  *	..	string concatenation
+   *
+   * "arg" must point to the first non-white of the expression.
+   * "arg" is advanced to the next non-white after the recognized expression.
+***************
+*** 3872,3877 ****
+--- 3878,3885 ----
+  	/*
+  	 * Get the second variable.
+  	 */
++ 	if (op == '.' && *(*arg + 1) == '.')  // .. string concatenation
++ 	    ++*arg;
+  	*arg = skipwhite(*arg + 1);
+  	if (eval6(arg, &var2, evaluate, op == '.') == FAIL)
+  	{
+*** ../vim-8.1.1113/src/testdir/test_eval_stuff.vim	2019-01-24 13:58:05.817568979 +0100
+--- src/testdir/test_eval_stuff.vim	2019-04-04 15:17:26.815290594 +0200
+***************
+*** 94,96 ****
+--- 94,125 ----
+    call assert_fails('let v:errmsg = []', 'E730:')
+    let v:errmsg = ''
+  endfunc
++ 
++ func Test_string_concatenation()
++   call assert_equal('ab', 'a'.'b')
++   call assert_equal('ab', 'a' .'b')
++   call assert_equal('ab', 'a'. 'b')
++   call assert_equal('ab', 'a' . 'b')
++ 
++   call assert_equal('ab', 'a'..'b')
++   call assert_equal('ab', 'a' ..'b')
++   call assert_equal('ab', 'a'.. 'b')
++   call assert_equal('ab', 'a' .. 'b')
++ 
++   let a = 'a'
++   let b = 'b'
++   let a .= b
++   call assert_equal('ab', a)
++ 
++   let a = 'a'
++   let a.=b
++   call assert_equal('ab', a)
++ 
++   let a = 'a'
++   let a ..= b
++   call assert_equal('ab', a)
++ 
++   let a = 'a'
++   let a..=b
++   call assert_equal('ab', a)
++ endfunc
+*** ../vim-8.1.1113/runtime/doc/eval.txt	2019-04-04 13:44:31.031594540 +0200
+--- runtime/doc/eval.txt	2019-04-04 15:26:47.752500735 +0200
+***************
+*** 773,782 ****
+  	expr2 ? expr1 : expr1	if-then-else
+  
+  |expr2|	expr3
+! 	expr3 || expr3 ..	logical OR
+  
+  |expr3|	expr4
+! 	expr4 && expr4 ..	logical AND
+  
+  |expr4|	expr5
+  	expr5 == expr5		equal
+--- 786,795 ----
+  	expr2 ? expr1 : expr1	if-then-else
+  
+  |expr2|	expr3
+! 	expr3 || expr3 ...	logical OR
+  
+  |expr3|	expr4
+! 	expr4 && expr4 ...	logical AND
+  
+  |expr4|	expr5
+  	expr5 == expr5		equal
+***************
+*** 793,810 ****
+  	etc.			As above, append ? for ignoring case, # for
+  				matching case
+  
+! 	expr5 is expr5		same |List| instance
+! 	expr5 isnot expr5	different |List| instance
+  
+  |expr5|	expr6
+! 	expr6 +	 expr6 ..	number addition, list or blob concatenation
+! 	expr6 -	 expr6 ..	number subtraction
+! 	expr6 .	 expr6 ..	string concatenation
+  
+  |expr6|	expr7
+! 	expr7 *	 expr7 ..	number multiplication
+! 	expr7 /	 expr7 ..	number division
+! 	expr7 %	 expr7 ..	number modulo
+  
+  |expr7|	expr8
+  	! expr7			logical NOT
+--- 806,825 ----
+  	etc.			As above, append ? for ignoring case, # for
+  				matching case
+  
+! 	expr5 is expr5		same |List|, |Dictionary| or |Blob| instance
+! 	expr5 isnot expr5	different |List|, |Dictionary| or |Blob|
+! 				instance
+  
+  |expr5|	expr6
+! 	expr6 +	 expr6 ...	number addition, list or blob concatenation
+! 	expr6 -	 expr6 ...	number subtraction
+! 	expr6 .	 expr6 ...	string concatenation
+! 	expr6 .. expr6 ...	string concatenation
+  
+  |expr6|	expr7
+! 	expr7 *	 expr7 ...	number multiplication
+! 	expr7 /	 expr7 ...	number division
+! 	expr7 %	 expr7 ...	number modulo
+  
+  |expr7|	expr8
+  	! expr7			logical NOT
+***************
+*** 833,839 ****
+  	{args -> expr1}		lambda expression
+  
+  
+! ".." indicates that the operations in this level can be concatenated.
+  Example: >
+  	&nu || &list && &shell == "csh"
+  
+--- 848,854 ----
+  	{args -> expr1}		lambda expression
+  
+  
+! "..." indicates that the operations in this level can be concatenated.
+  Example: >
+  	&nu || &list && &shell == "csh"
+  
+***************
+*** 1012,1027 ****
+  
+  expr5 and expr6						*expr5* *expr6*
+  ---------------
+! expr6 +	 expr6 ..	Number addition or |List| concatenation	*expr-+*
+! expr6 -	 expr6 ..	Number subtraction			*expr--*
+! expr6 .	 expr6 ..	String concatenation			*expr-.*
+  
+  For |Lists| only "+" is possible and then both expr6 must be a list.  The
+  result is a new list with the two lists Concatenated.
+  
+! expr7 *	 expr7 ..	Number multiplication			*expr-star*
+! expr7 /	 expr7 ..	Number division				*expr-/*
+! expr7 %	 expr7 ..	Number modulo				*expr-%*
+  
+  For all, except ".", Strings are converted to Numbers.
+  For bitwise operators see |and()|, |or()| and |xor()|.
+--- 1027,1046 ----
+  
+  expr5 and expr6						*expr5* *expr6*
+  ---------------
+! expr6 + expr6   Number addition, |List| or |Blob| concatenation	*expr-+*
+! expr6 - expr6   Number subtraction				*expr--*
+! expr6 . expr6   String concatenation				*expr-.*
+! expr6 .. expr6  String concatenation				*expr-..*
+  
+  For |Lists| only "+" is possible and then both expr6 must be a list.  The
+  result is a new list with the two lists Concatenated.
+  
+! For String concatenation ".." is preferred, since "." is ambiguous, it is also
+! used for |Dict| member access and floating point numbers.
+! 
+! expr7 * expr7  Number multiplication				*expr-star*
+! expr7 / expr7  Number division					*expr-/*
+! expr7 % expr7  Number modulo					*expr-%*
+  
+  For all, except ".", Strings are converted to Numbers.
+  For bitwise operators see |and()|, |or()| and |xor()|.
+***************
+*** 1080,1085 ****
+--- 1099,1111 ----
+  
+  expr8							*expr8*
+  -----
++ This expression is either |expr9| or a sequence of the alternatives below,
++ in any order.  E.g., these are all possible:
++ 	expr9[expr1].name
++ 	expr9.name[expr1]
++ 	expr9(expr1, ...)[expr1].name
++ 
++ 
+  expr8[expr1]		item of String or |List|	*expr-[]* *E111*
+  							*E909* *subscript*
+  If expr8 is a Number or String this results in a String that contains the
+*** ../vim-8.1.1113/src/version.c	2019-04-04 15:04:32.966792195 +0200
+--- src/version.c	2019-04-04 15:32:15.826390483 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1114,
+  /**/
+
+-- 
+Press any key to continue, press any other key to quit.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

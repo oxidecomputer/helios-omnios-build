@@ -1,0 +1,614 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1112
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1112
+Problem:    Duplicate code in quickfix file.
+Solution:   Move code into functions. (Yegappan Lakshmanan, closes #4207)
+Files:	    src/quickfix.c, src/testdir/test_quickfix.vim
+
+
+*** ../vim-8.1.1111/src/quickfix.c	2019-03-31 15:31:54.592053004 +0200
+--- src/quickfix.c	2019-04-04 14:00:13.428106803 +0200
+***************
+*** 2161,2166 ****
+--- 2161,2214 ----
+  }
+  
+  /*
++  * Get the quickfix/location list stack to use for the specified Ex command.
++  * For a location list command, returns the stack for the current window.  If
++  * the location list is not found, then returns NULL and prints an error
++  * message if 'print_emsg' is TRUE.
++  */
++     static qf_info_T *
++ qf_cmd_get_stack(exarg_T *eap, int print_emsg)
++ {
++     qf_info_T	*qi = &ql_info;
++ 
++     if (is_loclist_cmd(eap->cmdidx))
++     {
++ 	qi = GET_LOC_LIST(curwin);
++ 	if (qi == NULL)
++ 	{
++ 	    if (print_emsg)
++ 		emsg(_(e_loclist));
++ 	    return NULL;
++ 	}
++     }
++ 
++     return qi;
++ }
++ 
++ /*
++  * Get the quickfix/location list stack to use for the specified Ex command.
++  * For a location list command, returns the stack for the current window.
++  * If the location list is not present, then allocates a new one.
++  * Returns NULL if the allocation fails.  For a location list command, sets
++  * 'pwinp' to curwin.
++  */
++     static qf_info_T *
++ qf_cmd_get_or_alloc_stack(exarg_T *eap, win_T **pwinp)
++ {
++     qf_info_T	*qi = &ql_info;
++ 
++     if (is_loclist_cmd(eap->cmdidx))
++     {
++ 	qi = ll_get_or_alloc_list(curwin);
++ 	if (qi == NULL)
++ 	    return NULL;
++ 	*pwinp = curwin;
++     }
++ 
++     return qi;
++ }
++ 
++ /*
+   * Copy location list entries from 'from_qfl' to 'to_qfl'.
+   */
+      static int
+***************
+*** 3512,3528 ****
+      int		plus = FALSE;
+      int		all = eap->forceit;	// if not :cl!, only show
+  					// recognised errors
+!     qf_info_T	*qi = &ql_info;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	{
+! 	    emsg(_(e_loclist));
+! 	    return;
+! 	}
+!     }
+  
+      if (qf_stack_empty(qi) || qf_list_empty(qf_get_curlist(qi)))
+      {
+--- 3560,3569 ----
+      int		plus = FALSE;
+      int		all = eap->forceit;	// if not :cl!, only show
+  					// recognised errors
+!     qf_info_T	*qi;
+  
+!     if ((qi = qf_cmd_get_stack(eap, TRUE)) == NULL)
+! 	return;
+  
+      if (qf_stack_empty(qi) || qf_list_empty(qf_get_curlist(qi)))
+      {
+***************
+*** 3647,3664 ****
+      void
+  qf_age(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+      int		count;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	{
+! 	    emsg(_(e_loclist));
+! 	    return;
+! 	}
+!     }
+  
+      if (eap->addr_count != 0)
+  	count = eap->line2;
+--- 3688,3698 ----
+      void
+  qf_age(exarg_T *eap)
+  {
+!     qf_info_T	*qi;
+      int		count;
+  
+!     if ((qi = qf_cmd_get_stack(eap, TRUE)) == NULL)
+! 	return;
+  
+      if (eap->addr_count != 0)
+  	count = eap->line2;
+***************
+*** 3695,3705 ****
+      void
+  qf_history(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+      int		i;
+  
+-     if (is_loclist_cmd(eap->cmdidx))
+- 	qi = GET_LOC_LIST(curwin);
+      if (qf_stack_empty(qi))
+  	msg(_("No entries"));
+      else
+--- 3729,3737 ----
+      void
+  qf_history(exarg_T *eap)
+  {
+!     qf_info_T	*qi = qf_cmd_get_stack(eap, FALSE);
+      int		i;
+  
+      if (qf_stack_empty(qi))
+  	msg(_("No entries"));
+      else
+***************
+*** 3908,3923 ****
+      void
+  ex_cwindow(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+      qf_list_T	*qfl;
+      win_T	*win;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	    return;
+!     }
+  
+      qfl = qf_get_curlist(qi);
+  
+--- 3940,3951 ----
+      void
+  ex_cwindow(exarg_T *eap)
+  {
+!     qf_info_T	*qi;
+      qf_list_T	*qfl;
+      win_T	*win;
+  
+!     if ((qi = qf_cmd_get_stack(eap, TRUE)) == NULL)
+! 	return;
+  
+      qfl = qf_get_curlist(qi);
+  
+***************
+*** 3946,3959 ****
+  ex_cclose(exarg_T *eap)
+  {
+      win_T	*win = NULL;
+!     qf_info_T	*qi = &ql_info;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	    return;
+!     }
+  
+      // Find existing quickfix window and close it.
+      win = qf_find_win(qi);
+--- 3974,3983 ----
+  ex_cclose(exarg_T *eap)
+  {
+      win_T	*win = NULL;
+!     qf_info_T	*qi;
+  
+!     if ((qi = qf_cmd_get_stack(eap, FALSE)) == NULL)
+! 	return;
+  
+      // Find existing quickfix window and close it.
+      win = qf_find_win(qi);
+***************
+*** 4100,4120 ****
+      void
+  ex_copen(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+      qf_list_T	*qfl;
+      int		height;
+      int		status = FAIL;
+      int		lnum;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	{
+! 	    emsg(_(e_loclist));
+! 	    return;
+! 	}
+!     }
+  
+      incr_quickfix_busy();
+  
+--- 4124,4137 ----
+      void
+  ex_copen(exarg_T *eap)
+  {
+!     qf_info_T	*qi;
+      qf_list_T	*qfl;
+      int		height;
+      int		status = FAIL;
+      int		lnum;
+  
+!     if ((qi = qf_cmd_get_stack(eap, TRUE)) == NULL)
+! 	return;
+  
+      incr_quickfix_busy();
+  
+***************
+*** 4183,4200 ****
+      void
+  ex_cbottom(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+      win_T	*win;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	{
+! 	    emsg(_(e_loclist));
+! 	    return;
+! 	}
+!     }
+  
+      win = qf_find_win(qi);
+      if (win != NULL && win->w_cursor.lnum != win->w_buffer->b_ml.ml_line_count)
+--- 4200,4210 ----
+      void
+  ex_cbottom(exarg_T *eap)
+  {
+!     qf_info_T	*qi;
+      win_T	*win;
+  
+!     if ((qi = qf_cmd_get_stack(eap, TRUE)) == NULL)
+! 	return;
+  
+      win = qf_find_win(qi);
+      if (win != NULL && win->w_cursor.lnum != win->w_buffer->b_ml.ml_line_count)
+***************
+*** 4812,4830 ****
+      int
+  qf_get_size(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+      qf_list_T	*qfl;
+      qfline_T	*qfp;
+      int		i, sz = 0;
+      int		prev_fnum = 0;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	// Location list
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	    return 0;
+!     }
+  
+      qfl = qf_get_curlist(qi);
+      FOR_ALL_QFL_ITEMS(qfl, qfp, i)
+--- 4822,4835 ----
+      int
+  qf_get_size(exarg_T *eap)
+  {
+!     qf_info_T	*qi;
+      qf_list_T	*qfl;
+      qfline_T	*qfp;
+      int		i, sz = 0;
+      int		prev_fnum = 0;
+  
+!     if ((qi = qf_cmd_get_stack(eap, FALSE)) == NULL)
+! 	return 0;
+  
+      qfl = qf_get_curlist(qi);
+      FOR_ALL_QFL_ITEMS(qfl, qfp, i)
+***************
+*** 4852,4866 ****
+      int
+  qf_get_cur_idx(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	// Location list
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	    return 0;
+!     }
+  
+      return qf_get_curlist(qi)->qf_index;
+  }
+--- 4857,4866 ----
+      int
+  qf_get_cur_idx(exarg_T *eap)
+  {
+!     qf_info_T	*qi;
+  
+!     if ((qi = qf_cmd_get_stack(eap, FALSE)) == NULL)
+! 	return 0;
+  
+      return qf_get_curlist(qi)->qf_index;
+  }
+***************
+*** 4872,4890 ****
+      int
+  qf_get_cur_valid_idx(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+      qf_list_T	*qfl;
+      qfline_T	*qfp;
+      int		i, eidx = 0;
+      int		prev_fnum = 0;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	// Location list
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	    return 1;
+!     }
+  
+      qfl = qf_get_curlist(qi);
+      qfp = qfl->qf_start;
+--- 4872,4885 ----
+      int
+  qf_get_cur_valid_idx(exarg_T *eap)
+  {
+!     qf_info_T	*qi;
+      qf_list_T	*qfl;
+      qfline_T	*qfp;
+      int		i, eidx = 0;
+      int		prev_fnum = 0;
+  
+!     if ((qi = qf_cmd_get_stack(eap, FALSE)) == NULL)
+! 	return 1;
+  
+      qfl = qf_get_curlist(qi);
+      qfp = qfl->qf_start;
+***************
+*** 4967,4984 ****
+      void
+  ex_cc(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+      int		errornr;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	{
+! 	    emsg(_(e_loclist));
+! 	    return;
+! 	}
+!     }
+  
+      if (eap->addr_count > 0)
+  	errornr = (int)eap->line2;
+--- 4962,4972 ----
+      void
+  ex_cc(exarg_T *eap)
+  {
+!     qf_info_T	*qi;
+      int		errornr;
+  
+!     if ((qi = qf_cmd_get_stack(eap, TRUE)) == NULL)
+! 	return;
+  
+      if (eap->addr_count > 0)
+  	errornr = (int)eap->line2;
+***************
+*** 5017,5035 ****
+      void
+  ex_cnext(exarg_T *eap)
+  {
+!     qf_info_T	*qi = &ql_info;
+      int		errornr;
+      int		dir;
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = GET_LOC_LIST(curwin);
+! 	if (qi == NULL)
+! 	{
+! 	    emsg(_(e_loclist));
+! 	    return;
+! 	}
+!     }
+  
+      if (eap->addr_count > 0
+  	    && (eap->cmdidx != CMD_cdo && eap->cmdidx != CMD_ldo
+--- 5005,5016 ----
+      void
+  ex_cnext(exarg_T *eap)
+  {
+!     qf_info_T	*qi;
+      int		errornr;
+      int		dir;
+  
+!     if ((qi = qf_cmd_get_stack(eap, TRUE)) == NULL)
+! 	return;
+  
+      if (eap->addr_count > 0
+  	    && (eap->cmdidx != CMD_cdo && eap->cmdidx != CMD_ldo
+***************
+*** 5410,5416 ****
+      char_u	*s;
+      char_u	*p;
+      int		fi;
+!     qf_info_T	*qi = &ql_info;
+      qf_list_T	*qfl;
+      int_u	save_qfid;
+      win_T	*wp = NULL;
+--- 5391,5397 ----
+      char_u	*s;
+      char_u	*p;
+      int		fi;
+!     qf_info_T	*qi;
+      qf_list_T	*qfl;
+      int_u	save_qfid;
+      win_T	*wp = NULL;
+***************
+*** 5439,5451 ****
+  #endif
+      }
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = ll_get_or_alloc_list(curwin);
+! 	if (qi == NULL)
+! 	    return;
+! 	wp = curwin;
+!     }
+  
+      if (eap->addr_count > 0)
+  	tomatch = eap->line2;
+--- 5420,5428 ----
+  #endif
+      }
+  
+!     qi = qf_cmd_get_or_alloc_stack(eap, &wp);
+!     if (qi == NULL)
+! 	return;
+  
+      if (eap->addr_count > 0)
+  	tomatch = eap->line2;
+***************
+*** 6952,6958 ****
+  ex_cbuffer(exarg_T *eap)
+  {
+      buf_T	*buf = NULL;
+!     qf_info_T	*qi = &ql_info;
+      char_u	*au_name = NULL;
+      int		res;
+      int_u	save_qfid;
+--- 6929,6935 ----
+  ex_cbuffer(exarg_T *eap)
+  {
+      buf_T	*buf = NULL;
+!     qf_info_T	*qi;
+      char_u	*au_name = NULL;
+      int		res;
+      int_u	save_qfid;
+***************
+*** 6972,6984 ****
+      }
+  
+      // Must come after autocommands.
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = ll_get_or_alloc_list(curwin);
+! 	if (qi == NULL)
+! 	    return;
+! 	wp = curwin;
+!     }
+  
+      if (cbuffer_process_args(eap, &buf, &line1, &line2) == FAIL)
+  	return;
+--- 6949,6957 ----
+      }
+  
+      // Must come after autocommands.
+!     qi = qf_cmd_get_or_alloc_stack(eap, &wp);
+!     if (qi == NULL)
+! 	return;
+  
+      if (cbuffer_process_args(eap, &buf, &line1, &line2) == FAIL)
+  	return;
+***************
+*** 7059,7065 ****
+  ex_cexpr(exarg_T *eap)
+  {
+      typval_T	*tv;
+!     qf_info_T	*qi = &ql_info;
+      char_u	*au_name = NULL;
+      int		res;
+      int_u	save_qfid;
+--- 7032,7038 ----
+  ex_cexpr(exarg_T *eap)
+  {
+      typval_T	*tv;
+!     qf_info_T	*qi;
+      char_u	*au_name = NULL;
+      int		res;
+      int_u	save_qfid;
+***************
+*** 7075,7087 ****
+  #endif
+      }
+  
+!     if (is_loclist_cmd(eap->cmdidx))
+!     {
+! 	qi = ll_get_or_alloc_list(curwin);
+! 	if (qi == NULL)
+! 	    return;
+! 	wp = curwin;
+!     }
+  
+      // Evaluate the expression.  When the result is a string or a list we can
+      // use it to fill the errorlist.
+--- 7048,7056 ----
+  #endif
+      }
+  
+!     qi = qf_cmd_get_or_alloc_stack(eap, &wp);
+!     if (qi == NULL)
+! 	return;
+  
+      // Evaluate the expression.  When the result is a string or a list we can
+      // use it to fill the errorlist.
+*** ../vim-8.1.1111/src/testdir/test_quickfix.vim	2019-03-17 16:39:01.566006172 +0100
+--- src/testdir/test_quickfix.vim	2019-04-04 14:00:13.428106803 +0200
+***************
+*** 163,168 ****
+--- 163,174 ----
+  func XageTests(cchar)
+    call s:setup_commands(a:cchar)
+  
++   if a:cchar == 'l'
++     " No location list for the current window
++     call assert_fails('lolder', 'E776:')
++     call assert_fails('lnewer', 'E776:')
++   endif
++ 
+    let list = [{'bufnr': bufnr('%'), 'lnum': 1}]
+    call g:Xsetlist(list)
+  
+*** ../vim-8.1.1111/src/version.c	2019-04-04 13:44:31.035594516 +0200
+--- src/version.c	2019-04-04 14:03:33.855089513 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1112,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+194. Your business cards contain your e-mail and home page address.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

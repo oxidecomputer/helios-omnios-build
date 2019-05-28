@@ -1,0 +1,180 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1302
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1302
+Problem:    v:beval_text is not tested in Visual mode.
+Solution:   Add a screenshot of the balloon in Visual mode.
+Files:	    src/testdir/test_balloon.vim, src/normal.c,
+            src/testdir/dumps/Test_balloon_eval_term_01.dump,
+            src/testdir/dumps/Test_balloon_eval_term_02.dump
+
+
+*** ../vim-8.1.1301/src/testdir/test_balloon.vim	2019-05-08 21:58:54.446597033 +0200
+--- src/testdir/test_balloon.vim	2019-05-08 22:52:59.396066320 +0200
+***************
+*** 9,27 ****
+    finish
+  endif
+  
+! func Test_balloon_eval_term()
+!   call writefile([
+  	\ 'call setline(1, ["one one one", "two tXo two", "three three three"])',
+  	\ 'set balloonevalterm balloonexpr=MyBalloonExpr() balloondelay=100',
+  	\ 'func MyBalloonExpr()',
+! 	\ ' return "line " . v:beval_lnum . " column " . v:beval_col',
+  	\ 'endfun',
+  	\ 'redraw',
+  	\ 'call test_setmouse(2, 6)',
+  	\ 'call feedkeys("\<MouseMove>\<Ignore>", "xt")',
+  	\ ], 'XTest_beval')
+  
+!   " Check that the balloon shows up
+    let buf = RunVimInTerminal('-S XTest_beval', {'rows': 10, 'cols': 50})
+    call term_wait(buf, 100)
+    call VerifyScreenDump(buf, 'Test_balloon_eval_term_01', {})
+--- 9,32 ----
+    finish
+  endif
+  
+! let s:common_script = [
+  	\ 'call setline(1, ["one one one", "two tXo two", "three three three"])',
+  	\ 'set balloonevalterm balloonexpr=MyBalloonExpr() balloondelay=100',
+  	\ 'func MyBalloonExpr()',
+! 	\ ' return "line " .. v:beval_lnum .. " column " .. v:beval_col .. ": " .. v:beval_text',
+  	\ 'endfun',
+  	\ 'redraw',
++ 	\ ]
++ 
++ func Test_balloon_eval_term()
++   " Use <Ignore> after <MouseMove> to return from vgetc() without removing
++   " the balloon.
++   call writefile(s:common_script + [
+  	\ 'call test_setmouse(2, 6)',
+  	\ 'call feedkeys("\<MouseMove>\<Ignore>", "xt")',
+  	\ ], 'XTest_beval')
+  
+!   " Check that the balloon shows up after a mouse move
+    let buf = RunVimInTerminal('-S XTest_beval', {'rows': 10, 'cols': 50})
+    call term_wait(buf, 100)
+    call VerifyScreenDump(buf, 'Test_balloon_eval_term_01', {})
+***************
+*** 30,32 ****
+--- 35,55 ----
+    call StopVimInTerminal(buf)
+    call delete('XTest_beval')
+  endfunc
++ 
++ func Test_balloon_eval_term_visual()
++   " Use <Ignore> after <MouseMove> to return from vgetc() without removing
++   " the balloon.
++   call writefile(s:common_script + [
++ 	\ 'call test_setmouse(3, 6)',
++ 	\ 'call feedkeys("3Gevfr\<MouseMove>\<Ignore>", "xt")',
++ 	\ ], 'XTest_beval_visual')
++ 
++   " Check that the balloon shows up after a mouse move
++   let buf = RunVimInTerminal('-S XTest_beval_visual', {'rows': 10, 'cols': 50})
++   call term_wait(buf, 100)
++   call VerifyScreenDump(buf, 'Test_balloon_eval_term_02', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XTest_beval_visual')
++ endfunc
+*** ../vim-8.1.1301/src/normal.c	2019-04-28 19:46:17.030060105 +0200
+--- src/normal.c	2019-05-08 22:50:18.029137066 +0200
+***************
+*** 2326,2335 ****
+  
+      if (c == K_MOUSEMOVE)
+      {
+! 	/* Mouse moved without a button pressed. */
+  #ifdef FEAT_BEVAL_TERM
+  	ui_may_remove_balloon();
+! 	if (p_bevalterm && !VIsual_active)
+  	{
+  	    profile_setlimit(p_bdlay, &bevalexpr_due);
+  	    bevalexpr_due_set = TRUE;
+--- 2326,2335 ----
+  
+      if (c == K_MOUSEMOVE)
+      {
+! 	// Mouse moved without a button pressed.
+  #ifdef FEAT_BEVAL_TERM
+  	ui_may_remove_balloon();
+! 	if (p_bevalterm)
+  	{
+  	    profile_setlimit(p_bdlay, &bevalexpr_due);
+  	    bevalexpr_due_set = TRUE;
+*** ../vim-8.1.1301/src/testdir/dumps/Test_balloon_eval_term_01.dump	2019-05-08 21:58:54.446597033 +0200
+--- src/testdir/dumps/Test_balloon_eval_term_01.dump	2019-05-08 22:24:52.938934260 +0200
+***************
+*** 1,8 ****
+  >o+0&#ffffff0|n|e| |o|n|e| |o|n|e| @38
+  @2|o| |t|X|o| |t|w|o| @38
+! |t|h|r|e| +0#0000001#ffd7ff255@16| +0#0000000#ffffff0@28
+! |~+0#4040ff13&| @2| +0#0000001#ffd7ff255|l|i|n|e| |2| |c|o|l|u|m|n| |6| | +0#4040ff13#ffffff0@28
+! |~| @2| +0#0000001#ffd7ff255@16| +0#4040ff13#ffffff0@28
+  |~| @48
+  |~| @48
+  |~| @48
+--- 1,8 ----
+  >o+0&#ffffff0|n|e| |o|n|e| |o|n|e| @38
+  @2|o| |t|X|o| |t|w|o| @38
+! |t|h|r|e| +0#0000001#ffd7ff255@21| +0#0000000#ffffff0@23
+! |~+0#4040ff13&| @2| +0#0000001#ffd7ff255|l|i|n|e| |2| |c|o|l|u|m|n| |6|:| |t|X|o| | +0#4040ff13#ffffff0@23
+! |~| @2| +0#0000001#ffd7ff255@21| +0#4040ff13#ffffff0@23
+  |~| @48
+  |~| @48
+  |~| @48
+*** ../vim-8.1.1301/src/testdir/dumps/Test_balloon_eval_term_02.dump	2019-05-08 22:54:06.855631534 +0200
+--- src/testdir/dumps/Test_balloon_eval_term_02.dump	2019-05-08 22:49:48.525338352 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ |o+0&#ffffff0|n|e| |o|n|e| |o|n|e| @38
++ @2|o| |t|X|o| |t|w|o| @38
++ |t|h|r|e|e+0&#e0e0e08| |t|h>r+0&#ffffff0|e@1| |t|h|r|e@1| @32
++ |~+0#4040ff13&| @2| +0#0000001#ffd7ff255@23| +0#4040ff13#ffffff0@21
++ |~| @2| +0#0000001#ffd7ff255|l|i|n|e| |3| |c|o|l|u|m|n| |5|:| |e| |t|h|r| | +0#4040ff13#ffffff0@21
++ |~| @2| +0#0000001#ffd7ff255@23| +0#4040ff13#ffffff0@21
++ |~| @48
++ |~| @48
++ |~| @48
++ |-+2#0000000&@1| |V|I|S|U|A|L| |-@1| +0&&@9|5| @8|3|,|9| @10|A|l@1| 
+*** ../vim-8.1.1301/src/version.c	2019-05-08 22:28:41.681765816 +0200
+--- src/version.c	2019-05-08 22:53:36.947823518 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1302,
+  /**/
+
+-- 
+LETTERS TO THE EDITOR (The Times of London)
+
+Dear Sir,
+
+I am firmly opposed to the spread of microchips either to the home or
+to the office.  We have more than enough of them foisted upon us in
+public places.  They are a disgusting Americanism, and can only result
+in the farmers being forced to grow smaller potatoes, which in turn
+will cause massive unemployment in the already severely depressed
+agricultural industry.
+
+Yours faithfully,
+        Capt. Quinton D'Arcy, J. P.
+        Sevenoaks
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

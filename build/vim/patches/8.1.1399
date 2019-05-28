@@ -1,0 +1,323 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1399
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1399
+Problem:    Popup windows not adjusted when switching tabs.
+Solution:   Save and restore first_tab_popupwin. Fix closing a tabpage.
+Files:      src/window.c, src/popupwin.c, src/proto/popupwin.pro,
+            src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_02.dump,
+            src/testdir/dumps/Test_popupwin_03.dump,
+            src/testdir/dumps/Test_popupwin_04.dump
+
+
+*** ../vim-8.1.1398/src/window.c	2019-05-25 20:10:32.837684661 +0200
+--- src/window.c	2019-05-26 14:02:01.612768844 +0200
+***************
+*** 3670,3677 ****
+      diff_clear(tp);
+  # endif
+  # ifdef FEAT_TEXT_PROP
+!     while (tp->tp_first_popupwin != NULL)
+! 	popup_close(tp->tp_first_popupwin->w_id);
+  #endif
+      for (idx = 0; idx < SNAP_COUNT; ++idx)
+  	clear_snapshot(tp, idx);
+--- 3670,3686 ----
+      diff_clear(tp);
+  # endif
+  # ifdef FEAT_TEXT_PROP
+!     {
+! 	win_T *wp;
+! 
+! 	for (;;)
+! 	{
+! 	    wp = tp == curtab ? first_tab_popupwin : tp->tp_first_popupwin;
+! 	    if (wp == NULL)
+! 		break;
+! 	    popup_close_tabpage(tp, wp->w_id);
+! 	}
+!     }
+  #endif
+      for (idx = 0; idx < SNAP_COUNT; ++idx)
+  	clear_snapshot(tp, idx);
+***************
+*** 3964,3969 ****
+--- 3973,3982 ----
+      tp->tp_prevwin = prevwin;
+      tp->tp_firstwin = firstwin;
+      tp->tp_lastwin = lastwin;
++ #ifdef FEAT_TEXT_PROP
++     tp->tp_first_popupwin = first_tab_popupwin;
++     first_tab_popupwin = NULL;
++ #endif
+      tp->tp_old_Rows = Rows;
+      tp->tp_old_Columns = Columns;
+      firstwin = NULL;
+***************
+*** 3991,3996 ****
+--- 4004,4012 ----
+      firstwin = tp->tp_firstwin;
+      lastwin = tp->tp_lastwin;
+      topframe = tp->tp_topframe;
++ #ifdef FEAT_TEXT_PROP
++     first_tab_popupwin = tp->tp_first_popupwin;
++ #endif
+  
+      /* We would like doing the TabEnter event first, but we don't have a
+       * valid current window yet, which may break some commands.
+***************
+*** 6497,6505 ****
+--- 6513,6527 ----
+  	{
+  	    curtab->tp_firstwin = firstwin;
+  	    curtab->tp_lastwin = lastwin;
++ #ifdef FEAT_TEXT_PROP
++ 	    curtab->tp_first_popupwin = first_tab_popupwin ;
++ #endif
+  	    curtab = tp;
+  	    firstwin = curtab->tp_firstwin;
+  	    lastwin = curtab->tp_lastwin;
++ #ifdef FEAT_TEXT_PROP
++ 	    first_tab_popupwin = curtab->tp_first_popupwin;
++ #endif
+  	}
+  	else
+  	    goto_tabpage_tp(tp, FALSE, FALSE);
+***************
+*** 6528,6536 ****
+--- 6550,6564 ----
+  	{
+  	    curtab->tp_firstwin = firstwin;
+  	    curtab->tp_lastwin = lastwin;
++ #ifdef FEAT_TEXT_PROP
++ 	    curtab->tp_first_popupwin = first_tab_popupwin ;
++ #endif
+  	    curtab = save_curtab;
+  	    firstwin = curtab->tp_firstwin;
+  	    lastwin = curtab->tp_lastwin;
++ #ifdef FEAT_TEXT_PROP
++ 	    first_tab_popupwin = curtab->tp_first_popupwin;
++ #endif
+  	}
+  	else
+  	    goto_tabpage_tp(save_curtab, FALSE, FALSE);
+*** ../vim-8.1.1398/src/popupwin.c	2019-05-25 19:51:03.776408456 +0200
+--- src/popupwin.c	2019-05-26 13:56:33.486438052 +0200
+***************
+*** 177,216 ****
+      popup_close(nr);
+  }
+  
+      void
+! popup_close(int nr)
+  {
+      win_T	*wp;
+      win_T	*prev = NULL;
+  
+      for (wp = first_popupwin; wp != NULL; prev = wp, wp = wp->w_next)
+! 	if (wp->w_id == nr)
+  	{
+  	    if (prev == NULL)
+  		first_popupwin = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    break;
+  	}
+  
+!     if (wp == NULL)
+!     {
+! 	prev = NULL;
+! 	for (wp = first_tab_popupwin; wp != NULL; prev = wp, wp = wp->w_next)
+! 	    if (wp->w_id == nr)
+! 	    {
+! 		if (prev == NULL)
+! 		    first_tab_popupwin = wp->w_next;
+! 		else
+! 		    prev->w_next = wp->w_next;
+! 		break;
+! 	    }
+!     }
+!     if (wp != NULL)
+!     {
+! 	win_free_popup(wp);
+! 	redraw_all_later(NOT_VALID);
+!     }
+  }
+  
+      void
+--- 177,235 ----
+      popup_close(nr);
+  }
+  
++ /*
++  * Close a popup window by Window-id.
++  */
+      void
+! popup_close(int id)
+  {
+      win_T	*wp;
++     tabpage_T	*tp;
+      win_T	*prev = NULL;
+  
++     // go through global popups
+      for (wp = first_popupwin; wp != NULL; prev = wp, wp = wp->w_next)
+! 	if (wp->w_id == id)
+  	{
+  	    if (prev == NULL)
+  		first_popupwin = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    win_free_popup(wp);
+! 	    redraw_all_later(NOT_VALID);
+! 	    return;
+  	}
+  
+!     // go through tab-local popups
+!     FOR_ALL_TABPAGES(tp)
+! 	popup_close_tabpage(tp, id);
+! }
+! 
+! /*
+!  * Close a popup window with Window-id "id" in tabpage "tp".
+!  */
+!     void
+! popup_close_tabpage(tabpage_T *tp, int id)
+! {
+!     win_T	*wp;
+!     win_T	**root;
+!     win_T	*prev = NULL;
+! 
+!     if (tp == curtab)
+! 	root = &first_tab_popupwin;
+!     else
+! 	root = &tp->tp_first_popupwin;
+!     for (wp = *root; wp != NULL; prev = wp, wp = wp->w_next)
+! 	if (wp->w_id == id)
+! 	{
+! 	    if (prev == NULL)
+! 		*root = wp->w_next;
+! 	    else
+! 		prev->w_next = wp->w_next;
+! 	    win_free_popup(wp);
+! 	    redraw_all_later(NOT_VALID);
+! 	    return;
+! 	}
+  }
+  
+      void
+*** ../vim-8.1.1398/src/proto/popupwin.pro	2019-05-25 19:51:03.776408456 +0200
+--- src/proto/popupwin.pro	2019-05-26 13:56:23.998485715 +0200
+***************
+*** 1,7 ****
+  /* popupwin.c */
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+! void popup_close(int nr);
+  void close_all_popups(void);
+  void ex_popupclear(exarg_T *eap);
+  /* vim: set ft=c : */
+--- 1,8 ----
+  /* popupwin.c */
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+! void popup_close(int id);
+! void popup_close_tabpage(tabpage_T *tp, int id);
+  void close_all_popups(void);
+  void ex_popupclear(exarg_T *eap);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1398/src/testdir/test_popupwin.vim	2019-05-25 19:51:03.780408437 +0200
+--- src/testdir/test_popupwin.vim	2019-05-26 14:07:44.274997632 +0200
+***************
+*** 20,25 ****
+--- 20,38 ----
+    let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_01', {})
+  
++   " Add a tabpage
++   call term_sendkeys(buf, ":tabnew\<CR>")
++   call term_sendkeys(buf, ":call popup_create('other tab', {'line': 4, 'col': 9})\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_02', {})
++ 
++   " switch back to first tabpage
++   call term_sendkeys(buf, "gt")
++   call VerifyScreenDump(buf, 'Test_popupwin_03', {})
++ 
++   " close that tabpage
++   call term_sendkeys(buf, ":quit!\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_04', {})
++ 
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestPopup')
+*** ../vim-8.1.1398/src/testdir/dumps/Test_popupwin_02.dump	2019-05-26 14:10:49.566032964 +0200
+--- src/testdir/dumps/Test_popupwin_02.dump	2019-05-26 14:07:52.562954582 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ | +8#0000001#e0e0e08|+| |[|N|o| |N|a|m|e|]| | +2#0000000#ffffff0|[|N|o| |N|a|m|e|]| | +1&&@49|X+8#0000001#e0e0e08
++ > +0#0000000#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @6|o+0#0000001#ffd7ff255|t|h|e|r| |t|a|b| @10| +0#4040ff13#ffffff0@46
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |:+0#0000000&|c|a|l@1| |p|o|p|u|p|_|c|r|e|a|t|e|(|'|o|t|h|e|r| |t|a|b|'|,| |{|'|l|i|n|e|'|:| |4|,| |'|c|o|l|'|:| |9|}|)| @2|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1398/src/testdir/dumps/Test_popupwin_03.dump	2019-05-26 14:10:49.570032943 +0200
+--- src/testdir/dumps/Test_popupwin_03.dump	2019-05-26 14:07:53.614949115 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ | +2&#ffffff0|+| |[|N|o| |N|a|m|e|]| | +8#0000001#e0e0e08|[|N|o| |N|a|m|e|]| | +1#0000000#ffffff0@49|X+8#0000001#e0e0e08
++ >1+0#0000000#ffffff0| @73
++ |2| @8|h+0&#5fd7ff255|e|l@1|o| |t|h|e|r|e| @8|r+0#0000001#ffd7ff255| |o|n|e| @8| +0#0000000#ffffff0@30
++ |3| @22|a+0#0000001#ffd7ff255|n|o|t|h|e|r| |t|w|o| @8| +0#0000000#ffffff0@30
++ |4| @22|a+0#0000001#ffd7ff255|n|o|t|h|e|r| |t|h|r|e@1| @6| +0#0000000#ffffff0@30
++ |5| @73
++ |6| @73
++ |7| @73
++ |8| @73
++ |:|c|a|l@1| |p|o|p|u|p|_|c|r|e|a|t|e|(|'|o|t|h|e|r| |t|a|b|'|,| |{|'|l|i|n|e|'|:| |4|,| |'|c|o| @9|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1398/src/testdir/dumps/Test_popupwin_04.dump	2019-05-26 14:10:49.574032921 +0200
+--- src/testdir/dumps/Test_popupwin_04.dump	2019-05-26 14:07:54.666943646 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @6|o+0#0000001#ffd7ff255|t|h|e|r| |t|a|b| @10| +0#4040ff13#ffffff0@46
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |:+0#0000000&|q|u|i|t|!| @50|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1398/src/version.c	2019-05-26 13:13:59.243216016 +0200
+--- src/version.c	2019-05-26 13:22:38.660500164 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1399,
+  /**/
+
+-- 
+Give a man a computer program and you give him a headache,
+but teach him to program computers and you give him the power
+to create headaches for others for the rest of his life...
+        R. B. Forest
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

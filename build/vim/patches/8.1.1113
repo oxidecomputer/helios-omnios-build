@@ -1,0 +1,431 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1113
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1113
+Problem:    Making an autocommand trigger once is not so easy.
+Solution:   Add the ++once argument.  Also add ++nested as an alias for
+            "nested". (Justin M. Keyes, closes #4100)
+Files:	    runtime/doc/autocmd.txt, src/autocmd.c,
+            src/testdir/test_autocmd.vim, src/globals.h
+
+
+*** ../vim-8.1.1112/runtime/doc/autocmd.txt	2019-01-12 13:25:42.633479785 +0100
+--- runtime/doc/autocmd.txt	2019-04-04 14:27:44.234127778 +0200
+***************
+*** 52,58 ****
+  2. Defining autocommands				*autocmd-define*
+  
+  							*:au* *:autocmd*
+! :au[tocmd] [group] {event} {pat} [nested] {cmd}
+  			Add {cmd} to the list of commands that Vim will
+  			execute automatically on {event} for a file matching
+  			{pat} |autocmd-patterns|.
+--- 52,58 ----
+  2. Defining autocommands				*autocmd-define*
+  
+  							*:au* *:autocmd*
+! :au[tocmd] [group] {event} {pat} [++once] [++nested] {cmd}
+  			Add {cmd} to the list of commands that Vim will
+  			execute automatically on {event} for a file matching
+  			{pat} |autocmd-patterns|.
+***************
+*** 60,66 ****
+  			:autocmd and won't start a comment.
+  			Vim always adds the {cmd} after existing autocommands,
+  			so that the autocommands execute in the order in which
+! 			they were given.  See |autocmd-nested| for [nested].
+  
+  The special pattern <buffer> or <buffer=N> defines a buffer-local autocommand.
+  See |autocmd-buflocal|.
+--- 60,72 ----
+  			:autocmd and won't start a comment.
+  			Vim always adds the {cmd} after existing autocommands,
+  			so that the autocommands execute in the order in which
+! 			they were given.
+! 			See |autocmd-nested| for [++nested].  "nested"
+! 			(without the ++) can also be used, for backwards
+! 			compatibility.
+! 							*autocmd-once*
+! 			If [++once] is supplied the command is executed once,
+! 			then removed ("one shot").
+  
+  The special pattern <buffer> or <buffer=N> defines a buffer-local autocommand.
+  See |autocmd-buflocal|.
+***************
+*** 128,137 ****
+  ==============================================================================
+  3. Removing autocommands				*autocmd-remove*
+  
+! :au[tocmd]! [group] {event} {pat} [nested] {cmd}
+  			Remove all autocommands associated with {event} and
+! 			{pat}, and add the command {cmd}.  See
+! 			|autocmd-nested| for [nested].
+  
+  :au[tocmd]! [group] {event} {pat}
+  			Remove all autocommands associated with {event} and
+--- 134,144 ----
+  ==============================================================================
+  3. Removing autocommands				*autocmd-remove*
+  
+! :au[tocmd]! [group] {event} {pat} [++once] [++nested] {cmd}
+  			Remove all autocommands associated with {event} and
+! 			{pat}, and add the command {cmd}.
+! 			See |autocmd-once| for [++once].
+! 			See |autocmd-nested| for [++nested].
+  
+  :au[tocmd]! [group] {event} {pat}
+  			Remove all autocommands associated with {event} and
+***************
+*** 1454,1464 ****
+  instead of ":q!".
+  
+  							*autocmd-nested* *E218*
+! By default, autocommands do not nest.  If you use ":e" or ":w" in an
+! autocommand, Vim does not execute the BufRead and BufWrite autocommands for
+  those commands.  If you do want this, use the "nested" flag for those commands
+  in which you want nesting.  For example: >
+!   :autocmd FileChangedShell *.c nested e!
+  The nesting is limited to 10 levels to get out of recursive loops.
+  
+  It's possible to use the ":au" command in an autocommand.  This can be a
+--- 1476,1486 ----
+  instead of ":q!".
+  
+  							*autocmd-nested* *E218*
+! By default, autocommands do not nest.  For example, if you use ":e" or ":w" in
+! an autocommand, Vim does not execute the BufRead and BufWrite autocommands for
+  those commands.  If you do want this, use the "nested" flag for those commands
+  in which you want nesting.  For example: >
+!   :autocmd FileChangedShell *.c ++nested e!
+  The nesting is limited to 10 levels to get out of recursive loops.
+  
+  It's possible to use the ":au" command in an autocommand.  This can be a
+*** ../vim-8.1.1112/src/autocmd.c	2019-03-30 18:46:57.340077448 +0100
+--- src/autocmd.c	2019-04-04 15:00:05.275752148 +0200
+***************
+*** 52,57 ****
+--- 52,58 ----
+  {
+      char_u	    *cmd;		// The command to be executed (NULL
+  					// when command has been removed).
++     char	    once;		// "One shot": removed after execution
+      char	    nested;		// If autocommands nest here.
+      char	    last;		// last command in list
+  #ifdef FEAT_EVAL
+***************
+*** 256,262 ****
+  
+  static char_u *event_nr2name(event_T event);
+  static int au_get_grouparg(char_u **argp);
+! static int do_autocmd_event(event_T event, char_u *pat, int nested, char_u *cmd, int forceit, int group);
+  static int apply_autocmds_group(event_T event, char_u *fname, char_u *fname_io, int force, int group, buf_T *buf, exarg_T *eap);
+  static void auto_next_pat(AutoPatCmd *apc, int stop_at_last);
+  static int au_find_group(char_u *name);
+--- 257,263 ----
+  
+  static char_u *event_nr2name(event_T event);
+  static int au_get_grouparg(char_u **argp);
+! static int do_autocmd_event(event_T event, char_u *pat, int once, int nested, char_u *cmd, int forceit, int group);
+  static int apply_autocmds_group(event_T event, char_u *fname, char_u *fname_io, int force, int group, buf_T *buf, exarg_T *eap);
+  static void auto_next_pat(AutoPatCmd *apc, int stop_at_last);
+  static int au_find_group(char_u *name);
+***************
+*** 361,366 ****
+--- 362,374 ----
+      au_need_clean = TRUE;
+  }
+  
++ // Delete one command from an autocmd pattern.
++ static void au_del_cmd(AutoCmd *ac)
++ {
++     VIM_CLEAR(ac->cmd);
++     au_need_clean = TRUE;
++ }
++ 
+  /*
+   * Cleanup autocommands and patterns that have been deleted.
+   * This is only done when not executing autocommands.
+***************
+*** 385,390 ****
+--- 393,400 ----
+  	{
+  	    // loop over all commands for this pattern
+  	    prev_ac = &(ap->cmds);
++ 	    int has_cmd = FALSE;
++ 
+  	    for (ac = *prev_ac; ac != NULL; ac = *prev_ac)
+  	    {
+  		// remove the command if the pattern is to be deleted or when
+***************
+*** 395,402 ****
+  		    vim_free(ac->cmd);
+  		    vim_free(ac);
+  		}
+! 		else
+  		    prev_ac = &(ac->next);
+  	    }
+  
+  	    // remove the pattern if it has been marked for deletion
+--- 405,420 ----
+  		    vim_free(ac->cmd);
+  		    vim_free(ac);
+  		}
+! 		else {
+! 		    has_cmd = TRUE;
+  		    prev_ac = &(ac->next);
++ 		}
++ 	    }
++ 
++ 	    if (ap->pat != NULL && !has_cmd) {
++ 		// Pattern was not marked for deletion, but all of its
++ 		// commands were.  So mark the pattern for deletion.
++ 		au_remove_pat(ap);
+  	    }
+  
+  	    // remove the pattern if it has been marked for deletion
+***************
+*** 815,821 ****
+--- 833,841 ----
+      event_T	event;
+      int		need_free = FALSE;
+      int		nested = FALSE;
++     int		once = FALSE;
+      int		group;
++     int		i;
+  
+      if (*arg == '|')
+      {
+***************
+*** 874,888 ****
+  		pat = envpat;
+  	}
+  
+- 	/*
+- 	 * Check for "nested" flag.
+- 	 */
+  	cmd = skipwhite(cmd);
+! 	if (*cmd != NUL && STRNCMP(cmd, "nested", 6) == 0
+! 							&& VIM_ISWHITE(cmd[6]))
+  	{
+! 	    nested = TRUE;
+! 	    cmd = skipwhite(cmd + 6);
+  	}
+  
+  	/*
+--- 894,931 ----
+  		pat = envpat;
+  	}
+  
+  	cmd = skipwhite(cmd);
+! 	for (i = 0; i < 2; i++)
+  	{
+! 	    if (*cmd != NUL)
+! 	    {
+! 		// Check for "++once" flag.
+! 		if (STRNCMP(cmd, "++once", 6) == 0 && VIM_ISWHITE(cmd[6]))
+! 		{
+! 		    if (once)
+! 			semsg(_(e_duparg2), "++once");
+! 		    once = TRUE;
+! 		    cmd = skipwhite(cmd + 6);
+! 		}
+! 
+! 		// Check for "++nested" flag.
+! 		if ((STRNCMP(cmd, "++nested", 8) == 0 && VIM_ISWHITE(cmd[8])))
+! 		{
+! 		    if (nested)
+! 			semsg(_(e_duparg2), "++nested");
+! 		    nested = TRUE;
+! 		    cmd = skipwhite(cmd + 8);
+! 		}
+! 
+! 		// Check for the old "nested" flag.
+! 		if (STRNCMP(cmd, "nested", 6) == 0 && VIM_ISWHITE(cmd[6]))
+! 		{
+! 		    if (nested)
+! 			semsg(_(e_duparg2), "nested");
+! 		    nested = TRUE;
+! 		    cmd = skipwhite(cmd + 6);
+! 		}
+! 	    }
+  	}
+  
+  	/*
+***************
+*** 915,928 ****
+  	for (event = (event_T)0; (int)event < (int)NUM_EVENTS;
+  					    event = (event_T)((int)event + 1))
+  	    if (do_autocmd_event(event, pat,
+! 					 nested, cmd, forceit, group) == FAIL)
+  		break;
+      }
+      else
+      {
+  	while (*arg && *arg != '|' && !VIM_ISWHITE(*arg))
+  	    if (do_autocmd_event(event_name2nr(arg, &arg), pat,
+! 					nested,	cmd, forceit, group) == FAIL)
+  		break;
+      }
+  
+--- 958,971 ----
+  	for (event = (event_T)0; (int)event < (int)NUM_EVENTS;
+  					    event = (event_T)((int)event + 1))
+  	    if (do_autocmd_event(event, pat,
+! 				 once, nested, cmd, forceit, group) == FAIL)
+  		break;
+      }
+      else
+      {
+  	while (*arg && *arg != '|' && !VIM_ISWHITE(*arg))
+  	    if (do_autocmd_event(event_name2nr(arg, &arg), pat,
+! 				 once, nested,	cmd, forceit, group) == FAIL)
+  		break;
+      }
+  
+***************
+*** 973,978 ****
+--- 1016,1022 ----
+  do_autocmd_event(
+      event_T	event,
+      char_u	*pat,
++     int		once,
+      int		nested,
+      char_u	*cmd,
+      int		forceit,
+***************
+*** 1212,1217 ****
+--- 1256,1262 ----
+  	    }
+  	    ac->next = NULL;
+  	    *prev_ac = ac;
++ 	    ac->once = once;
+  	    ac->nested = nested;
+  	}
+      }
+***************
+*** 2319,2324 ****
+--- 2364,2372 ----
+  	verbose_leave_scroll();
+      }
+      retval = vim_strsave(ac->cmd);
++     // Remove one-shot ("once") autocmd in anticipation of its execution.
++     if (ac->once)
++ 	au_del_cmd(ac);
+      autocmd_nested = ac->nested;
+  #ifdef FEAT_EVAL
+      current_sctx = ac->script_ctx;
+*** ../vim-8.1.1112/src/testdir/test_autocmd.vim	2019-02-03 14:52:42.505867463 +0100
+--- src/testdir/test_autocmd.vim	2019-04-04 14:53:47.308581458 +0200
+***************
+*** 1415,1418 ****
+--- 1415,1488 ----
+    bwipe!
+  endfunc
+  
++ func Test_autocmd_nested()
++   let g:did_nested = 0
++   augroup Testing
++     au WinNew * edit somefile
++     au BufNew * let g:did_nested = 1
++   augroup END
++   split
++   call assert_equal(0, g:did_nested)
++   close
++   bwipe! somefile
++ 
++   " old nested argument still works
++   augroup Testing
++     au!
++     au WinNew * nested edit somefile
++     au BufNew * let g:did_nested = 1
++   augroup END
++   split
++   call assert_equal(1, g:did_nested)
++   close
++   bwipe! somefile
++ 
++   " New ++nested argument works
++   augroup Testing
++     au!
++     au WinNew * ++nested edit somefile
++     au BufNew * let g:did_nested = 1
++   augroup END
++   split
++   call assert_equal(1, g:did_nested)
++   close
++   bwipe! somefile
++ 
++   augroup Testing
++     au!
++   augroup END
++ 
++   call assert_fails('au WinNew * ++nested ++nested echo bad', 'E983:')
++   call assert_fails('au WinNew * nested nested echo bad', 'E983:')
++ endfunc
++ 
++ func Test_autocmd_once()
++   " Without ++once WinNew triggers twice
++   let g:did_split = 0
++   augroup Testing
++     au WinNew * let g:did_split += 1
++   augroup END
++   split
++   split
++   call assert_equal(2, g:did_split)
++   call assert_true(exists('#WinNew'))
++   close
++   close
++ 
++   " With ++once WinNew triggers once
++   let g:did_split = 0
++   augroup Testing
++     au!
++     au WinNew * ++once let g:did_split += 1
++   augroup END
++   split
++   split
++   call assert_equal(1, g:did_split)
++   call assert_false(exists('#WinNew'))
++   close
++   close
++ 
++   call assert_fails('au WinNew * ++once ++once echo bad', 'E983:')
++ endfunc
++ 
+  " FileChangedShell tested in test_filechanged.vim
+*** ../vim-8.1.1112/src/globals.h	2019-04-02 22:15:51.340273562 +0200
+--- src/globals.h	2019-04-04 14:53:34.904592944 +0200
+***************
+*** 1401,1406 ****
+--- 1401,1407 ----
+  EXTERN char e_invaddr[]	INIT(= N_("E14: Invalid address"));
+  EXTERN char e_invarg[]	INIT(= N_("E474: Invalid argument"));
+  EXTERN char e_invarg2[]	INIT(= N_("E475: Invalid argument: %s"));
++ EXTERN char e_duparg2[]	INIT(= N_("E983: Duplicate argument: %s"));
+  EXTERN char e_invargval[]	INIT(= N_("E475: Invalid value for argument %s"));
+  EXTERN char e_invargNval[]	INIT(= N_("E475: Invalid value for argument %s: %s"));
+  #ifdef FEAT_EVAL
+*** ../vim-8.1.1112/src/version.c	2019-04-04 14:04:06.994917179 +0200
+--- src/version.c	2019-04-04 14:14:16.251624114 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1113,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+195. Your cat has its own home page.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

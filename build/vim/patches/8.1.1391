@@ -1,0 +1,2800 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1391
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1391
+Problem:    No popup window support.
+Solution:   Add initial code for popup windows.  Add the 'wincolor' option.
+Files:	    Filelist, runtime/doc/popup.txt, runtime/doc/options.txt,
+            src/Make_cyg_ming.mak, src/Make_mvc.mak, src/Make_vms.mms,
+            src/Makefile, src/autocmd.c, src/buffer.c, src/ex_cmds.h,
+            src/ex_cmdidxs.h, src/proto/buffer.pro, src/eval.c
+            src/evalfunc.c src/feature.h, src/globals.h, src/option.c,
+            src/option.h, src/popupwin.c, src/proto.h, src/proto/popupwin.pro,
+            src/proto/window.pro, src/screen.c, src/structs.h, src/terminal.c,
+            src/testdir/Make_all.mak, src/testdir/dumps/Test_popupwin_01.dump,
+            src/testdir/test_popupwin.vim, src/vim.h, src/window.c
+
+
+*** ../vim-8.1.1390/Filelist	2019-05-11 17:03:55.170019762 +0200
+--- Filelist	2019-05-24 22:33:32.615127282 +0200
+***************
+*** 79,84 ****
+--- 79,85 ----
+  		src/option.c \
+  		src/option.h \
+  		src/popupmnu.c \
++ 		src/popupwin.c \
+  		src/quickfix.c \
+  		src/regexp.c \
+  		src/regexp_nfa.c \
+***************
+*** 200,205 ****
+--- 201,207 ----
+  		src/proto/ops.pro \
+  		src/proto/option.pro \
+  		src/proto/popupmnu.pro \
++ 		src/proto/popupwin.pro \
+  		src/proto/quickfix.pro \
+  		src/proto/regexp.pro \
+  		src/proto/screen.pro \
+*** ../vim-8.1.1390/runtime/doc/popup.txt	2019-05-21 23:08:56.969600854 +0200
+--- runtime/doc/popup.txt	2019-05-25 19:20:08.717613939 +0200
+***************
+*** 27,38 ****
+  A popup window can be used for such things as:
+  - briefly show a message without changing the command line
+  - prompt the user with a dialog
+! - display information while typing
+  - give extra information for auto-completion
+  
+  The text in the popup window can be colored with |text-properties|.  It is
+  also possible to use syntax highlighting.
+  
+  A popup window has a window-ID like other windows, but behaves differently.
+  The size can be up to the whole Vim window and it overlaps other windows.
+  It contains a buffer, and that buffer is always associated with the popup
+--- 27,45 ----
+  A popup window can be used for such things as:
+  - briefly show a message without changing the command line
+  - prompt the user with a dialog
+! - display contextual information while typing
+  - give extra information for auto-completion
+  
+  The text in the popup window can be colored with |text-properties|.  It is
+  also possible to use syntax highlighting.
+  
++ The default color used is "Pmenu".  If you prefer something else use the
++ "highlight" argument or the 'wincolor' option, e.g.: >
++ 	hi MyPopupColor ctermbg=lightblue guibg=lightblue
++ 	call setwinvar(winid, '&wincolor', 'MyPopupColor')
++ 
++ 'hlsearch' and match highlighting are not displayed in a popup window.
++ 
+  A popup window has a window-ID like other windows, but behaves differently.
+  The size can be up to the whole Vim window and it overlaps other windows.
+  It contains a buffer, and that buffer is always associated with the popup
+***************
+*** 46,51 ****
+--- 53,72 ----
+  - balloon, see |balloon-eval|
+  
+  
++ WINDOW POSITION AND SIZE			*popup-position*
++ 
++ The height of the window is normally equal to the number of lines in the
++ buffer.  It can be limited with the "maxheight" property.  You can use empty
++ lines to increase the height.
++ 
++ The width of the window is normally equal to the longest line in the buffer.
++ It can be limited with the "maxwidth" property.  You can use spaces to
++ increase the width.
++ 
++ By default the 'wrap' option is set, so that no text disappears.  However, if
++ there is not enough space, some text may be invisible.
++ 
++ 
+  TODO:
+  
+  Example how to use syntax highlighting of a code snippet.
+***************
+*** 57,78 ****
+     the scroll offset into account.
+  Probably 2. is the best choice.
+  
+- Positioning relative to the popup-menu to avoid overlapping with it; add a
+- function to get the position and size of the popup-menu.
+- 
+  
+  IMPLEMENTATION:
+! - Put code in popupwin.c
+! - Use win_update() for displaying
+! - At first redraw all windows NOT_VALID when the popup moves or hides.
+! - At first always display the popup windows at the end of update_screen(),
+!   lowest zindex first.
+! - Later make it more efficient and avoid flicker
+! - Use a separate list of windows, one for each tab and one global.  Also put
+!   "aucmd_win" in there.
+! - add optional {buf} command to execute().  Only works for a buffer that is
+!   visible in a window in the current tab or in a popup window.
+!   E.g. for execute('syntax enable', 'silent', bufnr)
+  
+  
+  ==============================================================================
+--- 78,91 ----
+     the scroll offset into account.
+  Probably 2. is the best choice.
+  
+  
+  IMPLEMENTATION:
+! - Code is in popupwin.c
+! - handle screen resize in screenalloc().
+! - Support tab-local popup windows, use tp_first_popupwin and
+!   first_tab_popupwin.  Swap like with firstwin/curwin.
+! - Make redrawing more efficient and avoid flicker.
+! - implement all the unimplemented features.
+  
+  
+  ==============================================================================
+***************
+*** 89,94 ****
+--- 102,108 ----
+  		- a string
+  		- a list of strings
+  		- a list of text lines with text properties
++ 		  	{not implemented yet}
+  		{options} is a dictionary with many possible entries.
+  		See |popup_create-usage| for details.
+  
+***************
+*** 98,106 ****
+--- 112,127 ----
+  			let winid = popup_create('hello', {})
+  			let bufnr = winbufnr(winid)
+  			call setbufline(bufnr, 2, 'second line')
++ <		In case of failure zero is returned.
++ 
++ 
++ popup_close({id})					*popup_close()*
++ 		Close popup {id}.  The window and the associated buffer will
++ 		be deleted.
+  
+  
+  popup_dialog({text}, {options})				*popup_dialog()*
++ 	  	{not implemented yet}
+  		Just like |popup_create()| but with these default options: >
+  			call popup_create({text}, {
+  				\ 'pos': 'center',
+***************
+*** 111,116 ****
+--- 132,138 ----
+  
+  
+  popup_notification({text}, {options})			 *popup_notification()*
++ 	  	{not implemented yet}
+  		Show the {text} for 3 seconds at the top of the Vim window.
+  		This works like: >
+  			call popup_create({text}, {
+***************
+*** 126,131 ****
+--- 148,154 ----
+  
+  
+  popup_atcursor({text}, {options})			 *popup_atcursor()*
++ 	  	{not implemented yet}
+  		Show the {text} above the cursor, and close it when the cursor
+  		moves.  This works like: >
+  			call popup_create({text}, {
+***************
+*** 137,142 ****
+--- 160,166 ----
+  
+  
+  popup_menu({text}, {options})				 *popup_menu()*
++ 	  	{not implemented yet}
+  		Show the {text} near the cursor, handle selecting one of the
+  		items with cursorkeys, and close it an item is selected with
+  		Space or Enter. {text} should have multiple lines to make this
+***************
+*** 153,166 ****
+--- 177,193 ----
+  
+  
+  popup_show({id})						*popup_show()*
++ 	  	{not implemented yet}
+  		If {id} is a hidden popup, show it now.
+  
+  popup_hide({id})						*popup_hide()*
++ 	  	{not implemented yet}
+  		If {id} is a displayed popup, hide it now. If the popup has a
+  		filter it will not be invoked for so long as the popup is
+  		hidden.
+  
+  popup_move({id}, {options})					*popup_move()*
++ 	  	{not implemented yet}
+  		Move popup {id} to the position speficied with {options}.
+  		{options} may contain the items from |popup_create()| that
+  		specify the popup position: "line", "col", "pos", "maxheight",
+***************
+*** 168,173 ****
+--- 195,201 ----
+  
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
++ 	  	{not implemented yet}
+  		Filter that can be used for a popup. It handles the cursor
+  		keys to move the selected index in the popup. Space and Enter
+  		can be used to select an item.  Invokes the "callback" of the
+***************
+*** 176,181 ****
+--- 204,210 ----
+  
+  
+  popup_filter_yesno({id}, {key})				*popup_filter_yesno()*
++ 	  	{not implemented yet}
+  		Filter that can be used for a popup. It handles only the keys
+  		'y', 'Y' and 'n' or 'N'.  Invokes the "callback" of the
+  		popup menu with the 1 for 'y' or 'Y' and zero for 'n' or 'N'
+***************
+*** 184,198 ****
+  
+  
+  popup_setoptions({id}, {options})			*popup_setoptions()*
+  		Override options in popup {id} with entries in {options}.
+  
+  
+  popup_getoptions({id})					*popup_getoptions()*
+  		Return the {options} for popup {id}.
+  
+! 
+! popup_close({id})					*popup_close()*
+! 		Close popup {id}.
+  
+  							*:popupclear* *:popupc*
+  :popupc[lear]	Emergency solution to a misbehaving plugin: close all popup
+--- 213,243 ----
+  
+  
+  popup_setoptions({id}, {options})			*popup_setoptions()*
++ 	  	{not implemented yet}
+  		Override options in popup {id} with entries in {options}.
+  
+  
+  popup_getoptions({id})					*popup_getoptions()*
++ 	  	{not implemented yet}
+  		Return the {options} for popup {id}.
+  
+! popup_getposition({id})					*popup_getposition()*
+! 	  	{not implemented yet}
+! 		Return the position and size of popup {id}.  Returns a Dict
+! 		with these entries:
+! 			col	screen column of the popup, one-based
+! 			line	screen line of the popup, one-based
+! 			width	width of the popup in screen cells
+! 			height	height of the popup in screen cells
+! 
+! win_execute({id}, {command})
+! 	  	{not implemented yet}
+! 		Like `execute()` but in the context of window {id}.
+! 		The window will temporarily be made the current window,
+! 		without triggering autocommands.
+! 		Example: >
+! 			call win_execute(winid, 'syntax enable')
+! <
+  
+  							*:popupclear* *:popupc*
+  :popupc[lear]	Emergency solution to a misbehaving plugin: close all popup
+***************
+*** 209,214 ****
+--- 254,260 ----
+  - 'swapfile' is off
+  - 'bufhidden' is "hide"
+  - 'buflisted' is off
++ - 'undolevels' is -1: no undo at all
+  TODO: more
+  
+  The window does have a cursor position, but the cursor is not displayed.
+***************
+*** 226,231 ****
+--- 272,278 ----
+  - a string
+  - a list of strings
+  - a list of dictionaries, where each dictionary has these entries:
++ 	{not implemented yet}
+  	text		String with the text to display.
+  	props		A list of text properties.  Optional.
+  			Each entry is a dictionary, like the third argument of
+***************
+*** 238,292 ****
+  			"cursor", "cursor+1" or "cursor-1" to use the line of
+  			the cursor and add or subtract a number of lines;
+  			default is "cursor-1".
+  	col		screen column where to position the popup; can use
+  			"cursor" to use the column of the cursor, "cursor+99"
+  			and "cursor-99" to add or subtract a number of
+  			columns; default is "cursor"
+  	pos		"topleft", "topright", "botleft" or "botright":
+  			defines what corner of the popup "line" and "col" are
+  			used for.  Default is "botleft".  Alternatively
+! 			"center" can be used to position the popup somewhere
+! 			near the cursor.
+  	flip		when TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+  			avoid overlap with the |popupmenu-completion| or
+  			another popup with a higher "zindex"
+  	maxheight	maximum height
+  	minheight	minimum height
+  	maxwidth	maximum width
+  	minwidth	minimum width
+  	hidden		when TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
+  	tab		when -1: display the popup on all tabs; when 0 (the
+  			default): display the popup on the current tab;
+  			otherwise the number of the tab page the popup is
+  			displayed on; when invalid the current tab is used
+  	title		text to be displayed above the first item in the
+  			popup, on top of any border
+  	wrap		TRUE to make the lines wrap (default TRUE)
+! 	highlight	highlight group name to use for the text, defines the
+! 			background and foreground color
+  	border		list with numbers, defining the border thickness
+  			above/right/below/left of the popup; an empty list
+  			uses a border of 1 all around
+  	borderhighlight	highlight group name to use for the border
+  	borderchars	list with characters, defining the character to use
+  			for the top/right/bottom/left border; optionally
+  			followed by the character to use for the
+  			topright/botright/botleft/topleft corner; an empty
+  			list can be used to show a double line all around
+  	zindex		priority for the popup, default 50
+  	time		time in milliseconds after which the popup will close;
+  			when omitted |popup_close()| must be used.
+  	moved		"cell": close the popup if the cursor moved at least
+  			one screen cell; "word" allows for moving within
+  			|<cword>|, "WORD" allows for moving within |<cWORD>|,
+  			a list with two numbers specifies the start and end
+  			column
+  	filter		a callback that can filter typed characters, see 
+  			|popup-filter|
+  	callback	a callback to be used when the popup closes, e.g. when
+  			using |popup_filter_menu()|, see |popup-callback|.
+  
+  Depending on the "zindex" the popup goes under or above other popups.  The
+  completion menu (|popup-menu|) has zindex 100.  For messages that occur for a
+--- 285,357 ----
+  			"cursor", "cursor+1" or "cursor-1" to use the line of
+  			the cursor and add or subtract a number of lines;
+  			default is "cursor-1".
++ 			{only number is implemented}
+  	col		screen column where to position the popup; can use
+  			"cursor" to use the column of the cursor, "cursor+99"
+  			and "cursor-99" to add or subtract a number of
+  			columns; default is "cursor"
++ 			{only number is implemented}
+  	pos		"topleft", "topright", "botleft" or "botright":
+  			defines what corner of the popup "line" and "col" are
+  			used for.  Default is "botleft".  Alternatively
+! 			"center" can be used to position the popup in the
+! 			center of the Vim window.
+! 			{not implemented yet}
+  	flip		when TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+  			avoid overlap with the |popupmenu-completion| or
+  			another popup with a higher "zindex"
++ 			{not implemented yet}
+  	maxheight	maximum height
+  	minheight	minimum height
++ 			{not implemented yet}
+  	maxwidth	maximum width
+  	minwidth	minimum width
++ 			{not implemented yet}
+  	hidden		when TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
++ 			{not implemented yet}
+  	tab		when -1: display the popup on all tabs; when 0 (the
+  			default): display the popup on the current tab;
+  			otherwise the number of the tab page the popup is
+  			displayed on; when invalid the current tab is used
++ 			{only -1 and 0 are implemented}
+  	title		text to be displayed above the first item in the
+  			popup, on top of any border
++ 			{not implemented yet}
+  	wrap		TRUE to make the lines wrap (default TRUE)
+! 			{not implemented yet}
+! 	highlight	highlight group name to use for the text, stored in
+! 			'wincolor'
+! 			{not implemented yet}
+  	border		list with numbers, defining the border thickness
+  			above/right/below/left of the popup; an empty list
+  			uses a border of 1 all around
++ 			{not implemented yet}
+  	borderhighlight	highlight group name to use for the border
++ 			{not implemented yet}
+  	borderchars	list with characters, defining the character to use
+  			for the top/right/bottom/left border; optionally
+  			followed by the character to use for the
+  			topright/botright/botleft/topleft corner; an empty
+  			list can be used to show a double line all around
++ 			{not implemented yet}
+  	zindex		priority for the popup, default 50
+  	time		time in milliseconds after which the popup will close;
+  			when omitted |popup_close()| must be used.
++ 			{not implemented yet}
+  	moved		"cell": close the popup if the cursor moved at least
+  			one screen cell; "word" allows for moving within
+  			|<cword>|, "WORD" allows for moving within |<cWORD>|,
+  			a list with two numbers specifies the start and end
+  			column
++ 			{not implemented yet}
+  	filter		a callback that can filter typed characters, see 
+  			|popup-filter|
++ 			{not implemented yet}
+  	callback	a callback to be used when the popup closes, e.g. when
+  			using |popup_filter_menu()|, see |popup-callback|.
++ 			{not implemented yet}
+  
+  Depending on the "zindex" the popup goes under or above other popups.  The
+  completion menu (|popup-menu|) has zindex 100.  For messages that occur for a
+***************
+*** 299,304 ****
+--- 364,370 ----
+  
+  POPUP TEXT PROPERTIES					*popup-props*
+  
++ {not implemented yet}
+  These are similar to the third argument of |prop_add()|, but not exactly the
+  same, since they only apply to one line.
+  	col		starting column, counted in bytes, use one for the
+***************
+*** 318,328 ****
+  
+  POPUP FILTER						*popup-filter*
+  
+  A callback that gets any typed keys while a popup is displayed.  The filter is
+! not invoked for as long as the popup is hidden.
+  
+  The filter can return TRUE to indicate the key has been handled and is to be
+  discarded, or FALSE to let Vim handle the key as usual in the current state.
+  
+  The filter function is called with two arguments: the ID of the popup and the
+  key.
+--- 384,398 ----
+  
+  POPUP FILTER						*popup-filter*
+  
++ {not implemented yet}
+  A callback that gets any typed keys while a popup is displayed.  The filter is
+! not invoked when the popup is hidden.
+  
+  The filter can return TRUE to indicate the key has been handled and is to be
+  discarded, or FALSE to let Vim handle the key as usual in the current state.
++ In case it returns FALSE and there is another popup window visible, that
++ filter is also called.  The filter of the popup window with the highest zindex
++ is called first.
+  
+  The filter function is called with two arguments: the ID of the popup and the
+  key.
+***************
+*** 342,347 ****
+--- 412,418 ----
+  
+  POPUP CALLBACK						*popup-callback*
+  
++ {not implemented yet}
+  A callback that is invoked when the popup closes.  Used by
+  |popup_filter_menu()|.  Invoked with two arguments: the ID of the popup and
+  the result, which would usually be an index in the popup lines, or whatever
+*** ../vim-8.1.1390/runtime/doc/options.txt	2019-05-23 22:11:56.288893239 +0200
+--- runtime/doc/options.txt	2019-05-25 15:00:16.330625497 +0200
+***************
+*** 1361,1366 ****
+--- 1361,1368 ----
+  	  prompt	buffer where only the last line can be edited, meant
+  			to be used by a plugin, see |prompt-buffer|
+  			{only when compiled with the |+channel| feature}
++ 	  popup		buffer used in a popup window, see |popup|.
++ 			{only when compiled with the |+textprop| feature}
+  
+  	This option is used together with 'bufhidden' and 'swapfile' to
+  	specify special kinds of buffers.   See |special-buffers|.
+***************
+*** 8687,8692 ****
+--- 8689,8700 ----
+  	This option is not used for <F10>; on Win32 and with GTK <F10> will
+  	select the menu, unless it has been mapped.
+  
++ 						*'wincolor'* *'wcr'*
++ 'wincolor' 'wcr' string (default empty)
++ 			local to window
++ 	Highlight group name to use for this window instead of the Normal
++ 	color |hl-Normal|.
++ 
+  						*'window'* *'wi'*
+  'window' 'wi'		number  (default screen height - 1)
+  			global
+*** ../vim-8.1.1390/src/Make_cyg_ming.mak	2019-05-24 17:17:51.056467137 +0200
+--- src/Make_cyg_ming.mak	2019-05-24 22:30:18.367968169 +0200
+***************
+*** 740,745 ****
+--- 740,746 ----
+  	$(OUTDIR)/os_win32.o \
+  	$(OUTDIR)/pathdef.o \
+  	$(OUTDIR)/popupmnu.o \
++ 	$(OUTDIR)/popupwin.o \
+  	$(OUTDIR)/quickfix.o \
+  	$(OUTDIR)/regexp.o \
+  	$(OUTDIR)/screen.o \
+*** ../vim-8.1.1390/src/Make_mvc.mak	2019-05-24 17:17:51.056467137 +0200
+--- src/Make_mvc.mak	2019-05-24 22:31:07.527761674 +0200
+***************
+*** 743,748 ****
+--- 743,750 ----
+  	$(OUTDIR)\os_win32.obj \
+  	$(OUTDIR)\pathdef.obj \
+  	$(OUTDIR)\popupmnu.obj \
++ 	$(OUTDIR)\popupwin.obj \
++ 	$(OUTDIR)\popupwin.obj \
+  	$(OUTDIR)\quickfix.obj \
+  	$(OUTDIR)\regexp.obj \
+  	$(OUTDIR)\screen.obj \
+***************
+*** 1575,1580 ****
+--- 1577,1584 ----
+  
+  $(OUTDIR)/popupmnu.obj:	$(OUTDIR) popupmnu.c  $(INCL)
+  
++ $(OUTDIR)/popupwin.obj:	$(OUTDIR) popupwin.c  $(INCL)
++ 
+  $(OUTDIR)/quickfix.obj:	$(OUTDIR) quickfix.c  $(INCL)
+  
+  $(OUTDIR)/regexp.obj:	$(OUTDIR) regexp.c regexp_nfa.c  $(INCL)
+***************
+*** 1745,1750 ****
+--- 1749,1755 ----
+  	proto/winclip.pro \
+  	proto/os_win32.pro \
+  	proto/popupmnu.pro \
++ 	proto/popupwin.pro \
+  	proto/quickfix.pro \
+  	proto/regexp.pro \
+  	proto/screen.pro \
+*** ../vim-8.1.1390/src/Make_vms.mms	2019-05-11 21:50:03.941292990 +0200
+--- src/Make_vms.mms	2019-05-24 22:31:47.011592541 +0200
+***************
+*** 2,8 ****
+  # Makefile for Vim on OpenVMS
+  #
+  # Maintainer:   Zoltan Arpadffy <arpadffy@polarhome.com>
+! # Last change:  2019 May 11
+  #
+  # This has script been tested on VMS 6.2 to 8.2 on DEC Alpha, VAX and IA64
+  # with MMS and MMK
+--- 2,8 ----
+  # Makefile for Vim on OpenVMS
+  #
+  # Maintainer:   Zoltan Arpadffy <arpadffy@polarhome.com>
+! # Last change:  2019 May 24
+  #
+  # This has script been tested on VMS 6.2 to 8.2 on DEC Alpha, VAX and IA64
+  # with MMS and MMK
+***************
+*** 313,319 ****
+  	if_cscope.c if_xcmdsrv.c fileio.c findfile.c fold.c getchar.c \
+  	hardcopy.c hashtab.c indent.c insexpand.c json.c list.c main.c mark.c \
+  	menu.c mbyte.c memfile.c memline.c message.c misc1.c misc2.c move.c \
+! 	normal.c ops.c option.c popupmnu.c quickfix.c regexp.c search.c \
+  	sha256.c sign.c spell.c spellfile.c syntax.c tag.c term.c termlib.c \
+  	textprop.c ui.c undo.c usercmd.c userfunc.c version.c screen.c \
+  	window.c os_unix.c os_vms.c pathdef.c \
+--- 313,319 ----
+  	if_cscope.c if_xcmdsrv.c fileio.c findfile.c fold.c getchar.c \
+  	hardcopy.c hashtab.c indent.c insexpand.c json.c list.c main.c mark.c \
+  	menu.c mbyte.c memfile.c memline.c message.c misc1.c misc2.c move.c \
+! 	normal.c ops.c option.c popupmnu.c popupwin.c, quickfix.c regexp.c search.c \
+  	sha256.c sign.c spell.c spellfile.c syntax.c tag.c term.c termlib.c \
+  	textprop.c ui.c undo.c usercmd.c userfunc.c version.c screen.c \
+  	window.c os_unix.c os_vms.c pathdef.c \
+***************
+*** 327,333 ****
+  	fileio.obj findfile.obj fold.obj getchar.obj hardcopy.obj hashtab.obj \
+  	indent.obj insexpand.obj json.obj list.obj main.obj mark.obj \
+  	menu.obj memfile.obj memline.obj message.obj misc1.obj misc2.obj \
+! 	move.obj mbyte.obj normal.obj ops.obj option.obj popupmnu.obj \
+  	quickfix.obj regexp.obj search.obj sha256.obj sign.obj spell.obj \
+  	spellfile.obj syntax.obj tag.obj term.obj termlib.obj textprop.obj \
+  	ui.obj undo.obj usercmd.obj userfunc.obj screen.obj version.obj \
+--- 327,333 ----
+  	fileio.obj findfile.obj fold.obj getchar.obj hardcopy.obj hashtab.obj \
+  	indent.obj insexpand.obj json.obj list.obj main.obj mark.obj \
+  	menu.obj memfile.obj memline.obj message.obj misc1.obj misc2.obj \
+! 	move.obj mbyte.obj normal.obj ops.obj option.obj popupmnu.obj popupwin.obj\
+  	quickfix.obj regexp.obj search.obj sha256.obj sign.obj spell.obj \
+  	spellfile.obj syntax.obj tag.obj term.obj termlib.obj textprop.obj \
+  	ui.obj undo.obj usercmd.obj userfunc.obj screen.obj version.obj \
+***************
+*** 688,693 ****
+--- 688,697 ----
+   ascii.h keymap.h term.h macros.h structs.h regexp.h \
+   gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+   globals.h
++ popupwin.obj : popupwin.c vim.h [.auto]config.h feature.h os_unix.h \
++  ascii.h keymap.h term.h macros.h structs.h regexp.h \
++  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
++  globals.h
+  quickfix.obj : quickfix.c vim.h [.auto]config.h feature.h os_unix.h \
+   ascii.h keymap.h term.h macros.h structs.h regexp.h \
+   gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+*** ../vim-8.1.1390/src/Makefile	2019-05-19 21:44:03.978804771 +0200
+--- src/Makefile	2019-05-24 22:32:52.027308164 +0200
+***************
+*** 1620,1625 ****
+--- 1621,1627 ----
+  	os_unix.c \
+  	auto/pathdef.c \
+  	popupmnu.c \
++ 	popupwin.c \
+  	pty.c \
+  	quickfix.c \
+  	regexp.c \
+***************
+*** 1734,1739 ****
+--- 1736,1742 ----
+  	objects/os_unix.o \
+  	objects/pathdef.o \
+  	objects/popupmnu.o \
++ 	objects/popupwin.o \
+  	objects/pty.o \
+  	objects/quickfix.o \
+  	objects/regexp.o \
+***************
+*** 1873,1878 ****
+--- 1876,1882 ----
+  	os_mac_conv.pro \
+  	os_unix.pro \
+  	popupmnu.pro \
++ 	popupwin.pro \
+  	pty.pro \
+  	quickfix.pro \
+  	regexp.pro \
+***************
+*** 3208,3213 ****
+--- 3212,3220 ----
+  objects/popupmnu.o: popupmnu.c
+  	$(CCC) -o $@ popupmnu.c
+  
++ objects/popupwin.o: popupwin.c
++ 	$(CCC) -o $@ popupwin.c
++ 
+  objects/pty.o: pty.c
+  	$(CCC) -o $@ pty.c
+  
+***************
+*** 3612,3617 ****
+--- 3619,3628 ----
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+   proto.h globals.h
++ objects/popupwin.o: popupwin.c vim.h protodef.h auto/config.h feature.h os_unix.h \
++  auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
++  proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
++  proto.h globals.h
+  objects/pty.o: pty.c vim.h protodef.h auto/config.h feature.h os_unix.h \
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+*** ../vim-8.1.1390/src/autocmd.c	2019-05-24 18:48:36.750128544 +0200
+--- src/autocmd.c	2019-05-25 17:04:32.422149360 +0200
+***************
+*** 1349,1355 ****
+       */
+      FOR_ALL_BUFFERS(buf)
+      {
+! 	if (buf->b_ml.ml_mfp != NULL)
+  	{
+  	    // find a window for this buffer and save some values
+  	    aucmd_prepbuf(&aco, buf);
+--- 1349,1355 ----
+       */
+      FOR_ALL_BUFFERS(buf)
+      {
+! 	if (buf->b_ml.ml_mfp != NULL && !bt_popup(buf))
+  	{
+  	    // find a window for this buffer and save some values
+  	    aucmd_prepbuf(&aco, buf);
+***************
+*** 1423,1429 ****
+      // back to using the current window.
+      if (win == NULL && aucmd_win == NULL)
+      {
+! 	win_alloc_aucmd_win();
+  	if (aucmd_win == NULL)
+  	    win = curwin;
+      }
+--- 1423,1429 ----
+      // back to using the current window.
+      if (win == NULL && aucmd_win == NULL)
+      {
+! 	aucmd_win = win_alloc_popup_win();
+  	if (aucmd_win == NULL)
+  	    win = curwin;
+      }
+***************
+*** 1451,1470 ****
+  	// unexpected results.
+  	aco->use_aucmd_win = TRUE;
+  	aucmd_win_used = TRUE;
+- 	aucmd_win->w_buffer = buf;
+- #if defined(FEAT_SYN_HL) || defined(FEAT_SPELL)
+- 	aucmd_win->w_s = &buf->b_s;
+- #endif
+- 	++buf->b_nwindows;
+- 	win_init_empty(aucmd_win); // set cursor and topline to safe values
+  
+! 	// Make sure w_localdir and globaldir are NULL to avoid a chdir() in
+! 	// win_enter_ext().
+! 	VIM_CLEAR(aucmd_win->w_localdir);
+  	aco->globaldir = globaldir;
+  	globaldir = NULL;
+  
+- 
+  	// Split the current window, put the aucmd_win in the upper half.
+  	// We don't want the BufEnter or WinEnter autocommands.
+  	block_autocmds();
+--- 1451,1462 ----
+  	// unexpected results.
+  	aco->use_aucmd_win = TRUE;
+  	aucmd_win_used = TRUE;
+  
+! 	win_init_popup_win(aucmd_win, buf);
+! 
+  	aco->globaldir = globaldir;
+  	globaldir = NULL;
+  
+  	// Split the current window, put the aucmd_win in the upper half.
+  	// We don't want the BufEnter or WinEnter autocommands.
+  	block_autocmds();
+***************
+*** 1620,1625 ****
+--- 1612,1619 ----
+      int		force,	    // when TRUE, ignore autocmd_busy
+      buf_T	*buf)	    // buffer for <abuf>
+  {
++     if (bt_popup(buf))
++ 	return FALSE;
+      return apply_autocmds_group(event, fname, fname_io, force,
+  						      AUGROUP_ALL, buf, NULL);
+  }
+*** ../vim-8.1.1390/src/buffer.c	2019-05-24 19:38:59.096545552 +0200
+--- src/buffer.c	2019-05-25 19:44:01.510535075 +0200
+***************
+*** 456,462 ****
+      win_T	*win,		/* if not NULL, set b_last_cursor */
+      buf_T	*buf,
+      int		action,
+!     int		abort_if_last UNUSED)
+  {
+      int		is_curbuf;
+      int		nwindows;
+--- 456,462 ----
+      win_T	*win,		/* if not NULL, set b_last_cursor */
+      buf_T	*buf,
+      int		action,
+!     int		abort_if_last)
+  {
+      int		is_curbuf;
+      int		nwindows;
+***************
+*** 5678,5684 ****
+      int
+  bt_prompt(buf_T *buf)
+  {
+!     return buf != NULL && buf->b_p_bt[0] == 'p';
+  }
+  
+  /*
+--- 5678,5694 ----
+      int
+  bt_prompt(buf_T *buf)
+  {
+!     return buf != NULL && buf->b_p_bt[0] == 'p' && buf->b_p_bt[1] == 'r';
+! }
+! 
+! /*
+!  * Return TRUE if "buf" is a buffer for a popup window.
+!  */
+!     int
+! bt_popup(buf_T *buf)
+! {
+!     return buf != NULL && buf->b_p_bt != NULL
+! 	&& buf->b_p_bt[0] == 'p' && buf->b_p_bt[1] == 'o';
+  }
+  
+  /*
+*** ../vim-8.1.1390/src/ex_cmds.h	2019-05-09 18:59:27.228463605 +0200
+--- src/ex_cmds.h	2019-05-25 17:30:22.174244851 +0200
+***************
+*** 1091,1096 ****
+--- 1091,1099 ----
+  EX(CMD_popup,		"popup",	ex_popup,
+  			NEEDARG|EXTRA|BANG|TRLBAR|NOTRLCOM|CMDWIN,
+  			ADDR_NONE),
++ EX(CMD_popupclear,	"popupclear",	ex_popupclear,
++ 			TRLBAR,
++ 			ADDR_NONE),
+  EX(CMD_ppop,		"ppop",		ex_ptag,
+  			RANGE|BANG|COUNT|TRLBAR|ZEROR,
+  			ADDR_OTHER),
+*** ../vim-8.1.1390/src/ex_cmdidxs.h	2019-05-09 18:59:27.228463605 +0200
+--- src/ex_cmdidxs.h	2019-05-25 17:29:11.210621047 +0200
+***************
+*** 21,36 ****
+    /* n */ 285,
+    /* o */ 305,
+    /* p */ 317,
+!   /* q */ 356,
+!   /* r */ 359,
+!   /* s */ 379,
+!   /* t */ 447,
+!   /* u */ 492,
+!   /* v */ 503,
+!   /* w */ 521,
+!   /* x */ 535,
+!   /* y */ 545,
+!   /* z */ 546
+  };
+  
+  /*
+--- 21,36 ----
+    /* n */ 285,
+    /* o */ 305,
+    /* p */ 317,
+!   /* q */ 357,
+!   /* r */ 360,
+!   /* s */ 380,
+!   /* t */ 448,
+!   /* u */ 493,
+!   /* v */ 504,
+!   /* w */ 522,
+!   /* x */ 536,
+!   /* y */ 546,
+!   /* z */ 547
+  };
+  
+  /*
+***************
+*** 56,62 ****
+    /* m */ {  1,  0,  0,  0,  7,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 16 },
+    /* n */ {  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  5,  8, 10,  0,  0,  0,  0,  0, 17,  0,  0,  0,  0,  0 },
+    /* o */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  5,  0,  0,  0,  0,  0,  0,  9,  0, 11,  0,  0,  0 },
+!   /* p */ {  1,  0,  3,  0,  4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  9,  0,  0, 16, 17, 26,  0, 27,  0, 28,  0 },
+    /* q */ {  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* r */ {  0,  0,  0,  0,  0,  0,  0,  0, 12,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 14, 19,  0,  0,  0,  0 },
+    /* s */ {  2,  6, 15,  0, 19, 23,  0, 25, 26,  0,  0, 29, 31, 35, 39, 41,  0, 49,  0, 50,  0, 62, 63,  0, 64,  0 },
+--- 56,62 ----
+    /* m */ {  1,  0,  0,  0,  7,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 16 },
+    /* n */ {  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  5,  8, 10,  0,  0,  0,  0,  0, 17,  0,  0,  0,  0,  0 },
+    /* o */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  5,  0,  0,  0,  0,  0,  0,  9,  0, 11,  0,  0,  0 },
+!   /* p */ {  1,  0,  3,  0,  4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7, 10,  0,  0, 17, 18, 27,  0, 28,  0, 29,  0 },
+    /* q */ {  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* r */ {  0,  0,  0,  0,  0,  0,  0,  0, 12,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 14, 19,  0,  0,  0,  0 },
+    /* s */ {  2,  6, 15,  0, 19, 23,  0, 25, 26,  0,  0, 29, 31, 35, 39, 41,  0, 49,  0, 50,  0, 62, 63,  0, 64,  0 },
+***************
+*** 69,72 ****
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 559;
+--- 69,72 ----
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 560;
+*** ../vim-8.1.1390/src/proto/buffer.pro	2019-01-13 23:38:33.407773189 +0100
+--- src/proto/buffer.pro	2019-05-25 14:03:03.028491435 +0200
+***************
+*** 61,66 ****
+--- 61,67 ----
+  int bt_terminal(buf_T *buf);
+  int bt_help(buf_T *buf);
+  int bt_prompt(buf_T *buf);
++ int bt_popup(buf_T *buf);
+  int bt_nofile(buf_T *buf);
+  int bt_dontwrite(buf_T *buf);
+  int bt_dontwrite_msg(buf_T *buf);
+*** ../vim-8.1.1390/src/eval.c	2019-05-24 19:38:59.096545552 +0200
+--- src/eval.c	2019-05-25 16:57:22.652587804 +0200
+***************
+*** 5585,5590 ****
+--- 5585,5603 ----
+      if (aucmd_win != NULL)
+  	abort = abort || set_ref_in_item(&aucmd_win->w_winvar.di_tv, copyID,
+  								  NULL, NULL);
++ #ifdef FEAT_TEXT_PROP
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
++ 								  NULL, NULL);
++     for (wp = first_tab_popupwin; wp != NULL; wp = wp->w_next)
++ 	abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
++ 								  NULL, NULL);
++     FOR_ALL_TABPAGES(tp)
++ 	if (tp != curtab)
++ 	    for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 		abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
++ 								  NULL, NULL);
++ #endif
+  
+      /* tabpage-local variables */
+      FOR_ALL_TABPAGES(tp)
+***************
+*** 8801,8807 ****
+--- 8814,8833 ----
+  	    break;
+      }
+      if (nr >= LOWEST_WIN_ID)
++     {
++ #ifdef FEAT_TEXT_PROP
++ 	// popup windows are in a separate list
++ 	for (wp = (tp == NULL || tp == curtab)
++ 		? first_tab_popupwin : tp->tp_first_popupwin;
++ 						   wp != NULL; wp = wp->w_next)
++ 	    if (wp->w_id == nr)
++ 		return wp;
++ 	for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	    if (wp->w_id == nr)
++ 		return wp;
++ #endif
+  	return NULL;
++     }
+      return wp;
+  }
+  
+*** ../vim-8.1.1390/src/evalfunc.c	2019-05-24 18:48:36.754128525 +0200
+--- src/evalfunc.c	2019-05-25 16:26:56.415485375 +0200
+***************
+*** 807,812 ****
+--- 807,816 ----
+  #ifdef FEAT_PERL
+      {"perleval",	1, 1, f_perleval},
+  #endif
++ #ifdef FEAT_TEXT_PROP
++     {"popup_close",	1, 1, f_popup_close},
++     {"popup_create",	2, 2, f_popup_create},
++ #endif
+  #ifdef FEAT_FLOAT
+      {"pow",		2, 2, f_pow},
+  #endif
+*** ../vim-8.1.1390/src/feature.h	2019-04-28 19:46:17.026060122 +0200
+--- src/feature.h	2019-05-24 22:14:50.440233462 +0200
+***************
+*** 477,483 ****
+  #endif
+  
+  /*
+!  * +textprop		Text properties
+   */
+  #if defined(FEAT_EVAL) && defined(FEAT_SYN_HL)
+  # define FEAT_TEXT_PROP
+--- 477,483 ----
+  #endif
+  
+  /*
+!  * +textprop		Text properties and popup windows
+   */
+  #if defined(FEAT_EVAL) && defined(FEAT_SYN_HL)
+  # define FEAT_TEXT_PROP
+*** ../vim-8.1.1390/src/globals.h	2019-05-09 18:59:27.228463605 +0200
+--- src/globals.h	2019-05-24 22:20:53.310303408 +0200
+***************
+*** 550,558 ****
+  #endif
+  
+  /*
+!  * All windows are linked in a list. firstwin points to the first entry,
+!  * lastwin to the last entry (can be the same as firstwin) and curwin to the
+!  * currently active window.
+   */
+  EXTERN win_T	*firstwin;		/* first window */
+  EXTERN win_T	*lastwin;		/* last window */
+--- 550,559 ----
+  #endif
+  
+  /*
+!  * All regular windows are linked in a list. "firstwin" points to the first
+!  * entry, "lastwin" to the last entry (can be the same as firstwin) and
+!  * "curwin" to the currently active window.
+!  * When switching tabs these swapped with the pointers in "tabpage_T".
+   */
+  EXTERN win_T	*firstwin;		/* first window */
+  EXTERN win_T	*lastwin;		/* last window */
+***************
+*** 580,585 ****
+--- 581,591 ----
+  EXTERN win_T	*aucmd_win;	/* window used in aucmd_prepbuf() */
+  EXTERN int	aucmd_win_used INIT(= FALSE);	/* aucmd_win is being used */
+  
++ #ifdef FEAT_TEXT_PROP
++ EXTERN win_T    *first_tab_popupwin;	// first popup window local to tab page
++ EXTERN win_T    *first_popupwin;	// first global popup window
++ #endif
++ 
+  /*
+   * The window layout is kept in a tree of frames.  topframe points to the top
+   * of the tree.
+*** ../vim-8.1.1390/src/option.c	2019-05-24 18:48:36.766128461 +0200
+--- src/option.c	2019-05-25 15:05:25.377343756 +0200
+***************
+*** 196,201 ****
+--- 196,202 ----
+  # define PV_BRI		OPT_WIN(WV_BRI)
+  # define PV_BRIOPT	OPT_WIN(WV_BRIOPT)
+  #endif
++ # define PV_WCR		OPT_WIN(WV_WCR)
+  #ifdef FEAT_DIFF
+  # define PV_DIFF	OPT_WIN(WV_DIFF)
+  #endif
+***************
+*** 3033,3038 ****
+--- 3034,3043 ----
+  			    {(char_u *)NULL, (char_u *)0L}
+  #endif
+  			    SCTX_INIT},
++     {"wincolor", "wcr",	    P_STRING|P_ALLOCED|P_VI_DEF|P_RWIN,
++ 			    (char_u *)VAR_WIN, PV_WCR,
++ 			    {(char_u *)"", (char_u *)NULL}
++ 			    SCTX_INIT},
+      {"window",	    "wi",   P_NUM|P_VI_DEF,
+  			    (char_u *)&p_window, PV_NONE,
+  			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
+***************
+*** 3211,3217 ****
+  static char *(p_scbopt_values[]) = {"ver", "hor", "jump", NULL};
+  static char *(p_debug_values[]) = {"msg", "throw", "beep", NULL};
+  static char *(p_ead_values[]) = {"both", "ver", "hor", NULL};
+! static char *(p_buftype_values[]) = {"nofile", "nowrite", "quickfix", "help", "terminal", "acwrite", "prompt", NULL};
+  static char *(p_bufhidden_values[]) = {"hide", "unload", "delete", "wipe", NULL};
+  static char *(p_bs_values[]) = {"indent", "eol", "start", NULL};
+  #ifdef FEAT_FOLDING
+--- 3216,3222 ----
+  static char *(p_scbopt_values[]) = {"ver", "hor", "jump", NULL};
+  static char *(p_debug_values[]) = {"msg", "throw", "beep", NULL};
+  static char *(p_ead_values[]) = {"both", "ver", "hor", NULL};
+! static char *(p_buftype_values[]) = {"nofile", "nowrite", "quickfix", "help", "terminal", "acwrite", "prompt", "popup", NULL};
+  static char *(p_bufhidden_values[]) = {"hide", "unload", "delete", "wipe", NULL};
+  static char *(p_bs_values[]) = {"indent", "eol", "start", NULL};
+  #ifdef FEAT_FOLDING
+***************
+*** 10940,10945 ****
+--- 10945,10951 ----
+  	case PV_BRI:	return (char_u *)&(curwin->w_p_bri);
+  	case PV_BRIOPT: return (char_u *)&(curwin->w_p_briopt);
+  #endif
++ 	case PV_WCR:	return (char_u *)&(curwin->w_p_wcr);
+  	case PV_SCBIND: return (char_u *)&(curwin->w_p_scb);
+  	case PV_CRBIND: return (char_u *)&(curwin->w_p_crb);
+  #ifdef FEAT_CONCEAL
+***************
+*** 11124,11129 ****
+--- 11130,11136 ----
+      to->wo_bri = from->wo_bri;
+      to->wo_briopt = vim_strsave(from->wo_briopt);
+  #endif
++     to->wo_wcr = vim_strsave(from->wo_wcr);
+      to->wo_scb = from->wo_scb;
+      to->wo_scb_save = from->wo_scb_save;
+      to->wo_crb = from->wo_crb;
+***************
+*** 11221,11226 ****
+--- 11228,11234 ----
+  #ifdef FEAT_LINEBREAK
+      check_string_option(&wop->wo_briopt);
+  #endif
++     check_string_option(&wop->wo_wcr);
+  }
+  
+  /*
+***************
+*** 11245,11250 ****
+--- 11253,11259 ----
+  #ifdef FEAT_LINEBREAK
+      clear_string_option(&wop->wo_briopt);
+  #endif
++     clear_string_option(&wop->wo_wcr);
+  #ifdef FEAT_RIGHTLEFT
+      clear_string_option(&wop->wo_rlc);
+  #endif
+*** ../vim-8.1.1390/src/option.h	2019-05-23 15:37:41.965634969 +0200
+--- src/option.h	2019-05-25 15:02:04.434201608 +0200
+***************
+*** 1116,1121 ****
+--- 1116,1122 ----
+      , WV_BRI
+      , WV_BRIOPT
+  #endif
++     , WV_WCR
+  #ifdef FEAT_DIFF
+      , WV_DIFF
+  #endif
+*** ../vim-8.1.1390/src/popupwin.c	2019-05-25 19:47:19.985538034 +0200
+--- src/popupwin.c	2019-05-25 19:08:46.369293173 +0200
+***************
+*** 0 ****
+--- 1,231 ----
++ /* vi:set ts=8 sts=4 sw=4 noet:
++  *
++  * VIM - Vi IMproved	by Bram Moolenaar
++  *
++  * Do ":help uganda"  in Vim to read a list of people who contributed.
++  * Do ":help credits" in Vim to see a list of people who contributed.
++  * See README.txt for an overview of the Vim source code.
++  */
++ 
++ /*
++  * Implementation of popup windows.  See ":help popup".
++  */
++ 
++ #include "vim.h"
++ 
++ #ifdef FEAT_TEXT_PROP
++ 
++ /*
++  * Go through the options in "dict" and apply them to buffer "buf" displayed in
++  * popup window "wp".
++  */
++     static void
++ apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict)
++ {
++     wp->w_maxwidth = dict_get_number(dict, (char_u *)"maxwidth");
++     wp->w_maxheight = dict_get_number(dict, (char_u *)"maxheight");
++     wp->w_winrow = dict_get_number(dict, (char_u *)"line");
++     wp->w_wincol = dict_get_number(dict, (char_u *)"col");
++     wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
++ }
++ 
++ /*
++  * popup_create({text}, {options})
++  */
++     void
++ f_popup_create(typval_T *argvars, typval_T *rettv)
++ {
++     win_T   *wp;
++     buf_T   *buf;
++     dict_T  *d;
++     int	    nr;
++ 
++     // Check arguments look OK.
++     if (!(argvars[0].v_type == VAR_STRING
++ 		&& argvars[0].vval.v_string != NULL
++ 		&& STRLEN(argvars[0].vval.v_string) > 0)
++ 	&& !(argvars[0].v_type == VAR_LIST
++ 	    && argvars[0].vval.v_list != NULL
++ 	    && argvars[0].vval.v_list->lv_len > 0))
++     {
++ 	emsg(_(e_listreq));
++ 	return;
++     }
++     if (argvars[1].v_type != VAR_DICT || argvars[1].vval.v_dict == NULL)
++     {
++ 	emsg(_(e_dictreq));
++ 	return;
++     }
++     d = argvars[1].vval.v_dict;
++ 
++     // Create the window and buffer.
++     wp = win_alloc_popup_win();
++     if (wp == NULL)
++ 	return;
++     rettv->vval.v_number = wp->w_id;
++     wp->w_p_wrap = TRUE;  // 'wrap' is default on
++ 
++     buf = buflist_new(NULL, NULL, (linenr_T)0, BLN_NEW|BLN_LISTED|BLN_DUMMY);
++     if (buf == NULL)
++ 	return;
++     ml_open(buf);
++     curbuf = buf;
++     set_string_option_direct((char_u *)"buftype", -1,
++ 				     (char_u *)"popup", OPT_FREE|OPT_LOCAL, 0);
++     set_string_option_direct((char_u *)"bufhidden", -1,
++ 				     (char_u *)"hide", OPT_FREE|OPT_LOCAL, 0);
++     curbuf = curwin->w_buffer;
++     buf->b_p_ul = -1;	    // no undo
++     buf->b_p_swf = FALSE;   // no swap file
++     buf->b_p_bl = FALSE;    // unlisted buffer
++ 
++     win_init_popup_win(wp, buf);
++ 
++     nr = (int)dict_get_number(d, (char_u *)"tab");
++     if (nr == 0)
++     {
++ 	// popup on current tab
++ 	wp->w_next = first_tab_popupwin;
++ 	first_tab_popupwin = wp;
++     }
++     else if (nr < 0)
++     {
++ 	// global popup
++ 	wp->w_next = first_popupwin;
++ 	first_popupwin = wp;
++     }
++     else
++ 	// TODO: find tab page "nr"
++ 	emsg("Not implemented yet");
++ 
++     // Add text to the buffer.
++     if (argvars[0].v_type == VAR_STRING)
++ 	// just a string
++ 	ml_append_buf(buf, 0, argvars[0].vval.v_string, (colnr_T)0, TRUE);
++     else if (argvars[0].vval.v_list->lv_first->li_tv.v_type == VAR_STRING)
++     {
++ 	listitem_T  *li;
++ 	linenr_T    lnum = 0;
++ 	char_u	    *p;
++ 
++ 	// list of strings
++ 	for (li = argvars[0].vval.v_list->lv_first; li != NULL;
++ 							      li = li->li_next)
++ 	    if (li->li_tv.v_type == VAR_STRING)
++ 	    {
++ 		p = li->li_tv.vval.v_string;
++ 		ml_append_buf(buf, lnum++,
++ 			       p == NULL ? (char_u *)"" : p, (colnr_T)0, TRUE);
++ 	    }
++     }
++     else
++ 	// TODO: handle a list of dictionaries
++ 	emsg("Not implemented yet");
++ 
++     // Delete the line of the empty buffer.
++     curbuf = buf;
++     ml_delete(buf->b_ml.ml_line_count, FALSE);
++     curbuf = curwin->w_buffer;
++ 
++     // Deal with options.
++     apply_options(wp, buf, argvars[1].vval.v_dict);
++ 
++     // set default values
++     if (wp->w_zindex == 0)
++ 	wp->w_zindex = 50;
++ 
++     // TODO: Compute the size and position properly.
++ 
++     // Default position is in middle of the screen, assuming a small popup
++     if (wp->w_winrow == 0)
++ 	wp->w_winrow = Rows > 5 ? Rows / 2 - 2 : 0;
++     else
++ 	--wp->w_winrow;  // option value is one-based
++     if (wp->w_wincol == 0)
++ 	wp->w_wincol = Columns > 20 ? Columns / 2 - 10 : 0;
++     else
++ 	--wp->w_wincol;  // option value is one-based
++ 
++ 
++     // TODO: set width based on longest text line and the 'wrap' option
++     wp->w_width = wp->w_maxwidth == 0 ? 20 : wp->w_maxwidth;
++     if (wp->w_maxwidth > 0 && wp->w_width > wp->w_maxwidth)
++ 	wp->w_width = wp->w_maxwidth;
++     if (wp->w_width > Columns - wp->w_wincol)
++ 	wp->w_width = Columns - wp->w_wincol;
++ 
++     // TODO: adjust height for wrapped lines
++     wp->w_height = buf->b_ml.ml_line_count;
++     if (wp->w_maxheight > 0 && wp->w_height > wp->w_maxheight)
++ 	wp->w_height = wp->w_maxheight;
++     if (wp->w_height > Rows - wp->w_winrow)
++ 	wp->w_height = Rows - wp->w_winrow;
++ 
++     wp->w_vsep_width = 0;
++ 
++     redraw_all_later(NOT_VALID);
++ }
++ 
++ /*
++  * popup_close({id})
++  */
++     void
++ f_popup_close(typval_T *argvars, typval_T *rettv UNUSED)
++ {
++     int		nr = (int)tv_get_number(argvars);
++ 
++     popup_close(nr);
++ }
++ 
++     void
++ popup_close(int nr)
++ {
++     win_T	*wp;
++     win_T	*prev = NULL;
++ 
++     for (wp = first_popupwin; wp != NULL; prev = wp, wp = wp->w_next)
++ 	if (wp->w_id == nr)
++ 	{
++ 	    if (prev == NULL)
++ 		first_popupwin = wp->w_next;
++ 	    else
++ 		prev->w_next = wp->w_next;
++ 	    break;
++ 	}
++ 
++     if (wp == NULL)
++     {
++ 	prev = NULL;
++ 	for (wp = first_tab_popupwin; wp != NULL; prev = wp, wp = wp->w_next)
++ 	    if (wp->w_id == nr)
++ 	    {
++ 		if (prev == NULL)
++ 		    first_tab_popupwin = wp->w_next;
++ 		else
++ 		    prev->w_next = wp->w_next;
++ 		break;
++ 	    }
++     }
++     if (wp != NULL)
++     {
++ 	win_free_popup(wp);
++ 	redraw_all_later(NOT_VALID);
++     }
++ }
++ 
++     void
++ close_all_popups(void)
++ {
++     while (first_popupwin != NULL)
++ 	popup_close(first_popupwin->w_id);
++     while (first_tab_popupwin != NULL)
++ 	popup_close(first_tab_popupwin->w_id);
++ }
++ 
++     void
++ ex_popupclear(exarg_T *eap UNUSED)
++ {
++     close_all_popups();
++ }
++ 
++ #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.1390/src/proto.h	2019-05-11 17:03:55.170019762 +0200
+--- src/proto.h	2019-05-24 22:27:53.816544293 +0200
+***************
+*** 195,200 ****
+--- 195,201 ----
+  #  include "termlib.pro"
+  # endif
+  # ifdef FEAT_TEXT_PROP
++ #  include "popupwin.pro"
+  #  include "textprop.pro"
+  # endif
+  # include "ui.pro"
+*** ../vim-8.1.1390/src/proto/popupwin.pro	2019-05-25 19:47:19.993537992 +0200
+--- src/proto/popupwin.pro	2019-05-25 17:26:36.855434511 +0200
+***************
+*** 0 ****
+--- 1,7 ----
++ /* popupwin.c */
++ void f_popup_create(typval_T *argvars, typval_T *rettv);
++ void f_popup_close(typval_T *argvars, typval_T *rettv);
++ void popup_close(int nr);
++ void close_all_popups(void);
++ void ex_popupclear(exarg_T *eap);
++ /* vim: set ft=c : */
+*** ../vim-8.1.1390/src/proto/window.pro	2019-04-25 22:21:56.931749183 +0200
+--- src/proto/window.pro	2019-05-25 16:50:12.447083290 +0200
+***************
+*** 19,25 ****
+  void curwin_init(void);
+  void win_init_empty(win_T *wp);
+  int win_alloc_first(void);
+! void win_alloc_aucmd_win(void);
+  void win_init_size(void);
+  void free_tabpage(tabpage_T *tp);
+  int win_new_tabpage(int after);
+--- 19,26 ----
+  void curwin_init(void);
+  void win_init_empty(win_T *wp);
+  int win_alloc_first(void);
+! win_T *win_alloc_popup_win(void);
+! void win_init_popup_win(win_T *wp, buf_T *buf);
+  void win_init_size(void);
+  void free_tabpage(tabpage_T *tp);
+  int win_new_tabpage(int after);
+***************
+*** 42,47 ****
+--- 43,50 ----
+  void win_enter(win_T *wp, int undo_sync);
+  win_T *buf_jump_open_win(buf_T *buf);
+  win_T *buf_jump_open_tab(buf_T *buf);
++ int win_unlisted(win_T *wp);
++ void win_free_popup(win_T *win);
+  void win_append(win_T *after, win_T *wp);
+  void win_remove(win_T *wp, tabpage_T *tp);
+  int win_alloc_lines(win_T *wp);
+*** ../vim-8.1.1390/src/screen.c	2019-05-24 19:38:59.108545464 +0200
+--- src/screen.c	2019-05-25 18:19:31.972693309 +0200
+***************
+*** 121,126 ****
+--- 121,129 ----
+   */
+  static schar_T	*current_ScreenLine;
+  
++ #ifdef FEAT_TEXT_PROP
++ static void update_popups(void);
++ #endif
+  static void win_update(win_T *wp);
+  static void win_redr_status(win_T *wp, int ignore_pum);
+  static void win_draw_end(win_T *wp, int c1, int c2, int draw_margin, int row, int endrow, hlf_T hl);
+***************
+*** 178,183 ****
+--- 181,190 ----
+  # define HAS_RIGHTLEFT(x) FALSE
+  #endif
+  
++ // flags for screen_line()
++ #define SLF_RIGHTLEFT	1
++ #define SLF_POPUP	2
++ 
+  /*
+   * Redraw the current window later, with update_screen(type).
+   * Set must_redraw only if not already set to a higher value.
+***************
+*** 406,412 ****
+  		    mch_memmove(ScreenLines2 + off,
+  				screenline2 + r * cols,
+  				(size_t)cols * sizeof(schar_T));
+! 		screen_line(cmdline_row + r, 0, cols, cols, FALSE);
+  	    }
+  	    ret = 4;
+  	}
+--- 413,419 ----
+  		    mch_memmove(ScreenLines2 + off,
+  				screenline2 + r * cols,
+  				(size_t)cols * sizeof(schar_T));
+! 		screen_line(cmdline_row + r, 0, cols, cols, 0);
+  	    }
+  	    ret = 4;
+  	}
+***************
+*** 604,609 ****
+--- 611,621 ----
+  	    curwin->w_lines_valid = 0;	/* don't use w_lines[].wl_size now */
+  	return FAIL;
+      }
++ #ifdef FEAT_TEXT_PROP
++     // TODO: avoid redrawing everything when there is a popup window.
++     if (first_popupwin != NULL || first_tab_popupwin != NULL)
++ 	type = NOT_VALID;
++ #endif
+  
+      updating_screen = TRUE;
+  #ifdef FEAT_SYN_HL
+***************
+*** 811,816 ****
+--- 823,833 ----
+  	maybe_intro_message();
+      did_intro = TRUE;
+  
++ #ifdef FEAT_TEXT_PROP
++     // Display popup windows on top of the others.
++     update_popups();
++ #endif
++ 
+  #ifdef FEAT_GUI
+      /* Redraw the cursor and update the scrollbars when all screen updating is
+       * done. */
+***************
+*** 975,980 ****
+--- 992,1041 ----
+  }
+  #endif
+  
++ #ifdef FEAT_TEXT_PROP
++     static void
++ update_popups(void)
++ {
++     win_T   *wp;
++     win_T   *lowest_wp;
++     int	    lowest_zindex;
++ 
++     // Reset all the VALID_POPUP flags.
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	wp->w_valid &= ~VALID_POPUP;
++     for (wp = first_tab_popupwin; wp != NULL; wp = wp->w_next)
++ 	wp->w_valid &= ~VALID_POPUP;
++ 
++     // TODO: don't redraw every popup every time.
++     for (;;)
++     {
++ 	// Find the window with the lowest zindex that hasn't been updated yet,
++ 	// so that the window with a higher zindex is drawn later, thus goes on
++ 	// top.
++ 	lowest_zindex = INT_MAX;
++ 	lowest_wp = NULL;
++ 	for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	    if ((wp->w_valid & VALID_POPUP) == 0
++ 					       && wp->w_zindex < lowest_zindex)
++ 	    {
++ 		lowest_zindex = wp->w_zindex;
++ 		lowest_wp = wp;
++ 	    }
++ 	for (wp = first_tab_popupwin; wp != NULL; wp = wp->w_next)
++ 	    if ((wp->w_valid & VALID_POPUP) == 0
++ 					       && wp->w_zindex < lowest_zindex)
++ 	    {
++ 		lowest_zindex = wp->w_zindex;
++ 		lowest_wp = wp;
++ 	    }
++ 
++ 	if (lowest_wp == NULL)
++ 	    break;
++ 	win_update(lowest_wp);
++ 	lowest_wp->w_valid |= VALID_POPUP;
++     }
++ }
++ #endif
+  
+  #if defined(FEAT_GUI) || defined(PROTO)
+  /*
+***************
+*** 2862,2868 ****
+  #endif
+  
+      screen_line(row + W_WINROW(wp), wp->w_wincol, (int)wp->w_width,
+! 						     (int)wp->w_width, FALSE);
+  
+      /*
+       * Update w_cline_height and w_cline_folded if the cursor line was
+--- 2923,2929 ----
+  #endif
+  
+      screen_line(row + W_WINROW(wp), wp->w_wincol, (int)wp->w_width,
+! 						     (int)wp->w_width, 0);
+  
+      /*
+       * Update w_cline_height and w_cline_folded if the cursor line was
+***************
+*** 3046,3052 ****
+      int		attr_pri = FALSE;	/* char_attr has priority */
+      int		area_highlighting = FALSE; /* Visual or incsearch highlighting
+  					      in this line */
+!     int		attr = 0;		/* attributes for area highlighting */
+      int		area_attr = 0;		/* attributes desired by highlighting */
+      int		search_attr = 0;	/* attributes desired by 'hlsearch' */
+  #ifdef FEAT_SYN_HL
+--- 3107,3114 ----
+      int		attr_pri = FALSE;	/* char_attr has priority */
+      int		area_highlighting = FALSE; /* Visual or incsearch highlighting
+  					      in this line */
+!     int		vi_attr = 0;		/* attributes for Visual and incsearch
+! 					   highlighting */
+      int		area_attr = 0;		/* attributes desired by highlighting */
+      int		search_attr = 0;	/* attributes desired by 'hlsearch' */
+  #ifdef FEAT_SYN_HL
+***************
+*** 3127,3134 ****
+  #endif
+  #ifdef FEAT_TERMINAL
+      int		get_term_attr = FALSE;
+-     int		term_attr = 0;		/* background for terminal window */
+  #endif
+  
+      /* draw_state: items that are drawn in sequence: */
+  #define WL_START	0		/* nothing done yet */
+--- 3189,3196 ----
+  #endif
+  #ifdef FEAT_TERMINAL
+      int		get_term_attr = FALSE;
+  #endif
++     int		win_attr = 0;		// background for whole window
+  
+      /* draw_state: items that are drawn in sequence: */
+  #define WL_START	0		/* nothing done yet */
+***************
+*** 3164,3169 ****
+--- 3226,3232 ----
+      int		feedback_col = 0;
+      int		feedback_old_attr = -1;
+  #endif
++     int		screen_line_flags = 0;
+  
+  #ifdef FEAT_CONCEAL
+      int		syntax_flags	= 0;
+***************
+*** 3244,3250 ****
+  	{
+  	    extra_check = TRUE;
+  	    get_term_attr = TRUE;
+! 	    term_attr = term_get_attr(wp->w_buffer, lnum, -1);
+  	}
+  #endif
+  
+--- 3307,3313 ----
+  	{
+  	    extra_check = TRUE;
+  	    get_term_attr = TRUE;
+! 	    win_attr = term_get_attr(wp->w_buffer, lnum, -1);
+  	}
+  #endif
+  
+***************
+*** 3362,3374 ****
+  	    if (fromcol >= 0)
+  	    {
+  		area_highlighting = TRUE;
+! 		attr = HL_ATTR(HLF_V);
+  #if defined(FEAT_CLIPBOARD) && defined(FEAT_X11)
+  		if ((clip_star.available && !clip_star.owned
+! 							 && clip_isautosel_star())
+  			|| (clip_plus.available && !clip_plus.owned
+! 							&& clip_isautosel_plus()))
+! 		    attr = HL_ATTR(HLF_VNC);
+  #endif
+  	    }
+  	}
+--- 3425,3437 ----
+  	    if (fromcol >= 0)
+  	    {
+  		area_highlighting = TRUE;
+! 		vi_attr = HL_ATTR(HLF_V);
+  #if defined(FEAT_CLIPBOARD) && defined(FEAT_X11)
+  		if ((clip_star.available && !clip_star.owned
+! 						      && clip_isautosel_star())
+  			|| (clip_plus.available && !clip_plus.owned
+! 						     && clip_isautosel_plus()))
+! 		    vi_attr = HL_ATTR(HLF_VNC);
+  #endif
+  	    }
+  	}
+***************
+*** 3398,3404 ****
+  	    if (fromcol == tocol)
+  		tocol = fromcol + 1;
+  	    area_highlighting = TRUE;
+! 	    attr = HL_ATTR(HLF_I);
+  	}
+      }
+  
+--- 3461,3467 ----
+  	    if (fromcol == tocol)
+  		tocol = fromcol + 1;
+  	    area_highlighting = TRUE;
+! 	    vi_attr = HL_ATTR(HLF_I);
+  	}
+      }
+  
+***************
+*** 3497,3502 ****
+--- 3560,3589 ----
+  	}
+      }
+  
++     if (*wp->w_p_wcr != NUL)
++     {
++ 	int attr = syn_name2attr(wp->w_p_wcr);
++ 
++ 	// 'wincolor' highlighting for the whole window
++ 	if (attr != 0)
++ 	{
++ 	    win_attr = attr;
++ 	    area_highlighting = TRUE;
++ 	}
++     }
++ #ifdef FEAT_TEXT_PROP
++     if (bt_popup(wp->w_buffer))
++     {
++ 	screen_line_flags |= SLF_POPUP;
++ 
++ 	if (win_attr == 0)
++ 	{
++ 	    win_attr = HL_ATTR(HLF_PNI);
++ 	    area_highlighting = TRUE;
++ 	}
++     }
++ #endif
++ 
+      /*
+       * 'nowrap' or 'wrap' and a single line that doesn't fit: Advance to the
+       * first character to be displayed.
+***************
+*** 3630,3639 ****
+      /*
+       * Handle highlighting the last used search pattern and matches.
+       * Do this for both search_hl and the match list.
+       */
+      cur = wp->w_match_head;
+      shl_flag = FALSE;
+!     while ((cur != NULL || shl_flag == FALSE) && !number_only)
+      {
+  	if (shl_flag == FALSE)
+  	{
+--- 3717,3728 ----
+      /*
+       * Handle highlighting the last used search pattern and matches.
+       * Do this for both search_hl and the match list.
++      * Not in a popup window.
+       */
+      cur = wp->w_match_head;
+      shl_flag = FALSE;
+!     while ((cur != NULL || shl_flag == FALSE) && !number_only
+! 					   && !(screen_line_flags & SLF_POPUP))
+      {
+  	if (shl_flag == FALSE)
+  	{
+***************
+*** 3729,3734 ****
+--- 3818,3824 ----
+  
+      off = (unsigned)(current_ScreenLine - ScreenLines);
+      col = 0;
++ 
+  #ifdef FEAT_RIGHTLEFT
+      if (wp->w_p_rl)
+      {
+***************
+*** 3737,3742 ****
+--- 3827,3833 ----
+  	 * rightmost column of the window. */
+  	col = wp->w_width - 1;
+  	off += col;
++ 	screen_line_flags |= SLF_RIGHTLEFT;
+      }
+  #endif
+  
+***************
+*** 4048,4054 ****
+  		    char_attr = saved_char_attr;
+  		}
+  		else
+! 		    char_attr = 0;
+  	    }
+  	}
+  
+--- 4139,4145 ----
+  		    char_attr = saved_char_attr;
+  		}
+  		else
+! 		    char_attr = win_attr;
+  	    }
+  	}
+  
+***************
+*** 4064,4070 ****
+  		|| (number_only && draw_state > WL_NR))
+  	{
+  	    screen_line(screen_row, wp->w_wincol, col, -(int)wp->w_width,
+! 						    HAS_RIGHTLEFT(wp->w_p_rl));
+  	    /* Pretend we have finished updating the window.  Except when
+  	     * 'cursorcolumn' is set. */
+  #ifdef FEAT_SYN_HL
+--- 4155,4161 ----
+  		|| (number_only && draw_state > WL_NR))
+  	{
+  	    screen_line(screen_row, wp->w_wincol, col, -(int)wp->w_width,
+! 							    screen_line_flags);
+  	    /* Pretend we have finished updating the window.  Except when
+  	     * 'cursorcolumn' is set. */
+  #ifdef FEAT_SYN_HL
+***************
+*** 4089,4095 ****
+  		    || ((int)vcol_prev == fromcol_prev
+  			&& vcol_prev < vcol	/* not at margin */
+  			&& vcol < tocol))
+! 		area_attr = attr;		/* start highlighting */
+  	    else if (area_attr != 0
+  		    && (vcol == tocol
+  			|| (noinvcur && (colnr_T)vcol == wp->w_virtcol)))
+--- 4180,4186 ----
+  		    || ((int)vcol_prev == fromcol_prev
+  			&& vcol_prev < vcol	/* not at margin */
+  			&& vcol < tocol))
+! 		area_attr = vi_attr;		/* start highlighting */
+  	    else if (area_attr != 0
+  		    && (vcol == tocol
+  			|| (noinvcur && (colnr_T)vcol == wp->w_virtcol)))
+***************
+*** 4344,4349 ****
+--- 4435,4442 ----
+  		    char_attr = 0;
+  	    }
+  	}
++ 	if (char_attr == 0)
++ 	    char_attr = win_attr;
+  
+  	/*
+  	 * Get the next character to put on the screen.
+***************
+*** 4672,4680 ****
+--- 4765,4779 ----
+  		    {
+  			wp->w_s->b_syn_error = TRUE;
+  			has_syntax = FALSE;
++ 			syntax_attr = 0;
+  		    }
+  		    else
+  			did_emsg = save_did_emsg;
++ 
++ 		    // combine syntax attribute with 'wincolor'
++ 		    if (win_attr != 0)
++ 			syntax_attr = hl_combine_attr(win_attr, syntax_attr);
++ 
+  #ifdef SYN_TIME_LIMIT
+  		    if (wp->w_s->b_syn_slow)
+  			has_syntax = FALSE;
+***************
+*** 5149,5155 ****
+  			    diff_hlf != (hlf_T)0 ||
+  # endif
+  # ifdef FEAT_TERMINAL
+! 			    term_attr != 0 ||
+  # endif
+  			    line_attr != 0
+  			) && (
+--- 5248,5254 ----
+  			    diff_hlf != (hlf_T)0 ||
+  # endif
+  # ifdef FEAT_TERMINAL
+! 			    win_attr != 0 ||
+  # endif
+  			    line_attr != 0
+  			) && (
+***************
+*** 5178,5184 ****
+  		    if (diff_hlf == HLF_TXD)
+  		    {
+  			diff_hlf = HLF_CHD;
+! 			if (attr == 0 || char_attr != attr)
+  			{
+  			    char_attr = HL_ATTR(diff_hlf);
+  			    if (wp->w_p_cul && lnum == wp->w_cursor.lnum)
+--- 5277,5283 ----
+  		    if (diff_hlf == HLF_TXD)
+  		    {
+  			diff_hlf = HLF_CHD;
+! 			if (vi_attr == 0 || char_attr != vi_attr)
+  			{
+  			    char_attr = HL_ATTR(diff_hlf);
+  			    if (wp->w_p_cul && lnum == wp->w_cursor.lnum)
+***************
+*** 5188,5196 ****
+  		    }
+  # endif
+  # ifdef FEAT_TERMINAL
+! 		    if (term_attr != 0)
+  		    {
+! 			char_attr = term_attr;
+  			if (wp->w_p_cul && lnum == wp->w_cursor.lnum)
+  			    char_attr = hl_combine_attr(char_attr,
+  							    HL_ATTR(HLF_CUL));
+--- 5287,5295 ----
+  		    }
+  # endif
+  # ifdef FEAT_TERMINAL
+! 		    if (win_attr != 0)
+  		    {
+! 			char_attr = win_attr;
+  			if (wp->w_p_cul && lnum == wp->w_cursor.lnum)
+  			    char_attr = hl_combine_attr(char_attr,
+  							    HL_ATTR(HLF_CUL));
+***************
+*** 5550,5556 ****
+  		      && (int)wp->w_virtcol <
+  					wp->w_width * (row - startrow + 1) + v
+  		      && lnum != wp->w_cursor.lnum)
+! 		    || draw_color_col)
+  # ifdef FEAT_RIGHTLEFT
+  		    && !wp->w_p_rl
+  # endif
+--- 5649,5656 ----
+  		      && (int)wp->w_virtcol <
+  					wp->w_width * (row - startrow + 1) + v
+  		      && lnum != wp->w_cursor.lnum)
+! 		    || draw_color_col
+! 		    || win_attr != 0)
+  # ifdef FEAT_RIGHTLEFT
+  		    && !wp->w_p_rl
+  # endif
+***************
+*** 5582,5590 ****
+  		    else if (draw_color_col && VCOL_HLC == *color_cols)
+  			ScreenAttrs[off++] = HL_ATTR(HLF_MC);
+  		    else
+! 			ScreenAttrs[off++] = 0;
+  
+! 		    if (VCOL_HLC >= rightmost_vcol)
+  			break;
+  
+  		    ++vcol;
+--- 5682,5690 ----
+  		    else if (draw_color_col && VCOL_HLC == *color_cols)
+  			ScreenAttrs[off++] = HL_ATTR(HLF_MC);
+  		    else
+! 			ScreenAttrs[off++] = win_attr;
+  
+! 		    if (VCOL_HLC >= rightmost_vcol && win_attr == 0)
+  			break;
+  
+  		    ++vcol;
+***************
+*** 5593,5599 ****
+  #endif
+  
+  	    screen_line(screen_row, wp->w_wincol, col,
+! 				  (int)wp->w_width, HAS_RIGHTLEFT(wp->w_p_rl));
+  	    row++;
+  
+  	    /*
+--- 5693,5699 ----
+  #endif
+  
+  	    screen_line(screen_row, wp->w_wincol, col,
+! 					  (int)wp->w_width, screen_line_flags);
+  	    row++;
+  
+  	    /*
+***************
+*** 5893,5903 ****
+  	{
+  #ifdef FEAT_CONCEAL
+  	    screen_line(screen_row, wp->w_wincol, col - boguscols,
+! 				  (int)wp->w_width, HAS_RIGHTLEFT(wp->w_p_rl));
+  	    boguscols = 0;
+  #else
+  	    screen_line(screen_row, wp->w_wincol, col,
+! 				  (int)wp->w_width, HAS_RIGHTLEFT(wp->w_p_rl));
+  #endif
+  	    ++row;
+  	    ++screen_row;
+--- 5993,6003 ----
+  	{
+  #ifdef FEAT_CONCEAL
+  	    screen_line(screen_row, wp->w_wincol, col - boguscols,
+! 					  (int)wp->w_width, screen_line_flags);
+  	    boguscols = 0;
+  #else
+  	    screen_line(screen_row, wp->w_wincol, col,
+! 					  (int)wp->w_width, screen_line_flags);
+  #endif
+  	    ++row;
+  	    ++screen_row;
+***************
+*** 6107,6113 ****
+   * "endcol" gives the columns where valid characters are.
+   * "clear_width" is the width of the window.  It's > 0 if the rest of the line
+   * needs to be cleared, negative otherwise.
+!  * "rlflag" is TRUE in a rightleft window:
+   *    When TRUE and "clear_width" > 0, clear columns 0 to "endcol"
+   *    When FALSE and "clear_width" > 0, clear columns "endcol" to "clear_width"
+   */
+--- 6207,6215 ----
+   * "endcol" gives the columns where valid characters are.
+   * "clear_width" is the width of the window.  It's > 0 if the rest of the line
+   * needs to be cleared, negative otherwise.
+!  * "flags" can have bits:
+!  * SLF_POPUP	    popup window
+!  * SLF_RIGHTLEFT    rightleft window:
+   *    When TRUE and "clear_width" > 0, clear columns 0 to "endcol"
+   *    When FALSE and "clear_width" > 0, clear columns "endcol" to "clear_width"
+   */
+***************
+*** 6117,6123 ****
+      int	    coloff,
+      int	    endcol,
+      int	    clear_width,
+!     int	    rlflag UNUSED)
+  {
+      unsigned	    off_from;
+      unsigned	    off_to;
+--- 6219,6225 ----
+      int	    coloff,
+      int	    endcol,
+      int	    clear_width,
+!     int	    flags UNUSED)
+  {
+      unsigned	    off_from;
+      unsigned	    off_to;
+***************
+*** 6153,6159 ****
+      max_off_to = LineOffset[row] + screen_Columns;
+  
+  #ifdef FEAT_RIGHTLEFT
+!     if (rlflag)
+      {
+  	/* Clear rest first, because it's left of the text. */
+  	if (clear_width > 0)
+--- 6255,6261 ----
+      max_off_to = LineOffset[row] + screen_Columns;
+  
+  #ifdef FEAT_RIGHTLEFT
+!     if (flags & SLF_RIGHTLEFT)
+      {
+  	/* Clear rest first, because it's left of the text. */
+  	if (clear_width > 0)
+***************
+*** 6377,6383 ****
+  
+      if (clear_width > 0
+  #ifdef FEAT_RIGHTLEFT
+! 		    && !rlflag
+  #endif
+  				   )
+      {
+--- 6479,6485 ----
+  
+      if (clear_width > 0
+  #ifdef FEAT_RIGHTLEFT
+! 		    && !(flags & SLF_RIGHTLEFT)
+  #endif
+  				   )
+      {
+***************
+*** 6444,6453 ****
+  	}
+      }
+  
+!     if (clear_width > 0)
+      {
+! 	/* For a window that's left of another, draw the separator char. */
+! 	if (col + coloff < Columns)
+  	{
+  	    int c;
+  
+--- 6546,6560 ----
+  	}
+      }
+  
+!     if (clear_width > 0
+! #ifdef FEAT_TEXT_PROP
+! 	    && !(flags & SLF_POPUP)  // no separator for popup window
+! #endif
+! 	    )
+      {
+! 	// For a window that has a right neighbor, draw the separator char
+! 	// right of the window contents.
+! 	if (coloff + col < Columns)
+  	{
+  	    int c;
+  
+***************
+*** 10784,10790 ****
+      wp->w_winbar_items[item_idx].wb_menu = NULL; /* end marker */
+  
+      screen_line(wp->w_winrow, wp->w_wincol, (int)wp->w_width,
+! 						     (int)wp->w_width, FALSE);
+  }
+  #endif
+  
+--- 10891,10897 ----
+      wp->w_winbar_items[item_idx].wb_menu = NULL; /* end marker */
+  
+      screen_line(wp->w_winrow, wp->w_wincol, (int)wp->w_width,
+! 							  (int)wp->w_width, 0);
+  }
+  #endif
+  
+*** ../vim-8.1.1390/src/structs.h	2019-05-16 22:11:43.715228803 +0200
+--- src/structs.h	2019-05-25 18:07:31.536128809 +0200
+***************
+*** 163,179 ****
+  {
+  #ifdef FEAT_ARABIC
+      int		wo_arab;
+! # define w_p_arab w_onebuf_opt.wo_arab	/* 'arabic' */
+  #endif
+  #ifdef FEAT_LINEBREAK
+      int		wo_bri;
+! # define w_p_bri w_onebuf_opt.wo_bri	/* 'breakindent' */
+      char_u	*wo_briopt;
+! # define w_p_briopt w_onebuf_opt.wo_briopt /* 'breakindentopt' */
+  #endif
+  #ifdef FEAT_DIFF
+      int		wo_diff;
+! # define w_p_diff w_onebuf_opt.wo_diff	/* 'diff' */
+  #endif
+  #ifdef FEAT_FOLDING
+      long	wo_fdc;
+--- 163,181 ----
+  {
+  #ifdef FEAT_ARABIC
+      int		wo_arab;
+! # define w_p_arab w_onebuf_opt.wo_arab	// 'arabic'
+  #endif
+  #ifdef FEAT_LINEBREAK
+      int		wo_bri;
+! # define w_p_bri w_onebuf_opt.wo_bri	// 'breakindent'
+      char_u	*wo_briopt;
+! # define w_p_briopt w_onebuf_opt.wo_briopt // 'breakindentopt'
+  #endif
++     char_u	*wo_wcr;
++ # define w_p_wcr w_onebuf_opt.wo_wcr	// 'wincolor'
+  #ifdef FEAT_DIFF
+      int		wo_diff;
+! # define w_p_diff w_onebuf_opt.wo_diff	// 'diff'
+  #endif
+  #ifdef FEAT_FOLDING
+      long	wo_fdc;
+***************
+*** 2592,2610 ****
+  typedef struct tabpage_S tabpage_T;
+  struct tabpage_S
+  {
+!     tabpage_T	    *tp_next;	    /* next tabpage or NULL */
+!     frame_T	    *tp_topframe;   /* topframe for the windows */
+!     win_T	    *tp_curwin;	    /* current window in this Tab page */
+!     win_T	    *tp_prevwin;    /* previous window in this Tab page */
+!     win_T	    *tp_firstwin;   /* first window in this Tab page */
+!     win_T	    *tp_lastwin;    /* last window in this Tab page */
+!     long	    tp_old_Rows;    /* Rows when Tab page was left */
+!     long	    tp_old_Columns; /* Columns when Tab page was left */
+!     long	    tp_ch_used;	    /* value of 'cmdheight' when frame size
+! 				       was set */
+  #ifdef FEAT_GUI
+      int		    tp_prev_which_scrollbars[3];
+! 				    /* previous value of which_scrollbars */
+  #endif
+  
+      char_u	    *tp_localdir;	// absolute path of local directory or
+--- 2594,2615 ----
+  typedef struct tabpage_S tabpage_T;
+  struct tabpage_S
+  {
+!     tabpage_T	    *tp_next;	    // next tabpage or NULL
+!     frame_T	    *tp_topframe;   // topframe for the windows
+!     win_T	    *tp_curwin;	    // current window in this Tab page
+!     win_T	    *tp_prevwin;    // previous window in this Tab page
+!     win_T	    *tp_firstwin;   // first window in this Tab page
+!     win_T	    *tp_lastwin;    // last window in this Tab page
+! #ifdef FEAT_TEXT_PROP
+!     win_T	    *tp_first_popupwin; // first popup window in this Tab page
+! #endif
+!     long	    tp_old_Rows;    // Rows when Tab page was left
+!     long	    tp_old_Columns; // Columns when Tab page was left
+!     long	    tp_ch_used;	    // value of 'cmdheight' when frame size
+! 				    // was set
+  #ifdef FEAT_GUI
+      int		    tp_prev_which_scrollbars[3];
+! 				    // previous value of which_scrollbars
+  #endif
+  
+      char_u	    *tp_localdir;	// absolute path of local directory or
+***************
+*** 2615,2632 ****
+      int		    tp_diff_invalid;	// list of diffs is outdated
+      int		    tp_diff_update;	// update diffs before redrawing
+  #endif
+!     frame_T	    *(tp_snapshot[SNAP_COUNT]);  /* window layout snapshots */
+  #ifdef FEAT_EVAL
+!     dictitem_T	    tp_winvar;	    /* variable for "t:" Dictionary */
+!     dict_T	    *tp_vars;	    /* internal variables, local to tab page */
+  #endif
+  
+  #ifdef FEAT_PYTHON
+!     void	    *tp_python_ref;	/* The Python value for this tab page */
+  #endif
+  
+  #ifdef FEAT_PYTHON3
+!     void	    *tp_python3_ref;	/* The Python value for this tab page */
+  #endif
+  };
+  
+--- 2620,2637 ----
+      int		    tp_diff_invalid;	// list of diffs is outdated
+      int		    tp_diff_update;	// update diffs before redrawing
+  #endif
+!     frame_T	    *(tp_snapshot[SNAP_COUNT]);  // window layout snapshots
+  #ifdef FEAT_EVAL
+!     dictitem_T	    tp_winvar;	    // variable for "t:" Dictionary
+!     dict_T	    *tp_vars;	    // internal variables, local to tab page
+  #endif
+  
+  #ifdef FEAT_PYTHON
+!     void	    *tp_python_ref;	// The Python value for this tab page
+  #endif
+  
+  #ifdef FEAT_PYTHON3
+!     void	    *tp_python3_ref;	// The Python value for this tab page
+  #endif
+  };
+  
+***************
+*** 2775,2789 ****
+  {
+      int		w_id;		    /* unique window ID */
+  
+!     buf_T	*w_buffer;	    /* buffer we are a window into (used
+! 				       often, keep it the first item!) */
+  
+  #if defined(FEAT_SYN_HL) || defined(FEAT_SPELL)
+      synblock_T	*w_s;		    /* for :ownsyntax */
+  #endif
+  
+-     win_T	*w_prev;	    /* link to previous window */
+-     win_T	*w_next;	    /* link to next window */
+      int		w_closing;	    /* window is being closed, don't let
+  				       autocommands close it too. */
+  
+--- 2780,2794 ----
+  {
+      int		w_id;		    /* unique window ID */
+  
+!     buf_T	*w_buffer;	    /* buffer we are a window into */
+! 
+!     win_T	*w_prev;	    /* link to previous window */
+!     win_T	*w_next;	    /* link to next window */
+  
+  #if defined(FEAT_SYN_HL) || defined(FEAT_SPELL)
+      synblock_T	*w_s;		    /* for :ownsyntax */
+  #endif
+  
+      int		w_closing;	    /* window is being closed, don't let
+  				       autocommands close it too. */
+  
+***************
+*** 2847,2852 ****
+--- 2852,2862 ----
+      int		w_width;	    /* Width of window, excluding separation. */
+      int		w_vsep_width;	    /* Number of separator columns (0 or 1). */
+      pos_save_T	w_save_cursor;	    /* backup of cursor pos and topline */
++ #ifdef FEAT_TEXT_PROP
++     int		w_zindex;
++     int		w_maxheight;	    // "maxheight" for popup window
++     int		w_maxwidth;	    // "maxwidth" for popup window
++ #endif
+  
+  
+      /*
+*** ../vim-8.1.1390/src/terminal.c	2019-05-24 19:38:59.112545434 +0200
+--- src/terminal.c	2019-05-25 14:07:30.810843861 +0200
+***************
+*** 3257,3263 ****
+  	else
+  	    pos.col = 0;
+  
+! 	screen_line(term->tl_toprow + pos.row, 0, pos.col, Columns, FALSE);
+      }
+  
+      term->tl_dirty_row_start = MAX_ROW;
+--- 3257,3263 ----
+  	else
+  	    pos.col = 0;
+  
+! 	screen_line(term->tl_toprow + pos.row, 0, pos.col, Columns, 0);
+      }
+  
+      term->tl_dirty_row_start = MAX_ROW;
+***************
+*** 3368,3374 ****
+  #ifdef FEAT_MENU
+  				+ winbar_height(wp)
+  #endif
+! 				, wp->w_wincol, pos.col, wp->w_width, FALSE);
+      }
+      term->tl_dirty_row_start = MAX_ROW;
+      term->tl_dirty_row_end = 0;
+--- 3368,3374 ----
+  #ifdef FEAT_MENU
+  				+ winbar_height(wp)
+  #endif
+! 				, wp->w_wincol, pos.col, wp->w_width, 0);
+      }
+      term->tl_dirty_row_start = MAX_ROW;
+      term->tl_dirty_row_end = 0;
+*** ../vim-8.1.1390/src/testdir/Make_all.mak	2019-05-19 21:44:03.978804771 +0200
+--- src/testdir/Make_all.mak	2019-05-24 22:34:17.218925753 +0200
+***************
+*** 196,201 ****
+--- 196,202 ----
+  	test_perl \
+  	test_plus_arg_edit \
+  	test_popup \
++ 	test_popupwin \
+  	test_preview \
+  	test_profile \
+  	test_prompt_buffer \
+***************
+*** 250,257 ****
+  	test_tagjump \
+  	test_taglist \
+  	test_tcl \
+- 	test_termencoding \
+  	test_termcodes \
+  	test_terminal \
+  	test_terminal_fail \
+  	test_textformat \
+--- 251,258 ----
+  	test_tagjump \
+  	test_taglist \
+  	test_tcl \
+  	test_termcodes \
++ 	test_termencoding \
+  	test_terminal \
+  	test_terminal_fail \
+  	test_textformat \
+***************
+*** 377,382 ****
+--- 378,384 ----
+  	test_paste.res \
+  	test_perl.res \
+  	test_plus_arg_edit.res \
++ 	test_popupwin.res \
+  	test_preview.res \
+  	test_profile.res \
+  	test_prompt_buffer.res \
+***************
+*** 409,416 ****
+  	test_system.res \
+  	test_tab.res \
+  	test_tcl.res \
+- 	test_termencoding.res \
+  	test_termcodes.res \
+  	test_terminal.res \
+  	test_terminal_fail.res \
+  	test_textformat.res \
+--- 411,418 ----
+  	test_system.res \
+  	test_tab.res \
+  	test_tcl.res \
+  	test_termcodes.res \
++ 	test_termencoding.res \
+  	test_terminal.res \
+  	test_terminal_fail.res \
+  	test_textformat.res \
+*** ../vim-8.1.1390/src/testdir/dumps/Test_popupwin_01.dump	2019-05-25 19:47:20.021537851 +0200
+--- src/testdir/dumps/Test_popupwin_01.dump	2019-05-25 18:53:31.899050354 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @8|h+0&#5fd7ff255|e|l@1|o| |t|h|e|r|e| @8|r+0#0000001#ffd7ff255| |o|n|e| @8| +0#0000000#ffffff0@30
++ |4| @22|a+0#0000001#ffd7ff255|n|o|t|h|e|r| |t|w|o| @8| +0#0000000#ffffff0@30
++ |5| @22|a+0#0000001#ffd7ff255|n|o|t|h|e|r| |t|h|r|e@1| @6| +0#0000000#ffffff0@30
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1390/src/testdir/test_popupwin.vim	2019-05-25 19:47:20.025537831 +0200
+--- src/testdir/test_popupwin.vim	2019-05-25 18:53:25.743097207 +0200
+***************
+*** 0 ****
+--- 1,26 ----
++ " Tests for popup windows
++ 
++ if !has('textprop')
++   finish
++ endif
++ 
++ source screendump.vim
++ 
++ func Test_simple_popup()
++   if !CanRunVimInTerminal()
++     return
++   endif
++   call writefile([
++ 	\ "call setline(1, range(1, 100))",
++ 	\ "let winid = popup_create('hello there', {'line': 3, 'col': 11})",
++ 	\ "hi PopupColor ctermbg=lightblue",
++ 	\ "call setwinvar(winid, '&wincolor', 'PopupColor')",
++ 	\ "let winid2 = popup_create(['another one', 'another two', 'another three'], {'line': 3, 'col': 25})",
++ 	\], 'XtestPopup')
++   let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_01', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopup')
++ endfunc
+*** ../vim-8.1.1390/src/vim.h	2019-05-23 21:35:44.459922615 +0200
+--- src/vim.h	2019-05-25 18:05:47.916620123 +0200
+***************
+*** 604,617 ****
+   *     off		off		w_botline not valid
+   *     on		off		not possible
+   */
+! #define VALID_WROW	0x01	/* w_wrow (window row) is valid */
+! #define VALID_WCOL	0x02	/* w_wcol (window col) is valid */
+! #define VALID_VIRTCOL	0x04	/* w_virtcol (file col) is valid */
+! #define VALID_CHEIGHT	0x08	/* w_cline_height and w_cline_folded valid */
+! #define VALID_CROW	0x10	/* w_cline_row is valid */
+! #define VALID_BOTLINE	0x20	/* w_botine and w_empty_rows are valid */
+! #define VALID_BOTLINE_AP 0x40	/* w_botine is approximated */
+! #define VALID_TOPLINE	0x80	/* w_topline is valid (for cursor position) */
+  
+  /*
+   * Terminal highlighting attribute bits.
+--- 604,618 ----
+   *     off		off		w_botline not valid
+   *     on		off		not possible
+   */
+! #define VALID_WROW	0x01	// w_wrow (window row) is valid
+! #define VALID_WCOL	0x02	// w_wcol (window col) is valid
+! #define VALID_VIRTCOL	0x04	// w_virtcol (file col) is valid
+! #define VALID_CHEIGHT	0x08	// w_cline_height and w_cline_folded valid
+! #define VALID_CROW	0x10	// w_cline_row is valid
+! #define VALID_BOTLINE	0x20	// w_botine and w_empty_rows are valid
+! #define VALID_BOTLINE_AP 0x40	// w_botine is approximated
+! #define VALID_TOPLINE	0x80	// w_topline is valid (for cursor position)
+! #define VALID_POPUP	0x100	// popup has been redrawn
+  
+  /*
+   * Terminal highlighting attribute bits.
+*** ../vim-8.1.1390/src/window.c	2019-05-24 19:38:59.116545403 +0200
+--- src/window.c	2019-05-25 17:22:02.300858667 +0200
+***************
+*** 1362,1367 ****
+--- 1362,1382 ----
+      win_copy_options(oldp, newp);
+  }
+  
++     static int
++ win_valid_popup(win_T *win)
++ {
++ #ifdef FEAT_TEXT_PROP
++     win_T	*wp;
++ 
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	if (wp == win)
++ 	    return TRUE;
++     for (wp = first_tab_popupwin; wp != NULL; wp = wp->w_next)
++ 	if (wp == win)
++ 	    return TRUE;
++ #endif
++     return FALSE;
++ }
+  
+  /*
+   * Check if "win" is a pointer to an existing window in the current tab page.
+***************
+*** 1376,1382 ****
+      FOR_ALL_WINDOWS(wp)
+  	if (wp == win)
+  	    return TRUE;
+!     return FALSE;
+  }
+  
+  /*
+--- 1391,1397 ----
+      FOR_ALL_WINDOWS(wp)
+  	if (wp == win)
+  	    return TRUE;
+!     return win_valid_popup(win);
+  }
+  
+  /*
+***************
+*** 1398,1404 ****
+  		return TRUE;
+  	}
+      }
+!     return FALSE;
+  }
+  
+  /*
+--- 1413,1419 ----
+  		return TRUE;
+  	}
+      }
+!     return win_valid_popup(win);
+  }
+  
+  /*
+***************
+*** 2293,2298 ****
+--- 2308,2351 ----
+  }
+  
+  /*
++  * Close the buffer of "win" and unload it if "free_buf" is TRUE.
++  * "abort_if_last" is passed to close_buffer(): abort closing if all other
++  * windows are closed.
++  */
++     static void
++ win_close_buffer(win_T *win, int free_buf, int abort_if_last)
++ {
++ #ifdef FEAT_SYN_HL
++     // Free independent synblock before the buffer is freed.
++     if (win->w_buffer != NULL)
++ 	reset_synblock(win);
++ #endif
++ 
++ #ifdef FEAT_QUICKFIX
++     // When the quickfix/location list window is closed, unlist the buffer.
++     if (win->w_buffer != NULL && bt_quickfix(win->w_buffer))
++ 	win->w_buffer->b_p_bl = FALSE;
++ #endif
++ 
++     // Close the link to the buffer.
++     if (win->w_buffer != NULL)
++     {
++ 	bufref_T    bufref;
++ 
++ 	set_bufref(&bufref, curbuf);
++ 	win->w_closing = TRUE;
++ 	close_buffer(win, win->w_buffer, free_buf ? DOBUF_UNLOAD : 0,
++ 								abort_if_last);
++ 	if (win_valid_any_tab(win))
++ 	    win->w_closing = FALSE;
++ 	// Make sure curbuf is valid. It can become invalid if 'bufhidden' is
++ 	// "wipe".
++ 	if (!bufref_valid(&bufref))
++ 	    curbuf = firstbuf;
++     }
++ }
++ 
++ /*
+   * Close window "win".  Only works for the current tab page.
+   * If "free_buf" is TRUE related buffer may be unloaded.
+   *
+***************
+*** 2319,2327 ****
+      if (win->w_closing || (win->w_buffer != NULL
+  					       && win->w_buffer->b_locked > 0))
+  	return FAIL; /* window is already being closed */
+!     if (win == aucmd_win)
+      {
+! 	emsg(_("E813: Cannot close autocmd window"));
+  	return FAIL;
+      }
+      if ((firstwin == aucmd_win || lastwin == aucmd_win) && one_window())
+--- 2372,2380 ----
+      if (win->w_closing || (win->w_buffer != NULL
+  					       && win->w_buffer->b_locked > 0))
+  	return FAIL; /* window is already being closed */
+!     if (win_unlisted(win))
+      {
+! 	emsg(_("E813: Cannot close autocmd or popup window"));
+  	return FAIL;
+      }
+      if ((firstwin == aucmd_win || lastwin == aucmd_win) && one_window())
+***************
+*** 2390,2424 ****
+  	out_flush();
+  #endif
+  
+! #ifdef FEAT_SYN_HL
+!     // Free independent synblock before the buffer is freed.
+!     if (win->w_buffer != NULL)
+! 	reset_synblock(win);
+! #endif
+! 
+! #ifdef FEAT_QUICKFIX
+!     // When the quickfix/location list window is closed, unlist the buffer.
+!     if (win->w_buffer != NULL && bt_quickfix(win->w_buffer))
+! 	win->w_buffer->b_p_bl = FALSE;
+! #endif
+! 
+!     /*
+!      * Close the link to the buffer.
+!      */
+!     if (win->w_buffer != NULL)
+!     {
+! 	bufref_T    bufref;
+! 
+! 	set_bufref(&bufref, curbuf);
+! 	win->w_closing = TRUE;
+! 	close_buffer(win, win->w_buffer, free_buf ? DOBUF_UNLOAD : 0, TRUE);
+! 	if (win_valid_any_tab(win))
+! 	    win->w_closing = FALSE;
+! 	/* Make sure curbuf is valid. It can become invalid if 'bufhidden' is
+! 	 * "wipe". */
+! 	if (!bufref_valid(&bufref))
+! 	    curbuf = firstbuf;
+!     }
+  
+      if (only_one_window() && win_valid(win) && win->w_buffer == NULL
+  	    && (last_window() || curtab != prev_curtab
+--- 2443,2449 ----
+  	out_flush();
+  #endif
+  
+!     win_close_buffer(win, free_buf, TRUE);
+  
+      if (only_one_window() && win_valid(win) && win->w_buffer == NULL
+  	    && (last_window() || curtab != prev_curtab
+***************
+*** 2627,2632 ****
+--- 2652,2660 ----
+  	(void)win_free_mem(aucmd_win, &dummy, NULL);
+  	aucmd_win = NULL;
+      }
++ # ifdef FEAT_TEXT_PROP
++     close_all_popups();
++ # endif
+  
+      while (firstwin != NULL)
+  	(void)win_free_mem(firstwin, &dummy, NULL);
+***************
+*** 3458,3464 ****
+      wp->w_topfill = 0;
+  #endif
+      wp->w_botline = 2;
+! #ifdef FEAT_SYN_HL
+      wp->w_s = &wp->w_buffer->b_s;
+  #endif
+  }
+--- 3486,3492 ----
+      wp->w_topfill = 0;
+  #endif
+      wp->w_botline = 2;
+! #if defined(FEAT_SYN_HL) || defined(FEAT_SPELL)
+      wp->w_s = &wp->w_buffer->b_s;
+  #endif
+  }
+***************
+*** 3484,3502 ****
+  }
+  
+  /*
+!  * Init "aucmd_win".  This can only be done after the first
+!  * window is fully initialized, thus it can't be in win_alloc_first().
+   */
+!     void
+! win_alloc_aucmd_win(void)
+  {
+!     aucmd_win = win_alloc(NULL, TRUE);
+!     if (aucmd_win != NULL)
+      {
+! 	win_init_some(aucmd_win, curwin);
+! 	RESET_BINDING(aucmd_win);
+! 	new_frame(aucmd_win);
+      }
+  }
+  
+  /*
+--- 3512,3552 ----
+  }
+  
+  /*
+!  * Allocate and init a window that is not a regular window.
+!  * This can only be done after the first window is fully initialized, thus it
+!  * can't be in win_alloc_first().
+   */
+!     win_T *
+! win_alloc_popup_win(void)
+  {
+!     win_T *wp;
+! 
+!     wp = win_alloc(NULL, TRUE);
+!     if (wp != NULL)
+      {
+! 	// We need to initialize options with something, using the current
+! 	// window makes most sense.
+! 	win_init_some(wp, curwin);
+! 
+! 	RESET_BINDING(wp);
+! 	new_frame(wp);
+      }
++     return wp;
++ }
++ 
++ /*
++  * Initialize window "wp" to display buffer "buf".
++  */
++     void
++ win_init_popup_win(win_T *wp, buf_T *buf)
++ {
++     wp->w_buffer = buf;
++     ++buf->b_nwindows;
++     win_init_empty(wp); // set cursor and topline to safe values
++ 
++     // Make sure w_localdir and globaldir are NULL to avoid a chdir() in
++     // win_enter_ext().
++     VIM_CLEAR(wp->w_localdir);
+  }
+  
+  /*
+***************
+*** 3619,3624 ****
+--- 3669,3678 ----
+  # ifdef FEAT_DIFF
+      diff_clear(tp);
+  # endif
++ # ifdef FEAT_TEXT_PROP
++     while (tp->tp_first_popupwin != NULL)
++ 	popup_close(tp->tp_first_popupwin->w_id);
++ #endif
+      for (idx = 0; idx < SNAP_COUNT; ++idx)
+  	clear_snapshot(tp, idx);
+  #ifdef FEAT_EVAL
+***************
+*** 4782,4788 ****
+      vim_free(wp->w_p_cc_cols);
+  #endif
+  
+!     if (wp != aucmd_win)
+  	win_remove(wp, tp);
+      if (autocmd_busy)
+      {
+--- 4836,4842 ----
+      vim_free(wp->w_p_cc_cols);
+  #endif
+  
+!     if (win_valid_any_tab(wp))
+  	win_remove(wp, tp);
+      if (autocmd_busy)
+      {
+***************
+*** 4796,4801 ****
+--- 4850,4877 ----
+  }
+  
+  /*
++  * Return TRUE if "wp" is not in the list of windows: the autocmd window or a
++  * popup window.
++  */
++     int
++ win_unlisted(win_T *wp)
++ {
++     return wp == aucmd_win || bt_popup(wp->w_buffer);
++ }
++ 
++ /*
++  * Free a popup window.  This does not take the window out of the window list
++  * and assumes there is only one toplevel frame, no split.
++  */
++     void
++ win_free_popup(win_T *win)
++ {
++     win_close_buffer(win, TRUE, FALSE);
++     vim_free(win->w_frame);
++     win_free(win, NULL);
++ }
++ 
++ /*
+   * Append window "wp" in the window list after window "after".
+   */
+      void
+***************
+*** 6182,6188 ****
+  /*
+   * Return TRUE if there is only one window (in the current tab page), not
+   * counting a help or preview window, unless it is the current window.
+!  * Does not count "aucmd_win".
+   */
+      int
+  only_one_window(void)
+--- 6258,6264 ----
+  /*
+   * Return TRUE if there is only one window (in the current tab page), not
+   * counting a help or preview window, unless it is the current window.
+!  * Does not count unlisted windows.
+   */
+      int
+  only_one_window(void)
+***************
+*** 6974,6979 ****
+--- 7050,7065 ----
+      FOR_ALL_TAB_WINDOWS(tp, wp)
+  	if (wp->w_id == id)
+  	    return wp;
++ #ifdef FEAT_TEXT_PROP
++     // popup windows are in a separate list
++      FOR_ALL_TABPAGES(tp)
++ 	 for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	     if (wp->w_id == id)
++ 		 return wp;
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	if (wp->w_id == id)
++ 	    return wp;
++ #endif
+  
+      return NULL;
+  }
+*** ../vim-8.1.1390/src/version.c	2019-05-24 22:08:11.366273819 +0200
+--- src/version.c	2019-05-25 19:47:26.877503334 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1391,
+  /**/
+
+-- 
+I'm not familiar with this proof, but I'm aware of a significant
+following of toddlers who believe that peanut butter is the solution
+to all of life's problems... 		-- Tim Hammerquist
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

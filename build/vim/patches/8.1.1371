@@ -1,0 +1,834 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1371
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1371
+Problem:    Cannot recover from a swap file.
+Solution:   Do not expand environment variables in the swap file name.
+            Do not check the extension when we already know a file is a swap
+            file.  (Ken Takata, closes 4415, closes #4369)
+Files:	    src/buffer.c, src/ex_cmds.c, src/ex_cmds2.c, src/ex_docmd.c,
+            src/gui.c, src/if_cscope.c, src/main.c, src/memline.c,
+            src/misc1.c, src/proto/memline.pro, src/proto/misc1.pro,
+            src/search.c, src/spell.c, src/spellfile.c, src/tag.c,
+            src/testdir/test_swap.vim, src/vim.h
+
+
+*** ../vim-8.1.1370/src/buffer.c	2019-05-16 20:29:40.795834299 +0200
+--- src/buffer.c	2019-05-23 21:26:50.251337934 +0200
+***************
+*** 1071,1077 ****
+  
+  	/* User selected Recover at ATTENTION prompt. */
+  	msg_scroll = TRUE;
+! 	ml_recover();
+  	msg_puts("\n");	/* don't overwrite the last message */
+  	cmdline_row = msg_row;
+  	do_modelines(0);
+--- 1071,1077 ----
+  
+  	/* User selected Recover at ATTENTION prompt. */
+  	msg_scroll = TRUE;
+! 	ml_recover(FALSE);
+  	msg_puts("\n");	/* don't overwrite the last message */
+  	cmdline_row = msg_row;
+  	do_modelines(0);
+***************
+*** 4943,4949 ****
+  		    if (i < alist->al_ga.ga_len
+  			    && (AARGLIST(alist)[i].ae_fnum == buf->b_fnum
+  				|| fullpathcmp(alist_name(&AARGLIST(alist)[i]),
+! 					      buf->b_ffname, TRUE) & FPC_SAME))
+  		    {
+  			int weight = 1;
+  
+--- 4943,4949 ----
+  		    if (i < alist->al_ga.ga_len
+  			    && (AARGLIST(alist)[i].ae_fnum == buf->b_fnum
+  				|| fullpathcmp(alist_name(&AARGLIST(alist)[i]),
+! 					buf->b_ffname, TRUE, TRUE) & FPC_SAME))
+  		    {
+  			int weight = 1;
+  
+*** ../vim-8.1.1370/src/ex_cmds.c	2019-05-20 20:34:48.347791448 +0200
+--- src/ex_cmds.c	2019-05-23 21:26:50.251337934 +0200
+***************
+*** 7002,7008 ****
+  		copy_option_part(&p, NameBuff, MAXPATHL, ",");
+  		mustfree = FALSE;
+  		rt = vim_getenv((char_u *)"VIMRUNTIME", &mustfree);
+! 		if (rt != NULL && fullpathcmp(rt, NameBuff, FALSE) != FPC_SAME)
+  		{
+  		    int		fcount;
+  		    char_u	**fnames;
+--- 7002,7009 ----
+  		copy_option_part(&p, NameBuff, MAXPATHL, ",");
+  		mustfree = FALSE;
+  		rt = vim_getenv((char_u *)"VIMRUNTIME", &mustfree);
+! 		if (rt != NULL &&
+! 			    fullpathcmp(rt, NameBuff, FALSE, TRUE) != FPC_SAME)
+  		{
+  		    int		fcount;
+  		    char_u	**fnames;
+***************
+*** 7224,7230 ****
+       */
+      ga_init2(&ga, (int)sizeof(char_u *), 100);
+      if (add_help_tags || fullpathcmp((char_u *)"$VIMRUNTIME/doc",
+! 						      dir, FALSE) == FPC_SAME)
+      {
+  	if (ga_grow(&ga, 1) == FAIL)
+  	    got_int = TRUE;
+--- 7225,7231 ----
+       */
+      ga_init2(&ga, (int)sizeof(char_u *), 100);
+      if (add_help_tags || fullpathcmp((char_u *)"$VIMRUNTIME/doc",
+! 						dir, FALSE, TRUE) == FPC_SAME)
+      {
+  	if (ga_grow(&ga, 1) == FAIL)
+  	    got_int = TRUE;
+*** ../vim-8.1.1370/src/ex_cmds2.c	2019-05-21 20:54:42.078415244 +0200
+--- src/ex_cmds2.c	2019-05-23 21:26:50.255337904 +0200
+***************
+*** 1715,1721 ****
+  		    && (win->w_buffer->b_ffname == NULL
+  			 || !(fullpathcmp(
+  				 alist_name(&WARGLIST(win)[win->w_arg_idx]),
+! 				win->w_buffer->b_ffname, TRUE) & FPC_SAME))));
+  }
+  
+  /*
+--- 1715,1721 ----
+  		    && (win->w_buffer->b_ffname == NULL
+  			 || !(fullpathcmp(
+  				 alist_name(&WARGLIST(win)[win->w_arg_idx]),
+! 			  win->w_buffer->b_ffname, TRUE, TRUE) & FPC_SAME))));
+  }
+  
+  /*
+***************
+*** 1737,1743 ****
+  		&& (win->w_buffer->b_fnum == GARGLIST[GARGCOUNT - 1].ae_fnum
+  		    || (win->w_buffer->b_ffname != NULL
+  			&& (fullpathcmp(alist_name(&GARGLIST[GARGCOUNT - 1]),
+! 				win->w_buffer->b_ffname, TRUE) & FPC_SAME))))
+  	    arg_had_last = TRUE;
+      }
+      else
+--- 1737,1743 ----
+  		&& (win->w_buffer->b_fnum == GARGLIST[GARGCOUNT - 1].ae_fnum
+  		    || (win->w_buffer->b_ffname != NULL
+  			&& (fullpathcmp(alist_name(&GARGLIST[GARGCOUNT - 1]),
+! 			  win->w_buffer->b_ffname, TRUE, TRUE) & FPC_SAME))))
+  	    arg_had_last = TRUE;
+      }
+      else
+*** ../vim-8.1.1370/src/ex_docmd.c	2019-05-09 18:59:27.228463605 +0200
+--- src/ex_docmd.c	2019-05-23 21:26:50.255337904 +0200
+***************
+*** 6725,6731 ****
+  
+  	    && (*eap->arg == NUL
+  			     || setfname(curbuf, eap->arg, NULL, TRUE) == OK))
+! 	ml_recover();
+      recoverymode = FALSE;
+  }
+  
+--- 6725,6731 ----
+  
+  	    && (*eap->arg == NUL
+  			     || setfname(curbuf, eap->arg, NULL, TRUE) == OK))
+! 	ml_recover(TRUE);
+      recoverymode = FALSE;
+  }
+  
+*** ../vim-8.1.1370/src/gui.c	2019-05-09 14:14:37.090870887 +0200
+--- src/gui.c	2019-05-23 21:26:50.255337904 +0200
+***************
+*** 603,624 ****
+  #endif
+  
+  		if (       fullpathcmp((char_u *)USR_GVIMRC_FILE,
+! 				     (char_u *)GVIMRC_FILE, FALSE) != FPC_SAME
+  #ifdef SYS_GVIMRC_FILE
+  			&& fullpathcmp((char_u *)SYS_GVIMRC_FILE,
+! 				     (char_u *)GVIMRC_FILE, FALSE) != FPC_SAME
+  #endif
+  #ifdef USR_GVIMRC_FILE2
+  			&& fullpathcmp((char_u *)USR_GVIMRC_FILE2,
+! 				     (char_u *)GVIMRC_FILE, FALSE) != FPC_SAME
+  #endif
+  #ifdef USR_GVIMRC_FILE3
+  			&& fullpathcmp((char_u *)USR_GVIMRC_FILE3,
+! 				     (char_u *)GVIMRC_FILE, FALSE) != FPC_SAME
+  #endif
+  #ifdef USR_GVIMRC_FILE4
+  			&& fullpathcmp((char_u *)USR_GVIMRC_FILE4,
+! 				     (char_u *)GVIMRC_FILE, FALSE) != FPC_SAME
+  #endif
+  			)
+  		    do_source((char_u *)GVIMRC_FILE, TRUE, DOSO_GVIMRC);
+--- 603,624 ----
+  #endif
+  
+  		if (       fullpathcmp((char_u *)USR_GVIMRC_FILE,
+! 				(char_u *)GVIMRC_FILE, FALSE, TRUE) != FPC_SAME
+  #ifdef SYS_GVIMRC_FILE
+  			&& fullpathcmp((char_u *)SYS_GVIMRC_FILE,
+! 				(char_u *)GVIMRC_FILE, FALSE, TRUE) != FPC_SAME
+  #endif
+  #ifdef USR_GVIMRC_FILE2
+  			&& fullpathcmp((char_u *)USR_GVIMRC_FILE2,
+! 				(char_u *)GVIMRC_FILE, FALSE, TRUE) != FPC_SAME
+  #endif
+  #ifdef USR_GVIMRC_FILE3
+  			&& fullpathcmp((char_u *)USR_GVIMRC_FILE3,
+! 				(char_u *)GVIMRC_FILE, FALSE, TRUE) != FPC_SAME
+  #endif
+  #ifdef USR_GVIMRC_FILE4
+  			&& fullpathcmp((char_u *)USR_GVIMRC_FILE4,
+! 				(char_u *)GVIMRC_FILE, FALSE, TRUE) != FPC_SAME
+  #endif
+  			)
+  		    do_source((char_u *)GVIMRC_FILE, TRUE, DOSO_GVIMRC);
+*** ../vim-8.1.1370/src/if_cscope.c	2019-02-17 17:44:36.211875510 +0100
+--- src/if_cscope.c	2019-05-23 21:31:56.497321617 +0200
+***************
+*** 1401,1410 ****
+  #if defined(UNIX)
+  	    && csinfo[j].st_dev == sb->st_dev && csinfo[j].st_ino == sb->st_ino
+  #else
+! 	    /* compare pathnames first */
+  	    && ((fullpathcmp((char_u *)csinfo[j].fname,
+! 			(char_u *)fname, FALSE) & FPC_SAME)
+! 		/* test index file attributes too */
+  		|| (csinfo[j].nVolume == bhfi.dwVolumeSerialNumber
+  		    && csinfo[j].nIndexHigh == bhfi.nFileIndexHigh
+  		    && csinfo[j].nIndexLow == bhfi.nFileIndexLow))
+--- 1401,1410 ----
+  #if defined(UNIX)
+  	    && csinfo[j].st_dev == sb->st_dev && csinfo[j].st_ino == sb->st_ino
+  #else
+! 	    // compare pathnames first
+  	    && ((fullpathcmp((char_u *)csinfo[j].fname,
+! 			(char_u *)fname, FALSE, TRUE) & FPC_SAME)
+! 		// test index file attributes too
+  		|| (csinfo[j].nVolume == bhfi.dwVolumeSerialNumber
+  		    && csinfo[j].nIndexHigh == bhfi.nFileIndexHigh
+  		    && csinfo[j].nIndexLow == bhfi.nFileIndexLow))
+*** ../vim-8.1.1370/src/main.c	2019-05-09 15:12:45.172723940 +0200
+--- src/main.c	2019-05-23 21:26:50.255337904 +0200
+***************
+*** 2684,2690 ****
+      if (recoverymode)			/* do recover */
+      {
+  	msg_scroll = TRUE;		/* scroll message up */
+! 	ml_recover();
+  	if (curbuf->b_ml.ml_mfp == NULL) /* failed */
+  	    getout(1);
+  	do_modelines(0);		/* do modelines */
+--- 2684,2690 ----
+      if (recoverymode)			/* do recover */
+      {
+  	msg_scroll = TRUE;		/* scroll message up */
+! 	ml_recover(TRUE);
+  	if (curbuf->b_ml.ml_mfp == NULL) /* failed */
+  	    getout(1);
+  	do_modelines(0);		/* do modelines */
+***************
+*** 3101,3118 ****
+  
+  	    i = FAIL;
+  	    if (fullpathcmp((char_u *)USR_VIMRC_FILE,
+! 				      (char_u *)VIMRC_FILE, FALSE) != FPC_SAME
+  #ifdef USR_VIMRC_FILE2
+  		    && fullpathcmp((char_u *)USR_VIMRC_FILE2,
+! 				      (char_u *)VIMRC_FILE, FALSE) != FPC_SAME
+  #endif
+  #ifdef USR_VIMRC_FILE3
+  		    && fullpathcmp((char_u *)USR_VIMRC_FILE3,
+! 				      (char_u *)VIMRC_FILE, FALSE) != FPC_SAME
+  #endif
+  #ifdef SYS_VIMRC_FILE
+  		    && fullpathcmp((char_u *)SYS_VIMRC_FILE,
+! 				      (char_u *)VIMRC_FILE, FALSE) != FPC_SAME
+  #endif
+  				)
+  		i = do_source((char_u *)VIMRC_FILE, TRUE, DOSO_VIMRC);
+--- 3101,3118 ----
+  
+  	    i = FAIL;
+  	    if (fullpathcmp((char_u *)USR_VIMRC_FILE,
+! 				(char_u *)VIMRC_FILE, FALSE, TRUE) != FPC_SAME
+  #ifdef USR_VIMRC_FILE2
+  		    && fullpathcmp((char_u *)USR_VIMRC_FILE2,
+! 				(char_u *)VIMRC_FILE, FALSE, TRUE) != FPC_SAME
+  #endif
+  #ifdef USR_VIMRC_FILE3
+  		    && fullpathcmp((char_u *)USR_VIMRC_FILE3,
+! 				(char_u *)VIMRC_FILE, FALSE, TRUE) != FPC_SAME
+  #endif
+  #ifdef SYS_VIMRC_FILE
+  		    && fullpathcmp((char_u *)SYS_VIMRC_FILE,
+! 				(char_u *)VIMRC_FILE, FALSE, TRUE) != FPC_SAME
+  #endif
+  				)
+  		i = do_source((char_u *)VIMRC_FILE, TRUE, DOSO_VIMRC);
+***************
+*** 3127,3136 ****
+  		    secure = 0;
+  #endif
+  		if (	   fullpathcmp((char_u *)USR_EXRC_FILE,
+! 				      (char_u *)EXRC_FILE, FALSE) != FPC_SAME
+  #ifdef USR_EXRC_FILE2
+  			&& fullpathcmp((char_u *)USR_EXRC_FILE2,
+! 				      (char_u *)EXRC_FILE, FALSE) != FPC_SAME
+  #endif
+  				)
+  		    (void)do_source((char_u *)EXRC_FILE, FALSE, DOSO_NONE);
+--- 3127,3136 ----
+  		    secure = 0;
+  #endif
+  		if (	   fullpathcmp((char_u *)USR_EXRC_FILE,
+! 				(char_u *)EXRC_FILE, FALSE, TRUE) != FPC_SAME
+  #ifdef USR_EXRC_FILE2
+  			&& fullpathcmp((char_u *)USR_EXRC_FILE2,
+! 				(char_u *)EXRC_FILE, FALSE, TRUE) != FPC_SAME
+  #endif
+  				)
+  		    (void)do_source((char_u *)EXRC_FILE, FALSE, DOSO_NONE);
+*** ../vim-8.1.1370/src/memline.c	2019-05-18 13:05:12.470334000 +0200
+--- src/memline.c	2019-05-23 21:31:48.537371741 +0200
+***************
+*** 1084,1092 ****
+  
+  /*
+   * Try to recover curbuf from the .swp file.
+   */
+      void
+! ml_recover(void)
+  {
+      buf_T	*buf = NULL;
+      memfile_T	*mfp = NULL;
+--- 1084,1094 ----
+  
+  /*
+   * Try to recover curbuf from the .swp file.
++  * If "checkext" is TRUE, check the extension and detect whether it is
++  * a swap file.
+   */
+      void
+! ml_recover(int checkext)
+  {
+      buf_T	*buf = NULL;
+      memfile_T	*mfp = NULL;
+***************
+*** 1136,1142 ****
+      if (fname == NULL)		    /* When there is no file name */
+  	fname = (char_u *)"";
+      len = (int)STRLEN(fname);
+!     if (len >= 4 &&
+  #if defined(VMS)
+  	    STRNICMP(fname + len - 4, "_s", 2)
+  #else
+--- 1138,1144 ----
+      if (fname == NULL)		    /* When there is no file name */
+  	fname = (char_u *)"";
+      len = (int)STRLEN(fname);
+!     if (checkext && len >= 4 &&
+  #if defined(VMS)
+  	    STRNICMP(fname + len - 4, "_s", 2)
+  #else
+***************
+*** 1887,1893 ****
+  	if (num_names == 0)
+  	    num_files = 0;
+  	else if (expand_wildcards(num_names, names, &num_files, &files,
+! 					EW_KEEPALL|EW_FILE|EW_SILENT) == FAIL)
+  	    num_files = 0;
+  
+  	/*
+--- 1889,1895 ----
+  	if (num_names == 0)
+  	    num_files = 0;
+  	else if (expand_wildcards(num_names, names, &num_files, &files,
+! 			    EW_NOTENV|EW_KEEPALL|EW_FILE|EW_SILENT) == FAIL)
+  	    num_files = 0;
+  
+  	/*
+***************
+*** 1930,1940 ****
+  			       && (p = curbuf->b_ml.ml_mfp->mf_fname) != NULL)
+  	{
+  	    for (i = 0; i < num_files; ++i)
+! 		if (fullpathcmp(p, files[i], TRUE) & FPC_SAME)
+  		{
+! 		    /* Remove the name from files[i].  Move further entries
+! 		     * down.  When the array becomes empty free it here, since
+! 		     * FreeWild() won't be called below. */
+  		    vim_free(files[i]);
+  		    if (--num_files == 0)
+  			vim_free(files);
+--- 1932,1944 ----
+  			       && (p = curbuf->b_ml.ml_mfp->mf_fname) != NULL)
+  	{
+  	    for (i = 0; i < num_files; ++i)
+! 		// Do not expand wildcards, on windows would try to expand
+! 		// "%tmp%" in "%tmp%file".
+! 		if (fullpathcmp(p, files[i], TRUE, FALSE) & FPC_SAME)
+  		{
+! 		    // Remove the name from files[i].  Move further entries
+! 		    // down.  When the array becomes empty free it here, since
+! 		    // FreeWild() won't be called below.
+  		    vim_free(files[i]);
+  		    if (--num_files == 0)
+  			vim_free(files);
+*** ../vim-8.1.1370/src/misc1.c	2019-05-19 22:53:36.508914587 +0200
+--- src/misc1.c	2019-05-23 21:26:50.255337904 +0200
+***************
+*** 2691,2703 ****
+   * FPC_DIFF   if they both exist and are different files.
+   * FPC_NOTX   if they both don't exist.
+   * FPC_DIFFX  if one of them doesn't exist.
+!  * For the first name environment variables are expanded
+   */
+      int
+  fullpathcmp(
+      char_u *s1,
+      char_u *s2,
+!     int	    checkname)		/* when both don't exist, check file names */
+  {
+  #ifdef UNIX
+      char_u	    exp1[MAXPATHL];
+--- 2691,2705 ----
+   * FPC_DIFF   if they both exist and are different files.
+   * FPC_NOTX   if they both don't exist.
+   * FPC_DIFFX  if one of them doesn't exist.
+!  * For the first name environment variables are expanded if "expandenv" is
+!  * TRUE.
+   */
+      int
+  fullpathcmp(
+      char_u *s1,
+      char_u *s2,
+!     int	    checkname,		// when both don't exist, check file names
+!     int	    expandenv)
+  {
+  #ifdef UNIX
+      char_u	    exp1[MAXPATHL];
+***************
+*** 2706,2712 ****
+      stat_T	    st1, st2;
+      int		    r1, r2;
+  
+!     expand_env(s1, exp1, MAXPATHL);
+      r1 = mch_stat((char *)exp1, &st1);
+      r2 = mch_stat((char *)s2, &st2);
+      if (r1 != 0 && r2 != 0)
+--- 2708,2717 ----
+      stat_T	    st1, st2;
+      int		    r1, r2;
+  
+!     if (expandenv)
+! 	expand_env(s1, exp1, MAXPATHL);
+!     else
+! 	vim_strncpy(exp1, s1, MAXPATHL - 1);
+      r1 = mch_stat((char *)exp1, &st1);
+      r2 = mch_stat((char *)s2, &st2);
+      if (r1 != 0 && r2 != 0)
+***************
+*** 2741,2747 ****
+  	full1 = exp1 + MAXPATHL;
+  	full2 = full1 + MAXPATHL;
+  
+! 	expand_env(s1, exp1, MAXPATHL);
+  	r1 = vim_FullName(exp1, full1, MAXPATHL, FALSE);
+  	r2 = vim_FullName(s2, full2, MAXPATHL, FALSE);
+  
+--- 2746,2755 ----
+  	full1 = exp1 + MAXPATHL;
+  	full2 = full1 + MAXPATHL;
+  
+! 	if (expandenv)
+! 	    expand_env(s1, exp1, MAXPATHL);
+! 	else
+! 	    vim_strncpy(exp1, s1, MAXPATHL - 1);
+  	r1 = vim_FullName(exp1, full1, MAXPATHL, FALSE);
+  	r2 = vim_FullName(s2, full2, MAXPATHL, FALSE);
+  
+***************
+*** 4027,4033 ****
+  	    /*
+  	     * First expand environment variables, "~/" and "~user/".
+  	     */
+! 	    if (has_env_var(p) || *p == '~')
+  	    {
+  		p = expand_env_save_opt(p, TRUE);
+  		if (p == NULL)
+--- 4035,4041 ----
+  	    /*
+  	     * First expand environment variables, "~/" and "~user/".
+  	     */
+! 	    if ((has_env_var(p) && !(flags & EW_NOTENV)) || *p == '~')
+  	    {
+  		p = expand_env_save_opt(p, TRUE);
+  		if (p == NULL)
+*** ../vim-8.1.1370/src/proto/memline.pro	2019-05-10 21:28:35.184612974 +0200
+--- src/proto/memline.pro	2019-05-23 21:26:50.255337904 +0200
+***************
+*** 9,15 ****
+  void ml_close_all(int del_file);
+  void ml_close_notmod(void);
+  void ml_timestamp(buf_T *buf);
+! void ml_recover(void);
+  int recover_names(char_u *fname, int list, int nr, char_u **fname_out);
+  char_u *make_percent_swname(char_u *dir, char_u *name);
+  void get_b0_dict(char_u *fname, dict_T *d);
+--- 9,15 ----
+  void ml_close_all(int del_file);
+  void ml_close_notmod(void);
+  void ml_timestamp(buf_T *buf);
+! void ml_recover(int checkext);
+  int recover_names(char_u *fname, int list, int nr, char_u **fname_out);
+  char_u *make_percent_swname(char_u *dir, char_u *name);
+  void get_b0_dict(char_u *fname, dict_T *d);
+*** ../vim-8.1.1370/src/proto/misc1.pro	2019-05-11 17:03:55.170019762 +0200
+--- src/proto/misc1.pro	2019-05-23 21:26:50.255337904 +0200
+***************
+*** 45,51 ****
+  int match_user(char_u *name);
+  void home_replace(buf_T *buf, char_u *src, char_u *dst, int dstlen, int one);
+  char_u *home_replace_save(buf_T *buf, char_u *src);
+! int fullpathcmp(char_u *s1, char_u *s2, int checkname);
+  char_u *gettail(char_u *fname);
+  char_u *gettail_sep(char_u *fname);
+  char_u *getnextcomp(char_u *fname);
+--- 45,51 ----
+  int match_user(char_u *name);
+  void home_replace(buf_T *buf, char_u *src, char_u *dst, int dstlen, int one);
+  char_u *home_replace_save(buf_T *buf, char_u *src);
+! int fullpathcmp(char_u *s1, char_u *s2, int checkname, int expandenv);
+  char_u *gettail(char_u *fname);
+  char_u *gettail_sep(char_u *fname);
+  char_u *getnextcomp(char_u *fname);
+*** ../vim-8.1.1370/src/search.c	2019-05-18 19:26:25.973151461 +0200
+--- src/search.c	2019-05-23 21:26:50.259337879 +0200
+***************
+*** 5170,5176 ****
+  			i = old_files;
+  		    if (i == max_path_depth)
+  			break;
+! 		    if (fullpathcmp(new_fname, files[i].name, TRUE) & FPC_SAME)
+  		    {
+  			if (type != CHECK_PATH &&
+  				action == ACTION_SHOW_ALL && files[i].matched)
+--- 5170,5177 ----
+  			i = old_files;
+  		    if (i == max_path_depth)
+  			break;
+! 		    if (fullpathcmp(new_fname, files[i].name, TRUE, TRUE)
+! 								    & FPC_SAME)
+  		    {
+  			if (type != CHECK_PATH &&
+  				action == ACTION_SHOW_ALL && files[i].matched)
+*** ../vim-8.1.1370/src/spell.c	2019-05-09 15:12:45.176723907 +0200
+--- src/spell.c	2019-05-23 21:26:50.259337879 +0200
+***************
+*** 2343,2349 ****
+  
+  	    /* Check if we loaded this language before. */
+  	    for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+! 		if (fullpathcmp(lang, slang->sl_fname, FALSE) == FPC_SAME)
+  		    break;
+  	}
+  	else
+--- 2343,2349 ----
+  
+  	    /* Check if we loaded this language before. */
+  	    for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+! 		if (fullpathcmp(lang, slang->sl_fname, FALSE, TRUE) == FPC_SAME)
+  		    break;
+  	}
+  	else
+***************
+*** 2395,2401 ****
+  	 * Loop over the languages, there can be several files for "lang".
+  	 */
+  	for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+! 	    if (filename ? fullpathcmp(lang, slang->sl_fname, FALSE) == FPC_SAME
+  			 : STRICMP(lang, slang->sl_name) == 0)
+  	    {
+  		region_mask = REGION_ALL;
+--- 2395,2402 ----
+  	 * Loop over the languages, there can be several files for "lang".
+  	 */
+  	for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+! 	    if (filename ? fullpathcmp(lang, slang->sl_fname, FALSE, TRUE)
+! 								    == FPC_SAME
+  			 : STRICMP(lang, slang->sl_name) == 0)
+  	    {
+  		region_mask = REGION_ALL;
+***************
+*** 2463,2469 ****
+  	    for (c = 0; c < ga.ga_len; ++c)
+  	    {
+  		p = LANGP_ENTRY(ga, c)->lp_slang->sl_fname;
+! 		if (p != NULL && fullpathcmp(spf_name, p, FALSE) == FPC_SAME)
+  		    break;
+  	    }
+  	    if (c < ga.ga_len)
+--- 2464,2471 ----
+  	    for (c = 0; c < ga.ga_len; ++c)
+  	    {
+  		p = LANGP_ENTRY(ga, c)->lp_slang->sl_fname;
+! 		if (p != NULL && fullpathcmp(spf_name, p, FALSE, TRUE)
+! 								== FPC_SAME)
+  		    break;
+  	    }
+  	    if (c < ga.ga_len)
+***************
+*** 2472,2478 ****
+  
+  	/* Check if it was loaded already. */
+  	for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+! 	    if (fullpathcmp(spf_name, slang->sl_fname, FALSE) == FPC_SAME)
+  		break;
+  	if (slang == NULL)
+  	{
+--- 2474,2481 ----
+  
+  	/* Check if it was loaded already. */
+  	for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+! 	    if (fullpathcmp(spf_name, slang->sl_fname, FALSE, TRUE)
+! 								== FPC_SAME)
+  		break;
+  	if (slang == NULL)
+  	{
+*** ../vim-8.1.1370/src/spellfile.c	2019-05-09 15:12:45.176723907 +0200
+--- src/spellfile.c	2019-05-23 21:26:50.259337879 +0200
+***************
+*** 1734,1740 ****
+  
+      for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+      {
+! 	if (fullpathcmp(fname, slang->sl_fname, FALSE) == FPC_SAME)
+  	{
+  	    slang_clear(slang);
+  	    if (spell_load_file(fname, NULL, slang, FALSE) == NULL)
+--- 1734,1740 ----
+  
+      for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+      {
+! 	if (fullpathcmp(fname, slang->sl_fname, FALSE, TRUE) == FPC_SAME)
+  	{
+  	    slang_clear(slang);
+  	    if (spell_load_file(fname, NULL, slang, FALSE) == NULL)
+***************
+*** 5440,5446 ****
+       * It might have been done already by spell_reload_one().
+       */
+      for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+! 	if (fullpathcmp(wfname, slang->sl_fname, FALSE) == FPC_SAME)
+  	    break;
+      if (slang == NULL)
+      {
+--- 5440,5446 ----
+       * It might have been done already by spell_reload_one().
+       */
+      for (slang = first_lang; slang != NULL; slang = slang->sl_next)
+! 	if (fullpathcmp(wfname, slang->sl_fname, FALSE, TRUE) == FPC_SAME)
+  	    break;
+      if (slang == NULL)
+      {
+*** ../vim-8.1.1370/src/tag.c	2019-05-03 23:15:34.048180407 +0200
+--- src/tag.c	2019-05-23 21:26:50.259337879 +0200
+***************
+*** 3781,3787 ****
+  	fullname = expand_tag_fname(fname, tag_fname, TRUE);
+  	if (fullname != NULL)
+  	{
+! 	    retval = (fullpathcmp(fullname, buf_ffname, TRUE) & FPC_SAME);
+  	    vim_free(fullname);
+  	}
+  #ifdef FEAT_EMACS_TAGS
+--- 3781,3787 ----
+  	fullname = expand_tag_fname(fname, tag_fname, TRUE);
+  	if (fullname != NULL)
+  	{
+! 	    retval = (fullpathcmp(fullname, buf_ffname, TRUE, TRUE) & FPC_SAME);
+  	    vim_free(fullname);
+  	}
+  #ifdef FEAT_EMACS_TAGS
+*** ../vim-8.1.1370/src/testdir/test_swap.vim	2019-04-28 23:07:13.572480525 +0200
+--- src/testdir/test_swap.vim	2019-05-23 21:26:50.259337879 +0200
+***************
+*** 220,222 ****
+--- 220,306 ----
+    augroup END
+    augroup! test_swapfile_delete
+  endfunc
++ 
++ func Test_swap_recover()
++   autocmd! SwapExists
++   augroup test_swap_recover
++     autocmd!
++     autocmd SwapExists * let v:swapchoice = 'r'
++   augroup END
++ 
++ 
++   call mkdir('Xswap')
++   let $Xswap = 'foo'  " Check for issue #4369.
++   set dir=Xswap//
++   " Create a valid swapfile by editing a file.
++   split Xswap/text
++   call setline(1, ['one', 'two', 'three'])
++   write  " file is written, not modified
++   " read the swapfile as a Blob
++   let swapfile_name = swapname('%')
++   let swapfile_bytes = readfile(swapfile_name, 'B')
++ 
++   " Close the file and recreate the swap file.
++   quit
++   call writefile(swapfile_bytes, swapfile_name)
++   " Edit the file again. This triggers recovery.
++   try
++     split Xswap/text
++   catch
++     " E308 should be caught, not E305.
++     call assert_exception('E308:')  " Original file may have been changed
++   endtry
++   " The file should be recovered.
++   call assert_equal(['one', 'two', 'three'], getline(1, 3))
++   quit!
++ 
++   call delete('Xswap/text')
++   call delete(swapfile_name)
++   call delete('Xswap', 'd')
++   unlet $Xswap
++   set dir&
++   augroup test_swap_recover
++     autocmd!
++   augroup END
++   augroup! test_swap_recover
++ endfunc
++ 
++ func Test_swap_recover_ext()
++   autocmd! SwapExists
++   augroup test_swap_recover_ext
++     autocmd!
++     autocmd SwapExists * let v:swapchoice = 'r'
++   augroup END
++ 
++ 
++   " Create a valid swapfile by editing a file with a special extension.
++   split Xtest.scr
++   call setline(1, ['one', 'two', 'three'])
++   write  " file is written, not modified
++   write  " write again to make sure the swapfile is created
++   " read the swapfile as a Blob
++   let swapfile_name = swapname('%')
++   let swapfile_bytes = readfile(swapfile_name, 'B')
++ 
++   " Close and delete the file and recreate the swap file.
++   quit
++   call delete('Xtest.scr')
++   call writefile(swapfile_bytes, swapfile_name)
++   " Edit the file again. This triggers recovery.
++   try
++     split Xtest.scr
++   catch
++     " E308 should be caught, not E306.
++     call assert_exception('E308:')  " Original file may have been changed
++   endtry
++   " The file should be recovered.
++   call assert_equal(['one', 'two', 'three'], getline(1, 3))
++   quit!
++ 
++   call delete('Xtest.scr')
++   call delete(swapfile_name)
++   augroup test_swap_recover_ext
++     autocmd!
++   augroup END
++   augroup! test_swap_recover_ext
++ endfunc
+*** ../vim-8.1.1370/src/vim.h	2019-05-19 22:53:36.504914607 +0200
+--- src/vim.h	2019-05-23 21:34:16.148457017 +0200
+***************
+*** 781,806 ****
+  #define WILD_ICASE		0x100
+  #define WILD_ALLLINKS		0x200
+  
+! /* Flags for expand_wildcards() */
+! #define EW_DIR		0x01	/* include directory names */
+! #define EW_FILE		0x02	/* include file names */
+! #define EW_NOTFOUND	0x04	/* include not found names */
+! #define EW_ADDSLASH	0x08	/* append slash to directory name */
+! #define EW_KEEPALL	0x10	/* keep all matches */
+! #define EW_SILENT	0x20	/* don't print "1 returned" from shell */
+! #define EW_EXEC		0x40	/* executable files */
+! #define EW_PATH		0x80	/* search in 'path' too */
+! #define EW_ICASE	0x100	/* ignore case */
+! #define EW_NOERROR	0x200	/* no error for bad regexp */
+! #define EW_NOTWILD	0x400	/* add match with literal name if exists */
+! #define EW_KEEPDOLLAR	0x800	/* do not escape $, $var is expanded */
+! /* Note: mostly EW_NOTFOUND and EW_SILENT are mutually exclusive: EW_NOTFOUND
+!  * is used when executing commands and EW_SILENT for interactive expanding. */
+! #define EW_ALLLINKS	0x1000	/* also links not pointing to existing file */
+! #define EW_SHELLCMD	0x2000	/* called from expand_shellcmd(), don't check
+! 				 * if executable is in $PATH */
+! #define EW_DODOT	0x4000	/* also files starting with a dot */
+! #define EW_EMPTYOK	0x8000	/* no matches is not an error */
+  
+  /* Flags for find_file_*() functions. */
+  #define FINDFILE_FILE	0	/* only files */
+--- 781,807 ----
+  #define WILD_ICASE		0x100
+  #define WILD_ALLLINKS		0x200
+  
+! // Flags for expand_wildcards()
+! #define EW_DIR		0x01	// include directory names
+! #define EW_FILE		0x02	// include file names
+! #define EW_NOTFOUND	0x04	// include not found names
+! #define EW_ADDSLASH	0x08	// append slash to directory name
+! #define EW_KEEPALL	0x10	// keep all matches
+! #define EW_SILENT	0x20	// don't print "1 returned" from shell
+! #define EW_EXEC		0x40	// executable files
+! #define EW_PATH		0x80	// search in 'path' too
+! #define EW_ICASE	0x100	// ignore case
+! #define EW_NOERROR	0x200	// no error for bad regexp
+! #define EW_NOTWILD	0x400	// add match with literal name if exists
+! #define EW_KEEPDOLLAR	0x800	// do not escape $, $var is expanded
+! // Note: mostly EW_NOTFOUND and EW_SILENT are mutually exclusive: EW_NOTFOUND
+! // is used when executing commands and EW_SILENT for interactive expanding.
+! #define EW_ALLLINKS	0x1000	// also links not pointing to existing file
+! #define EW_SHELLCMD	0x2000	// called from expand_shellcmd(), don't check
+! 				// if executable is in $PATH
+! #define EW_DODOT	0x4000	// also files starting with a dot
+! #define EW_EMPTYOK	0x8000	// no matches is not an error
+! #define EW_NOTENV	0x10000	// do not expand environment variables
+  
+  /* Flags for find_file_*() functions. */
+  #define FINDFILE_FILE	0	/* only files */
+*** ../vim-8.1.1370/src/version.c	2019-05-23 20:41:54.040417792 +0200
+--- src/version.c	2019-05-23 21:29:17.694342363 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1371,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+26. You check your mail. It says "no new messages." So you check it again.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

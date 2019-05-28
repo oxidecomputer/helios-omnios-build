@@ -1,0 +1,182 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1388
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1388
+Problem:    Errors when calling prop_remove() for an unloaded buffer.
+Solution:   Bail out when the buffer is not loaded.  Add a few more tests for
+            failing when the buffer number is invalid.
+Files:	    src/textprop.c, src/testdir/test_textprop.vim
+
+
+*** ../vim-8.1.1387/src/textprop.c	2019-05-24 20:41:51.990993995 +0200
+--- src/textprop.c	2019-05-24 21:15:44.236123472 +0200
+***************
+*** 129,135 ****
+      di = dict_find(arg->vval.v_dict, (char_u *)"bufnr", -1);
+      if (di != NULL)
+      {
+! 	*buf = tv_get_buf(&di->di_tv, FALSE);
+  	if (*buf == NULL)
+  	    return FAIL;
+      }
+--- 129,135 ----
+      di = dict_find(arg->vval.v_dict, (char_u *)"bufnr", -1);
+      if (di != NULL)
+      {
+! 	*buf = get_buf_arg(&di->di_tv);
+  	if (*buf == NULL)
+  	    return FAIL;
+      }
+***************
+*** 560,572 ****
+      }
+  
+      dict = argvars[0].vval.v_dict;
+!     di = dict_find(dict, (char_u *)"bufnr", -1);
+!     if (di != NULL)
+!     {
+! 	buf = tv_get_buf(&di->di_tv, FALSE);
+! 	if (buf == NULL)
+! 	    return;
+!     }
+  
+      di = dict_find(dict, (char_u*)"all", -1);
+      if (di != NULL)
+--- 560,569 ----
+      }
+  
+      dict = argvars[0].vval.v_dict;
+!     if (get_bufnr_from_arg(&argvars[0], &buf) == FAIL)
+! 	return;
+!     if (buf->b_ml.ml_mfp == NULL)
+! 	return;
+  
+      di = dict_find(dict, (char_u*)"all", -1);
+      if (di != NULL)
+***************
+*** 628,634 ****
+  			buf->b_ml.ml_flags |= ML_LINE_DIRTY;
+  
+  			cur_prop = buf->b_ml.ml_line_ptr + len
+! 							+ idx * sizeof(textprop_T);
+  		    }
+  
+  		    taillen = buf->b_ml.ml_line_len - len
+--- 625,631 ----
+  			buf->b_ml.ml_flags |= ML_LINE_DIRTY;
+  
+  			cur_prop = buf->b_ml.ml_line_ptr + len
+! 						    + idx * sizeof(textprop_T);
+  		    }
+  
+  		    taillen = buf->b_ml.ml_line_len - len
+*** ../vim-8.1.1387/src/testdir/test_textprop.vim	2019-05-24 20:41:51.990993995 +0200
+--- src/testdir/test_textprop.vim	2019-05-24 21:20:48.757553109 +0200
+***************
+*** 69,74 ****
+--- 69,76 ----
+    call assert_equal(1, len(prop_type_list({'bufnr': bufnr})))
+    call prop_type_delete('two', {'bufnr': bufnr})
+    call assert_equal(0, len(prop_type_list({'bufnr': bufnr})))
++ 
++   call assert_fails("call prop_type_add('one', {'bufnr': 98764})", "E158:")
+  endfunc
+  
+  func AddPropTypes()
+***************
+*** 124,129 ****
+--- 126,133 ----
+    let expected = [{'col': 5, 'length': 0, 'type': 'two', 'id': 0, 'start': 1, 'end': 1}]
+    call assert_equal(expected, prop_list(1))
+  
++   call assert_fails("call prop_add(1, 5, {'type': 'two', 'bufnr': 234343})", 'E158:')
++ 
+    call DeletePropTypes()
+    bwipe!
+  endfunc
+***************
+*** 136,150 ****
+    call assert_equal(props, prop_list(1))
+  
+    " remove by id
+!   call prop_remove({'id': 12}, 1)
+    unlet props[2]
+    call assert_equal(props, prop_list(1))
+  
+    " remove by type
+!   call prop_remove({'type': 'one'}, 1)
+    unlet props[1]
+    call assert_equal(props, prop_list(1))
+  
+    call DeletePropTypes()
+    bwipe!
+  endfunc
+--- 140,157 ----
+    call assert_equal(props, prop_list(1))
+  
+    " remove by id
+!   call assert_equal(1, prop_remove({'id': 12}, 1))
+    unlet props[2]
+    call assert_equal(props, prop_list(1))
+  
+    " remove by type
+!   call assert_equal(1, prop_remove({'type': 'one'}, 1))
+    unlet props[1]
+    call assert_equal(props, prop_list(1))
+  
++   " remove from unknown buffer
++   call assert_fails("call prop_remove({'type': 'one', 'bufnr': 123456}, 1)", 'E158:')
++ 
+    call DeletePropTypes()
+    bwipe!
+  endfunc
+***************
+*** 760,762 ****
+--- 767,782 ----
+    call prop_add(1, 1, {'type': 'comment'})
+    close
+  endfunc
++ 
++ func Test_textprop_remove_from_buf()
++   new
++   let buf = bufnr('')
++   call prop_type_add('one', {'bufnr': buf})
++   call prop_add(1, 1, {'type': 'one', 'id': 234})
++   file x
++   edit y
++   call prop_remove({'id': 234, 'bufnr': buf}, 1)
++   call prop_type_delete('one', {'bufnr': buf})
++   bwipe! x
++   close
++ endfunc
+*** ../vim-8.1.1387/src/version.c	2019-05-24 20:41:51.990993995 +0200
+--- src/version.c	2019-05-24 21:05:40.879518821 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1388,
+  /**/
+
+-- 
+In many of the more relaxed civilizations on the Outer Eastern Rim of the
+Galaxy, "The Hitchhiker's Guide to the Galaxy" has already supplanted the
+great "Encyclopedia Galactica" as the standard repository of all knowledge
+and wisdom, for though it has many omissions and contains much that is
+apocryphal, or at least wildly inaccurate, it scores over the older, more
+pedestrian work in two important respects.
+First, it is slightly cheaper; and second, it has the words "DON'T PANIC"
+inscribed in large friendly letters on its cover.
+		-- Douglas Adams, "The Hitchhiker's Guide to the Galaxy"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

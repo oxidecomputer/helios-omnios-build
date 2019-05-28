@@ -1,0 +1,276 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1326
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1326
+Problem:    No test for listener with partial.
+Solution:   Add a test.  Add example to help.
+Files:	    src/testdir/test_listener.vim, runtime/doc/eval.txt
+
+
+*** ../vim-8.1.1325/src/testdir/test_listener.vim	2019-05-11 21:14:02.332269584 +0200
+--- src/testdir/test_listener.vim	2019-05-12 13:43:04.834079948 +0200
+***************
+*** 1,77 ****
+  " tests for listener_add() and listener_remove()
+  
+! func StoreList(l)
+!   let g:list = a:l
+  endfunc
+  
+! func AnotherStoreList(l)
+!   let g:list2 = a:l
+  endfunc
+  
+! func EvilStoreList(l)
+!   let g:list3 = a:l
+    call assert_fails("call add(a:l, 'myitem')", "E742:")
+  endfunc
+  
+  func Test_listening()
+    new
+    call setline(1, ['one', 'two'])
+!   let id = listener_add({l -> StoreList(l)})
+    call setline(1, 'one one')
+    redraw
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], g:list)
+  
+    " Two listeners, both get called.
+!   let id2 = listener_add({l -> AnotherStoreList(l)})
+!   let g:list = []
+!   let g:list2 = []
+    exe "normal $asome\<Esc>"
+    redraw
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 8, 'added': 0}], g:list)
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 8, 'added': 0}], g:list2)
+  
+    call listener_remove(id2)
+!   let g:list = []
+!   let g:list2 = []
+    call setline(3, 'three')
+    redraw
+!   call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1}], g:list)
+!   call assert_equal([], g:list2)
+  
+    " the "o" command first adds an empty line and then changes it
+!   let g:list = []
+    exe "normal Gofour\<Esc>"
+    redraw
+    call assert_equal([{'lnum': 4, 'end': 4, 'col': 1, 'added': 1},
+! 	\ {'lnum': 4, 'end': 5, 'col': 1, 'added': 0}], g:list)
+  
+!   let g:list = []
+    call listener_remove(id)
+    call setline(1, 'asdfasdf')
+    redraw
+!   call assert_equal([], g:list)
+  
+    " Trying to change the list fails
+!   let id = listener_add({l -> EvilStoreList(l)})
+!   let g:list3 = []
+    call setline(1, 'asdfasdf')
+    redraw
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], g:list3)
+  
+    bwipe!
+  endfunc
+  
+  func Test_listening_other_buf()
+    new
+    call setline(1, ['one', 'two'])
+    let bufnr = bufnr('')
+    normal ww
+!   let id = listener_add({l -> StoreList(l)}, bufnr)
+!   let g:list = []
+    call setbufline(bufnr, 1, 'hello')
+    redraw
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], g:list)
+  
+    exe "buf " .. bufnr
+    bwipe!
+  endfunc
+--- 1,86 ----
+  " tests for listener_add() and listener_remove()
+  
+! func s:StoreList(l)
+!   let s:list = a:l
+  endfunc
+  
+! func s:AnotherStoreList(l)
+!   let s:list2 = a:l
+  endfunc
+  
+! func s:EvilStoreList(l)
+!   let s:list3 = a:l
+    call assert_fails("call add(a:l, 'myitem')", "E742:")
+  endfunc
+  
+  func Test_listening()
+    new
+    call setline(1, ['one', 'two'])
+!   let id = listener_add({l -> s:StoreList(l)})
+    call setline(1, 'one one')
+    redraw
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
+  
+    " Two listeners, both get called.
+!   let id2 = listener_add({l -> s:AnotherStoreList(l)})
+!   let s:list = []
+!   let s:list2 = []
+    exe "normal $asome\<Esc>"
+    redraw
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 8, 'added': 0}], s:list)
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 8, 'added': 0}], s:list2)
+  
+    call listener_remove(id2)
+!   let s:list = []
+!   let s:list2 = []
+    call setline(3, 'three')
+    redraw
+!   call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1}], s:list)
+!   call assert_equal([], s:list2)
+  
+    " the "o" command first adds an empty line and then changes it
+!   let s:list = []
+    exe "normal Gofour\<Esc>"
+    redraw
+    call assert_equal([{'lnum': 4, 'end': 4, 'col': 1, 'added': 1},
+! 	\ {'lnum': 4, 'end': 5, 'col': 1, 'added': 0}], s:list)
+  
+!   " Remove last listener
+!   let s:list = []
+    call listener_remove(id)
+    call setline(1, 'asdfasdf')
+    redraw
+!   call assert_equal([], s:list)
+  
+    " Trying to change the list fails
+!   let id = listener_add({l -> s:EvilStoreList(l)})
+!   let s:list3 = []
+    call setline(1, 'asdfasdf')
+    redraw
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list3)
+  
++   call listener_remove(id)
+    bwipe!
+  endfunc
+  
++ func s:StoreBufList(buf, l)
++   let s:bufnr = a:buf
++   let s:list = a:l
++ endfunc
++ 
+  func Test_listening_other_buf()
+    new
+    call setline(1, ['one', 'two'])
+    let bufnr = bufnr('')
+    normal ww
+!   let id = listener_add(function('s:StoreBufList', [bufnr]), bufnr)
+!   let s:list = []
+    call setbufline(bufnr, 1, 'hello')
+    redraw
+!   call assert_equal(bufnr, s:bufnr)
+!   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
+  
++   call listener_remove(id)
+    exe "buf " .. bufnr
+    bwipe!
+  endfunc
+*** ../vim-8.1.1325/runtime/doc/eval.txt	2019-05-11 21:14:02.332269584 +0200
+--- runtime/doc/eval.txt	2019-05-12 13:48:56.268207900 +0200
+***************
+*** 6323,6329 ****
+  		Returns a unique ID that can be passed to |listener_remove()|.
+  
+  		The {callback} is invoked with a list of items that indicate a
+! 		change.  Each list item is a dictionary with these entries:
+  		    lnum	the first line number of the change
+  		    end		the first line below the change
+  		    added	number of lines added; negative if lines were
+--- 6323,6330 ----
+  		Returns a unique ID that can be passed to |listener_remove()|.
+  
+  		The {callback} is invoked with a list of items that indicate a
+! 		change.  The list cannot be changed.  Each list item is a
+! 		dictionary with these entries:
+  		    lnum	the first line number of the change
+  		    end		the first line below the change
+  		    added	number of lines added; negative if lines were
+***************
+*** 6349,6355 ****
+  		    added	zero
+  		    col		first column with a change or one
+  
+! 		The {callback} is invoked just before the screen is updated.
+  		To trigger this in a script use the `:redraw` command.
+  
+  		The {callback} is not invoked when the buffer is first loaded.
+--- 6350,6370 ----
+  		    added	zero
+  		    col		first column with a change or one
+  
+! 		The entries are in the order the changes was made, thus the
+! 		most recent change is at the end.  One has to go through the
+! 		list from end to start to compute the line numbers in the
+! 		current state of the text.
+! 
+! 		When using the same function for multiple buffers, you can
+! 		pass the buffer to that function using a |Partial|.
+! 		Example: >
+! 		    func Listener(bufnr, changes)
+! 		      " ...
+! 		    endfunc
+! 		    let bufnr = ...
+! 		    call listener_add(function('Listener', [bufnr]), bufnr)
+! 
+! <		The {callback} is invoked just before the screen is updated.
+  		To trigger this in a script use the `:redraw` command.
+  
+  		The {callback} is not invoked when the buffer is first loaded.
+***************
+*** 10984,10993 ****
+  
+  Example: >
+    function Something(key, value = 10)
+!      echo a:key .. ": " .. value
+    endfunction
+    call Something('empty')	"empty: 10"
+!   call Something('key, 20)	"key: 20"
+  
+  The argument default expressions are evaluated at the time of the function
+  call, not definition.  Thus it is possible to use an expression which is
+--- 10999,11008 ----
+  
+  Example: >
+    function Something(key, value = 10)
+!      echo a:key .. ": " .. a:value
+    endfunction
+    call Something('empty')	"empty: 10"
+!   call Something('key', 20)	"key: 20"
+  
+  The argument default expressions are evaluated at the time of the function
+  call, not definition.  Thus it is possible to use an expression which is
+*** ../vim-8.1.1325/src/version.c	2019-05-12 13:07:10.563191431 +0200
+--- src/version.c	2019-05-12 13:37:42.943944496 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1326,
+  /**/
+
+-- 
+"I've been teaching myself to play the piano for about 5 years and now write
+most of my songs on it, mainly because I can never find any paper."
+		Jeff Lynne, ELO's greatest hits
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

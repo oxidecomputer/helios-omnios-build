@@ -1,0 +1,141 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1094
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1094
+Problem:    Long line in tags file causes error.
+Solution:   Check for overlong line earlier. (Andy Massimino, closes #4051,
+            closes #4084)
+Files:	    src/tag.c, src/testdir/test_tagjump.vim
+
+
+*** ../vim-8.1.1093/src/tag.c	2019-03-30 21:19:16.426170240 +0100
+--- src/tag.c	2019-03-30 21:35:15.693644971 +0100
+***************
+*** 1921,1926 ****
+--- 1921,1952 ----
+  	    }
+  
+  parse_line:
++ 	    if (vim_strchr(lbuf, NL) == NULL
++ #ifdef FEAT_CSCOPE
++ 					     && !use_cscope
++ #endif
++ 					     )
++ 	    {
++ 		// Truncated line, ignore it.  Has been reported for
++ 		// Mozilla JS with extremely long names.
++ 		if (p_verbose >= 5)
++ 		{
++ 		    verbose_enter();
++ 		    msg(_("Ignoring long line in tags file"));
++ 		    verbose_leave();
++ 		}
++ #ifdef FEAT_TAG_BINS
++ 		if (state != TS_LINEAR)
++ 		{
++ 		    // Avoid getting stuck.
++ 		    linear = TRUE;
++ 		    state = TS_LINEAR;
++ 		    vim_fseek(fp, search_info.low_offset, SEEK_SET);
++ 		}
++ #endif
++ 		continue;
++ 	    }
++ 
+  	    /*
+  	     * Figure out where the different strings are in this line.
+  	     * For "normal" tags: Do a quick check if the tag matches.
+***************
+*** 1937,1964 ****
+  		tagp.tagname_end = vim_strchr(lbuf, TAB);
+  		if (tagp.tagname_end == NULL)
+  		{
+- 		    if (vim_strchr(lbuf, NL) == NULL)
+- 		    {
+- 			/* Truncated line, ignore it.  Has been reported for
+- 			 * Mozilla JS with extremely long names. */
+- 			if (p_verbose >= 5)
+- 			{
+- 			    verbose_enter();
+- 			    msg(_("Ignoring long line in tags file"));
+- 			    verbose_leave();
+- 			}
+- #ifdef FEAT_TAG_BINS
+- 			if (state != TS_LINEAR)
+- 			{
+- 			    /* Avoid getting stuck. */
+- 			    linear = TRUE;
+- 			    state = TS_LINEAR;
+- 			    vim_fseek(fp, search_info.low_offset, SEEK_SET);
+- 			}
+- #endif
+- 			continue;
+- 		    }
+- 
+  		    /* Corrupted tag line. */
+  		    line_error = TRUE;
+  		    break;
+--- 1963,1968 ----
+*** ../vim-8.1.1093/src/testdir/test_tagjump.vim	2019-03-30 19:11:58.530574234 +0100
+--- src/testdir/test_tagjump.vim	2019-03-30 21:33:21.530692816 +0100
+***************
+*** 439,442 ****
+--- 439,473 ----
+    call delete('Xtest.c')
+  endfunc
+  
++ func Test_tag_line_toolong()
++   call writefile([
++ 	\ '1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678	django/contrib/admin/templates/admin/edit_inline/stacked.html	16;"	j	line:16	language:HTML'
++ 	\ ], 'Xtags')
++   set tags=Xtags
++   let old_vbs = &verbose
++   set verbose=5
++   " ":tjump" should give "tag not found" not "Format error in tags file"
++   call assert_fails('tj /foo', 'E426')
++   try
++     tj /foo
++   catch /^Vim\%((\a\+)\)\=:E431/
++     call assert_report(v:exception)
++   catch /.*/
++   endtry
++   call assert_equal('Ignoring long line in tags file', split(execute('messages'), '\n')[-1])
++   call writefile([
++ 	\ '123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567	django/contrib/admin/templates/admin/edit_inline/stacked.html	16;"	j	line:16	language:HTML'
++ 	\ ], 'Xtags')
++   call assert_fails('tj /foo', 'E426')
++   try
++     tj /foo
++   catch /^Vim\%((\a\+)\)\=:E431/
++     call assert_report(v:exception)
++   catch /.*/
++   endtry
++   call assert_equal('Ignoring long line in tags file', split(execute('messages'), '\n')[-1])
++   call delete('Xtags')
++   let &verbose = old_vbs
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1093/src/version.c	2019-03-30 21:19:16.430170210 +0100
+--- src/version.c	2019-03-30 21:33:49.938428730 +0100
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1094,
+  /**/
+
+-- 
+"Hit any key to continue" is very confusing when you have two keyboards.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

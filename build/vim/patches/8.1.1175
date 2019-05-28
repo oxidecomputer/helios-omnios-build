@@ -1,0 +1,142 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1175
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1175
+Problem:    No test for dragging a tab with the mouse and for creating a new
+            tab by double clicking in the tabline.
+Solution:   Add two tests. (Dominique Pelle, closes #4258)
+Files:	    src/testdir/test_termcodes.vim
+
+
+*** ../vim-8.1.1174/src/testdir/test_termcodes.vim	2019-04-13 22:13:19.630859265 +0200
+--- src/testdir/test_termcodes.vim	2019-04-15 20:52:39.616822464 +0200
+***************
+*** 289,291 ****
+--- 289,387 ----
+    let &term = save_term
+    let &ttymouse = save_ttymouse
+  endfunc
++ 
++ func Test_xterm_mouse_drag_to_move_tab()
++   let save_mouse = &mouse
++   let save_term = &term
++   let save_ttymouse = &ttymouse
++   " Set 'mousetime' to 1 to avoid recognizing a double-click in the loop
++   set mouse=a term=xterm mousetime=1
++   let row = 1
++ 
++   for ttymouse_val in ['xterm', 'sgr']
++     exe 'set ttymouse=' . ttymouse_val
++     e Xtab1
++     tabnew Xtab2
++ 
++     let a = split(execute(':tabs'), "\n")
++     call assert_equal(['Tab page 1',
++         \              '    Xtab1',
++         \              'Tab page 2',
++         \              '>   Xtab2'], a)
++     redraw
++ 
++     " Click in tab2 and drag it to tab1.
++     " Check getcharmod() to verify that click is not
++     " interpreted as a spurious double-click.
++     call MouseLeftClick(row, 10)
++     call assert_equal(0, getcharmod())
++     for col in [9, 8, 7, 6]
++       call MouseLeftDrag(row, col)
++     endfor
++     call MouseLeftRelease(row, col)
++     let a = split(execute(':tabs'), "\n")
++     call assert_equal(['Tab page 1',
++         \              '>   Xtab2',
++         \              'Tab page 2',
++         \              '    Xtab1'], a)
++ 
++     %bwipe!
++   endfor
++ 
++   let &mouse = save_mouse
++   let &term = save_term
++   let &ttymouse = save_ttymouse
++   set mousetime&
++ endfunc
++ 
++ func Test_xterm_mouse_double_click_to_create_tab()
++   let save_mouse = &mouse
++   let save_term = &term
++   let save_ttymouse = &ttymouse
++   " Set 'mousetime' to a small value, so that double-click works but we don't
++   " have to wait long to avoid a triple-click.
++   set mouse=a term=xterm mousetime=100
++   let row = 1
++   let col = 10
++ 
++   for ttymouse_val in ['xterm', 'sgr']
++     exe 'set ttymouse=' . ttymouse_val
++     e Xtab1
++     tabnew Xtab2
++ 
++     let a = split(execute(':tabs'), "\n")
++     call assert_equal(['Tab page 1',
++         \              '    Xtab1',
++         \              'Tab page 2',
++         \              '>   Xtab2'], a)
++ 
++     redraw
++     call MouseLeftClick(row, col)
++     " Check getcharmod() to verify that first click is not
++     " interpreted as a spurious double-click.
++     call assert_equal(0, getcharmod())
++     call MouseLeftRelease(row, col)
++     call MouseLeftClick(row, col)
++     call assert_equal(32, getcharmod()) " double-click
++     call MouseLeftRelease(row, col)
++     let a = split(execute(':tabs'), "\n")
++     call assert_equal(['Tab page 1',
++         \              '    Xtab1',
++         \              'Tab page 2',
++         \              '>   [No Name]',
++         \              'Tab page 3',
++         \              '    Xtab2'], a)
++ 
++     if ttymouse_val !=# 'sgr'
++       " We need to sleep, or else MouseLeftClick() in next loop
++       " iteration will be interpreted as a spurious triple-click.
++       sleep 100m
++     endif
++     %bwipe!
++   endfor
++ 
++   let &mouse = save_mouse
++   let &term = save_term
++   let &ttymouse = save_ttymouse
++   set mousetime&
++ endfunc
+*** ../vim-8.1.1174/src/version.c	2019-04-14 19:42:09.411453809 +0200
+--- src/version.c	2019-04-15 20:55:20.927619813 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1175,
+  /**/
+
+-- 
+    A KNIGHT rides into shot and hacks him to the ground.  He rides off.
+    We stay for a moment on the glade.  A MIDDLE-AGED LADY in a C. & A.
+    twin-set emerges from the trees and looks in horror at the body of her
+    HUSBAND.
+MRS HISTORIAN: FRANK!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

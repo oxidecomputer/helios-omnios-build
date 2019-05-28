@@ -1,0 +1,154 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1242
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1242
+Problem:    No cmdline redraw when tabpages have different 'cmdheight'.
+Solution:   redraw the command line when 'cmdheight' changes when switching
+            tabpages. (closes #4321)
+Files:	    src/testdir/test_tabpage.vim, src/window.c,
+            src/testdir/dumps/Test_tabpage_cmdheight.dump,
+            src/testdir/screendump.vim
+
+
+*** ../vim-8.1.1241/src/testdir/test_tabpage.vim	2019-04-20 23:47:42.518391308 +0200
+--- src/testdir/test_tabpage.vim	2019-05-01 20:26:19.508478634 +0200
+***************
+*** 1,5 ****
+--- 1,6 ----
+  " Tests for tabpage
+  
++ source screendump.vim
+  
+  function Test_tabpage()
+    bw!
+***************
+*** 552,555 ****
+--- 553,579 ----
+    bw!
+  endfunc
+  
++ func Test_tabpage_cmdheight()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: only works with terminal'
++   endif
++   call writefile([
++         \ 'set laststatus=2',
++         \ 'set cmdheight=2',
++         \ 'tabnew',
++         \ 'set cmdheight=3',
++         \ 'tabnext',
++         \ 'redraw!',
++         \ 'echo "hello\nthere"',
++         \ 'tabnext',
++         \ 'redraw',
++ 	\ ], 'XTest_tabpage_cmdheight')
++   " Check that cursor line is concealed
++   let buf = RunVimInTerminal('-S XTest_tabpage_cmdheight', {'statusoff': 3})
++   call VerifyScreenDump(buf, 'Test_tabpage_cmdheight', {})
++ 
++   call StopVimInTerminal(buf)
++   call delete('XTest_conceal')
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1241/src/window.c	2019-05-01 18:08:38.271237206 +0200
+--- src/window.c	2019-05-01 20:13:02.064313731 +0200
+***************
+*** 3955,3960 ****
+--- 3955,3962 ----
+       * the frames for that.  When the Vim window was resized need to update
+       * frame sizes too.  Use the stored value of p_ch, so that it can be
+       * different for each tab page. */
++     if (p_ch != curtab->tp_ch_used)
++ 	clear_cmdline = TRUE;
+      p_ch = curtab->tp_ch_used;
+      if (curtab->tp_old_Rows != Rows || (old_off != firstwin->w_winrow
+  #ifdef FEAT_GUI_TABLINE
+*** ../vim-8.1.1241/src/testdir/dumps/Test_tabpage_cmdheight.dump	2019-05-01 20:29:45.878696091 +0200
+--- src/testdir/dumps/Test_tabpage_cmdheight.dump	2019-05-01 20:13:12.408265687 +0200
+***************
+*** 0 ****
+--- 1,20 ----
++ | +8#0000001#e0e0e08|[|N|o| |N|a|m|e|]| | +2#0000000#ffffff0|[|N|o| |N|a|m|e|]| | +1&&@51|X+8#0000001#e0e0e08
++ > +0#0000000#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+3#0000000&|N|o| |N|a|m|e|]| @47|0|,|0|-|1| @9|A|l@1
++ | +0&&@74
++ @75
++ @75
+*** ../vim-8.1.1241/src/testdir/screendump.vim	2019-04-13 22:44:48.325154165 +0200
+--- src/testdir/screendump.vim	2019-05-01 20:26:07.864535816 +0200
+***************
+*** 26,31 ****
+--- 26,32 ----
+  " Options is a dictionary, these items are recognized:
+  " "rows" - height of the terminal window (max. 20)
+  " "cols" - width of the terminal window (max. 78)
++ " "statusoff" - number of lines the status is offset from default
+  func RunVimInTerminal(arguments, options)
+    " If Vim doesn't exit a swap file remains, causing other tests to fail.
+    " Remove it here.
+***************
+*** 51,56 ****
+--- 52,58 ----
+    " Make the window 20 lines high and 75 columns, unless told otherwise.
+    let rows = get(a:options, 'rows', 20)
+    let cols = get(a:options, 'cols', 75)
++   let statusoff = get(a:options, 'statusoff', 1)
+  
+    let cmd = GetVimCommandClean()
+  
+***************
+*** 77,83 ****
+    " using valgrind).
+    " If it fails then show the terminal contents for debugging.
+    try
+!     call WaitFor({-> len(term_getline(buf, rows)) >= cols - 1 || len(term_getline(buf, rows - 1)) >= cols - 1})
+    catch /timed out after/
+      let lines = map(range(1, rows), {key, val -> term_getline(buf, val)})
+      call assert_report('RunVimInTerminal() failed, screen contents: ' . join(lines, "<NL>"))
+--- 79,85 ----
+    " using valgrind).
+    " If it fails then show the terminal contents for debugging.
+    try
+!     call WaitFor({-> len(term_getline(buf, rows)) >= cols - 1 || len(term_getline(buf, rows - statusoff)) >= cols - 1})
+    catch /timed out after/
+      let lines = map(range(1, rows), {key, val -> term_getline(buf, val)})
+      call assert_report('RunVimInTerminal() failed, screen contents: ' . join(lines, "<NL>"))
+*** ../vim-8.1.1241/src/version.c	2019-05-01 18:08:38.271237206 +0200
+--- src/version.c	2019-05-01 20:12:01.768592391 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1242,
+  /**/
+
+-- 
+Time flies like an arrow.
+Fruit flies like a banana.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

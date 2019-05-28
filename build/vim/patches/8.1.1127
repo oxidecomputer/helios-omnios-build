@@ -1,0 +1,229 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1127
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1127
+Problem:    getwinpos() doesn't work in terminal on MS-Windows console.
+Solution:   Adjust #ifdefs.  Disable test for MS-Windows console.
+Files:	    src/ui.c, src/term.c, src/terminal.c,
+            src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.1126/src/ui.c	2019-04-06 17:56:02.858913247 +0200
+--- src/ui.c	2019-04-06 19:07:23.687802373 +0200
+***************
+*** 627,636 ****
+      }
+  }
+  
+! #if (defined(FEAT_EVAL) \
+  	    && (defined(FEAT_GUI) \
+  		|| (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)))) \
+- 	|| defined(FEAT_TERMINAL) \
+  	|| defined(PROTO)
+  /*
+   * Get the window position in pixels, if possible.
+--- 627,635 ----
+      }
+  }
+  
+! #if ((defined(FEAT_EVAL) || defined(FEAT_TERMINAL)) \
+  	    && (defined(FEAT_GUI) \
+  		|| (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)))) \
+  	|| defined(PROTO)
+  /*
+   * Get the window position in pixels, if possible.
+***************
+*** 645,650 ****
+--- 644,651 ----
+  # endif
+  # if defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)
+      return term_get_winpos(x, y, timeout);
++ # else
++     return FAIL;
+  # endif
+  }
+  #endif
+*** ../vim-8.1.1126/src/term.c	2019-04-03 21:15:54.802752719 +0200
+--- src/term.c	2019-04-06 19:27:47.604897006 +0200
+***************
+*** 2843,2849 ****
+  static int winpos_y = -1;
+  static int did_request_winpos = 0;
+  
+! #  if (defined(FEAT_EVAL) && defined(HAVE_TGETENT)) || defined(PROTO)
+  /*
+   * Try getting the Vim window position from the terminal.
+   * Returns OK or FAIL.
+--- 2843,2849 ----
+  static int winpos_y = -1;
+  static int did_request_winpos = 0;
+  
+! # if defined(FEAT_EVAL) || defined(FEAT_TERMINAL) || defined(PROTO)
+  /*
+   * Try getting the Vim window position from the terminal.
+   * Returns OK or FAIL.
+***************
+*** 4858,4864 ****
+  
+  		/*
+  		 * Check for a window position response from the terminal:
+! 		 *       {lead}3;{x}:{y}t
+  		 */
+  		else if (did_request_winpos
+  			    && ((len >= 4 && tp[0] == ESC && tp[1] == '[')
+--- 4858,4864 ----
+  
+  		/*
+  		 * Check for a window position response from the terminal:
+! 		 *       {lead}3;{x};{y}t
+  		 */
+  		else if (did_request_winpos
+  			    && ((len >= 4 && tp[0] == ESC && tp[1] == '[')
+***************
+*** 4925,4935 ****
+  			if (i - j >= 21 && STRNCMP(tp + j + 3, "rgb:", 4) == 0
+  			    && tp[j + 11] == '/' && tp[j + 16] == '/')
+  			{
+! #ifdef FEAT_TERMINAL
+  			    int rval = hexhex2nr(tp + j + 7);
+  			    int gval = hexhex2nr(tp + j + 12);
+  			    int bval = hexhex2nr(tp + j + 17);
+! #endif
+  			    if (is_bg)
+  			    {
+  				char *newval = (3 * '6' < tp[j+7] + tp[j+12]
+--- 4925,4935 ----
+  			if (i - j >= 21 && STRNCMP(tp + j + 3, "rgb:", 4) == 0
+  			    && tp[j + 11] == '/' && tp[j + 16] == '/')
+  			{
+! # ifdef FEAT_TERMINAL
+  			    int rval = hexhex2nr(tp + j + 7);
+  			    int gval = hexhex2nr(tp + j + 12);
+  			    int bval = hexhex2nr(tp + j + 17);
+! # endif
+  			    if (is_bg)
+  			    {
+  				char *newval = (3 * '6' < tp[j+7] + tp[j+12]
+***************
+*** 4937,4947 ****
+  
+  				LOG_TR(("Received RBG response: %s", tp));
+  				rbg_status = STATUS_GOT;
+! #ifdef FEAT_TERMINAL
+  				bg_r = rval;
+  				bg_g = gval;
+  				bg_b = bval;
+! #endif
+  				if (!option_was_set((char_u *)"bg")
+  						  && STRCMP(p_bg, newval) != 0)
+  				{
+--- 4937,4947 ----
+  
+  				LOG_TR(("Received RBG response: %s", tp));
+  				rbg_status = STATUS_GOT;
+! # ifdef FEAT_TERMINAL
+  				bg_r = rval;
+  				bg_g = gval;
+  				bg_b = bval;
+! # endif
+  				if (!option_was_set((char_u *)"bg")
+  						  && STRCMP(p_bg, newval) != 0)
+  				{
+***************
+*** 4952,4958 ****
+  				    redraw_asap(CLEAR);
+  				}
+  			    }
+! #ifdef FEAT_TERMINAL
+  			    else
+  			    {
+  				LOG_TR(("Received RFG response: %s", tp));
+--- 4952,4958 ----
+  				    redraw_asap(CLEAR);
+  				}
+  			    }
+! # ifdef FEAT_TERMINAL
+  			    else
+  			    {
+  				LOG_TR(("Received RFG response: %s", tp));
+***************
+*** 4961,4967 ****
+  				fg_g = gval;
+  				fg_b = bval;
+  			    }
+! #endif
+  			}
+  
+  			/* got finished code: consume it */
+--- 4961,4967 ----
+  				fg_g = gval;
+  				fg_b = bval;
+  			    }
+! # endif
+  			}
+  
+  			/* got finished code: consume it */
+*** ../vim-8.1.1126/src/terminal.c	2019-04-06 17:33:20.651486473 +0200
+--- src/terminal.c	2019-04-06 19:05:09.748546225 +0200
+***************
+*** 3866,3873 ****
+      if (command != 't' || argcount != 1 || args[0] != 13)
+  	return 0; // not handled
+  
+!     // When getting the window position fails it results in zero/zero.
+      (void)ui_get_winpos(&x, &y, (varnumber_T)100);
+  
+      FOR_ALL_WINDOWS(wp)
+  	if (wp->w_buffer == term->tl_buffer)
+--- 3866,3876 ----
+      if (command != 't' || argcount != 1 || args[0] != 13)
+  	return 0; // not handled
+  
+!     // When getting the window position is not possible or it fails it results
+!     // in zero/zero.
+! #if defined(FEAT_GUI) || (defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE))
+      (void)ui_get_winpos(&x, &y, (varnumber_T)100);
++ #endif
+  
+      FOR_ALL_WINDOWS(wp)
+  	if (wp->w_buffer == term->tl_buffer)
+*** ../vim-8.1.1126/src/testdir/test_terminal.vim	2019-04-06 17:38:21.485301005 +0200
+--- src/testdir/test_terminal.vim	2019-04-06 19:18:02.708208288 +0200
+***************
+*** 1889,1894 ****
+--- 1889,1899 ----
+  endfunc
+  
+  func Test_terminal_getwinpos()
++   " does not work in the MS-Windows console
++   if has('win32') && !has('gui')
++     return
++   endif
++ 
+    " split, go to the bottom-right window
+    split
+    wincmd j
+*** ../vim-8.1.1126/src/version.c	2019-04-06 17:56:02.858913247 +0200
+--- src/version.c	2019-04-06 19:18:24.560082921 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1127,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+215. Your mouse-clicking forearm rivals Popeye's.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,542 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1406
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1406
+Problem:    popup_hide() and popup_show() not implemented yet.
+Solution:   Implement the functions.
+Files:	    src/popupwin.c, src/proto/popupwin.pro, src/evalfunc.c,
+            src/structs.h, runtime/doc/popup.txt, src/screen.c, src/vim.h,
+            src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1405/src/popupwin.c	2019-05-26 21:03:19.940073927 +0200
+--- src/popupwin.c	2019-05-26 22:04:53.509693725 +0200
+***************
+*** 195,212 ****
+  }
+  
+  /*
+   * popup_close({id})
+   */
+      void
+  f_popup_close(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+!     int		nr = (int)tv_get_number(argvars);
+  
+!     popup_close(nr);
+  }
+  
+      static void
+! popup_undisplay(win_T *wp)
+  {
+      if (wp->w_winrow + wp->w_height >= cmdline_row)
+  	clear_cmdline = TRUE;
+--- 195,279 ----
+  }
+  
+  /*
++  * Find the popup window with window-ID "id".
++  * If the popup window does not exist NULL is returned.
++  * If the window is not a popup window, and error message is given.
++  */
++     static win_T *
++ find_popup_win(int id)
++ {
++     win_T *wp = win_id2wp(id);
++ 
++     if (wp != NULL && !bt_popup(wp->w_buffer))
++     {
++ 	semsg(_("E993: window %d is not a popup window"), id);
++ 	return NULL;
++     }
++     return wp;
++ }
++ 
++ /*
++  * Return TRUE if there any popups that are not hidden.
++  */
++     int
++ popup_any_visible(void)
++ {
++     win_T *wp;
++ 
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	if ((wp->w_popup_flags & PFL_HIDDEN) == 0)
++ 	    return TRUE;
++     for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	if ((wp->w_popup_flags & PFL_HIDDEN) == 0)
++ 	    return TRUE;
++     return FALSE;
++ }
++ 
++ /*
+   * popup_close({id})
+   */
+      void
+  f_popup_close(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+!     int		id = (int)tv_get_number(argvars);
+! 
+!     popup_close(id);
+! }
+! 
+! /*
+!  * popup_hide({id})
+!  */
+!     void
+! f_popup_hide(typval_T *argvars, typval_T *rettv UNUSED)
+! {
+!     int		id = (int)tv_get_number(argvars);
+!     win_T	*wp = find_popup_win(id);
+! 
+!     if (wp != NULL && (wp->w_popup_flags & PFL_HIDDEN) == 0)
+!     {
+! 	wp->w_popup_flags |= PFL_HIDDEN;
+! 	redraw_all_later(NOT_VALID);
+!     }
+! }
+! 
+! /*
+!  * popup_show({id})
+!  */
+!     void
+! f_popup_show(typval_T *argvars, typval_T *rettv UNUSED)
+! {
+!     int		id = (int)tv_get_number(argvars);
+!     win_T	*wp = find_popup_win(id);
+  
+!     if (wp != NULL && (wp->w_popup_flags & PFL_HIDDEN) != 0)
+!     {
+! 	wp->w_popup_flags &= ~PFL_HIDDEN;
+! 	redraw_all_later(NOT_VALID);
+!     }
+  }
+  
+      static void
+! popup_free(win_T *wp)
+  {
+      if (wp->w_winrow + wp->w_height >= cmdline_row)
+  	clear_cmdline = TRUE;
+***************
+*** 232,238 ****
+  		first_popupwin = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    popup_undisplay(wp);
+  	    return;
+  	}
+  
+--- 299,305 ----
+  		first_popupwin = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    popup_free(wp);
+  	    return;
+  	}
+  
+***************
+*** 258,264 ****
+  		*root = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    popup_undisplay(wp);
+  	    return;
+  	}
+  }
+--- 325,331 ----
+  		*root = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    popup_free(wp);
+  	    return;
+  	}
+  }
+*** ../vim-8.1.1405/src/proto/popupwin.pro	2019-05-26 14:10:59.909979018 +0200
+--- src/proto/popupwin.pro	2019-05-26 21:58:55.451508950 +0200
+***************
+*** 1,6 ****
+--- 1,9 ----
+  /* popupwin.c */
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
++ int popup_any_visible(void);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
++ void f_popup_hide(typval_T *argvars, typval_T *rettv);
++ void f_popup_show(typval_T *argvars, typval_T *rettv);
+  void popup_close(int id);
+  void popup_close_tabpage(tabpage_T *tp, int id);
+  void close_all_popups(void);
+*** ../vim-8.1.1405/src/evalfunc.c	2019-05-25 20:21:24.669951062 +0200
+--- src/evalfunc.c	2019-05-26 21:49:46.478291418 +0200
+***************
+*** 810,815 ****
+--- 810,817 ----
+  #ifdef FEAT_TEXT_PROP
+      {"popup_close",	1, 1, f_popup_close},
+      {"popup_create",	2, 2, f_popup_create},
++     {"popup_hide",	1, 1, f_popup_hide},
++     {"popup_show",	1, 1, f_popup_show},
+  #endif
+  #ifdef FEAT_FLOAT
+      {"pow",		2, 2, f_pow},
+*** ../vim-8.1.1405/src/structs.h	2019-05-26 20:44:07.105974009 +0200
+--- src/structs.h	2019-05-26 21:54:20.348903421 +0200
+***************
+*** 2871,2876 ****
+--- 2871,2877 ----
+      int		w_vsep_width;	    /* Number of separator columns (0 or 1). */
+      pos_save_T	w_save_cursor;	    /* backup of cursor pos and topline */
+  #ifdef FEAT_TEXT_PROP
++     int		w_popup_flags;	    // PFL_ values
+      int		w_zindex;
+      int		w_maxheight;	    // "maxheight" for popup window
+      int		w_maxwidth;	    // "maxwidth" for popup window
+*** ../vim-8.1.1405/runtime/doc/popup.txt	2019-05-26 21:03:19.940073927 +0200
+--- runtime/doc/popup.txt	2019-05-26 22:12:05.835383172 +0200
+***************
+*** 25,31 ****
+  popup window like with regular windows.
+  
+  A popup window can be used for such things as:
+! - briefly show a message without changing the command line
+  - prompt the user with a dialog
+  - display contextual information while typing
+  - give extra information for auto-completion
+--- 25,31 ----
+  popup window like with regular windows.
+  
+  A popup window can be used for such things as:
+! - briefly show a message without overwriting the command line
+  - prompt the user with a dialog
+  - display contextual information while typing
+  - give extra information for auto-completion
+***************
+*** 42,52 ****
+  
+  A popup window has a window-ID like other windows, but behaves differently.
+  The size can be up to the whole Vim window and it overlaps other windows.
+! It contains a buffer, and that buffer is always associated with the popup
+! window.  The window cannot be used in Normal, Visual or Insert mode, it does
+! not get keyboard focus.  You can use functions like `setbufline()` to change
+! the text in the buffer.  There are more differences from how this window and
+! buffer behave compared to regular windows and buffers, see |popup-buffer|.
+  
+  If this is not what you are looking for, check out other popup functionality:
+  - popup menu, see |popup-menu|
+--- 42,55 ----
+  
+  A popup window has a window-ID like other windows, but behaves differently.
+  The size can be up to the whole Vim window and it overlaps other windows.
+! Popup windows can also overlap each other.
+! 
+! The popup window contains a buffer, and that buffer is always associated with
+! the popup window.  The window cannot be used in Normal, Visual or Insert mode,
+! it does not get keyboard focus.  You can use functions like `setbufline()` to
+! change the text in the buffer.  There are more differences from how this
+! window and buffer behave compared to regular windows and buffers, see
+! |popup-buffer|.
+  
+  If this is not what you are looking for, check out other popup functionality:
+  - popup menu, see |popup-menu|
+***************
+*** 55,63 ****
+  
+  WINDOW POSITION AND SIZE			*popup-position*
+  
+! The height of the window is normally equal to the number of lines in the
+! buffer.  It can be limited with the "maxheight" property.  You can use empty
+! lines to increase the height.
+  
+  The width of the window is normally equal to the longest line in the buffer.
+  It can be limited with the "maxwidth" property.  You can use spaces to
+--- 58,66 ----
+  
+  WINDOW POSITION AND SIZE			*popup-position*
+  
+! The height of the window is normally equal to the number of, possibly
+! wrapping, lines in the buffer.  It can be limited with the "maxheight"
+! property.  You can use empty lines to increase the height.
+  
+  The width of the window is normally equal to the longest line in the buffer.
+  It can be limited with the "maxwidth" property.  You can use spaces to
+***************
+*** 81,91 ****
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+! - handle screen resize in screenalloc().
+! - Support tab-local popup windows, use tp_first_popupwin and
+!   first_tab_popupwin.  Swap like with firstwin/curwin.
+  - Make redrawing more efficient and avoid flicker.
+! - implement all the unimplemented features.
+  
+  
+  ==============================================================================
+--- 84,95 ----
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+! - Implement list of lines with text properties
+! - Implement filter.
+! - Handle screen resize in screenalloc().
+  - Make redrawing more efficient and avoid flicker.
+! - Properly figure out the size and position.
+! - Implement all the unimplemented options and features.
+  
+  
+  ==============================================================================
+***************
+*** 93,101 ****
+  
+  THIS IS UNDER DESIGN - ANYTHING MAY STILL CHANGE  
+  
+! Proposal and discussion on issue #4063: https://github.com/vim/vim/issues/4063
+! 
+! [functions to be moved to eval.txt later, keep list of functions here]
+  
+  popup_create({text}, {options})				*popup_create()*
+  		Open a popup window showing {text}, which is either:
+--- 97,103 ----
+  
+  THIS IS UNDER DESIGN - ANYTHING MAY STILL CHANGE  
+  
+! [functions to be moved to eval.txt later, keep overview of functions here]
+  
+  popup_create({text}, {options})				*popup_create()*
+  		Open a popup window showing {text}, which is either:
+***************
+*** 176,190 ****
+  		"callback" to a function that handles the selected item.
+  
+  
+- popup_show({id})						*popup_show()*
+- 	  	{not implemented yet}
+- 		If {id} is a hidden popup, show it now.
+- 
+  popup_hide({id})						*popup_hide()*
+- 	  	{not implemented yet}
+  		If {id} is a displayed popup, hide it now. If the popup has a
+  		filter it will not be invoked for so long as the popup is
+  		hidden.
+  
+  popup_move({id}, {options})					*popup_move()*
+  	  	{not implemented yet}
+--- 178,193 ----
+  		"callback" to a function that handles the selected item.
+  
+  
+  popup_hide({id})						*popup_hide()*
+  		If {id} is a displayed popup, hide it now. If the popup has a
+  		filter it will not be invoked for so long as the popup is
+  		hidden.
++ 		If window {id} does not exist nothing happens.  If window {id}
++ 		exists but is not a popup window an error is given. *E993*
++ 
++ popup_show({id})						*popup_show()*
++ 		If {id} is a hidden popup, show it now.
++ 		For {id} see `popup_hide()`.
+  
+  popup_move({id}, {options})					*popup_move()*
+  	  	{not implemented yet}
+***************
+*** 192,197 ****
+--- 195,201 ----
+  		{options} may contain the items from |popup_create()| that
+  		specify the popup position: "line", "col", "pos", "maxheight",
+  		"minheight", "maxwidth" and "minwidth".
++ 		For {id} see `popup_hide()`.
+  
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
+***************
+*** 257,262 ****
+--- 261,269 ----
+  - 'undolevels' is -1: no undo at all
+  TODO: more
+  
++ It is possible to change these options, but anything might break then, so
++ better leave them alone.
++ 
+  The window does have a cursor position, but the cursor is not displayed.
+  
+  Options can be set on the window with `setwinvar()`, e.g.: >
+*** ../vim-8.1.1405/src/screen.c	2019-05-26 18:48:09.406542616 +0200
+--- src/screen.c	2019-05-26 21:57:18.544000198 +0200
+***************
+*** 610,616 ****
+      }
+  #ifdef FEAT_TEXT_PROP
+      // TODO: avoid redrawing everything when there is a popup window.
+!     if (first_popupwin != NULL || curtab->tp_first_popupwin != NULL)
+  	type = NOT_VALID;
+  #endif
+  
+--- 610,616 ----
+      }
+  #ifdef FEAT_TEXT_PROP
+      // TODO: avoid redrawing everything when there is a popup window.
+!     if (popup_any_visible())
+  	type = NOT_VALID;
+  #endif
+  
+***************
+*** 999,1007 ****
+  
+      // Reset all the VALID_POPUP flags.
+      for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+! 	wp->w_valid &= ~VALID_POPUP;
+      for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+! 	wp->w_valid &= ~VALID_POPUP;
+  
+      // TODO: don't redraw every popup every time.
+      for (;;)
+--- 999,1007 ----
+  
+      // Reset all the VALID_POPUP flags.
+      for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+! 	wp->w_popup_flags &= ~PFL_REDRAWN;
+      for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+! 	wp->w_popup_flags &= ~PFL_REDRAWN;
+  
+      // TODO: don't redraw every popup every time.
+      for (;;)
+***************
+*** 1012,1025 ****
+  	lowest_zindex = INT_MAX;
+  	lowest_wp = NULL;
+  	for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+! 	    if ((wp->w_valid & VALID_POPUP) == 0
+  					       && wp->w_zindex < lowest_zindex)
+  	    {
+  		lowest_zindex = wp->w_zindex;
+  		lowest_wp = wp;
+  	    }
+  	for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+! 	    if ((wp->w_valid & VALID_POPUP) == 0
+  					       && wp->w_zindex < lowest_zindex)
+  	    {
+  		lowest_zindex = wp->w_zindex;
+--- 1012,1025 ----
+  	lowest_zindex = INT_MAX;
+  	lowest_wp = NULL;
+  	for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+! 	    if ((wp->w_popup_flags & (PFL_REDRAWN|PFL_HIDDEN)) == 0
+  					       && wp->w_zindex < lowest_zindex)
+  	    {
+  		lowest_zindex = wp->w_zindex;
+  		lowest_wp = wp;
+  	    }
+  	for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+! 	    if ((wp->w_popup_flags & (PFL_REDRAWN|PFL_HIDDEN)) == 0
+  					       && wp->w_zindex < lowest_zindex)
+  	    {
+  		lowest_zindex = wp->w_zindex;
+***************
+*** 1029,1035 ****
+  	if (lowest_wp == NULL)
+  	    break;
+  	win_update(lowest_wp);
+! 	lowest_wp->w_valid |= VALID_POPUP;
+      }
+  }
+  #endif
+--- 1029,1035 ----
+  	if (lowest_wp == NULL)
+  	    break;
+  	win_update(lowest_wp);
+! 	lowest_wp->w_popup_flags |= PFL_REDRAWN;
+      }
+  }
+  #endif
+*** ../vim-8.1.1405/src/vim.h	2019-05-25 19:51:03.780408437 +0200
+--- src/vim.h	2019-05-26 21:54:44.096783074 +0200
+***************
+*** 612,618 ****
+  #define VALID_BOTLINE	0x20	// w_botine and w_empty_rows are valid
+  #define VALID_BOTLINE_AP 0x40	// w_botine is approximated
+  #define VALID_TOPLINE	0x80	// w_topline is valid (for cursor position)
+! #define VALID_POPUP	0x100	// popup has been redrawn
+  
+  /*
+   * Terminal highlighting attribute bits.
+--- 612,621 ----
+  #define VALID_BOTLINE	0x20	// w_botine and w_empty_rows are valid
+  #define VALID_BOTLINE_AP 0x40	// w_botine is approximated
+  #define VALID_TOPLINE	0x80	// w_topline is valid (for cursor position)
+! 
+! // Values for w_popup_flags.
+! #define PFL_HIDDEN	1	// popup is not displayed
+! #define PFL_REDRAWN	2	// popup was just redrawn
+  
+  /*
+   * Terminal highlighting attribute bits.
+*** ../vim-8.1.1405/src/testdir/test_popupwin.vim	2019-05-26 21:03:19.940073927 +0200
+--- src/testdir/test_popupwin.vim	2019-05-26 22:13:41.802400120 +0200
+***************
+*** 76,78 ****
+--- 76,116 ----
+  
+    bwipe!
+  endfunc
++ 
++ func Test_popup_hide()
++   topleft vnew
++   call setline(1, 'hello')
++ 
++   let winid = popup_create('world', {
++ 	\ 'line': 1,
++ 	\ 'col': 1,
++ 	\})
++   redraw
++   let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
++   call assert_equal('world', line)
++ 
++   call popup_hide(winid)
++   redraw
++   let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
++   call assert_equal('hello', line)
++ 
++   call popup_show(winid)
++   redraw
++   let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
++   call assert_equal('world', line)
++ 
++ 
++   call popup_close(winid)
++   redraw
++   let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
++   call assert_equal('hello', line)
++ 
++   " error is given for existing non-popup window
++   call assert_fails('call popup_hide(win_getid())', 'E993:')
++ 
++   " no error non-existing window
++   call popup_hide(1234234)
++   call popup_show(41234234)
++ 
++   bwipe!
++ endfunc
+*** ../vim-8.1.1405/src/version.c	2019-05-26 21:03:19.940073927 +0200
+--- src/version.c	2019-05-26 22:13:59.338228662 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1406,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+36. You miss more than five meals a week downloading the latest games from
+    Apogee.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,217 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1251
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1251
+Problem:    No test for completion of mapping keys.
+Solution:   Add a test.  Also clean up the code.
+Files:	    src/getchar.c, src/term.c, src/proto/term.pro,
+            src/testdir/test_cmdline.vim
+
+
+*** ../vim-8.1.1250/src/getchar.c	2019-04-29 21:58:37.667769672 +0200
+--- src/getchar.c	2019-05-03 14:49:32.298980123 +0200
+***************
+*** 4263,4269 ****
+  }
+  
+  /*
+!  * Find all mapping/abbreviation names that match regexp 'prog'.
+   * For command line expansion of ":[un]map" and ":[un]abbrev" in all modes.
+   * Return OK if matches found, FAIL otherwise.
+   */
+--- 4263,4269 ----
+  }
+  
+  /*
+!  * Find all mapping/abbreviation names that match regexp "regmatch"'.
+   * For command line expansion of ":[un]map" and ":[un]abbrev" in all modes.
+   * Return OK if matches found, FAIL otherwise.
+   */
+***************
+*** 4343,4349 ****
+  	    {
+  		if (mp->m_mode & expand_mapmodes)
+  		{
+! 		    p = translate_mapping(mp->m_keys, TRUE);
+  		    if (p != NULL && vim_regexec(regmatch, p, (colnr_T)0))
+  		    {
+  			if (round == 1)
+--- 4343,4349 ----
+  	    {
+  		if (mp->m_mode & expand_mapmodes)
+  		{
+! 		    p = translate_mapping(mp->m_keys);
+  		    if (p != NULL && vim_regexec(regmatch, p, (colnr_T)0))
+  		    {
+  			if (round == 1)
+*** ../vim-8.1.1250/src/term.c	2019-05-02 20:24:08.624617859 +0200
+--- src/term.c	2019-05-03 14:49:53.686860278 +0200
+***************
+*** 6629,6650 ****
+  #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Translate an internal mapping/abbreviation representation into the
+!  * corresponding external one recognized by :map/:abbrev commands;
+!  * respects the current B/k/< settings of 'cpoption'.
+   *
+   * This function is called when expanding mappings/abbreviations on the
+!  * command-line, and for building the "Ambiguous mapping..." error message.
+   *
+!  * It uses a growarray to build the translation string since the
+!  * latter can be wider than the original description. The caller has to
+!  * free the string afterwards.
+   *
+   * Returns NULL when there is a problem.
+   */
+      char_u *
+! translate_mapping(
+!     char_u	*str,
+!     int		expmap)  /* TRUE when expanding mappings on command-line */
+  {
+      garray_T	ga;
+      int		c;
+--- 6629,6648 ----
+  #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Translate an internal mapping/abbreviation representation into the
+!  * corresponding external one recognized by :map/:abbrev commands.
+!  * Respects the current B/k/< settings of 'cpoption'.
+   *
+   * This function is called when expanding mappings/abbreviations on the
+!  * command-line.
+   *
+!  * It uses a growarray to build the translation string since the latter can be
+!  * wider than the original description. The caller has to free the string
+!  * afterwards.
+   *
+   * Returns NULL when there is a problem.
+   */
+      char_u *
+! translate_mapping(char_u *str)
+  {
+      garray_T	ga;
+      int		c;
+***************
+*** 6691,6697 ****
+  	    }
+  	    if (c == K_SPECIAL && str[1] != NUL && str[2] != NUL)
+  	    {
+! 		if (expmap && cpo_special)
+  		{
+  		    ga_clear(&ga);
+  		    return NULL;
+--- 6689,6695 ----
+  	    }
+  	    if (c == K_SPECIAL && str[1] != NUL && str[2] != NUL)
+  	    {
+! 		if (cpo_special)
+  		{
+  		    ga_clear(&ga);
+  		    return NULL;
+***************
+*** 6703,6709 ****
+  	    }
+  	    if (IS_SPECIAL(c) || modifiers)	/* special key */
+  	    {
+! 		if (expmap && cpo_special)
+  		{
+  		    ga_clear(&ga);
+  		    return NULL;
+--- 6701,6707 ----
+  	    }
+  	    if (IS_SPECIAL(c) || modifiers)	/* special key */
+  	    {
+! 		if (cpo_special)
+  		{
+  		    ga_clear(&ga);
+  		    return NULL;
+*** ../vim-8.1.1250/src/proto/term.pro	2018-08-21 13:09:06.254115882 +0200
+--- src/proto/term.pro	2019-05-03 14:49:56.962841925 +0200
+***************
+*** 74,80 ****
+  int find_term_bykeys(char_u *src);
+  void show_termcodes(void);
+  int show_one_termcode(char_u *name, char_u *code, int printit);
+! char_u *translate_mapping(char_u *str, int expmap);
+  void update_tcap(int attr);
+  void swap_tcap(void);
+  guicolor_T gui_get_color_cmn(char_u *name);
+--- 74,80 ----
+  int find_term_bykeys(char_u *src);
+  void show_termcodes(void);
+  int show_one_termcode(char_u *name, char_u *code, int printit);
+! char_u *translate_mapping(char_u *str);
+  void update_tcap(int attr);
+  void swap_tcap(void);
+  guicolor_T gui_get_color_cmn(char_u *name);
+*** ../vim-8.1.1250/src/testdir/test_cmdline.vim	2019-03-28 21:26:19.252618909 +0100
+--- src/testdir/test_cmdline.vim	2019-05-03 15:12:43.791275271 +0200
+***************
+*** 77,82 ****
+--- 77,118 ----
+    call assert_equal('"map <special> <nowait>', getreg(':'))
+    call feedkeys(":map <silent> <sp\<Tab>\<Home>\"\<CR>", 'xt')
+    call assert_equal('"map <silent> <special>', getreg(':'))
++ 
++   map ,f commaf
++   map ,g commaf
++   call feedkeys(":map ,\<Tab>\<Home>\"\<CR>", 'xt')
++   call assert_equal('"map ,f', getreg(':'))
++   call feedkeys(":map ,\<Tab>\<Tab>\<Home>\"\<CR>", 'xt')
++   call assert_equal('"map ,g', getreg(':'))
++   unmap ,f
++   unmap ,g
++ 
++   set cpo-=< cpo-=B cpo-=k
++   map <Left> left
++   call feedkeys(":map <L\<Tab>\<Home>\"\<CR>", 'xt')
++   call assert_equal('"map <Left>', getreg(':'))
++   unmap <Left>
++ 
++   set cpo+=<
++   map <Left> left
++   call feedkeys(":map <L\<Tab>\<Home>\"\<CR>", 'xt')
++   call assert_equal('"map <Left>', getreg(':'))
++   unmap <Left>
++   set cpo-=<
++ 
++   set cpo+=B
++   map <Left> left
++   call feedkeys(":map <L\<Tab>\<Home>\"\<CR>", 'xt')
++   call assert_equal('"map <Left>', getreg(':'))
++   unmap <Left>
++   set cpo-=B
++ 
++   set cpo+=k
++   map <Left> left
++   call feedkeys(":map <L\<Tab>\<Home>\"\<CR>", 'xt')
++   call assert_equal('"map <Left>', getreg(':'))
++   unmap <Left>
++   set cpo-=k
+  endfunc
+  
+  func Test_match_completion()
+*** ../vim-8.1.1250/src/version.c	2019-05-03 13:44:06.560890132 +0200
+--- src/version.c	2019-05-03 15:13:05.683157641 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1251,
+  /**/
+
+-- 
+My girlfriend told me I should be more affectionate.
+So I got TWO girlfriends.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

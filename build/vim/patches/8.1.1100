@@ -1,0 +1,88 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1100
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1100
+Problem:    Tag file without trailing newline no longer works. (Marco Hinz)
+Solution:   Don't expect a newline at the end of the file. (closes #4200)
+Files:	    src/tag.c, src/testdir/test_taglist.vim
+
+
+*** ../vim-8.1.1099/src/tag.c	2019-03-31 19:40:03.814129134 +0200
+--- src/tag.c	2019-04-02 21:20:40.024713057 +0200
+***************
+*** 1943,1956 ****
+  	    }
+  
+  parse_line:
+! 	    if (vim_strchr(lbuf, NL) == NULL
+  #ifdef FEAT_CSCOPE
+  					     && !use_cscope
+  #endif
+  					     )
+  	    {
+- 		// Truncated line, ignore it.  Has been reported for
+- 		// Mozilla JS with extremely long names.
+  		if (p_verbose >= 5)
+  		{
+  		    verbose_enter();
+--- 1943,1958 ----
+  	    }
+  
+  parse_line:
+! 	    // When the line is too long the NUL will not be in the
+! 	    // last-but-one byte (see vim_fgets()).
+! 	    // Has been reported for Mozilla JS with extremely long names.
+! 	    // In that case we can't parse it and we ignore the line.
+! 	    if (lbuf[LSIZE - 2] != NUL
+  #ifdef FEAT_CSCOPE
+  					     && !use_cscope
+  #endif
+  					     )
+  	    {
+  		if (p_verbose >= 5)
+  		{
+  		    verbose_enter();
+*** ../vim-8.1.1099/src/testdir/test_taglist.vim	2019-02-13 21:19:09.503999092 +0100
+--- src/testdir/test_taglist.vim	2019-04-02 20:44:59.661214578 +0200
+***************
+*** 98,100 ****
+--- 98,113 ----
+    call delete('Xtags2')
+    bd
+  endfunc
++ 
++ " For historical reasons we support a tags file where the last line is missing
++ " the newline.
++ func Test_tagsfile_without_trailing_newline()
++   call writefile(["Foo\tfoo\t1"], 'Xtags', 'b')
++   set tags=Xtags
++ 
++   let tl = taglist('.*')
++   call assert_equal(1, len(tl))
++   call assert_equal('Foo', tl[0].name)
++ 
++   call delete('Xtags')
++ endfunc
+*** ../vim-8.1.1099/src/version.c	2019-03-31 19:40:03.818129110 +0200
+--- src/version.c	2019-04-02 20:35:30.113177877 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1100,
+  /**/
+
+-- 
+Rule #1: Don't give somebody a tool that he's going to hurt himself with.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,232 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1336
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1336
+Problem:    Some eval functionality is not covered by tests.
+Solution:   Add a few more test cases. (Masato Nishihata, closes #4374)
+Files:	    src/testdir/test_bufline.vim, src/testdir/test_cindent.vim,
+            src/testdir/test_cursor_func.vim, src/testdir/test_delete.vim,
+            src/testdir/test_expand_func.vim, src/testdir/test_float_func.vim,
+            src/testdir/test_fnamemodify.vim, src/testdir/test_functions.vim
+
+*** ../vim-8.1.1335/src/testdir/test_bufline.vim	2019-04-20 15:10:06.382607095 +0200
+--- src/testdir/test_bufline.vim	2019-05-16 22:19:22.844760343 +0200
+***************
+*** 8,14 ****
+    hide
+    call assert_equal(0, setbufline(b, 1, ['foo', 'bar']))
+    call assert_equal(['foo'], getbufline(b, 1))
+!   call assert_equal(['bar'], getbufline(b, 2))
+    call assert_equal(['foo', 'bar'], getbufline(b, 1, 2))
+    exe "bd!" b
+    call assert_equal([], getbufline(b, 1, 2))
+--- 8,14 ----
+    hide
+    call assert_equal(0, setbufline(b, 1, ['foo', 'bar']))
+    call assert_equal(['foo'], getbufline(b, 1))
+!   call assert_equal(['bar'], getbufline(b, '$'))
+    call assert_equal(['foo', 'bar'], getbufline(b, 1, 2))
+    exe "bd!" b
+    call assert_equal([], getbufline(b, 1, 2))
+***************
+*** 81,86 ****
+--- 81,87 ----
+    call setline(1, ['a', 'b', 'c'])
+    let b = bufnr('%')
+    wincmd w
++   call assert_equal(1, appendbufline(b, -1, ['x']))
+    call assert_equal(1, appendbufline(b, 4, ['x']))
+    call assert_equal(1, appendbufline(1234, 1, ['x']))
+    call assert_equal(0, appendbufline(b, 3, ['d', 'e']))
+***************
+*** 130,137 ****
+--- 131,141 ----
+    exe "bd!" b
+    call assert_equal(1, deletebufline(b, 1))
+  
++   call assert_equal(1, deletebufline(-1, 1))
++ 
+    split Xtest
+    call setline(1, ['a', 'b', 'c'])
++   call cursor(line('$'), 1)
+    let b = bufnr('%')
+    wincmd w
+    call assert_equal(1, deletebufline(b, 4))
+*** ../vim-8.1.1335/src/testdir/test_cindent.vim	2017-09-02 20:09:52.000000000 +0200
+--- src/testdir/test_cindent.vim	2019-05-16 22:23:43.643380089 +0200
+***************
+*** 102,105 ****
+--- 102,115 ----
+    bw!
+  endfunc
+  
++ func Test_cindent_func()
++   new
++   setlocal cindent
++   call setline(1, ['int main(void)', '{', 'return 0;', '}'])
++   call assert_equal(cindent(0), -1)
++   call assert_equal(cindent(3), &sw)
++   call assert_equal(cindent(line('$')+1), -1)
++   bwipe!
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1335/src/testdir/test_cursor_func.vim	2019-01-15 21:12:53.602254042 +0100
+--- src/testdir/test_cursor_func.vim	2019-05-16 22:19:22.844760343 +0200
+***************
+*** 25,30 ****
+--- 25,36 ----
+    call cursor(9, 1)
+    call assert_equal([4, 1, 0, 1], getcurpos()[1:])
+  
++   call setline(1, ["\<TAB>"])
++   call cursor(1, 1, 1)
++   call assert_equal([1, 1, 1], getcurpos()[1:3])
++ 
++   call assert_equal(-1, cursor(-1, -1))
++ 
+    quit!
+  endfunc
+  
+*** ../vim-8.1.1335/src/testdir/test_delete.vim	2017-03-19 15:57:08.000000000 +0100
+--- src/testdir/test_delete.vim	2019-05-16 22:19:22.844760343 +0200
+***************
+*** 105,107 ****
+--- 105,112 ----
+    bwipe Xdir3/subdir/Xfile
+    bwipe Xdir4/Xfile
+  endfunc
++ 
++ func Test_delete_errors()
++   call assert_fails('call delete('''')', 'E474:')
++   call assert_fails('call delete(''foo'', 0)', 'E15:')
++ endfunc
+*** ../vim-8.1.1335/src/testdir/test_expand_func.vim	2018-09-10 21:04:09.872392623 +0200
+--- src/testdir/test_expand_func.vim	2019-05-16 22:19:22.844760343 +0200
+***************
+*** 64,66 ****
+--- 64,75 ----
+    call assert_equal(64, str2nr(trim(execute('Flnum'))))
+    delcommand Flnum
+  endfunc
++ 
++ func Test_expand()
++   new
++   call assert_equal("",  expand('%:S'))
++   call assert_equal('3', expand('<slnum>'))
++   call assert_equal(['4'], expand('<slnum>', v:false, v:true))
++   " Don't add any line above this, otherwise <slnum> will change.
++   quit
++ endfunc
+*** ../vim-8.1.1335/src/testdir/test_float_func.vim	2019-04-04 13:44:31.035594516 +0200
+--- src/testdir/test_float_func.vim	2019-05-16 22:19:22.844760343 +0200
+***************
+*** 13,18 ****
+--- 13,19 ----
+    call assert_equal('inf', string(abs(1.0/0.0)))
+    call assert_equal('inf', string(abs(-1.0/0.0)))
+    call assert_equal('nan', string(abs(0.0/0.0)))
++   call assert_equal('12', string(abs('12abc')))
+    call assert_equal('12', string(abs('-12abc')))
+    call assert_fails("call abs([])", 'E745:')
+    call assert_fails("call abs({})", 'E728:')
+*** ../vim-8.1.1335/src/testdir/test_fnamemodify.vim	2017-03-19 15:48:35.000000000 +0100
+--- src/testdir/test_fnamemodify.vim	2019-05-16 22:19:22.844760343 +0200
+***************
+*** 45,53 ****
+    let $HOME = save_home
+    let &shell = save_shell
+  endfunc
+- 
+- func Test_expand()
+-   new
+-   call assert_equal("",  expand('%:S'))
+-   quit
+- endfunc
+--- 45,47 ----
+*** ../vim-8.1.1335/src/testdir/test_functions.vim	2019-04-05 22:50:35.025737353 +0200
+--- src/testdir/test_functions.vim	2019-05-16 22:19:22.844760343 +0200
+***************
+*** 52,57 ****
+--- 52,58 ----
+    endif
+  
+    call assert_equal(0, empty(function('Test_empty')))
++   call assert_equal(0, empty(function('Test_empty', [0])))
+  endfunc
+  
+  func Test_len()
+***************
+*** 869,874 ****
+--- 870,876 ----
+    call assert_equal(1, count(l, 'a', 0, 1))
+    call assert_equal(2, count(l, 'a', 1, 1))
+    call assert_fails('call count(l, "a", 0, 10)', 'E684:')
++   call assert_fails('call count(l, "a", [])', 'E745:')
+  
+    let d = {1: 'a', 2: 'a', 3: 'A', 4: 'b'}
+    call assert_equal(2, count(d, 'a'))
+***************
+*** 896,901 ****
+--- 898,905 ----
+    call assert_equal(2, count("foo", "O", 1))
+    call assert_equal(2, count("fooooo", "oo"))
+    call assert_equal(0, count("foo", ""))
++ 
++   call assert_fails('call count(0, 0)', 'E712:')
+  endfunc
+  
+  func Test_changenr()
+***************
+*** 1431,1433 ****
+--- 1435,1457 ----
+  
+    call delete('Xdir', 'rf')
+  endfunc
++ 
++ func Test_call()
++   call assert_equal(3, call('len', [123]))
++   call assert_fails("call call('len', 123)", 'E714:')
++   call assert_equal(0, call('', []))
++ 
++   function Mylen() dict
++      return len(self.data)
++   endfunction
++   let mydict = {'data': [0, 1, 2, 3], 'len': function("Mylen")}
++   call assert_fails("call call('Mylen', [], 0)", 'E715:')
++ endfunc
++ 
++ func Test_char2nr()
++   call assert_equal(12354, char2nr('あ', 1))
++ endfunc
++ 
++ func Test_eventhandler()
++   call assert_equal(0, eventhandler())
++ endfunc
+*** ../vim-8.1.1335/src/version.c	2019-05-16 22:11:43.715228803 +0200
+--- src/version.c	2019-05-16 22:19:55.584586456 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1336,
+  /**/
+
+-- 
+   A village.  Sound of chanting of Latin canon, punctuated by short, sharp
+   cracks.  It comes nearer.  We see it is a line of MONKS ala SEVENTH SEAL
+   flagellation scene, chanting and banging themselves on the foreheads with
+   wooden boards.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,83 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1090
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1090
+Problem:    MS-Windows: modify_fname() has problems with some 'encoding'.
+Solution:   Use GetLongPathNameW() instead of GetLongPathName(). (Ken Takata,
+            closes #4007)
+Files:	    src/eval.c
+
+
+*** ../vim-8.1.1089/src/eval.c	2019-03-21 21:45:30.875282175 +0100
+--- src/eval.c	2019-03-30 20:03:26.716826345 +0100
+***************
+*** 10321,10339 ****
+  # if _WIN32_WINNT >= 0x0500
+  	if (vim_strchr(*fnamep, '~') != NULL)
+  	{
+! 	    /* Expand 8.3 filename to full path.  Needed to make sure the same
+! 	     * file does not have two different names.
+! 	     * Note: problem does not occur if _WIN32_WINNT < 0x0500. */
+! 	    p = alloc(_MAX_PATH + 1);
+! 	    if (p != NULL)
+  	    {
+! 		if (GetLongPathName((LPSTR)*fnamep, (LPSTR)p, _MAX_PATH))
+  		{
+! 		    vim_free(*bufp);
+! 		    *bufp = *fnamep = p;
+  		}
+! 		else
+! 		    vim_free(p);
+  	    }
+  	}
+  # endif
+--- 10321,10345 ----
+  # if _WIN32_WINNT >= 0x0500
+  	if (vim_strchr(*fnamep, '~') != NULL)
+  	{
+! 	    // Expand 8.3 filename to full path.  Needed to make sure the same
+! 	    // file does not have two different names.
+! 	    // Note: problem does not occur if _WIN32_WINNT < 0x0500.
+! 	    WCHAR *wfname = enc_to_utf16(*fnamep, NULL);
+! 	    WCHAR buf[_MAX_PATH];
+! 
+! 	    if (wfname != NULL)
+  	    {
+! 		if (GetLongPathNameW(wfname, buf, _MAX_PATH))
+  		{
+! 		    char_u *p = utf16_to_enc(buf, NULL);
+! 
+! 		    if (p != NULL)
+! 		    {
+! 			vim_free(*bufp);    // free any allocated file name
+! 			*bufp = *fnamep = p;
+! 		    }
+  		}
+! 		vim_free(wfname);
+  	    }
+  	}
+  # endif
+*** ../vim-8.1.1089/src/version.c	2019-03-30 19:55:24.396119565 +0100
+--- src/version.c	2019-03-30 20:03:37.464753703 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1090,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+167. You have more than 200 websites bookmarked.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

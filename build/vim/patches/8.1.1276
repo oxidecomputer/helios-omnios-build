@@ -1,0 +1,307 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1276
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1276
+Problem:    Cannot combine text properties with syntax highlighting.
+Solution:   Add the "combine" field to prop_type_add(). (closes #4343)
+Files:	    runtime/doc/eval.txt, runtime/doc/textprop.txt, src/screen.c,
+            src/testprop.c, src/structs.h, src/testdir/test_textprop.vim
+
+
+*** ../vim-8.1.1275/runtime/doc/eval.txt	2019-05-04 17:34:30.653353882 +0200
+--- runtime/doc/eval.txt	2019-05-05 15:09:25.625993792 +0200
+***************
+*** 7166,7171 ****
+--- 7218,7226 ----
+  				properties the one with the highest priority
+  				will be used; negative values can be used, the
+  				default priority is zero
++ 		   combine	when TRUE combine the highlight with any
++ 				syntax highlight; when omitted of FALSE syntax
++ 				highlight will not be used
+  		   start_incl	when TRUE inserts at the start position will
+  				be included in the text property
+  		   end_incl	when TRUE inserts at the end position will be
+*** ../vim-8.1.1275/runtime/doc/textprop.txt	2019-01-01 19:47:17.854123944 +0100
+--- runtime/doc/textprop.txt	2019-05-05 15:45:33.194573955 +0200
+***************
+*** 17,22 ****
+--- 17,23 ----
+  
+  1. Introduction			|text-prop-intro|
+  2. Functions			|text-prop-functions|
++ 3. When text changes		|text-prop-changes|
+  
+  
+  {Vi does not have text properties}
+***************
+*** 56,61 ****
+--- 57,66 ----
+  A text property normally has the name of a property type, which defines 
+  how to highlight the text.  The property type can have these entries:
+  	"highlight"	name of the highlight group to use
++ 	"combine"	when TRUE the text property highlighting is combined
++ 			with any syntax highligting, when omitted or FALSE the
++ 			text property highlighting replaces the syntax
++ 			highlighting
+  	"priority"	when properties overlap, the one with the highest
+  			priority will be used.
+  	"start_incl"	when TRUE inserts at the start position will be
+***************
+*** 113,117 ****
+--- 118,142 ----
+  prop_remove({props} [, {lnum} [, {lnum-end}]])
+  					remove a text property
+  
++ ==============================================================================
++ 3. When text changes				*text-prop-changes*
++ 
++ Vim will do its best to keep the text properties on the text where it was
++ attached.  When inserting or deleting text the properties after the change
++ will move accordingly.
++ 
++ When text is deleted and a text property no longer includes any text, it is
++ deleted.  However, a text property that was defined as zero-width will remain,
++ unless the whole line is deleted.
++ 
++ When using replace mode, the text properties stay on the same character
++ positions, even though the characters themselves change.
++ 
++ 
++ When text property columns are not updated ~
++ 
++ - When setting the line with |setline()| or through an interface, such as Lua,
++   Tcl or Python.
++ 
+  
+   vim:tw=78:ts=8:noet:ft=help:norl:
+*** ../vim-8.1.1275/src/screen.c	2019-04-26 20:32:57.086296530 +0200
+--- src/screen.c	2019-05-05 15:26:39.412312041 +0200
+***************
+*** 3059,3064 ****
+--- 3059,3065 ----
+      int		text_props_active = 0;
+      proptype_T  *text_prop_type = NULL;
+      int		text_prop_attr = 0;
++     int		text_prop_combine = FALSE;
+  #endif
+  #ifdef FEAT_SPELL
+      int		has_spell = FALSE;	/* this buffer has spell checking */
+***************
+*** 4261,4266 ****
+--- 4262,4268 ----
+  		    text_prop_idxs[text_props_active++] = text_prop_next++;
+  
+  		text_prop_attr = 0;
++ 		text_prop_combine = FALSE;
+  		if (text_props_active > 0)
+  		{
+  		    // Sort the properties on priority and/or starting last.
+***************
+*** 4273,4289 ****
+  		    for (pi = 0; pi < text_props_active; ++pi)
+  		    {
+  			int	    tpi = text_prop_idxs[pi];
+! 			proptype_T  *pt = text_prop_type_by_id(wp->w_buffer, text_props[tpi].tp_type);
+  
+  			if (pt != NULL)
+  			{
+  			    int pt_attr = syn_id2attr(pt->pt_hl_id);
+  
+  			    text_prop_type = pt;
+! 			    if (text_prop_attr == 0)
+! 				text_prop_attr = pt_attr;
+! 			    else
+! 				text_prop_attr = hl_combine_attr(text_prop_attr, pt_attr);
+  			}
+  		    }
+  		}
+--- 4275,4291 ----
+  		    for (pi = 0; pi < text_props_active; ++pi)
+  		    {
+  			int	    tpi = text_prop_idxs[pi];
+! 			proptype_T  *pt = text_prop_type_by_id(
+! 					wp->w_buffer, text_props[tpi].tp_type);
+  
+  			if (pt != NULL)
+  			{
+  			    int pt_attr = syn_id2attr(pt->pt_hl_id);
+  
+  			    text_prop_type = pt;
+! 			    text_prop_attr =
+! 				      hl_combine_attr(text_prop_attr, pt_attr);
+! 			    text_prop_combine = pt->pt_flags & PT_FLAG_COMBINE;
+  			}
+  		    }
+  		}
+***************
+*** 4314,4320 ****
+  		attr_pri = FALSE;
+  #ifdef FEAT_TEXT_PROP
+  		if (text_prop_type != NULL)
+! 		    char_attr = text_prop_attr;
+  		else
+  #endif
+  #ifdef FEAT_SYN_HL
+--- 4316,4328 ----
+  		attr_pri = FALSE;
+  #ifdef FEAT_TEXT_PROP
+  		if (text_prop_type != NULL)
+! 		{
+! 		    if (text_prop_combine)
+! 			char_attr = hl_combine_attr(
+! 						  syntax_attr, text_prop_attr);
+! 		    else
+! 			char_attr = text_prop_attr;
+! 		}
+  		else
+  #endif
+  #ifdef FEAT_SYN_HL
+***************
+*** 4664,4677 ****
+  		    ptr = line + v;
+  
+  # ifdef FEAT_TEXT_PROP
+! 		    // Text properties overrule syntax highlighting.
+! 		    if (text_prop_attr == 0)
+! #endif
+  		    {
+  			if (!attr_pri)
+! 			    char_attr = syntax_attr;
+  			else
+! 			    char_attr = hl_combine_attr(syntax_attr, char_attr);
+  		    }
+  # ifdef FEAT_CONCEAL
+  		    /* no concealing past the end of the line, it interferes
+--- 4672,4689 ----
+  		    ptr = line + v;
+  
+  # ifdef FEAT_TEXT_PROP
+! 		    // Text properties overrule syntax highlighting or combine.
+! 		    if (text_prop_attr == 0 || text_prop_combine)
+! # endif
+  		    {
++ 			int comb_attr = syntax_attr;
++ # ifdef FEAT_TEXT_PROP
++ 			comb_attr = hl_combine_attr(text_prop_attr, comb_attr);
++ # endif
+  			if (!attr_pri)
+! 			    char_attr = comb_attr;
+  			else
+! 			    char_attr = hl_combine_attr(comb_attr, char_attr);
+  		    }
+  # ifdef FEAT_CONCEAL
+  		    /* no concealing past the end of the line, it interferes
+*** ../vim-8.1.1275/src/structs.h	2019-04-28 18:04:56.058492178 +0200
+--- src/structs.h	2019-05-05 15:13:41.900581185 +0200
+***************
+*** 727,732 ****
+--- 727,733 ----
+  
+  #define PT_FLAG_INS_START_INCL	1	// insert at start included in property
+  #define PT_FLAG_INS_END_INCL	2	// insert at end included in property
++ #define PT_FLAG_COMBINE		4	// combine with syntax highlight
+  
+  // Sign group
+  typedef struct signgroup_S
+*** ../vim-8.1.1275/src/testdir/test_textprop.vim	2019-03-22 13:20:40.091897268 +0100
+--- src/testdir/test_textprop.vim	2019-05-05 15:42:06.155642710 +0200
+***************
+*** 559,572 ****
+      return
+    endif
+    call writefile([
+! 	\ "call setline(1, ['One two', 'Numbér 123 änd thœn 4¾7.', '--aa--bb--cc--dd--'])",
+  	\ "hi NumberProp ctermfg=blue",
+  	\ "hi LongProp ctermbg=yellow",
+  	\ "call prop_type_add('number', {'highlight': 'NumberProp'})",
+  	\ "call prop_type_add('long', {'highlight': 'LongProp'})",
+  	\ "call prop_type_add('start', {'highlight': 'NumberProp', 'start_incl': 1})",
+  	\ "call prop_type_add('end', {'highlight': 'NumberProp', 'end_incl': 1})",
+  	\ "call prop_type_add('both', {'highlight': 'NumberProp', 'start_incl': 1, 'end_incl': 1})",
+  	\ "call prop_add(1, 4, {'end_lnum': 3, 'end_col': 3, 'type': 'long'})",
+  	\ "call prop_add(2, 9, {'length': 3, 'type': 'number'})",
+  	\ "call prop_add(2, 24, {'length': 4, 'type': 'number'})",
+--- 559,581 ----
+      return
+    endif
+    call writefile([
+! 	\ "call setline(1, ["
+! 	\	.. "'One two',"
+! 	\	.. "'Numbér 123 änd thœn 4¾7.',"
+! 	\	.. "'--aa--bb--cc--dd--',"
+! 	\	.. "'// comment with error in it',"
+! 	\	.. "])",
+  	\ "hi NumberProp ctermfg=blue",
+  	\ "hi LongProp ctermbg=yellow",
++ 	\ "hi BackgroundProp ctermbg=lightgrey",
++ 	\ "hi UnderlineProp cterm=underline",
+  	\ "call prop_type_add('number', {'highlight': 'NumberProp'})",
+  	\ "call prop_type_add('long', {'highlight': 'LongProp'})",
+  	\ "call prop_type_add('start', {'highlight': 'NumberProp', 'start_incl': 1})",
+  	\ "call prop_type_add('end', {'highlight': 'NumberProp', 'end_incl': 1})",
+  	\ "call prop_type_add('both', {'highlight': 'NumberProp', 'start_incl': 1, 'end_incl': 1})",
++ 	\ "call prop_type_add('background', {'highlight': 'BackgroundProp', 'combine': 1})",
++ 	\ "call prop_type_add('error', {'highlight': 'UnderlineProp', 'combine': 1})",
+  	\ "call prop_add(1, 4, {'end_lnum': 3, 'end_col': 3, 'type': 'long'})",
+  	\ "call prop_add(2, 9, {'length': 3, 'type': 'number'})",
+  	\ "call prop_add(2, 24, {'length': 4, 'type': 'number'})",
+***************
+*** 574,586 ****
+  	\ "call prop_add(3, 7, {'length': 2, 'type': 'start'})",
+  	\ "call prop_add(3, 11, {'length': 2, 'type': 'end'})",
+  	\ "call prop_add(3, 15, {'length': 2, 'type': 'both'})",
+  	\ "set number",
+  	\ "hi clear SpellBad",
+  	\ "set spell",
+  	\ "normal 3G0llix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>",
+  	\ "normal 3G0lli\<BS>\<Esc>",
+  	\], 'XtestProp')
+!   let buf = RunVimInTerminal('-S XtestProp', {'rows': 6})
+    call VerifyScreenDump(buf, 'Test_textprop_01', {})
+  
+    " clean up
+--- 583,599 ----
+  	\ "call prop_add(3, 7, {'length': 2, 'type': 'start'})",
+  	\ "call prop_add(3, 11, {'length': 2, 'type': 'end'})",
+  	\ "call prop_add(3, 15, {'length': 2, 'type': 'both'})",
++ 	\ "call prop_add(4, 12, {'length': 10, 'type': 'background'})",
++ 	\ "call prop_add(4, 17, {'length': 5, 'type': 'error'})",
+  	\ "set number",
+  	\ "hi clear SpellBad",
+  	\ "set spell",
++ 	\ "syn match Comment '//.*'",
++ 	\ "hi Comment ctermfg=green",
+  	\ "normal 3G0llix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>",
+  	\ "normal 3G0lli\<BS>\<Esc>",
+  	\], 'XtestProp')
+!   let buf = RunVimInTerminal('-S XtestProp', {'rows': 7})
+    call VerifyScreenDump(buf, 'Test_textprop_01', {})
+  
+    " clean up
+*** ../vim-8.1.1275/src/version.c	2019-05-05 15:02:26.180319795 +0200
+--- src/version.c	2019-05-05 15:46:19.630332122 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1276,
+  /**/
+
+-- 
+BRIDGEKEEPER: What is your favorite colour?
+LAUNCELOT:    Blue.
+BRIDGEKEEPER: Right.  Off you go.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

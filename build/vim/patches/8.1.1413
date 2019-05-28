@@ -1,0 +1,290 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1413
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1413
+Problem:    Error when the drive of the swap file was disconnected.
+Solution:   Try closing and re-opening the swap file. (closes #4378)
+Files:	    src/memfile.c, src/structs.h, src/testdir/test_startup.vim
+
+
+*** ../vim-8.1.1412/src/memfile.c	2019-05-24 18:48:36.766128461 +0200
+--- src/memfile.c	2019-05-27 23:27:40.760156972 +0200
+***************
+*** 994,1000 ****
+      unsigned	page_count; /* number of pages written */
+      unsigned	size;	    /* number of bytes written */
+  
+!     if (mfp->mf_fd < 0)	    /* there is no file, can't write */
+  	return FAIL;
+  
+      if (hp->bh_bnum < 0)	/* must assign file block number */
+--- 994,1001 ----
+      unsigned	page_count; /* number of pages written */
+      unsigned	size;	    /* number of bytes written */
+  
+!     if (mfp->mf_fd < 0 && !mfp->mf_reopen)
+! 	// there is no file and there was no file, can't write
+  	return FAIL;
+  
+      if (hp->bh_bnum < 0)	/* must assign file block number */
+***************
+*** 1011,1016 ****
+--- 1012,1019 ----
+       */
+      for (;;)
+      {
++ 	int attempt;
++ 
+  	nr = hp->bh_bnum;
+  	if (nr > mfp->mf_infile_count)		/* beyond end of file */
+  	{
+***************
+*** 1021,1049 ****
+  	    hp2 = hp;
+  
+  	offset = (off_T)page_size * nr;
+- 	if (vim_lseek(mfp->mf_fd, offset, SEEK_SET) != offset)
+- 	{
+- 	    PERROR(_("E296: Seek error in swap file write"));
+- 	    return FAIL;
+- 	}
+  	if (hp2 == NULL)	    /* freed block, fill with dummy data */
+  	    page_count = 1;
+  	else
+  	    page_count = hp2->bh_page_count;
+  	size = page_size * page_count;
+! 	if (mf_write_block(mfp, hp2 == NULL ? hp : hp2, offset, size) == FAIL)
+  	{
+! 	    /*
+! 	     * Avoid repeating the error message, this mostly happens when the
+! 	     * disk is full. We give the message again only after a successful
+! 	     * write or when hitting a key. We keep on trying, in case some
+! 	     * space becomes available.
+! 	     */
+! 	    if (!did_swapwrite_msg)
+! 		emsg(_("E297: Write error in swap file"));
+! 	    did_swapwrite_msg = TRUE;
+! 	    return FAIL;
+  	}
+  	did_swapwrite_msg = FALSE;
+  	if (hp2 != NULL)		    /* written a non-dummy block */
+  	    hp2->bh_flags &= ~BH_DIRTY;
+--- 1024,1072 ----
+  	    hp2 = hp;
+  
+  	offset = (off_T)page_size * nr;
+  	if (hp2 == NULL)	    /* freed block, fill with dummy data */
+  	    page_count = 1;
+  	else
+  	    page_count = hp2->bh_page_count;
+  	size = page_size * page_count;
+! 
+! 	for (attempt = 1; attempt <= 2; ++attempt)
+  	{
+! 	    if (mfp->mf_fd >= 0)
+! 	    {
+! 		if (vim_lseek(mfp->mf_fd, offset, SEEK_SET) != offset)
+! 		{
+! 		    PERROR(_("E296: Seek error in swap file write"));
+! 		    return FAIL;
+! 		}
+! 		if (mf_write_block(mfp,
+! 				   hp2 == NULL ? hp : hp2, offset, size) == OK)
+! 		    break;
+! 	    }
+! 
+! 	    if (attempt == 1)
+! 	    {
+! 		// If the swap file is on a network drive, and the network
+! 		// gets disconnected and then re-connected, we can maybe fix it
+! 		// by closing and then re-opening the file.
+! 		if (mfp->mf_fd >= 0)
+! 		    close(mfp->mf_fd);
+! 		mfp->mf_fd = mch_open_rw((char *)mfp->mf_fname, mfp->mf_flags);
+! 		mfp->mf_reopen = (mfp->mf_fd < 0);
+! 	    }
+! 	    if (attempt == 2 || mfp->mf_fd < 0)
+! 	    {
+! 		// Avoid repeating the error message, this mostly happens when
+! 		// the disk is full. We give the message again only after a
+! 		// successful write or when hitting a key. We keep on trying,
+! 		// in case some space becomes available.
+! 		if (!did_swapwrite_msg)
+! 		    emsg(_("E297: Write error in swap file"));
+! 		did_swapwrite_msg = TRUE;
+! 		return FAIL;
+! 	    }
+  	}
++ 
+  	did_swapwrite_msg = FALSE;
+  	if (hp2 != NULL)		    /* written a non-dummy block */
+  	    hp2->bh_flags &= ~BH_DIRTY;
+***************
+*** 1271,1276 ****
+--- 1294,1300 ----
+  	 * the file) */
+  	flags |= O_NOINHERIT;
+  #endif
++ 	mfp->mf_flags = flags;
+  	mfp->mf_fd = mch_open_rw((char *)mfp->mf_fname, flags);
+      }
+  
+*** ../vim-8.1.1412/src/structs.h	2019-05-27 21:53:53.990229301 +0200
+--- src/structs.h	2019-05-27 23:22:20.062819685 +0200
+***************
+*** 604,631 ****
+  
+  struct memfile
+  {
+!     char_u	*mf_fname;		/* name of the file */
+!     char_u	*mf_ffname;		/* idem, full path */
+!     int		mf_fd;			/* file descriptor */
+!     bhdr_T	*mf_free_first;		/* first block_hdr in free list */
+!     bhdr_T	*mf_used_first;		/* mru block_hdr in used list */
+!     bhdr_T	*mf_used_last;		/* lru block_hdr in used list */
+!     unsigned	mf_used_count;		/* number of pages in used list */
+!     unsigned	mf_used_count_max;	/* maximum number of pages in memory */
+!     mf_hashtab_T mf_hash;		/* hash lists */
+!     mf_hashtab_T mf_trans;		/* trans lists */
+!     blocknr_T	mf_blocknr_max;		/* highest positive block number + 1*/
+!     blocknr_T	mf_blocknr_min;		/* lowest negative block number - 1 */
+!     blocknr_T	mf_neg_count;		/* number of negative blocks numbers */
+!     blocknr_T	mf_infile_count;	/* number of pages in the file */
+!     unsigned	mf_page_size;		/* number of bytes in a page */
+!     int		mf_dirty;		/* TRUE if there are dirty blocks */
+  #ifdef FEAT_CRYPT
+!     buf_T	*mf_buffer;		/* buffer this memfile is for */
+!     char_u	mf_seed[MF_SEED_LEN];	/* seed for encryption */
+  
+!     /* Values for key, method and seed used for reading data blocks when
+!      * updating for a newly set key or method. Only when mf_old_key != NULL. */
+      char_u	*mf_old_key;
+      int		mf_old_cm;
+      char_u	mf_old_seed[MF_SEED_LEN];
+--- 604,633 ----
+  
+  struct memfile
+  {
+!     char_u	*mf_fname;		// name of the file
+!     char_u	*mf_ffname;		// idem, full path
+!     int		mf_fd;			// file descriptor
+!     int		mf_flags;		// flags used when opening this memfile
+!     int		mf_reopen;		// mf_fd was closed, retry opening
+!     bhdr_T	*mf_free_first;		// first block_hdr in free list
+!     bhdr_T	*mf_used_first;		// mru block_hdr in used list
+!     bhdr_T	*mf_used_last;		// lru block_hdr in used list
+!     unsigned	mf_used_count;		// number of pages in used list
+!     unsigned	mf_used_count_max;	// maximum number of pages in memory
+!     mf_hashtab_T mf_hash;		// hash lists
+!     mf_hashtab_T mf_trans;		// trans lists
+!     blocknr_T	mf_blocknr_max;		// highest positive block number + 1
+!     blocknr_T	mf_blocknr_min;		// lowest negative block number - 1
+!     blocknr_T	mf_neg_count;		// number of negative blocks numbers
+!     blocknr_T	mf_infile_count;	// number of pages in the file
+!     unsigned	mf_page_size;		// number of bytes in a page
+!     int		mf_dirty;		// TRUE if there are dirty blocks
+  #ifdef FEAT_CRYPT
+!     buf_T	*mf_buffer;		// buffer this memfile is for
+!     char_u	mf_seed[MF_SEED_LEN];	// seed for encryption
+  
+!     // Values for key, method and seed used for reading data blocks when
+!     // updating for a newly set key or method. Only when mf_old_key != NULL.
+      char_u	*mf_old_key;
+      int		mf_old_cm;
+      char_u	mf_old_seed[MF_SEED_LEN];
+*** ../vim-8.1.1412/src/testdir/test_startup.vim	2019-05-20 22:12:30.724442773 +0200
+--- src/testdir/test_startup.vim	2019-05-27 23:34:05.857353849 +0200
+***************
+*** 288,311 ****
+  
+    " Test with default argument '-q'.
+    call assert_equal('errors.err', &errorfile)
+!   call writefile(["../memfile.c:1482:5: error: expected ';' before '}' token"], 'errors.err')
+    if RunVim([], after, '-q')
+      let lines = readfile('Xtestout')
+      call assert_equal(['errors.err',
+! 	\              '[0, 1482, 5, 0]',
+! 	\              source_file . "|1482 col 5| error: expected ';' before '}' token"],
+  	\             lines)
+    endif
+    call delete('Xtestout')
+    call delete('errors.err')
+  
+    " Test with explicit argument '-q Xerrors' (with space).
+!   call writefile(["../memfile.c:1482:5: error: expected ';' before '}' token"], 'Xerrors')
+    if RunVim([], after, '-q Xerrors')
+      let lines = readfile('Xtestout')
+      call assert_equal(['Xerrors',
+! 	\              '[0, 1482, 5, 0]',
+! 	\              source_file . "|1482 col 5| error: expected ';' before '}' token"],
+  	\             lines)
+    endif
+    call delete('Xtestout')
+--- 288,311 ----
+  
+    " Test with default argument '-q'.
+    call assert_equal('errors.err', &errorfile)
+!   call writefile(["../memfile.c:208:5: error: expected ';' before '}' token"], 'errors.err')
+    if RunVim([], after, '-q')
+      let lines = readfile('Xtestout')
+      call assert_equal(['errors.err',
+! 	\              '[0, 208, 5, 0]',
+! 	\              source_file . "|208 col 5| error: expected ';' before '}' token"],
+  	\             lines)
+    endif
+    call delete('Xtestout')
+    call delete('errors.err')
+  
+    " Test with explicit argument '-q Xerrors' (with space).
+!   call writefile(["../memfile.c:208:5: error: expected ';' before '}' token"], 'Xerrors')
+    if RunVim([], after, '-q Xerrors')
+      let lines = readfile('Xtestout')
+      call assert_equal(['Xerrors',
+! 	\              '[0, 208, 5, 0]',
+! 	\              source_file . "|208 col 5| error: expected ';' before '}' token"],
+  	\             lines)
+    endif
+    call delete('Xtestout')
+***************
+*** 314,321 ****
+    if RunVim([], after, '-qXerrors')
+      let lines = readfile('Xtestout')
+      call assert_equal(['Xerrors',
+! 	\              '[0, 1482, 5, 0]',
+! 	\              source_file . "|1482 col 5| error: expected ';' before '}' token"],
+  	\             lines)
+    endif
+  
+--- 314,321 ----
+    if RunVim([], after, '-qXerrors')
+      let lines = readfile('Xtestout')
+      call assert_equal(['Xerrors',
+! 	\              '[0, 208, 5, 0]',
+! 	\              source_file . "|208 col 5| error: expected ';' before '}' token"],
+  	\             lines)
+    endif
+  
+*** ../vim-8.1.1412/src/version.c	2019-05-27 22:21:41.309951907 +0200
+--- src/version.c	2019-05-27 23:15:38.563021697 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1413,
+  /**/
+
+-- 
+Portable Computer:  A device invented to force businessmen
+to work at home, on vacation, and on business trips.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

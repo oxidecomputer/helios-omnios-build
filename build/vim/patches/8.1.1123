@@ -1,0 +1,354 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1123
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1123
+Problem:    No way to avoid filtering for autocomplete function, causing
+            flickering of the popup menu.
+Solution:   Add the "equal" field to complete items. (closes #3887)
+Files:	    runtime/doc/insert.txt, src/insexpand.c,
+            src/testdir/test_popup.vim
+
+
+*** ../vim-8.1.1122/runtime/doc/insert.txt	2019-03-29 12:19:34.949348952 +0100
+--- runtime/doc/insert.txt	2019-04-06 13:28:26.273579773 +0200
+***************
+*** 1104,1109 ****
+--- 1105,1113 ----
+  	icase		when non-zero case is to be ignored when comparing
+  			items to be equal; when omitted zero is used, thus
+  			items that only differ in case are added
++ 	equal		when non-zero, always treat this item to be equal when
++ 			comparing. Which means, "equal=1" disables filtering
++ 			of this item.
+  	dup		when non-zero this match will be added even when an
+  			item with the same word is already present.
+  	empty		when non-zero this match will be added even when it is
+***************
+*** 1111,1120 ****
+  	user_data 	custom data which is associated with the item and
+  			available in |v:completed_item|
+  
+! All of these except "icase", "dup" and "empty" must be a string.  If an item
+! does not meet these requirements then an error message is given and further
+! items in the list are not used.  You can mix string and Dictionary items in
+! the returned list.
+  
+  The "menu" item is used in the popup menu and may be truncated, thus it should
+  be relatively short.  The "info" item can be longer, it will  be displayed in
+--- 1115,1124 ----
+  	user_data 	custom data which is associated with the item and
+  			available in |v:completed_item|
+  
+! All of these except "icase", "equal", "dup" and "empty" must be a string.  If
+! an item does not meet these requirements then an error message is given and
+! further items in the list are not used.  You can mix string and Dictionary
+! items in the returned list.
+  
+  The "menu" item is used in the popup menu and may be truncated, thus it should
+  be relatively short.  The "info" item can be longer, it will  be displayed in
+*** ../vim-8.1.1122/src/insexpand.c	2019-03-30 18:46:57.344077426 +0100
+--- src/insexpand.c	2019-04-06 13:37:17.079078108 +0200
+***************
+*** 101,116 ****
+  {
+      compl_T	*cp_next;
+      compl_T	*cp_prev;
+!     char_u	*cp_str;	/* matched text */
+!     char	cp_icase;	/* TRUE or FALSE: ignore case */
+!     char_u	*(cp_text[CPT_COUNT]);	/* text for the menu */
+!     char_u	*cp_fname;	/* file containing the match, allocated when
+! 				 * cp_flags has FREE_FNAME */
+!     int		cp_flags;	/* ORIGINAL_TEXT, CONT_S_IPOS or FREE_FNAME */
+!     int		cp_number;	/* sequence number */
+  };
+  
+! # define ORIGINAL_TEXT	(1)   /* the original text when the expansion begun */
+  # define FREE_FNAME	(2)
+  
+  static char e_hitend[] = N_("Hit end of paragraph");
+--- 101,118 ----
+  {
+      compl_T	*cp_next;
+      compl_T	*cp_prev;
+!     char_u	*cp_str;	// matched text
+!     char	cp_icase;	// TRUE or FALSE: ignore case
+!     char	cp_equal;       // TRUE or FALSE: ins_compl_equal always ok
+!     char_u	*(cp_text[CPT_COUNT]);	// text for the menu
+!     char_u	*cp_fname;	// file containing the match, allocated when
+! 				// cp_flags has FREE_FNAME
+!     int		cp_flags;	// ORIGINAL_TEXT, CONT_S_IPOS or FREE_FNAME
+!     int		cp_number;	// sequence number
+  };
+  
+! // flags for ins_compl_add()
+! # define ORIGINAL_TEXT	(1)   // the original text when the expansion begun
+  # define FREE_FNAME	(2)
+  
+  static char e_hitend[] = N_("Hit end of paragraph");
+***************
+*** 183,189 ****
+  static int	  compl_opt_refresh_always = FALSE;
+  static int	  compl_opt_suppress_empty = FALSE;
+  
+! static int ins_compl_add(char_u *str, int len, int icase, char_u *fname, char_u **cptext, int cdir, int flags, int adup);
+  static void ins_compl_longest_match(compl_T *match);
+  static void ins_compl_del_pum(void);
+  static void ins_compl_files(int count, char_u **files, int thesaurus, int flags, regmatch_T *regmatch, char_u *buf, int *dir);
+--- 185,191 ----
+  static int	  compl_opt_refresh_always = FALSE;
+  static int	  compl_opt_suppress_empty = FALSE;
+  
+! static int ins_compl_add(char_u *str, int len, int icase, char_u *fname, char_u **cptext, int cdir, int flags, int adup, int equal);
+  static void ins_compl_longest_match(compl_T *match);
+  static void ins_compl_del_pum(void);
+  static void ins_compl_files(int count, char_u **files, int thesaurus, int flags, regmatch_T *regmatch, char_u *buf, int *dir);
+***************
+*** 413,425 ****
+   */
+      int
+  ins_compl_add_infercase(
+!     char_u	*str,
+      int		len,
+      int		icase,
+      char_u	*fname,
+      int		dir,
+      int		flags)
+  {
+      char_u	*p;
+      int		i, c;
+      int		actual_len;		// Take multi-byte characters
+--- 415,428 ----
+   */
+      int
+  ins_compl_add_infercase(
+!     char_u	*str_arg,
+      int		len,
+      int		icase,
+      char_u	*fname,
+      int		dir,
+      int		flags)
+  {
++     char_u	*str = str_arg;
+      char_u	*p;
+      int		i, c;
+      int		actual_len;		// Take multi-byte characters
+***************
+*** 550,559 ****
+  	    vim_free(wca);
+  	}
+  
+! 	return ins_compl_add(IObuff, len, icase, fname, NULL, dir,
+! 								flags, FALSE);
+      }
+!     return ins_compl_add(str, len, icase, fname, NULL, dir, flags, FALSE);
+  }
+  
+  /*
+--- 553,563 ----
+  	    vim_free(wca);
+  	}
+  
+! 	str = IObuff;
+      }
+! 
+!     return ins_compl_add(str, len, icase, fname, NULL, dir,
+! 							  flags, FALSE, FALSE);
+  }
+  
+  /*
+***************
+*** 571,577 ****
+      char_u	**cptext,   // extra text for popup menu or NULL
+      int		cdir,
+      int		flags,
+!     int		adup)	    // accept duplicate match
+  {
+      compl_T	*match;
+      int		dir = (cdir == 0 ? compl_direction : cdir);
+--- 575,582 ----
+      char_u	**cptext,   // extra text for popup menu or NULL
+      int		cdir,
+      int		flags,
+!     int		adup,	    // accept duplicate match
+!     int		equal)      // match is always accepted by ins_compl_equal
+  {
+      compl_T	*match;
+      int		dir = (cdir == 0 ? compl_direction : cdir);
+***************
+*** 613,618 ****
+--- 618,624 ----
+  	return FAIL;
+      }
+      match->cp_icase = icase;
++     match->cp_equal = equal;
+  
+      // match-fname is:
+      // - compl_curr_match->cp_fname if it is a string equal to fname.
+***************
+*** 676,681 ****
+--- 682,689 ----
+      static int
+  ins_compl_equal(compl_T *match, char_u *str, int len)
+  {
++     if (match->cp_equal)
++ 	return TRUE;
+      if (match->cp_icase)
+  	return STRNICMP(match->cp_str, str, (size_t)len) == 0;
+      return STRNCMP(match->cp_str, str, (size_t)len) == 0;
+***************
+*** 776,782 ****
+  
+      for (i = 0; i < num_matches && add_r != FAIL; i++)
+  	if ((add_r = ins_compl_add(matches[i], -1, icase,
+! 					    NULL, NULL, dir, 0, FALSE)) == OK)
+  	    // if dir was BACKWARD then honor it just once
+  	    dir = FORWARD;
+      FreeWild(num_matches, matches);
+--- 784,790 ----
+  
+      for (i = 0; i < num_matches && add_r != FAIL; i++)
+  	if ((add_r = ins_compl_add(matches[i], -1, icase,
+! 				      NULL, NULL, dir, 0, FALSE, FALSE)) == OK)
+  	    // if dir was BACKWARD then honor it just once
+  	    dir = FORWARD;
+      FreeWild(num_matches, matches);
+***************
+*** 868,874 ****
+      // compl_pattern doesn't need to be set
+      compl_orig_text = vim_strnsave(ml_get_curline() + compl_col, compl_length);
+      if (compl_orig_text == NULL || ins_compl_add(compl_orig_text,
+! 			-1, p_ic, NULL, NULL, 0, ORIGINAL_TEXT, FALSE) != OK)
+  	return;
+  
+      ctrl_x_mode = CTRL_X_EVAL;
+--- 876,882 ----
+      // compl_pattern doesn't need to be set
+      compl_orig_text = vim_strnsave(ml_get_curline() + compl_col, compl_length);
+      if (compl_orig_text == NULL || ins_compl_add(compl_orig_text,
+! 		   -1, p_ic, NULL, NULL, 0, ORIGINAL_TEXT, FALSE, FALSE) != OK)
+  	return;
+  
+      ctrl_x_mode = CTRL_X_EVAL;
+***************
+*** 2365,2370 ****
+--- 2373,2379 ----
+      int		icase = FALSE;
+      int		adup = FALSE;
+      int		aempty = FALSE;
++     int		aequal = FALSE;
+      char_u	*(cptext[CPT_COUNT]);
+  
+      if (tv->v_type == VAR_DICT && tv->vval.v_dict != NULL)
+***************
+*** 2386,2391 ****
+--- 2395,2402 ----
+  	    adup = dict_get_number(tv->vval.v_dict, (char_u *)"dup");
+  	if (dict_get_string(tv->vval.v_dict, (char_u *)"empty", FALSE) != NULL)
+  	    aempty = dict_get_number(tv->vval.v_dict, (char_u *)"empty");
++ 	if (dict_get_string(tv->vval.v_dict, (char_u *)"equal", FALSE) != NULL)
++ 	    aequal = dict_get_number(tv->vval.v_dict, (char_u *)"equal");
+      }
+      else
+      {
+***************
+*** 2394,2400 ****
+      }
+      if (word == NULL || (!aempty && *word == NUL))
+  	return FAIL;
+!     return ins_compl_add(word, -1, icase, NULL, cptext, dir, 0, adup);
+  }
+  #endif
+  
+--- 2405,2411 ----
+      }
+      if (word == NULL || (!aempty && *word == NUL))
+  	return FAIL;
+!     return ins_compl_add(word, -1, icase, NULL, cptext, dir, 0, adup, aequal);
+  }
+  #endif
+  
+***************
+*** 3694,3700 ****
+  	vim_free(compl_orig_text);
+  	compl_orig_text = vim_strnsave(line + compl_col, compl_length);
+  	if (compl_orig_text == NULL || ins_compl_add(compl_orig_text,
+! 			-1, p_ic, NULL, NULL, 0, ORIGINAL_TEXT, FALSE) != OK)
+  	{
+  	    VIM_CLEAR(compl_pattern);
+  	    VIM_CLEAR(compl_orig_text);
+--- 3705,3711 ----
+  	vim_free(compl_orig_text);
+  	compl_orig_text = vim_strnsave(line + compl_col, compl_length);
+  	if (compl_orig_text == NULL || ins_compl_add(compl_orig_text,
+! 		   -1, p_ic, NULL, NULL, 0, ORIGINAL_TEXT, FALSE, FALSE) != OK)
+  	{
+  	    VIM_CLEAR(compl_pattern);
+  	    VIM_CLEAR(compl_orig_text);
+*** ../vim-8.1.1122/src/testdir/test_popup.vim	2019-03-29 12:19:34.953348924 +0100
+--- src/testdir/test_popup.vim	2019-04-06 13:34:17.403736197 +0200
+***************
+*** 276,281 ****
+--- 276,313 ----
+    iunmap <F5>
+  endfunc
+  
++ func Test_complete_no_filter()
++   func! s:complTest1() abort
++     call complete(1, [{'word': 'foobar'}])
++     return ''
++   endfunc
++   func! s:complTest2() abort
++     call complete(1, [{'word': 'foobar', 'equal': 1}])
++     return ''
++   endfunc
++ 
++   let completeopt = &completeopt
++ 
++   " without equal=1
++   new
++   set completeopt=menuone,noinsert,menu
++   inoremap <F5>  <C-R>=s:complTest1()<CR>
++   call feedkeys("i\<F5>z\<CR>\<CR>\<ESC>.", 'tx')
++   call assert_equal('z', getline(1))
++   bwipe!
++ 
++   " with equal=1
++   new
++   set completeopt=menuone,noinsert,menu
++   inoremap <F5>  <C-R>=s:complTest2()<CR>
++   call feedkeys("i\<F5>z\<CR>\<CR>\<ESC>.", 'tx')
++   call assert_equal('foobar', getline(1))
++   bwipe!
++ 
++   let &completeopt = completeopt
++   iunmap <F5>
++ endfunc
++ 
+  func Test_compl_vim_cmds_after_register_expr()
+    func! s:test_func()
+      return 'autocmd '
+*** ../vim-8.1.1122/src/version.c	2019-04-06 13:18:06.737335067 +0200
+--- src/version.c	2019-04-06 13:27:34.729885207 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1123,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+210. When you get a divorce, you don't care about who gets the children,
+     but discuss endlessly who can use the email address.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

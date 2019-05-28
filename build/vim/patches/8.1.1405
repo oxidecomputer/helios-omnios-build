@@ -1,0 +1,283 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1405
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1405
+Problem:    "highlight" option of popup windows not supported.
+Solution:   Implement the "highlight" option.
+Files:	    src/option.c, src/proto/option.pro, src/diff.c src/popupwin.c,
+            runtime/doc/popup.txt, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_01.dump,
+            src/testdir/dumps/Test_popupwin_03.dump
+
+
+*** ../vim-8.1.1404/src/option.c	2019-05-25 19:51:03.776408456 +0200
+--- src/option.c	2019-05-26 21:01:53.068520737 +0200
+***************
+*** 5954,5959 ****
+--- 5954,6007 ----
+  }
+  
+  /*
++  * Like set_string_option_direct(), but for a window-local option in "wp".
++  * Blocks autocommands to avoid the old curwin becoming invalid.
++  */
++     void
++ set_string_option_direct_in_win(
++ 	win_T		*wp,
++ 	char_u		*name,
++ 	int		opt_idx,
++ 	char_u		*val,
++ 	int		opt_flags,
++ 	int		set_sid)
++ {
++     win_T	*save_curwin = curwin;
++ 
++     block_autocmds();
++     curwin = wp;
++     curbuf = curwin->w_buffer;
++     set_string_option_direct(name, opt_idx, val, opt_flags, set_sid);
++     curwin = save_curwin;
++     curbuf = curwin->w_buffer;
++     unblock_autocmds();
++ }
++ 
++ /*
++  * Like set_string_option_direct(), but for a buffer-local option in "buf".
++  * Blocks autocommands to avoid the old curbuf becoming invalid.
++  */
++     void
++ set_string_option_direct_in_buf(
++ 	buf_T		*buf,
++ 	char_u		*name,
++ 	int		opt_idx,
++ 	char_u		*val,
++ 	int		opt_flags,
++ 	int		set_sid)
++ {
++     buf_T	*save_curbuf = curbuf;
++ 
++     block_autocmds();
++     curbuf = buf;
++     curwin->w_buffer = curbuf;
++     set_string_option_direct(name, opt_idx, val, opt_flags, set_sid);
++     curbuf = save_curbuf;
++     curwin->w_buffer = curbuf;
++     unblock_autocmds();
++ }
++ 
++ /*
+   * Set global value for string option when it's a local option.
+   */
+      static void
+*** ../vim-8.1.1404/src/proto/option.pro	2019-04-10 22:15:15.813016799 +0200
+--- src/proto/option.pro	2019-05-26 20:24:40.435782299 +0200
+***************
+*** 21,26 ****
+--- 21,28 ----
+  int set_term_option_alloced(char_u **p);
+  int was_set_insecurely(char_u *opt, int opt_flags);
+  void set_string_option_direct(char_u *name, int opt_idx, char_u *val, int opt_flags, int set_sid);
++ void set_string_option_direct_in_win(win_T *wp, char_u *name, int opt_idx, char_u *val, int opt_flags, int set_sid);
++ void set_string_option_direct_in_buf(buf_T *buf, char_u *name, int opt_idx, char_u *val, int opt_flags, int set_sid);
+  int valid_spellang(char_u *val);
+  char *check_colorcolumn(win_T *wp);
+  char *check_stl_option(char_u *s);
+*** ../vim-8.1.1404/src/diff.c	2019-05-24 19:38:59.096545552 +0200
+--- src/diff.c	2019-05-26 20:19:45.869309781 +0200
+***************
+*** 1447,1464 ****
+  	wp->w_p_wrap_save = wp->w_p_wrap;
+      wp->w_p_wrap = FALSE;
+  # ifdef FEAT_FOLDING
+-     curwin = wp;
+-     curbuf = curwin->w_buffer;
+      if (!wp->w_p_diff)
+      {
+  	if (wp->w_p_diff_saved)
+  	    free_string_option(wp->w_p_fdm_save);
+  	wp->w_p_fdm_save = vim_strsave(wp->w_p_fdm);
+      }
+!     set_string_option_direct((char_u *)"fdm", -1, (char_u *)"diff",
+  						       OPT_LOCAL|OPT_FREE, 0);
+-     curwin = old_curwin;
+-     curbuf = curwin->w_buffer;
+      if (!wp->w_p_diff)
+      {
+  	wp->w_p_fdc_save = wp->w_p_fdc;
+--- 1447,1460 ----
+  	wp->w_p_wrap_save = wp->w_p_wrap;
+      wp->w_p_wrap = FALSE;
+  # ifdef FEAT_FOLDING
+      if (!wp->w_p_diff)
+      {
+  	if (wp->w_p_diff_saved)
+  	    free_string_option(wp->w_p_fdm_save);
+  	wp->w_p_fdm_save = vim_strsave(wp->w_p_fdm);
+      }
+!     set_string_option_direct_in_win(wp, (char_u *)"fdm", -1, (char_u *)"diff",
+  						       OPT_LOCAL|OPT_FREE, 0);
+      if (!wp->w_p_diff)
+      {
+  	wp->w_p_fdc_save = wp->w_p_fdc;
+*** ../vim-8.1.1404/src/popupwin.c	2019-05-26 20:44:07.105974009 +0200
+--- src/popupwin.c	2019-05-26 20:44:54.193735465 +0200
+***************
+*** 23,28 ****
+--- 23,29 ----
+  apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict)
+  {
+      int	    nr;
++     char_u  *str;
+  
+      wp->w_maxwidth = dict_get_number(dict, (char_u *)"maxwidth");
+      wp->w_maxheight = dict_get_number(dict, (char_u *)"maxheight");
+***************
+*** 52,57 ****
+--- 53,62 ----
+      }
+  #endif
+  
++     str = dict_get_string(dict, (char_u *)"highlight", TRUE);
++     if (str != NULL)
++ 	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
++ 						   str, OPT_FREE|OPT_LOCAL, 0);
+  }
+  
+  /*
+***************
+*** 94,105 ****
+      if (buf == NULL)
+  	return;
+      ml_open(buf);
+!     curbuf = buf;
+!     set_string_option_direct((char_u *)"buftype", -1,
+  				     (char_u *)"popup", OPT_FREE|OPT_LOCAL, 0);
+!     set_string_option_direct((char_u *)"bufhidden", -1,
+  				     (char_u *)"hide", OPT_FREE|OPT_LOCAL, 0);
+-     curbuf = curwin->w_buffer;
+      buf->b_p_ul = -1;	    // no undo
+      buf->b_p_swf = FALSE;   // no swap file
+      buf->b_p_bl = FALSE;    // unlisted buffer
+--- 99,108 ----
+      if (buf == NULL)
+  	return;
+      ml_open(buf);
+!     set_string_option_direct_in_buf(buf, (char_u *)"buftype", -1,
+  				     (char_u *)"popup", OPT_FREE|OPT_LOCAL, 0);
+!     set_string_option_direct_in_buf(buf, (char_u *)"bufhidden", -1,
+  				     (char_u *)"hide", OPT_FREE|OPT_LOCAL, 0);
+      buf->b_p_ul = -1;	    // no undo
+      buf->b_p_swf = FALSE;   // no swap file
+      buf->b_p_bl = FALSE;    // unlisted buffer
+*** ../vim-8.1.1404/runtime/doc/popup.txt	2019-05-26 20:10:02.604276366 +0200
+--- runtime/doc/popup.txt	2019-05-26 20:33:53.125028162 +0200
+***************
+*** 322,329 ****
+  	wrap		TRUE to make the lines wrap (default TRUE)
+  			{not implemented yet}
+  	highlight	highlight group name to use for the text, stored in
+! 			'wincolor'
+! 			{not implemented yet}
+  	border		list with numbers, defining the border thickness
+  			above/right/below/left of the popup; an empty list
+  			uses a border of 1 all around
+--- 322,328 ----
+  	wrap		TRUE to make the lines wrap (default TRUE)
+  			{not implemented yet}
+  	highlight	highlight group name to use for the text, stored in
+! 			the 'wincolor' option
+  	border		list with numbers, defining the border thickness
+  			above/right/below/left of the popup; an empty list
+  			uses a border of 1 all around
+*** ../vim-8.1.1404/src/testdir/test_popupwin.vim	2019-05-26 20:44:07.105974009 +0200
+--- src/testdir/test_popupwin.vim	2019-05-26 20:45:14.293633517 +0200
+***************
+*** 12,21 ****
+    endif
+    call writefile([
+  	\ "call setline(1, range(1, 100))",
+! 	\ "let winid = popup_create('hello there', {'line': 3, 'col': 11})",
+! 	\ "hi PopupColor ctermbg=lightblue",
+! 	\ "call setwinvar(winid, '&wincolor', 'PopupColor')",
+  	\ "let winid2 = popup_create(['another one', 'another two', 'another three'], {'line': 3, 'col': 25})",
+  	\], 'XtestPopup')
+    let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_01', {})
+--- 12,22 ----
+    endif
+    call writefile([
+  	\ "call setline(1, range(1, 100))",
+! 	\ "hi PopupColor1 ctermbg=lightblue",
+! 	\ "hi PopupColor2 ctermbg=lightcyan",
+! 	\ "let winid = popup_create('hello there', {'line': 3, 'col': 11, 'highlight': 'PopupColor1'})",
+  	\ "let winid2 = popup_create(['another one', 'another two', 'another three'], {'line': 3, 'col': 25})",
++ 	\ "call setwinvar(winid2, '&wincolor', 'PopupColor2')",
+  	\], 'XtestPopup')
+    let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_01', {})
+*** ../vim-8.1.1404/src/testdir/dumps/Test_popupwin_01.dump	2019-05-25 19:51:03.780408437 +0200
+--- src/testdir/dumps/Test_popupwin_01.dump	2019-05-26 20:29:20.802320194 +0200
+***************
+*** 1,8 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+! |3| @8|h+0&#5fd7ff255|e|l@1|o| |t|h|e|r|e| @8|r+0#0000001#ffd7ff255| |o|n|e| @8| +0#0000000#ffffff0@30
+! |4| @22|a+0#0000001#ffd7ff255|n|o|t|h|e|r| |t|w|o| @8| +0#0000000#ffffff0@30
+! |5| @22|a+0#0000001#ffd7ff255|n|o|t|h|e|r| |t|h|r|e@1| @6| +0#0000000#ffffff0@30
+  |6| @73
+  |7| @73
+  |8| @73
+--- 1,8 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+! |3| @8|h+0&#5fd7ff255|e|l@1|o| |t|h|e|r|e| @8|r+0&#afffff255| |o|n|e| @8| +0&#ffffff0@30
+! |4| @22|a+0&#afffff255|n|o|t|h|e|r| |t|w|o| @8| +0&#ffffff0@30
+! |5| @22|a+0&#afffff255|n|o|t|h|e|r| |t|h|r|e@1| @6| +0&#ffffff0@30
+  |6| @73
+  |7| @73
+  |8| @73
+*** ../vim-8.1.1404/src/testdir/dumps/Test_popupwin_03.dump	2019-05-26 14:10:59.909979018 +0200
+--- src/testdir/dumps/Test_popupwin_03.dump	2019-05-26 20:31:41.629659341 +0200
+***************
+*** 1,8 ****
+  | +2&#ffffff0|+| |[|N|o| |N|a|m|e|]| | +8#0000001#e0e0e08|[|N|o| |N|a|m|e|]| | +1#0000000#ffffff0@49|X+8#0000001#e0e0e08
+  >1+0#0000000#ffffff0| @73
+! |2| @8|h+0&#5fd7ff255|e|l@1|o| |t|h|e|r|e| @8|r+0#0000001#ffd7ff255| |o|n|e| @8| +0#0000000#ffffff0@30
+! |3| @22|a+0#0000001#ffd7ff255|n|o|t|h|e|r| |t|w|o| @8| +0#0000000#ffffff0@30
+! |4| @22|a+0#0000001#ffd7ff255|n|o|t|h|e|r| |t|h|r|e@1| @6| +0#0000000#ffffff0@30
+  |5| @73
+  |6| @73
+  |7| @73
+--- 1,8 ----
+  | +2&#ffffff0|+| |[|N|o| |N|a|m|e|]| | +8#0000001#e0e0e08|[|N|o| |N|a|m|e|]| | +1#0000000#ffffff0@49|X+8#0000001#e0e0e08
+  >1+0#0000000#ffffff0| @73
+! |2| @8|h+0&#5fd7ff255|e|l@1|o| |t|h|e|r|e| @8|r+0&#afffff255| |o|n|e| @8| +0&#ffffff0@30
+! |3| @22|a+0&#afffff255|n|o|t|h|e|r| |t|w|o| @8| +0&#ffffff0@30
+! |4| @22|a+0&#afffff255|n|o|t|h|e|r| |t|h|r|e@1| @6| +0&#ffffff0@30
+  |5| @73
+  |6| @73
+  |7| @73
+*** ../vim-8.1.1404/src/version.c	2019-05-26 20:49:39.472283431 +0200
+--- src/version.c	2019-05-26 20:58:38.049523348 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1405,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+35. Your husband tells you he's had that beard for 2 months.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

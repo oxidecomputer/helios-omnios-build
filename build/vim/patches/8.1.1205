@@ -1,0 +1,209 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1205
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1205
+Problem:    A BufReadPre autocommand may cause the cursor to move.
+Solution:   Restore the cursor position after executing the autocommand,
+            unless the autocommand moved it. (Christian Brabandt,
+            closes #4302, closes #4294)
+Files:	    src/autocmd.c, src/proto/window.pro, src/structs.h,
+            src/testdir/test_autocmd.vim, src/window.c
+
+
+*** ../vim-8.1.1204/src/autocmd.c	2019-04-08 18:15:36.464223229 +0200
+--- src/autocmd.c	2019-04-25 22:07:17.467246898 +0200
+***************
+*** 2123,2131 ****
+  	for (ap = patcmd.curpat; ap->next != NULL; ap = ap->next)
+  	    ap->last = FALSE;
+  	ap->last = TRUE;
+! 	check_lnums(TRUE);	// make sure cursor and topline are valid
+  	do_cmdline(NULL, getnextac, (void *)&patcmd,
+  				     DOCMD_NOWAIT|DOCMD_VERBOSE|DOCMD_REPEAT);
+  #ifdef FEAT_EVAL
+  	if (eap != NULL)
+  	{
+--- 2123,2138 ----
+  	for (ap = patcmd.curpat; ap->next != NULL; ap = ap->next)
+  	    ap->last = FALSE;
+  	ap->last = TRUE;
+! 
+! 	// make sure cursor and topline are valid
+! 	check_lnums(TRUE);
+! 
+  	do_cmdline(NULL, getnextac, (void *)&patcmd,
+  				     DOCMD_NOWAIT|DOCMD_VERBOSE|DOCMD_REPEAT);
++ 
++ 	// restore cursor and topline, unless they were changed
++ 	reset_lnums();
++ 
+  #ifdef FEAT_EVAL
+  	if (eap != NULL)
+  	{
+*** ../vim-8.1.1204/src/proto/window.pro	2019-04-17 18:24:32.010143188 +0200
+--- src/proto/window.pro	2019-04-25 22:07:22.791243667 +0200
+***************
+*** 70,75 ****
+--- 70,76 ----
+  int min_rows(void);
+  int only_one_window(void);
+  void check_lnums(int do_curwin);
++ void reset_lnums(void);
+  void make_snapshot(int idx);
+  void restore_snapshot(int idx, int close_curwin);
+  int switch_win(win_T **save_curwin, tabpage_T **save_curtab, win_T *win, tabpage_T *tp, int no_display);
+*** ../vim-8.1.1204/src/structs.h	2019-04-04 18:15:05.770857065 +0200
+--- src/structs.h	2019-04-25 22:11:22.790777615 +0200
+***************
+*** 2715,2720 ****
+--- 2715,2730 ----
+  #endif
+  };
+  
++ // Structure to store last cursor position and topline.  Used by check_lnums()
++ // and reset_lnums().
++ typedef struct
++ {
++     int		w_topline_save;	// original topline value
++     int		w_topline_corr;	// corrected topline value
++     pos_T	w_cursor_save;	// original cursor position
++     pos_T	w_cursor_corr;	// corrected cursor position
++ } pos_save_T;
++ 
+  #ifdef FEAT_MENU
+  typedef struct {
+      int		wb_startcol;
+***************
+*** 2803,2808 ****
+--- 2813,2820 ----
+      int		w_wincol;	    /* Leftmost column of window in screen. */
+      int		w_width;	    /* Width of window, excluding separation. */
+      int		w_vsep_width;	    /* Number of separator columns (0 or 1). */
++     pos_save_T	w_save_cursor;	    /* backup of cursor pos and topline */
++ 
+  
+      /*
+       * === start of cached values ====
+*** ../vim-8.1.1204/src/testdir/test_autocmd.vim	2019-04-25 20:28:53.327979592 +0200
+--- src/testdir/test_autocmd.vim	2019-04-25 22:17:58.565083976 +0200
+***************
+*** 1485,1490 ****
+--- 1485,1535 ----
+    call assert_fails('au WinNew * ++once ++once echo bad', 'E983:')
+  endfunc
+  
++ func Test_autocmd_bufreadpre()
++   new
++   let b:bufreadpre = 1
++   call append(0, range(100))
++   w! XAutocmdBufReadPre.txt
++   autocmd BufReadPre <buffer> :let b:bufreadpre += 1
++   norm! 50gg
++   sp
++   norm! 100gg
++   wincmd p
++   let g:wsv1 = winsaveview()
++   wincmd p
++   let g:wsv2 = winsaveview()
++   " triggers BufReadPre, should not move the cursor in either window
++   " The topline may change one line in a large window.
++   edit
++   call assert_inrange(g:wsv2.topline - 1, g:wsv2.topline + 1, winsaveview().topline)
++   call assert_equal(g:wsv2.lnum, winsaveview().lnum)
++   call assert_equal(2, b:bufreadpre)
++   wincmd p
++   call assert_equal(g:wsv1.topline, winsaveview().topline)
++   call assert_equal(g:wsv1.lnum, winsaveview().lnum)
++   call assert_equal(2, b:bufreadpre)
++   " Now set the cursor position in an BufReadPre autocommand
++   " (even though the position will be invalid, this should make Vim reset the
++   " cursor position in the other window.
++   wincmd p
++   set cpo+=g
++   " won't do anything, but try to set the cursor on an invalid lnum
++   autocmd BufReadPre <buffer> :norm! 70gg
++   " triggers BufReadPre, should not move the cursor in either window
++   e
++   call assert_equal(1, winsaveview().topline)
++   call assert_equal(1, winsaveview().lnum)
++   call assert_equal(3, b:bufreadpre)
++   wincmd p
++   call assert_equal(g:wsv1.topline, winsaveview().topline)
++   call assert_equal(g:wsv1.lnum, winsaveview().lnum)
++   call assert_equal(3, b:bufreadpre)
++   close
++   close
++   call delete('XAutocmdBufReadPre.txt')
++   set cpo-=g
++ endfunc
++ 
+  " FileChangedShell tested in test_filechanged.vim
+  
+  " Tests for the following autocommands:
+*** ../vim-8.1.1204/src/window.c	2019-04-17 18:24:32.010143188 +0200
+--- src/window.c	2019-04-25 22:20:04.956396595 +0200
+***************
+*** 6196,6205 ****
+--- 6196,6234 ----
+      FOR_ALL_TAB_WINDOWS(tp, wp)
+  	if ((do_curwin || wp != curwin) && wp->w_buffer == curbuf)
+  	{
++ 	    // save the original cursor position and topline
++ 	    wp->w_save_cursor.w_cursor_save = wp->w_cursor;
++ 	    wp->w_save_cursor.w_topline_save = wp->w_topline;
++ 
+  	    if (wp->w_cursor.lnum > curbuf->b_ml.ml_line_count)
+  		wp->w_cursor.lnum = curbuf->b_ml.ml_line_count;
+  	    if (wp->w_topline > curbuf->b_ml.ml_line_count)
+  		wp->w_topline = curbuf->b_ml.ml_line_count;
++ 
++ 	    // save the corrected cursor position and topline
++ 	    wp->w_save_cursor.w_cursor_corr = wp->w_cursor;
++ 	    wp->w_save_cursor.w_topline_corr = wp->w_topline;
++ 	}
++ }
++ 
++ /*
++  * Reset cursor and topline to its stored values from check_lnums().
++  * check_lnums() must have been called first!
++  */
++     void
++ reset_lnums()
++ {
++     win_T	*wp;
++     tabpage_T	*tp;
++ 
++     FOR_ALL_TAB_WINDOWS(tp, wp)
++ 	if (wp->w_buffer == curbuf)
++ 	{
++ 	    // Restore the value if the autocommand didn't change it.
++ 	    if (EQUAL_POS(wp->w_save_cursor.w_cursor_corr, wp->w_cursor))
++ 		wp->w_cursor = wp->w_save_cursor.w_cursor_save;
++ 	    if (wp->w_save_cursor.w_topline_corr == wp->w_topline)
++ 		wp->w_topline = wp->w_save_cursor.w_topline_save;
+  	}
+  }
+  
+*** ../vim-8.1.1204/src/version.c	2019-04-25 21:27:40.566186854 +0200
+--- src/version.c	2019-04-25 22:05:46.695243258 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1205,
+  /**/
+
+-- 
+Nothing is impossible for the man who doesn't have to do it.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

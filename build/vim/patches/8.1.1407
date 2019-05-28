@@ -1,0 +1,516 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1407
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1407
+Problem:    Popup_create() does not support text properties.
+Solution:   Support the third form of the text argument.
+Files:	    src/textprop.c, src/proto/textprop.pro, src/popupwin.c,
+            src/testdir/test_popupwin.vim, src/screen.c,
+            src/testdir/dumps/Test_popupwin_02.dump,
+            src/testdir/dumps/Test_popupwin_03.dump,
+            src/testdir/dumps/Test_popupwin_04.dump,
+            runtime/doc/popup.txt
+
+
+*** ../vim-8.1.1406/src/textprop.c	2019-05-25 20:21:24.685950973 +0200
+--- src/textprop.c	2019-05-26 23:30:46.064098867 +0200
+***************
+*** 142,164 ****
+      void
+  f_prop_add(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+-     linenr_T	lnum;
+      linenr_T	start_lnum;
+-     linenr_T	end_lnum;
+      colnr_T	start_col;
+-     colnr_T	end_col;
+-     dict_T	*dict;
+-     char_u	*type_name;
+-     proptype_T	*type;
+-     buf_T	*buf = curbuf;
+-     int		id = 0;
+-     char_u	*newtext;
+-     int		proplen;
+-     size_t	textlen;
+-     char_u	*props = NULL;
+-     char_u	*newprops;
+-     textprop_T	tmp_prop;
+-     int		i;
+  
+      start_lnum = tv_get_number(&argvars[0]);
+      start_col = tv_get_number(&argvars[1]);
+--- 142,149 ----
+***************
+*** 172,178 ****
+  	emsg(_(e_dictreq));
+  	return;
+      }
+!     dict = argvars[2].vval.v_dict;
+  
+      if (dict == NULL || dict_find(dict, (char_u *)"type", -1) == NULL)
+      {
+--- 157,194 ----
+  	emsg(_(e_dictreq));
+  	return;
+      }
+! 
+!     prop_add_common(start_lnum, start_col, argvars[2].vval.v_dict,
+! 							  curbuf, &argvars[2]);
+! }
+! 
+! /*
+!  * Shared between prop_add() and popup_create().
+!  * "dict_arg" is the function argument of a dict containing "bufnr".
+!  * it is NULL for popup_create().
+!  */
+!     void
+! prop_add_common(
+! 	linenr_T    start_lnum,
+! 	colnr_T	    start_col,
+! 	dict_T	    *dict,
+! 	buf_T	    *default_buf,
+! 	typval_T    *dict_arg)
+! {
+!     linenr_T	lnum;
+!     linenr_T	end_lnum;
+!     colnr_T	end_col;
+!     char_u	*type_name;
+!     proptype_T	*type;
+!     buf_T	*buf = default_buf;
+!     int		id = 0;
+!     char_u	*newtext;
+!     int		proplen;
+!     size_t	textlen;
+!     char_u	*props = NULL;
+!     char_u	*newprops;
+!     textprop_T	tmp_prop;
+!     int		i;
+  
+      if (dict == NULL || dict_find(dict, (char_u *)"type", -1) == NULL)
+      {
+***************
+*** 221,227 ****
+      if (dict_find(dict, (char_u *)"id", -1) != NULL)
+  	id = dict_get_number(dict, (char_u *)"id");
+  
+!     if (get_bufnr_from_arg(&argvars[2], &buf) == FAIL)
+  	return;
+  
+      type = lookup_prop_type(type_name, buf);
+--- 237,243 ----
+      if (dict_find(dict, (char_u *)"id", -1) != NULL)
+  	id = dict_get_number(dict, (char_u *)"id");
+  
+!     if (dict_arg != NULL && get_bufnr_from_arg(dict_arg, &buf) == FAIL)
+  	return;
+  
+      type = lookup_prop_type(type_name, buf);
+***************
+*** 278,289 ****
+  	mch_memmove(newtext, buf->b_ml.ml_line_ptr, textlen);
+  
+  	// Find the index where to insert the new property.
+! 	// Since the text properties are not aligned properly when stored with the
+! 	// text, we need to copy them as bytes before using it as a struct.
+  	for (i = 0; i < proplen; ++i)
+  	{
+  	    mch_memmove(&tmp_prop, props + i * sizeof(textprop_T),
+! 							       sizeof(textprop_T));
+  	    if (tmp_prop.tp_col >= col)
+  		break;
+  	}
+--- 294,305 ----
+  	mch_memmove(newtext, buf->b_ml.ml_line_ptr, textlen);
+  
+  	// Find the index where to insert the new property.
+! 	// Since the text properties are not aligned properly when stored with
+! 	// the text, we need to copy them as bytes before using it as a struct.
+  	for (i = 0; i < proplen; ++i)
+  	{
+  	    mch_memmove(&tmp_prop, props + i * sizeof(textprop_T),
+! 							   sizeof(textprop_T));
+  	    if (tmp_prop.tp_col >= col)
+  		break;
+  	}
+***************
+*** 298,304 ****
+  	tmp_prop.tp_flags = (lnum > start_lnum ? TP_FLAG_CONT_PREV : 0)
+  			  | (lnum < end_lnum ? TP_FLAG_CONT_NEXT : 0);
+  	mch_memmove(newprops + i * sizeof(textprop_T), &tmp_prop,
+! 							       sizeof(textprop_T));
+  
+  	if (i < proplen)
+  	    mch_memmove(newprops + (i + 1) * sizeof(textprop_T),
+--- 314,320 ----
+  	tmp_prop.tp_flags = (lnum > start_lnum ? TP_FLAG_CONT_PREV : 0)
+  			  | (lnum < end_lnum ? TP_FLAG_CONT_NEXT : 0);
+  	mch_memmove(newprops + i * sizeof(textprop_T), &tmp_prop,
+! 							   sizeof(textprop_T));
+  
+  	if (i < proplen)
+  	    mch_memmove(newprops + (i + 1) * sizeof(textprop_T),
+*** ../vim-8.1.1406/src/proto/textprop.pro	2019-05-19 22:53:36.504914607 +0200
+--- src/proto/textprop.pro	2019-05-26 23:30:50.644073843 +0200
+***************
+*** 1,5 ****
+--- 1,6 ----
+  /* textprop.c */
+  void f_prop_add(typval_T *argvars, typval_T *rettv);
++ void prop_add_common(linenr_T start_lnum, colnr_T start_col, dict_T *dict, buf_T *default_buf, typval_T *dict_arg);
+  int get_text_props(buf_T *buf, linenr_T lnum, char_u **props, int will_change);
+  proptype_T *text_prop_type_by_id(buf_T *buf, int id);
+  void f_prop_clear(typval_T *argvars, typval_T *rettv);
+*** ../vim-8.1.1406/src/popupwin.c	2019-05-26 22:17:31.736315033 +0200
+--- src/popupwin.c	2019-05-26 23:06:35.631863187 +0200
+***************
+*** 60,65 ****
+--- 60,150 ----
+  }
+  
+  /*
++  * Add lines to the popup from a list of strings.
++  */
++     static void
++ add_popup_strings(buf_T *buf, list_T *l)
++ {
++     listitem_T  *li;
++     linenr_T    lnum = 0;
++     char_u	*p;
++ 
++     for (li = l->lv_first; li != NULL; li = li->li_next)
++ 	if (li->li_tv.v_type == VAR_STRING)
++ 	{
++ 	    p = li->li_tv.vval.v_string;
++ 	    ml_append_buf(buf, lnum++,
++ 			       p == NULL ? (char_u *)"" : p, (colnr_T)0, TRUE);
++ 	}
++ }
++ 
++ /*
++  * Add lines to the popup from a list of dictionaries.
++  */
++     static void
++ add_popup_dicts(buf_T *buf, list_T *l)
++ {
++     listitem_T  *li;
++     listitem_T  *pli;
++     linenr_T    lnum = 0;
++     char_u	*p;
++     dict_T	*dict;
++ 
++     // first add the text lines
++     for (li = l->lv_first; li != NULL; li = li->li_next)
++     {
++ 	if (li->li_tv.v_type != VAR_DICT)
++ 	{
++ 	    emsg(_(e_dictreq));
++ 	    return;
++ 	}
++ 	dict = li->li_tv.vval.v_dict;
++ 	p = dict == NULL ? NULL
++ 			      : dict_get_string(dict, (char_u *)"text", FALSE);
++ 	ml_append_buf(buf, lnum++,
++ 			       p == NULL ? (char_u *)"" : p, (colnr_T)0, TRUE);
++     }
++ 
++     // add the text properties
++     lnum = 1;
++     for (li = l->lv_first; li != NULL; li = li->li_next, ++lnum)
++     {
++ 	dictitem_T	*di;
++ 	list_T		*plist;
++ 
++ 	dict = li->li_tv.vval.v_dict;
++ 	di = dict_find(dict, (char_u *)"props", -1);
++ 	if (di != NULL)
++ 	{
++ 	    if (di->di_tv.v_type != VAR_LIST)
++ 	    {
++ 		emsg(_(e_listreq));
++ 		return;
++ 	    }
++ 	    plist = di->di_tv.vval.v_list;
++ 	    if (plist != NULL)
++ 	    {
++ 		for (pli = plist->lv_first; pli != NULL; pli = pli->li_next)
++ 		{
++ 		    if (pli->li_tv.v_type != VAR_DICT)
++ 		    {
++ 			emsg(_(e_dictreq));
++ 			return;
++ 		    }
++ 		    dict = pli->li_tv.vval.v_dict;
++ 		    if (dict != NULL)
++ 		    {
++ 			int col = dict_get_number(dict, (char_u *)"col");
++ 
++ 			prop_add_common( lnum, col, dict, buf, NULL);
++ 		    }
++ 		}
++ 	    }
++ 	}
++     }
++ }
++ 
++ /*
+   * popup_create({text}, {options})
+   */
+      void
+***************
+*** 128,154 ****
+  
+      // Add text to the buffer.
+      if (argvars[0].v_type == VAR_STRING)
+  	// just a string
+  	ml_append_buf(buf, 0, argvars[0].vval.v_string, (colnr_T)0, TRUE);
+-     else if (argvars[0].vval.v_list->lv_first->li_tv.v_type == VAR_STRING)
+-     {
+- 	listitem_T  *li;
+- 	linenr_T    lnum = 0;
+- 	char_u	    *p;
+- 
+- 	// list of strings
+- 	for (li = argvars[0].vval.v_list->lv_first; li != NULL;
+- 							      li = li->li_next)
+- 	    if (li->li_tv.v_type == VAR_STRING)
+- 	    {
+- 		p = li->li_tv.vval.v_string;
+- 		ml_append_buf(buf, lnum++,
+- 			       p == NULL ? (char_u *)"" : p, (colnr_T)0, TRUE);
+- 	    }
+      }
+      else
+! 	// TODO: handle a list of dictionaries
+! 	emsg("Not implemented yet");
+  
+      // Delete the line of the empty buffer.
+      curbuf = buf;
+--- 213,233 ----
+  
+      // Add text to the buffer.
+      if (argvars[0].v_type == VAR_STRING)
++     {
+  	// just a string
+  	ml_append_buf(buf, 0, argvars[0].vval.v_string, (colnr_T)0, TRUE);
+      }
+      else
+!     {
+! 	list_T *l = argvars[0].vval.v_list;
+! 
+! 	if (l->lv_first->li_tv.v_type == VAR_STRING)
+! 	    // list of strings
+! 	    add_popup_strings(buf, l);
+! 	else
+! 	    // list of dictionaries
+! 	    add_popup_dicts(buf, l);
+!     }
+  
+      // Delete the line of the empty buffer.
+      curbuf = buf;
+*** ../vim-8.1.1406/src/testdir/test_popupwin.vim	2019-05-26 22:17:31.740314999 +0200
+--- src/testdir/test_popupwin.vim	2019-05-26 23:17:26.152504812 +0200
+***************
+*** 14,19 ****
+--- 14,21 ----
+  	\ "call setline(1, range(1, 100))",
+  	\ "hi PopupColor1 ctermbg=lightblue",
+  	\ "hi PopupColor2 ctermbg=lightcyan",
++ 	\ "hi Comment ctermfg=red",
++ 	\ "call prop_type_add('comment', {'highlight': 'Comment'})",
+  	\ "let winid = popup_create('hello there', {'line': 3, 'col': 11, 'highlight': 'PopupColor1'})",
+  	\ "let winid2 = popup_create(['another one', 'another two', 'another three'], {'line': 3, 'col': 25})",
+  	\ "call setwinvar(winid2, '&wincolor', 'PopupColor2')",
+***************
+*** 23,29 ****
+  
+    " Add a tabpage
+    call term_sendkeys(buf, ":tabnew\<CR>")
+!   call term_sendkeys(buf, ":call popup_create('other tab', {'line': 4, 'col': 9})\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_02', {})
+  
+    " switch back to first tabpage
+--- 25,36 ----
+  
+    " Add a tabpage
+    call term_sendkeys(buf, ":tabnew\<CR>")
+!   call term_sendkeys(buf, ":call popup_create(["
+! 	\ .. "{'text': 'other tab'},"
+! 	\ .. "{'text': 'a comment line', 'props': [{"
+! 	\ .. "'col': 3, 'length': 7, 'type': 'comment'"
+! 	\ .. "}]},"
+! 	\ .. "], {'line': 4, 'col': 9})\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_02', {})
+  
+    " switch back to first tabpage
+*** ../vim-8.1.1406/src/screen.c	2019-05-26 22:17:31.740314999 +0200
+--- src/screen.c	2019-05-26 23:20:55.635380744 +0200
+***************
+*** 4405,4411 ****
+  		char_attr = hl_combine_attr(line_attr, search_attr);
+  # ifdef FEAT_TEXT_PROP
+  	    else if (text_prop_type != NULL)
+! 		char_attr = hl_combine_attr(line_attr, text_prop_attr);
+  # endif
+  	    else if (line_attr != 0 && ((fromcol == -10 && tocol == MAXCOL)
+  				|| vcol < fromcol || vcol_prev < fromcol_prev
+--- 4405,4414 ----
+  		char_attr = hl_combine_attr(line_attr, search_attr);
+  # ifdef FEAT_TEXT_PROP
+  	    else if (text_prop_type != NULL)
+! 	    {
+! 		char_attr = hl_combine_attr(
+! 			line_attr != 0 ? line_attr : win_attr, text_prop_attr);
+! 	    }
+  # endif
+  	    else if (line_attr != 0 && ((fromcol == -10 && tocol == MAXCOL)
+  				|| vcol < fromcol || vcol_prev < fromcol_prev
+***************
+*** 4429,4435 ****
+  			char_attr = hl_combine_attr(
+  						  syntax_attr, text_prop_attr);
+  		    else
+! 			char_attr = text_prop_attr;
+  		}
+  		else
+  #endif
+--- 4432,4439 ----
+  			char_attr = hl_combine_attr(
+  						  syntax_attr, text_prop_attr);
+  		    else
+! 			char_attr = hl_combine_attr(
+! 						  win_attr, text_prop_attr);
+  		}
+  		else
+  #endif
+*** ../vim-8.1.1406/src/testdir/dumps/Test_popupwin_02.dump	2019-05-26 14:10:59.909979018 +0200
+--- src/testdir/dumps/Test_popupwin_02.dump	2019-05-26 23:21:17.503256302 +0200
+***************
+*** 2,10 ****
+  > +0#0000000#ffffff0@74
+  |~+0#4040ff13&| @73
+  |~| @6|o+0#0000001#ffd7ff255|t|h|e|r| |t|a|b| @10| +0#4040ff13#ffffff0@46
+  |~| @73
+  |~| @73
+  |~| @73
+  |~| @73
+! |~| @73
+! |:+0#0000000&|c|a|l@1| |p|o|p|u|p|_|c|r|e|a|t|e|(|'|o|t|h|e|r| |t|a|b|'|,| |{|'|l|i|n|e|'|:| |4|,| |'|c|o|l|'|:| |9|}|)| @2|0|,|0|-|1| @8|A|l@1| 
+--- 2,10 ----
+  > +0#0000000#ffffff0@74
+  |~+0#4040ff13&| @73
+  |~| @6|o+0#0000001#ffd7ff255|t|h|e|r| |t|a|b| @10| +0#4040ff13#ffffff0@46
++ |~| @6|a+0#0000001#ffd7ff255| |c+0#ff404010&|o|m@1|e|n|t| +0#0000001&|l|i|n|e| @5| +0#4040ff13#ffffff0@46
+  |~| @73
+  |~| @73
+  |~| @73
+  |~| @73
+! | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1406/src/testdir/dumps/Test_popupwin_03.dump	2019-05-26 21:03:19.940073927 +0200
+--- src/testdir/dumps/Test_popupwin_03.dump	2019-05-26 23:21:59.287019422 +0200
+***************
+*** 7,10 ****
+  |6| @73
+  |7| @73
+  |8| @73
+! |:|c|a|l@1| |p|o|p|u|p|_|c|r|e|a|t|e|(|'|o|t|h|e|r| |t|a|b|'|,| |{|'|l|i|n|e|'|:| |4|,| |'|c|o| @9|1|,|1| @10|T|o|p| 
+--- 7,10 ----
+  |6| @73
+  |7| @73
+  |8| @73
+! @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1406/src/testdir/dumps/Test_popupwin_04.dump	2019-05-26 14:10:59.909979018 +0200
+--- src/testdir/dumps/Test_popupwin_04.dump	2019-05-26 23:23:09.142625542 +0200
+***************
+*** 2,8 ****
+  |~+0#4040ff13&| @73
+  |~| @73
+  |~| @6|o+0#0000001#ffd7ff255|t|h|e|r| |t|a|b| @10| +0#4040ff13#ffffff0@46
+! |~| @73
+  |~| @73
+  |~| @73
+  |~| @73
+--- 2,8 ----
+  |~+0#4040ff13&| @73
+  |~| @73
+  |~| @6|o+0#0000001#ffd7ff255|t|h|e|r| |t|a|b| @10| +0#4040ff13#ffffff0@46
+! |~| @6|a+0#0000001#ffd7ff255| |c+0#ff404010&|o|m@1|e|n|t| +0#0000001&|l|i|n|e| @5| +0#4040ff13#ffffff0@46
+  |~| @73
+  |~| @73
+  |~| @73
+*** ../vim-8.1.1406/runtime/doc/popup.txt	2019-05-26 22:17:31.740314999 +0200
+--- runtime/doc/popup.txt	2019-05-26 23:14:09.857529430 +0200
+***************
+*** 279,285 ****
+  - a string
+  - a list of strings
+  - a list of dictionaries, where each dictionary has these entries:
+- 	{not implemented yet}
+  	text		String with the text to display.
+  	props		A list of text properties.  Optional.
+  			Each entry is a dictionary, like the third argument of
+--- 279,284 ----
+***************
+*** 369,380 ****
+  
+  POPUP TEXT PROPERTIES					*popup-props*
+  
+! {not implemented yet}
+! These are similar to the third argument of |prop_add()|, but not exactly the
+! same, since they only apply to one line.
+  	col		starting column, counted in bytes, use one for the
+  			first column.
+  	length		length of text in bytes; can be zero
+  	end_col		column just after the text; not used when "length" is
+  			present; when {col} and "end_col" are equal, this is a
+  			zero-width text property
+--- 368,383 ----
+  
+  POPUP TEXT PROPERTIES					*popup-props*
+  
+! These are similar to the third argument of |prop_add()| except:
+! - "lnum" is always the current line in the list
+! - "bufnr" is always the buffer of the popup
+! - "col" is in the Dict instead of a separate argument
+! - "transparent" is extra
+! So we get:
+  	col		starting column, counted in bytes, use one for the
+  			first column.
+  	length		length of text in bytes; can be zero
++ 	end_lnum	line number for the end of the text
+  	end_col		column just after the text; not used when "length" is
+  			present; when {col} and "end_col" are equal, this is a
+  			zero-width text property
+***************
+*** 385,390 ****
+--- 388,394 ----
+  	transparent	do not show these characters, show the text under it;
+  			if there is an border character to the right or below
+  			it will be made transparent as well
++ 			{not implemented yet}
+  
+  
+  POPUP FILTER						*popup-filter*
+*** ../vim-8.1.1406/src/version.c	2019-05-26 22:17:31.740314999 +0200
+--- src/version.c	2019-05-26 22:35:57.872688332 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1407,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+37. You start looking for hot HTML addresses in public restrooms.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

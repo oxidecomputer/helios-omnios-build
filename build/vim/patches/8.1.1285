@@ -1,0 +1,455 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1285
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1285
+Problem:    Test17 is old style.
+Solution:   Turn into new style test. (Yegappan Lakshmanan, closes #4347)
+Files:	    src/Makefile, src/testdir/Make_all.mak, src/testdir/Make_vms.mms,
+            src/testdir/test17.in, src/testdir/test17.ok,
+            src/testdir/test17a.in, src/testdir/test_checkpath.vim,
+            src/testdir/test_gf.vim
+
+
+*** ../vim-8.1.1284/src/Makefile	2019-05-01 18:08:38.267237229 +0200
+--- src/Makefile	2019-05-06 21:56:13.787318060 +0200
+***************
+*** 2175,2181 ****
+  # These do not depend on the executable, compile it when needed.
+  test1 \
+  	test_eval \
+! 	test3 test17 \
+  	test29 test30 test37 test39 \
+  	test42 test44 test48 test49 \
+  	test52 test59 \
+--- 2176,2182 ----
+  # These do not depend on the executable, compile it when needed.
+  test1 \
+  	test_eval \
+! 	test3 \
+  	test29 test30 test37 test39 \
+  	test42 test44 test48 test49 \
+  	test52 test59 \
+*** ../vim-8.1.1284/src/testdir/Make_all.mak	2019-05-04 21:08:17.119814244 +0200
+--- src/testdir/Make_all.mak	2019-05-06 21:56:13.787318060 +0200
+***************
+*** 44,50 ****
+  
+  # Tests that run on most systems, but not on VMS
+  SCRIPTS_MORE4 = \
+- 	test17.out \
+  	test30.out \
+  	test59.out \
+  	test72.out \
+--- 44,49 ----
+***************
+*** 82,87 ****
+--- 81,87 ----
+  	test_channel \
+  	test_charsearch \
+  	test_charsearch_utf8 \
++ 	test_checkpath \
+  	test_cindent \
+  	test_clientserver \
+  	test_close_count \
+***************
+*** 302,307 ****
+--- 302,308 ----
+  	test_changelist.res \
+  	test_channel.res \
+  	test_charsearch.res \
++ 	test_checkpath.res \
+  	test_cindent.res \
+  	test_clientserver.res \
+  	test_close_count.res \
+*** ../vim-8.1.1284/src/testdir/Make_vms.mms	2019-04-27 18:00:29.851064563 +0200
+--- src/testdir/Make_vms.mms	2019-05-06 21:56:13.787318060 +0200
+***************
+*** 83,89 ****
+         test_eval.out
+  
+  # Known problems:
+- # test17: ?
+  #
+  # test30: bug, most probably - a problem around mac format
+  #
+--- 83,88 ----
+***************
+*** 102,108 ****
+  .ENDIF
+  
+  .IFDEF WANT_UNIX
+! SCRIPT_UNIX = test10.out test17.out test27.out test49.out
+  .ENDIF
+  
+  .IFDEF WANT_WIN
+--- 101,107 ----
+  .ENDIF
+  
+  .IFDEF WANT_UNIX
+! SCRIPT_UNIX = test10.out test27.out test49.out
+  .ENDIF
+  
+  .IFDEF WANT_WIN
+*** ../vim-8.1.1284/src/testdir/test17.in	2016-06-08 21:39:44.000000000 +0200
+--- src/testdir/test17.in	1970-01-01 01:00:00.000000000 +0100
+***************
+*** 1,135 ****
+- Tests for:
+- - "gf" on ${VAR},
+- - ":checkpath!" with various 'include' settings.
+- 
+- STARTTEST
+- :so small.vim
+- :if has("ebcdic")
+- : set isfname=@,240-249,/,.,-,_,+,,,$,:,~,{,}
+- :else
+- : set isfname=@,48-57,/,.,-,_,+,,,$,:,~,{,}
+- :endif
+- :"
+- :if has("unix")
+- :let $CDIR = "."
+- /CDIR
+- :else
+- :if has("amiga")
+- :let $TDIR = "/testdir"
+- :else
+- :let $TDIR = "."
+- :endif
+- /TDIR
+- :endif
+- :" Dummy writing for making that sure gf doesn't fail even if the current
+- :" file is modified. It can be occurred when executing the following command
+- :" directly on Windows without fixing the 'fileformat':
+- :"  > nmake -f Make_dos.mak test17.out
+- :w! test.out
+- gf
+- :set ff=unix
+- :w! test.out
+- :brewind
+- ENDTEST
+- 
+- 	${CDIR}/test17a.in
+- 	$TDIR/test17a.in
+- 
+- STARTTEST
+- :" check for 'include' without \zs or \ze
+- :lang C
+- :call delete("./Xbase.a")
+- :call delete("Xdir1", "rf")
+- :!mkdir Xdir1
+- :!mkdir "Xdir1/dir2"
+- :e! Xdir1/dir2/foo.a
+- i#include   "bar.a":
+- :w
+- :e Xdir1/dir2/bar.a
+- i#include      "baz.a":
+- :w
+- :e Xdir1/dir2/baz.a
+- i#include            "foo.a":
+- :w
+- :e Xbase.a
+- :set path=Xdir1/dir2
+- i#include    <foo.a>:
+- :w
+- :redir! >>test.out
+- :checkpath!
+- :redir END
+- :brewind
+- ENDTEST
+- 
+- STARTTEST
+- :" check for 'include' with \zs and \ze
+- :call delete("./Xbase.b")
+- :call delete("Xdir1", "rf")
+- :!mkdir Xdir1
+- :!mkdir "Xdir1/dir2"
+- :let &include='^\s*%inc\s*/\zs[^/]\+\ze'
+- :function! DotsToSlashes()
+- :  return substitute(v:fname, '\.', '/', 'g') . '.b'
+- :endfunction
+- :let &includeexpr='DotsToSlashes()'
+- :e! Xdir1/dir2/foo.b
+- i%inc   /bar/:
+- :w
+- :e Xdir1/dir2/bar.b
+- i%inc      /baz/:
+- :w
+- :e Xdir1/dir2/baz.b
+- i%inc            /foo/:
+- :w
+- :e Xbase.b
+- :set path=Xdir1/dir2
+- i%inc    /foo/:
+- :w
+- :redir! >>test.out
+- :checkpath!
+- :redir END
+- :brewind
+- ENDTEST
+- 
+- STARTTEST
+- :" check for 'include' with \zs and no \ze
+- :call delete("./Xbase.c")
+- :call delete("Xdir1", "rf")
+- :!mkdir Xdir1
+- :!mkdir "Xdir1/dir2"
+- :let &include='^\s*%inc\s*\%([[:upper:]][^[:space:]]*\s\+\)\?\zs\S\+\ze'
+- :function! StripNewlineChar()
+- :  if v:fname =~ '\n$'
+- :    return v:fname[:-2]
+- :  endif
+- :  return v:fname
+- :endfunction
+- :let &includeexpr='StripNewlineChar()'
+- :e! Xdir1/dir2/foo.c
+- i%inc   bar.c:
+- :w
+- :e Xdir1/dir2/bar.c
+- i%inc      baz.c:
+- :w
+- :e Xdir1/dir2/baz.c
+- i%inc            foo.c:
+- :w
+- :e Xdir1/dir2/FALSE.c
+- i%inc            foo.c:
+- :w
+- :e Xbase.c
+- :set path=Xdir1/dir2
+- i%inc    FALSE.c foo.c:
+- :w
+- :redir! >>test.out
+- :checkpath!
+- :redir END
+- :brewind
+- :" change "\" to "/" for Windows and fix 'fileformat'
+- :e test.out
+- :%s#\\#/#g
+- :set ff&
+- :w
+- :q
+- ENDTEST
+- 
+--- 0 ----
+*** ../vim-8.1.1284/src/testdir/test17.ok	2013-07-03 22:19:18.000000000 +0200
+--- src/testdir/test17.ok	1970-01-01 01:00:00.000000000 +0100
+***************
+*** 1,33 ****
+- This file is just to test "gf" in test 17.
+- The contents is not important.
+- Just testing!
+- 
+- 
+- --- Included files in path ---
+- Xdir1/dir2/foo.a
+- Xdir1/dir2/foo.a -->
+-   Xdir1/dir2/bar.a
+-   Xdir1/dir2/bar.a -->
+-     Xdir1/dir2/baz.a
+-     Xdir1/dir2/baz.a -->
+-       "foo.a"  (Already listed)
+- 
+- 
+- --- Included files in path ---
+- Xdir1/dir2/foo.b
+- Xdir1/dir2/foo.b -->
+-   Xdir1/dir2/bar.b
+-   Xdir1/dir2/bar.b -->
+-     Xdir1/dir2/baz.b
+-     Xdir1/dir2/baz.b -->
+-       foo  (Already listed)
+- 
+- 
+- --- Included files in path ---
+- Xdir1/dir2/foo.c
+- Xdir1/dir2/foo.c -->
+-   Xdir1/dir2/bar.c
+-   Xdir1/dir2/bar.c -->
+-     Xdir1/dir2/baz.c
+-     Xdir1/dir2/baz.c -->
+-       foo.c  (Already listed)
+--- 0 ----
+*** ../vim-8.1.1284/src/testdir/test17a.in	2010-08-04 16:06:51.000000000 +0200
+--- src/testdir/test17a.in	1970-01-01 01:00:00.000000000 +0100
+***************
+*** 1,3 ****
+- This file is just to test "gf" in test 17.
+- The contents is not important.
+- Just testing!
+--- 0 ----
+*** ../vim-8.1.1284/src/testdir/test_checkpath.vim	2019-05-06 21:59:14.610357666 +0200
+--- src/testdir/test_checkpath.vim	2019-05-06 21:56:13.787318060 +0200
+***************
+*** 0 ****
+--- 1,104 ----
++ " Tests for the :checkpath command
++ 
++ " Test for 'include' without \zs or \ze
++ func Test_checkpath1()
++   call mkdir("Xdir1/dir2", "p")
++   call writefile(['#include    "bar.a"'], 'Xdir1/dir2/foo.a')
++   call writefile(['#include    "baz.a"'], 'Xdir1/dir2/bar.a')
++   call writefile(['#include    "foo.a"'], 'Xdir1/dir2/baz.a')
++   call writefile(['#include    <foo.a>'], 'Xbase.a')
++ 
++   edit Xbase.a
++   set path=Xdir1/dir2
++   let res = split(execute("checkpath!"), "\n")
++   call assert_equal([
++ 	      \ '--- Included files in path ---',
++ 	      \ 'Xdir1/dir2/foo.a',
++ 	      \ 'Xdir1/dir2/foo.a -->',
++ 	      \ '  Xdir1/dir2/bar.a',
++ 	      \ '  Xdir1/dir2/bar.a -->',
++ 	      \ '    Xdir1/dir2/baz.a',
++ 	      \ '    Xdir1/dir2/baz.a -->',
++ 	      \ '      "foo.a"  (Already listed)'], res)
++ 
++   enew
++   call delete("./Xbase.a")
++   call delete("Xdir1", "rf")
++   set path&
++ endfunc
++ 
++ func DotsToSlashes()
++   return substitute(v:fname, '\.', '/', 'g') . '.b'
++ endfunc
++ 
++ " Test for 'include' with \zs and \ze
++ func Test_checkpath2()
++   call mkdir("Xdir1/dir2", "p")
++   call writefile(['%inc    /bar/'], 'Xdir1/dir2/foo.b')
++   call writefile(['%inc    /baz/'], 'Xdir1/dir2/bar.b')
++   call writefile(['%inc    /foo/'], 'Xdir1/dir2/baz.b')
++   call writefile(['%inc    /foo/'], 'Xbase.b')
++ 
++   let &include='^\s*%inc\s*/\zs[^/]\+\ze'
++   let &includeexpr='DotsToSlashes()'
++ 
++   edit Xbase.b
++   set path=Xdir1/dir2
++   let res = split(execute("checkpath!"), "\n")
++   call assert_equal([
++ 	      \ '--- Included files in path ---',
++ 	      \ 'Xdir1/dir2/foo.b',
++ 	      \ 'Xdir1/dir2/foo.b -->',
++ 	      \ '  Xdir1/dir2/bar.b',
++ 	      \ '  Xdir1/dir2/bar.b -->',
++ 	      \ '    Xdir1/dir2/baz.b',
++ 	      \ '    Xdir1/dir2/baz.b -->',
++ 	      \ '      foo  (Already listed)'], res)
++ 
++   enew
++   call delete("./Xbase.b")
++   call delete("Xdir1", "rf")
++   set path&
++   set include&
++   set includeexpr&
++ endfunc
++ 
++ func StripNewlineChar()
++   if v:fname =~ '\n$'
++     return v:fname[:-2]
++   endif
++   return v:fname
++ endfunc
++ 
++ " Test for 'include' with \zs and no \ze
++ func Test_checkpath3()
++   call mkdir("Xdir1/dir2", "p")
++   call writefile(['%inc    bar.c'], 'Xdir1/dir2/foo.c')
++   call writefile(['%inc    baz.c'], 'Xdir1/dir2/bar.c')
++   call writefile(['%inc    foo.c'], 'Xdir1/dir2/baz.c')
++   call writefile(['%inc    foo.c'], 'Xdir1/dir2/FALSE.c')
++   call writefile(['%inc    FALSE.c foo.c'], 'Xbase.c')
++ 
++   let &include='^\s*%inc\s*\%([[:upper:]][^[:space:]]*\s\+\)\?\zs\S\+\ze'
++   let &includeexpr='StripNewlineChar()'
++ 
++   edit Xbase.c
++   set path=Xdir1/dir2
++   let res = split(execute("checkpath!"), "\n")
++   call assert_equal([
++ 	      \ '--- Included files in path ---',
++ 	      \ 'Xdir1/dir2/foo.c',
++ 	      \ 'Xdir1/dir2/foo.c -->',
++ 	      \ '  Xdir1/dir2/bar.c',
++ 	      \ '  Xdir1/dir2/bar.c -->',
++ 	      \ '    Xdir1/dir2/baz.c',
++ 	      \ '    Xdir1/dir2/baz.c -->',
++ 	      \ '      foo.c  (Already listed)'], res)
++ 
++   enew
++   call delete("./Xbase.c")
++   call delete("Xdir1", "rf")
++   set path&
++   set include&
++   set includeexpr&
++ endfunc
+*** ../vim-8.1.1284/src/testdir/test_gf.vim	2019-03-09 12:32:50.673562149 +0100
+--- src/testdir/test_gf.vim	2019-05-06 21:56:13.787318060 +0200
+***************
+*** 64,66 ****
+--- 64,101 ----
+    bwipe Xfile
+    bwipe Xfile2
+  endfunc
++ 
++ " Test for invoking 'gf' on a ${VAR} variable
++ func Test_gf()
++   if has("ebcdic")
++     set isfname=@,240-249,/,.,-,_,+,,,$,:,~,{,}
++   else
++     set isfname=@,48-57,/,.,-,_,+,,,$,:,~,{,}
++   endif
++ 
++   call writefile(["Test for gf command"], "Xtest1")
++   if has("unix")
++     call writefile(["    ${CDIR}/Xtest1"], "Xtestgf")
++   else
++     call writefile(["    $TDIR/Xtest1"], "Xtestgf")
++   endif
++   new Xtestgf
++   if has("unix")
++     let $CDIR = "."
++     /CDIR
++   else
++     if has("amiga")
++       let $TDIR = "/testdir"
++     else
++       let $TDIR = "."
++     endif
++     /TDIR
++   endif
++ 
++   normal gf
++   call assert_equal('Xtest1', fnamemodify(bufname(''), ":t"))
++   close!
++ 
++   call delete('Xtest1')
++   call delete('Xtestgf')
++ endfunc
+*** ../vim-8.1.1284/src/version.c	2019-05-06 21:46:05.062544448 +0200
+--- src/version.c	2019-05-06 21:57:17.606979162 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1285,
+  /**/
+
+-- 
+Biting someone with your natural teeth is "simple assault," while biting
+someone with your false teeth is "aggravated assault."
+		[real standing law in Louisana, United States of America]
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

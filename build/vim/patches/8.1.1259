@@ -1,0 +1,273 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1259
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1259
+Problem:    Crash when exiting early. (Ralf Schandl)
+Solution:   Only pop/push the title when it was set. (closes #4334)
+Files:	    src/os_unix.c, src/misc2.c, src/usercmd.c, src/tag.c
+
+
+*** ../vim-8.1.1258/src/os_unix.c	2019-05-02 23:00:19.227658452 +0200
+--- src/os_unix.c	2019-05-03 22:56:29.021478366 +0200
+***************
+*** 2205,2218 ****
+      void
+  mch_restore_title(int which)
+  {
+      /* only restore the title or icon when it has been set */
+      mch_settitle(((which & SAVE_RESTORE_TITLE) && did_set_title) ?
+  			(oldtitle ? oldtitle : p_titleold) : NULL,
+  	       ((which & SAVE_RESTORE_ICON) && did_set_icon) ? oldicon : NULL);
+  
+!     // pop and push from/to the stack
+!     term_pop_title(which);
+!     term_push_title(which);
+  }
+  
+  #endif /* FEAT_TITLE */
+--- 2205,2223 ----
+      void
+  mch_restore_title(int which)
+  {
++     int	do_push_pop = did_set_title || did_set_icon;
++ 
+      /* only restore the title or icon when it has been set */
+      mch_settitle(((which & SAVE_RESTORE_TITLE) && did_set_title) ?
+  			(oldtitle ? oldtitle : p_titleold) : NULL,
+  	       ((which & SAVE_RESTORE_ICON) && did_set_icon) ? oldicon : NULL);
+  
+!     if (do_push_pop)
+!     {
+! 	// pop and push from/to the stack
+! 	term_pop_title(which);
+! 	term_push_title(which);
+!     }
+  }
+  
+  #endif /* FEAT_TITLE */
+*** ../vim-8.1.1258/src/misc2.c	2019-04-28 19:46:17.030060105 +0200
+--- src/misc2.c	2019-05-03 23:12:59.332791168 +0200
+***************
+*** 1068,1074 ****
+  
+      /* Close all tabs and windows.  Reset 'equalalways' to avoid redraws. */
+      p_ea = FALSE;
+!     if (first_tabpage->tp_next != NULL)
+  	do_cmdline_cmd((char_u *)"tabonly!");
+      if (!ONE_WINDOW)
+  	do_cmdline_cmd((char_u *)"only!");
+--- 1068,1074 ----
+  
+      /* Close all tabs and windows.  Reset 'equalalways' to avoid redraws. */
+      p_ea = FALSE;
+!     if (first_tabpage != NULL && first_tabpage->tp_next != NULL)
+  	do_cmdline_cmd((char_u *)"tabonly!");
+      if (!ONE_WINDOW)
+  	do_cmdline_cmd((char_u *)"only!");
+***************
+*** 1085,1113 ****
+      // Clear user commands (before deleting buffers).
+      ex_comclear(NULL);
+  
+  # ifdef FEAT_MENU
+!     /* Clear menus. */
+!     do_cmdline_cmd((char_u *)"aunmenu *");
+  #  ifdef FEAT_MULTI_LANG
+!     do_cmdline_cmd((char_u *)"menutranslate clear");
+  #  endif
+  # endif
+! 
+!     /* Clear mappings, abbreviations, breakpoints. */
+!     do_cmdline_cmd((char_u *)"lmapclear");
+!     do_cmdline_cmd((char_u *)"xmapclear");
+!     do_cmdline_cmd((char_u *)"mapclear");
+!     do_cmdline_cmd((char_u *)"mapclear!");
+!     do_cmdline_cmd((char_u *)"abclear");
+  # if defined(FEAT_EVAL)
+!     do_cmdline_cmd((char_u *)"breakdel *");
+  # endif
+  # if defined(FEAT_PROFILE)
+!     do_cmdline_cmd((char_u *)"profdel *");
+  # endif
+  # if defined(FEAT_KEYMAP)
+!     do_cmdline_cmd((char_u *)"set keymap=");
+  #endif
+  
+  # ifdef FEAT_TITLE
+      free_titles();
+--- 1085,1117 ----
+      // Clear user commands (before deleting buffers).
+      ex_comclear(NULL);
+  
++     // When exiting from mainerr_arg_missing curbuf has not been initialized,
++     // and not much else.
++     if (curbuf != NULL)
++     {
+  # ifdef FEAT_MENU
+! 	// Clear menus.
+! 	do_cmdline_cmd((char_u *)"aunmenu *");
+  #  ifdef FEAT_MULTI_LANG
+! 	do_cmdline_cmd((char_u *)"menutranslate clear");
+  #  endif
+  # endif
+! 	// Clear mappings, abbreviations, breakpoints.
+! 	do_cmdline_cmd((char_u *)"lmapclear");
+! 	do_cmdline_cmd((char_u *)"xmapclear");
+! 	do_cmdline_cmd((char_u *)"mapclear");
+! 	do_cmdline_cmd((char_u *)"mapclear!");
+! 	do_cmdline_cmd((char_u *)"abclear");
+  # if defined(FEAT_EVAL)
+! 	do_cmdline_cmd((char_u *)"breakdel *");
+  # endif
+  # if defined(FEAT_PROFILE)
+! 	do_cmdline_cmd((char_u *)"profdel *");
+  # endif
+  # if defined(FEAT_KEYMAP)
+! 	do_cmdline_cmd((char_u *)"set keymap=");
+  #endif
++     }
+  
+  # ifdef FEAT_TITLE
+      free_titles();
+***************
+*** 1142,1148 ****
+      set_expr_line(NULL);
+  # endif
+  # ifdef FEAT_DIFF
+!     diff_clear(curtab);
+  # endif
+      clear_sb_text(TRUE);	      /* free any scrollback text */
+  
+--- 1146,1153 ----
+      set_expr_line(NULL);
+  # endif
+  # ifdef FEAT_DIFF
+!     if (curtab != NULL)
+! 	diff_clear(curtab);
+  # endif
+      clear_sb_text(TRUE);	      /* free any scrollback text */
+  
+***************
+*** 1172,1188 ****
+  	tabpage_T   *tab;
+  
+  	qf_free_all(NULL);
+! 	/* Free all location lists */
+  	FOR_ALL_TAB_WINDOWS(tab, win)
+  	    qf_free_all(win);
+      }
+  #endif
+  
+!     /* Close all script inputs. */
+      close_all_scripts();
+  
+!     /* Destroy all windows.  Must come before freeing buffers. */
+!     win_free_all();
+  
+      /* Free all option values.  Must come after closing windows. */
+      free_all_options();
+--- 1177,1194 ----
+  	tabpage_T   *tab;
+  
+  	qf_free_all(NULL);
+! 	// Free all location lists
+  	FOR_ALL_TAB_WINDOWS(tab, win)
+  	    qf_free_all(win);
+      }
+  #endif
+  
+!     // Close all script inputs.
+      close_all_scripts();
+  
+!     if (curwin != NULL)
+! 	// Destroy all windows.  Must come before freeing buffers.
+! 	win_free_all();
+  
+      /* Free all option values.  Must come after closing windows. */
+      free_all_options();
+***************
+*** 1223,1230 ****
+  
+      reset_last_sourcing();
+  
+!     free_tabpage(first_tabpage);
+!     first_tabpage = NULL;
+  
+  # ifdef UNIX
+      /* Machine-specific free. */
+--- 1229,1239 ----
+  
+      reset_last_sourcing();
+  
+!     if (first_tabpage != NULL)
+!     {
+! 	free_tabpage(first_tabpage);
+! 	first_tabpage = NULL;
+!     }
+  
+  # ifdef UNIX
+      /* Machine-specific free. */
+*** ../vim-8.1.1258/src/usercmd.c	2019-05-01 18:08:38.267237229 +0200
+--- src/usercmd.c	2019-05-03 22:58:19.848831337 +0200
+***************
+*** 1045,1051 ****
+  ex_comclear(exarg_T *eap UNUSED)
+  {
+      uc_clear(&ucmds);
+!     uc_clear(&curbuf->b_ucmds);
+  }
+  
+  /*
+--- 1045,1052 ----
+  ex_comclear(exarg_T *eap UNUSED)
+  {
+      uc_clear(&ucmds);
+!     if (curbuf != NULL)
+! 	uc_clear(&curbuf->b_ucmds);
+  }
+  
+  /*
+*** ../vim-8.1.1258/src/tag.c	2019-04-29 19:47:19.399571862 +0200
+--- src/tag.c	2019-05-03 23:01:48.623615434 +0200
+***************
+*** 2860,2866 ****
+  free_tag_stuff(void)
+  {
+      ga_clear_strings(&tag_fnames);
+!     do_tag(NULL, DT_FREE, 0, 0, 0);
+      tag_freematch();
+  
+  # if defined(FEAT_QUICKFIX)
+--- 2860,2867 ----
+  free_tag_stuff(void)
+  {
+      ga_clear_strings(&tag_fnames);
+!     if (curwin != NULL)
+! 	do_tag(NULL, DT_FREE, 0, 0, 0);
+      tag_freematch();
+  
+  # if defined(FEAT_QUICKFIX)
+*** ../vim-8.1.1258/src/version.c	2019-05-03 22:25:36.292643839 +0200
+--- src/version.c	2019-05-03 23:13:33.340662772 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1259,
+  /**/
+
+-- 
+An indication you must be a manager:
+You give constructive feedback to your dog.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,514 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1378
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1378
+Problem:    Delete() can not handle a file name that looks like a pattern.
+Solution:   Use readdir() instead of appending "/*" and expanding wildcards.
+            (Ken Takata, closes #4424, closes #696)
+Files:	    src/testdir/test_functions.vim, src/evalfunc.c, src/fileio.c,
+            src/proto/fileio.pro
+
+
+*** ../vim-8.1.1377/src/testdir/test_functions.vim	2019-05-16 22:24:52.407017760 +0200
+--- src/testdir/test_functions.vim	2019-05-24 14:01:13.044012690 +0200
+***************
+*** 1436,1441 ****
+--- 1436,1456 ----
+    call delete('Xdir', 'rf')
+  endfunc
+  
++ func Test_delete_rf()
++   call mkdir('Xdir')
++   call writefile([], 'Xdir/foo.txt')
++   call writefile([], 'Xdir/bar.txt')
++   call mkdir('Xdir/[a-1]')  " issue #696
++   call writefile([], 'Xdir/[a-1]/foo.txt')
++   call writefile([], 'Xdir/[a-1]/bar.txt')
++   call assert_true(filereadable('Xdir/foo.txt'))
++   call assert_true(filereadable('Xdir/[a-1]/foo.txt'))
++ 
++   call assert_equal(0, delete('Xdir', 'rf'))
++   call assert_false(filereadable('Xdir/foo.txt'))
++   call assert_false(filereadable('Xdir/[a-1]/foo.txt'))
++ endfunc
++ 
+  func Test_call()
+    call assert_equal(3, call('len', [123]))
+    call assert_fails("call call('len', 123)", 'E714:')
+*** ../vim-8.1.1377/src/evalfunc.c	2019-05-19 19:59:30.160255591 +0200
+--- src/evalfunc.c	2019-05-24 14:10:12.777486166 +0200
+***************
+*** 9349,9365 ****
+  }
+  
+  /*
+!  * Evaluate "expr" for readdir().
+   */
+      static int
+! readdir_checkitem(typval_T *expr, char_u *name)
+  {
+      typval_T	save_val;
+      typval_T	rettv;
+      typval_T	argv[2];
+      int		retval = 0;
+      int		error = FALSE;
+  
+      prepare_vimvar(VV_VAL, &save_val);
+      set_vim_var_string(VV_VAL, name, -1);
+      argv[0].v_type = VAR_STRING;
+--- 9349,9369 ----
+  }
+  
+  /*
+!  * Evaluate "expr" (= "context") for readdir().
+   */
+      static int
+! readdir_checkitem(void *context, char_u *name)
+  {
++     typval_T	*expr = (typval_T *)context;
+      typval_T	save_val;
+      typval_T	rettv;
+      typval_T	argv[2];
+      int		retval = 0;
+      int		error = FALSE;
+  
++     if (expr->v_type == VAR_UNKNOWN)
++ 	return 1;
++ 
+      prepare_vimvar(VV_VAL, &save_val);
+      set_vim_var_string(VV_VAL, name, -1);
+      argv[0].v_type = VAR_STRING;
+***************
+*** 9386,9521 ****
+  f_readdir(typval_T *argvars, typval_T *rettv)
+  {
+      typval_T	*expr;
+!     int		failed = FALSE;
+      char_u	*path;
+      garray_T	ga;
+      int		i;
+- #ifdef MSWIN
+-     char_u		*buf, *p;
+-     int			ok;
+-     HANDLE		hFind = INVALID_HANDLE_VALUE;
+-     WIN32_FIND_DATAW    wfb;
+-     WCHAR		*wn = NULL;	// UCS-2 name, NULL when not used.
+- #endif
+  
+      if (rettv_list_alloc(rettv) == FAIL)
+  	return;
+      path = tv_get_string(&argvars[0]);
+      expr = &argvars[1];
+-     ga_init2(&ga, (int)sizeof(char *), 20);
+- 
+- #ifdef MSWIN
+-     buf = alloc((int)MAXPATHL);
+-     if (buf == NULL)
+- 	return;
+-     STRNCPY(buf, path, MAXPATHL-5);
+-     p = vim_strpbrk(path, (char_u *)"\\/");
+-     if (p != NULL)
+- 	*p = NUL;
+-     STRCAT(buf, "\\*");
+- 
+-     wn = enc_to_utf16(buf, NULL);
+-     if (wn != NULL)
+- 	hFind = FindFirstFileW(wn, &wfb);
+-     ok = (hFind != INVALID_HANDLE_VALUE);
+-     if (!ok)
+- 	smsg(_(e_notopen), path);
+-     else
+-     {
+- 	while (ok)
+- 	{
+- 	    int	ignore;
+- 
+- 	    p = utf16_to_enc(wfb.cFileName, NULL);   // p is allocated here
+- 	    if (p == NULL)
+- 		break;  // out of memory
+- 
+- 	    ignore = p[0] == '.' && (p[1] == NUL
+- 					      || (p[1] == '.' && p[2] == NUL));
+- 	    if (!ignore && expr->v_type != VAR_UNKNOWN)
+- 	    {
+- 		int r = readdir_checkitem(expr, p);
+- 
+- 		if (r < 0)
+- 		{
+- 		    vim_free(p);
+- 		    break;
+- 		}
+- 		if (r == 0)
+- 		    ignore = TRUE;
+- 	    }
+- 
+- 	    if (!ignore)
+- 	    {
+- 		if (ga_grow(&ga, 1) == OK)
+- 		    ((char_u**)ga.ga_data)[ga.ga_len++] = vim_strsave(p);
+- 		else
+- 		{
+- 		    failed = TRUE;
+- 		    vim_free(p);
+- 		    break;
+- 		}
+- 	    }
+- 
+- 	    vim_free(p);
+- 	    ok = FindNextFileW(hFind, &wfb);
+- 	}
+- 	FindClose(hFind);
+-     }
+- 
+-     vim_free(buf);
+-     vim_free(wn);
+- #else
+-     DIR		*dirp;
+-     struct dirent *dp;
+-     char_u	*p;
+- 
+-     dirp = opendir((char *)path);
+-     if (dirp == NULL)
+- 	smsg(_(e_notopen), path);
+-     else
+-     {
+- 	for (;;)
+- 	{
+- 	    int	ignore;
+- 
+- 	    dp = readdir(dirp);
+- 	    if (dp == NULL)
+- 		break;
+- 	    p = (char_u *)dp->d_name;
+- 
+- 	    ignore = p[0] == '.' &&
+- 		    (p[1] == NUL ||
+- 		     (p[1] == '.' && p[2] == NUL));
+- 	    if (!ignore && expr->v_type != VAR_UNKNOWN)
+- 	    {
+- 		int r = readdir_checkitem(expr, p);
+- 
+- 		if (r < 0)
+- 		    break;
+- 		if (r == 0)
+- 		    ignore = TRUE;
+- 	    }
+- 
+- 	    if (!ignore)
+- 	    {
+- 		if (ga_grow(&ga, 1) == OK)
+- 		    ((char_u**)ga.ga_data)[ga.ga_len++] = vim_strsave(p);
+- 		else
+- 		{
+- 		    failed = TRUE;
+- 		    break;
+- 		}
+- 	    }
+- 	}
+- 
+- 	closedir(dirp);
+-     }
+- #endif
+  
+!     if (!failed && rettv->vval.v_list != NULL && ga.ga_len > 0)
+      {
+- 	sort_strings((char_u **)ga.ga_data, ga.ga_len);
+  	for (i = 0; i < ga.ga_len; i++)
+  	{
+  	    p = ((char_u **)ga.ga_data)[i];
+--- 9390,9409 ----
+  f_readdir(typval_T *argvars, typval_T *rettv)
+  {
+      typval_T	*expr;
+!     int		ret;
+      char_u	*path;
++     char_u	*p;
+      garray_T	ga;
+      int		i;
+  
+      if (rettv_list_alloc(rettv) == FAIL)
+  	return;
+      path = tv_get_string(&argvars[0]);
+      expr = &argvars[1];
+  
+!     ret = readdir_core(&ga, path, (void *)expr, readdir_checkitem);
+!     if (ret == OK && rettv->vval.v_list != NULL && ga.ga_len > 0)
+      {
+  	for (i = 0; i < ga.ga_len; i++)
+  	{
+  	    p = ((char_u **)ga.ga_data)[i];
+*** ../vim-8.1.1377/src/fileio.c	2019-05-24 11:45:18.987591736 +0200
+--- src/fileio.c	2019-05-24 14:10:26.221420180 +0200
+***************
+*** 7172,7191 ****
+  
+  #if defined(TEMPDIRNAMES) || defined(FEAT_EVAL) || defined(PROTO)
+  /*
+   * Delete "name" and everything in it, recursively.
+!  * return 0 for succes, -1 if some file was not deleted.
+   */
+      int
+  delete_recursive(char_u *name)
+  {
+      int result = 0;
+-     char_u	**files;
+-     int		file_count;
+      int		i;
+      char_u	*exp;
+  
+!     /* A symbolic link to a directory itself is deleted, not the directory it
+!      * points to. */
+      if (
+  # if defined(UNIX) || defined(MSWIN)
+  	 mch_isrealdir(name)
+--- 7172,7335 ----
+  
+  #if defined(TEMPDIRNAMES) || defined(FEAT_EVAL) || defined(PROTO)
+  /*
++  * Core part of "readdir()" function.
++  * Retrieve the list of files/directories of "path" into "gap".
++  * Return OK for success, FAIL for failure.
++  */
++     int
++ readdir_core(
++     garray_T	*gap,
++     char_u	*path,
++     void	*context,
++     int		(*checkitem)(void *context, char_u *name))
++ {
++     int			failed = FALSE;
++ #ifdef MSWIN
++     char_u		*buf, *p;
++     int			ok;
++     HANDLE		hFind = INVALID_HANDLE_VALUE;
++     WIN32_FIND_DATAW    wfb;
++     WCHAR		*wn = NULL;	// UTF-16 name, NULL when not used.
++ #endif
++ 
++     ga_init2(gap, (int)sizeof(char *), 20);
++ 
++ #ifdef MSWIN
++     buf = alloc((int)MAXPATHL);
++     if (buf == NULL)
++ 	return FAIL;
++     STRNCPY(buf, path, MAXPATHL-5);
++     p = buf + strlen(buf);
++     MB_PTR_BACK(buf, p);
++     if (*p == '\\' || *p == '/')
++ 	*p = NUL;
++     STRCAT(buf, "\\*");
++ 
++     wn = enc_to_utf16(buf, NULL);
++     if (wn != NULL)
++ 	hFind = FindFirstFileW(wn, &wfb);
++     ok = (hFind != INVALID_HANDLE_VALUE);
++     if (!ok)
++     {
++ 	failed = TRUE;
++ 	smsg(_(e_notopen), path);
++     }
++     else
++     {
++ 	while (ok)
++ 	{
++ 	    int	ignore;
++ 
++ 	    p = utf16_to_enc(wfb.cFileName, NULL);   // p is allocated here
++ 	    if (p == NULL)
++ 		break;  // out of memory
++ 
++ 	    ignore = p[0] == '.' && (p[1] == NUL
++ 					      || (p[1] == '.' && p[2] == NUL));
++ 	    if (!ignore && checkitem != NULL)
++ 	    {
++ 		int r = checkitem(context, p);
++ 
++ 		if (r < 0)
++ 		{
++ 		    vim_free(p);
++ 		    break;
++ 		}
++ 		if (r == 0)
++ 		    ignore = TRUE;
++ 	    }
++ 
++ 	    if (!ignore)
++ 	    {
++ 		if (ga_grow(gap, 1) == OK)
++ 		    ((char_u**)gap->ga_data)[gap->ga_len++] = vim_strsave(p);
++ 		else
++ 		{
++ 		    failed = TRUE;
++ 		    vim_free(p);
++ 		    break;
++ 		}
++ 	    }
++ 
++ 	    vim_free(p);
++ 	    ok = FindNextFileW(hFind, &wfb);
++ 	}
++ 	FindClose(hFind);
++     }
++ 
++     vim_free(buf);
++     vim_free(wn);
++ #else
++     DIR		*dirp;
++     struct dirent *dp;
++     char_u	*p;
++ 
++     dirp = opendir((char *)path);
++     if (dirp == NULL)
++     {
++ 	failed = TRUE;
++ 	smsg(_(e_notopen), path);
++     }
++     else
++     {
++ 	for (;;)
++ 	{
++ 	    int	ignore;
++ 
++ 	    dp = readdir(dirp);
++ 	    if (dp == NULL)
++ 		break;
++ 	    p = (char_u *)dp->d_name;
++ 
++ 	    ignore = p[0] == '.' &&
++ 		    (p[1] == NUL ||
++ 		     (p[1] == '.' && p[2] == NUL));
++ 	    if (!ignore && checkitem != NULL)
++ 	    {
++ 		int r = checkitem(context, p);
++ 
++ 		if (r < 0)
++ 		    break;
++ 		if (r == 0)
++ 		    ignore = TRUE;
++ 	    }
++ 
++ 	    if (!ignore)
++ 	    {
++ 		if (ga_grow(gap, 1) == OK)
++ 		    ((char_u**)gap->ga_data)[gap->ga_len++] = vim_strsave(p);
++ 		else
++ 		{
++ 		    failed = TRUE;
++ 		    break;
++ 		}
++ 	    }
++ 	}
++ 
++ 	closedir(dirp);
++     }
++ #endif
++ 
++     if (!failed && gap->ga_len > 0)
++ 	sort_strings((char_u **)gap->ga_data, gap->ga_len);
++ 
++     return failed ? FAIL : OK;
++ }
++ 
++ /*
+   * Delete "name" and everything in it, recursively.
+!  * return 0 for success, -1 if some file was not deleted.
+   */
+      int
+  delete_recursive(char_u *name)
+  {
+      int result = 0;
+      int		i;
+      char_u	*exp;
++     garray_T	ga;
+  
+!     // A symbolic link to a directory itself is deleted, not the directory it
+!     // points to.
+      if (
+  # if defined(UNIX) || defined(MSWIN)
+  	 mch_isrealdir(name)
+***************
+*** 7194,7215 ****
+  # endif
+  	    )
+      {
+! 	vim_snprintf((char *)NameBuff, MAXPATHL, "%s/*", name);
+! 	exp = vim_strsave(NameBuff);
+  	if (exp == NULL)
+  	    return -1;
+! 	if (gen_expand_wildcards(1, &exp, &file_count, &files,
+! 	      EW_DIR|EW_FILE|EW_SILENT|EW_ALLLINKS|EW_DODOT|EW_EMPTYOK) == OK)
+  	{
+! 	    for (i = 0; i < file_count; ++i)
+! 		if (delete_recursive(files[i]) != 0)
+  		    result = -1;
+! 	    FreeWild(file_count, files);
+  	}
+  	else
+  	    result = -1;
+  	vim_free(exp);
+- 	(void)mch_rmdir(name);
+      }
+      else
+  	result = mch_remove(name) == 0 ? 0 : -1;
+--- 7338,7361 ----
+  # endif
+  	    )
+      {
+! 	exp = vim_strsave(name);
+  	if (exp == NULL)
+  	    return -1;
+! 	if (readdir_core(&ga, exp, NULL, NULL) == OK)
+  	{
+! 	    for (i = 0; i < ga.ga_len; ++i)
+! 	    {
+! 		vim_snprintf((char *)NameBuff, MAXPATHL, "%s/%s", exp,
+! 					    ((char_u **)ga.ga_data)[i]);
+! 		if (delete_recursive(NameBuff) != 0)
+  		    result = -1;
+! 	    }
+! 	    ga_clear_strings(&ga);
+  	}
+  	else
+  	    result = -1;
++ 	(void)mch_rmdir(exp);
+  	vim_free(exp);
+      }
+      else
+  	result = mch_remove(name) == 0 ? 0 : -1;
+*** ../vim-8.1.1377/src/proto/fileio.pro	2019-02-15 21:06:05.342289715 +0100
+--- src/proto/fileio.pro	2019-05-24 14:04:05.371239020 +0200
+***************
+*** 24,29 ****
+--- 24,30 ----
+  void buf_reload(buf_T *buf, int orig_mode);
+  void buf_store_time(buf_T *buf, stat_T *st, char_u *fname);
+  void write_lnum_adjust(linenr_T offset);
++ int readdir_core(garray_T *gap, char_u *path, void *context, int (*checkitem)(void *context, char_u *name));
+  int delete_recursive(char_u *name);
+  void vim_deltempdir(void);
+  char_u *vim_tempname(int extra_char, int keep);
+*** ../vim-8.1.1377/src/version.c	2019-05-24 13:32:33.148376324 +0200
+--- src/version.c	2019-05-24 14:05:17.550903987 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1378,
+  /**/
+
+-- 
+How To Keep A Healthy Level Of Insanity:
+5. Put decaf in the coffee maker for 3 weeks. Once everyone has gotten
+   over their caffeine addictions, switch to espresso.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

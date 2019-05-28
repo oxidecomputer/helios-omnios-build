@@ -1,0 +1,255 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1143
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1143
+Problem:    May pass weird strings to file name expansion.
+Solution:   Check for matching characters.  Disallow control characters.
+Files:	    src/misc1.c, src/testdir/test_spell.vim, src/option.c,
+            src/proto/option.pro, src/spell.c,
+            src/testdir/test_escaped_glob.vim
+
+
+*** ../vim-8.1.1142/src/misc1.c	2019-04-05 22:50:35.025737353 +0200
+--- src/misc1.c	2019-04-10 21:13:13.037246284 +0200
+***************
+*** 6170,6180 ****
+  {
+      for ( ; *p; MB_PTR_ADV(p))
+      {
+! 	/* Allow for escaping. */
+! 	if (*p == '\\' && p[1] != NUL)
+  	    ++p;
+  	else if (vim_strchr((char_u *)SPECIAL_WILDCHAR, *p) != NULL)
+  	    return TRUE;
+      }
+      return FALSE;
+  }
+--- 6170,6191 ----
+  {
+      for ( ; *p; MB_PTR_ADV(p))
+      {
+! 	// Disallow line break characters.
+! 	if (*p == '\r' || *p == '\n')
+! 	    break;
+! 	// Allow for escaping.
+! 	if (*p == '\\' && p[1] != NUL && p[1] != '\r' && p[1] != '\n')
+  	    ++p;
+  	else if (vim_strchr((char_u *)SPECIAL_WILDCHAR, *p) != NULL)
++ 	{
++ 	    // A { must be followed by a matching }.
++ 	    if (*p == '{' && vim_strchr(p, '}') == NULL)
++ 		continue;
++ 	    // A quote and backtick must be followed by another one.
++ 	    if ((*p == '`' || *p == '\'') && vim_strchr(p, *p) == NULL)
++ 		continue;
+  	    return TRUE;
++ 	}
+      }
+      return FALSE;
+  }
+*** ../vim-8.1.1142/src/testdir/test_spell.vim	2019-01-24 17:59:35.143217444 +0100
+--- src/testdir/test_spell.vim	2019-04-10 22:10:51.295072579 +0200
+***************
+*** 149,154 ****
+--- 149,160 ----
+    set nospell spelllang=en
+    call assert_fails('spellinfo', 'E756:')
+  
++   call assert_fails('set spelllang=foo/bar', 'E474:')
++   call assert_fails('set spelllang=foo\ bar', 'E474:')
++   call assert_fails("set spelllang=foo\\\nbar", 'E474:')
++   call assert_fails("set spelllang=foo\\\rbar", 'E474:')
++   call assert_fails("set spelllang=foo+bar", 'E474:')
++ 
+    set enc& spell& spelllang&
+    bwipe
+  endfunc
+*** ../vim-8.1.1142/src/option.c	2019-04-04 18:15:05.770857065 +0200
+--- src/option.c	2019-04-10 21:30:25.115458657 +0200
+***************
+*** 6006,6026 ****
+  }
+  
+  /*
+!  * Return TRUE if "val" is a valid 'filetype' name.
+!  * Also used for 'syntax' and 'keymap'.
+   */
+      static int
+! valid_filetype(char_u *val)
+  {
+      char_u *s;
+  
+      for (s = val; *s != NUL; ++s)
+! 	if (!ASCII_ISALNUM(*s) && vim_strchr((char_u *)".-_", *s) == NULL)
+  	    return FALSE;
+      return TRUE;
+  }
+  
+  /*
+   * Handle string options that need some action to perform when changed.
+   * Returns NULL for success, or an error message for an error.
+   */
+--- 6006,6045 ----
+  }
+  
+  /*
+!  * Return TRUE if "val" is a valid name: only consists of alphanumeric ASCII
+!  * characters or characters in "allowed".
+   */
+      static int
+! valid_name(char_u *val, char *allowed)
+  {
+      char_u *s;
+  
+      for (s = val; *s != NUL; ++s)
+! 	if (!ASCII_ISALNUM(*s) && vim_strchr((char_u *)allowed, *s) == NULL)
+  	    return FALSE;
+      return TRUE;
+  }
+  
+  /*
++  * Return TRUE if "val" is a valid 'filetype' name.
++  * Also used for 'syntax' and 'keymap'.
++  */
++     static int
++ valid_filetype(char_u *val)
++ {
++     return valid_name(val, ".-_");
++ }
++ 
++ /*
++  * Return TRUE if "val" is a valid 'spellang' value.
++  */
++     int
++ valid_spellang(char_u *val)
++ {
++     return valid_name(val, ".-_,");
++ }
++ 
++ /*
+   * Handle string options that need some action to perform when changed.
+   * Returns NULL for success, or an error message for an error.
+   */
+***************
+*** 7082,7088 ****
+      else if (varp == &(curwin->w_s->b_p_spl)
+  	    || varp == &(curwin->w_s->b_p_spf))
+      {
+! 	errmsg = did_set_spell_option(varp == &(curwin->w_s->b_p_spf));
+      }
+      /* When 'spellcapcheck' is set compile the regexp program. */
+      else if (varp == &(curwin->w_s->b_p_spc))
+--- 7101,7110 ----
+      else if (varp == &(curwin->w_s->b_p_spl)
+  	    || varp == &(curwin->w_s->b_p_spf))
+      {
+! 	if (!valid_spellang(*varp))
+! 	    errmsg = e_invarg;
+! 	else
+! 	    errmsg = did_set_spell_option(varp == &(curwin->w_s->b_p_spf));
+      }
+      /* When 'spellcapcheck' is set compile the regexp program. */
+      else if (varp == &(curwin->w_s->b_p_spc))
+***************
+*** 7737,7743 ****
+  		    break;
+  	    if (p > q)
+  	    {
+! 		vim_snprintf((char *)fname, 200, "spell/%.*s.vim", (int)(p - q), q);
+  		source_runtime(fname, DIP_ALL);
+  	    }
+  	}
+--- 7759,7766 ----
+  		    break;
+  	    if (p > q)
+  	    {
+! 		vim_snprintf((char *)fname, 200, "spell/%.*s.vim",
+! 							      (int)(p - q), q);
+  		source_runtime(fname, DIP_ALL);
+  	    }
+  	}
+*** ../vim-8.1.1142/src/proto/option.pro	2019-01-31 18:26:05.738803509 +0100
+--- src/proto/option.pro	2019-04-10 21:27:23.873325984 +0200
+***************
+*** 21,26 ****
+--- 21,27 ----
+  int set_term_option_alloced(char_u **p);
+  int was_set_insecurely(char_u *opt, int opt_flags);
+  void set_string_option_direct(char_u *name, int opt_idx, char_u *val, int opt_flags, int set_sid);
++ int valid_spellang(char_u *val);
+  char *check_colorcolumn(win_T *wp);
+  char *check_stl_option(char_u *s);
+  void set_term_option_sctx_idx(char *name, int opt_idx);
+*** ../vim-8.1.1142/src/spell.c	2019-04-06 14:22:17.758642630 +0200
+--- src/spell.c	2019-04-10 21:27:35.049205079 +0200
+***************
+*** 2308,2318 ****
+      /* Loop over comma separated language names. */
+      for (splp = spl_copy; *splp != NUL; )
+      {
+! 	/* Get one language name. */
+  	copy_option_part(&splp, lang, MAXWLEN, ",");
+  	region = NULL;
+  	len = (int)STRLEN(lang);
+  
+  	if (STRCMP(lang, "cjk") == 0)
+  	{
+  	    wp->w_s->b_cjk = 1;
+--- 2308,2321 ----
+      /* Loop over comma separated language names. */
+      for (splp = spl_copy; *splp != NUL; )
+      {
+! 	// Get one language name.
+  	copy_option_part(&splp, lang, MAXWLEN, ",");
+  	region = NULL;
+  	len = (int)STRLEN(lang);
+  
++ 	if (!valid_spellang(lang))
++ 	    continue;
++ 
+  	if (STRCMP(lang, "cjk") == 0)
+  	{
+  	    wp->w_s->b_cjk = 1;
+*** ../vim-8.1.1142/src/testdir/test_escaped_glob.vim	2018-10-14 22:03:52.699698553 +0200
+--- src/testdir/test_escaped_glob.vim	2019-04-10 21:53:04.187852255 +0200
+***************
+*** 17,23 ****
+    " Setting 'shell' to an invalid name causes a memory leak.
+    sandbox call assert_equal("", glob('Xxx\{'))
+    sandbox call assert_equal("", glob('Xxx\$'))
+!   w! Xxx{
+    w! Xxx\$
+    sandbox call assert_equal("Xxx{", glob('Xxx\{'))
+    sandbox call assert_equal("Xxx$", glob('Xxx\$'))
+--- 17,23 ----
+    " Setting 'shell' to an invalid name causes a memory leak.
+    sandbox call assert_equal("", glob('Xxx\{'))
+    sandbox call assert_equal("", glob('Xxx\$'))
+!   w! Xxx\{
+    w! Xxx\$
+    sandbox call assert_equal("Xxx{", glob('Xxx\{'))
+    sandbox call assert_equal("Xxx$", glob('Xxx\$'))
+*** ../vim-8.1.1142/src/version.c	2019-04-09 21:51:59.177300145 +0200
+--- src/version.c	2019-04-10 22:11:37.682710639 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1143,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+239. You think "surfing" is something you do on dry land.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

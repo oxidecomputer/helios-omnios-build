@@ -1,0 +1,234 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1232
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1232
+Problem:    Can't build on MS-Windows.
+Solution:   Define process_still_running.
+Files:	    src/memline.c, src/os_win32.c, src/proto/os_win32.pro,
+            src/os_unix.c, src/proto/os_unix.pro
+
+
+*** ../vim-8.1.1231/src/memline.c	2019-04-28 22:25:03.240480046 +0200
+--- src/memline.c	2019-04-28 22:46:02.502595899 +0200
+***************
+*** 2027,2033 ****
+  }
+  #endif
+  
+! #if (defined(UNIX) || defined(VMS)) && (defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG))
+  static int process_still_running;
+  #endif
+  
+--- 2027,2035 ----
+  }
+  #endif
+  
+! #if (defined(UNIX) || defined(VMS) || defined(MSWIN)) \
+! 	&& (defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG))
+! # define HAVE_PROCESS_STILL_RUNNING
+  static int process_still_running;
+  #endif
+  
+***************
+*** 2160,2169 ****
+  		    msg_puts(_("\n        process ID: "));
+  		    msg_outnum(char_to_long(b0.b0_pid));
+  #if defined(UNIX) || defined(MSWIN)
+! 		    if (mch_process_running((pid_t)char_to_long(b0.b0_pid)))
+  		    {
+  			msg_puts(_(" (STILL RUNNING)"));
+! # if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG)
+  			process_still_running = TRUE;
+  # endif
+  		    }
+--- 2162,2171 ----
+  		    msg_puts(_("\n        process ID: "));
+  		    msg_outnum(char_to_long(b0.b0_pid));
+  #if defined(UNIX) || defined(MSWIN)
+! 		    if (mch_process_running(char_to_long(b0.b0_pid)))
+  		    {
+  			msg_puts(_(" (STILL RUNNING)"));
+! # ifdef HAVE_PROCESS_STILL_RUNNING
+  			process_still_running = TRUE;
+  # endif
+  		    }
+***************
+*** 2203,2209 ****
+      int		    fd;
+      struct block0   b0;
+      int		    ret = TRUE;
+! #ifdef UNIX
+      long	    pid;
+  #endif
+  
+--- 2205,2211 ----
+      int		    fd;
+      struct block0   b0;
+      int		    ret = TRUE;
+! #if defined(UNIX) || defined(MSWIN)
+      long	    pid;
+  #endif
+  
+***************
+*** 2232,2238 ****
+  #if defined(UNIX) || defined(MSWIN)
+      // process must known and not be running
+      pid = char_to_long(b0.b0_pid);
+!     if (pid == 0L || mch_process_running((pid_t)pid))
+  	ret = FALSE;
+  #endif
+  
+--- 2234,2240 ----
+  #if defined(UNIX) || defined(MSWIN)
+      // process must known and not be running
+      pid = char_to_long(b0.b0_pid);
+!     if (pid == 0L || mch_process_running(pid))
+  	ret = FALSE;
+  #endif
+  
+***************
+*** 4825,4831 ****
+  		    }
+  #endif
+  
+! #if (defined(UNIX) || defined(VMS)) && (defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG))
+  		    process_still_running = FALSE;
+  #endif
+  		    // It's safe to delete the swap file if all these are true:
+--- 4827,4833 ----
+  		    }
+  #endif
+  
+! #ifdef HAVE_PROCESS_STILL_RUNNING
+  		    process_still_running = FALSE;
+  #endif
+  		    // It's safe to delete the swap file if all these are true:
+***************
+*** 4893,4905 ****
+  				    name == NULL
+  					?  (char_u *)_("Swap file already exists!")
+  					: name,
+! # if defined(UNIX) || defined(VMS)
+  				    process_still_running
+  					? (char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Quit\n&Abort") :
+  # endif
+  					(char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Delete it\n&Quit\n&Abort"), 1, NULL, FALSE);
+  
+! # if defined(UNIX) || defined(VMS)
+  			if (process_still_running && choice >= 4)
+  			    choice++;	/* Skip missing "Delete it" button */
+  # endif
+--- 4895,4907 ----
+  				    name == NULL
+  					?  (char_u *)_("Swap file already exists!")
+  					: name,
+! # ifdef HAVE_PROCESS_STILL_RUNNING
+  				    process_still_running
+  					? (char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Quit\n&Abort") :
+  # endif
+  					(char_u *)_("&Open Read-Only\n&Edit anyway\n&Recover\n&Delete it\n&Quit\n&Abort"), 1, NULL, FALSE);
+  
+! # ifdef HAVE_PROCESS_STILL_RUNNING
+  			if (process_still_running && choice >= 4)
+  			    choice++;	/* Skip missing "Delete it" button */
+  # endif
+*** ../vim-8.1.1231/src/os_win32.c	2019-04-28 22:25:03.244480028 +0200
+--- src/os_win32.c	2019-04-28 22:43:27.379376785 +0200
+***************
+*** 2907,2913 ****
+   * return TRUE if process "pid" is still running
+   */
+      int
+! mch_process_running(pid_t pid)
+  {
+      HANDLE  hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, 0, (DWORD)pid);
+      DWORD   status = 0;
+--- 2907,2913 ----
+   * return TRUE if process "pid" is still running
+   */
+      int
+! mch_process_running(long pid)
+  {
+      HANDLE  hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, 0, (DWORD)pid);
+      DWORD   status = 0;
+*** ../vim-8.1.1231/src/proto/os_win32.pro	2019-04-28 22:25:03.244480028 +0200
+--- src/proto/os_win32.pro	2019-04-28 22:43:53.487244313 +0200
+***************
+*** 19,25 ****
+  int mch_get_user_name(char_u *s, int len);
+  void mch_get_host_name(char_u *s, int len);
+  long mch_get_pid(void);
+! int mch_process_running(pid_t pid);
+  int mch_dirname(char_u *buf, int len);
+  long mch_getperm(char_u *name);
+  int mch_setperm(char_u *name, long perm);
+--- 19,25 ----
+  int mch_get_user_name(char_u *s, int len);
+  void mch_get_host_name(char_u *s, int len);
+  long mch_get_pid(void);
+! int mch_process_running(long pid);
+  int mch_dirname(char_u *buf, int len);
+  long mch_getperm(char_u *name);
+  int mch_setperm(char_u *name, long perm);
+*** ../vim-8.1.1231/src/os_unix.c	2019-04-28 22:25:03.244480028 +0200
+--- src/os_unix.c	2019-04-28 22:44:05.579183106 +0200
+***************
+*** 2397,2403 ****
+   * return TRUE if process "pid" is still running
+   */
+      int
+! mch_process_running(pid_t pid)
+  {
+      // EMX kill() not working correctly, it seems
+      return kill(pid, 0) == 0;
+--- 2397,2403 ----
+   * return TRUE if process "pid" is still running
+   */
+      int
+! mch_process_running(long pid)
+  {
+      // EMX kill() not working correctly, it seems
+      return kill(pid, 0) == 0;
+*** ../vim-8.1.1231/src/proto/os_unix.pro	2019-04-28 22:25:03.248480010 +0200
+--- src/proto/os_unix.pro	2019-04-28 22:44:12.247149409 +0200
+***************
+*** 27,33 ****
+  int mch_get_uname(uid_t uid, char_u *s, int len);
+  void mch_get_host_name(char_u *s, int len);
+  long mch_get_pid(void);
+! int mch_process_running(pid_t pid);
+  int mch_dirname(char_u *buf, int len);
+  int mch_FullName(char_u *fname, char_u *buf, int len, int force);
+  int mch_isFullName(char_u *fname);
+--- 27,33 ----
+  int mch_get_uname(uid_t uid, char_u *s, int len);
+  void mch_get_host_name(char_u *s, int len);
+  long mch_get_pid(void);
+! int mch_process_running(long pid);
+  int mch_dirname(char_u *buf, int len);
+  int mch_FullName(char_u *fname, char_u *buf, int len, int force);
+  int mch_isFullName(char_u *fname);
+*** ../vim-8.1.1231/src/version.c	2019-04-28 22:25:03.248480010 +0200
+--- src/version.c	2019-04-28 22:49:55.861444980 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1232,
+  /**/
+
+-- 
+    With sufficient thrust, pigs fly just fine.
+                   -- RFC 1925
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///
