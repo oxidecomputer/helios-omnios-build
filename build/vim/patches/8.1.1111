@@ -1,0 +1,164 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1111
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1111
+Problem:    It is not easy to check for infinity.
+Solution:   Add isinf(). (Ozaki Kiichi, closes #3787)
+Files:	    runtime/doc/eval.txt, src/evalfunc.c,
+            src/testdir/test_float_func.vim
+
+
+*** ../vim-8.1.1110/runtime/doc/eval.txt	2019-03-30 18:10:57.649082383 +0100
+--- runtime/doc/eval.txt	2019-04-04 13:41:14.644823418 +0200
+***************
+*** 2383,2388 ****
+--- 2411,2418 ----
+  insert({object}, {item} [, {idx}]) List	insert {item} in {object} [before {idx}]
+  invert({expr})			Number	bitwise invert
+  isdirectory({directory})	Number	|TRUE| if {directory} is a directory
++ isinf({expr})			Number	determine if {expr} is infinity value
++ 					(positive or negative)
+  islocked({expr})		Number	|TRUE| if {expr} is locked
+  isnan({expr})			Number	|TRUE| if {expr} is NaN
+  items({dict})			List	key-value pairs in {dict}
+***************
+*** 5738,5743 ****
+--- 5774,5789 ----
+  		exist, or isn't a directory, the result is |FALSE|.  {directory}
+  		is any expression, which is used as a String.
+  
++ isinf({expr})						*isinf()*
++ 		Return 1 if {expr} is a positive infinity, or -1 a negative
++ 		infinity, otherwise 0. >
++ 			:echo isinf(1.0 / 0.0)
++ <			1 >
++ 			:echo isinf(-1.0 / 0.0)
++ <			-1
++ 
++ 		{only available when compiled with the |+float| feature}
++ 
+  islocked({expr})					*islocked()* *E786*
+  		The result is a Number, which is |TRUE| when {expr} is the
+  		name of a locked variable.
+*** ../vim-8.1.1110/src/evalfunc.c	2019-03-30 18:46:57.344077426 +0100
+--- src/evalfunc.c	2019-04-04 13:41:14.644823418 +0200
+***************
+*** 237,242 ****
+--- 237,243 ----
+  static void f_isdirectory(typval_T *argvars, typval_T *rettv);
+  static void f_islocked(typval_T *argvars, typval_T *rettv);
+  #if defined(FEAT_FLOAT) && defined(HAVE_MATH_H)
++ static void f_isinf(typval_T *argvars, typval_T *rettv);
+  static void f_isnan(typval_T *argvars, typval_T *rettv);
+  #endif
+  static void f_items(typval_T *argvars, typval_T *rettv);
+***************
+*** 721,726 ****
+--- 722,730 ----
+      {"insert",		2, 3, f_insert},
+      {"invert",		1, 1, f_invert},
+      {"isdirectory",	1, 1, f_isdirectory},
++ #if defined(FEAT_FLOAT) && defined(HAVE_MATH_H)
++     {"isinf",		1, 1, f_isinf},
++ #endif
+      {"islocked",	1, 1, f_islocked},
+  #if defined(FEAT_FLOAT) && defined(HAVE_MATH_H)
+      {"isnan",		1, 1, f_isnan},
+***************
+*** 6582,6590 ****
+  #ifdef FEAT_TAG_BINS
+  	"tag_binary",
+  #endif
+- #ifdef FEAT_TAG_OLDSTATIC
+- 	"tag_old_static",
+- #endif
+  #ifdef FEAT_TCL
+  # ifndef DYNAMIC_TCL
+  	"tcl",
+--- 6586,6591 ----
+***************
+*** 7443,7448 ****
+--- 7444,7459 ----
+  
+  #if defined(FEAT_FLOAT) && defined(HAVE_MATH_H)
+  /*
++  * "isinf()" function
++  */
++     static void
++ f_isinf(typval_T *argvars, typval_T *rettv)
++ {
++     if (argvars[0].v_type == VAR_FLOAT && isinf(argvars[0].vval.v_float))
++ 	rettv->vval.v_number = argvars[0].vval.v_float > 0.0 ? 1 : -1;
++ }
++ 
++ /*
+   * "isnan()" function
+   */
+      static void
+*** ../vim-8.1.1110/src/testdir/test_float_func.vim	2017-06-04 19:45:13.000000000 +0200
+--- src/testdir/test_float_func.vim	2019-04-04 13:41:14.644823418 +0200
+***************
+*** 288,300 ****
+    call assert_fails("call trunc('')", 'E808:')
+  endfunc
+  
+  func Test_isnan()
+!   call assert_equal(0, isnan(1.0))
+!   call assert_equal(1, isnan(0.0/0.0))
+!   call assert_equal(0, isnan(1.0/0.0))
+!   call assert_equal(0, isnan('a'))
+!   call assert_equal(0, isnan([]))
+!   call assert_equal(0, isnan({}))
+  endfunc
+  
+  " This was converted from test65
+--- 288,311 ----
+    call assert_fails("call trunc('')", 'E808:')
+  endfunc
+  
++ func Test_isinf()
++   call assert_equal(1, isinf(1.0/0.0))
++   call assert_equal(-1, isinf(-1.0/0.0))
++   call assert_false(isinf(1.0))
++   call assert_false(isinf(0.0/0.0))
++   call assert_false(isinf('a'))
++   call assert_false(isinf([]))
++   call assert_false(isinf({}))
++ endfunc
++ 
+  func Test_isnan()
+!   call assert_true(isnan(0.0/0.0))
+!   call assert_false(isnan(1.0))
+!   call assert_false(isnan(1.0/0.0))
+!   call assert_false(isnan(-1.0/0.0))
+!   call assert_false(isnan('a'))
+!   call assert_false(isnan([]))
+!   call assert_false(isnan({}))
+  endfunc
+  
+  " This was converted from test65
+*** ../vim-8.1.1110/src/version.c	2019-04-04 13:28:41.205589908 +0200
+--- src/version.c	2019-04-04 13:41:43.928639977 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1111,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+193. You ask your girlfriend to drive home so you can sit back with
+     your PDA and download the information to your laptop
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

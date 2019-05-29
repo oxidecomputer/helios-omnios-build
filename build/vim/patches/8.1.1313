@@ -1,0 +1,434 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1313
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1313
+Problem:    Warnings for using localtime() and ctime().
+Solution:   Use localtime_r() if available.  Avoid using ctime().
+Files:	    src/configure.ac, src/auto/configure, src/config.h.in,
+            src/evalfunc.c, src/nbdebug.c, src/undo.c, src/memline.c,
+            src/proto/memline.pro, src/hardcopy.c
+
+
+*** ../vim-8.1.1312/src/configure.ac	2019-04-28 14:59:55.841503809 +0200
+--- src/configure.ac	2019-05-10 19:57:23.200187535 +0200
+***************
+*** 3736,3747 ****
+  
+  if test "x$vim_cv_getcwd_broken" = "xyes" ; then
+    AC_DEFINE(BAD_GETCWD)
+  fi
+  
+  dnl Check for functions in one big call, to reduce the size of configure.
+  dnl Can only be used for functions that do not require any include.
+  AC_CHECK_FUNCS(fchdir fchown fchmod fsync getcwd getpseudotty \
+! 	getpwent getpwnam getpwuid getrlimit gettimeofday getwd lstat \
+  	memset mkdtemp nanosleep opendir putenv qsort readlink select setenv \
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+--- 3736,3748 ----
+  
+  if test "x$vim_cv_getcwd_broken" = "xyes" ; then
+    AC_DEFINE(BAD_GETCWD)
++   AC_CHECK_FUNCS(getwd)
+  fi
+  
+  dnl Check for functions in one big call, to reduce the size of configure.
+  dnl Can only be used for functions that do not require any include.
+  AC_CHECK_FUNCS(fchdir fchown fchmod fsync getcwd getpseudotty \
+! 	getpwent getpwnam getpwuid getrlimit gettimeofday localtime_r lstat \
+  	memset mkdtemp nanosleep opendir putenv qsort readlink select setenv \
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+*** ../vim-8.1.1312/src/auto/configure	2019-04-28 14:59:55.845503790 +0200
+--- src/auto/configure	2019-05-10 21:21:24.826833832 +0200
+***************
+*** 12650,12659 ****
+  if test "x$vim_cv_getcwd_broken" = "xyes" ; then
+    $as_echo "#define BAD_GETCWD 1" >>confdefs.h
+  
+  fi
+  
+  for ac_func in fchdir fchown fchmod fsync getcwd getpseudotty \
+! 	getpwent getpwnam getpwuid getrlimit gettimeofday getwd lstat \
+  	memset mkdtemp nanosleep opendir putenv qsort readlink select setenv \
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+--- 12650,12670 ----
+  if test "x$vim_cv_getcwd_broken" = "xyes" ; then
+    $as_echo "#define BAD_GETCWD 1" >>confdefs.h
+  
++   for ac_func in getwd
++ do :
++   ac_fn_c_check_func "$LINENO" "getwd" "ac_cv_func_getwd"
++ if test "x$ac_cv_func_getwd" = xyes; then :
++   cat >>confdefs.h <<_ACEOF
++ #define HAVE_GETWD 1
++ _ACEOF
++ 
++ fi
++ done
++ 
+  fi
+  
+  for ac_func in fchdir fchown fchmod fsync getcwd getpseudotty \
+! 	getpwent getpwnam getpwuid getrlimit gettimeofday localtime_r lstat \
+  	memset mkdtemp nanosleep opendir putenv qsort readlink select setenv \
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+*** ../vim-8.1.1312/src/config.h.in	2019-04-28 14:59:55.841503809 +0200
+--- src/config.h.in	2019-05-10 19:41:37.960749699 +0200
+***************
+*** 174,179 ****
+--- 174,180 ----
+  #undef HAVE_GETTIMEOFDAY
+  #undef HAVE_GETWD
+  #undef HAVE_ICONV
++ #undef HAVE_LOCALTIME_R
+  #undef HAVE_LSTAT
+  #undef HAVE_MEMSET
+  #undef HAVE_MKDTEMP
+*** ../vim-8.1.1312/src/evalfunc.c	2019-05-09 15:12:45.168723969 +0200
+--- src/evalfunc.c	2019-05-10 19:59:58.095377837 +0200
+***************
+*** 13213,13218 ****
+--- 13213,13221 ----
+  f_strftime(typval_T *argvars, typval_T *rettv)
+  {
+      char_u	result_buf[256];
++ # ifdef HAVE_LOCALTIME_R
++     struct tm	tmval;
++ # endif
+      struct tm	*curtime;
+      time_t	seconds;
+      char_u	*p;
+***************
+*** 13224,13230 ****
+--- 13227,13237 ----
+  	seconds = time(NULL);
+      else
+  	seconds = (time_t)tv_get_number(&argvars[1]);
++ # ifdef HAVE_LOCALTIME_R
++     curtime = localtime_r(&seconds, &tmval);
++ # else
+      curtime = localtime(&seconds);
++ # endif
+      /* MSVC returns NULL for an invalid value of seconds. */
+      if (curtime == NULL)
+  	rettv->vval.v_string = vim_strsave((char_u *)_("(Invalid)"));
+*** ../vim-8.1.1312/src/nbdebug.c	2019-02-17 17:44:36.215875493 +0100
+--- src/nbdebug.c	2019-05-10 21:25:10.709668268 +0200
+***************
+*** 80,91 ****
+  	char		*file;		/* possible nb_debug output file */
+  	char		*cp;		/* nb_dlevel pointer */
+  
+! 	if (log_var && (file = getenv(log_var)) != NULL) {
+  		time_t now;
+  
+  		nb_debug = fopen(file, "a");
+  		time(&now);
+! 		fprintf(nb_debug, "%s", asctime(localtime(&now)));
+  		if (level_var && (cp = getenv(level_var)) != NULL) {
+  			nb_dlevel = strtoul(cp, NULL, 0);
+  		} else {
+--- 80,92 ----
+  	char		*file;		/* possible nb_debug output file */
+  	char		*cp;		/* nb_dlevel pointer */
+  
+! 	if (log_var && (file = getenv(log_var)) != NULL)
+! 	{
+  		time_t now;
+  
+  		nb_debug = fopen(file, "a");
+  		time(&now);
+! 		fprintf(nb_debug, "%s", get_ctime(now, TRUE));
+  		if (level_var && (cp = getenv(level_var)) != NULL) {
+  			nb_dlevel = strtoul(cp, NULL, 0);
+  		} else {
+*** ../vim-8.1.1312/src/undo.c	2019-04-26 20:32:57.086296530 +0200
+--- src/undo.c	2019-05-10 20:02:25.778599180 +0200
+***************
+*** 3110,3120 ****
+--- 3110,3128 ----
+  u_add_time(char_u *buf, size_t buflen, time_t tt)
+  {
+  #ifdef HAVE_STRFTIME
++ # ifdef HAVE_LOCALTIME_R
++     struct tm	tmval;
++ # endif
+      struct tm	*curtime;
+  
+      if (vim_time() - tt >= 100)
+      {
+  	curtime = localtime(&tt);
++ # ifdef HAVE_LOCALTIME_R
++ 	curtime = localtime_r(&tt, &tmval);
++ # else
++ 	curtime = localtime(&tt);
++ # endif
+  	if (vim_time() - tt < (60L * 60L * 12L))
+  	    /* within 12 hours */
+  	    (void)strftime((char *)buf, buflen, "%H:%M:%S", curtime);
+*** ../vim-8.1.1312/src/memline.c	2019-04-28 22:50:36.153248474 +0200
+--- src/memline.c	2019-05-10 21:27:32.216937933 +0200
+***************
+*** 2078,2083 ****
+--- 2078,2118 ----
+  #endif
+  
+  /*
++  * Replacement for ctime(), which is not safe to use.
++  * Requires strftime(), otherwise returns "(unknown)".
++  * If "thetime" is invalid returns "(invalid)".  Never returns NULL.
++  * When "add_newline" is TRUE add a newline like ctime() does.
++  * Uses a static buffer.
++  */
++     char *
++ get_ctime(time_t thetime, int add_newline)
++ {
++     static char buf[50];
++ #ifdef HAVE_STRFTIME
++ # ifdef HAVE_LOCALTIME_R
++     struct tm	tmval;
++ # endif
++     struct tm	*curtime;
++ 
++ # ifdef HAVE_LOCALTIME_R
++     curtime = localtime_r(&thetime, &tmval);
++ # else
++     curtime = localtime(&thetime);
++ # endif
++     /* MSVC returns NULL for an invalid value of seconds. */
++     if (curtime == NULL)
++ 	STRCPY(buf, _("(Invalid)"));
++     else
++ 	(void)strftime(buf, sizeof(buf) - 1, "%a %b %d %H:%M:%S %Y", curtime);
++ #else
++     STRCPY(buf, "(unknown)");
++ #endif
++     if (add_newline)
++ 	STRCAT(buf, "\n");
++     return buf;
++ }
++ 
++ /*
+   * Give information about an existing swap file.
+   * Returns timestamp (0 when unknown).
+   */
+***************
+*** 2087,2103 ****
+      stat_T	    st;
+      int		    fd;
+      struct block0   b0;
+-     time_t	    x = (time_t)0;
+-     char	    *p;
+  #ifdef UNIX
+      char_u	    uname[B0_UNAME_SIZE];
+  #endif
+  
+!     /* print the swap file date */
+      if (mch_stat((char *)fname, &st) != -1)
+      {
+  #ifdef UNIX
+! 	/* print name of owner of the file */
+  	if (mch_get_uname(st.st_uid, uname, B0_UNAME_SIZE) == OK)
+  	{
+  	    msg_puts(_("          owned by: "));
+--- 2122,2136 ----
+      stat_T	    st;
+      int		    fd;
+      struct block0   b0;
+  #ifdef UNIX
+      char_u	    uname[B0_UNAME_SIZE];
+  #endif
+  
+!     // print the swap file date
+      if (mch_stat((char *)fname, &st) != -1)
+      {
+  #ifdef UNIX
+! 	// print name of owner of the file
+  	if (mch_get_uname(st.st_uid, uname, B0_UNAME_SIZE) == OK)
+  	{
+  	    msg_puts(_("          owned by: "));
+***************
+*** 2107,2119 ****
+  	else
+  #endif
+  	    msg_puts(_("             dated: "));
+! 	x = st.st_mtime;		    /* Manx C can't do &st.st_mtime */
+! 	p = ctime(&x);			    /* includes '\n' */
+! 	if (p == NULL)
+! 	    msg_puts("(invalid)\n");
+! 	else
+! 	    msg_puts(p);
+      }
+  
+      /*
+       * print the original file name
+--- 2140,2149 ----
+  	else
+  #endif
+  	    msg_puts(_("             dated: "));
+! 	msg_puts(get_ctime(st.st_mtime, TRUE));
+      }
++     else
++ 	st.st_mtime = 0;
+  
+      /*
+       * print the original file name
+***************
+*** 2191,2197 ****
+  	msg_puts(_("         [cannot be opened]"));
+      msg_putchar('\n');
+  
+!     return x;
+  }
+  
+  /*
+--- 2221,2227 ----
+  	msg_puts(_("         [cannot be opened]"));
+      msg_putchar('\n');
+  
+!     return st.st_mtime;
+  }
+  
+  /*
+***************
+*** 4412,4426 ****
+      char_u  *fname)	/* swap file name */
+  {
+      stat_T	st;
+!     time_t	x, sx;
+!     char	*p;
+  
+      ++no_wait_return;
+      (void)emsg(_("E325: ATTENTION"));
+      msg_puts(_("\nFound a swap file by the name \""));
+      msg_home_replace(fname);
+      msg_puts("\"\n");
+!     sx = swapfile_info(fname);
+      msg_puts(_("While opening file \""));
+      msg_outtrans(buf->b_fname);
+      msg_puts("\"\n");
+--- 4442,4455 ----
+      char_u  *fname)	/* swap file name */
+  {
+      stat_T	st;
+!     time_t	swap_mtime;
+  
+      ++no_wait_return;
+      (void)emsg(_("E325: ATTENTION"));
+      msg_puts(_("\nFound a swap file by the name \""));
+      msg_home_replace(fname);
+      msg_puts("\"\n");
+!     swap_mtime = swapfile_info(fname);
+      msg_puts(_("While opening file \""));
+      msg_outtrans(buf->b_fname);
+      msg_puts("\"\n");
+***************
+*** 4431,4443 ****
+      else
+      {
+  	msg_puts(_("             dated: "));
+! 	x = st.st_mtime;    /* Manx C can't do &st.st_mtime */
+! 	p = ctime(&x);			    /* includes '\n' */
+! 	if (p == NULL)
+! 	    msg_puts("(invalid)\n");
+! 	else
+! 	    msg_puts(p);
+! 	if (sx != 0 && x > sx)
+  	    msg_puts(_("      NEWER than swap file!\n"));
+      }
+      /* Some of these messages are long to allow translation to
+--- 4460,4467 ----
+      else
+      {
+  	msg_puts(_("             dated: "));
+! 	msg_puts(get_ctime(st.st_mtime, TRUE));
+! 	if (swap_mtime != 0 && st.st_mtime > swap_mtime)
+  	    msg_puts(_("      NEWER than swap file!\n"));
+      }
+      /* Some of these messages are long to allow translation to
+*** ../vim-8.1.1312/src/proto/memline.pro	2019-01-04 15:09:52.918373097 +0100
+--- src/proto/memline.pro	2019-05-10 20:26:38.351513643 +0200
+***************
+*** 13,18 ****
+--- 13,19 ----
+  int recover_names(char_u *fname, int list, int nr, char_u **fname_out);
+  char_u *make_percent_swname(char_u *dir, char_u *name);
+  void get_b0_dict(char_u *fname, dict_T *d);
++ char *get_ctime(time_t thetime, int add_newline);
+  void ml_sync_all(int check_file, int check_char);
+  void ml_preserve(buf_T *buf, int message);
+  char_u *ml_get(linenr_T lnum);
+*** ../vim-8.1.1312/src/hardcopy.c	2019-01-24 15:54:17.786847003 +0100
+--- src/hardcopy.c	2019-05-10 21:13:20.477328432 +0200
+***************
+*** 2723,2731 ****
+      int
+  mch_print_begin(prt_settings_T *psettings)
+  {
+-     time_t	now;
+      int		bbox[4];
+-     char	*p_time;
+      double      left;
+      double      right;
+      double      top;
+--- 2723,2729 ----
+***************
+*** 2734,2740 ****
+      struct prt_ps_resource_S *res_encoding;
+      char	buffer[256];
+      char_u      *p_encoding;
+-     char_u	*p;
+      struct prt_ps_resource_S *res_cidfont;
+      struct prt_ps_resource_S *res_cmap;
+      int		retval = FALSE;
+--- 2732,2737 ----
+***************
+*** 2761,2773 ****
+      prt_dsc_textline("For", buffer);
+      prt_dsc_textline("Creator", VIM_VERSION_LONG);
+      /* Note: to ensure Clean8bit I don't think we can use LC_TIME */
+!     now = time(NULL);
+!     p_time = ctime(&now);
+!     /* Note: ctime() adds a \n so we have to remove it :-( */
+!     p = vim_strchr((char_u *)p_time, '\n');
+!     if (p != NULL)
+! 	*p = NUL;
+!     prt_dsc_textline("CreationDate", p_time);
+      prt_dsc_textline("DocumentData", "Clean8Bit");
+      prt_dsc_textline("Orientation", "Portrait");
+      prt_dsc_atend("Pages");
+--- 2758,2765 ----
+      prt_dsc_textline("For", buffer);
+      prt_dsc_textline("Creator", VIM_VERSION_LONG);
+      /* Note: to ensure Clean8bit I don't think we can use LC_TIME */
+! 
+!     prt_dsc_textline("CreationDate", get_ctime(time(NULL), FALSE));
+      prt_dsc_textline("DocumentData", "Clean8Bit");
+      prt_dsc_textline("Orientation", "Portrait");
+      prt_dsc_atend("Pages");
+*** ../vim-8.1.1312/src/version.c	2019-05-09 21:48:29.033295465 +0200
+--- src/version.c	2019-05-10 21:22:15.602571857 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1313,
+  /**/
+
+-- 
+Did Adam and Eve have navels?
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

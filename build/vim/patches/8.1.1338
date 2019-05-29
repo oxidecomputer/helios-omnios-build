@@ -1,0 +1,111 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1338
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1338
+Problem:    Hang when concealing the '>' shown for a wide char that doesn't
+            fit in the last cell.
+Solution:   Put back the pointer when the '>' is not going to be displayed.
+            (closes #4377)
+Files:	    src/screen.c
+
+
+*** ../vim-8.1.1337/src/screen.c	2019-05-14 21:20:32.597441034 +0200
+--- src/screen.c	2019-05-17 12:24:36.009066604 +0200
+***************
+*** 3176,3182 ****
+      int		vcol_off	= 0;	/* offset for concealed characters */
+      int		did_wcol	= FALSE;
+      int		match_conc	= 0;	/* cchar for match functions */
+-     int		has_match_conc  = 0;	/* match wants to conceal */
+      int		old_boguscols   = 0;
+  # define VCOL_HLC (vcol - vcol_off)
+  # define FIX_FOR_BOGUSCOLS \
+--- 3176,3181 ----
+***************
+*** 3747,3753 ****
+      for (;;)
+      {
+  #ifdef FEAT_CONCEAL
+! 	has_match_conc = 0;
+  #endif
+  	/* Skip this quickly when working on the text. */
+  	if (draw_state != WL_LINE)
+--- 3746,3753 ----
+      for (;;)
+      {
+  #ifdef FEAT_CONCEAL
+! 	int has_match_conc  = 0;	// match wants to conceal
+! 	int did_decrement_ptr = FALSE;
+  #endif
+  	/* Skip this quickly when working on the text. */
+  	if (draw_state != WL_LINE)
+***************
+*** 4596,4604 ****
+  		    mb_utf8 = FALSE;
+  		    mb_l = 1;
+  		    multi_attr = HL_ATTR(HLF_AT);
+! 		    /* Put pointer back so that the character will be
+! 		     * displayed at the start of the next line. */
+  		    --ptr;
+  		}
+  		else if (*ptr != NUL)
+  		    ptr += mb_l - 1;
+--- 4596,4607 ----
+  		    mb_utf8 = FALSE;
+  		    mb_l = 1;
+  		    multi_attr = HL_ATTR(HLF_AT);
+! 		    // Put pointer back so that the character will be
+! 		    // displayed at the start of the next line.
+  		    --ptr;
++ #ifdef FEAT_CONCEAL
++ 		    did_decrement_ptr = TRUE;
++ #endif
+  		}
+  		else if (*ptr != NUL)
+  		    ptr += mb_l - 1;
+***************
+*** 5261,5267 ****
+  		prev_syntax_id = 0;
+  		is_concealing = FALSE;
+  	    }
+! #endif /* FEAT_CONCEAL */
+  	}
+  
+  #ifdef FEAT_CONCEAL
+--- 5264,5275 ----
+  		prev_syntax_id = 0;
+  		is_concealing = FALSE;
+  	    }
+! 
+! 	    if (n_skip > 0 && did_decrement_ptr)
+! 		// not showing the '>', put pointer back to avoid getting stuck
+! 		++ptr;
+! 
+! #endif // FEAT_CONCEAL
+  	}
+  
+  #ifdef FEAT_CONCEAL
+*** ../vim-8.1.1337/src/version.c	2019-05-17 11:08:52.877906342 +0200
+--- src/version.c	2019-05-17 12:30:42.227009618 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1338,
+  /**/
+
+-- 
+Never under any circumstances take a sleeping pill
+and a laxative on the same night.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

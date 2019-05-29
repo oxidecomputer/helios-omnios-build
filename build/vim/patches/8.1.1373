@@ -1,0 +1,178 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1373
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1373
+Problem:    "[p" in Visual mode puts in wrong line.
+Solution:   Call nv_put() instead of duplicating the functionality.
+            (closes #4408)
+Files:	    src/normal.c, src/testdir/test_put.vim
+
+
+*** ../vim-8.1.1372/src/normal.c	2019-05-09 15:12:45.172723940 +0200
+--- src/normal.c	2019-05-23 23:24:02.498494630 +0200
+***************
+*** 143,148 ****
+--- 143,149 ----
+  static void	nv_halfpage(cmdarg_T *cap);
+  static void	nv_join(cmdarg_T *cap);
+  static void	nv_put(cmdarg_T *cap);
++ static void	nv_put_opt(cmdarg_T *cap, int fix_indent);
+  static void	nv_open(cmdarg_T *cap);
+  #ifdef FEAT_NETBEANS_INTG
+  static void	nv_nbcmd(cmdarg_T *cap);
+***************
+*** 6583,6639 ****
+       */
+      else if (cap->nchar == 'p' || cap->nchar == 'P')
+      {
+! 	if (!checkclearop(cap->oap))
+! 	{
+! 	    int	    dir = (cap->cmdchar == ']' && cap->nchar == 'p')
+! 							 ? FORWARD : BACKWARD;
+! 	    int	    regname = cap->oap->regname;
+! 	    int	    was_visual = VIsual_active;
+! 	    int	    line_count = curbuf->b_ml.ml_line_count;
+! 	    pos_T   start, end;
+! 
+! 	    if (VIsual_active)
+! 	    {
+! 		start = LTOREQ_POS(VIsual, curwin->w_cursor)
+! 						  ? VIsual : curwin->w_cursor;
+! 		end =  EQUAL_POS(start,VIsual) ? curwin->w_cursor : VIsual;
+! 		curwin->w_cursor = (dir == BACKWARD ? start : end);
+! 	    }
+! # ifdef FEAT_CLIPBOARD
+! 	    adjust_clip_reg(&regname);
+! # endif
+! 	    prep_redo_cmd(cap);
+! 
+! 	    do_put(regname, dir, cap->count1, PUT_FIXINDENT);
+! 	    if (was_visual)
+! 	    {
+! 		VIsual = start;
+! 		curwin->w_cursor = end;
+! 		if (dir == BACKWARD)
+! 		{
+! 		    /* adjust lines */
+! 		    VIsual.lnum += curbuf->b_ml.ml_line_count - line_count;
+! 		    curwin->w_cursor.lnum +=
+! 				      curbuf->b_ml.ml_line_count - line_count;
+! 		}
+! 
+! 		VIsual_active = TRUE;
+! 		if (VIsual_mode == 'V')
+! 		{
+! 		    /* delete visually selected lines */
+! 		    cap->cmdchar = 'd';
+! 		    cap->nchar = NUL;
+! 		    cap->oap->regname = regname;
+! 		    nv_operator(cap);
+! 		    do_pending_operator(cap, 0, FALSE);
+! 		}
+! 		if (VIsual_active)
+! 		{
+! 		    end_visual_mode();
+! 		    redraw_later(SOME_VALID);
+! 		}
+! 	    }
+! 	}
+      }
+  
+      /*
+--- 6584,6590 ----
+       */
+      else if (cap->nchar == 'p' || cap->nchar == 'P')
+      {
+! 	nv_put_opt(cap, TRUE);
+      }
+  
+      /*
+***************
+*** 9290,9295 ****
+--- 9241,9256 ----
+      static void
+  nv_put(cmdarg_T *cap)
+  {
++     nv_put_opt(cap, FALSE);
++ }
++ 
++ /*
++  * "P", "gP", "p" and "gp" commands.
++  * "fix_indent" is TRUE for "[p", "[P", "]p" and "]P".
++  */
++     static void
++ nv_put_opt(cmdarg_T *cap, int fix_indent)
++ {
+      int		regname = 0;
+      void	*reg1 = NULL, *reg2 = NULL;
+      int		empty = FALSE;
+***************
+*** 9318,9325 ****
+  #endif
+      else
+      {
+! 	dir = (cap->cmdchar == 'P'
+! 		|| (cap->cmdchar == 'g' && cap->nchar == 'P'))
+  							 ? BACKWARD : FORWARD;
+  	prep_redo_cmd(cap);
+  	if (cap->cmdchar == 'g')
+--- 9279,9293 ----
+  #endif
+      else
+      {
+! 	if (fix_indent)
+! 	{
+! 	    dir = (cap->cmdchar == ']' && cap->nchar == 'p')
+! 							 ? FORWARD : BACKWARD;
+! 	    flags |= PUT_FIXINDENT;
+! 	}
+! 	else
+! 	    dir = (cap->cmdchar == 'P'
+! 				 || (cap->cmdchar == 'g' && cap->nchar == 'P'))
+  							 ? BACKWARD : FORWARD;
+  	prep_redo_cmd(cap);
+  	if (cap->cmdchar == 'g')
+*** ../vim-8.1.1372/src/testdir/test_put.vim	2019-01-24 17:59:35.139217458 +0100
+--- src/testdir/test_put.vim	2019-05-23 23:18:57.776076524 +0200
+***************
+*** 101,103 ****
+--- 101,115 ----
+    delfunction Capture_p_error
+    bwipeout!
+  endfunc
++ 
++ func Test_put_p_indent_visual()
++   new
++   call setline(1, ['select this text', 'select that text'])
++   " yank "that" from the second line
++   normal 2Gwvey
++   " select "this" in the first line and put
++   normal k0wve[p
++   call assert_equal('select that text', getline(1))
++   call assert_equal('select that text', getline(2))
++   bwipe!
++ endfunc
+*** ../vim-8.1.1372/src/version.c	2019-05-23 22:11:56.288893239 +0200
+--- src/version.c	2019-05-23 23:27:09.009524667 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1373,
+  /**/
+
+-- 
+Don't Panic!
+		-- The Hitchhiker's Guide to the Galaxy
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

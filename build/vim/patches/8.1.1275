@@ -1,0 +1,1026 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1275
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1275
+Problem:    Cannot navigate to errors before/after the cursor.
+Solution:   Add the :cbefore and :cafter commands. (Yegappan Lakshmanan,
+            closes #4340)
+Files:	    runtime/doc/index.txt, runtime/doc/quickfix.txt, src/ex_cmdidxs.h,
+            src/ex_cmds.h, src/quickfix.c, src/testdir/test_quickfix.vim
+
+
+*** ../vim-8.1.1274/runtime/doc/index.txt	2019-05-03 21:56:31.363540578 +0200
+--- runtime/doc/index.txt	2019-05-05 14:56:42.134251046 +0200
+***************
+*** 1144,1152 ****
+  |:caddbuffer|	:cad[dbuffer]	add errors from buffer
+  |:caddexpr|	:cadde[xpr]	add errors from expr
+  |:caddfile|	:caddf[ile]	add error message to current quickfix list
+  |:call|		:cal[l]		call a function
+  |:catch|	:cat[ch]	part of a :try command
+! |:cbelow|	:cbe[low]	got to error below current line
+  |:cbottom|	:cbo[ttom]	scroll to the bottom of the quickfix window
+  |:cbuffer|	:cb[uffer]	parse error messages and jump to first error
+  |:cc|		:cc		go to specific error
+--- 1196,1206 ----
+  |:caddbuffer|	:cad[dbuffer]	add errors from buffer
+  |:caddexpr|	:cadde[xpr]	add errors from expr
+  |:caddfile|	:caddf[ile]	add error message to current quickfix list
++ |:cafter|	:caf[ter]	go to error after current cursor
+  |:call|		:cal[l]		call a function
+  |:catch|	:cat[ch]	part of a :try command
+! |:cbefore|	:cbef[ore]	go to error before current cursor
+! |:cbelow|	:cbel[ow]	go to error below current line
+  |:cbottom|	:cbo[ttom]	scroll to the bottom of the quickfix window
+  |:cbuffer|	:cb[uffer]	parse error messages and jump to first error
+  |:cc|		:cc		go to specific error
+***************
+*** 1308,1317 ****
+  |:laddexpr|	:lad[dexpr]	add locations from expr
+  |:laddbuffer|	:laddb[uffer]	add locations from buffer
+  |:laddfile|	:laddf[ile]	add locations to current location list
+  |:last|		:la[st]		go to the last file in the argument list
+  |:language|	:lan[guage]	set the language (locale)
+  |:later|	:lat[er]	go to newer change, redo
+! |:lbelow|	:lbe[low]	go to location below current line
+  |:lbottom|	:lbo[ttom]	scroll to the bottom of the location window
+  |:lbuffer|	:lb[uffer]	parse locations and jump to first location
+  |:lcd|		:lc[d]		change directory locally
+--- 1362,1373 ----
+  |:laddexpr|	:lad[dexpr]	add locations from expr
+  |:laddbuffer|	:laddb[uffer]	add locations from buffer
+  |:laddfile|	:laddf[ile]	add locations to current location list
++ |:lafter|	:laf[ter]	go to location after current cursor
+  |:last|		:la[st]		go to the last file in the argument list
+  |:language|	:lan[guage]	set the language (locale)
+  |:later|	:lat[er]	go to newer change, redo
+! |:lbefore|	:lbef[ore]	go to location before current cursor
+! |:lbelow|	:lbel[ow]	go to location below current line
+  |:lbottom|	:lbo[ttom]	scroll to the bottom of the location window
+  |:lbuffer|	:lb[uffer]	parse locations and jump to first location
+  |:lcd|		:lc[d]		change directory locally
+--- 1707,1712 ----
+*** ../vim-8.1.1274/runtime/doc/quickfix.txt	2019-05-04 15:05:24.927269310 +0200
+--- runtime/doc/quickfix.txt	2019-05-05 14:56:42.134251046 +0200
+***************
+*** 152,159 ****
+  			exceeds the number of entries below the current line,
+  			then the last error in the file is selected.
+  
+! 							*:lbe* *:lbelow*
+! :[count]lbe[low]	Same as ":cbelow", except the location list for the
+  			current window is used instead of the quickfix list.
+  
+  							*:cnf* *:cnfile*
+--- 152,187 ----
+  			exceeds the number of entries below the current line,
+  			then the last error in the file is selected.
+  
+! 							*:lbel* *:lbelow*
+! :[count]lbel[ow]	Same as ":cbelow", except the location list for the
+! 			current window is used instead of the quickfix list.
+! 
+! 							*:cbe* *:cbefore*
+! :[count]cbe[fore]	Go to the [count] error before the current cursor
+! 			position in the current buffer.  If [count] is
+! 			omitted, then 1 is used.  If there are no errors, then
+! 			an error message is displayed.  Assumes that the
+! 			entries in a quickfix list are sorted by their buffer,
+! 			line and column numbers.  If [count] exceeds the
+! 			number of entries before the current position, then
+! 			the first error in the file is selected.
+! 
+! 							*:lbef* *:lbefore*
+! :[count]lbef[ore]	Same as ":cbefore", except the location list for the
+! 			current window is used instead of the quickfix list.
+! 
+! 							*:caf* *:cafter*
+! :[count]caf[ter]	Go to the [count] error after the current cursor
+! 			position in the current buffer.  If [count] is
+! 			omitted, then 1 is used.  If there are no errors, then
+! 			an error message is displayed.  Assumes that the
+! 			entries in a quickfix list are sorted by their buffer,
+! 			line and column numbers.  If [count] exceeds the
+! 			number of entries after the current position, then
+! 			the last error in the file is selected.
+! 
+! 							*:laf* *:lafter*
+! :[count]laf[ter]	Same as ":cafter", except the location list for the
+  			current window is used instead of the quickfix list.
+  
+  							*:cnf* *:cnfile*
+*** ../vim-8.1.1274/src/ex_cmdidxs.h	2019-05-03 21:56:31.363540578 +0200
+--- src/ex_cmdidxs.h	2019-05-05 14:56:42.134251046 +0200
+***************
+*** 8,36 ****
+    /* a */ 0,
+    /* b */ 19,
+    /* c */ 42,
+!   /* d */ 105,
+!   /* e */ 127,
+!   /* f */ 147,
+!   /* g */ 163,
+!   /* h */ 169,
+!   /* i */ 178,
+!   /* j */ 196,
+!   /* k */ 198,
+!   /* l */ 203,
+!   /* m */ 263,
+!   /* n */ 281,
+!   /* o */ 301,
+!   /* p */ 313,
+!   /* q */ 352,
+!   /* r */ 355,
+!   /* s */ 375,
+!   /* t */ 443,
+!   /* u */ 488,
+!   /* v */ 499,
+!   /* w */ 517,
+!   /* x */ 531,
+!   /* y */ 540,
+!   /* z */ 541
+  };
+  
+  /*
+--- 8,36 ----
+    /* a */ 0,
+    /* b */ 19,
+    /* c */ 42,
+!   /* d */ 107,
+!   /* e */ 129,
+!   /* f */ 149,
+!   /* g */ 165,
+!   /* h */ 171,
+!   /* i */ 180,
+!   /* j */ 198,
+!   /* k */ 200,
+!   /* l */ 205,
+!   /* m */ 267,
+!   /* n */ 285,
+!   /* o */ 305,
+!   /* p */ 317,
+!   /* q */ 356,
+!   /* r */ 359,
+!   /* s */ 379,
+!   /* t */ 447,
+!   /* u */ 492,
+!   /* v */ 503,
+!   /* w */ 521,
+!   /* x */ 535,
+!   /* y */ 544,
+!   /* z */ 545
+  };
+  
+  /*
+***************
+*** 43,49 ****
+  { /*         a   b   c   d   e   f   g   h   i   j   k   l   m   n   o   p   q   r   s   t   u   v   w   x   y   z */
+    /* a */ {  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  4,  5,  6,  0,  0,  0,  7, 15,  0, 16,  0,  0,  0,  0,  0 },
+    /* b */ {  2,  0,  0,  4,  5,  7,  0,  0,  0,  0,  0,  8,  9, 10, 11, 12,  0, 13,  0,  0,  0,  0, 22,  0,  0,  0 },
+!   /* c */ {  3, 11, 14, 16, 18, 20, 23,  0,  0,  0,  0, 31, 35, 38, 44, 53, 55, 56, 57,  0, 59,  0, 62,  0,  0,  0 },
+    /* d */ {  0,  0,  0,  0,  0,  0,  0,  0,  6, 15,  0, 16,  0,  0, 17,  0,  0, 19, 20,  0,  0,  0,  0,  0,  0,  0 },
+    /* e */ {  1,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  7,  9, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0, 16,  0,  0 },
+    /* f */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  0,  0,  0,  0,  0, 15,  0,  0,  0,  0,  0 },
+--- 43,49 ----
+  { /*         a   b   c   d   e   f   g   h   i   j   k   l   m   n   o   p   q   r   s   t   u   v   w   x   y   z */
+    /* a */ {  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  4,  5,  6,  0,  0,  0,  7, 15,  0, 16,  0,  0,  0,  0,  0 },
+    /* b */ {  2,  0,  0,  4,  5,  7,  0,  0,  0,  0,  0,  8,  9, 10, 11, 12,  0, 13,  0,  0,  0,  0, 22,  0,  0,  0 },
+!   /* c */ {  3, 12, 16, 18, 20, 22, 25,  0,  0,  0,  0, 33, 37, 40, 46, 55, 57, 58, 59,  0, 61,  0, 64,  0,  0,  0 },
+    /* d */ {  0,  0,  0,  0,  0,  0,  0,  0,  6, 15,  0, 16,  0,  0, 17,  0,  0, 19, 20,  0,  0,  0,  0,  0,  0,  0 },
+    /* e */ {  1,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  7,  9, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0, 16,  0,  0 },
+    /* f */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  0,  0,  0,  0,  0, 15,  0,  0,  0,  0,  0 },
+***************
+*** 52,58 ****
+    /* i */ {  1,  0,  0,  0,  0,  3,  0,  0,  0,  4,  0,  5,  6,  0,  0,  0,  0,  0, 13,  0, 15,  0,  0,  0,  0,  0 },
+    /* j */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0 },
+    /* k */ {  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+!   /* l */ {  3, 10, 13, 17, 18, 22, 25, 30,  0,  0,  0, 32, 35, 38, 42, 48,  0, 50, 59, 51, 52, 56, 58,  0,  0,  0 },
+    /* m */ {  1,  0,  0,  0,  7,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 16 },
+    /* n */ {  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  5,  8, 10,  0,  0,  0,  0,  0, 17,  0,  0,  0,  0,  0 },
+    /* o */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  5,  0,  0,  0,  0,  0,  0,  9,  0, 11,  0,  0,  0 },
+--- 52,58 ----
+    /* i */ {  1,  0,  0,  0,  0,  3,  0,  0,  0,  4,  0,  5,  6,  0,  0,  0,  0,  0, 13,  0, 15,  0,  0,  0,  0,  0 },
+    /* j */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  0,  0,  0,  0,  0 },
+    /* k */ {  0,  0,  0,  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+!   /* l */ {  3, 11, 15, 19, 20, 24, 27, 32,  0,  0,  0, 34, 37, 40, 44, 50,  0, 52, 61, 53, 54, 58, 60,  0,  0,  0 },
+    /* m */ {  1,  0,  0,  0,  7,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 16 },
+    /* n */ {  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  5,  8, 10,  0,  0,  0,  0,  0, 17,  0,  0,  0,  0,  0 },
+    /* o */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  1,  2,  5,  0,  0,  0,  0,  0,  0,  9,  0, 11,  0,  0,  0 },
+***************
+*** 69,72 ****
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 554;
+--- 69,72 ----
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 558;
+*** ../vim-8.1.1274/src/ex_cmds.h	2019-05-04 15:05:24.927269310 +0200
+--- src/ex_cmds.h	2019-05-05 14:56:42.134251046 +0200
+***************
+*** 266,271 ****
+--- 266,274 ----
+  EX(CMD_caddfile,	"caddfile",	ex_cfile,
+  			TRLBAR|FILE1,
+  			ADDR_NONE),
++ EX(CMD_cafter,		"cafter",	ex_cbelow,
++ 			RANGE|COUNT|TRLBAR,
++ 			ADDR_UNSIGNED),
+  EX(CMD_call,		"call",		ex_call,
+  			RANGE|NEEDARG|EXTRA|NOTRLCOM|SBOXOK|CMDWIN,
+  			ADDR_LINES),
+***************
+*** 275,280 ****
+--- 278,286 ----
+  EX(CMD_cbuffer,		"cbuffer",	ex_cbuffer,
+  			BANG|RANGE|WORD1|TRLBAR,
+  			ADDR_OTHER),
++ EX(CMD_cbefore,		"cbefore",	ex_cbelow,
++ 			RANGE|COUNT|TRLBAR,
++ 			ADDR_UNSIGNED),
+  EX(CMD_cbelow,		"cbelow",	ex_cbelow,
+  			RANGE|COUNT|TRLBAR,
+  			ADDR_UNSIGNED),
+***************
+*** 749,760 ****
+--- 755,772 ----
+  EX(CMD_laddfile,	"laddfile",	ex_cfile,
+  			TRLBAR|FILE1,
+  			ADDR_NONE),
++ EX(CMD_lafter,		"lafter",	ex_cbelow,
++ 			RANGE|COUNT|TRLBAR,
++ 			ADDR_UNSIGNED),
+  EX(CMD_later,		"later",	ex_later,
+  			TRLBAR|EXTRA|NOSPC|CMDWIN,
+  			ADDR_NONE),
+  EX(CMD_lbuffer,		"lbuffer",	ex_cbuffer,
+  			BANG|RANGE|WORD1|TRLBAR,
+  			ADDR_OTHER),
++ EX(CMD_lbefore,		"lbefore",	ex_cbelow,
++ 			RANGE|COUNT|TRLBAR,
++ 			ADDR_UNSIGNED),
+  EX(CMD_lbelow,		"lbelow",	ex_cbelow,
+  			RANGE|COUNT|TRLBAR,
+  			ADDR_UNSIGNED),
+*** ../vim-8.1.1274/src/quickfix.c	2019-05-04 15:05:24.927269310 +0200
+--- src/quickfix.c	2019-05-05 14:56:42.138251022 +0200
+***************
+*** 5128,5163 ****
+  }
+  
+  /*
+!  * Find the first quickfix entry below line 'lnum' in buffer 'bnr'.
+   * 'qfp' points to the very first entry in the buffer and 'errornr' is the
+   * index of the very first entry in the quickfix list.
+!  * Returns NULL if an entry is not found after 'lnum'.
+   */
+      static qfline_T *
+! qf_find_entry_on_next_line(
+  	int		bnr,
+! 	linenr_T	lnum,
+  	qfline_T	*qfp,
+  	int		*errornr)
+  {
+!     if (qfp->qf_lnum > lnum)
+! 	// First entry is after line 'lnum'
+  	return qfp;
+  
+!     // Find the entry just before or at the line 'lnum'
+      while (qfp->qf_next != NULL
+  	    && qfp->qf_next->qf_fnum == bnr
+! 	    && qfp->qf_next->qf_lnum <= lnum)
+      {
+  	qfp = qfp->qf_next;
+  	++*errornr;
+      }
+  
+      if (qfp->qf_next == NULL || qfp->qf_next->qf_fnum != bnr)
+! 	// No entries found after 'lnum'
+  	return NULL;
+  
+!     // Use the entry just after line 'lnum'
+      qfp = qfp->qf_next;
+      ++*errornr;
+  
+--- 5128,5227 ----
+  }
+  
+  /*
+!  * Returns TRUE if the specified quickfix entry is
+!  *   after the given line (linewise is TRUE)
+!  *   or after the line and column.
+!  */
+!     static int
+! qf_entry_after_pos(qfline_T *qfp, pos_T *pos, int linewise)
+! {
+!     if (linewise)
+! 	return qfp->qf_lnum > pos->lnum;
+!     else
+! 	return (qfp->qf_lnum > pos->lnum ||
+! 		(qfp->qf_lnum == pos->lnum && qfp->qf_col > pos->col));
+! }
+! 
+! /*
+!  * Returns TRUE if the specified quickfix entry is
+!  *   before the given line (linewise is TRUE)
+!  *   or before the line and column.
+!  */
+!     static int
+! qf_entry_before_pos(qfline_T *qfp, pos_T *pos, int linewise)
+! {
+!     if (linewise)
+! 	return qfp->qf_lnum < pos->lnum;
+!     else
+! 	return (qfp->qf_lnum < pos->lnum ||
+! 		(qfp->qf_lnum == pos->lnum && qfp->qf_col < pos->col));
+! }
+! 
+! /*
+!  * Returns TRUE if the specified quickfix entry is
+!  *   on or after the given line (linewise is TRUE)
+!  *   or on or after the line and column.
+!  */
+!     static int
+! qf_entry_on_or_after_pos(qfline_T *qfp, pos_T *pos, int linewise)
+! {
+!     if (linewise)
+! 	return qfp->qf_lnum >= pos->lnum;
+!     else
+! 	return (qfp->qf_lnum > pos->lnum ||
+! 		(qfp->qf_lnum == pos->lnum && qfp->qf_col >= pos->col));
+! }
+! 
+! /*
+!  * Returns TRUE if the specified quickfix entry is
+!  *   on or before the given line (linewise is TRUE)
+!  *   or on or before the line and column.
+!  */
+!     static int
+! qf_entry_on_or_before_pos(qfline_T *qfp, pos_T *pos, int linewise)
+! {
+!     if (linewise)
+! 	return qfp->qf_lnum <= pos->lnum;
+!     else
+! 	return (qfp->qf_lnum < pos->lnum ||
+! 		(qfp->qf_lnum == pos->lnum && qfp->qf_col <= pos->col));
+! }
+! 
+! /*
+!  * Find the first quickfix entry after position 'pos' in buffer 'bnr'.
+!  * If 'linewise' is TRUE, returns the entry after the specified line and treats
+!  * multiple entries on a single line as one. Otherwise returns the entry after
+!  * the specified line and column.
+   * 'qfp' points to the very first entry in the buffer and 'errornr' is the
+   * index of the very first entry in the quickfix list.
+!  * Returns NULL if an entry is not found after 'pos'.
+   */
+      static qfline_T *
+! qf_find_entry_after_pos(
+  	int		bnr,
+! 	pos_T		*pos,
+! 	int		linewise,
+  	qfline_T	*qfp,
+  	int		*errornr)
+  {
+!     if (qf_entry_after_pos(qfp, pos, linewise))
+! 	// First entry is after postion 'pos'
+  	return qfp;
+  
+!     // Find the entry just before or at the position 'pos'
+      while (qfp->qf_next != NULL
+  	    && qfp->qf_next->qf_fnum == bnr
+! 	    && qf_entry_on_or_before_pos(qfp->qf_next, pos, linewise))
+      {
+  	qfp = qfp->qf_next;
+  	++*errornr;
+      }
+  
+      if (qfp->qf_next == NULL || qfp->qf_next->qf_fnum != bnr)
+! 	// No entries found after position 'pos'
+  	return NULL;
+  
+!     // Use the entry just after position 'pos'
+      qfp = qfp->qf_next;
+      ++*errornr;
+  
+***************
+*** 5165,5210 ****
+  }
+  
+  /*
+!  * Find the first quickfix entry before line 'lnum' in buffer 'bnr'.
+   * 'qfp' points to the very first entry in the buffer and 'errornr' is the
+   * index of the very first entry in the quickfix list.
+!  * Returns NULL if an entry is not found before 'lnum'.
+   */
+      static qfline_T *
+! qf_find_entry_on_prev_line(
+  	int		bnr,
+! 	linenr_T	lnum,
+  	qfline_T	*qfp,
+  	int		*errornr)
+  {
+!     // Find the entry just before the line 'lnum'
+      while (qfp->qf_next != NULL
+  	    && qfp->qf_next->qf_fnum == bnr
+! 	    && qfp->qf_next->qf_lnum < lnum)
+      {
+  	qfp = qfp->qf_next;
+  	++*errornr;
+      }
+  
+!     if (qfp->qf_lnum >= lnum)	// entry is after 'lnum'
+  	return NULL;
+  
+!     // If multiple entries are on the same line, then use the first entry
+!     qfp = qf_find_first_entry_on_line(qfp, errornr);
+  
+      return qfp;
+  }
+  
+  /*
+!  * Find a quickfix entry in 'qfl' closest to line 'lnum' in buffer 'bnr' in
+   * the direction 'dir'.
+   */
+      static qfline_T *
+  qf_find_closest_entry(
+  	qf_list_T	*qfl,
+  	int		bnr,
+! 	linenr_T	lnum,
+  	int		dir,
+  	int		*errornr)
+  {
+      qfline_T	*qfp;
+--- 5229,5280 ----
+  }
+  
+  /*
+!  * Find the first quickfix entry before position 'pos' in buffer 'bnr'.
+!  * If 'linewise' is TRUE, returns the entry before the specified line and
+!  * treats multiple entries on a single line as one. Otherwise returns the entry
+!  * before the specified line and column.
+   * 'qfp' points to the very first entry in the buffer and 'errornr' is the
+   * index of the very first entry in the quickfix list.
+!  * Returns NULL if an entry is not found before 'pos'.
+   */
+      static qfline_T *
+! qf_find_entry_before_pos(
+  	int		bnr,
+! 	pos_T		*pos,
+! 	int		linewise,
+  	qfline_T	*qfp,
+  	int		*errornr)
+  {
+!     // Find the entry just before the position 'pos'
+      while (qfp->qf_next != NULL
+  	    && qfp->qf_next->qf_fnum == bnr
+! 	    && qf_entry_before_pos(qfp->qf_next, pos, linewise))
+      {
+  	qfp = qfp->qf_next;
+  	++*errornr;
+      }
+  
+!     if (qf_entry_on_or_after_pos(qfp, pos, linewise))
+  	return NULL;
+  
+!     if (linewise)
+! 	// If multiple entries are on the same line, then use the first entry
+! 	qfp = qf_find_first_entry_on_line(qfp, errornr);
+  
+      return qfp;
+  }
+  
+  /*
+!  * Find a quickfix entry in 'qfl' closest to position 'pos' in buffer 'bnr' in
+   * the direction 'dir'.
+   */
+      static qfline_T *
+  qf_find_closest_entry(
+  	qf_list_T	*qfl,
+  	int		bnr,
+! 	pos_T		*pos,
+  	int		dir,
++ 	int		linewise,
+  	int		*errornr)
+  {
+      qfline_T	*qfp;
+***************
+*** 5217,5251 ****
+  	return NULL;		// no entry in this file
+  
+      if (dir == FORWARD)
+! 	qfp = qf_find_entry_on_next_line(bnr, lnum, qfp, errornr);
+      else
+! 	qfp = qf_find_entry_on_prev_line(bnr, lnum, qfp, errornr);
+  
+      return qfp;
+  }
+  
+  /*
+!  * Get the nth quickfix entry below the specified entry treating multiple
+!  * entries on a single line as one. Searches forward in the list.
+   */
+      static qfline_T *
+! qf_get_nth_below_entry(qfline_T *entry, int *errornr, int n)
+  {
+      while (n-- > 0 && !got_int)
+      {
+  	qfline_T	*first_entry = entry;
+  	int		first_errornr = *errornr;
+  
+! 	// Treat all the entries on the same line in this file as one
+! 	entry = qf_find_last_entry_on_line(entry, errornr);
+  
+  	if (entry->qf_next == NULL
+  		|| entry->qf_next->qf_fnum != entry->qf_fnum)
+  	{
+! 	    // If multiple entries are on the same line, then use the first
+! 	    // entry
+! 	    entry = first_entry;
+! 	    *errornr = first_errornr;
+  	    break;
+  	}
+  
+--- 5287,5326 ----
+  	return NULL;		// no entry in this file
+  
+      if (dir == FORWARD)
+! 	qfp = qf_find_entry_after_pos(bnr, pos, linewise, qfp, errornr);
+      else
+! 	qfp = qf_find_entry_before_pos(bnr, pos, linewise, qfp, errornr);
+  
+      return qfp;
+  }
+  
+  /*
+!  * Get the nth quickfix entry below the specified entry.  Searches forward in
+!  * the list. If linewise is TRUE, then treat multiple entries on a single line
+!  * as one.
+   */
+      static qfline_T *
+! qf_get_nth_below_entry(qfline_T *entry, int n, int linewise, int *errornr)
+  {
+      while (n-- > 0 && !got_int)
+      {
+  	qfline_T	*first_entry = entry;
+  	int		first_errornr = *errornr;
+  
+! 	if (linewise)
+! 	    // Treat all the entries on the same line in this file as one
+! 	    entry = qf_find_last_entry_on_line(entry, errornr);
+  
+  	if (entry->qf_next == NULL
+  		|| entry->qf_next->qf_fnum != entry->qf_fnum)
+  	{
+! 	    if (linewise)
+! 	    {
+! 		// If multiple entries are on the same line, then use the first
+! 		// entry
+! 		entry = first_entry;
+! 		*errornr = first_errornr;
+! 	    }
+  	    break;
+  	}
+  
+***************
+*** 5257,5267 ****
+  }
+  
+  /*
+!  * Get the nth quickfix entry above the specified entry treating multiple
+!  * entries on a single line as one. Searches backwards in the list.
+   */
+      static qfline_T *
+! qf_get_nth_above_entry(qfline_T *entry, int *errornr, int n)
+  {
+      while (n-- > 0 && !got_int)
+      {
+--- 5332,5343 ----
+  }
+  
+  /*
+!  * Get the nth quickfix entry above the specified entry.  Searches backwards in
+!  * the list. If linewise is TRUE, then treat multiple entries on a single line
+!  * as one.
+   */
+      static qfline_T *
+! qf_get_nth_above_entry(qfline_T *entry, int n, int linewise, int *errornr)
+  {
+      while (n-- > 0 && !got_int)
+      {
+***************
+*** 5273,5297 ****
+  	--*errornr;
+  
+  	// If multiple entries are on the same line, then use the first entry
+! 	entry = qf_find_first_entry_on_line(entry, errornr);
+      }
+  
+      return entry;
+  }
+  
+  /*
+!  * Find the n'th quickfix entry adjacent to line 'lnum' in buffer 'bnr' in the
+!  * specified direction.
+!  * Returns the error number in the quickfix list or 0 if an entry is not found.
+   */
+      static int
+! qf_find_nth_adj_entry(qf_list_T *qfl, int bnr, linenr_T lnum, int n, int dir)
+  {
+      qfline_T	*adj_entry;
+      int		errornr;
+  
+!     // Find an entry closest to the specified line
+!     adj_entry = qf_find_closest_entry(qfl, bnr, lnum, dir, &errornr);
+      if (adj_entry == NULL)
+  	return 0;
+  
+--- 5349,5380 ----
+  	--*errornr;
+  
+  	// If multiple entries are on the same line, then use the first entry
+! 	if (linewise)
+! 	    entry = qf_find_first_entry_on_line(entry, errornr);
+      }
+  
+      return entry;
+  }
+  
+  /*
+!  * Find the n'th quickfix entry adjacent to position 'pos' in buffer 'bnr' in
+!  * the specified direction.  Returns the error number in the quickfix list or 0
+!  * if an entry is not found.
+   */
+      static int
+! qf_find_nth_adj_entry(
+! 	qf_list_T	*qfl,
+! 	int		bnr,
+! 	pos_T		*pos,
+! 	int		n,
+! 	int		dir,
+! 	int		linewise)
+  {
+      qfline_T	*adj_entry;
+      int		errornr;
+  
+!     // Find an entry closest to the specified position
+!     adj_entry = qf_find_closest_entry(qfl, bnr, pos, dir, linewise, &errornr);
+      if (adj_entry == NULL)
+  	return 0;
+  
+***************
+*** 5299,5315 ****
+      {
+  	// Go to the n'th entry in the current buffer
+  	if (dir == FORWARD)
+! 	    adj_entry = qf_get_nth_below_entry(adj_entry, &errornr, n);
+  	else
+! 	    adj_entry = qf_get_nth_above_entry(adj_entry, &errornr, n);
+      }
+  
+      return errornr;
+  }
+  
+  /*
+!  * Jump to a quickfix entry in the current file nearest to the current line.
+!  * ":cabove", ":cbelow", ":labove" and ":lbelow" commands
+   */
+      void
+  ex_cbelow(exarg_T *eap)
+--- 5382,5402 ----
+      {
+  	// Go to the n'th entry in the current buffer
+  	if (dir == FORWARD)
+! 	    adj_entry = qf_get_nth_below_entry(adj_entry, n, linewise,
+! 		    &errornr);
+  	else
+! 	    adj_entry = qf_get_nth_above_entry(adj_entry, n, linewise,
+! 		    &errornr);
+      }
+  
+      return errornr;
+  }
+  
+  /*
+!  * Jump to a quickfix entry in the current file nearest to the current line or
+!  * current line/col.
+!  * ":cabove", ":cbelow", ":labove", ":lbelow", ":cafter", ":cbefore",
+!  * ":lafter" and ":lbefore" commands
+   */
+      void
+  ex_cbelow(exarg_T *eap)
+***************
+*** 5319,5324 ****
+--- 5406,5412 ----
+      int		dir;
+      int		buf_has_flag;
+      int		errornr = 0;
++     pos_T	pos;
+  
+      if (eap->addr_count > 0 && eap->line2 <= 0)
+      {
+***************
+*** 5327,5333 ****
+      }
+  
+      // Check whether the current buffer has any quickfix entries
+!     if (eap->cmdidx == CMD_cabove || eap->cmdidx == CMD_cbelow)
+  	buf_has_flag = BUF_HAS_QF_ENTRY;
+      else
+  	buf_has_flag = BUF_HAS_LL_ENTRY;
+--- 5415,5422 ----
+      }
+  
+      // Check whether the current buffer has any quickfix entries
+!     if (eap->cmdidx == CMD_cabove || eap->cmdidx == CMD_cbelow
+! 	    || eap->cmdidx == CMD_cbefore || eap->cmdidx == CMD_cafter)
+  	buf_has_flag = BUF_HAS_QF_ENTRY;
+      else
+  	buf_has_flag = BUF_HAS_LL_ENTRY;
+***************
+*** 5348,5360 ****
+  	return;
+      }
+  
+!     if (eap->cmdidx == CMD_cbelow || eap->cmdidx == CMD_lbelow)
+  	dir = FORWARD;
+      else
+  	dir = BACKWARD;
+  
+!     errornr = qf_find_nth_adj_entry(qfl, curbuf->b_fnum, curwin->w_cursor.lnum,
+! 	    eap->addr_count > 0 ? eap->line2 : 0, dir);
+  
+      if (errornr > 0)
+  	qf_jump(qi, 0, errornr, FALSE);
+--- 5437,5461 ----
+  	return;
+      }
+  
+!     if (eap->cmdidx == CMD_cbelow
+! 	    || eap->cmdidx == CMD_lbelow
+! 	    || eap->cmdidx == CMD_cafter
+! 	    || eap->cmdidx == CMD_lafter)
+! 	// Forward motion commands
+  	dir = FORWARD;
+      else
+  	dir = BACKWARD;
+  
+!     pos = curwin->w_cursor;
+!     // A quickfix entry column number is 1 based whereas cursor column
+!     // number is 0 based. Adjust the column number.
+!     pos.col++;
+!     errornr = qf_find_nth_adj_entry(qfl, curbuf->b_fnum, &pos,
+! 				eap->addr_count > 0 ? eap->line2 : 0, dir,
+! 				eap->cmdidx == CMD_cbelow
+! 					|| eap->cmdidx == CMD_lbelow
+! 					|| eap->cmdidx == CMD_cabove
+! 					|| eap->cmdidx == CMD_labove);
+  
+      if (errornr > 0)
+  	qf_jump(qi, 0, errornr, FALSE);
+*** ../vim-8.1.1274/src/testdir/test_quickfix.vim	2019-05-04 15:05:24.927269310 +0200
+--- src/testdir/test_quickfix.vim	2019-05-05 14:56:42.138251022 +0200
+***************
+*** 39,44 ****
+--- 39,46 ----
+      command! -nargs=0 -count Xcc <count>cc
+      command! -count=1 -nargs=0 Xbelow <mods><count>cbelow
+      command! -count=1 -nargs=0 Xabove <mods><count>cabove
++     command! -count=1 -nargs=0 Xbefore <mods><count>cbefore
++     command! -count=1 -nargs=0 Xafter <mods><count>cafter
+      let g:Xgetlist = function('getqflist')
+      let g:Xsetlist = function('setqflist')
+      call setqflist([], 'f')
+***************
+*** 74,79 ****
+--- 76,83 ----
+      command! -nargs=0 -count Xcc <count>ll
+      command! -count=1 -nargs=0 Xbelow <mods><count>lbelow
+      command! -count=1 -nargs=0 Xabove <mods><count>labove
++     command! -count=1 -nargs=0 Xbefore <mods><count>lbefore
++     command! -count=1 -nargs=0 Xafter <mods><count>lafter
+      let g:Xgetlist = function('getloclist', [0])
+      let g:Xsetlist = function('setloclist', [0])
+      call setloclist(0, [], 'f')
+***************
+*** 4041,4057 ****
+--- 4045,4066 ----
+  endfunc
+  
+  " Test for the :cbelow, :cabove, :lbelow and :labove commands.
++ " And for the :cafter, :cbefore, :lafter and :lbefore commands.
+  func Xtest_below(cchar)
+    call s:setup_commands(a:cchar)
+  
+    " No quickfix/location list
+    call assert_fails('Xbelow', 'E42:')
+    call assert_fails('Xabove', 'E42:')
++   call assert_fails('Xbefore', 'E42:')
++   call assert_fails('Xafter', 'E42:')
+  
+    " Empty quickfix/location list
+    call g:Xsetlist([])
+    call assert_fails('Xbelow', 'E42:')
+    call assert_fails('Xabove', 'E42:')
++   call assert_fails('Xbefore', 'E42:')
++   call assert_fails('Xafter', 'E42:')
+  
+    call s:create_test_file('X1')
+    call s:create_test_file('X2')
+***************
+*** 4065,4103 ****
+    call assert_fails('Xabove', 'E42:')
+    call assert_fails('3Xbelow', 'E42:')
+    call assert_fails('4Xabove', 'E42:')
+  
+    " Test the commands with various arguments
+!   Xexpr ["X1:5:L5", "X2:5:L5", "X2:10:L10", "X2:15:L15", "X3:3:L3"]
+    edit +7 X2
+    Xabove
+    call assert_equal(['X2', 5], [bufname(''), line('.')])
+    call assert_fails('Xabove', 'E553:')
+    normal 2j
+    Xbelow
+    call assert_equal(['X2', 10], [bufname(''), line('.')])
+    " Last error in this file
+    Xbelow 99
+    call assert_equal(['X2', 15], [bufname(''), line('.')])
+    call assert_fails('Xbelow', 'E553:')
+    " First error in this file
+    Xabove 99
+    call assert_equal(['X2', 5], [bufname(''), line('.')])
+    call assert_fails('Xabove', 'E553:')
+    normal gg
+    Xbelow 2
+    call assert_equal(['X2', 10], [bufname(''), line('.')])
+    normal G
+    Xabove 2
+    call assert_equal(['X2', 10], [bufname(''), line('.')])
+    edit X4
+    call assert_fails('Xabove', 'E42:')
+    call assert_fails('Xbelow', 'E42:')
+    if a:cchar == 'l'
+      " If a buffer has location list entries from some other window but not
+      " from the current window, then the commands should fail.
+      edit X1 | split | call setloclist(0, [], 'f')
+      call assert_fails('Xabove', 'E776:')
+      call assert_fails('Xbelow', 'E776:')
+      close
+    endif
+  
+--- 4074,4147 ----
+    call assert_fails('Xabove', 'E42:')
+    call assert_fails('3Xbelow', 'E42:')
+    call assert_fails('4Xabove', 'E42:')
++   call assert_fails('Xbefore', 'E42:')
++   call assert_fails('Xafter', 'E42:')
++   call assert_fails('3Xbefore', 'E42:')
++   call assert_fails('4Xafter', 'E42:')
+  
+    " Test the commands with various arguments
+!   Xexpr ["X1:5:3:L5", "X2:5:2:L5", "X2:10:3:L10", "X2:15:4:L15", "X3:3:5:L3"]
+    edit +7 X2
+    Xabove
+    call assert_equal(['X2', 5], [bufname(''), line('.')])
+    call assert_fails('Xabove', 'E553:')
++   normal 7G
++   Xbefore
++   call assert_equal(['X2', 5, 2], [bufname(''), line('.'), col('.')])
++   call assert_fails('Xbefore', 'E553:')
++ 
+    normal 2j
+    Xbelow
+    call assert_equal(['X2', 10], [bufname(''), line('.')])
++   normal 7G
++   Xafter
++   call assert_equal(['X2', 10, 3], [bufname(''), line('.'), col('.')])
++ 
+    " Last error in this file
+    Xbelow 99
+    call assert_equal(['X2', 15], [bufname(''), line('.')])
+    call assert_fails('Xbelow', 'E553:')
++   normal gg
++   Xafter 99
++   call assert_equal(['X2', 15, 4], [bufname(''), line('.'), col('.')])
++   call assert_fails('Xafter', 'E553:')
++ 
+    " First error in this file
+    Xabove 99
+    call assert_equal(['X2', 5], [bufname(''), line('.')])
+    call assert_fails('Xabove', 'E553:')
++   normal G
++   Xbefore 99
++   call assert_equal(['X2', 5, 2], [bufname(''), line('.'), col('.')])
++   call assert_fails('Xbefore', 'E553:')
++ 
+    normal gg
+    Xbelow 2
+    call assert_equal(['X2', 10], [bufname(''), line('.')])
++   normal gg
++   Xafter 2
++   call assert_equal(['X2', 10, 3], [bufname(''), line('.'), col('.')])
++ 
+    normal G
+    Xabove 2
+    call assert_equal(['X2', 10], [bufname(''), line('.')])
++   normal G
++   Xbefore 2
++   call assert_equal(['X2', 10, 3], [bufname(''), line('.'), col('.')])
++ 
+    edit X4
+    call assert_fails('Xabove', 'E42:')
+    call assert_fails('Xbelow', 'E42:')
++   call assert_fails('Xbefore', 'E42:')
++   call assert_fails('Xafter', 'E42:')
+    if a:cchar == 'l'
+      " If a buffer has location list entries from some other window but not
+      " from the current window, then the commands should fail.
+      edit X1 | split | call setloclist(0, [], 'f')
+      call assert_fails('Xabove', 'E776:')
+      call assert_fails('Xbelow', 'E776:')
++     call assert_fails('Xbefore', 'E776:')
++     call assert_fails('Xafter', 'E776:')
+      close
+    endif
+  
+***************
+*** 4108,4134 ****
+--- 4152,4203 ----
+    edit +1 X2
+    Xbelow 2
+    call assert_equal(['X2', 10, 1], [bufname(''), line('.'), col('.')])
++   normal 1G
++   Xafter 2
++   call assert_equal(['X2', 5, 2], [bufname(''), line('.'), col('.')])
++ 
+    normal gg
+    Xbelow 99
+    call assert_equal(['X2', 15, 1], [bufname(''), line('.'), col('.')])
++   normal gg
++   Xafter 99
++   call assert_equal(['X2', 15, 3], [bufname(''), line('.'), col('.')])
++ 
+    normal G
+    Xabove 2
+    call assert_equal(['X2', 10, 1], [bufname(''), line('.'), col('.')])
+    normal G
++   Xbefore 2
++   call assert_equal(['X2', 15, 2], [bufname(''), line('.'), col('.')])
++ 
++   normal G
+    Xabove 99
+    call assert_equal(['X2', 5, 1], [bufname(''), line('.'), col('.')])
++   normal G
++   Xbefore 99
++   call assert_equal(['X2', 5, 1], [bufname(''), line('.'), col('.')])
++ 
+    normal 10G
+    Xabove
+    call assert_equal(['X2', 5, 1], [bufname(''), line('.'), col('.')])
++   normal 10G$
++   2Xbefore
++   call assert_equal(['X2', 10, 2], [bufname(''), line('.'), col('.')])
++ 
+    normal 10G
+    Xbelow
+    call assert_equal(['X2', 15, 1], [bufname(''), line('.'), col('.')])
++   normal 9G
++   5Xafter
++   call assert_equal(['X2', 15, 2], [bufname(''), line('.'), col('.')])
+  
+    " Invalid range
+    if a:cchar == 'c'
+      call assert_fails('-2cbelow', 'E16:')
++     call assert_fails('-2cafter', 'E16:')
+    else
+      call assert_fails('-2lbelow', 'E16:')
++     call assert_fails('-2lafter', 'E16:')
+    endif
+  
+    call delete('X1')
+*** ../vim-8.1.1274/src/version.c	2019-05-05 14:19:17.594303166 +0200
+--- src/version.c	2019-05-05 14:58:18.513708487 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1275,
+  /**/
+
+-- 
+Permission is granted to read this message out aloud on Kings Cross Road,
+London, under the condition that the orator is properly dressed.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,736 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1270
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1270
+Problem:    Cannot see current match position.
+Solution:   Show "3/44" when using the "n" command and "S" is not in
+            'shortmess'. (Christian Brabandt, closes #4317)
+Files:	    runtime/doc/options.txt, runtime/doc/pattern.txt, src/option.c,
+            src/option.h, src/search.c, src/testdir/Make_all.mak,
+            src/testdir/test_search_stat.vim
+
+
+*** ../vim-8.1.1269/runtime/doc/options.txt	2019-04-28 18:04:56.054492198 +0200
+--- runtime/doc/options.txt	2019-05-04 20:39:29.300113211 +0200
+***************
+*** 1789,1795 ****
+  	'scrolloff'	+ 0		no scroll offset
+  	'shelltemp'	- {unchanged}	{set vim default only on resetting 'cp'}
+  	'shiftround'	+ off		indent not rounded to shiftwidth
+! 	'shortmess'	& ""		no shortening of messages
+  	'showcmd'	& off		command characters not shown
+  	'showmode'	& off		current mode not shown
+  	'sidescrolloff'	+ 0		cursor moves to edge of screen in scroll
+--- 1789,1795 ----
+  	'scrolloff'	+ 0		no scroll offset
+  	'shelltemp'	- {unchanged}	{set vim default only on resetting 'cp'}
+  	'shiftround'	+ off		indent not rounded to shiftwidth
+! 	'shortmess'	& "S"		no shortening of messages
+  	'showcmd'	& off		command characters not shown
+  	'showmode'	& off		current mode not shown
+  	'sidescrolloff'	+ 0		cursor moves to edge of screen in scroll
+***************
+*** 6563,6570 ****
+  	function to get the effective shiftwidth value.
+  
+  						*'shortmess'* *'shm'*
+! 'shortmess' 'shm'	string	(Vim default "filnxtToO", Vi default: "",
+! 							POSIX default: "A")
+  			global
+  	This option helps to avoid all the |hit-enter| prompts caused by file
+  	messages, for example  with CTRL-G, and to avoid some other messages.
+--- 6563,6570 ----
+  	function to get the effective shiftwidth value.
+  
+  						*'shortmess'* *'shm'*
+! 'shortmess' 'shm'	string	(Vim default "filnxtToOS", Vi default: "S",
+! 							POSIX default: "AS")
+  			global
+  	This option helps to avoid all the |hit-enter| prompts caused by file
+  	messages, for example  with CTRL-G, and to avoid some other messages.
+***************
+*** 6604,6609 ****
+--- 6604,6611 ----
+  	  q	use "recording" instead of "recording @a"
+  	  F	don't give the file info when editing a file, like `:silent`
+  		was used for the command
++ 	  S     do not show search count message when searching, e.g.
++ 	        "[1/5]"
+  
+  	This gives you the opportunity to avoid that a change between buffers
+  	requires you to hit <Enter>, but still gives as useful a message as
+*** ../vim-8.1.1269/runtime/doc/pattern.txt	2019-01-31 15:34:35.864056935 +0100
+--- runtime/doc/pattern.txt	2019-05-04 20:40:26.891793904 +0200
+***************
+*** 152,157 ****
+--- 152,168 ----
+  All matches for the last used search pattern will be highlighted if you set
+  the 'hlsearch' option.  This can be suspended with the |:nohlsearch| command.
+  
++ When 'shortmess' does not include the "S" flag, Vim will automatically show an
++ index, on which the cursor is. This can look like this: >
++ 
++   [1/5]		Cursor is on first of 5 matches.
++   [1/>99]	Cursor is on first of more than 99 matches.
++   [>99/>99]	Cursor is after 99 match of more than 99 matches.
++   [?/??]	Unknown how many matches exists, generating the
++ 		statistics was aborted because of search timeout.
++ 
++ Note: the count does not take offset into account.
++ 
+  When no match is found you get the error: *E486* Pattern not found
+  Note that for the |:global| command this behaves like a normal message, for Vi
+  compatibility.  For the |:s| command the "e" flag can be used to avoid the
+***************
+*** 293,298 ****
+--- 304,317 ----
+  the "*" is under your right hand middle finger (search to the right and down).
+  (this depends on your keyboard layout though).
+  
++ 								*E956*
++ In very rare cases a regular expression is used recursively.  This can happen
++ when executing a pattern takes a long time and when checking for messages on
++ channels a callback is invoked that also uses a pattern or an autocommand is
++ triggered.  In most cases this should be fine, but if a pattern is in use when
++ it's used again it fails.  Usually this means there is something wrong with
++ the pattern.
++ 
+  ==============================================================================
+  2. The definition of a pattern		*search-pattern* *pattern* *[pattern]*
+  					*regular-expression* *regexp* *Pattern*
+*** ../vim-8.1.1269/src/option.c	2019-04-28 19:46:17.034060084 +0200
+--- src/option.c	2019-05-04 20:12:23.560448086 +0200
+***************
+*** 2449,2455 ****
+  			    {(char_u *)8L, (char_u *)0L} SCTX_INIT},
+      {"shortmess",   "shm",  P_STRING|P_VIM|P_FLAGLIST,
+  			    (char_u *)&p_shm, PV_NONE,
+! 			    {(char_u *)"", (char_u *)"filnxtToO"}
+  			    SCTX_INIT},
+      {"shortname",   "sn",   P_BOOL|P_VI_DEF,
+  			    (char_u *)&p_sn, PV_SN,
+--- 2449,2455 ----
+  			    {(char_u *)8L, (char_u *)0L} SCTX_INIT},
+      {"shortmess",   "shm",  P_STRING|P_VIM|P_FLAGLIST,
+  			    (char_u *)&p_shm, PV_NONE,
+! 			    {(char_u *)"S", (char_u *)"filnxtToOS"}
+  			    SCTX_INIT},
+      {"shortname",   "sn",   P_BOOL|P_VI_DEF,
+  			    (char_u *)&p_sn, PV_SN,
+***************
+*** 3311,3317 ****
+      if (mch_getenv((char_u *)"VIM_POSIX") != NULL)
+      {
+  	set_string_default("cpo", (char_u *)CPO_ALL);
+! 	set_string_default("shm", (char_u *)"A");
+      }
+  
+      /*
+--- 3311,3317 ----
+      if (mch_getenv((char_u *)"VIM_POSIX") != NULL)
+      {
+  	set_string_default("cpo", (char_u *)CPO_ALL);
+! 	set_string_default("shm", (char_u *)SHM_POSIX);
+      }
+  
+      /*
+*** ../vim-8.1.1269/src/option.h	2019-04-28 18:04:56.058492178 +0200
+--- src/option.h	2019-05-04 20:41:45.615356951 +0200
+***************
+*** 183,209 ****
+  #define COCU_ALL	"nvic"		/* flags for 'concealcursor' */
+  
+  /* characters for p_shm option: */
+! #define SHM_RO		'r'		/* readonly */
+! #define SHM_MOD		'm'		/* modified */
+! #define SHM_FILE	'f'		/* (file 1 of 2) */
+! #define SHM_LAST	'i'		/* last line incomplete */
+! #define SHM_TEXT	'x'		/* tx instead of textmode */
+! #define SHM_LINES	'l'		/* "L" instead of "lines" */
+! #define SHM_NEW		'n'		/* "[New]" instead of "[New file]" */
+! #define SHM_WRI		'w'		/* "[w]" instead of "written" */
+! #define SHM_A		"rmfixlnw"	/* represented by 'a' flag */
+! #define SHM_WRITE	'W'		/* don't use "written" at all */
+! #define SHM_TRUNC	't'		/* truncate file messages */
+! #define SHM_TRUNCALL	'T'		/* truncate all messages */
+! #define SHM_OVER	'o'		/* overwrite file messages */
+! #define SHM_OVERALL	'O'		/* overwrite more messages */
+! #define SHM_SEARCH	's'		/* no search hit bottom messages */
+! #define SHM_ATTENTION	'A'		/* no ATTENTION messages */
+! #define SHM_INTRO	'I'		/* intro messages */
+! #define SHM_COMPLETIONMENU  'c'		/* completion menu messages */
+! #define SHM_RECORDING	'q'		/* short recording message */
+! #define SHM_FILEINFO	'F'		/* no file info messages */
+! #define SHM_ALL		"rmfixlnwaWtToOsAIcqF" /* all possible flags for 'shm' */
+  
+  /* characters for p_go: */
+  #define GO_TERMINAL	'!'		/* use terminal for system commands */
+--- 183,211 ----
+  #define COCU_ALL	"nvic"		/* flags for 'concealcursor' */
+  
+  /* characters for p_shm option: */
+! #define SHM_RO		'r'		// readonly
+! #define SHM_MOD		'm'		// modified
+! #define SHM_FILE	'f'		// (file 1 of 2)
+! #define SHM_LAST	'i'		// last line incomplete
+! #define SHM_TEXT	'x'		// tx instead of textmode
+! #define SHM_LINES	'l'		// "L" instead of "lines"
+! #define SHM_NEW		'n'		// "[New]" instead of "[New file]"
+! #define SHM_WRI		'w'		// "[w]" instead of "written"
+! #define SHM_A		"rmfixlnw"	// represented by 'a' flag
+! #define SHM_WRITE	'W'		// don't use "written" at all
+! #define SHM_TRUNC	't'		// truncate file messages
+! #define SHM_TRUNCALL	'T'		// truncate all messages
+! #define SHM_OVER	'o'		// overwrite file messages
+! #define SHM_OVERALL	'O'		// overwrite more messages
+! #define SHM_SEARCH	's'		// no search hit bottom messages
+! #define SHM_ATTENTION	'A'		// no ATTENTION messages
+! #define SHM_INTRO	'I'		// intro messages
+! #define SHM_COMPLETIONMENU  'c'		// completion menu messages
+! #define SHM_RECORDING	'q'		// short recording message
+! #define SHM_FILEINFO	'F'		// no file info messages
+! #define SHM_SEARCHCOUNT  'S'	        // search stats: '[1/10]'
+! #define SHM_POSIX       "AS"            // POSIX value
+! #define SHM_ALL		"rmfixlnwaWtToOsAIcqFS" // all possible flags for 'shm'
+  
+  /* characters for p_go: */
+  #define GO_TERMINAL	'!'		/* use terminal for system commands */
+*** ../vim-8.1.1269/src/search.c	2019-04-06 14:22:17.754642647 +0200
+--- src/search.c	2019-05-04 20:54:06.096065458 +0200
+***************
+*** 26,31 ****
+--- 26,32 ----
+  #ifdef FEAT_VIMINFO
+  static void wvsp_one(FILE *fp, int idx, char *s, int sc);
+  #endif
++ static void search_stat(int dirc, pos_T *pos, char_u  *msgbuf);
+  
+  /*
+   * This file contains various searching-related routines. These fall into
+***************
+*** 1216,1221 ****
+--- 1217,1224 ----
+      char_u	    *dircp;
+      char_u	    *strcopy = NULL;
+      char_u	    *ps;
++     char_u	    *msgbuf = NULL;
++     size_t	    len;
+  
+      /*
+       * A line offset is not remembered, this is vi compatible.
+***************
+*** 1374,1401 ****
+  	if ((options & SEARCH_ECHO) && messaging()
+  					    && !cmd_silent && msg_silent == 0)
+  	{
+- 	    char_u	*msgbuf;
+  	    char_u	*trunc;
+  
+  	    if (*searchstr == NUL)
+  		p = spats[0].pat;
+  	    else
+  		p = searchstr;
+! 	    msgbuf = alloc((unsigned)(STRLEN(p) + 40));
+  	    if (msgbuf != NULL)
+  	    {
+  		msgbuf[0] = dirc;
+  		if (enc_utf8 && utf_iscomposing(utf_ptr2char(p)))
+  		{
+! 		    /* Use a space to draw the composing char on. */
+  		    msgbuf[1] = ' ';
+! 		    STRCPY(msgbuf + 2, p);
+  		}
+  		else
+! 		    STRCPY(msgbuf + 1, p);
+  		if (spats[0].off.line || spats[0].off.end || spats[0].off.off)
+  		{
+! 		    p = msgbuf + STRLEN(msgbuf);
+  		    *p++ = dirc;
+  		    if (spats[0].off.end)
+  			*p++ = 'e';
+--- 1377,1427 ----
+  	if ((options & SEARCH_ECHO) && messaging()
+  					    && !cmd_silent && msg_silent == 0)
+  	{
+  	    char_u	*trunc;
+  
++ 	    // Compute msg_row early.
++ 	    msg_start();
++ 
+  	    if (*searchstr == NUL)
+  		p = spats[0].pat;
+  	    else
+  		p = searchstr;
+! 
+! 	    if (!shortmess(SHM_SEARCHCOUNT))
+! 	    {
+! 		// Reserve enough space for the search pattern + offset +
+! 		// search stat.
+! 		if (msg_scrolled != 0)
+! 		    // Use all the columns.
+! 		    len = (int)(Rows - msg_row) * Columns - 1;
+! 		else
+! 		    // Use up to 'showcmd' column.
+! 		    len = (int)(Rows - msg_row - 1) * Columns + sc_col - 1;
+! 		if (len < STRLEN(p) + 40 + 11)
+! 		    len = STRLEN(p) + 40 + 11;
+! 	    }
+! 	    else
+! 		// Reserve enough space for the search pattern + offset.
+! 		len = STRLEN(p) + 40;
+! 
+! 	    msgbuf = alloc((int)len);
+  	    if (msgbuf != NULL)
+  	    {
++ 		vim_memset(msgbuf, ' ', len);
+  		msgbuf[0] = dirc;
++ 		msgbuf[len - 1] = NUL;
++ 
+  		if (enc_utf8 && utf_iscomposing(utf_ptr2char(p)))
+  		{
+! 		    // Use a space to draw the composing char on.
+  		    msgbuf[1] = ' ';
+! 		    STRNCPY(msgbuf + 2, p, STRLEN(p));
+  		}
+  		else
+! 		    STRNCPY(msgbuf + 1, p, STRLEN(p));
+  		if (spats[0].off.line || spats[0].off.end || spats[0].off.off)
+  		{
+! 		    p = msgbuf + STRLEN(p) + 1;
+  		    *p++ = dirc;
+  		    if (spats[0].off.end)
+  			*p++ = 'e';
+***************
+*** 1404,1448 ****
+  		    if (spats[0].off.off > 0 || spats[0].off.line)
+  			*p++ = '+';
+  		    if (spats[0].off.off != 0 || spats[0].off.line)
+! 			sprintf((char *)p, "%ld", spats[0].off.off);
+! 		    else
+! 			*p = NUL;
+  		}
+  
+- 		msg_start();
+  		trunc = msg_strtrunc(msgbuf, FALSE);
+  
+  #ifdef FEAT_RIGHTLEFT
+! 		/* The search pattern could be shown on the right in rightleft
+! 		 * mode, but the 'ruler' and 'showcmd' area use it too, thus
+! 		 * it would be blanked out again very soon.  Show it on the
+! 		 * left, but do reverse the text. */
+  		if (curwin->w_p_rl && *curwin->w_p_rlc == 's')
+  		{
+  		    char_u *r;
+  
+! 		    r = reverse_text(trunc != NULL ? trunc : msgbuf);
+  		    if (r != NULL)
+  		    {
+! 			vim_free(trunc);
+! 			trunc = r;
+  		    }
+  		}
+  #endif
+! 		if (trunc != NULL)
+! 		{
+! 		    msg_outtrans(trunc);
+! 		    vim_free(trunc);
+! 		}
+! 		else
+! 		    msg_outtrans(msgbuf);
+  		msg_clr_eos();
+  		msg_check();
+- 		vim_free(msgbuf);
+  
+  		gotocmdline(FALSE);
+  		out_flush();
+! 		msg_nowait = TRUE;	    /* don't wait for this message */
+  	    }
+  	}
+  
+--- 1430,1479 ----
+  		    if (spats[0].off.off > 0 || spats[0].off.line)
+  			*p++ = '+';
+  		    if (spats[0].off.off != 0 || spats[0].off.line)
+! 		    {
+! 			int l = 0;
+! 			l = sprintf((char *)p, "%ld", spats[0].off.off);
+! 			p[l] = ' '; // remove NUL from sprintf
+! 		    }
+  		}
+  
+  		trunc = msg_strtrunc(msgbuf, FALSE);
++ 		if (trunc != NULL)
++ 		{
++ 		    vim_free(msgbuf);
++ 		    msgbuf = trunc;
++ 		}
+  
+  #ifdef FEAT_RIGHTLEFT
+! 		// The search pattern could be shown on the right in rightleft
+! 		// mode, but the 'ruler' and 'showcmd' area use it too, thus
+! 		// it would be blanked out again very soon.  Show it on the
+! 		// left, but do reverse the text.
+  		if (curwin->w_p_rl && *curwin->w_p_rlc == 's')
+  		{
+  		    char_u *r;
+  
+! 		    r = reverse_text(msgbuf);
+  		    if (r != NULL)
+  		    {
+! 			vim_free(msgbuf);
+! 			msgbuf = r;
+! 			// move reversed text to beginning of buffer
+! 			while (*r != NUL && *r == ' ')
+! 			    r++;
+! 			mch_memmove(msgbuf, r, msgbuf + STRLEN(msgbuf) - r);
+! 			// overwrite old text
+! 			vim_memset(r, ' ', msgbuf + STRLEN(msgbuf) - r);
+  		    }
+  		}
+  #endif
+! 		msg_outtrans(msgbuf);
+  		msg_clr_eos();
+  		msg_check();
+  
+  		gotocmdline(FALSE);
+  		out_flush();
+! 		msg_nowait = TRUE;	    // don't wait for this message
+  	    }
+  	}
+  
+***************
+*** 1488,1494 ****
+  		RE_LAST, (linenr_T)0, tm, timed_out);
+  
+  	if (dircp != NULL)
+! 	    *dircp = dirc;	/* restore second '/' or '?' for normal_cmd() */
+  	if (c == FAIL)
+  	{
+  	    retval = 0;
+--- 1519,1531 ----
+  		RE_LAST, (linenr_T)0, tm, timed_out);
+  
+  	if (dircp != NULL)
+! 	    *dircp = dirc;	// restore second '/' or '?' for normal_cmd()
+! 
+! 	if (!shortmess(SHM_SEARCH)
+! 		&& ((dirc == '/' && LT_POS(pos, curwin->w_cursor))
+! 			    || (dirc == '?' && LT_POS(curwin->w_cursor, pos))))
+! 	    ui_delay(500L, FALSE);  // leave some time for top_bot_msg
+! 
+  	if (c == FAIL)
+  	{
+  	    retval = 0;
+***************
+*** 1537,1542 ****
+--- 1574,1588 ----
+  	    }
+  	}
+  
++ 	// Show [1/15] if 'S' is not in 'shortmess'.
++ 	if ((options & SEARCH_ECHO)
++ 		&& messaging()
++ 		&& !(cmd_silent + msg_silent)
++ 		&& c != FAIL
++ 		&& !shortmess(SHM_SEARCHCOUNT)
++ 		&& msgbuf != NULL)
++ 	    search_stat(dirc, &pos, msgbuf);
++ 
+  	/*
+  	 * The search command can be followed by a ';' to do another search.
+  	 * For example: "/pat/;/foo/+3;?bar"
+***************
+*** 1567,1572 ****
+--- 1613,1619 ----
+      if ((options & SEARCH_KEEP) || cmdmod.keeppatterns)
+  	spats[0].off = old_off;
+      vim_free(strcopy);
++     vim_free(msgbuf);
+  
+      return retval;
+  }
+***************
+*** 4857,4862 ****
+--- 4904,5027 ----
+  }
+  #endif
+  
++ /*
++  * Add the search count "[3/19]" to "msgbuf".
++  */
++     static void
++ search_stat(
++     int	    dirc,
++     pos_T   *pos,
++     char_u  *msgbuf)
++ {
++     int		    save_ws = p_ws;
++     int		    wraparound = FALSE;
++     pos_T	    p = (*pos);
++     static  pos_T   lastpos = {0, 0, 0};
++     static int	    cur = 0;
++     static int	    cnt = 0;
++     static int	    chgtick = 0;
++     static char_u   *lastpat = NULL;
++     static buf_T    *lbuf = NULL;
++ #ifdef FEAT_RELTIME
++     proftime_T  start;
++ #endif
++ #define OUT_OF_TIME 999
++ 
++     wraparound = ((dirc == '?' && LT_POS(lastpos, p))
++ 	       || (dirc == '/' && LT_POS(p, lastpos)));
++ 
++     // If anything relevant changed the count has to be recomputed.
++     // MB_STRNICMP ignores case, but we should not ignore case.
++     // Unfortunately, there is no MB_STRNICMP function.
++     if (!(chgtick == CHANGEDTICK(curbuf)
++ 	&& MB_STRNICMP(lastpat, spats[last_idx].pat, STRLEN(lastpat)) == 0
++ 	&& STRLEN(lastpat) == STRLEN(spats[last_idx].pat)
++ 	&& EQUAL_POS(lastpos, curwin->w_cursor)
++ 	&& lbuf == curbuf) || wraparound || cur < 0 || cur > 99)
++     {
++ 	cur = 0;
++ 	cnt = 0;
++ 	CLEAR_POS(&lastpos);
++ 	lbuf = curbuf;
++     }
++ 
++     if (EQUAL_POS(lastpos, curwin->w_cursor) && !wraparound
++ 					&& (dirc == '/' ? cur < cnt : cur > 0))
++ 	cur += dirc == '/' ? 1 : -1;
++     else
++     {
++ 	p_ws = FALSE;
++ #ifdef FEAT_RELTIME
++ 	profile_setlimit(20L, &start);
++ #endif
++ 	while (!got_int && searchit(curwin, curbuf, &lastpos, NULL,
++ 				   FORWARD, NULL, 1, SEARCH_PEEK + SEARCH_KEEP,
++ 				     RE_LAST, (linenr_T)0, NULL, NULL) != FAIL)
++ 	{
++ #ifdef FEAT_RELTIME
++ 	    // Stop after passing the time limit.
++ 	    if (profile_passed_limit(&start))
++ 	    {
++ 		cnt = OUT_OF_TIME;
++ 		cur = OUT_OF_TIME;
++ 		break;
++ 	    }
++ #endif
++ 	    cnt++;
++ 	    if (LTOREQ_POS(lastpos, p))
++ 		cur++;
++ 	    fast_breakcheck();
++ 	    if (cnt > 99)
++ 		break;
++ 	}
++ 	if (got_int)
++ 	    cur = -1; // abort
++     }
++     if (cur > 0)
++     {
++ #define STAT_BUF_LEN 10
++ 	char	t[STAT_BUF_LEN] = "";
++ 
++ #ifdef FEAT_RIGHTLEFT
++ 	if (curwin->w_p_rl && *curwin->w_p_rlc == 's')
++ 	{
++ 	    if (cur == OUT_OF_TIME)
++ 		vim_snprintf(t, STAT_BUF_LEN, "[?/??]");
++ 	    else if (cnt > 99 && cur > 99)
++ 		vim_snprintf(t, STAT_BUF_LEN, "[>99/>99]");
++ 	    else if (cnt > 99)
++ 		vim_snprintf(t, STAT_BUF_LEN, "[>99/%d]", cur);
++ 	    else
++ 		vim_snprintf(t, STAT_BUF_LEN, "[%d/%d]", cnt, cur);
++ 	}
++ 	else
++ #endif
++ 	{
++ 	    if (cur == OUT_OF_TIME)
++ 		vim_snprintf(t, STAT_BUF_LEN, "[?/??]");
++ 	    else if (cnt > 99 && cur > 99)
++ 		vim_snprintf(t, STAT_BUF_LEN, "[>99/>99]");
++ 	    else if (cnt > 99)
++ 		vim_snprintf(t, STAT_BUF_LEN, "[%d/>99]", cur);
++ 	    else
++ 		vim_snprintf(t, STAT_BUF_LEN, "[%d/%d]", cur, cnt);
++ 	}
++ 	STRNCPY(msgbuf + STRLEN(msgbuf) - STRLEN(t), t, STRLEN(t));
++ 	if (dirc == '?' && cur == 100)
++ 	    cur = -1;
++ 
++ 	vim_free(lastpat);
++ 	lastpat = vim_strsave(spats[last_idx].pat);
++ 	chgtick = CHANGEDTICK(curbuf);
++ 	lbuf    = curbuf;
++ 	lastpos = p;
++ 
++ 	// keep the message even after redraw
++ 	give_warning(msgbuf, FALSE);
++     }
++     p_ws = save_ws;
++ }
++ 
+  #if defined(FEAT_FIND_ID) || defined(PROTO)
+  /*
+   * Find identifiers or defines in included files.
+*** ../vim-8.1.1269/src/testdir/Make_all.mak	2019-04-28 18:04:56.062492159 +0200
+--- src/testdir/Make_all.mak	2019-05-04 20:20:01.218364660 +0200
+***************
+*** 219,224 ****
+--- 219,225 ----
+  	test_scroll_opt \
+  	test_scrollbind \
+  	test_search \
++ 	test_search_stat \
+  	test_searchpos \
+  	test_set \
+  	test_sha256 \
+***************
+*** 388,393 ****
+--- 389,395 ----
+  	test_scriptnames.res \
+  	test_scrollbind.res \
+  	test_search.res \
++ 	test_search_stat.res \
+  	test_shortpathname.res \
+  	test_signals.res \
+  	test_signs.res \
+*** ../vim-8.1.1269/src/testdir/test_search_stat.vim	2019-05-04 21:07:16.848124792 +0200
+--- src/testdir/test_search_stat.vim	2019-05-04 21:00:59.010048385 +0200
+***************
+*** 0 ****
+--- 1,108 ----
++ " Tests for search_stats, when "S" is not in 'shortmess'
++ "
++ " This test is fragile, it might not work interactively, but it works when run
++ " as test!
++ 
++ func! Test_search_stat()
++   new
++   set shortmess-=S
++   call append(0, repeat(['foobar', 'foo', 'fooooobar', 'foba', 'foobar'], 10))
++ 
++   " 1) match at second line
++   call cursor(1, 1)
++   let @/ = 'fo*\(bar\?\)\?'
++   let g:a = execute(':unsilent :norm! n')
++   let stat = '\[2/50\]'
++   let pat = escape(@/, '()*?'). '\s\+'
++   call assert_match(pat .. stat, g:a)
++ 
++   " 2) Match at last line
++   call cursor(line('$')-2, 1)
++   let g:a = execute(':unsilent :norm! n')
++   let stat = '\[50/50\]'
++   call assert_match(pat .. stat, g:a)
++ 
++   " 3) No search stat
++   set shortmess+=S
++   call cursor(1, 1)
++   let stat = '\[2/50\]'
++   let g:a = execute(':unsilent :norm! n')
++   call assert_notmatch(pat .. stat, g:a)
++   set shortmess-=S
++ 
++   " 4) Many matches
++   call cursor(line('$')-2, 1)
++   let @/ = '.'
++   let pat = escape(@/, '()*?'). '\s\+'
++   let g:a = execute(':unsilent :norm! n')
++   let stat = '\[>99/>99\]'
++   call assert_match(pat .. stat, g:a)
++ 
++   " 5) Many matches
++   call cursor(1, 1)
++   let g:a = execute(':unsilent :norm! n')
++   let stat = '\[2/>99\]'
++   call assert_match(pat .. stat, g:a)
++ 
++   " 6) right-left
++   if exists("+rightleft")
++     set rl
++     call cursor(1,1)
++     let @/ = 'foobar'
++     let pat = 'raboof/\s\+'
++     let g:a = execute(':unsilent :norm! n')
++     let stat = '\[20/2\]'
++     call assert_match(pat .. stat, g:a)
++     set norl
++   endif
++ 
++   " 7) right-left bottom
++   if exists("+rightleft")
++     set rl
++     call cursor('$',1)
++     let pat = 'raboof?\s\+'
++     let g:a = execute(':unsilent :norm! N')
++     let stat = '\[20/20\]'
++     call assert_match(pat .. stat, g:a)
++     set norl
++   endif
++ 
++   " 8) right-left back at top
++   if exists("+rightleft")
++     set rl
++     call cursor('$',1)
++     let pat = 'raboof/\s\+'
++     let g:a = execute(':unsilent :norm! n')
++     let stat = '\[20/1\]'
++     call assert_match(pat .. stat, g:a)
++     call assert_match('search hit BOTTOM, continuing at TOP', g:a)
++     set norl
++   endif
++ 
++   " 9) normal, back at top
++   call cursor(1,1)
++   let @/ = 'foobar'
++   let pat = '?foobar\s\+'
++   let g:a = execute(':unsilent :norm! N')
++   let stat = '\[20/20\]'
++   call assert_match(pat .. stat, g:a)
++   call assert_match('search hit TOP, continuing at BOTTOM', g:a)
++ 
++   " 10) normal, no match
++   call cursor(1,1)
++   let @/ = 'zzzzzz'
++   let g:a = ''
++   try
++     let g:a = execute(':unsilent :norm! n')
++   catch /^Vim\%((\a\+)\)\=:E486/
++     let stat = ''
++     " error message is not redir'ed to g:a, it is empty
++     call assert_true(empty(g:a))
++   catch
++     call assert_false(1)
++   endtry
++ 
++   " close the window
++   set shortmess+=S
++   bwipe!
++ endfunc
+*** ../vim-8.1.1269/src/version.c	2019-05-04 19:59:56.544589575 +0200
+--- src/version.c	2019-05-04 21:07:03.180195105 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1270,
+  /**/
+
+-- 
+Dreams are free, but there's a small charge for alterations.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

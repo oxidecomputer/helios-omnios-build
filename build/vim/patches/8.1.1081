@@ -1,0 +1,1264 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1081
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1081
+Problem:    MS-Windows: cannot use fonts whose name cannot be represented in
+            the current code page.
+Solution:   Use wide font functions. (Ken Takata, closes #4000)
+Files:	    src/gui_w32.c, src/os_mswin.c, src/proto/gui_w32.pro,
+            src/proto/os_mswin.pro
+
+
+*** ../vim-8.1.1080/src/gui_w32.c	2019-03-28 22:43:12.103997449 +0100
+--- src/gui_w32.c	2019-03-30 16:20:37.994106945 +0100
+***************
+*** 253,259 ****
+  typedef int HBRUSH;
+  typedef int HDROP;
+  typedef int INT;
+! typedef int LOGFONT[];
+  typedef int LPARAM;
+  typedef int LPCREATESTRUCT;
+  typedef int LPCSTR;
+--- 253,259 ----
+  typedef int HBRUSH;
+  typedef int HDROP;
+  typedef int INT;
+! typedef int LOGFONTW[];
+  typedef int LPARAM;
+  typedef int LPCREATESTRUCT;
+  typedef int LPCSTR;
+***************
+*** 501,515 ****
+  /*
+   * For control IME.
+   *
+!  * These LOGFONT used for IME.
+   */
+  #if defined(FEAT_MBYTE_IME) || defined(GLOBAL_IME)
+! /* holds LOGFONT for 'guifontwide' if available, otherwise 'guifont' */
+! static LOGFONT norm_logfont;
+  #endif
+  #ifdef FEAT_MBYTE_IME
+! /* holds LOGFONT for 'guifont' always. */
+! static LOGFONT sub_logfont;
+  #endif
+  
+  #ifdef FEAT_MBYTE_IME
+--- 501,515 ----
+  /*
+   * For control IME.
+   *
+!  * These LOGFONTW used for IME.
+   */
+  #if defined(FEAT_MBYTE_IME) || defined(GLOBAL_IME)
+! /* holds LOGFONTW for 'guifontwide' if available, otherwise 'guifont' */
+! static LOGFONTW norm_logfont;
+  #endif
+  #ifdef FEAT_MBYTE_IME
+! /* holds LOGFONTW for 'guifont' always. */
+! static LOGFONTW sub_logfont;
+  #endif
+  
+  #ifdef FEAT_MBYTE_IME
+***************
+*** 1520,1531 ****
+  }
+  
+      static GuiFont
+! get_font_handle(LOGFONT *lf)
+  {
+      HFONT   font = NULL;
+  
+      /* Load the font */
+!     font = CreateFontIndirect(lf);
+  
+      if (font == NULL)
+  	return NOFONT;
+--- 1520,1531 ----
+  }
+  
+      static GuiFont
+! get_font_handle(LOGFONTW *lf)
+  {
+      HFONT   font = NULL;
+  
+      /* Load the font */
+!     font = CreateFontIndirectW(lf);
+  
+      if (font == NULL)
+  	return NOFONT;
+***************
+*** 1556,1562 ****
+      char_u	*name,
+      int		giveErrorIfMissing)
+  {
+!     LOGFONT	lf;
+      GuiFont	font = NOFONT;
+  
+      if (get_logfont(&lf, name, NULL, giveErrorIfMissing) == OK)
+--- 1556,1562 ----
+      char_u	*name,
+      int		giveErrorIfMissing)
+  {
+!     LOGFONTW	lf;
+      GuiFont	font = NOFONT;
+  
+      if (get_logfont(&lf, name, NULL, giveErrorIfMissing) == OK)
+***************
+*** 3201,3223 ****
+  }
+  
+      static char_u *
+! logfont2name(LOGFONT lf)
+  {
+      char	*p;
+      char	*res;
+      char	*charset_name;
+      char	*quality_name;
+!     char	*font_name = lf.lfFaceName;
+  
+      charset_name = charset_id2name((int)lf.lfCharSet);
+-     /* Convert a font name from the current codepage to 'encoding'.
+-      * TODO: Use Wide APIs (including LOGFONTW) instead of ANSI APIs. */
+-     if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+-     {
+- 	int	len;
+- 	acp_to_enc((char_u *)lf.lfFaceName, (int)strlen(lf.lfFaceName),
+- 						(char_u **)&font_name, &len);
+-     }
+      quality_name = quality_id2name((int)lf.lfQuality);
+  
+      res = (char *)alloc((unsigned)(strlen(font_name) + 20
+--- 3201,3218 ----
+  }
+  
+      static char_u *
+! logfont2name(LOGFONTW lf)
+  {
+      char	*p;
+      char	*res;
+      char	*charset_name;
+      char	*quality_name;
+!     char	*font_name;
+  
++     font_name = (char *)utf16_to_enc(lf.lfFaceName, NULL);
++     if (font_name == NULL)
++ 	return NULL;
+      charset_name = charset_id2name((int)lf.lfCharSet);
+      quality_name = quality_id2name((int)lf.lfQuality);
+  
+      res = (char *)alloc((unsigned)(strlen(font_name) + 20
+***************
+*** 3254,3278 ****
+  	}
+      }
+  
+!     if (font_name != lf.lfFaceName)
+! 	vim_free(font_name);
+      return (char_u *)res;
+  }
+  
+  
+  #ifdef FEAT_MBYTE_IME
+  /*
+!  * Set correct LOGFONT to IME.  Use 'guifontwide' if available, otherwise use
+   * 'guifont'
+   */
+      static void
+  update_im_font(void)
+  {
+!     LOGFONT	lf_wide;
+  
+      if (p_guifontwide != NULL && *p_guifontwide != NUL
+  	    && gui.wide_font != NOFONT
+! 	    && GetObject((HFONT)gui.wide_font, sizeof(lf_wide), &lf_wide))
+  	norm_logfont = lf_wide;
+      else
+  	norm_logfont = sub_logfont;
+--- 3249,3272 ----
+  	}
+      }
+  
+!     vim_free(font_name);
+      return (char_u *)res;
+  }
+  
+  
+  #ifdef FEAT_MBYTE_IME
+  /*
+!  * Set correct LOGFONTW to IME.  Use 'guifontwide' if available, otherwise use
+   * 'guifont'
+   */
+      static void
+  update_im_font(void)
+  {
+!     LOGFONTW	lf_wide;
+  
+      if (p_guifontwide != NULL && *p_guifontwide != NUL
+  	    && gui.wide_font != NOFONT
+! 	    && GetObjectW((HFONT)gui.wide_font, sizeof(lf_wide), &lf_wide))
+  	norm_logfont = lf_wide;
+      else
+  	norm_logfont = sub_logfont;
+***************
+*** 3286,3292 ****
+      void
+  gui_mch_wide_font_changed(void)
+  {
+!     LOGFONT lf;
+  
+  #ifdef FEAT_MBYTE_IME
+      update_im_font();
+--- 3280,3286 ----
+      void
+  gui_mch_wide_font_changed(void)
+  {
+!     LOGFONTW lf;
+  
+  #ifdef FEAT_MBYTE_IME
+      update_im_font();
+***************
+*** 3300,3306 ****
+      gui.wide_boldital_font = NOFONT;
+  
+      if (gui.wide_font
+! 	&& GetObject((HFONT)gui.wide_font, sizeof(lf), &lf))
+      {
+  	if (!lf.lfItalic)
+  	{
+--- 3294,3300 ----
+      gui.wide_boldital_font = NOFONT;
+  
+      if (gui.wide_font
+! 	&& GetObjectW((HFONT)gui.wide_font, sizeof(lf), &lf))
+      {
+  	if (!lf.lfItalic)
+  	{
+***************
+*** 3328,3334 ****
+      int
+  gui_mch_init_font(char_u *font_name, int fontset UNUSED)
+  {
+!     LOGFONT	lf;
+      GuiFont	font = NOFONT;
+      char_u	*p;
+  
+--- 3322,3328 ----
+      int
+  gui_mch_init_font(char_u *font_name, int fontset UNUSED)
+  {
+!     LOGFONTW	lf;
+      GuiFont	font = NOFONT;
+      char_u	*p;
+  
+***************
+*** 4225,4232 ****
+  static BOOL (WINAPI *pImmReleaseContext)(HWND, HIMC);
+  static BOOL (WINAPI *pImmGetOpenStatus)(HIMC);
+  static BOOL (WINAPI *pImmSetOpenStatus)(HIMC, BOOL);
+! static BOOL (WINAPI *pImmGetCompositionFont)(HIMC, LPLOGFONTA);
+! static BOOL (WINAPI *pImmSetCompositionFont)(HIMC, LPLOGFONTA);
+  static BOOL (WINAPI *pImmSetCompositionWindow)(HIMC, LPCOMPOSITIONFORM);
+  static BOOL (WINAPI *pImmGetConversionStatus)(HIMC, LPDWORD, LPDWORD);
+  static BOOL (WINAPI *pImmSetConversionStatus)(HIMC, DWORD, DWORD);
+--- 4219,4226 ----
+  static BOOL (WINAPI *pImmReleaseContext)(HWND, HIMC);
+  static BOOL (WINAPI *pImmGetOpenStatus)(HIMC);
+  static BOOL (WINAPI *pImmSetOpenStatus)(HIMC, BOOL);
+! static BOOL (WINAPI *pImmGetCompositionFontW)(HIMC, LPLOGFONTW);
+! static BOOL (WINAPI *pImmSetCompositionFontW)(HIMC, LPLOGFONTW);
+  static BOOL (WINAPI *pImmSetCompositionWindow)(HIMC, LPCOMPOSITIONFORM);
+  static BOOL (WINAPI *pImmGetConversionStatus)(HIMC, LPDWORD, LPDWORD);
+  static BOOL (WINAPI *pImmSetConversionStatus)(HIMC, DWORD, DWORD);
+***************
+*** 4239,4246 ****
+  # define pImmReleaseContext	  ImmReleaseContext
+  # define pImmGetOpenStatus	  ImmGetOpenStatus
+  # define pImmSetOpenStatus	  ImmSetOpenStatus
+! # define pImmGetCompositionFont   ImmGetCompositionFontA
+! # define pImmSetCompositionFont   ImmSetCompositionFontA
+  # define pImmSetCompositionWindow ImmSetCompositionWindow
+  # define pImmGetConversionStatus  ImmGetConversionStatus
+  # define pImmSetConversionStatus  ImmSetConversionStatus
+--- 4233,4240 ----
+  # define pImmReleaseContext	  ImmReleaseContext
+  # define pImmGetOpenStatus	  ImmGetOpenStatus
+  # define pImmSetOpenStatus	  ImmSetOpenStatus
+! # define pImmGetCompositionFontW  ImmGetCompositionFontW
+! # define pImmSetCompositionFontW  ImmSetCompositionFontW
+  # define pImmSetCompositionWindow ImmSetCompositionWindow
+  # define pImmGetConversionStatus  ImmGetConversionStatus
+  # define pImmSetConversionStatus  ImmSetConversionStatus
+***************
+*** 4379,4392 ****
+   * Return OK or FAIL.
+   */
+      static int
+! gui_w32_get_menu_font(LOGFONT *lf)
+  {
+!     NONCLIENTMETRICS nm;
+  
+!     nm.cbSize = sizeof(NONCLIENTMETRICS);
+!     if (!SystemParametersInfo(
+  	    SPI_GETNONCLIENTMETRICS,
+! 	    sizeof(NONCLIENTMETRICS),
+  	    &nm,
+  	    0))
+  	return FAIL;
+--- 4373,4386 ----
+   * Return OK or FAIL.
+   */
+      static int
+! gui_w32_get_menu_font(LOGFONTW *lf)
+  {
+!     NONCLIENTMETRICSW nm;
+  
+!     nm.cbSize = sizeof(NONCLIENTMETRICSW);
+!     if (!SystemParametersInfoW(
+  	    SPI_GETNONCLIENTMETRICS,
+! 	    sizeof(NONCLIENTMETRICSW),
+  	    &nm,
+  	    0))
+  	return FAIL;
+***************
+*** 4403,4409 ****
+      static void
+  set_tabline_font(void)
+  {
+!     LOGFONT	lfSysmenu;
+      HFONT	font;
+      HWND	hwnd;
+      HDC		hdc;
+--- 4397,4403 ----
+      static void
+  set_tabline_font(void)
+  {
+!     LOGFONTW	lfSysmenu;
+      HFONT	font;
+      HWND	hwnd;
+      HDC		hdc;
+***************
+*** 4413,4419 ****
+      if (gui_w32_get_menu_font(&lfSysmenu) != OK)
+  	return;
+  
+!     font = CreateFontIndirect(&lfSysmenu);
+  
+      SendMessage(s_tabhwnd, WM_SETFONT, (WPARAM)font, TRUE);
+  
+--- 4407,4413 ----
+      if (gui_w32_get_menu_font(&lfSysmenu) != OK)
+  	return;
+  
+!     font = CreateFontIndirectW(&lfSysmenu);
+  
+      SendMessage(s_tabhwnd, WM_SETFONT, (WPARAM)font, TRUE);
+  
+***************
+*** 5562,5568 ****
+  	case IMN_SETOPENSTATUS:
+  	    if (pImmGetOpenStatus(hImc))
+  	    {
+! 		pImmSetCompositionFont(hImc, &norm_logfont);
+  		im_set_position(gui.row, gui.col);
+  
+  		/* Disable langmap */
+--- 5556,5562 ----
+  	case IMN_SETOPENSTATUS:
+  	    if (pImmGetOpenStatus(hImc))
+  	    {
+! 		pImmSetCompositionFontW(hImc, &norm_logfont);
+  		im_set_position(gui.row, gui.col);
+  
+  		/* Disable langmap */
+***************
+*** 5703,5715 ****
+   * set font to IM.
+   */
+      void
+! im_set_font(LOGFONT *lf)
+  {
+      HIMC hImc;
+  
+      if (pImmGetContext && (hImc = pImmGetContext(s_hwnd)) != (HIMC)0)
+      {
+! 	pImmSetCompositionFont(hImc, lf);
+  	pImmReleaseContext(s_hwnd, hImc);
+      }
+  }
+--- 5697,5709 ----
+   * set font to IM.
+   */
+      void
+! im_set_font(LOGFONTW *lf)
+  {
+      HIMC hImc;
+  
+      if (pImmGetContext && (hImc = pImmGetContext(s_hwnd)) != (HIMC)0)
+      {
+! 	pImmSetCompositionFontW(hImc, lf);
+  	pImmReleaseContext(s_hwnd, hImc);
+      }
+  }
+***************
+*** 6829,6835 ****
+      int		dlgPaddingX;
+      int		dlgPaddingY;
+  #ifdef USE_SYSMENU_FONT
+!     LOGFONT	lfSysmenu;
+      int		use_lfSysmenu = FALSE;
+  #endif
+      garray_T	ga;
+--- 6823,6829 ----
+      int		dlgPaddingX;
+      int		dlgPaddingY;
+  #ifdef USE_SYSMENU_FONT
+!     LOGFONTW	lfSysmenu;
+      int		use_lfSysmenu = FALSE;
+  #endif
+      garray_T	ga;
+***************
+*** 6894,6900 ****
+  #ifdef USE_SYSMENU_FONT
+      if (gui_w32_get_menu_font(&lfSysmenu) == OK)
+      {
+! 	font = CreateFontIndirect(&lfSysmenu);
+  	use_lfSysmenu = TRUE;
+      }
+      else
+--- 6888,6894 ----
+  #ifdef USE_SYSMENU_FONT
+      if (gui_w32_get_menu_font(&lfSysmenu) == OK)
+      {
+! 	font = CreateFontIndirectW(&lfSysmenu);
+  	use_lfSysmenu = TRUE;
+      }
+      else
+***************
+*** 7123,7129 ****
+  	    /* point size */
+  	    *p++ = -MulDiv(lfSysmenu.lfHeight, 72,
+  		    GetDeviceCaps(hdc, LOGPIXELSY));
+! 	    nchar = nCopyAnsiToWideChar(p, lfSysmenu.lfFaceName, FALSE);
+  	}
+  	else
+  #endif
+--- 7117,7124 ----
+  	    /* point size */
+  	    *p++ = -MulDiv(lfSysmenu.lfHeight, 72,
+  		    GetDeviceCaps(hdc, LOGPIXELSY));
+! 	    wcscpy(p, lfSysmenu.lfFaceName);
+! 	    nchar = (int)wcslen(lfSysmenu.lfFaceName) + 1;
+  	}
+  	else
+  #endif
+***************
+*** 7488,7501 ****
+      DWORD	    dlgFontSize;
+      SIZE	    size;
+  #ifdef USE_SYSMENU_FONT
+!     LOGFONT	    lfSysmenu;
+  #endif
+  
+      s_usenewlook = FALSE;
+  
+  #ifdef USE_SYSMENU_FONT
+      if (gui_w32_get_menu_font(&lfSysmenu) == OK)
+! 	hfontTools = CreateFontIndirect(&lfSysmenu);
+      else
+  #endif
+  	hfontTools = CreateFont(-DLG_FONT_POINT_SIZE, 0, 0, 0, 0, 0, 0, 0,
+--- 7483,7496 ----
+      DWORD	    dlgFontSize;
+      SIZE	    size;
+  #ifdef USE_SYSMENU_FONT
+!     LOGFONTW	    lfSysmenu;
+  #endif
+  
+      s_usenewlook = FALSE;
+  
+  #ifdef USE_SYSMENU_FONT
+      if (gui_w32_get_menu_font(&lfSysmenu) == OK)
+! 	hfontTools = CreateFontIndirectW(&lfSysmenu);
+      else
+  #endif
+  	hfontTools = CreateFont(-DLG_FONT_POINT_SIZE, 0, 0, 0, 0, 0, 0, 0,
+***************
+*** 7563,7569 ****
+      int		x;
+      int		y;
+  #ifdef USE_SYSMENU_FONT
+!     LOGFONT	lfSysmenu;
+      int		use_lfSysmenu = FALSE;
+  #endif
+  
+--- 7558,7564 ----
+      int		x;
+      int		y;
+  #ifdef USE_SYSMENU_FONT
+!     LOGFONTW	lfSysmenu;
+      int		use_lfSysmenu = FALSE;
+  #endif
+  
+***************
+*** 7599,7605 ****
+  #ifdef USE_SYSMENU_FONT
+      if (gui_w32_get_menu_font(&lfSysmenu) == OK)
+      {
+! 	font = CreateFontIndirect(&lfSysmenu);
+  	use_lfSysmenu = TRUE;
+      }
+      else
+--- 7594,7600 ----
+  #ifdef USE_SYSMENU_FONT
+      if (gui_w32_get_menu_font(&lfSysmenu) == OK)
+      {
+! 	font = CreateFontIndirectW(&lfSysmenu);
+  	use_lfSysmenu = TRUE;
+      }
+      else
+***************
+*** 7708,7714 ****
+  	    /* point size */
+  	    *p++ = -MulDiv(lfSysmenu.lfHeight, 72,
+  		    GetDeviceCaps(hdc, LOGPIXELSY));
+! 	    nchar = nCopyAnsiToWideChar(p, lfSysmenu.lfFaceName, FALSE);
+  	}
+  	else
+  #endif
+--- 7703,7710 ----
+  	    /* point size */
+  	    *p++ = -MulDiv(lfSysmenu.lfHeight, 72,
+  		    GetDeviceCaps(hdc, LOGPIXELSY));
+! 	    wcscpy(p, lfSysmenu.lfFaceName);
+! 	    nchar = (int)wcslen(lfSysmenu.lfFaceName) + 1;
+  	}
+  	else
+  #endif
+***************
+*** 8136,8145 ****
+  	    = (void *)GetProcAddress(hLibImm, "ImmGetOpenStatus");
+      pImmSetOpenStatus
+  	    = (void *)GetProcAddress(hLibImm, "ImmSetOpenStatus");
+!     pImmGetCompositionFont
+! 	    = (void *)GetProcAddress(hLibImm, "ImmGetCompositionFontA");
+!     pImmSetCompositionFont
+! 	    = (void *)GetProcAddress(hLibImm, "ImmSetCompositionFontA");
+      pImmSetCompositionWindow
+  	    = (void *)GetProcAddress(hLibImm, "ImmSetCompositionWindow");
+      pImmGetConversionStatus
+--- 8132,8141 ----
+  	    = (void *)GetProcAddress(hLibImm, "ImmGetOpenStatus");
+      pImmSetOpenStatus
+  	    = (void *)GetProcAddress(hLibImm, "ImmSetOpenStatus");
+!     pImmGetCompositionFontW
+! 	    = (void *)GetProcAddress(hLibImm, "ImmGetCompositionFontW");
+!     pImmSetCompositionFontW
+! 	    = (void *)GetProcAddress(hLibImm, "ImmSetCompositionFontW");
+      pImmSetCompositionWindow
+  	    = (void *)GetProcAddress(hLibImm, "ImmSetCompositionWindow");
+      pImmGetConversionStatus
+***************
+*** 8154,8161 ****
+  	    || pImmReleaseContext == NULL
+  	    || pImmGetOpenStatus == NULL
+  	    || pImmSetOpenStatus == NULL
+! 	    || pImmGetCompositionFont == NULL
+! 	    || pImmSetCompositionFont == NULL
+  	    || pImmSetCompositionWindow == NULL
+  	    || pImmGetConversionStatus == NULL
+  	    || pImmSetConversionStatus == NULL)
+--- 8150,8157 ----
+  	    || pImmReleaseContext == NULL
+  	    || pImmGetOpenStatus == NULL
+  	    || pImmSetOpenStatus == NULL
+! 	    || pImmGetCompositionFontW == NULL
+! 	    || pImmSetCompositionFontW == NULL
+  	    || pImmSetCompositionWindow == NULL
+  	    || pImmGetConversionStatus == NULL
+  	    || pImmSetConversionStatus == NULL)
+*** ../vim-8.1.1080/src/os_mswin.c	2019-02-17 17:44:36.215875493 +0100
+--- src/os_mswin.c	2019-03-30 16:20:37.994106945 +0100
+***************
+*** 85,91 ****
+  typedef int CONSOLE_CURSOR_INFO;
+  typedef int COORD;
+  typedef int DWORD;
+! typedef int ENUMLOGFONT;
+  typedef int HANDLE;
+  typedef int HDC;
+  typedef int HFONT;
+--- 85,91 ----
+  typedef int CONSOLE_CURSOR_INFO;
+  typedef int COORD;
+  typedef int DWORD;
+! typedef int ENUMLOGFONTW;
+  typedef int HANDLE;
+  typedef int HDC;
+  typedef int HFONT;
+***************
+*** 93,99 ****
+  typedef int HWND;
+  typedef int INPUT_RECORD;
+  typedef int KEY_EVENT_RECORD;
+! typedef int LOGFONT;
+  typedef int LPARAM;
+  typedef int LPBOOL;
+  typedef int LPCSTR;
+--- 93,99 ----
+  typedef int HWND;
+  typedef int INPUT_RECORD;
+  typedef int KEY_EVENT_RECORD;
+! typedef int LOGFONTW;
+  typedef int LPARAM;
+  typedef int LPBOOL;
+  typedef int LPCSTR;
+***************
+*** 103,109 ****
+  typedef int LPWSTR;
+  typedef int LRESULT;
+  typedef int MOUSE_EVENT_RECORD;
+! typedef int NEWTEXTMETRIC;
+  typedef int PACL;
+  typedef int PRINTDLG;
+  typedef int PSECURITY_DESCRIPTOR;
+--- 103,109 ----
+  typedef int LPWSTR;
+  typedef int LRESULT;
+  typedef int MOUSE_EVENT_RECORD;
+! typedef int NEWTEXTMETRICW;
+  typedef int PACL;
+  typedef int PRINTDLG;
+  typedef int PSECURITY_DESCRIPTOR;
+***************
+*** 1420,1426 ****
+      static int		stored_nCopies = 1;
+      static int		stored_nFlags = 0;
+  
+!     LOGFONT		fLogFont;
+      int			pifItalic;
+      int			pifBold;
+      int			pifUnderline;
+--- 1420,1426 ----
+      static int		stored_nCopies = 1;
+      static int		stored_nFlags = 0;
+  
+!     LOGFONTW		fLogFont;
+      int			pifItalic;
+      int			pifBold;
+      int			pifUnderline;
+***************
+*** 1577,1583 ****
+  		fLogFont.lfItalic = pifItalic;
+  		fLogFont.lfUnderline = pifUnderline;
+  		prt_font_handles[pifBold][pifItalic][pifUnderline]
+! 					      = CreateFontIndirect(&fLogFont);
+  	    }
+  
+      SetBkMode(prt_dlg.hDC, OPAQUE);
+--- 1577,1583 ----
+  		fLogFont.lfItalic = pifItalic;
+  		fLogFont.lfUnderline = pifUnderline;
+  		prt_font_handles[pifBold][pifItalic][pifUnderline]
+! 					      = CreateFontIndirectW(&fLogFont);
+  	    }
+  
+      SetBkMode(prt_dlg.hDC, OPAQUE);
+***************
+*** 2915,2926 ****
+      return qp->name;
+  }
+  
+! static const LOGFONT s_lfDefault =
+  {
+      -12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+      OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+      PROOF_QUALITY, FIXED_PITCH | FF_DONTCARE,
+!     "Fixedsys"	/* see _ReadVimIni */
+  };
+  
+  /* Initialise the "current height" to -12 (same as s_lfDefault) just
+--- 2915,2926 ----
+      return qp->name;
+  }
+  
+! static const LOGFONTW s_lfDefault =
+  {
+      -12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE, DEFAULT_CHARSET,
+      OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+      PROOF_QUALITY, FIXED_PITCH | FF_DONTCARE,
+!     L"Fixedsys"	/* see _ReadVimIni */
+  };
+  
+  /* Initialise the "current height" to -12 (same as s_lfDefault) just
+***************
+*** 2937,2943 ****
+   * calculation is for a vertical (height) size or a horizontal (width) one.
+   */
+      static int
+! points_to_pixels(char_u *str, char_u **end, int vertical, long_i pprinter_dc)
+  {
+      int		pixels;
+      int		points = 0;
+--- 2937,2943 ----
+   * calculation is for a vertical (height) size or a horizontal (width) one.
+   */
+      static int
+! points_to_pixels(WCHAR *str, WCHAR **end, int vertical, long_i pprinter_dc)
+  {
+      int		pixels;
+      int		points = 0;
+***************
+*** 2948,2954 ****
+  
+      while (*str != NUL)
+      {
+! 	if (*str == '.' && divisor == 0)
+  	{
+  	    /* Start keeping a divisor, for later */
+  	    divisor = 1;
+--- 2948,2954 ----
+  
+      while (*str != NUL)
+      {
+! 	if (*str == L'.' && divisor == 0)
+  	{
+  	    /* Start keeping a divisor, for later */
+  	    divisor = 1;
+***************
+*** 2959,2965 ****
+  		break;
+  
+  	    points *= 10;
+! 	    points += *str - '0';
+  	    divisor *= 10;
+  	}
+  	++str;
+--- 2959,2965 ----
+  		break;
+  
+  	    points *= 10;
+! 	    points += *str - L'0';
+  	    divisor *= 10;
+  	}
+  	++str;
+***************
+*** 2989,3003 ****
+  
+      static int CALLBACK
+  font_enumproc(
+!     ENUMLOGFONT	    *elf,
+!     NEWTEXTMETRIC   *ntm UNUSED,
+!     int		    type UNUSED,
+      LPARAM	    lparam)
+  {
+      /* Return value:
+       *	  0 = terminate now (monospace & ANSI)
+       *	  1 = continue, still no luck...
+!      *	  2 = continue, but we have an acceptable LOGFONT
+       *	      (monospace, not ANSI)
+       * We use these values, as EnumFontFamilies returns 1 if the
+       * callback function is never called. So, we check the return as
+--- 2989,3003 ----
+  
+      static int CALLBACK
+  font_enumproc(
+!     ENUMLOGFONTW    *elf,
+!     NEWTEXTMETRICW  *ntm UNUSED,
+!     DWORD	    type UNUSED,
+      LPARAM	    lparam)
+  {
+      /* Return value:
+       *	  0 = terminate now (monospace & ANSI)
+       *	  1 = continue, still no luck...
+!      *	  2 = continue, but we have an acceptable LOGFONTW
+       *	      (monospace, not ANSI)
+       * We use these values, as EnumFontFamilies returns 1 if the
+       * callback function is never called. So, we check the return as
+***************
+*** 3005,3011 ****
+       * It's not pretty, but it works!
+       */
+  
+!     LOGFONT *lf = (LOGFONT *)(lparam);
+  
+  #ifndef FEAT_PROPORTIONAL_FONTS
+      /* Ignore non-monospace fonts without further ado */
+--- 3005,3011 ----
+       * It's not pretty, but it works!
+       */
+  
+!     LOGFONTW *lf = (LOGFONTW *)(lparam);
+  
+  #ifndef FEAT_PROPORTIONAL_FONTS
+      /* Ignore non-monospace fonts without further ado */
+***************
+*** 3013,3019 ****
+  	return 1;
+  #endif
+  
+!     /* Remember this LOGFONT as a "possible" */
+      *lf = elf->elfLogFont;
+  
+      /* Terminate the scan as soon as we find an ANSI font */
+--- 3013,3019 ----
+  	return 1;
+  #endif
+  
+!     /* Remember this LOGFONTW as a "possible" */
+      *lf = elf->elfLogFont;
+  
+      /* Terminate the scan as soon as we find an ANSI font */
+***************
+*** 3027,3041 ****
+  }
+  
+      static int
+! init_logfont(LOGFONT *lf)
+  {
+      int		n;
+      HWND	hwnd = GetDesktopWindow();
+      HDC		hdc = GetWindowDC(hwnd);
+  
+!     n = EnumFontFamilies(hdc,
+! 			 (LPCSTR)lf->lfFaceName,
+! 			 (FONTENUMPROC)font_enumproc,
+  			 (LPARAM)lf);
+  
+      ReleaseDC(hwnd, hdc);
+--- 3027,3041 ----
+  }
+  
+      static int
+! init_logfont(LOGFONTW *lf)
+  {
+      int		n;
+      HWND	hwnd = GetDesktopWindow();
+      HDC		hdc = GetWindowDC(hwnd);
+  
+!     n = EnumFontFamiliesW(hdc,
+! 			 lf->lfFaceName,
+! 			 (FONTENUMPROCW)font_enumproc,
+  			 (LPARAM)lf);
+  
+      ReleaseDC(hwnd, hdc);
+***************
+*** 3044,3050 ****
+      if (n == 1)
+  	return FAIL;
+  
+!     /* Tidy up the rest of the LOGFONT structure. We set to a basic
+       * font - get_logfont() sets bold, italic, etc based on the user's
+       * input.
+       */
+--- 3044,3050 ----
+      if (n == 1)
+  	return FAIL;
+  
+!     /* Tidy up the rest of the LOGFONTW structure. We set to a basic
+       * font - get_logfont() sets bold, italic, etc based on the user's
+       * input.
+       */
+***************
+*** 3060,3098 ****
+  }
+  
+  /*
+   * Get font info from "name" into logfont "lf".
+   * Return OK for a valid name, FAIL otherwise.
+   */
+      int
+  get_logfont(
+!     LOGFONT	*lf,
+      char_u	*name,
+      HDC		printer_dc,
+      int		verbose)
+  {
+!     char_u	*p;
+      int		i;
+      int		ret = FAIL;
+!     static LOGFONT *lastlf = NULL;
+!     char_u	*acpname = NULL;
+  
+      *lf = s_lfDefault;
+      if (name == NULL)
+  	return OK;
+  
+!     /* Convert 'name' from 'encoding' to the current codepage, because
+!      * lf->lfFaceName uses the current codepage.
+!      * TODO: Use Wide APIs instead of ANSI APIs. */
+!     if (enc_codepage >= 0 && (int)GetACP() != enc_codepage)
+!     {
+! 	int	len;
+! 	enc_to_acp(name, (int)STRLEN(name), &acpname, &len);
+! 	name = acpname;
+!     }
+!     if (STRCMP(name, "*") == 0)
+      {
+  #if defined(FEAT_GUI_MSWIN)
+! 	CHOOSEFONT	cf;
+  	/* if name is "*", bring up std font dialog: */
+  	vim_memset(&cf, 0, sizeof(cf));
+  	cf.lStructSize = sizeof(cf);
+--- 3060,3110 ----
+  }
+  
+  /*
++  * Compare a UTF-16 string and an ASCII string literally.
++  * Only works all the code points are inside ASCII range.
++  */
++     static int
++ utf16ascncmp(const WCHAR *w, const char *p, size_t n)
++ {
++     size_t i;
++ 
++     for (i = 0; i < n; i++)
++     {
++ 	if (w[i] == 0 || w[i] != p[i])
++ 	    return w[i] - p[i];
++     }
++     return 0;
++ }
++ 
++ /*
+   * Get font info from "name" into logfont "lf".
+   * Return OK for a valid name, FAIL otherwise.
+   */
+      int
+  get_logfont(
+!     LOGFONTW	*lf,
+      char_u	*name,
+      HDC		printer_dc,
+      int		verbose)
+  {
+!     WCHAR	*p;
+      int		i;
+      int		ret = FAIL;
+!     static LOGFONTW *lastlf = NULL;
+!     WCHAR	*wname;
+  
+      *lf = s_lfDefault;
+      if (name == NULL)
+  	return OK;
+  
+!     wname = enc_to_utf16(name, NULL);
+!     if (wname == NULL)
+! 	return FAIL;
+! 
+!     if (wcscmp(wname, L"*") == 0)
+      {
+  #if defined(FEAT_GUI_MSWIN)
+! 	CHOOSEFONTW	cf;
+  	/* if name is "*", bring up std font dialog: */
+  	vim_memset(&cf, 0, sizeof(cf));
+  	cf.lStructSize = sizeof(cf);
+***************
+*** 3102,3108 ****
+  	    *lf = *lastlf;
+  	cf.lpLogFont = lf;
+  	cf.nFontType = 0 ; //REGULAR_FONTTYPE;
+! 	if (ChooseFont(&cf))
+  	    ret = OK;
+  #endif
+  	goto theend;
+--- 3114,3120 ----
+  	    *lf = *lastlf;
+  	cf.lpLogFont = lf;
+  	cf.nFontType = 0 ; //REGULAR_FONTTYPE;
+! 	if (ChooseFontW(&cf))
+  	    ret = OK;
+  #endif
+  	goto theend;
+***************
+*** 3111,3124 ****
+      /*
+       * Split name up, it could be <name>:h<height>:w<width> etc.
+       */
+!     for (p = name; *p && *p != ':'; p++)
+      {
+! 	if (p - name + 1 >= LF_FACESIZE)
+  	    goto theend;			/* Name too long */
+! 	lf->lfFaceName[p - name] = *p;
+      }
+!     if (p != name)
+! 	lf->lfFaceName[p - name] = NUL;
+  
+      /* First set defaults */
+      lf->lfHeight = -12;
+--- 3123,3136 ----
+      /*
+       * Split name up, it could be <name>:h<height>:w<width> etc.
+       */
+!     for (p = wname; *p && *p != L':'; p++)
+      {
+! 	if (p - wname + 1 >= LF_FACESIZE)
+  	    goto theend;			/* Name too long */
+! 	lf->lfFaceName[p - wname] = *p;
+      }
+!     if (p != wname)
+! 	lf->lfFaceName[p - wname] = NUL;
+  
+      /* First set defaults */
+      lf->lfHeight = -12;
+***************
+*** 3136,3153 ****
+  	int	did_replace = FALSE;
+  
+  	for (i = 0; lf->lfFaceName[i]; ++i)
+! 	    if (IsDBCSLeadByte(lf->lfFaceName[i]))
+! 		++i;
+! 	    else if (lf->lfFaceName[i] == '_')
+  	    {
+! 		lf->lfFaceName[i] = ' ';
+  		did_replace = TRUE;
+  	    }
+  	if (!did_replace || init_logfont(lf) == FAIL)
+  	    goto theend;
+      }
+  
+!     while (*p == ':')
+  	p++;
+  
+      /* Set the values found after ':' */
+--- 3148,3163 ----
+  	int	did_replace = FALSE;
+  
+  	for (i = 0; lf->lfFaceName[i]; ++i)
+! 	    if (lf->lfFaceName[i] == L'_')
+  	    {
+! 		lf->lfFaceName[i] = L' ';
+  		did_replace = TRUE;
+  	    }
+  	if (!did_replace || init_logfont(lf) == FAIL)
+  	    goto theend;
+      }
+  
+!     while (*p == L':')
+  	p++;
+  
+      /* Set the values found after ':' */
+***************
+*** 3155,3184 ****
+      {
+  	switch (*p++)
+  	{
+! 	    case 'h':
+  		lf->lfHeight = - points_to_pixels(p, &p, TRUE, (long_i)printer_dc);
+  		break;
+! 	    case 'w':
+  		lf->lfWidth = points_to_pixels(p, &p, FALSE, (long_i)printer_dc);
+  		break;
+! 	    case 'b':
+  		lf->lfWeight = FW_BOLD;
+  		break;
+! 	    case 'i':
+  		lf->lfItalic = TRUE;
+  		break;
+! 	    case 'u':
+  		lf->lfUnderline = TRUE;
+  		break;
+! 	    case 's':
+  		lf->lfStrikeOut = TRUE;
+  		break;
+! 	    case 'c':
+  		{
+  		    struct charset_pair *cp;
+  
+  		    for (cp = charset_pairs; cp->name != NULL; ++cp)
+! 			if (STRNCMP(p, cp->name, strlen(cp->name)) == 0)
+  			{
+  			    lf->lfCharSet = cp->charset;
+  			    p += strlen(cp->name);
+--- 3165,3194 ----
+      {
+  	switch (*p++)
+  	{
+! 	    case L'h':
+  		lf->lfHeight = - points_to_pixels(p, &p, TRUE, (long_i)printer_dc);
+  		break;
+! 	    case L'w':
+  		lf->lfWidth = points_to_pixels(p, &p, FALSE, (long_i)printer_dc);
+  		break;
+! 	    case L'b':
+  		lf->lfWeight = FW_BOLD;
+  		break;
+! 	    case L'i':
+  		lf->lfItalic = TRUE;
+  		break;
+! 	    case L'u':
+  		lf->lfUnderline = TRUE;
+  		break;
+! 	    case L's':
+  		lf->lfStrikeOut = TRUE;
+  		break;
+! 	    case L'c':
+  		{
+  		    struct charset_pair *cp;
+  
+  		    for (cp = charset_pairs; cp->name != NULL; ++cp)
+! 			if (utf16ascncmp(p, cp->name, strlen(cp->name)) == 0)
+  			{
+  			    lf->lfCharSet = cp->charset;
+  			    p += strlen(cp->name);
+***************
+*** 3186,3202 ****
+  			}
+  		    if (cp->name == NULL && verbose)
+  		    {
+! 			semsg(_("E244: Illegal charset name \"%s\" in font name \"%s\""), p, name);
+  			break;
+  		    }
+  		    break;
+  		}
+! 	    case 'q':
+  		{
+  		    struct quality_pair *qp;
+  
+  		    for (qp = quality_pairs; qp->name != NULL; ++qp)
+! 			if (STRNCMP(p, qp->name, strlen(qp->name)) == 0)
+  			{
+  			    lf->lfQuality = qp->quality;
+  			    p += strlen(qp->name);
+--- 3196,3214 ----
+  			}
+  		    if (cp->name == NULL && verbose)
+  		    {
+! 			char_u *s = utf16_to_enc(p, NULL);
+! 			semsg(_("E244: Illegal charset name \"%s\" in font name \"%s\""), s, name);
+! 			vim_free(s);
+  			break;
+  		    }
+  		    break;
+  		}
+! 	    case L'q':
+  		{
+  		    struct quality_pair *qp;
+  
+  		    for (qp = quality_pairs; qp->name != NULL; ++qp)
+! 			if (utf16ascncmp(p, qp->name, strlen(qp->name)) == 0)
+  			{
+  			    lf->lfQuality = qp->quality;
+  			    p += strlen(qp->name);
+***************
+*** 3204,3210 ****
+  			}
+  		    if (qp->name == NULL && verbose)
+  		    {
+! 			semsg(_("E244: Illegal quality name \"%s\" in font name \"%s\""), p, name);
+  			break;
+  		    }
+  		    break;
+--- 3216,3224 ----
+  			}
+  		    if (qp->name == NULL && verbose)
+  		    {
+! 			char_u *s = utf16_to_enc(p, NULL);
+! 			semsg(_("E244: Illegal quality name \"%s\" in font name \"%s\""), s, name);
+! 			vim_free(s);
+  			break;
+  		    }
+  		    break;
+***************
+*** 3214,3220 ****
+  		    semsg(_("E245: Illegal char '%c' in font name \"%s\""), p[-1], name);
+  		goto theend;
+  	}
+! 	while (*p == ':')
+  	    p++;
+      }
+      ret = OK;
+--- 3228,3234 ----
+  		    semsg(_("E245: Illegal char '%c' in font name \"%s\""), p[-1], name);
+  		goto theend;
+  	}
+! 	while (*p == L':')
+  	    p++;
+      }
+      ret = OK;
+***************
+*** 3224,3234 ****
+      if (ret == OK && printer_dc == NULL)
+      {
+  	vim_free(lastlf);
+! 	lastlf = (LOGFONT *)alloc(sizeof(LOGFONT));
+  	if (lastlf != NULL)
+! 	    mch_memmove(lastlf, lf, sizeof(LOGFONT));
+      }
+!     vim_free(acpname);
+  
+      return ret;
+  }
+--- 3238,3248 ----
+      if (ret == OK && printer_dc == NULL)
+      {
+  	vim_free(lastlf);
+! 	lastlf = (LOGFONTW *)alloc(sizeof(LOGFONTW));
+  	if (lastlf != NULL)
+! 	    mch_memmove(lastlf, lf, sizeof(LOGFONTW));
+      }
+!     vim_free(wname);
+  
+      return ret;
+  }
+*** ../vim-8.1.1080/src/proto/gui_w32.pro	2019-02-01 20:42:18.718884011 +0100
+--- src/proto/gui_w32.pro	2019-03-30 16:20:37.994106945 +0100
+***************
+*** 70,76 ****
+  void gui_mch_set_fg_color(guicolor_T color);
+  void gui_mch_set_bg_color(guicolor_T color);
+  void gui_mch_set_sp_color(guicolor_T color);
+! void im_set_font(LOGFONT *lf);
+  void im_set_position(int row, int col);
+  void im_set_active(int active);
+  int im_get_status(void);
+--- 70,76 ----
+  void gui_mch_set_fg_color(guicolor_T color);
+  void gui_mch_set_bg_color(guicolor_T color);
+  void gui_mch_set_sp_color(guicolor_T color);
+! void im_set_font(LOGFONTW *lf);
+  void im_set_position(int row, int col);
+  void im_set_active(int active);
+  int im_get_status(void);
+*** ../vim-8.1.1080/src/proto/os_mswin.pro	2019-02-10 23:18:49.038187525 +0100
+--- src/proto/os_mswin.pro	2019-03-30 16:20:37.994106945 +0100
+***************
+*** 49,54 ****
+  void serverProcessPendingMessages(void);
+  char *charset_id2name(int id);
+  char *quality_id2name(DWORD id);
+! int get_logfont(LOGFONT *lf, char_u *name, HDC printer_dc, int verbose);
+  void channel_init_winsock(void);
+  /* vim: set ft=c : */
+--- 49,54 ----
+  void serverProcessPendingMessages(void);
+  char *charset_id2name(int id);
+  char *quality_id2name(DWORD id);
+! int get_logfont(LOGFONTW *lf, char_u *name, HDC printer_dc, int verbose);
+  void channel_init_winsock(void);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1080/src/version.c	2019-03-30 15:59:48.086175476 +0100
+--- src/version.c	2019-03-30 16:22:38.549119396 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1081,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+161. You get up before the sun rises to check your e-mail, and you
+     find yourself in the very same chair long after the sun has set.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

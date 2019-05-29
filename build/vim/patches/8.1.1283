@@ -1,0 +1,191 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1283
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1283
+Problem:    Delaying half a second after the top-bot message.
+Solution:   Instead of the delay add "W" to the search count.
+Files:	    src/search.c
+
+
+*** ../vim-8.1.1282/src/search.c	2019-05-05 13:02:05.655655369 +0200
+--- src/search.c	2019-05-06 21:35:18.297971857 +0200
+***************
+*** 26,32 ****
+  #ifdef FEAT_VIMINFO
+  static void wvsp_one(FILE *fp, int idx, char *s, int sc);
+  #endif
+! static void search_stat(int dirc, pos_T *pos, char_u  *msgbuf);
+  
+  /*
+   * This file contains various searching-related routines. These fall into
+--- 26,32 ----
+  #ifdef FEAT_VIMINFO
+  static void wvsp_one(FILE *fp, int idx, char *s, int sc);
+  #endif
+! static void search_stat(int dirc, pos_T *pos, int show_top_bot_msg, char_u  *msgbuf);
+  
+  /*
+   * This file contains various searching-related routines. These fall into
+***************
+*** 1294,1299 ****
+--- 1294,1301 ----
+       */
+      for (;;)
+      {
++ 	int	show_top_bot_msg = FALSE;
++ 
+  	searchstr = pat;
+  	dircp = NULL;
+  					    /* use previous pattern */
+***************
+*** 1524,1530 ****
+  	if (!shortmess(SHM_SEARCH)
+  		&& ((dirc == '/' && LT_POS(pos, curwin->w_cursor))
+  			    || (dirc == '?' && LT_POS(curwin->w_cursor, pos))))
+! 	    ui_delay(500L, FALSE);  // leave some time for top_bot_msg
+  
+  	if (c == FAIL)
+  	{
+--- 1526,1532 ----
+  	if (!shortmess(SHM_SEARCH)
+  		&& ((dirc == '/' && LT_POS(pos, curwin->w_cursor))
+  			    || (dirc == '?' && LT_POS(curwin->w_cursor, pos))))
+! 	    show_top_bot_msg = TRUE;
+  
+  	if (c == FAIL)
+  	{
+***************
+*** 1581,1587 ****
+  		&& c != FAIL
+  		&& !shortmess(SHM_SEARCHCOUNT)
+  		&& msgbuf != NULL)
+! 	    search_stat(dirc, &pos, msgbuf);
+  
+  	/*
+  	 * The search command can be followed by a ';' to do another search.
+--- 1583,1589 ----
+  		&& c != FAIL
+  		&& !shortmess(SHM_SEARCHCOUNT)
+  		&& msgbuf != NULL)
+! 	    search_stat(dirc, &pos, show_top_bot_msg, msgbuf);
+  
+  	/*
+  	 * The search command can be followed by a ';' to do another search.
+***************
+*** 4911,4916 ****
+--- 4913,4919 ----
+  search_stat(
+      int	    dirc,
+      pos_T   *pos,
++     int	    show_top_bot_msg,
+      char_u  *msgbuf)
+  {
+      int		    save_ws = p_ws;
+***************
+*** 4979,4986 ****
+      }
+      if (cur > 0)
+      {
+! #define STAT_BUF_LEN 10
+  	char	t[STAT_BUF_LEN] = "";
+  
+  #ifdef FEAT_RIGHTLEFT
+  	if (curwin->w_p_rl && *curwin->w_p_rlc == 's')
+--- 4982,4990 ----
+      }
+      if (cur > 0)
+      {
+! #define STAT_BUF_LEN 12
+  	char	t[STAT_BUF_LEN] = "";
++ 	int	len;
+  
+  #ifdef FEAT_RIGHTLEFT
+  	if (curwin->w_p_rl && *curwin->w_p_rlc == 's')
+***************
+*** 5006,5012 ****
+  	    else
+  		vim_snprintf(t, STAT_BUF_LEN, "[%d/%d]", cur, cnt);
+  	}
+! 	mch_memmove(msgbuf + STRLEN(msgbuf) - STRLEN(t), t, STRLEN(t));
+  	if (dirc == '?' && cur == 100)
+  	    cur = -1;
+  
+--- 5010,5024 ----
+  	    else
+  		vim_snprintf(t, STAT_BUF_LEN, "[%d/%d]", cur, cnt);
+  	}
+! 
+! 	len = STRLEN(t);
+! 	if (show_top_bot_msg && len + 3 < STAT_BUF_LEN)
+! 	{
+! 	    STRCPY(t + len, " W");
+! 	    len += 2;
+! 	}
+! 
+! 	mch_memmove(msgbuf + STRLEN(msgbuf) - len, t, len);
+  	if (dirc == '?' && cur == 100)
+  	    cur = -1;
+  
+*** ../vim-8.1.1282/src/testdir/test_search_stat.vim	2019-05-04 21:08:17.119814244 +0200
+--- src/testdir/test_search_stat.vim	2019-05-06 21:27:54.140328970 +0200
+***************
+*** 3,8 ****
+--- 3,10 ----
+  " This test is fragile, it might not work interactively, but it works when run
+  " as test!
+  
++ source shared.vim
++ 
+  func! Test_search_stat()
+    new
+    set shortmess-=S
+***************
+*** 79,85 ****
+      set norl
+    endif
+  
+!   " 9) normal, back at top
+    call cursor(1,1)
+    let @/ = 'foobar'
+    let pat = '?foobar\s\+'
+--- 81,87 ----
+      set norl
+    endif
+  
+!   " 9) normal, back at bottom
+    call cursor(1,1)
+    let @/ = 'foobar'
+    let pat = '?foobar\s\+'
+***************
+*** 87,92 ****
+--- 89,95 ----
+    let stat = '\[20/20\]'
+    call assert_match(pat .. stat, g:a)
+    call assert_match('search hit TOP, continuing at BOTTOM', g:a)
++   call assert_match('\[20/20\] W', Screenline(&lines))
+  
+    " 10) normal, no match
+    call cursor(1,1)
+*** ../vim-8.1.1282/src/version.c	2019-05-05 21:01:47.654072636 +0200
+--- src/version.c	2019-05-06 21:15:05.864367740 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1283,
+  /**/
+
+-- 
+How do you know when you have run out of invisible ink?
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

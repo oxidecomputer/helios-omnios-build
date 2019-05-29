@@ -1,0 +1,92 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1387
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1387
+Problem:    Calling prop_add() in an empty buffer doesn't work. (Dominique
+            Pelle)
+Solution:   Open the memline before adding a text property. (closes #4412)
+Files:	    src/textprop.c, src/testdir/test_textprop.vim
+
+
+*** ../vim-8.1.1386/src/textprop.c	2019-05-24 19:38:59.112545434 +0200
+--- src/textprop.c	2019-05-24 20:35:24.489130483 +0200
+***************
+*** 12,17 ****
+--- 12,18 ----
+   *
+   * TODO:
+   * - Adjust text property column and length when text is inserted/deleted.
++  *   -> :substitute with multiple matches, issue #4427
+   *   -> a :substitute with a multi-line match
+   *   -> search for changed_bytes() from misc1.c
+   *   -> search for mark_col_adjust()
+***************
+*** 238,243 ****
+--- 239,247 ----
+  	return;
+      }
+  
++     if (buf->b_ml.ml_mfp == NULL)
++ 	ml_open(buf);
++ 
+      for (lnum = start_lnum; lnum <= end_lnum; ++lnum)
+      {
+  	colnr_T col;	// start column
+***************
+*** 327,333 ****
+  
+      // Be quick when no text property types have been defined or the buffer,
+      // unless we are adding one.
+!     if (!buf->b_has_textprop && !will_change)
+  	return 0;
+  
+      // Fetch the line to get the ml_line_len field updated.
+--- 331,337 ----
+  
+      // Be quick when no text property types have been defined or the buffer,
+      // unless we are adding one.
+!     if ((!buf->b_has_textprop && !will_change) || buf->b_ml.ml_mfp == NULL)
+  	return 0;
+  
+      // Fetch the line to get the ml_line_len field updated.
+*** ../vim-8.1.1386/src/testdir/test_textprop.vim	2019-05-19 22:53:36.504914607 +0200
+--- src/testdir/test_textprop.vim	2019-05-24 20:38:45.796002471 +0200
+***************
+*** 752,754 ****
+--- 752,762 ----
+    " Same, but delete four columns
+    call RunTestVisualBlock(4, '02')
+  endfunc
++ 
++ " Adding a text property to a new buffer should not fail
++ func Test_textprop_empty_buffer()
++   call prop_type_add('comment', {'highlight': 'Search'})
++   new
++   call prop_add(1, 1, {'type': 'comment'})
++   close
++ endfunc
+*** ../vim-8.1.1386/src/version.c	2019-05-24 19:38:59.116545403 +0200
+--- src/version.c	2019-05-24 20:40:37.251376451 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1387,
+  /**/
+
+-- 
+How To Keep A Healthy Level Of Insanity:
+18. When leaving the zoo, start running towards the parking lot,
+    yelling "run for your lives, they're loose!!"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

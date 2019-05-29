@@ -1,0 +1,99 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1288
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1288
+Problem:    Search stats don't show for mapped command.
+Solution:   Remove SEARCH_PEEK from searchit flags.  Add a test. (Christian
+            Brabandt)
+Files:	    src/search.c, src/testdir/test_search_stat.vim
+
+
+*** ../vim-8.1.1287/src/search.c	2019-05-06 21:37:14.965351663 +0200
+--- src/search.c	2019-05-07 21:25:29.772511129 +0200
+***************
+*** 4958,4965 ****
+  	profile_setlimit(20L, &start);
+  #endif
+  	while (!got_int && searchit(curwin, curbuf, &lastpos, NULL,
+! 				   FORWARD, NULL, 1, SEARCH_PEEK + SEARCH_KEEP,
+! 				     RE_LAST, (linenr_T)0, NULL, NULL) != FAIL)
+  	{
+  #ifdef FEAT_RELTIME
+  	    // Stop after passing the time limit.
+--- 4958,4965 ----
+  	profile_setlimit(20L, &start);
+  #endif
+  	while (!got_int && searchit(curwin, curbuf, &lastpos, NULL,
+! 					FORWARD, NULL, 1, SEARCH_KEEP, RE_LAST,
+! 					      (linenr_T)0, NULL, NULL) != FAIL)
+  	{
+  #ifdef FEAT_RELTIME
+  	    // Stop after passing the time limit.
+*** ../vim-8.1.1287/src/testdir/test_search_stat.vim	2019-05-06 21:37:14.965351663 +0200
+--- src/testdir/test_search_stat.vim	2019-05-07 21:24:57.116686237 +0200
+***************
+*** 8,13 ****
+--- 8,14 ----
+  func! Test_search_stat()
+    new
+    set shortmess-=S
++   " Append 50 lines with text to search for, "foobar" appears 20 times
+    call append(0, repeat(['foobar', 'foo', 'fooooobar', 'foba', 'foobar'], 10))
+  
+    " 1) match at second line
+***************
+*** 105,110 ****
+--- 106,135 ----
+      call assert_false(1)
+    endtry
+  
++   " 11) normal, n comes from a mapping
++   "     Need to move over more than 64 lines to trigger char_avail(.
++   nnoremap n nzv
++   call cursor(1,1)
++   call append(50, repeat(['foobar', 'foo', 'fooooobar', 'foba', 'foobar'], 10))
++   call setline(2, 'find this')
++   call setline(70, 'find this')
++   let @/ = 'find this'
++   let pat = '/find this\s\+'
++   let g:a = execute(':unsilent :norm n')
++   " g:a will contain several lines
++   let g:b = split(g:a, "\n")[-1]
++   let stat = '\[1/2\]'
++   call assert_match(pat .. stat, g:b)
++   unmap n
++ 
++   " 11) normal, but silent
++   call cursor(1,1)
++   let @/ = 'find this'
++   let pat = '/find this\s\+'
++   let g:a = execute(':norm! n')
++   let stat = '\[1/2\]'
++   call assert_notmatch(pat .. stat, g:a)
++ 
+    " close the window
+    set shortmess+=S
+    bwipe!
+*** ../vim-8.1.1287/src/version.c	2019-05-07 16:28:08.177289442 +0200
+--- src/version.c	2019-05-07 21:26:45.164105804 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1288,
+  /**/
+
+-- 
+Zen Microsystems: we're the om in .commmmmmmmm
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

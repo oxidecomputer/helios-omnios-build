@@ -1,0 +1,561 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1291
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1291
+Problem:    Not easy to change directory and restore.
+Solution:   Add the chdir() function. (Yegappan Lakshmanan, closes #4358)
+Files:	    runtime/doc/eval.txt, runtime/doc/todo.txt,
+            runtime/doc/usr_41.txt, src/evalfunc.c, src/ex_docmd.c,
+            src/if_py_both.h, src/proto/ex_docmd.pro, src/structs.h,
+            src/testdir/test_cd.vim
+
+
+*** ../vim-8.1.1290/runtime/doc/eval.txt	2019-05-05 18:11:46.312590682 +0200
+--- runtime/doc/eval.txt	2019-05-07 22:00:01.205510545 +0200
+***************
+*** 2273,2278 ****
+--- 2273,2279 ----
+  				String	status of channel {handle}
+  changenr()			Number	current change number
+  char2nr({expr} [, {utf8}])	Number	ASCII/UTF8 value of first char in {expr}
++ chdir({dir})			String	change current working directory
+  cindent({lnum})			Number	C indent for line {lnum}
+  clearmatches([{win}])		none	clear all matches
+  col({expr})			Number	column nr of cursor or mark
+***************
+*** 3469,3474 ****
+--- 3470,3496 ----
+  		    let list = map(split(str, '\zs'), {_, val -> char2nr(val)})
+  <		Result: [65, 66, 67]
+  
++ chdir({dir})						*chdir()*
++ 		Change the current working directory to {dir}.  The scope of
++ 		the directory change depends on the directory of the current
++ 		window:
++ 			- If the current window has a window-local directory
++ 			  (|:lcd|), then changes the window local directory.
++ 			- Otherwise, if the current tabpage has a local
++ 			  directory (|:tcd|) then changes the tabpage local
++ 			  directory.
++ 			- Otherwise, changes the global directory.
++ 		If successful, returns the previous working directory.  Pass
++ 		this to another chdir() to restore the directory.
++ 		On failure, returns an empty string.
++ 
++ 		Example: >
++ 			let save_dir = chdir(newdir)
++ 			if save_dir
++ 			   " ... do some work
++ 			   call chdir(save_dir)
++ 			endif
++ <
+  cindent({lnum})						*cindent()*
+  		Get the amount of indent for line {lnum} according the C
+  		indenting rules, as with 'cindent'.
+*** ../vim-8.1.1290/runtime/doc/usr_41.txt	2019-05-05 18:11:46.328590595 +0200
+--- runtime/doc/usr_41.txt	2019-05-07 21:56:20.282699661 +0200
+***************
+*** 769,774 ****
+--- 769,775 ----
+  	haslocaldir()		check if current window used |:lcd| or |:tcd|
+  	tempname()		get the name of a temporary file
+  	mkdir()			create a new directory
++ 	chdir()			change current working directory
+  	delete()		delete a file
+  	rename()		rename a file
+  	system()		get the result of a shell command as a string
+*** ../vim-8.1.1290/src/evalfunc.c	2019-05-07 16:28:08.177289442 +0200
+--- src/evalfunc.c	2019-05-07 21:56:20.286699640 +0200
+***************
+*** 107,112 ****
+--- 107,113 ----
+  #endif
+  static void f_changenr(typval_T *argvars, typval_T *rettv);
+  static void f_char2nr(typval_T *argvars, typval_T *rettv);
++ static void f_chdir(typval_T *argvars, typval_T *rettv);
+  static void f_cindent(typval_T *argvars, typval_T *rettv);
+  static void f_clearmatches(typval_T *argvars, typval_T *rettv);
+  static void f_col(typval_T *argvars, typval_T *rettv);
+***************
+*** 597,602 ****
+--- 598,604 ----
+  #endif
+      {"changenr",	0, 0, f_changenr},
+      {"char2nr",		1, 2, f_char2nr},
++     {"chdir",		1, 1, f_chdir},
+      {"cindent",		1, 1, f_cindent},
+      {"clearmatches",	0, 1, f_clearmatches},
+      {"col",		1, 1, f_col},
+***************
+*** 2491,2496 ****
+--- 2493,2537 ----
+  }
+  
+  /*
++  * "chdir(dir)" function
++  */
++     static void
++ f_chdir(typval_T *argvars, typval_T *rettv)
++ {
++     char_u	*cwd;
++     cdscope_T	scope = CDSCOPE_GLOBAL;
++ 
++     rettv->v_type = VAR_STRING;
++     rettv->vval.v_string = NULL;
++ 
++     if (argvars[0].v_type != VAR_STRING)
++ 	return;
++ 
++     // Return the current directory
++     cwd = alloc(MAXPATHL);
++     if (cwd != NULL)
++     {
++ 	if (mch_dirname(cwd, MAXPATHL) != FAIL)
++ 	{
++ #ifdef BACKSLASH_IN_FILENAME
++ 	    slash_adjust(cwd);
++ #endif
++ 	    rettv->vval.v_string = vim_strsave(cwd);
++ 	}
++ 	vim_free(cwd);
++     }
++ 
++     if (curwin->w_localdir != NULL)
++ 	scope = CDSCOPE_WINDOW;
++     else if (curtab->tp_localdir != NULL)
++ 	scope = CDSCOPE_TABPAGE;
++ 
++     if (!changedir_func(argvars[0].vval.v_string, TRUE, scope))
++ 	// Directory change failed
++ 	VIM_CLEAR(rettv->vval.v_string);
++ }
++ 
++ /*
+   * "cindent(lnum)" function
+   */
+      static void
+*** ../vim-8.1.1290/src/ex_docmd.c	2019-05-04 15:05:24.927269310 +0200
+--- src/ex_docmd.c	2019-05-07 21:56:20.286699640 +0200
+***************
+*** 7513,7529 ****
+  
+  /*
+   * Deal with the side effects of changing the current directory.
+!  * When "tablocal" is TRUE then this was after an ":tcd" command.
+!  * When "winlocal" is TRUE then this was after an ":lcd" command.
+   */
+      void
+! post_chdir(int tablocal, int winlocal)
+  {
+!     if (!winlocal)
+  	// Clear tab local directory for both :cd and :tcd
+  	VIM_CLEAR(curtab->tp_localdir);
+      VIM_CLEAR(curwin->w_localdir);
+!     if (winlocal || tablocal)
+      {
+  	/* If still in global directory, need to remember current
+  	 * directory as global directory. */
+--- 7513,7529 ----
+  
+  /*
+   * Deal with the side effects of changing the current directory.
+!  * When 'scope' is CDSCOPE_TABPAGE then this was after an ":tcd" command.
+!  * When 'scope' is CDSCOPE_WINDOW then this was after an ":lcd" command.
+   */
+      void
+! post_chdir(cdscope_T scope)
+  {
+!     if (scope != CDSCOPE_WINDOW)
+  	// Clear tab local directory for both :cd and :tcd
+  	VIM_CLEAR(curtab->tp_localdir);
+      VIM_CLEAR(curwin->w_localdir);
+!     if (scope != CDSCOPE_GLOBAL)
+      {
+  	/* If still in global directory, need to remember current
+  	 * directory as global directory. */
+***************
+*** 7532,7538 ****
+  	/* Remember this local directory for the window. */
+  	if (mch_dirname(NameBuff, MAXPATHL) == OK)
+  	{
+! 	    if (tablocal)
+  		curtab->tp_localdir = vim_strsave(NameBuff);
+  	    else
+  		curwin->w_localdir = vim_strsave(NameBuff);
+--- 7532,7538 ----
+  	/* Remember this local directory for the window. */
+  	if (mch_dirname(NameBuff, MAXPATHL) == OK)
+  	{
+! 	    if (scope == CDSCOPE_TABPAGE)
+  		curtab->tp_localdir = vim_strsave(NameBuff);
+  	    else
+  		curwin->w_localdir = vim_strsave(NameBuff);
+***************
+*** 7548,7649 ****
+      shorten_fnames(TRUE);
+  }
+  
+- 
+  /*
+!  * ":cd", ":tcd", ":lcd", ":chdir" ":tchdir" and ":lchdir".
+   */
+!     void
+! ex_cd(exarg_T *eap)
+  {
+-     char_u	*new_dir;
+      char_u	*tofree;
+      int		dir_differs;
+  
+!     new_dir = eap->arg;
+! #if !defined(UNIX) && !defined(VMS)
+!     /* for non-UNIX ":cd" means: print current directory */
+!     if (*new_dir == NUL)
+! 	ex_pwd(NULL);
+!     else
+! #endif
+      {
+! 	if (allbuf_locked())
+! 	    return;
+! 	if (vim_strchr(p_cpo, CPO_CHDIR) != NULL && curbufIsChanged()
+! 							     && !eap->forceit)
+! 	{
+! 	    emsg(_("E747: Cannot change directory, buffer is modified (add ! to override)"));
+! 	    return;
+! 	}
+  
+! 	/* ":cd -": Change to previous directory */
+! 	if (STRCMP(new_dir, "-") == 0)
+  	{
+! 	    if (prev_dir == NULL)
+! 	    {
+! 		emsg(_("E186: No previous directory"));
+! 		return;
+! 	    }
+! 	    new_dir = prev_dir;
+  	}
+  
+! 	/* Save current directory for next ":cd -" */
+! 	tofree = prev_dir;
+! 	if (mch_dirname(NameBuff, MAXPATHL) == OK)
+! 	    prev_dir = vim_strsave(NameBuff);
+! 	else
+! 	    prev_dir = NULL;
+  
+  #if defined(UNIX) || defined(VMS)
+! 	/* for UNIX ":cd" means: go to home directory */
+! 	if (*new_dir == NUL)
+! 	{
+! 	    /* use NameBuff for home directory name */
+  # ifdef VMS
+! 	    char_u	*p;
+  
+! 	    p = mch_getenv((char_u *)"SYS$LOGIN");
+! 	    if (p == NULL || *p == NUL)	/* empty is the same as not set */
+! 		NameBuff[0] = NUL;
+! 	    else
+! 		vim_strncpy(NameBuff, p, MAXPATHL - 1);
+  # else
+! 	    expand_env((char_u *)"$HOME", NameBuff, MAXPATHL);
+  # endif
+! 	    new_dir = NameBuff;
+! 	}
+  #endif
+! 	dir_differs = new_dir == NULL || prev_dir == NULL
+! 			|| pathcmp((char *)prev_dir, (char *)new_dir, -1) != 0;
+! 	if (new_dir == NULL || (dir_differs && vim_chdir(new_dir)))
+! 	    emsg(_(e_failed));
+! 	else
+  	{
+! 	    char_u  *acmd_fname;
+! 	    int is_winlocal_chdir = eap->cmdidx == CMD_lcd
+! 						  || eap->cmdidx == CMD_lchdir;
+! 	    int is_tablocal_chdir = eap->cmdidx == CMD_tcd
+! 						  || eap->cmdidx == CMD_tchdir;
+  
+! 	    post_chdir(is_tablocal_chdir, is_winlocal_chdir);
+  
+! 	    /* Echo the new current directory if the command was typed. */
+  	    if (KeyTyped || p_verbose >= 5)
+  		ex_pwd(eap);
+- 
+- 	    if (dir_differs)
+- 	    {
+- 		if (is_winlocal_chdir)
+- 		    acmd_fname = (char_u *)"window";
+- 		else if (is_tablocal_chdir)
+- 		    acmd_fname = (char_u *)"tabpage";
+- 		else
+- 		    acmd_fname = (char_u *)"global";
+- 		apply_autocmds(EVENT_DIRCHANGED, acmd_fname,
+- 		      new_dir, FALSE, curbuf);
+- 	    }
+  	}
+- 	vim_free(tofree);
+      }
+  }
+  
+--- 7548,7673 ----
+      shorten_fnames(TRUE);
+  }
+  
+  /*
+!  * Change directory function used by :cd/:tcd/:lcd Ex commands and the
+!  * chdir() function. If 'winlocaldir' is TRUE, then changes the window-local
+!  * directory. If 'tablocaldir' is TRUE, then changes the tab-local directory.
+!  * Otherwise changes the global directory.
+!  * Returns TRUE if the directory is successfully changed.
+   */
+!     int
+! changedir_func(
+! 	char_u		*new_dir,
+! 	int		forceit,
+! 	cdscope_T	scope)
+  {
+      char_u	*tofree;
+      int		dir_differs;
++     int		retval = FALSE;
+  
+!     if (allbuf_locked())
+! 	return FALSE;
+! 
+!     if (vim_strchr(p_cpo, CPO_CHDIR) != NULL && curbufIsChanged() && !forceit)
+      {
+! 	emsg(_("E747: Cannot change directory, buffer is modified (add ! to override)"));
+! 	return FALSE;
+!     }
+  
+!     // ":cd -": Change to previous directory
+!     if (STRCMP(new_dir, "-") == 0)
+!     {
+! 	if (prev_dir == NULL)
+  	{
+! 	    emsg(_("E186: No previous directory"));
+! 	    return FALSE;
+  	}
++ 	new_dir = prev_dir;
++     }
+  
+!     // Save current directory for next ":cd -"
+!     tofree = prev_dir;
+!     if (mch_dirname(NameBuff, MAXPATHL) == OK)
+! 	prev_dir = vim_strsave(NameBuff);
+!     else
+! 	prev_dir = NULL;
+  
+  #if defined(UNIX) || defined(VMS)
+!     // for UNIX ":cd" means: go to home directory
+!     if (*new_dir == NUL)
+!     {
+! 	// use NameBuff for home directory name
+  # ifdef VMS
+! 	char_u	*p;
+  
+! 	p = mch_getenv((char_u *)"SYS$LOGIN");
+! 	if (p == NULL || *p == NUL)	// empty is the same as not set
+! 	    NameBuff[0] = NUL;
+! 	else
+! 	    vim_strncpy(NameBuff, p, MAXPATHL - 1);
+  # else
+! 	expand_env((char_u *)"$HOME", NameBuff, MAXPATHL);
+  # endif
+! 	new_dir = NameBuff;
+!     }
+  #endif
+!     dir_differs = new_dir == NULL || prev_dir == NULL
+! 	|| pathcmp((char *)prev_dir, (char *)new_dir, -1) != 0;
+!     if (new_dir == NULL || (dir_differs && vim_chdir(new_dir)))
+! 	emsg(_(e_failed));
+!     else
+!     {
+! 	char_u  *acmd_fname;
+! 
+! 	post_chdir(scope);
+! 
+! 	if (dir_differs)
+  	{
+! 	    if (scope == CDSCOPE_WINDOW)
+! 		acmd_fname = (char_u *)"window";
+! 	    else if (scope == CDSCOPE_TABPAGE)
+! 		acmd_fname = (char_u *)"tabpage";
+! 	    else
+! 		acmd_fname = (char_u *)"global";
+! 	    apply_autocmds(EVENT_DIRCHANGED, acmd_fname, new_dir, FALSE,
+! 								curbuf);
+! 	}
+! 	retval = TRUE;
+!     }
+!     vim_free(tofree);
+  
+!     return retval;
+! }
+  
+! /*
+!  * ":cd", ":tcd", ":lcd", ":chdir" ":tchdir" and ":lchdir".
+!  */
+!     void
+! ex_cd(exarg_T *eap)
+! {
+!     char_u	*new_dir;
+! 
+!     new_dir = eap->arg;
+! #if !defined(UNIX) && !defined(VMS)
+!     // for non-UNIX ":cd" means: print current directory
+!     if (*new_dir == NUL)
+! 	ex_pwd(NULL);
+!     else
+! #endif
+!     {
+! 	cdscope_T	scope = CDSCOPE_GLOBAL;
+! 
+! 	if (eap->cmdidx == CMD_lcd || eap->cmdidx == CMD_lchdir)
+! 	    scope = CDSCOPE_WINDOW;
+! 	else if (eap->cmdidx == CMD_tcd || eap->cmdidx == CMD_tchdir)
+! 	    scope = CDSCOPE_TABPAGE;
+! 
+! 	if (changedir_func(new_dir, eap->forceit, scope))
+! 	{
+! 	    // Echo the new current directory if the command was typed.
+  	    if (KeyTyped || p_verbose >= 5)
+  		ex_pwd(eap);
+  	}
+      }
+  }
+  
+*** ../vim-8.1.1290/src/if_py_both.h	2019-04-27 20:36:52.530303581 +0200
+--- src/if_py_both.h	2019-05-07 21:56:20.286699640 +0200
+***************
+*** 1032,1038 ****
+      Py_DECREF(newwd);
+      Py_XDECREF(todecref);
+  
+!     post_chdir(FALSE, FALSE);
+  
+      if (VimTryEnd())
+      {
+--- 1032,1038 ----
+      Py_DECREF(newwd);
+      Py_XDECREF(todecref);
+  
+!     post_chdir(CDSCOPE_GLOBAL);
+  
+      if (VimTryEnd())
+      {
+*** ../vim-8.1.1290/src/proto/ex_docmd.pro	2019-04-27 20:36:52.534303564 +0200
+--- src/proto/ex_docmd.pro	2019-05-07 21:56:20.286699640 +0200
+***************
+*** 37,43 ****
+  void tabpage_new(void);
+  void do_exedit(exarg_T *eap, win_T *old_curwin);
+  void free_cd_dir(void);
+! void post_chdir(int tablocal, int winlocal);
+  void ex_cd(exarg_T *eap);
+  void do_sleep(long msec);
+  void ex_may_print(exarg_T *eap);
+--- 37,44 ----
+  void tabpage_new(void);
+  void do_exedit(exarg_T *eap, win_T *old_curwin);
+  void free_cd_dir(void);
+! void post_chdir(cdscope_T cdscope);
+! int changedir_func(char_u *new_dir, int forceit, cdscope_T cdscope);
+  void ex_cd(exarg_T *eap);
+  void do_sleep(long msec);
+  void ex_may_print(exarg_T *eap);
+*** ../vim-8.1.1290/src/structs.h	2019-05-05 15:47:37.825923529 +0200
+--- src/structs.h	2019-05-07 22:01:54.424899979 +0200
+***************
+*** 3555,3557 ****
+--- 3555,3564 ----
+      varnumber_T vv_count;
+      varnumber_T vv_count1;
+  } vimvars_save_T;
++ 
++ // Scope for changing directory
++ typedef enum {
++     CDSCOPE_GLOBAL,	// :cd
++     CDSCOPE_TABPAGE,	// :tcd
++     CDSCOPE_WINDOW	// :lcd
++ } cdscope_T;
+*** ../vim-8.1.1290/src/testdir/test_cd.vim	2018-07-03 18:36:23.037340552 +0200
+--- src/testdir/test_cd.vim	2019-05-07 21:56:20.286699640 +0200
+***************
+*** 1,4 ****
+! " Test for :cd
+  
+  func Test_cd_large_path()
+    " This used to crash with a heap write overflow.
+--- 1,4 ----
+! " Test for :cd and chdir()
+  
+  func Test_cd_large_path()
+    " This used to crash with a heap write overflow.
+***************
+*** 65,67 ****
+--- 65,108 ----
+    set cpo&
+    bw!
+  endfunc
++ 
++ " Test for chdir()
++ func Test_chdir_func()
++   let topdir = getcwd()
++   call mkdir('Xdir/y/z', 'p')
++ 
++   " Create a few tabpages and windows with different directories
++   new
++   cd Xdir
++   tabnew
++   tcd y
++   below new
++   below new
++   lcd z
++ 
++   tabfirst
++   call chdir('..')
++   call assert_equal('y', fnamemodify(getcwd(1, 2), ':t'))
++   call assert_equal('z', fnamemodify(getcwd(3, 2), ':t'))
++   tabnext | wincmd t
++   call chdir('..')
++   call assert_equal('Xdir', fnamemodify(getcwd(1, 2), ':t'))
++   call assert_equal('Xdir', fnamemodify(getcwd(2, 2), ':t'))
++   call assert_equal('z', fnamemodify(getcwd(3, 2), ':t'))
++   call assert_equal('testdir', fnamemodify(getcwd(1, 1), ':t'))
++   3wincmd w
++   call chdir('..')
++   call assert_equal('Xdir', fnamemodify(getcwd(1, 2), ':t'))
++   call assert_equal('Xdir', fnamemodify(getcwd(2, 2), ':t'))
++   call assert_equal('y', fnamemodify(getcwd(3, 2), ':t'))
++   call assert_equal('testdir', fnamemodify(getcwd(1, 1), ':t'))
++ 
++   " Error case
++   call assert_fails("call chdir('dir-abcd')", 'E472:')
++   silent! let d = chdir("dir_abcd")
++   call assert_equal("", d)
++ 
++   only | tabonly
++   exe 'cd ' . topdir
++   call delete('Xdir', 'rf')
++ endfunc
+*** ../vim-8.1.1290/src/version.c	2019-05-07 21:48:15.629291397 +0200
+--- src/version.c	2019-05-07 22:06:10.403517496 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1291,
+  /**/
+
+-- 
+Violators can be fined, arrested or jailed for making ugly faces at a dog.
+		[real standing law in Oklahoma, United States of America]
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

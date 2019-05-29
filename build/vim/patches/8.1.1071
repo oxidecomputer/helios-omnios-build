@@ -1,0 +1,321 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1071
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1071
+Problem:    Cannot get composing characters from the screen.
+Solution:   Add screenchars() and screenstring(). (partly by Ozaki Kiichi,
+            closes #4059)
+Files:	    runtime/doc/eval.txt, runtime/doc/usr_41.txt, src/evalfunc.c,
+            src/testdir/test_utf8.vim, src/testdir/view_util.vim
+
+
+*** ../vim-8.1.1070/runtime/doc/eval.txt	2019-03-29 12:19:34.949348952 +0100
+--- runtime/doc/eval.txt	2019-03-29 13:32:41.481037953 +0100
+***************
+*** 2500,2507 ****
+--- 2525,2534 ----
+  rubyeval({expr})		any	evaluate |Ruby| expression
+  screenattr({row}, {col})	Number	attribute at screen position
+  screenchar({row}, {col})	Number	character at screen position
++ screenchars({row}, {col})	List	List of characters at screen position
+  screencol()			Number	current cursor column
+  screenrow()			Number	current cursor row
++ screenstring({row}, {col})	String	characters at screen position
+  search({pattern} [, {flags} [, {stopline} [, {timeout}]]])
+  				Number	search for {pattern}
+  searchdecl({name} [, {global} [, {thisblock}]])
+***************
+*** 7458,7463 ****
+--- 7512,7524 ----
+  		This is mainly to be used for testing.
+  		Returns -1 when row or col is out of range.
+  
++ screenchars({row}, {col})					*screenchars()*
++ 		The result is a List of Numbers.  The first number is the same
++ 		as what |screenchar()| returns.  Further numbers are
++ 		composing characters on top of the base character.
++ 		This is mainly to be used for testing.
++ 		Returns an empty List when row or col is out of range.
++ 
+  screencol()							*screencol()*
+  		The result is a Number, which is the current screen column of
+  		the cursor. The leftmost column has number 1.
+***************
+*** 7479,7484 ****
+--- 7540,7553 ----
+  
+  		Note: Same restrictions as with |screencol()|.
+  
++ screenstring({row}, {col})					*screenstring()*
++ 		The result is a String that contains the base character and
++ 		any composing characters at position [row, col] on the screen.
++ 		This is like |screenchars()| but returning a String with the
++ 		characters.
++ 		This is mainly to be used for testing.
++ 		Returns an empty String when row or col is out of range.
++ 
+  search({pattern} [, {flags} [, {stopline} [, {timeout}]]])	*search()*
+  		Search for regexp pattern {pattern}.  The search starts at the
+  		cursor position (you can use |cursor()| to set it).
+*** ../vim-8.1.1070/runtime/doc/usr_41.txt	2019-03-29 12:19:34.953348924 +0100
+--- runtime/doc/usr_41.txt	2019-03-29 13:44:52.996710729 +0100
+***************
+*** 722,727 ****
+--- 723,730 ----
+  	diff_filler()		get the number of filler lines above a line
+  	screenattr()		get attribute at a screen line/row
+  	screenchar()		get character code at a screen line/row
++ 	screenchars()		get character codes at a screen line/row
++ 	screenstring()		get string of characters at a screen line/row
+  
+  Working with text in the current buffer:		*text-functions*
+  	getline()		get a line or list of lines from the buffer
+*** ../vim-8.1.1070/src/evalfunc.c	2019-03-29 12:19:34.953348924 +0100
+--- src/evalfunc.c	2019-03-29 13:44:04.812822817 +0100
+***************
+*** 344,351 ****
+--- 344,353 ----
+  #endif
+  static void f_screenattr(typval_T *argvars, typval_T *rettv);
+  static void f_screenchar(typval_T *argvars, typval_T *rettv);
++ static void f_screenchars(typval_T *argvars, typval_T *rettv);
+  static void f_screencol(typval_T *argvars, typval_T *rettv);
+  static void f_screenrow(typval_T *argvars, typval_T *rettv);
++ static void f_screenstring(typval_T *argvars, typval_T *rettv);
+  static void f_search(typval_T *argvars, typval_T *rettv);
+  static void f_searchdecl(typval_T *argvars, typval_T *rettv);
+  static void f_searchpair(typval_T *argvars, typval_T *rettv);
+***************
+*** 839,846 ****
+--- 841,850 ----
+  #endif
+      {"screenattr",	2, 2, f_screenattr},
+      {"screenchar",	2, 2, f_screenchar},
++     {"screenchars",	2, 2, f_screenchars},
+      {"screencol",	0, 0, f_screencol},
+      {"screenrow",	0, 0, f_screenrow},
++     {"screenstring",	2, 2, f_screenstring},
+      {"search",		1, 4, f_search},
+      {"searchdecl",	1, 3, f_searchdecl},
+      {"searchpair",	3, 7, f_searchpair},
+***************
+*** 10430,10437 ****
+  
+      row = (int)tv_get_number_chk(&argvars[0], NULL) - 1;
+      col = (int)tv_get_number_chk(&argvars[1], NULL) - 1;
+!     if (row < 0 || row >= screen_Rows
+! 	    || col < 0 || col >= screen_Columns)
+  	c = -1;
+      else
+      {
+--- 10434,10440 ----
+  
+      row = (int)tv_get_number_chk(&argvars[0], NULL) - 1;
+      col = (int)tv_get_number_chk(&argvars[1], NULL) - 1;
+!     if (row < 0 || row >= screen_Rows || col < 0 || col >= screen_Columns)
+  	c = -1;
+      else
+      {
+***************
+*** 10445,10450 ****
+--- 10448,10486 ----
+  }
+  
+  /*
++  * "screenchars()" function
++  */
++     static void
++ f_screenchars(typval_T *argvars, typval_T *rettv)
++ {
++     int		row;
++     int		col;
++     int		off;
++     int		c;
++     int		i;
++ 
++     if (rettv_list_alloc(rettv) == FAIL)
++ 	return;
++     row = (int)tv_get_number_chk(&argvars[0], NULL) - 1;
++     col = (int)tv_get_number_chk(&argvars[1], NULL) - 1;
++     if (row < 0 || row >= screen_Rows || col < 0 || col >= screen_Columns)
++ 	return;
++ 
++     off = LineOffset[row] + col;
++     if (enc_utf8 && ScreenLinesUC[off] != 0)
++ 	c = ScreenLinesUC[off];
++     else
++ 	c = ScreenLines[off];
++     list_append_number(rettv->vval.v_list, (varnumber_T)c);
++ 
++     if (enc_utf8)
++ 
++ 	for (i = 0; i < Screen_mco && ScreenLinesC[i][off] != 0; ++i)
++ 	    list_append_number(rettv->vval.v_list,
++ 				       (varnumber_T)ScreenLinesC[i][off]);
++ }
++ 
++ /*
+   * "screencol()" function
+   *
+   * First column is 1 to be consistent with virtcol().
+***************
+*** 10465,10470 ****
+--- 10501,10543 ----
+  }
+  
+  /*
++  * "screenstring()" function
++  */
++     static void
++ f_screenstring(typval_T *argvars, typval_T *rettv)
++ {
++     int		row;
++     int		col;
++     int		off;
++     int		c;
++     int		i;
++     char_u	buf[MB_MAXBYTES + 1];
++     int		buflen = 0;
++ 
++     rettv->vval.v_string = NULL;
++     rettv->v_type = VAR_STRING;
++ 
++     row = (int)tv_get_number_chk(&argvars[0], NULL) - 1;
++     col = (int)tv_get_number_chk(&argvars[1], NULL) - 1;
++     if (row < 0 || row >= screen_Rows || col < 0 || col >= screen_Columns)
++ 	return;
++ 
++     off = LineOffset[row] + col;
++     if (enc_utf8 && ScreenLinesUC[off] != 0)
++ 	c = ScreenLinesUC[off];
++     else
++ 	c = ScreenLines[off];
++     buflen += mb_char2bytes(c, buf);
++ 
++     if (enc_utf8)
++ 	for (i = 0; i < Screen_mco && ScreenLinesC[i][off] != 0; ++i)
++ 	    buflen += mb_char2bytes(ScreenLinesC[i][off], buf + buflen);
++ 
++     buf[buflen] = NUL;
++     rettv->vval.v_string = vim_strsave(buf);
++ }
++ 
++ /*
+   * "search()" function
+   */
+      static void
+*** ../vim-8.1.1070/src/testdir/test_utf8.vim	2019-01-24 17:59:35.143217444 +0100
+--- src/testdir/test_utf8.vim	2019-03-29 14:01:18.960304440 +0100
+***************
+*** 1,5 ****
+--- 1,6 ----
+  " Tests for Unicode manipulations
+   
++ source view_util.vim
+  
+  " Visual block Insert adjusts for multi-byte char
+  func Test_visual_block_insert()
+***************
+*** 60,62 ****
+--- 61,97 ----
+    call assert_equal(2, virtcol("'["))
+    call assert_equal(2, virtcol("']"))
+  endfunc
++ 
++ func Test_screenchar_utf8()
++   new
++ 
++   " 1-cell, with composing characters 
++   call setline(1, ["ABC\u0308"])
++   redraw
++   call assert_equal([0x0041], screenchars(1, 1))
++   call assert_equal([0x0042], screenchars(1, 2))
++   call assert_equal([0x0043, 0x0308], screenchars(1, 3))
++   call assert_equal("A", screenstring(1, 1))
++   call assert_equal("B", screenstring(1, 2))
++   call assert_equal("C\u0308", screenstring(1, 3))
++ 
++   " 2-cells, with composing characters 
++   let text = "\u3042\u3044\u3046\u3099"
++   call setline(1, text)
++   redraw
++   call assert_equal([0x3042], screenchars(1, 1))
++   call assert_equal([0], screenchars(1, 2))
++   call assert_equal([0x3044], screenchars(1, 3))
++   call assert_equal([0], screenchars(1, 4))
++   call assert_equal([0x3046, 0x3099], screenchars(1, 5))
++ 
++   call assert_equal("\u3042", screenstring(1, 1))
++   call assert_equal("", screenstring(1, 2))
++   call assert_equal("\u3044", screenstring(1, 3))
++   call assert_equal("", screenstring(1, 4))
++   call assert_equal("\u3046\u3099", screenstring(1, 5))
++ 
++   call assert_equal([text . '  '], ScreenLinesUtf8(1, 8))
++ 
++   bwipe!
++ endfunc
+*** ../vim-8.1.1070/src/testdir/view_util.vim	2017-09-30 20:54:26.000000000 +0200
+--- src/testdir/view_util.vim	2019-03-29 13:57:25.433562107 +0100
+***************
+*** 5,10 ****
+--- 5,11 ----
+    finish
+  endif
+  
++ " Get text on the screen, without composing characters.
+  " ScreenLines(lnum, width) or
+  " ScreenLines([start, end], width)
+  function! ScreenLines(lnum, width) abort
+***************
+*** 22,27 ****
+--- 23,47 ----
+    endfor
+    return lines
+  endfunction
++ 
++ " Get text on the screen, including composing characters.
++ " ScreenLines(lnum, width) or
++ " ScreenLines([start, end], width)
++ function! ScreenLinesUtf8(lnum, width) abort
++   redraw!
++   if type(a:lnum) == v:t_list
++     let start = a:lnum[0]
++     let end = a:lnum[1]
++   else
++     let start = a:lnum
++     let end = a:lnum
++   endif
++   let lines = []
++   for l in range(start, end)
++     let lines += [join(map(range(1, a:width), 'screenstring(l, v:val)'), '')]
++   endfor
++   return lines
++ endfunction
+  
+  function! ScreenAttrs(lnum, width) abort
+    redraw!
+*** ../vim-8.1.1070/src/version.c	2019-03-29 13:12:36.163021160 +0100
+--- src/version.c	2019-03-29 14:02:22.863949517 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1071,
+  /**/
+
+-- 
+We are the Borg of GNU GPL.  We will assimilate your source code.
+Resistance is futile.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

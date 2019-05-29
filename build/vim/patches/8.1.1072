@@ -1,0 +1,1388 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1072
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1072
+Problem:    Extending sign and foldcolumn below the text is confusing.
+Solution:   Let the sign and foldcolumn stop at the last text line, just like
+            the line number column.  Also stop the command line window leader.
+            (Christian Brabandt, closes #3964)
+Files:	    src/screen.c, src/testdir/test_diffmode.vim,
+            src/testdir/dumps/Test_diff_of_diff_01.dump,
+            src/testdir/dumps/Test_diff_01.dump,
+            src/testdir/dumps/Test_diff_02.dump,
+            src/testdir/dumps/Test_diff_03.dump,
+            src/testdir/dumps/Test_diff_04.dump,
+            src/testdir/dumps/Test_diff_05.dump,
+            src/testdir/dumps/Test_diff_06.dump,
+            src/testdir/dumps/Test_diff_06.0.dump,
+            src/testdir/dumps/Test_diff_06.1.dump,
+            src/testdir/dumps/Test_diff_06.2.dump,
+            src/testdir/dumps/Test_diff_10.dump,
+            src/testdir/dumps/Test_diff_11.dump,
+            src/testdir/dumps/Test_diff_12.dump,
+            src/testdir/dumps/Test_diff_13.dump,
+            src/testdir/dumps/Test_diff_14.dump,
+            src/testdir/dumps/Test_diff_15.dump,
+            src/testdir/dumps/Test_diff_16.dump,
+            src/testdir/dumps/Test_diff_17.dump,
+            src/testdir/dumps/Test_diff_18.dump,
+            src/testdir/dumps/Test_diff_19.dump,
+            src/testdir/dumps/Test_diff_20.dump,
+            src/testdir/dumps/Test_diff_with_cursorline_01.dump,
+            src/testdir/dumps/Test_diff_with_cursorline_02.dump,
+            src/testdir/dumps/Test_diff_with_cursorline_03.dump,
+            src/testdir/dumps/Test_folds_with_rnu_01.dump,
+            src/testdir/dumps/Test_folds_with_rnu_02.dump
+
+
+*** ../vim-8.1.1071/src/screen.c	2019-03-21 21:45:30.883282076 +0100
+--- src/screen.c	2019-03-29 17:08:14.578317867 +0100
+***************
+*** 123,129 ****
+  
+  static void win_update(win_T *wp);
+  static void win_redr_status(win_T *wp, int ignore_pum);
+! static void win_draw_end(win_T *wp, int c1, int c2, int row, int endrow, hlf_T hl);
+  #ifdef FEAT_FOLDING
+  static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T lnum, int row);
+  static void fill_foldcolumn(char_u *p, win_T *wp, int closed, linenr_T lnum);
+--- 123,129 ----
+  
+  static void win_update(win_T *wp);
+  static void win_redr_status(win_T *wp, int ignore_pum);
+! static void win_draw_end(win_T *wp, int c1, int c2, int draw_margin, int row, int endrow, hlf_T hl);
+  #ifdef FEAT_FOLDING
+  static void fold_line(win_T *wp, long fold_count, foldinfo_T *foldinfo, linenr_T lnum, int row);
+  static void fill_foldcolumn(char_u *p, win_T *wp, int closed, linenr_T lnum);
+***************
+*** 2217,2223 ****
+  	}
+  	else
+  	{
+! 	    win_draw_end(wp, '@', ' ', srow, wp->w_height, HLF_AT);
+  	    wp->w_botline = lnum;
+  	}
+      }
+--- 2217,2223 ----
+  	}
+  	else
+  	{
+! 	    win_draw_end(wp, '@', ' ', TRUE, srow, wp->w_height, HLF_AT);
+  	    wp->w_botline = lnum;
+  	}
+      }
+***************
+*** 2231,2246 ****
+  	    j = diff_check_fill(wp, wp->w_botline);
+  	    if (j > 0 && !wp->w_botfill)
+  	    {
+! 		/*
+! 		 * Display filler lines at the end of the file
+! 		 */
+  		if (char2cells(fill_diff) > 1)
+  		    i = '-';
+  		else
+  		    i = fill_diff;
+  		if (row + j > wp->w_height)
+  		    j = wp->w_height - row;
+! 		win_draw_end(wp, i, i, row, row + (int)j, HLF_DED);
+  		row += j;
+  	    }
+  #endif
+--- 2231,2244 ----
+  	    j = diff_check_fill(wp, wp->w_botline);
+  	    if (j > 0 && !wp->w_botfill)
+  	    {
+! 		// Display filler lines at the end of the file.
+  		if (char2cells(fill_diff) > 1)
+  		    i = '-';
+  		else
+  		    i = fill_diff;
+  		if (row + j > wp->w_height)
+  		    j = wp->w_height - row;
+! 		win_draw_end(wp, i, i, TRUE, row, row + (int)j, HLF_DED);
+  		row += j;
+  	    }
+  #endif
+***************
+*** 2248,2256 ****
+  	else if (dollar_vcol == -1)
+  	    wp->w_botline = lnum;
+  
+! 	/* make sure the rest of the screen is blank */
+! 	/* put '~'s on rows that aren't part of the file. */
+! 	win_draw_end(wp, '~', ' ', row, wp->w_height, HLF_EOB);
+      }
+  
+  #ifdef SYN_TIME_LIMIT
+--- 2246,2254 ----
+  	else if (dollar_vcol == -1)
+  	    wp->w_botline = lnum;
+  
+! 	// Make sure the rest of the screen is blank
+! 	// put '~'s on rows that aren't part of the file.
+! 	win_draw_end(wp, '~', ' ', FALSE, row, wp->w_height, HLF_EOB);
+      }
+  
+  #ifdef SYN_TIME_LIMIT
+***************
+*** 2305,2417 ****
+  }
+  
+  /*
+!  * Clear the rest of the window and mark the unused lines with "c1".  use "c2"
+!  * as the filler character.
+   */
+      static void
+  win_draw_end(
+      win_T	*wp,
+      int		c1,
+      int		c2,
+      int		row,
+      int		endrow,
+      hlf_T	hl)
+  {
+- #if defined(FEAT_FOLDING) || defined(FEAT_SIGNS) || defined(FEAT_CMDWIN)
+      int		n = 0;
+! # define FDC_OFF n
+! #else
+! # define FDC_OFF 0
+! #endif
+  #ifdef FEAT_FOLDING
+!     int		fdc = compute_foldcolumn(wp, 0);
+  #endif
+  
+  #ifdef FEAT_RIGHTLEFT
+      if (wp->w_p_rl)
+      {
+- 	/* No check for cmdline window: should never be right-left. */
+- # ifdef FEAT_FOLDING
+- 	n = fdc;
+- 
+- 	if (n > 0)
+- 	{
+- 	    /* draw the fold column at the right */
+- 	    if (n > wp->w_width)
+- 		n = wp->w_width;
+- 	    screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+- 		    W_ENDCOL(wp) - n, (int)W_ENDCOL(wp),
+- 		    ' ', ' ', HL_ATTR(HLF_FC));
+- 	}
+- # endif
+- # ifdef FEAT_SIGNS
+- 	if (signcolumn_on(wp))
+- 	{
+- 	    int nn = n + 2;
+- 
+- 	    /* draw the sign column left of the fold column */
+- 	    if (nn > wp->w_width)
+- 		nn = wp->w_width;
+- 	    screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+- 		    W_ENDCOL(wp) - nn, (int)W_ENDCOL(wp) - n,
+- 		    ' ', ' ', HL_ATTR(HLF_SC));
+- 	    n = nn;
+- 	}
+- # endif
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+! 		wp->w_wincol, W_ENDCOL(wp) - 1 - FDC_OFF,
+  		c2, c2, HL_ATTR(hl));
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+! 		W_ENDCOL(wp) - 1 - FDC_OFF, W_ENDCOL(wp) - FDC_OFF,
+  		c1, c2, HL_ATTR(hl));
+      }
+      else
+  #endif
+      {
+- #ifdef FEAT_CMDWIN
+- 	if (cmdwin_type != 0 && wp == curwin)
+- 	{
+- 	    /* draw the cmdline character in the leftmost column */
+- 	    n = 1;
+- 	    if (n > wp->w_width)
+- 		n = wp->w_width;
+- 	    screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+- 		    wp->w_wincol, (int)wp->w_wincol + n,
+- 		    cmdwin_type, ' ', HL_ATTR(HLF_AT));
+- 	}
+- #endif
+- #ifdef FEAT_FOLDING
+- 	if (fdc > 0)
+- 	{
+- 	    int	    nn = n + fdc;
+- 
+- 	    /* draw the fold column at the left */
+- 	    if (nn > wp->w_width)
+- 		nn = wp->w_width;
+- 	    screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+- 		    wp->w_wincol + n, (int)wp->w_wincol + nn,
+- 		    ' ', ' ', HL_ATTR(HLF_FC));
+- 	    n = nn;
+- 	}
+- #endif
+- #ifdef FEAT_SIGNS
+- 	if (signcolumn_on(wp))
+- 	{
+- 	    int	    nn = n + 2;
+- 
+- 	    /* draw the sign column after the fold column */
+- 	    if (nn > wp->w_width)
+- 		nn = wp->w_width;
+- 	    screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+- 		    wp->w_wincol + n, (int)wp->w_wincol + nn,
+- 		    ' ', ' ', HL_ATTR(HLF_SC));
+- 	    n = nn;
+- 	}
+- #endif
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+! 		wp->w_wincol + FDC_OFF, (int)W_ENDCOL(wp),
+  		c1, c2, HL_ATTR(hl));
+      }
+      set_empty_rows(wp, row);
+  }
+  
+--- 2303,2399 ----
+  }
+  
+  /*
+!  * Call screen_fill() with the columns adjusted for 'rightleft' if needed.
+!  * Return the new offset.
+!  */
+!     static int
+! screen_fill_end(
+! 	win_T *wp,
+! 	int	c1,
+! 	int	c2,
+! 	int	off,
+! 	int	width,
+! 	int	row,
+! 	int	endrow,
+! 	int	attr)
+! {
+!     int	    nn = off + width;
+! 
+!     if (nn > wp->w_width)
+! 	nn = wp->w_width;
+! #ifdef FEAT_RIGHTLEFT
+!     if (wp->w_p_rl)
+!     {
+! 	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+! 		W_ENDCOL(wp) - nn, (int)W_ENDCOL(wp) - off,
+! 		c1, c2, attr);
+!     }
+!     else
+! #endif
+! 	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+! 		wp->w_wincol + off, (int)wp->w_wincol + nn,
+! 		c1, c2, attr);
+!     return nn;
+! }
+! 
+! /*
+!  * Clear lines near the end the window and mark the unused lines with "c1".
+!  * use "c2" as the filler character.
+!  * When "draw_margin" is TRUE then draw the sign, fold and number columns.
+   */
+      static void
+  win_draw_end(
+      win_T	*wp,
+      int		c1,
+      int		c2,
++     int		draw_margin,
+      int		row,
+      int		endrow,
+      hlf_T	hl)
+  {
+      int		n = 0;
+! 
+!     if (draw_margin)
+!     {
+  #ifdef FEAT_FOLDING
+! 	int	fdc = compute_foldcolumn(wp, 0);
+! 
+! 	if (fdc > 0)
+! 	    // draw the fold column
+! 	    n = screen_fill_end(wp, ' ', ' ', n, fdc,
+! 					     row, endrow, HL_ATTR(HLF_FC));
+  #endif
++ #ifdef FEAT_SIGNS
++ 	if (signcolumn_on(wp))
++ 	    // draw the sign column
++ 	    n = screen_fill_end(wp, ' ', ' ', n, 2,
++ 					     row, endrow, HL_ATTR(HLF_SC));
++ #endif
++ 	if ((wp->w_p_nu || wp->w_p_rnu)
++ 				  && vim_strchr(p_cpo, CPO_NUMCOL) == NULL)
++ 	    // draw the number column
++ 	    n = screen_fill_end(wp, ' ', ' ', n, number_width(wp) + 1,
++ 					     row, endrow, HL_ATTR(HLF_N));
++     }
+  
+  #ifdef FEAT_RIGHTLEFT
+      if (wp->w_p_rl)
+      {
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+! 		wp->w_wincol, W_ENDCOL(wp) - 1 - n,
+  		c2, c2, HL_ATTR(hl));
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+! 		W_ENDCOL(wp) - 1 - n, W_ENDCOL(wp) - n,
+  		c1, c2, HL_ATTR(hl));
+      }
+      else
+  #endif
+      {
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+! 		wp->w_wincol + n, (int)W_ENDCOL(wp),
+  		c1, c2, HL_ATTR(hl));
+      }
++ 
+      set_empty_rows(wp, row);
+  }
+  
+***************
+*** 5885,5891 ****
+  #endif
+  		    )
+  	    {
+! 		win_draw_end(wp, '@', ' ', row, wp->w_height, HLF_AT);
+  		draw_vsep_win(wp, row);
+  		row = endrow;
+  	    }
+--- 5867,5873 ----
+  #endif
+  		    )
+  	    {
+! 		win_draw_end(wp, '@', ' ', TRUE, row, wp->w_height, HLF_AT);
+  		draw_vsep_win(wp, row);
+  		row = endrow;
+  	    }
+*** ../vim-8.1.1071/src/testdir/test_diffmode.vim	2019-02-19 23:00:19.568664524 +0100
+--- src/testdir/test_diffmode.vim	2019-03-29 17:49:39.374664588 +0100
+***************
+*** 757,763 ****
+    " Test 1: Add a line in beginning of file 2
+    call WriteDiffFiles(0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    let buf = RunVimInTerminal('-d Xfile1 Xfile2', {})
+!   " Set autoread mode, ,so that Vim won't complain once we re-write the test
+    " files
+    call term_sendkeys(buf, ":set autoread\<CR>\<c-w>w:set autoread\<CR>\<c-w>w")
+  
+--- 757,763 ----
+    " Test 1: Add a line in beginning of file 2
+    call WriteDiffFiles(0, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+    let buf = RunVimInTerminal('-d Xfile1 Xfile2', {})
+!   " Set autoread mode, so that Vim won't complain once we re-write the test
+    " files
+    call term_sendkeys(buf, ":set autoread\<CR>\<c-w>w:set autoread\<CR>\<c-w>w")
+  
+***************
+*** 915,920 ****
+--- 915,922 ----
+  	\ 'vnew',
+  	\ 'call setline(1, ["aa","bb","cc"])',
+  	\ 'windo diffthis',
++ 	\ '1wincmd w',
++ 	\ 'setlocal number',
+  	\ ], 'Xtest_diff_diff')
+    let buf = RunVimInTerminal('-S Xtest_diff_diff', {})
+  
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_of_diff_01.dump	2018-10-31 22:57:07.913017514 +0100
+--- src/testdir/dumps/Test_diff_of_diff_01.dump	2019-03-29 17:49:46.406620536 +0100
+***************
+*** 1,20 ****
+! | +0#0000e05#a8a8a8255@1|a+0#0000000#ffffff0@1| @32||+1&&| +0#0000e05#a8a8a8255@1>a+0#0000000#ffffff0@1| @32
+! | +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0@1| @32||+1&&| +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0@1| @32
+! | +0#0000e05#a8a8a8255@1|c+0#0000000#ffffff0@1| @32||+1&&| +0#0000e05#a8a8a8255@1|c+0#0000000#ffffff0@1| @32
+! | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|@+0#0000000#5fd7ff255@1| |-|3|,|2| |+|5|,|7| |@@1| @19
+! | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|d+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|e+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|f+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @5|1|,|1| @11|A|l@1| |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @5|1|,|1| @11|A|l@1
+  | +0&&@74
+--- 1,20 ----
+! | +0#0000e05#a8a8a8255@1| +0#af5f00255#ffffff0@1|1| >a+0#0000000&@1| @28||+1&&| +0#0000e05#a8a8a8255@1|a+0#0000000#ffffff0@1| @32
+! | +0#0000e05#a8a8a8255@1| +0#af5f00255#ffffff0@1|2| |b+0#0000000&@1| @28||+1&&| +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0@1| @32
+! | +0#0000e05#a8a8a8255@1| +0#af5f00255#ffffff0@1|3| |c+0#0000000&@1| @28||+1&&| +0#0000e05#a8a8a8255@1|c+0#0000000#ffffff0@1| @32
+! | +0#0000e05#a8a8a8255@1| +0#af5f00255#ffffff0@3|-+0#4040ff13#afffff255@30||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|@+0#0000000#5fd7ff255@1| |-|3|,|2| |+|5|,|7| |@@1| @19
+! | +0#0000e05#a8a8a8255@1| +0#af5f00255#ffffff0@3|-+0#4040ff13#afffff255@30||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|d+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1| +0#af5f00255#ffffff0@3|-+0#4040ff13#afffff255@30||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|e+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1| +0#af5f00255#ffffff0@3|-+0#4040ff13#afffff255@30||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|f+0#0000000#5fd7ff255@1| @32
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |[+3#0000000&|N|o| |N|a|m|e|]| |[|+|]| @5|1|,|1| @11|A|l@1| |[+1&&|N|o| |N|a|m|e|]| |[|+|]| @5|1|,|1| @11|A|l@1
+  | +0&&@74
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_01.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_01.dump	2019-03-29 17:11:57.288892936 +0100
+***************
+*** 6,20 ****
+  | +0#0000e05#a8a8a8255@1|5+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|5+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|6+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|6+0#0000000#ffffff0| @33
+  |++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |7|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |7|-@19
+! | @1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 6,20 ----
+  | +0#0000e05#a8a8a8255@1|5+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|5+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|6+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|6+0#0000000#ffffff0| @33
+  |++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |7|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |7|-@19
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_02.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_02.dump	2019-03-29 17:11:58.360886115 +0100
+***************
+*** 6,20 ****
+  | +0#0000e05#a8a8a8255@1|5+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|5+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|6+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|6+0#0000000#ffffff0| @33
+  |++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |7|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |7|-@19
+! | @1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 6,20 ----
+  | +0#0000e05#a8a8a8255@1|5+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|5+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|6+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|6+0#0000000#ffffff0| @33
+  |++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |7|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |7|-@19
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_03.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_03.dump	2019-03-29 17:11:59.432879298 +0100
+***************
+*** 6,20 ****
+  | +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 6,20 ----
+  | +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_04.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_04.dump	2019-03-29 17:12:00.496872532 +0100
+***************
+*** 6,20 ****
+  | +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32||+1&#ffffff0| +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 6,20 ----
+  | +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32||+1&#ffffff0| +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34
+! |~+0&#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_05.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_05.dump	2019-03-29 17:12:01.564865741 +0100
+***************
+*** 10,20 ****
+  | +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32||+1&#ffffff0| +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 10,20 ----
+  | +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32||+1&#ffffff0| +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34
+! |~+0&#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_06.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_06.dump	2019-03-29 17:12:02.636858923 +0100
+***************
+*** 10,20 ****
+  | +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 10,20 ----
+  | +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_06.0.dump	2019-02-19 23:00:19.568664524 +0100
+--- src/testdir/dumps/Test_diff_06.0.dump	2019-03-29 17:12:05.828838631 +0100
+***************
+*** 5,20 ****
+  |++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |6|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |6|-@19
+  | @1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|+|=|c|o|n|t|e|x|t|:|0| @51
+--- 5,20 ----
+  |++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |6|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |6|-@19
+  | @1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|+|=|c|o|n|t|e|x|t|:|0| @51
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_06.1.dump	2019-02-19 23:00:19.568664524 +0100
+--- src/testdir/dumps/Test_diff_06.1.dump	2019-03-29 17:12:04.760845419 +0100
+***************
+*** 5,20 ****
+  |++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |6|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |6|-@19
+  | @1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|+|=|c|o|n|t|e|x|t|:|1| @51
+--- 5,20 ----
+  |++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |6|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| @1|4| |l|i|n|e|s|:| |6|-@19
+  | @1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|+|=|c|o|n|t|e|x|t|:|1| @51
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_06.2.dump	2019-02-19 23:00:19.568664524 +0100
+--- src/testdir/dumps/Test_diff_06.2.dump	2019-03-29 17:12:03.696852183 +0100
+***************
+*** 8,20 ****
+  | @1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&@1|s|e|t| |d|i|f@1|o|p|t|+|=|c|o|n|t|e|x|t|:|2| @50
+--- 8,20 ----
+  | @1|9+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|9+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32||+1&&| +0#0000e05#a8a8a8255@1|1+0#0000000#ffffff0|0| @32
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|1+0#0000000#5fd7ff255@1| @32
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&@1|s|e|t| |d|i|f@1|o|p|t|+|=|c|o|n|t|e|x|t|:|2| @50
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_10.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_10.dump	2019-03-29 17:12:07.052830846 +0100
+***************
+*** 8,20 ****
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@3|v|a|l|u|e|s|.|e|a|c|h| |d|o| |||v||| @12
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|v|.|f|i|n|a|l|i|z|e| @18||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|v|.|f|i|n|a|l|i|z|e| @18
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|e|n|d| @27||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|e|n|d| @27
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|0|-|1| @9|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|0|-|1| @9|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|+|=|i|n|t|e|r|n|a|l| @52
+--- 8,20 ----
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@3|v|a|l|u|e|s|.|e|a|c|h| |d|o| |||v||| @12
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|v|.|f|i|n|a|l|i|z|e| @18||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|v|.|f|i|n|a|l|i|z|e| @18
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|e|n|d| @27||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|e|n|d| @27
+! |~+0#4040ff13&| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|0|-|1| @9|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|0|-|1| @9|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|+|=|i|n|t|e|r|n|a|l| @52
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_11.dump	2018-12-04 22:24:12.193693584 +0100
+--- src/testdir/dumps/Test_diff_11.dump	2019-03-29 17:12:10.252810506 +0100
+***************
+*** 8,20 ****
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|v|a|l|u|e|s|.|e|a|c|h| |d|o| |||v||| @12||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|v|a|l|u|e|s|.|e|a|c|h| |d|o| |||v||| @12
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|v|.|f|i|n|a|l|i|z|e| @18||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|v|.|f|i|n|a|l|i|z|e| @18
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|e|n|d| @27||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|e|n|d| @27
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|0|-|1| @9|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|0|-|1| @9|A|l@1
+  |:+0&&| @73
+--- 8,20 ----
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|v|a|l|u|e|s|.|e|a|c|h| |d|o| |||v||| @12||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|v|a|l|u|e|s|.|e|a|c|h| |d|o| |||v||| @12
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|v|.|f|i|n|a|l|i|z|e| @18||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|v|.|f|i|n|a|l|i|z|e| @18
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|e|n|d| @27||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@3|e|n|d| @27
+! |~+0#4040ff13&| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|0|-|1| @9|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|0|-|1| @9|A|l@1
+  |:+0&&| @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_12.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_12.dump	2019-03-29 17:12:11.324803692 +0100
+***************
+*** 1,20 ****
+  |++0#0000e05#a8a8a8255| |+|-@1| |1|0| |l|i|n|e|s|:| |1|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| |1|0| |l|i|n|e|s|:| |1|-@19
+! | @1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 1,20 ----
+  |++0#0000e05#a8a8a8255| |+|-@1| |1|0| |l|i|n|e|s|:| |1|-@19||+1#0000000#ffffff0|++0#0000e05#a8a8a8255| |+|-@1| |1|0| |l|i|n|e|s|:| |1|-@19
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_13.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_13.dump	2019-03-29 17:12:12.396796877 +0100
+***************
+*** 1,20 ****
+  |-+0#0000e05#a8a8a8255| | +0#0000000#ffffff0@34||+1&&|-+0#0000e05#a8a8a8255| | +0#0000000#ffffff0@34
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|0|,|0|-|1| @9|A|l@1| |X+1&&|f|i|l|e|2| @12|0|,|0|-|1| @9|A|l@1
+  |:+0&&> @73
+--- 1,20 ----
+  |-+0#0000e05#a8a8a8255| | +0#0000000#ffffff0@34||+1&&|-+0#0000e05#a8a8a8255| | +0#0000000#ffffff0@34
+! |~+0#4040ff13&| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|0|,|0|-|1| @9|A|l@1| |X+1&&|f|i|l|e|2| @12|0|,|0|-|1| @9|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_14.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_14.dump	2019-03-29 17:12:13.472790039 +0100
+***************
+*** 1,20 ****
+  | +0#0000e05#a8a8a8255@1|a+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|A+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|c+0#0000000#ffd7ff255|d| @32||+1&#ffffff0| +0#0000e05#a8a8a8255@1|c+0#0000000#ffd7ff255|D|e+2&#ff404010| +0&#ffd7ff255@31
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 1,20 ----
+  | +0#0000e05#a8a8a8255@1|a+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|A+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0| @33
+  | +0#0000e05#a8a8a8255@1|c+0#0000000#ffd7ff255|d| @32||+1&#ffffff0| +0#0000e05#a8a8a8255@1|c+0#0000000#ffd7ff255|D|e+2&#ff404010| +0&#ffd7ff255@31
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_15.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_15.dump	2019-03-29 17:12:14.544783228 +0100
+***************
+*** 6,20 ****
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@2|r|e|t|u|r|n| |0|;| @22||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|r|e|t|u|r|n| |0|;| @19
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@2|}| @30
+  | +0#0000e05#a8a8a8255@1|}+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|}+0#0000000#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|&|v|i|m| |d|i|f@1|o|p|t|+|=|f|i|l@1|e|r| |d|i|f@1|o|p|t|+|=|i|w|h|i|t|e| @26
+--- 6,20 ----
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@2|r|e|t|u|r|n| |0|;| @22||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|r|e|t|u|r|n| |0|;| @19
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@2|}| @30
+  | +0#0000e05#a8a8a8255@1|}+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|}+0#0000000#ffffff0| @33
+! |~+0#4040ff13&| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|&|v|i|m| |d|i|f@1|o|p|t|+|=|f|i|l@1|e|r| |d|i|f@1|o|p|t|+|=|i|w|h|i|t|e| @26
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_16.dump	2018-09-10 17:50:32.713306941 +0200
+--- src/testdir/dumps/Test_diff_16.dump	2019-03-29 17:12:15.600776515 +0100
+***************
+*** 6,20 ****
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@2|r|e|t|u|r|n| |0|;| @22||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|r|e|t|u|r|n| |0|;| @19
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@2|}| @30
+  | +0#0000e05#a8a8a8255@1|}+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|}+0#0000000#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|+|=|i|n|t|e|r|n|a|l| @52
+--- 6,20 ----
+  | +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@2|r|e|t|u|r|n| |0|;| @22||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@5|r|e|t|u|r|n| |0|;| @19
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@2|}| @30
+  | +0#0000e05#a8a8a8255@1|}+0#0000000#ffffff0| @33||+1&&| +0#0000e05#a8a8a8255@1|}+0#0000000#ffffff0| @33
+! |~+0#4040ff13&| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&|s|e|t| |d|i|f@1|o|p|t|+|=|i|n|t|e|r|n|a|l| @52
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_17.dump	2018-09-15 19:17:07.510653263 +0200
+--- src/testdir/dumps/Test_diff_17.dump	2019-03-29 17:12:16.676769679 +0100
+***************
+*** 3,20 ****
+  | +0#0000e05#a8a8a8255@1|c+0#0000000#ffffff0|d| @32||+1&&| +0#0000e05#a8a8a8255@1|c+0#0000000#ffffff0|d| @32
+  | +0#0000e05#a8a8a8255@1|e+0#0000000#ffffff0|f| @32||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@34
+  | +0#0000e05#a8a8a8255@1|x+2#0000000#ff404010@2| +0&#ffd7ff255@31||+1&#ffffff0| +0#0000e05#a8a8a8255@1|e+0#0000000#ffffff0|f| @32
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|y+2#0000000#ff404010@2| +0&#ffd7ff255@31
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 3,20 ----
+  | +0#0000e05#a8a8a8255@1|c+0#0000000#ffffff0|d| @32||+1&&| +0#0000e05#a8a8a8255@1|c+0#0000000#ffffff0|d| @32
+  | +0#0000e05#a8a8a8255@1|e+0#0000000#ffffff0|f| @32||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@34
+  | +0#0000e05#a8a8a8255@1|x+2#0000000#ff404010@2| +0&#ffd7ff255@31||+1&#ffffff0| +0#0000e05#a8a8a8255@1|e+0#0000000#ffffff0|f| @32
+! |~+0#4040ff13&| @35||+1#0000000&| +0#0000e05#a8a8a8255@1|y+2#0000000#ff404010@2| +0&#ffd7ff255@31
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_18.dump	2018-09-15 19:17:07.510653263 +0200
+--- src/testdir/dumps/Test_diff_18.dump	2019-03-29 17:12:19.864749422 +0100
+***************
+*** 3,20 ****
+  | +0#0000e05#a8a8a8255@1|c+0#0000000#ffffff0|d| @32||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@34
+  | +0#0000e05#a8a8a8255@1|e+0#0000000#ffffff0|f| @32||+1&&| +0#0000e05#a8a8a8255@1|e+0#0000000#ffffff0|f| @32
+  | +0#0000e05#a8a8a8255@1|x+2#0000000#ff404010@2| +0&#ffd7ff255@31||+1&#ffffff0| +0#0000e05#a8a8a8255@1|y+2#0000000#ff404010@2| +0&#ffd7ff255@31
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 3,20 ----
+  | +0#0000e05#a8a8a8255@1|c+0#0000000#ffffff0|d| @32||+1&&| +0#0000e05#a8a8a8255@1| +0#0000000#ffffff0@34
+  | +0#0000e05#a8a8a8255@1|e+0#0000000#ffffff0|f| @32||+1&&| +0#0000e05#a8a8a8255@1|e+0#0000000#ffffff0|f| @32
+  | +0#0000e05#a8a8a8255@1|x+2#0000000#ff404010@2| +0&#ffd7ff255@31||+1&#ffffff0| +0#0000e05#a8a8a8255@1|y+2#0000000#ff404010@2| +0&#ffd7ff255@31
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_19.dump	2018-09-15 19:17:07.510653263 +0200
+--- src/testdir/dumps/Test_diff_19.dump	2019-03-29 17:12:20.936742609 +0100
+***************
+*** 6,20 ****
+  | +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31||+1&&| +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@34
+  | +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0|a|r| @31||+1&&| +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0|a|r| @31
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 6,20 ----
+  | +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31||+1&&| +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@34
+  | +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0|a|r| @31||+1&&| +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0|a|r| @31
+! |~+0#4040ff13&| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_20.dump	2018-09-15 19:17:07.514653227 +0200
+--- src/testdir/dumps/Test_diff_20.dump	2019-03-29 17:12:21.996735874 +0100
+***************
+*** 6,20 ****
+  | +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31||+1&&| +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@34
+  | +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0|a|r| @31||+1&&| +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0|a|r| @31
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+--- 6,20 ----
+  | +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31||+1&&| +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1| +0#0000000#5fd7ff255@34
+  | +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0|a|r| @31||+1&&| +0#0000e05#a8a8a8255@1|b+0#0000000#ffffff0|a|r| @31
+! |~+0#4040ff13&| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |X+3#0000000&|f|i|l|e|1| @12|1|,|1| @11|A|l@1| |X+1&&|f|i|l|e|2| @12|1|,|1| @11|A|l@1
+  |:+0&&> @73
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_with_cursorline_01.dump	2018-10-02 18:25:41.420867587 +0200
+--- src/testdir/dumps/Test_diff_with_cursorline_01.dump	2019-03-29 17:12:28.344695550 +0100
+***************
+*** 3,20 ****
+  | +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31||+1&&| +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31
+  | +0#0000e05#a8a8a8255@1|b+2#0000000#ff404010|a|z| +0&#ffd7ff255@31||+1&#ffffff0| +0#0000e05#a8a8a8255@1|f+2#0000000#ff404010|o@1| +0&#ffd7ff255@31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|b+0#0000000#5fd7ff255|a|r| @31
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @5|1|,|1| @11|A|l@1| |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @5|1|,|1| @11|A|l@1
+  | +0&&@74
+--- 3,20 ----
+  | +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31||+1&&| +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31
+  | +0#0000e05#a8a8a8255@1|b+2#0000000#ff404010|a|z| +0&#ffd7ff255@31||+1&#ffffff0| +0#0000e05#a8a8a8255@1|f+2#0000000#ff404010|o@1| +0&#ffd7ff255@31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|b+0#0000000#5fd7ff255|a|r| @31
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @5|1|,|1| @11|A|l@1| |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @5|1|,|1| @11|A|l@1
+  | +0&&@74
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_with_cursorline_02.dump	2018-10-02 18:25:41.420867587 +0200
+--- src/testdir/dumps/Test_diff_with_cursorline_02.dump	2019-03-29 17:12:29.408688793 +0100
+***************
+*** 3,20 ****
+  | +0#0000e05#a8a8a8255@1|f+8#ffffff16#ff404010|o@1| @31||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1>f+8#ffffff16#ff404010|o@1| @31
+  | +0#0000e05#a8a8a8255@1|b+2#0000000#ff404010|a|z| +0&#ffd7ff255@31||+1&#ffffff0| +0#0000e05#a8a8a8255@1|f+2#0000000#ff404010|o@1| +0&#ffd7ff255@31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|b+0#0000000#5fd7ff255|a|r| @31
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @5|3|,|1| @11|A|l@1| |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @5|2|,|1| @11|A|l@1
+  | +0&&@74
+--- 3,20 ----
+  | +0#0000e05#a8a8a8255@1|f+8#ffffff16#ff404010|o@1| @31||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1>f+8#ffffff16#ff404010|o@1| @31
+  | +0#0000e05#a8a8a8255@1|b+2#0000000#ff404010|a|z| +0&#ffd7ff255@31||+1&#ffffff0| +0#0000e05#a8a8a8255@1|f+2#0000000#ff404010|o@1| +0&#ffd7ff255@31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|b+0#0000000#5fd7ff255|a|r| @31
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @5|3|,|1| @11|A|l@1| |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @5|2|,|1| @11|A|l@1
+  | +0&&@74
+*** ../vim-8.1.1071/src/testdir/dumps/Test_diff_with_cursorline_03.dump	2018-10-02 18:25:41.420867587 +0200
+--- src/testdir/dumps/Test_diff_with_cursorline_03.dump	2019-03-29 17:12:30.472682035 +0100
+***************
+*** 3,20 ****
+  | +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31||+1&&| +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31
+  | +0#0000e05#a8a8a8255@1|b+10#ffffff16#ff404010|a|z| +8&&@31||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1>f+10#ffffff16#ff404010|o@1| +8&&@31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|b+0#0000000#5fd7ff255|a|r| @31
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33||+1#0000000&| +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @33
+  |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @5|4|,|1| @11|A|l@1| |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @5|3|,|1| @11|A|l@1
+  | +0&&@74
+--- 3,20 ----
+  | +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31||+1&&| +0#0000e05#a8a8a8255@1|f+0#0000000#ffffff0|o@1| @31
+  | +0#0000e05#a8a8a8255@1|b+10#ffffff16#ff404010|a|z| +8&&@31||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1>f+10#ffffff16#ff404010|o@1| +8&&@31
+  | +0#0000e05#a8a8a8255@1|-+0#4040ff13#afffff255@34||+1#0000000#ffffff0| +0#0000e05#a8a8a8255@1|b+0#0000000#5fd7ff255|a|r| @31
+! |~+0#4040ff13#ffffff0| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+! |~| @35||+1#0000000&|~+0#4040ff13&| @35
+  |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @5|4|,|1| @11|A|l@1| |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @5|3|,|1| @11|A|l@1
+  | +0&&@74
+*** ../vim-8.1.1071/src/testdir/dumps/Test_folds_with_rnu_01.dump	2018-10-02 21:20:08.688088162 +0200
+--- src/testdir/dumps/Test_folds_with_rnu_01.dump	2019-03-29 17:12:50.240556546 +0100
+***************
+*** 1,20 ****
+  |++0#0000e05#a8a8a8255| @2|0| >+|-@1| @1|2| |l|i|n|e|s|:| |-@54
+  |+| @2|1| |+|-@1| @1|2| |l|i|n|e|s|:| |-@54
+! | @1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+  | +0#0000000&@56|1|,|1| @10|A|l@1| 
+--- 1,20 ----
+  |++0#0000e05#a8a8a8255| @2|0| >+|-@1| @1|2| |l|i|n|e|s|:| |-@54
+  |+| @2|1| |+|-@1| @1|2| |l|i|n|e|s|:| |-@54
+! |~+0#4040ff13#ffffff0| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+  | +0#0000000&@56|1|,|1| @10|A|l@1| 
+*** ../vim-8.1.1071/src/testdir/dumps/Test_folds_with_rnu_02.dump	2018-10-02 21:20:08.688088162 +0200
+--- src/testdir/dumps/Test_folds_with_rnu_02.dump	2019-03-29 17:12:51.288549896 +0100
+***************
+*** 1,20 ****
+  |++0#0000e05#a8a8a8255| @2|1| |+|-@1| @1|2| |l|i|n|e|s|:| |-@54
+  |+| @2|0| >+|-@1| @1|2| |l|i|n|e|s|:| |-@54
+! | @1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+! | +0#0000e05#a8a8a8255@1|~+0#4040ff13#ffffff0| @71
+  | +0#0000000&@56|3|,|1| @10|A|l@1| 
+--- 1,20 ----
+  |++0#0000e05#a8a8a8255| @2|1| |+|-@1| @1|2| |l|i|n|e|s|:| |-@54
+  |+| @2|0| >+|-@1| @1|2| |l|i|n|e|s|:| |-@54
+! |~+0#4040ff13#ffffff0| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+! |~| @73
+  | +0#0000000&@56|3|,|1| @10|A|l@1| 
+*** ../vim-8.1.1071/src/version.c	2019-03-29 14:16:34.142861770 +0100
+--- src/version.c	2019-03-29 18:06:33.664327403 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1072,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+148. You find it easier to dial-up the National Weather Service
+     Weather/your_town/now.html than to simply look out the window.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

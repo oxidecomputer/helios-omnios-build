@@ -1,0 +1,274 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1343
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1343
+Problem:    Text properties not adjusted for Visual block mode delete.
+Solution:   Call adjust_prop_columns(). (closes #4384)
+Files:	    src/ops.c, src/textprop.c, src/testdir/test_textprop.vim,
+            src/misc1.c, src/testdir/dumps/Test_textprop_vis_01.dump,
+            src/testdir/dumps/Test_textprop_vis_02.dump
+
+
+*** ../vim-8.1.1342/src/ops.c	2019-05-17 20:17:36.277186167 +0200
+--- src/ops.c	2019-05-17 21:09:38.183335755 +0200
+***************
+*** 1916,1925 ****
+  		curwin->w_cursor.coladd = 0;
+  	    }
+  
+! 	    /* n == number of chars deleted
+! 	     * If we delete a TAB, it may be replaced by several characters.
+! 	     * Thus the number of characters may increase!
+! 	     */
+  	    n = bd.textlen - bd.startspaces - bd.endspaces;
+  	    oldp = ml_get(lnum);
+  	    newp = alloc_check((unsigned)STRLEN(oldp) + 1 - n);
+--- 1916,1924 ----
+  		curwin->w_cursor.coladd = 0;
+  	    }
+  
+! 	    // "n" == number of chars deleted
+! 	    // If we delete a TAB, it may be replaced by several characters.
+! 	    // Thus the number of characters may increase!
+  	    n = bd.textlen - bd.startspaces - bd.endspaces;
+  	    oldp = ml_get(lnum);
+  	    newp = alloc_check((unsigned)STRLEN(oldp) + 1 - n);
+***************
+*** 1935,1940 ****
+--- 1934,1944 ----
+  	    STRMOVE(newp + bd.textcol + bd.startspaces + bd.endspaces, oldp);
+  	    /* replace the line */
+  	    ml_replace(lnum, newp, FALSE);
++ 
++ #ifdef FEAT_TEXT_PROP
++ 	    if (curbuf->b_has_textprop && n != 0)
++ 		adjust_prop_columns(lnum, bd.textcol, -n);
++ #endif
+  	}
+  
+  	check_cursor_col();
+*** ../vim-8.1.1342/src/textprop.c	2019-05-17 19:56:29.860129184 +0200
+--- src/textprop.c	2019-05-17 21:54:59.788551130 +0200
+***************
+*** 957,963 ****
+   * shift by "bytes_added" (can be negative).
+   * Note that "col" is zero-based, while tp_col is one-based.
+   * Only for the current buffer.
+!  * Called is expected to check b_has_textprop and "bytes_added" being non-zero.
+   */
+      void
+  adjust_prop_columns(
+--- 957,963 ----
+   * shift by "bytes_added" (can be negative).
+   * Note that "col" is zero-based, while tp_col is one-based.
+   * Only for the current buffer.
+!  * Caller is expected to check b_has_textprop and "bytes_added" being non-zero.
+   */
+      void
+  adjust_prop_columns(
+***************
+*** 994,1008 ****
+  								      ? 2 : 1))
+  		: (tmp_prop.tp_col > col + 1))
+  	{
+! 	    tmp_prop.tp_col += bytes_added;
+  	    dirty = TRUE;
+  	}
+  	else if (tmp_prop.tp_len > 0
+  		&& tmp_prop.tp_col + tmp_prop.tp_len > col
+  		       + ((pt != NULL && (pt->pt_flags & PT_FLAG_INS_END_INCL))
+  								      ? 0 : 1))
+  	{
+! 	    tmp_prop.tp_len += bytes_added;
+  	    dirty = TRUE;
+  	    if (tmp_prop.tp_len <= 0)
+  		continue;  // drop this text property
+--- 994,1021 ----
+  								      ? 2 : 1))
+  		: (tmp_prop.tp_col > col + 1))
+  	{
+! 	    if (tmp_prop.tp_col + bytes_added < col + 1)
+! 	    {
+! 		tmp_prop.tp_len += (tmp_prop.tp_col - 1 - col) + bytes_added;
+! 		tmp_prop.tp_col = col + 1;
+! 	    }
+! 	    else
+! 		tmp_prop.tp_col += bytes_added;
+  	    dirty = TRUE;
++ 	    if (tmp_prop.tp_len <= 0)
++ 		continue;  // drop this text property
+  	}
+  	else if (tmp_prop.tp_len > 0
+  		&& tmp_prop.tp_col + tmp_prop.tp_len > col
+  		       + ((pt != NULL && (pt->pt_flags & PT_FLAG_INS_END_INCL))
+  								      ? 0 : 1))
+  	{
+! 	    int after = col - bytes_added
+! 				     - (tmp_prop.tp_col - 1 + tmp_prop.tp_len);
+! 	    if (after > 0)
+! 		tmp_prop.tp_len += bytes_added + after;
+! 	    else
+! 		tmp_prop.tp_len += bytes_added;
+  	    dirty = TRUE;
+  	    if (tmp_prop.tp_len <= 0)
+  		continue;  // drop this text property
+*** ../vim-8.1.1342/src/testdir/test_textprop.vim	2019-05-17 19:56:29.860129184 +0200
+--- src/testdir/test_textprop.vim	2019-05-17 22:18:01.264176320 +0200
+***************
+*** 613,619 ****
+  endfunc
+  
+  " screenshot test with textprop highlighting
+! funct Test_textprop_screenshots()
+    " The Vim running in the terminal needs to use utf-8.
+    if !CanRunVimInTerminal() || g:orig_encoding != 'utf-8'
+      return
+--- 613,619 ----
+  endfunc
+  
+  " screenshot test with textprop highlighting
+! func Test_textprop_screenshot_various()
+    " The Vim running in the terminal needs to use utf-8.
+    if !CanRunVimInTerminal() || g:orig_encoding != 'utf-8'
+      return
+***************
+*** 671,673 ****
+--- 671,722 ----
+    call StopVimInTerminal(buf)
+    call delete('XtestProp')
+  endfunc
++ 
++ func RunTestVisualBlock(width, dump)
++   call writefile([
++ 	\ "call setline(1, ["
++ 	\	.. "'xxxxxxxxx 123 x',"
++ 	\	.. "'xxxxxxxx 123 x',"
++ 	\	.. "'xxxxxxx 123 x',"
++ 	\	.. "'xxxxxx 123 x',"
++ 	\	.. "'xxxxx 123 x',"
++ 	\	.. "'xxxx 123 xx',"
++ 	\	.. "'xxx 123 xxx',"
++ 	\	.. "'xx 123 xxxx',"
++ 	\	.. "'x 123 xxxxx',"
++ 	\	.. "' 123 xxxxxx',"
++ 	\	.. "])",
++ 	\ "hi SearchProp ctermbg=yellow",
++ 	\ "call prop_type_add('search', {'highlight': 'SearchProp'})",
++ 	\ "call prop_add(1, 11, {'length': 3, 'type': 'search'})",
++ 	\ "call prop_add(2, 10, {'length': 3, 'type': 'search'})",
++ 	\ "call prop_add(3, 9, {'length': 3, 'type': 'search'})",
++ 	\ "call prop_add(4, 8, {'length': 3, 'type': 'search'})",
++ 	\ "call prop_add(5, 7, {'length': 3, 'type': 'search'})",
++ 	\ "call prop_add(6, 6, {'length': 3, 'type': 'search'})",
++ 	\ "call prop_add(7, 5, {'length': 3, 'type': 'search'})",
++ 	\ "call prop_add(8, 4, {'length': 3, 'type': 'search'})",
++ 	\ "call prop_add(9, 3, {'length': 3, 'type': 'search'})",
++ 	\ "call prop_add(10, 2, {'length': 3, 'type': 'search'})",
++ 	\ "normal 1G6|\<C-V>" .. repeat('l', a:width - 1) .. "10jx",
++ 	\], 'XtestPropVis')
++   let buf = RunVimInTerminal('-S XtestPropVis', {'rows': 12})
++   call VerifyScreenDump(buf, 'Test_textprop_vis_' .. a:dump, {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPropVis')
++ endfunc
++ 
++ " screenshot test with Visual block mode operations
++ func Test_textprop_screenshot_visual()
++   if !CanRunVimInTerminal()
++     return
++   endif
++ 
++   " Delete two columns while text props are three chars wide.
++   call RunTestVisualBlock(2, '01')
++ 
++   " Same, but delete four columns
++   call RunTestVisualBlock(4, '02')
++ endfunc
+*** ../vim-8.1.1342/src/misc1.c	2019-05-11 17:03:55.166019785 +0200
+--- src/misc1.c	2019-05-17 22:55:55.840537922 +0200
+***************
+*** 434,441 ****
+  		saved_cursor.col = (colnr_T)(s - newline);
+  	}
+  #ifdef FEAT_TEXT_PROP
+! 	adjust_prop_columns(curwin->w_cursor.lnum, (colnr_T)(p - oldline),
+! 					     ind_len - (colnr_T)(p - oldline));
+  #endif
+  	retval = TRUE;
+      }
+--- 434,448 ----
+  		saved_cursor.col = (colnr_T)(s - newline);
+  	}
+  #ifdef FEAT_TEXT_PROP
+! 	{
+! 	    int added = ind_len - (colnr_T)(p - oldline);
+! 
+! 	    // When increasing indent this behaves like spaces were inserted at
+! 	    // the old indent, when decreasing indent it behaves like spaces
+! 	    // were deleted at the new indent.
+! 	    adjust_prop_columns(curwin->w_cursor.lnum,
+! 			(colnr_T)(added > 0 ? (p - oldline) : ind_len), added);
+! 	}
+  #endif
+  	retval = TRUE;
+      }
+*** ../vim-8.1.1342/src/testdir/dumps/Test_textprop_vis_01.dump	2019-05-17 22:56:37.016317697 +0200
+--- src/testdir/dumps/Test_textprop_vis_01.dump	2019-05-17 22:18:08.928132508 +0200
+***************
+*** 0 ****
+--- 1,12 ----
++ |x+0&#ffffff0@4>x@1| |1+0&#ffff4012|2|3| +0&#ffffff0|x| @61
++ |x@5| |1+0&#ffff4012|2|3| +0&#ffffff0|x| @62
++ |x@4| |1+0&#ffff4012|2|3| +0&#ffffff0|x| @63
++ |x@4|1+0&#ffff4012|2|3| +0&#ffffff0|x| @64
++ |x@4|2+0&#ffff4012|3| +0&#ffffff0|x| @65
++ |x@3| |3+0&#ffff4012| +0&#ffffff0|x@1| @65
++ |x@2| |1+0&#ffff4012| +0&#ffffff0|x@2| @65
++ |x@1| |1+0&#ffff4012|2|x+0&#ffffff0@3| @65
++ |x| |1+0&#ffff4012|2|3|x+0&#ffffff0@3| @65
++ @1|1+0&#ffff4012|2|3| +0&#ffffff0|x@3| @65
++ |~+0#4040ff13&| @73
++ | +0#0000000&@56|1|,|6| @10|A|l@1| 
+*** ../vim-8.1.1342/src/testdir/dumps/Test_textprop_vis_02.dump	2019-05-17 22:56:37.020317676 +0200
+--- src/testdir/dumps/Test_textprop_vis_02.dump	2019-05-17 22:18:10.028126220 +0200
+***************
+*** 0 ****
+--- 1,12 ----
++ |x+0&#ffffff0@4> |1+0&#ffff4012|2|3| +0&#ffffff0|x| @63
++ |x@4|1+0&#ffff4012|2|3| +0&#ffffff0|x| @64
++ |x@4|2+0&#ffff4012|3| +0&#ffffff0|x| @65
++ |x@4|3+0&#ffff4012| +0&#ffffff0|x| @66
++ |x@4| |x| @67
++ |x@3| |x@1| @67
++ |x@2| |1+0&#ffff4012|x+0&#ffffff0@1| @67
++ |x@1| |1+0&#ffff4012|2|x+0&#ffffff0@1| @67
++ |x| |1+0&#ffff4012|2|3|x+0&#ffffff0@1| @67
++ @1|1+0&#ffff4012|2|3| +0&#ffffff0|x@1| @67
++ |~+0#4040ff13&| @73
++ | +0#0000000&@56|1|,|6| @10|A|l@1| 
+*** ../vim-8.1.1342/src/version.c	2019-05-17 20:17:36.277186167 +0200
+--- src/version.c	2019-05-17 22:56:44.572277252 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1343,
+  /**/
+
+-- 
+Your company is doomed if your primary product is overhead transparencies.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

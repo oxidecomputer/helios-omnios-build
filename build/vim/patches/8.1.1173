@@ -1,0 +1,104 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1173
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1173
+Problem:    Suspend test has duplicated lines.
+Solution:   Use a function.
+Files:	    src/testdir/test_suspend.vim
+
+
+*** ../vim-8.1.1172/src/testdir/test_suspend.vim	2019-01-17 22:13:50.588531539 +0100
+--- src/testdir/test_suspend.vim	2019-04-14 14:11:42.682607727 +0200
+***************
+*** 2,7 ****
+--- 2,21 ----
+  
+  source shared.vim
+  
++ func CheckSuspended(buf, fileExists)
++   call WaitForAssert({-> assert_match('[$#] $', term_getline(a:buf, '.'))})
++ 
++   if a:fileExists
++     call assert_equal(['foo'], readfile('Xfoo'))
++   else
++     " Without 'autowrite', buffer should not be written.
++     call assert_equal(0, filereadable('Xfoo'))
++   endif
++ 
++   call term_sendkeys(a:buf, "fg\<CR>\<C-L>")
++   call WaitForAssert({-> assert_equal('  1 foo', term_getline(a:buf, '.'))})
++ endfunc
++ 
+  func Test_suspend()
+    if !has('terminal') || !executable('/bin/sh')
+      return
+***************
+*** 26,38 ****
+          \             "\<C-Z>"]
+      " Suspend and wait for shell prompt.
+      call term_sendkeys(buf, suspend_cmd)
+!     call WaitForAssert({-> assert_match('[$#] $', term_getline(buf, '.'))})
+! 
+!     " Without 'autowrite', buffer should not be written.
+!     call assert_equal(0, filereadable('Xfoo'))
+! 
+!     call term_sendkeys(buf, "fg\<CR>")
+!     call WaitForAssert({-> assert_equal('  1 foo', term_getline(buf, '.'))})
+    endfor
+  
+    " Test that :suspend! with 'autowrite' writes content of buffers if modified.
+--- 40,46 ----
+          \             "\<C-Z>"]
+      " Suspend and wait for shell prompt.
+      call term_sendkeys(buf, suspend_cmd)
+!     call CheckSuspended(buf, 0)
+    endfor
+  
+    " Test that :suspend! with 'autowrite' writes content of buffers if modified.
+***************
+*** 40,49 ****
+    call assert_equal(0, filereadable('Xfoo'))
+    call term_sendkeys(buf, ":suspend\<CR>")
+    " Wait for shell prompt.
+!   call WaitForAssert({-> assert_match('[$#] $', term_getline(buf, '.'))})
+!   call assert_equal(['foo'], readfile('Xfoo'))
+!   call term_sendkeys(buf, "fg\<CR>")
+!   call WaitForAssert({-> assert_equal('  1 foo', term_getline(buf, '.'))})
+  
+    " Quit gracefully to dump coverage information.
+    call term_sendkeys(buf, ":qall!\<CR>")
+--- 48,54 ----
+    call assert_equal(0, filereadable('Xfoo'))
+    call term_sendkeys(buf, ":suspend\<CR>")
+    " Wait for shell prompt.
+!   call CheckSuspended(buf, 1)
+  
+    " Quit gracefully to dump coverage information.
+    call term_sendkeys(buf, ":qall!\<CR>")
+*** ../vim-8.1.1172/src/version.c	2019-04-14 14:16:43.257228923 +0200
+--- src/version.c	2019-04-14 14:24:54.250772994 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1173,
+  /**/
+
+-- 
+MAN:     You don't frighten us, English pig-dog!  Go and boil your bottoms,
+         son of a silly person.  I blow my nose on you, so-called Arthur-king,
+         you and your silly English K...kaniggets.
+   He puts hands to his ears and blows a raspberry.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

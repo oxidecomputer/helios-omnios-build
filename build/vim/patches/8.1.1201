@@ -1,0 +1,392 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1201
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1201
+Problem:    Output of :command is hard to read.
+Solution:   Make some columns wider, some narrower.  Truncate the command when
+            listing all.
+Files:	    src/ex_docmd.c, src/message.c, src/proto/message.pro,
+            src/getchar.c, src/menu.c
+
+
+*** ../vim-8.1.1200/src/ex_docmd.c	2019-04-07 14:21:26.230339328 +0200
+--- src/ex_docmd.c	2019-04-24 23:03:28.879520754 +0200
+***************
+*** 6000,6005 ****
+--- 6000,6006 ----
+      int		found = FALSE;
+      ucmd_T	*cmd;
+      int		len;
++     int		over;
+      long	a;
+      garray_T	*gap;
+  
+***************
+*** 6019,6035 ****
+  
+  	    /* Put out the title first time */
+  	    if (!found)
+! 		msg_puts_title(_("\n    Name        Args       Address   Complete  Definition"));
+  	    found = TRUE;
+  	    msg_putchar('\n');
+  	    if (got_int)
+  		break;
+  
+! 	    /* Special cases */
+! 	    msg_putchar(a & BANG ? '!' : ' ');
+! 	    msg_putchar(a & REGSTR ? '"' : ' ');
+! 	    msg_putchar(gap != &ucmds ? 'b' : ' ');
+! 	    msg_putchar(' ');
+  
+  	    msg_outtrans_attr(cmd->uc_name, HL_ATTR(HLF_D));
+  	    len = (int)STRLEN(cmd->uc_name) + 4;
+--- 6020,6055 ----
+  
+  	    /* Put out the title first time */
+  	    if (!found)
+! 		msg_puts_title(_("\n    Name              Args Address Complete   Definition"));
+  	    found = TRUE;
+  	    msg_putchar('\n');
+  	    if (got_int)
+  		break;
+  
+! 	    // Special cases
+! 	    len = 4;
+! 	    if (a & BANG)
+! 	    {
+! 		msg_putchar('!');
+! 		--len;
+! 	    }
+! 	    if (a & REGSTR)
+! 	    {
+! 		msg_putchar('"');
+! 		--len;
+! 	    }
+! 	    if (gap != &ucmds)
+! 	    {
+! 		msg_putchar('b');
+! 		--len;
+! 	    }
+! 	    if (a & TRLBAR)
+! 	    {
+! 		msg_putchar('|');
+! 		--len;
+! 	    }
+! 	    while (len-- > 0)
+! 		msg_putchar(' ');
+  
+  	    msg_outtrans_attr(cmd->uc_name, HL_ATTR(HLF_D));
+  	    len = (int)STRLEN(cmd->uc_name) + 4;
+***************
+*** 6037,6066 ****
+  	    do {
+  		msg_putchar(' ');
+  		++len;
+! 	    } while (len < 16);
+  
+  	    len = 0;
+  
+! 	    /* Arguments */
+  	    switch ((int)(a & (EXTRA|NOSPC|NEEDARG)))
+  	    {
+! 	    case 0:			IObuff[len++] = '0'; break;
+! 	    case (EXTRA):		IObuff[len++] = '*'; break;
+! 	    case (EXTRA|NOSPC):		IObuff[len++] = '?'; break;
+! 	    case (EXTRA|NEEDARG):	IObuff[len++] = '+'; break;
+! 	    case (EXTRA|NOSPC|NEEDARG): IObuff[len++] = '1'; break;
+  	    }
+  
+  	    do {
+  		IObuff[len++] = ' ';
+! 	    } while (len < 5);
+  
+! 	    /* Range */
+  	    if (a & (RANGE|COUNT))
+  	    {
+  		if (a & COUNT)
+  		{
+! 		    /* -count=N */
+  		    sprintf((char *)IObuff + len, "%ldc", cmd->uc_def);
+  		    len += (int)STRLEN(IObuff + len);
+  		}
+--- 6057,6089 ----
+  	    do {
+  		msg_putchar(' ');
+  		++len;
+! 	    } while (len < 22);
+  
++ 	    // "over" is how much longer the name is than the column width for
++ 	    // the name, we'll try to align what comes after.
++ 	    over = len - 22;
+  	    len = 0;
+  
+! 	    // Arguments
+  	    switch ((int)(a & (EXTRA|NOSPC|NEEDARG)))
+  	    {
+! 		case 0:			    IObuff[len++] = '0'; break;
+! 		case (EXTRA):		    IObuff[len++] = '*'; break;
+! 		case (EXTRA|NOSPC):	    IObuff[len++] = '?'; break;
+! 		case (EXTRA|NEEDARG):	    IObuff[len++] = '+'; break;
+! 		case (EXTRA|NOSPC|NEEDARG): IObuff[len++] = '1'; break;
+  	    }
+  
+  	    do {
+  		IObuff[len++] = ' ';
+! 	    } while (len < 5 - over);
+  
+! 	    // Address / Range
+  	    if (a & (RANGE|COUNT))
+  	    {
+  		if (a & COUNT)
+  		{
+! 		    // -count=N
+  		    sprintf((char *)IObuff + len, "%ldc", cmd->uc_def);
+  		    len += (int)STRLEN(IObuff + len);
+  		}
+***************
+*** 6068,6074 ****
+  		    IObuff[len++] = '%';
+  		else if (cmd->uc_def >= 0)
+  		{
+! 		    /* -range=N */
+  		    sprintf((char *)IObuff + len, "%ld", cmd->uc_def);
+  		    len += (int)STRLEN(IObuff + len);
+  		}
+--- 6091,6097 ----
+  		    IObuff[len++] = '%';
+  		else if (cmd->uc_def >= 0)
+  		{
+! 		    // -range=N
+  		    sprintf((char *)IObuff + len, "%ld", cmd->uc_def);
+  		    len += (int)STRLEN(IObuff + len);
+  		}
+***************
+*** 6078,6086 ****
+  
+  	    do {
+  		IObuff[len++] = ' ';
+! 	    } while (len < 11);
+  
+! 	    /* Address Type */
+  	    for (j = 0; addr_type_complete[j].expand != -1; ++j)
+  		if (addr_type_complete[j].expand != ADDR_LINES
+  			&& addr_type_complete[j].expand == cmd->uc_addr_type)
+--- 6101,6109 ----
+  
+  	    do {
+  		IObuff[len++] = ' ';
+! 	    } while (len < 9 - over);
+  
+! 	    // Address Type
+  	    for (j = 0; addr_type_complete[j].expand != -1; ++j)
+  		if (addr_type_complete[j].expand != ADDR_LINES
+  			&& addr_type_complete[j].expand == cmd->uc_addr_type)
+***************
+*** 6092,6100 ****
+  
+  	    do {
+  		IObuff[len++] = ' ';
+! 	    } while (len < 21);
+  
+! 	    /* Completion */
+  	    for (j = 0; command_complete[j].expand != 0; ++j)
+  		if (command_complete[j].expand == cmd->uc_compl)
+  		{
+--- 6115,6123 ----
+  
+  	    do {
+  		IObuff[len++] = ' ';
+! 	    } while (len < 13 - over);
+  
+! 	    // Completion
+  	    for (j = 0; command_complete[j].expand != 0; ++j)
+  		if (command_complete[j].expand == cmd->uc_compl)
+  		{
+***************
+*** 6105,6116 ****
+  
+  	    do {
+  		IObuff[len++] = ' ';
+! 	    } while (len < 35);
+  
+  	    IObuff[len] = '\0';
+  	    msg_outtrans(IObuff);
+  
+! 	    msg_outtrans_special(cmd->uc_rep, FALSE);
+  #ifdef FEAT_EVAL
+  	    if (p_verbose > 0)
+  		last_set_msg(cmd->uc_script_ctx);
+--- 6128,6140 ----
+  
+  	    do {
+  		IObuff[len++] = ' ';
+! 	    } while (len < 24 - over);
+  
+  	    IObuff[len] = '\0';
+  	    msg_outtrans(IObuff);
+  
+! 	    msg_outtrans_special(cmd->uc_rep, FALSE,
+! 					     name_len == 0 ? Columns - 46 : 0);
+  #ifdef FEAT_EVAL
+  	    if (p_verbose > 0)
+  		last_set_msg(cmd->uc_script_ctx);
+***************
+*** 6344,6352 ****
+      end = p;
+      name_len = (int)(end - name);
+  
+!     /* If there is nothing after the name, and no attributes were specified,
+!      * we are listing commands
+!      */
+      p = skipwhite(end);
+      if (!has_attr && ends_excmd(*p))
+      {
+--- 6368,6375 ----
+      end = p;
+      name_len = (int)(end - name);
+  
+!     // If there is nothing after the name, and no attributes were specified,
+!     // we are listing commands
+      p = skipwhite(end);
+      if (!has_attr && ends_excmd(*p))
+      {
+*** ../vim-8.1.1200/src/message.c	2019-03-21 21:45:30.887282025 +0100
+--- src/message.c	2019-04-24 22:49:10.627784026 +0200
+***************
+*** 1594,1600 ****
+      int
+  msg_outtrans_special(
+      char_u	*strstart,
+!     int		from)	/* TRUE for lhs of a mapping */
+  {
+      char_u	*str = strstart;
+      int		retval = 0;
+--- 1594,1601 ----
+      int
+  msg_outtrans_special(
+      char_u	*strstart,
+!     int		from,	// TRUE for lhs of a mapping
+!     int		maxlen) // screen columns, 0 for unlimeted
+  {
+      char_u	*str = strstart;
+      int		retval = 0;
+***************
+*** 1614,1619 ****
+--- 1615,1622 ----
+  	else
+  	    text = (char *)str2special(&str, from);
+  	len = vim_strsize((char_u *)text);
++ 	if (maxlen > 0 && retval + len >= maxlen)
++ 	    break;
+  	/* Highlight special keys */
+  	msg_puts_attr(text, len > 1
+  		&& (*mb_ptr2len)((char_u *)text) <= 1 ? attr : 0);
+*** ../vim-8.1.1200/src/proto/message.pro	2019-02-19 21:34:01.987747438 +0100
+--- src/proto/message.pro	2019-04-24 22:49:22.943722491 +0200
+***************
+*** 35,41 ****
+  char_u *msg_outtrans_one(char_u *p, int attr);
+  int msg_outtrans_len_attr(char_u *msgstr, int len, int attr);
+  void msg_make(char_u *arg);
+! int msg_outtrans_special(char_u *strstart, int from);
+  char_u *str2special_save(char_u *str, int is_lhs);
+  char_u *str2special(char_u **sp, int from);
+  void str2specialbuf(char_u *sp, char_u *buf, int len);
+--- 35,41 ----
+  char_u *msg_outtrans_one(char_u *p, int attr);
+  int msg_outtrans_len_attr(char_u *msgstr, int len, int attr);
+  void msg_make(char_u *arg);
+! int msg_outtrans_special(char_u *strstart, int from, int maxlen);
+  char_u *str2special_save(char_u *str, int is_lhs);
+  char_u *str2special(char_u **sp, int from);
+  void str2specialbuf(char_u *sp, char_u *buf, int len);
+*** ../vim-8.1.1200/src/getchar.c	2019-04-18 21:08:46.841176544 +0200
+--- src/getchar.c	2019-04-24 22:49:47.187601412 +0200
+***************
+*** 4022,4028 ****
+  	msg_putchar(' ');
+  
+      /* Display the LHS.  Get length of what we write. */
+!     len = msg_outtrans_special(mp->m_keys, TRUE);
+      do
+      {
+  	msg_putchar(' ');		/* padd with blanks */
+--- 4022,4028 ----
+  	msg_putchar(' ');
+  
+      /* Display the LHS.  Get length of what we write. */
+!     len = msg_outtrans_special(mp->m_keys, TRUE, 0);
+      do
+      {
+  	msg_putchar(' ');		/* padd with blanks */
+***************
+*** 4053,4059 ****
+  	if (s != NULL)
+  	{
+  	    vim_unescape_csi(s);
+! 	    msg_outtrans_special(s, FALSE);
+  	    vim_free(s);
+  	}
+      }
+--- 4053,4059 ----
+  	if (s != NULL)
+  	{
+  	    vim_unescape_csi(s);
+! 	    msg_outtrans_special(s, FALSE, 0);
+  	    vim_free(s);
+  	}
+      }
+*** ../vim-8.1.1200/src/menu.c	2019-03-30 18:46:57.356077354 +0100
+--- src/menu.c	2019-04-24 22:49:52.107576845 +0200
+***************
+*** 1214,1220 ****
+  		if (*menu->strings[bit] == NUL)
+  		    msg_puts_attr("<Nop>", HL_ATTR(HLF_8));
+  		else
+! 		    msg_outtrans_special(menu->strings[bit], FALSE);
+  	    }
+      }
+      else
+--- 1214,1220 ----
+  		if (*menu->strings[bit] == NUL)
+  		    msg_puts_attr("<Nop>", HL_ATTR(HLF_8));
+  		else
+! 		    msg_outtrans_special(menu->strings[bit], FALSE, 0);
+  	    }
+      }
+      else
+*** ../vim-8.1.1200/src/version.c	2019-04-23 18:39:43.694863660 +0200
+--- src/version.c	2019-04-24 23:07:47.734239943 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1201,
+  /**/
+
+-- 
+        **  Hello and Welcome to the Psychiatric Hotline **
+If you are obsessive-compulsive, please press 1 repeatedly.
+If you are co-dependent, please ask someone to press 2.
+If you have multiple personalities, please press 3, 4, 5 and 6.
+If you are paranoid-delusional, we know who you are and what you want
+       - just stay on the line so we can trace the call.
+If you are schizophrenic, listen carefully and a little voice will
+       tell you which number to press next.
+If you are manic-depressive, it doesn't matter which number you press
+       - no one will answer.
+If you suffer from panic attacks, push every button you can find.
+If you are sane, please hold on - we have the rest of humanity on the
+        other line and they desparately want to ask you a few questions.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

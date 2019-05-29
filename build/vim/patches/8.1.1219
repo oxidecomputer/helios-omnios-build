@@ -1,0 +1,480 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1219
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1219
+Problem:    Not checking for NULL return from alloc().
+Solution:   Add checks. (Martin Kunev, closes #4303, closes #4174)
+Files:	    src/beval.c, src/blowfish.c, src/crypt.c, src/crypt_zip.c,
+            src/ops.c, src/option.c, src/popupmnu.c, src/proto/blowfish.pro,
+            src/proto/crypt_zip.pro, src/gui_gtk_f.c, src/gui_gtk_x11.c,
+            src/libvterm/src/state.c, src/libvterm/src/termscreen.c
+
+
+*** ../vim-8.1.1218/src/beval.c	2019-01-17 15:43:21.753878419 +0100
+--- src/beval.c	2019-04-27 21:44:39.226975332 +0200
+***************
+*** 127,132 ****
+--- 127,134 ----
+  #ifdef FEAT_VARTABS
+  		vim_free(beval->vts);
+  		beval->vts = tabstop_copy(wp->w_buffer->b_p_vts_array);
++ 		if (wp->w_buffer->b_p_vts_array != NULL && beval->vts == NULL)
++ 		    return FAIL;
+  #endif
+  		beval->ts = wp->w_buffer->b_p_ts;
+  		return OK;
+*** ../vim-8.1.1218/src/blowfish.c	2019-02-17 17:44:36.199875566 +0100
+--- src/blowfish.c	2019-04-27 21:36:48.073670930 +0200
+***************
+*** 636,642 ****
+      }
+  }
+  
+!     void
+  crypt_blowfish_init(
+      cryptstate_T	*state,
+      char_u*		key,
+--- 636,642 ----
+      }
+  }
+  
+!     int
+  crypt_blowfish_init(
+      cryptstate_T	*state,
+      char_u*		key,
+***************
+*** 647,652 ****
+--- 647,654 ----
+  {
+      bf_state_T	*bfs = (bf_state_T *)alloc_clear(sizeof(bf_state_T));
+  
++     if (bfs == NULL)
++ 	return FAIL;
+      state->method_state = bfs;
+  
+      /* "blowfish" uses a 64 byte buffer, causing it to repeat 8 byte groups 8
+***************
+*** 654,663 ****
+      bfs->cfb_len = state->method_nr == CRYPT_M_BF ? BF_MAX_CFB_LEN : BF_BLOCK;
+  
+      if (blowfish_self_test() == FAIL)
+! 	return;
+  
+      bf_key_init(bfs, key, salt, salt_len);
+      bf_cfb_init(bfs, seed, seed_len);
+  }
+  
+  /*
+--- 656,667 ----
+      bfs->cfb_len = state->method_nr == CRYPT_M_BF ? BF_MAX_CFB_LEN : BF_BLOCK;
+  
+      if (blowfish_self_test() == FAIL)
+! 	return FAIL;
+  
+      bf_key_init(bfs, key, salt, salt_len);
+      bf_cfb_init(bfs, seed, seed_len);
++ 
++     return OK;
+  }
+  
+  /*
+*** ../vim-8.1.1218/src/crypt.c	2019-04-21 00:00:07.942354840 +0200
+--- src/crypt.c	2019-04-27 21:38:11.065263015 +0200
+***************
+*** 43,49 ****
+      int (* self_test_fn)();
+  
+      // Function pointer for initializing encryption/decryption.
+!     void (* init_fn)(cryptstate_T *state, char_u *key,
+  		      char_u *salt, int salt_len, char_u *seed, int seed_len);
+  
+      /* Function pointers for encoding/decoding from one buffer into another.
+--- 43,49 ----
+      int (* self_test_fn)();
+  
+      // Function pointer for initializing encryption/decryption.
+!     int (* init_fn)(cryptstate_T *state, char_u *key,
+  		      char_u *salt, int salt_len, char_u *seed, int seed_len);
+  
+      /* Function pointers for encoding/decoding from one buffer into another.
+***************
+*** 243,248 ****
+--- 243,249 ----
+  
+  /*
+   * Allocate a crypt state and initialize it.
++  * Return NULL for failure.
+   */
+      cryptstate_T *
+  crypt_create(
+***************
+*** 255,262 ****
+  {
+      cryptstate_T *state = (cryptstate_T *)alloc((int)sizeof(cryptstate_T));
+  
+      state->method_nr = method_nr;
+!     cryptmethods[method_nr].init_fn(state, key, salt, salt_len, seed, seed_len);
+      return state;
+  }
+  
+--- 256,271 ----
+  {
+      cryptstate_T *state = (cryptstate_T *)alloc((int)sizeof(cryptstate_T));
+  
++     if (state == NULL)
++ 	return state;
++ 
+      state->method_nr = method_nr;
+!     if (cryptmethods[method_nr].init_fn(
+! 			   state, key, salt, salt_len, seed, seed_len) == FAIL)
+!     {
+!         vim_free(state);
+!         return NULL;
+!     }
+      return state;
+  }
+  
+*** ../vim-8.1.1218/src/crypt_zip.c	2019-03-30 18:46:57.340077448 +0100
+--- src/crypt_zip.c	2019-04-27 21:39:16.576855289 +0200
+***************
+*** 78,84 ****
+  /*
+   * Initialize for encryption/decryption.
+   */
+!     void
+  crypt_zip_init(
+      cryptstate_T    *state,
+      char_u	    *key,
+--- 78,84 ----
+  /*
+   * Initialize for encryption/decryption.
+   */
+!     int
+  crypt_zip_init(
+      cryptstate_T    *state,
+      char_u	    *key,
+***************
+*** 91,96 ****
+--- 91,98 ----
+      zip_state_T	*zs;
+  
+      zs = (zip_state_T *)alloc(sizeof(zip_state_T));
++     if (zs == NULL)
++ 	return FAIL;
+      state->method_state = zs;
+  
+      make_crc_tab();
+***************
+*** 99,104 ****
+--- 101,108 ----
+      zs->keys[2] = 878082192L;
+      for (p = key; *p != NUL; ++p)
+  	UPDATE_KEYS_ZIP(zs->keys, (int)*p);
++ 
++     return OK;
+  }
+  
+  /*
+*** ../vim-8.1.1218/src/ops.c	2019-03-30 18:46:57.356077354 +0100
+--- src/ops.c	2019-04-27 21:43:12.119465720 +0200
+***************
+*** 6170,6190 ****
+      y_ptr->y_size = linecount;
+      y_ptr->y_time_set = timestamp;
+      if (linecount == 0)
+  	y_ptr->y_array = NULL;
+!     else
+      {
+! 	y_ptr->y_array =
+! 		   (char_u **)alloc((unsigned)(linecount * sizeof(char_u *)));
+! 	for (i = 0; i < linecount; i++)
+  	{
+! 	    if (vp[i + 6].bv_allocated)
+! 	    {
+! 		y_ptr->y_array[i] = vp[i + 6].bv_string;
+! 		vp[i + 6].bv_string = NULL;
+! 	    }
+! 	    else
+! 		y_ptr->y_array[i] = vim_strsave(vp[i + 6].bv_string);
+  	}
+      }
+  }
+  
+--- 6170,6194 ----
+      y_ptr->y_size = linecount;
+      y_ptr->y_time_set = timestamp;
+      if (linecount == 0)
++     {
+  	y_ptr->y_array = NULL;
+! 	return;
+!     }
+!     y_ptr->y_array = (char_u **)alloc((unsigned)(linecount * sizeof(char_u *)));
+!     if (y_ptr->y_array == NULL)
+!     {
+! 	y_ptr->y_size = 0; // ensure object state is consistent
+! 	return;
+!     }
+!     for (i = 0; i < linecount; i++)
+      {
+! 	if (vp[i + 6].bv_allocated)
+  	{
+! 	    y_ptr->y_array[i] = vp[i + 6].bv_string;
+! 	    vp[i + 6].bv_string = NULL;
+  	}
++ 	else
++ 	    y_ptr->y_array[i] = vim_strsave(vp[i + 6].bv_string);
+      }
+  }
+  
+*** ../vim-8.1.1218/src/option.c	2019-04-11 11:19:21.549778651 +0200
+--- src/option.c	2019-04-27 21:44:17.207098326 +0200
+***************
+*** 13011,13023 ****
+      int		*newts;
+      int		t;
+  
+!     if (oldts == 0)
+! 	return 0;
+! 
+!     newts = (int *) alloc((unsigned) ((oldts[0] + 1) * sizeof(int)));
+!     for (t = 0; t <= oldts[0]; ++t)
+! 	newts[t] = oldts[t];
+! 
+      return newts;
+  }
+  #endif
+--- 13011,13022 ----
+      int		*newts;
+      int		t;
+  
+!     if (oldts == NULL)
+! 	return NULL;
+!     newts = (int *)alloc((unsigned)((oldts[0] + 1) * sizeof(int)));
+!     if (newts != NULL)
+! 	for (t = 0; t <= oldts[0]; ++t)
+! 	    newts[t] = oldts[t];
+      return newts;
+  }
+  #endif
+*** ../vim-8.1.1218/src/popupmnu.c	2019-04-08 18:15:36.468223210 +0200
+--- src/popupmnu.c	2019-04-27 21:45:50.918579053 +0200
+***************
+*** 1102,1113 ****
+  	    else
+  		thislen = item->bytelen;
+  
+! 	    /* put indent at the start */
+  	    p = alloc(thislen + item->indent * 2 + 1);
+  	    for (ind = 0; ind < item->indent * 2; ++ind)
+  		p[ind] = ' ';
+  
+! 	    /* exclude spaces at the end of the string */
+  	    for (copylen = thislen; copylen > 0; --copylen)
+  		if (item->start[skip + copylen - 1] != ' ')
+  		    break;
+--- 1102,1120 ----
+  	    else
+  		thislen = item->bytelen;
+  
+! 	    // put indent at the start
+  	    p = alloc(thislen + item->indent * 2 + 1);
++ 	    if (p == NULL)
++ 	    {
++ 		for (line = 0; line <= height - 1; ++line)
++ 		    vim_free((*array)[line].pum_text);
++ 		vim_free(*array);
++ 		goto failed;
++ 	    }
+  	    for (ind = 0; ind < item->indent * 2; ++ind)
+  		p[ind] = ' ';
+  
+! 	    // exclude spaces at the end of the string
+  	    for (copylen = thislen; copylen > 0; --copylen)
+  		if (item->start[skip + copylen - 1] != ' ')
+  		    break;
+*** ../vim-8.1.1218/src/proto/blowfish.pro	2018-05-17 13:52:28.000000000 +0200
+--- src/proto/blowfish.pro	2019-04-27 21:32:10.894967886 +0200
+***************
+*** 1,6 ****
+  /* blowfish.c */
+  void crypt_blowfish_encode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+  void crypt_blowfish_decode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+! void crypt_blowfish_init(cryptstate_T *state, char_u *key, char_u *salt, int salt_len, char_u *seed, int seed_len);
+  int blowfish_self_test(void);
+  /* vim: set ft=c : */
+--- 1,6 ----
+  /* blowfish.c */
+  void crypt_blowfish_encode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+  void crypt_blowfish_decode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+! int crypt_blowfish_init(cryptstate_T *state, char_u *key, char_u *salt, int salt_len, char_u *seed, int seed_len);
+  int blowfish_self_test(void);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1218/src/proto/crypt_zip.pro	2018-05-17 13:52:30.000000000 +0200
+--- src/proto/crypt_zip.pro	2019-04-27 21:32:10.894967886 +0200
+***************
+*** 1,5 ****
+  /* crypt_zip.c */
+! void crypt_zip_init(cryptstate_T *state, char_u *key, char_u *salt, int salt_len, char_u *seed, int seed_len);
+  void crypt_zip_encode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+  void crypt_zip_decode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+  /* vim: set ft=c : */
+--- 1,5 ----
+  /* crypt_zip.c */
+! int crypt_zip_init(cryptstate_T *state, char_u *key, char_u *salt, int salt_len, char_u *seed, int seed_len);
+  void crypt_zip_encode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+  void crypt_zip_decode(cryptstate_T *state, char_u *from, size_t len, char_u *to);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1218/src/gui_gtk_f.c	2019-03-02 10:13:36.792974862 +0100
+--- src/gui_gtk_f.c	2019-04-27 21:48:42.633651485 +0200
+***************
+*** 130,135 ****
+--- 130,137 ----
+  
+      /* LINTED: avoid warning: conversion to 'unsigned long' */
+      child = g_new(GtkFormChild, 1);
++     if (child == NULL)
++ 	return;
+  
+      child->widget = child_widget;
+      child->window = NULL;
+*** ../vim-8.1.1218/src/gui_gtk_x11.c	2019-03-02 10:13:36.792974862 +0100
+--- src/gui_gtk_x11.c	2019-04-27 21:51:52.784651485 +0200
+***************
+*** 1576,1587 ****
+  	if (string != NULL)
+  	{
+  	    tmpbuf = alloc(length + 2);
+! 	    tmpbuf[0] = 0xff;
+! 	    tmpbuf[1] = 0xfe;
+! 	    mch_memmove(tmpbuf + 2, string, (size_t)length);
+! 	    vim_free(string);
+! 	    string = tmpbuf;
+! 	    length += 2;
+  
+  #if !GTK_CHECK_VERSION(3,0,0)
+  	    /* Looks redundant even for GTK2 because these values are
+--- 1576,1590 ----
+  	if (string != NULL)
+  	{
+  	    tmpbuf = alloc(length + 2);
+! 	    if (tmpbuf != NULL)
+! 	    {
+! 		tmpbuf[0] = 0xff;
+! 		tmpbuf[1] = 0xfe;
+! 		mch_memmove(tmpbuf + 2, string, (size_t)length);
+! 		vim_free(string);
+! 		string = tmpbuf;
+! 		length += 2;
+! 	    }
+  
+  #if !GTK_CHECK_VERSION(3,0,0)
+  	    /* Looks redundant even for GTK2 because these values are
+***************
+*** 1606,1615 ****
+  	    tmpbuf[0] = motion_type;
+  	    STRCPY(tmpbuf + 1, p_enc);
+  	    mch_memmove(tmpbuf + l + 2, string, (size_t)length);
+  	}
+- 	length += l + 2;
+- 	vim_free(string);
+- 	string = tmpbuf;
+  	type = vimenc_atom;
+      }
+  
+--- 1609,1618 ----
+  	    tmpbuf[0] = motion_type;
+  	    STRCPY(tmpbuf + 1, p_enc);
+  	    mch_memmove(tmpbuf + l + 2, string, (size_t)length);
++ 	    length += l + 2;
++ 	    vim_free(string);
++ 	    string = tmpbuf;
+  	}
+  	type = vimenc_atom;
+      }
+  
+*** ../vim-8.1.1218/src/libvterm/src/state.c	2019-04-06 17:33:20.651486473 +0200
+--- src/libvterm/src/state.c	2019-04-27 21:57:43.626854093 +0200
+***************
+*** 253,258 ****
+--- 253,260 ----
+    // We'll have at most len codepoints, plus one from a previous incomplete
+    // sequence.
+    codepoints = vterm_allocator_malloc(state->vt, (len + 1) * sizeof(uint32_t));
++   if (codepoints == NULL)
++     return 0;
+  
+    encoding =
+      state->gsingle_set     ? &state->encoding[state->gsingle_set] :
+***************
+*** 330,335 ****
+--- 332,339 ----
+          break;
+  
+      chars = vterm_allocator_malloc(state->vt, (glyph_ends - glyph_starts + 1) * sizeof(uint32_t));
++     if (chars == NULL)
++       break;
+  
+      for( ; i < glyph_ends; i++) {
+        int this_width;
+***************
+*** 1626,1631 ****
+--- 1630,1637 ----
+  
+    if(cols != state->cols) {
+      unsigned char *newtabstops = vterm_allocator_malloc(state->vt, (cols + 7) / 8);
++     if (newtabstops == NULL)
++       return 0;
+  
+      /* TODO: This can all be done much more efficiently bytewise */
+      int col;
+***************
+*** 1651,1656 ****
+--- 1657,1664 ----
+  
+    if(rows != state->rows) {
+      VTermLineInfo *newlineinfo = vterm_allocator_malloc(state->vt, rows * sizeof(VTermLineInfo));
++     if (newlineinfo == NULL)
++       return 0;
+  
+      int row;
+      for(row = 0; row < state->rows && row < rows; row++) {
+*** ../vim-8.1.1218/src/libvterm/src/termscreen.c	2018-12-24 21:38:40.814173687 +0100
+--- src/libvterm/src/termscreen.c	2019-04-27 21:58:10.334718969 +0200
+***************
+*** 83,88 ****
+--- 83,90 ----
+    ScreenCell *new_buffer = vterm_allocator_malloc(screen->vt, sizeof(ScreenCell) * new_rows * new_cols);
+    int row, col;
+  
++   if (new_buffer == NULL)
++     return NULL;
+    for(row = 0; row < new_rows; row++) {
+      for(col = 0; col < new_cols; col++) {
+        ScreenCell *new_cell = new_buffer + row*new_cols + col;
+*** ../vim-8.1.1218/src/version.c	2019-04-27 20:36:52.534303564 +0200
+--- src/version.c	2019-04-27 21:33:25.082620378 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1219,
+  /**/
+
+-- 
+WOMAN:   King of the who?
+ARTHUR:  The Britons.
+WOMAN:   Who are the Britons?
+ARTHUR:  Well, we all are. we're all Britons and I am your king.
+                                  The Quest for the Holy Grail (Monty Python)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

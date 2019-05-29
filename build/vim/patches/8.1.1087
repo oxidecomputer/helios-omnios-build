@@ -1,0 +1,167 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1087
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1087
+Problem:    tag stack is incorrect after CTRL-T and then :tag
+Solution:   Handle DT_TAG differently. (test by Andy Massimino, closes #3944,
+            closes #4177)
+Files:	    src/tag.c, src/testdir/test_tagjump.vim
+
+
+*** ../vim-8.1.1086/src/tag.c	2019-03-30 13:53:26.174425093 +0100
+--- src/tag.c	2019-03-30 18:56:28.956626257 +0100
+***************
+*** 504,516 ****
+  		tagmatchname = vim_strsave(name);
+  	    }
+  
+! 	    if (type == DT_TAG || type == DT_SELECT || type == DT_JUMP
+  #if defined(FEAT_QUICKFIX)
+  		|| type == DT_LTAG
+  #endif
+  		)
+  		cur_match = MAXCOL - 1;
+! 	    max_num_matches = cur_match + 1;
+  
+  	    /* when the argument starts with '/', use it as a regexp */
+  	    if (!no_regexp && *name == '/')
+--- 504,519 ----
+  		tagmatchname = vim_strsave(name);
+  	    }
+  
+! 	    if (type == DT_SELECT || type == DT_JUMP
+  #if defined(FEAT_QUICKFIX)
+  		|| type == DT_LTAG
+  #endif
+  		)
+  		cur_match = MAXCOL - 1;
+! 	    if (type == DT_TAG)
+! 		max_num_matches = MAXCOL;
+! 	    else
+! 		max_num_matches = cur_match + 1;
+  
+  	    /* when the argument starts with '/', use it as a regexp */
+  	    if (!no_regexp && *name == '/')
+***************
+*** 583,589 ****
+  	    }
+  	    else
+  #endif
+! 	    if (type == DT_TAG)
+  		/*
+  		 * If a count is supplied to the ":tag <name>" command, then
+  		 * jump to count'th matching tag.
+--- 586,592 ----
+  	    }
+  	    else
+  #endif
+! 	    if (type == DT_TAG && *tag != NUL)
+  		/*
+  		 * If a count is supplied to the ":tag <name>" command, then
+  		 * jump to count'th matching tag.
+*** ../vim-8.1.1086/src/testdir/test_tagjump.vim	2018-11-11 15:20:32.436704418 +0100
+--- src/testdir/test_tagjump.vim	2019-03-30 19:10:53.703143736 +0100
+***************
+*** 366,369 ****
+--- 366,442 ----
+    set tags&
+  endfunc
+  
++ func Test_tag_with_count()
++   call writefile([
++ 	\ 'test	Xtest.h	/^void test();$/;"	p	typeref:typename:void	signature:()',
++ 	\ ], 'Xtags')
++   call writefile([
++ 	\ 'main	Xtest.c	/^int main()$/;"	f	typeref:typename:int	signature:()',
++ 	\ 'test	Xtest.c	/^void test()$/;"	f	typeref:typename:void	signature:()',
++ 	\ ], 'Ytags')
++   cal writefile([
++ 	\ 'int main()',
++ 	\ 'void test()',
++ 	\ ], 'Xtest.c')
++   cal writefile([
++ 	\ 'void test();',
++ 	\ ], 'Xtest.h')
++   set tags=Xtags,Ytags
++ 
++   new Xtest.c
++   let tl = taglist('test', 'Xtest.c')
++   call assert_equal(tl[0].filename, 'Xtest.c')
++   call assert_equal(tl[1].filename, 'Xtest.h')
++ 
++   tag test
++   call assert_equal(bufname('%'), 'Xtest.c')
++   1tag test
++   call assert_equal(bufname('%'), 'Xtest.c')
++   2tag test
++   call assert_equal(bufname('%'), 'Xtest.h')
++ 
++   set tags&
++   call delete('Xtags')
++   call delete('Ytags')
++   bwipe Xtest.h
++   bwipe Xtest.c
++   call delete('Xtest.h')
++   call delete('Xtest.c')
++ endfunc
++ 
++ func Test_tagnr_recall()
++   call writefile([
++ 	\ 'test	Xtest.h	/^void test();$/;"	p',
++ 	\ 'main	Xtest.c	/^int main()$/;"	f',
++ 	\ 'test	Xtest.c	/^void test()$/;"	f',
++ 	\ ], 'Xtags')
++   cal writefile([
++ 	\ 'int main()',
++ 	\ 'void test()',
++ 	\ ], 'Xtest.c')
++   cal writefile([
++ 	\ 'void test();',
++ 	\ ], 'Xtest.h')
++   set tags=Xtags
++ 
++   new Xtest.c
++   let tl = taglist('test', 'Xtest.c')
++   call assert_equal(tl[0].filename, 'Xtest.c')
++   call assert_equal(tl[1].filename, 'Xtest.h')
++ 
++   2tag test
++   call assert_equal(bufname('%'), 'Xtest.h')
++   pop
++   call assert_equal(bufname('%'), 'Xtest.c')
++   tag
++   call assert_equal(bufname('%'), 'Xtest.h')
++ 
++   set tag&
++   call delete('Xtags')
++   bwipe Xtest.h
++   bwipe Xtest.c
++   call delete('Xtest.h')
++   call delete('Xtest.c')
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1086/src/version.c	2019-03-30 18:46:57.364077307 +0100
+--- src/version.c	2019-03-30 18:58:03.612051381 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1087,
+  /**/
+
+-- 
+You're as much use as a condom machine at the Vatican.
+                  -- Rimmer to Holly in Red Dwarf 'Queeg'
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

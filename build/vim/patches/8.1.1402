@@ -1,0 +1,304 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1402
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1402
+Problem:    "timer" option of popup windows not supported.
+Solution:   Implement the "timer" option. (Yasuhiro Matsumoto, closes #4439)
+Files:	    src/structs.h, src/testdir/test_popupwin.vim, src/popupwin.c,
+            src/window.c, runtime/doc/popup.txt
+
+
+*** ../vim-8.1.1401/src/structs.h	2019-05-25 19:51:03.780408437 +0200
+--- src/structs.h	2019-05-26 19:36:12.090670162 +0200
+***************
+*** 1941,1946 ****
+--- 1941,1964 ----
+  } syn_time_T;
+  #endif
+  
++ typedef struct timer_S timer_T;
++ struct timer_S
++ {
++     long	tr_id;
++ #ifdef FEAT_TIMERS
++     timer_T	*tr_next;
++     timer_T	*tr_prev;
++     proftime_T	tr_due;		    /* when the callback is to be invoked */
++     char	tr_firing;	    /* when TRUE callback is being called */
++     char	tr_paused;	    /* when TRUE callback is not invoked */
++     int		tr_repeat;	    /* number of times to repeat, -1 forever */
++     long	tr_interval;	    /* msec */
++     char_u	*tr_callback;	    /* allocated */
++     partial_T	*tr_partial;
++     int		tr_emsg_count;
++ #endif
++ };
++ 
+  #ifdef FEAT_CRYPT
+  /*
+   * Structure to hold the type of encryption and the state of encryption or
+***************
+*** 2856,2861 ****
+--- 2874,2880 ----
+      int		w_zindex;
+      int		w_maxheight;	    // "maxheight" for popup window
+      int		w_maxwidth;	    // "maxwidth" for popup window
++     timer_T	*w_popup_timer;	    // timer for closing popup window
+  #endif
+  
+  
+***************
+*** 3434,3457 ****
+  };
+  typedef struct js_reader js_read_T;
+  
+- typedef struct timer_S timer_T;
+- struct timer_S
+- {
+-     long	tr_id;
+- #ifdef FEAT_TIMERS
+-     timer_T	*tr_next;
+-     timer_T	*tr_prev;
+-     proftime_T	tr_due;		    /* when the callback is to be invoked */
+-     char	tr_firing;	    /* when TRUE callback is being called */
+-     char	tr_paused;	    /* when TRUE callback is not invoked */
+-     int		tr_repeat;	    /* number of times to repeat, -1 forever */
+-     long	tr_interval;	    /* msec */
+-     char_u	*tr_callback;	    /* allocated */
+-     partial_T	*tr_partial;
+-     int		tr_emsg_count;
+- #endif
+- };
+- 
+  /* Maximum number of commands from + or -c arguments. */
+  #define MAX_ARG_CMDS 10
+  
+--- 3453,3458 ----
+*** ../vim-8.1.1401/src/testdir/test_popupwin.vim	2019-05-26 14:10:59.909979018 +0200
+--- src/testdir/test_popupwin.vim	2019-05-26 20:07:58.804887372 +0200
+***************
+*** 37,39 ****
+--- 37,73 ----
+    call StopVimInTerminal(buf)
+    call delete('XtestPopup')
+  endfunc
++ 
++ func Test_popup_time()
++   topleft vnew
++   call setline(1, 'hello')
++ 
++   call popup_create('world', {
++ 	\ 'line': 1,
++ 	\ 'col': 1,
++ 	\ 'time': 500,
++ 	\})
++   redraw
++   let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
++   call assert_equal('world', line)
++ 
++   sleep 700m
++   let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
++   call assert_equal('hello', line)
++ 
++   call popup_create('on the command line', {
++ 	\ 'line': &lines,
++ 	\ 'col': 10,
++ 	\ 'time': 500,
++ 	\})
++   redraw
++   let line = join(map(range(1, 30), 'screenstring(&lines, v:val)'), '')
++   call assert_match('.*on the command line.*', line)
++ 
++   sleep 700m
++   redraw
++   let line = join(map(range(1, 30), 'screenstring(&lines, v:val)'), '')
++   call assert_notmatch('.*on the command line.*', line)
++ 
++   bwipe!
++ endfunc
+*** ../vim-8.1.1401/src/popupwin.c	2019-05-26 18:48:09.402542633 +0200
+--- src/popupwin.c	2019-05-26 20:05:06.193720441 +0200
+***************
+*** 22,32 ****
+--- 22,55 ----
+      static void
+  apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict)
+  {
++     int	    nr;
++ 
+      wp->w_maxwidth = dict_get_number(dict, (char_u *)"maxwidth");
+      wp->w_maxheight = dict_get_number(dict, (char_u *)"maxheight");
+      wp->w_winrow = dict_get_number(dict, (char_u *)"line");
+      wp->w_wincol = dict_get_number(dict, (char_u *)"col");
+      wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
++ 
++     // Add timer to close the popup after some time.
++     nr = dict_get_number(dict, (char_u *)"time");
++     if (nr > 0)
++     {
++ 	char_u	    cbbuf[50];
++ 	char_u	    *ptr = cbbuf;
++ 	typval_T    tv;
++ 
++ 	vim_snprintf((char *)cbbuf, sizeof(cbbuf),
++ 					   "{_ -> popup_close(%d)}", wp->w_id);
++ 	if (get_lambda_tv(&ptr, &tv, TRUE) == OK)
++ 	{
++ 	    wp->w_popup_timer = create_timer(nr, 0);
++ 	    wp->w_popup_timer->tr_callback =
++ 				  vim_strsave(partial_name(tv.vval.v_partial));
++ 	    func_ref(wp->w_popup_timer->tr_callback);
++ 	    wp->w_popup_timer->tr_partial = tv.vval.v_partial;
++ 	}
++     }
++ 
+  }
+  
+  /*
+***************
+*** 177,182 ****
+--- 200,214 ----
+      popup_close(nr);
+  }
+  
++     static void
++ popup_undisplay(win_T *wp)
++ {
++     if (wp->w_winrow + wp->w_height >= cmdline_row)
++ 	clear_cmdline = TRUE;
++     win_free_popup(wp);
++     redraw_all_later(NOT_VALID);
++ }
++ 
+  /*
+   * Close a popup window by Window-id.
+   */
+***************
+*** 195,202 ****
+  		first_popupwin = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    win_free_popup(wp);
+! 	    redraw_all_later(NOT_VALID);
+  	    return;
+  	}
+  
+--- 227,233 ----
+  		first_popupwin = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    popup_undisplay(wp);
+  	    return;
+  	}
+  
+***************
+*** 222,229 ****
+  		*root = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    win_free_popup(wp);
+! 	    redraw_all_later(NOT_VALID);
+  	    return;
+  	}
+  }
+--- 253,259 ----
+  		*root = wp->w_next;
+  	    else
+  		prev->w_next = wp->w_next;
+! 	    popup_undisplay(wp);
+  	    return;
+  	}
+  }
+*** ../vim-8.1.1401/src/window.c	2019-05-26 18:48:09.406542616 +0200
+--- src/window.c	2019-05-26 19:49:35.494131709 +0200
+***************
+*** 3670,3681 ****
+      diff_clear(tp);
+  # endif
+  # ifdef FEAT_TEXT_PROP
+!     {
+! 	win_T *wp;
+! 
+! 	while (tp->tp_first_popupwin != NULL)
+! 	    popup_close_tabpage(tp, tp->tp_first_popupwin->w_id);
+!     }
+  #endif
+      for (idx = 0; idx < SNAP_COUNT; ++idx)
+  	clear_snapshot(tp, idx);
+--- 3670,3677 ----
+      diff_clear(tp);
+  # endif
+  # ifdef FEAT_TEXT_PROP
+!     while (tp->tp_first_popupwin != NULL)
+! 	popup_close_tabpage(tp, tp->tp_first_popupwin->w_id);
+  #endif
+      for (idx = 0; idx < SNAP_COUNT; ++idx)
+  	clear_snapshot(tp, idx);
+***************
+*** 4871,4876 ****
+--- 4867,4874 ----
+  win_free_popup(win_T *win)
+  {
+      win_close_buffer(win, TRUE, FALSE);
++     if (win->w_popup_timer != NULL)
++ 	stop_timer(win->w_popup_timer);
+      vim_free(win->w_frame);
+      win_free(win, NULL);
+  }
+*** ../vim-8.1.1401/runtime/doc/popup.txt	2019-05-25 19:51:03.768408497 +0200
+--- runtime/doc/popup.txt	2019-05-26 19:37:51.574092763 +0200
+***************
+*** 142,148 ****
+  				\ 'tab': -1,
+  				\ 'zindex': 200,
+  				\ 'highlight': 'WarningMsg',
+! 				\ 'border: [],
+  				\ })
+  <		Use {options} to change the properties.
+  
+--- 142,148 ----
+  				\ 'tab': -1,
+  				\ 'zindex': 200,
+  				\ 'highlight': 'WarningMsg',
+! 				\ 'border': [],
+  				\ })
+  <		Use {options} to change the properties.
+  
+***************
+*** 339,345 ****
+  	zindex		priority for the popup, default 50
+  	time		time in milliseconds after which the popup will close;
+  			when omitted |popup_close()| must be used.
+- 			{not implemented yet}
+  	moved		"cell": close the popup if the cursor moved at least
+  			one screen cell; "word" allows for moving within
+  			|<cword>|, "WORD" allows for moving within |<cWORD>|,
+--- 339,344 ----
+*** ../vim-8.1.1401/src/version.c	2019-05-26 19:20:33.024744457 +0200
+--- src/version.c	2019-05-26 20:09:05.008561819 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1402,
+  /**/
+
+-- 
+Q. What happens to programmers when they die?
+A: MS-Windows programmers are reinstalled.  C++ programmers become undefined,
+   anyone who refers to them will die as well. Java programmers reincarnate
+   after being garbage collected, unless they are in permgen, in which case
+   they become zombies.  Zimbu programmers leave a stack trace that tells us
+   exactly where they died and how they got there.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

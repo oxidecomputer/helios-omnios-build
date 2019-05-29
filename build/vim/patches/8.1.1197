@@ -1,0 +1,140 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1197
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1197
+Problem:    When starting with multiple tabs file messages is confusing.
+Solution:   Set 'shortmess' when loading the other tabs. (Christian Brabandt)
+Files:	    src/main.c, src/testdir/test_startup.vim,
+            src/testdir/dumps/Test_start_with_tabs.dump
+
+
+*** ../vim-8.1.1196/src/main.c	2019-04-04 18:15:05.770857065 +0200
+--- src/main.c	2019-04-21 15:44:36.733783118 +0200
+***************
+*** 2777,2782 ****
+--- 2777,2783 ----
+      int		i;
+      int		advance = TRUE;
+      win_T	*win;
++     char_u	*p_shm_save = NULL;
+  
+      /*
+       * Don't execute Win/Buf Enter/Leave autocommands here
+***************
+*** 2812,2817 ****
+--- 2813,2829 ----
+  		if (curtab->tp_next == NULL)	/* just checking */
+  		    break;
+  		goto_tabpage(0);
++ 		// Temporarily reset 'shm' option to not print fileinfo when
++ 		// loading the other buffers. This would overwrite the already
++ 		// existing fileinfo for the first tab.
++ 		if (i == 1)
++ 		{
++ 		    char buf[100];
++ 
++ 		    p_shm_save = vim_strsave(p_shm);
++ 		    vim_snprintf(buf, 100, "F%s", p_shm);
++ 		    set_option_value((char_u *)"shm", 0L, (char_u *)buf, 0);
++ 		}
+  	    }
+  	    else
+  	    {
+***************
+*** 2861,2866 ****
+--- 2873,2884 ----
+  	}
+      }
+  
++     if (p_shm_save != NULL)
++     {
++ 	set_option_value((char_u *)"shm", 0L, p_shm_save, 0);
++ 	vim_free(p_shm_save);
++     }
++ 
+      if (parmp->window_layout == WIN_TABS)
+  	goto_tabpage(1);
+      --autocmd_no_enter;
+*** ../vim-8.1.1196/src/testdir/test_startup.vim	2019-02-22 13:42:00.276540703 +0100
+--- src/testdir/test_startup.vim	2019-04-21 15:51:38.395526953 +0200
+***************
+*** 1,6 ****
+--- 1,7 ----
+  " Tests for startup.
+  
+  source shared.vim
++ source screendump.vim
+  
+  " Check that loading startup.vim works.
+  func Test_startup_script()
+***************
+*** 547,549 ****
+--- 548,562 ----
+    let out = system(GetVimCommand() . ' -es -X -V1 -c "echon ''hello''" -cq')
+    call assert_equal('hello', out)
+  endfunc
++ 
++ func Test_start_with_tabs()
++   if !CanRunVimInTerminal()
++     return
++   endif
++ 
++   let buf = RunVimInTerminal('-p a b c', {})
++   call VerifyScreenDump(buf, 'Test_start_with_tabs', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++ endfunc
+*** ../vim-8.1.1196/src/testdir/dumps/Test_start_with_tabs.dump	2019-04-21 15:54:14.138672972 +0200
+--- src/testdir/dumps/Test_start_with_tabs.dump	2019-04-21 15:51:45.167490015 +0200
+***************
+*** 0 ****
+--- 1,20 ----
++ | +2&#ffffff0|a| | +8#0000001#e0e0e08|b| @1|c| | +1#0000000#ffffff0@64|X+8#0000001#e0e0e08
++ > +0#0000000#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |"+0#0000000&|a|"| |[|N|e|w| |F|i|l|e|]| @42|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1196/src/version.c	2019-04-21 15:22:35.485067386 +0200
+--- src/version.c	2019-04-21 15:53:39.018866202 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1197,
+  /**/
+
+-- 
+       "To whoever finds this note -
+       I have been imprisoned by my father who wishes me to marry
+       against my will.  Please please please please come and rescue me.
+       I am in the tall tower of Swamp Castle."
+   SIR LAUNCELOT's eyes light up with holy inspiration.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

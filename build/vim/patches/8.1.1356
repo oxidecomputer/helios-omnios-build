@@ -1,0 +1,206 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1356
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1356
+Problem:    Some text in heredoc assignment ends the text. (Ozaki Kiichi)
+Solution:   Recognize "let v =<<" and skip until the end.
+Files:	    src/userfunc.c, src/testdir/test_let.vim
+
+
+*** ../vim-8.1.1355/src/userfunc.c	2019-05-11 18:28:41.351611622 +0200
+--- src/userfunc.c	2019-05-19 21:19:18.418630239 +0200
+***************
+*** 1979,1984 ****
+--- 1979,1985 ----
+      int		indent;
+      int		nesting;
+      char_u	*skip_until = NULL;
++     char_u	*trimmed = NULL;
+      dictitem_T	*v;
+      funcdict_T	fudi;
+      static int	func_nr = 0;	    /* number for nameless function */
+***************
+*** 2303,2312 ****
+  
+  	if (skip_until != NULL)
+  	{
+! 	    /* between ":append" and "." and between ":python <<EOF" and "EOF"
+! 	     * don't check for ":endfunc". */
+! 	    if (STRCMP(theline, skip_until) == 0)
+! 		VIM_CLEAR(skip_until);
+  	}
+  	else
+  	{
+--- 2304,2321 ----
+  
+  	if (skip_until != NULL)
+  	{
+! 	    // Between ":append" and "." and between ":python <<EOF" and "EOF"
+! 	    // don't check for ":endfunc".
+! 	    if (trimmed == NULL
+! 			    || STRNCMP(theline, trimmed, STRLEN(trimmed)) == 0)
+! 	    {
+! 		p = trimmed == NULL ? theline : theline + STRLEN(trimmed);
+! 		if (STRCMP(p, skip_until) == 0)
+! 		{
+! 		    VIM_CLEAR(skip_until);
+! 		    VIM_CLEAR(trimmed);
+! 		}
+! 	    }
+  	}
+  	else
+  	{
+***************
+*** 2406,2411 ****
+--- 2415,2444 ----
+  		else
+  		    skip_until = vim_strsave(p);
+  	    }
++ 
++ 	    // Check for ":let v =<< [trim] EOF"
++ 	    arg = skipwhite(skiptowhite(p));
++ 	    arg = skipwhite(skiptowhite(arg));
++ 	    if (arg[0] == '=' && arg[1] == '<' && arg[2] =='<'
++ 		    && ((p[0] == 'l'
++ 			    && p[1] == 'e'
++ 			    && (!ASCII_ISALNUM(p[2])
++ 				|| (p[2] == 't' && !ASCII_ISALNUM(p[3]))))))
++ 	    {
++ 		// ":let v =<<" continues until a dot
++ 		p = skipwhite(arg + 3);
++ 		if (STRNCMP(p, "trim", 4) == 0)
++ 		{
++ 		    // Ignore leading white space.
++ 		    p = skipwhite(p + 4);
++ 		    trimmed = vim_strnsave(theline,
++ 					  (int)(skipwhite(theline) - theline));
++ 		}
++ 		if (*p == NUL)
++ 		    skip_until = vim_strsave((char_u *)".");
++ 		else
++ 		    skip_until = vim_strnsave(p, (int)(skiptowhite(p) - p));
++ 	    }
+  	}
+  
+  	/* Add the line to the function. */
+*** ../vim-8.1.1355/src/testdir/test_let.vim	2019-05-19 18:41:23.262148495 +0200
+--- src/testdir/test_let.vim	2019-05-19 21:33:54.346116430 +0200
+***************
+*** 152,157 ****
+--- 152,179 ----
+    call assert_equal('ĀĒĪŌŪあいうえお', $a)
+  endfunc
+  
++ func Test_let_heredoc_fails()
++   call assert_fails('let v =<< marker', 'E991:')
++ 
++   let text =<< trim END
++   func WrongSyntax()
++     let v =<< that there
++   endfunc
++   END
++   call writefile(text, 'XheredocFail')
++   call assert_fails('source XheredocFail', 'E126:')
++   call delete('XheredocFail')
++ 
++   let text =<< trim END
++   func MissingEnd()
++     let v =<< END
++   endfunc
++   END
++   call writefile(text, 'XheredocWrong')
++   call assert_fails('source XheredocWrong', 'E126:')
++   call delete('XheredocWrong')
++ endfunc
++ 
+  " Test for the setting a variable using the heredoc syntax
+  func Test_let_heredoc()
+    let var1 =<< END
+***************
+*** 193,207 ****
+    .
+    call assert_equal(['  Line1'], var1)
+  
+!   call assert_fails('let v =<< marker', 'E991:')
+!   call assert_fails('call WrongSyntax()', 'E488:')
+!   call assert_fails('call MissingEnd()', 'E990:')
+  endfunc
+  
+! func WrongSyntax()
+!   let fail =<< that there
+! endfunc
+  
+! func MissingEnd()
+!   let fail =<< END
+  endfunc
+--- 215,259 ----
+    .
+    call assert_equal(['  Line1'], var1)
+  
+!   " ignore "endfunc"
+!   let var1 =<< END
+! something
+  endfunc
++ END
++   call assert_equal(['something', 'endfunc'], var1)
+  
+!   " ignore "endfunc" with trim
+!   let var1 =<< trim END
+!   something
+!   endfunc
+!   END
+!   call assert_equal(['something', 'endfunc'], var1)
+! 
+!   " ignore "python << xx"
+!   let var1 =<<END
+! something
+! python << xx
+! END
+!   call assert_equal(['something', 'python << xx'], var1)
+! 
+!   " ignore "python << xx" with trim
+!   let var1 =<< trim END
+!   something
+!   python << xx
+!   END
+!   call assert_equal(['something', 'python << xx'], var1)
+  
+!   " ignore "append"
+!   let var1 =<<
+! something
+! app
+! .
+!   call assert_equal(['something', 'app'], var1)
+! 
+!   " ignore "append" with trim
+!   let var1 =<< trim
+!   something
+!   app
+!   .
+!   call assert_equal(['something', 'app'], var1)
+  endfunc
+*** ../vim-8.1.1355/src/version.c	2019-05-19 19:59:30.164255569 +0200
+--- src/version.c	2019-05-19 21:30:25.855209515 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1356,
+  /**/
+
+-- 
+No engineer can take a shower without wondering if some sort of Teflon coating
+would make showering unnecessary.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

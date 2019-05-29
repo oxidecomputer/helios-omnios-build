@@ -1,0 +1,647 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1248
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1248
+Problem:    No test for dec mouse.
+Solution:   Add some tests for dec mouse.  Add "no_query_mouse".
+Files:	    src/evalfunc.c, src/globals.h, src/os_unix.c,
+            src/testdir/test_termcodes.vim, runtime/doc/eval.txt
+
+
+*** ../vim-8.1.1247/src/evalfunc.c	2019-04-28 19:46:17.022060143 +0200
+--- src/evalfunc.c	2019-05-02 22:23:44.186970564 +0200
+***************
+*** 14302,14313 ****
+--- 14302,14316 ----
+  	}
+  	else if (STRCMP(name, (char_u *)"nfa_fail") == 0)
+  	    nfa_fail_for_testing = val;
++ 	else if (STRCMP(name, (char_u *)"no_query_mouse") == 0)
++ 	    no_query_mouse_for_testing = val;
+  	else if (STRCMP(name, (char_u *)"ALL") == 0)
+  	{
+  	    disable_char_avail_for_testing = FALSE;
+  	    disable_redraw_for_testing = FALSE;
+  	    ignore_redraw_flag_for_testing = FALSE;
+  	    nfa_fail_for_testing = FALSE;
++ 	    no_query_mouse_for_testing = FALSE;
+  	    if (save_starting >= 0)
+  	    {
+  		starting = save_starting;
+*** ../vim-8.1.1247/src/globals.h	2019-04-28 22:25:03.240480046 +0200
+--- src/globals.h	2019-05-02 22:24:08.050849053 +0200
+***************
+*** 1613,1623 ****
+  /* set by alloc_fail(), number of times alloc() returns NULL */
+  EXTERN int  alloc_fail_repeat INIT(= 0);
+  
+! /* flags set by test_override() */
+  EXTERN int  disable_char_avail_for_testing INIT(= FALSE);
+  EXTERN int  disable_redraw_for_testing INIT(= FALSE);
+  EXTERN int  ignore_redraw_flag_for_testing INIT(= FALSE);
+  EXTERN int  nfa_fail_for_testing INIT(= FALSE);
+  
+  EXTERN int  in_free_unref_items INIT(= FALSE);
+  #endif
+--- 1613,1624 ----
+  /* set by alloc_fail(), number of times alloc() returns NULL */
+  EXTERN int  alloc_fail_repeat INIT(= 0);
+  
+! // flags set by test_override()
+  EXTERN int  disable_char_avail_for_testing INIT(= FALSE);
+  EXTERN int  disable_redraw_for_testing INIT(= FALSE);
+  EXTERN int  ignore_redraw_flag_for_testing INIT(= FALSE);
+  EXTERN int  nfa_fail_for_testing INIT(= FALSE);
++ EXTERN int  no_query_mouse_for_testing INIT(= FALSE);
+  
+  EXTERN int  in_free_unref_items INIT(= FALSE);
+  #endif
+*** ../vim-8.1.1247/src/os_unix.c	2019-04-28 22:50:36.157248454 +0200
+--- src/os_unix.c	2019-05-02 22:24:41.454678795 +0200
+***************
+*** 5940,5946 ****
+      if (WantQueryMouse)
+      {
+  	WantQueryMouse = FALSE;
+! 	mch_write((char_u *)IF_EB("\033[1'|", ESC_STR "[1'|"), 5);
+      }
+  #endif
+  
+--- 5940,5947 ----
+      if (WantQueryMouse)
+      {
+  	WantQueryMouse = FALSE;
+! 	if (!no_query_mouse_for_testing)
+! 	    mch_write((char_u *)IF_EB("\033[1'|", ESC_STR "[1'|"), 5);
+      }
+  #endif
+  
+*** ../vim-8.1.1247/src/testdir/test_termcodes.vim	2019-05-02 21:12:15.800625684 +0200
+--- src/testdir/test_termcodes.vim	2019-05-02 22:56:32.436832987 +0200
+***************
+*** 8,16 ****
+  source shared.vim
+  
+  " xterm2 and sgr always work, urxvt is optional.
+! let s:test_ttymouse = ['xterm2', 'sgr']
+  if has('mouse_urxvt')
+!   call add(s:test_ttymouse, 'urxvt')
+  endif
+  
+  " Helper function to emit a terminal escape code.
+--- 8,23 ----
+  source shared.vim
+  
+  " xterm2 and sgr always work, urxvt is optional.
+! let s:ttymouse_values = ['xterm2', 'sgr']
+  if has('mouse_urxvt')
+!   call add(s:ttymouse_values, 'urxvt')
+! endif
+! 
+! " dec doesn't support all the functionality
+! if has('mouse_dec')
+!   let s:ttymouse_dec = ['dec']
+! else
+!   let s:ttymouse_dec = []
+  endif
+  
+  " Helper function to emit a terminal escape code.
+***************
+*** 32,43 ****
+    endif
+  endfunc
+  
+  func MouseLeftClick(row, col)
+!   call TerminalEscapeCode(0, a:row, a:col, 'M')
+  endfunc
+  
+  func MouseMiddleClick(row, col)
+!   call TerminalEscapeCode(1, a:row, a:col, 'M')
+  endfunc
+  
+  func MouseCtrlLeftClick(row, col)
+--- 39,62 ----
+    endif
+  endfunc
+  
++ func DecEscapeCode(code, down, row, col)
++     call feedkeys(printf("\<Esc>[%d;%d;%d;%d&w", a:code, a:down, a:row, a:col), 'Lx!')
++ endfunc
++ 
+  func MouseLeftClick(row, col)
+!   if &ttymouse ==# 'dec'
+!     call DecEscapeCode(2, 4, a:row, a:col)
+!   else
+!     call TerminalEscapeCode(0, a:row, a:col, 'M')
+!   endif
+  endfunc
+  
+  func MouseMiddleClick(row, col)
+!   if &ttymouse ==# 'dec'
+!     call DecEscapeCode(4, 2, a:row, a:col)
+!   else
+!     call TerminalEscapeCode(1, a:row, a:col, 'M')
+!   endif
+  endfunc
+  
+  func MouseCtrlLeftClick(row, col)
+***************
+*** 51,61 ****
+  endfunc
+  
+  func MouseLeftRelease(row, col)
+!   call TerminalEscapeCode(3, a:row, a:col, 'm')
+  endfunc
+  
+  func MouseMiddleRelease(row, col)
+!   call TerminalEscapeCode(3, a:row, a:col, 'm')
+  endfunc
+  
+  func MouseRightRelease(row, col)
+--- 70,88 ----
+  endfunc
+  
+  func MouseLeftRelease(row, col)
+!   if &ttymouse ==# 'dec'
+!     call DecEscapeCode(3, 0, a:row, a:col)
+!   else
+!     call TerminalEscapeCode(3, a:row, a:col, 'm')
+!   endif
+  endfunc
+  
+  func MouseMiddleRelease(row, col)
+!   if &ttymouse ==# 'dec'
+!     call DecEscapeCode(5, 0, a:row, a:col)
+!   else
+!     call TerminalEscapeCode(3, a:row, a:col, 'm')
+!   endif
+  endfunc
+  
+  func MouseRightRelease(row, col)
+***************
+*** 63,69 ****
+  endfunc
+  
+  func MouseLeftDrag(row, col)
+!   call TerminalEscapeCode(0x20, a:row, a:col, 'M')
+  endfunc
+  
+  func MouseWheelUp(row, col)
+--- 90,100 ----
+  endfunc
+  
+  func MouseLeftDrag(row, col)
+!   if &ttymouse ==# 'dec'
+!     call DecEscapeCode(1, 4, a:row, a:col)
+!   else
+!     call TerminalEscapeCode(0x20, a:row, a:col, 'M')
+!   endif
+  endfunc
+  
+  func MouseWheelUp(row, col)
+***************
+*** 74,88 ****
+    call TerminalEscapeCode(0x41, a:row, a:col, 'M')
+  endfunc
+  
+! func Test_xterm_mouse_left_click()
+    new
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+    set mouse=a term=xterm
+    call setline(1, ['line 1', 'line 2', 'line 3 is a bit longer'])
+  
+!   for ttymouse_val in s:test_ttymouse
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      go
+--- 105,120 ----
+    call TerminalEscapeCode(0x41, a:row, a:col, 'M')
+  endfunc
+  
+! func Test_term_mouse_left_click()
+    new
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
++   call test_override('no_query_mouse', 1)
+    set mouse=a term=xterm
+    call setline(1, ['line 1', 'line 2', 'line 3 is a bit longer'])
+  
+!   for ttymouse_val in s:ttymouse_values + s:ttymouse_dec
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      go
+***************
+*** 97,102 ****
+--- 129,135 ----
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
++   call test_override('no_query_mouse', 0)
+    bwipe!
+  endfunc
+  
+***************
+*** 107,113 ****
+    let save_ttymouse = &ttymouse
+    set mouse=a term=xterm
+  
+!   for ttymouse_val in s:test_ttymouse
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      help
+--- 140,146 ----
+    let save_ttymouse = &ttymouse
+    set mouse=a term=xterm
+  
+!   for ttymouse_val in s:ttymouse_values
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      help
+***************
+*** 121,127 ****
+      call assert_equal('*usr_02.txt*', expand('<cWORD>'))
+  
+      call MouseCtrlRightClick(row, col)
+!     call MouseLeftRelease(row, col)
+      call assert_match('help.txt$', bufname('%'), msg)
+      call assert_equal('|usr_02.txt|', expand('<cWORD>'))
+  
+--- 154,160 ----
+      call assert_equal('*usr_02.txt*', expand('<cWORD>'))
+  
+      call MouseCtrlRightClick(row, col)
+!     call MouseRightRelease(row, col)
+      call assert_match('help.txt$', bufname('%'), msg)
+      call assert_equal('|usr_02.txt|', expand('<cWORD>'))
+  
+***************
+*** 133,139 ****
+    let &ttymouse = save_ttymouse
+  endfunc
+  
+! func Test_xterm_mouse_middle_click()
+    if !WorkingClipboard()
+      throw 'Skipped: No working clipboard'
+    endif
+--- 166,172 ----
+    let &ttymouse = save_ttymouse
+  endfunc
+  
+! func Test_term_mouse_middle_click()
+    if !WorkingClipboard()
+      throw 'Skipped: No working clipboard'
+    endif
+***************
+*** 142,152 ****
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+    let save_quotestar = @*
+    let @* = 'abc'
+    set mouse=a term=xterm
+  
+!   for ttymouse_val in s:test_ttymouse
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      call setline(1, ['123456789', '123456789'])
+--- 175,186 ----
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
++   call test_override('no_query_mouse', 1)
+    let save_quotestar = @*
+    let @* = 'abc'
+    set mouse=a term=xterm
+  
+!   for ttymouse_val in s:ttymouse_values + s:ttymouse_dec
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      call setline(1, ['123456789', '123456789'])
+***************
+*** 175,185 ****
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
+    let @* = save_quotestar
+    bwipe!
+  endfunc
+  
+! func Test_xterm_mouse_wheel()
+    new
+    let save_mouse = &mouse
+    let save_term = &term
+--- 209,222 ----
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
++   call test_override('no_query_mouse', 0)
+    let @* = save_quotestar
+    bwipe!
+  endfunc
+  
+! " TODO: for unclear reasons this test fails if it comes after
+! " Test_xterm_mouse_ctrl_click()
+! func Test_1xterm_mouse_wheel()
+    new
+    let save_mouse = &mouse
+    let save_term = &term
+***************
+*** 187,193 ****
+    set mouse=a term=xterm
+    call setline(1, range(1, 100))
+  
+!   for ttymouse_val in s:test_ttymouse
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      go
+--- 224,230 ----
+    set mouse=a term=xterm
+    call setline(1, range(1, 100))
+  
+!   for ttymouse_val in s:ttymouse_values
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      go
+***************
+*** 217,229 ****
+    bwipe!
+  endfunc
+  
+! func Test_xterm_mouse_drag_window_separator()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+    set mouse=a term=xterm
+  
+!   for ttymouse_val in s:test_ttymouse
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+  
+--- 254,267 ----
+    bwipe!
+  endfunc
+  
+! func Test_term_mouse_drag_window_separator()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
++   call test_override('no_query_mouse', 1)
+    set mouse=a term=xterm
+  
+!   for ttymouse_val in s:ttymouse_values + s:ttymouse_dec
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+  
+***************
+*** 271,286 ****
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
+  endfunc
+  
+! func Test_xterm_mouse_drag_statusline()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+    let save_laststatus = &laststatus
+    set mouse=a term=xterm laststatus=2
+  
+!   for ttymouse_val in s:test_ttymouse
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+  
+--- 309,326 ----
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
++   call test_override('no_query_mouse', 0)
+  endfunc
+  
+! func Test_term_mouse_drag_statusline()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
++   call test_override('no_query_mouse', 1)
+    let save_laststatus = &laststatus
+    set mouse=a term=xterm laststatus=2
+  
+!   for ttymouse_val in s:ttymouse_values + s:ttymouse_dec
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+  
+***************
+*** 311,327 ****
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
+    let &laststatus = save_laststatus
+  endfunc
+  
+! func Test_xterm_mouse_click_tab()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+    set mouse=a term=xterm
+    let row = 1
+  
+!   for ttymouse_val in s:test_ttymouse
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      e Xfoo
+--- 351,369 ----
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
++   call test_override('no_query_mouse', 0)
+    let &laststatus = save_laststatus
+  endfunc
+  
+! func Test_term_mouse_click_tab()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
++   call test_override('no_query_mouse', 1)
+    set mouse=a term=xterm
+    let row = 1
+  
+!   for ttymouse_val in s:ttymouse_values + s:ttymouse_dec
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      e Xfoo
+***************
+*** 359,375 ****
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
+  endfunc
+  
+! func Test_xterm_mouse_click_X_to_close_tab()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+    set mouse=a term=xterm
+    let row = 1
+    let col = &columns
+  
+!   for ttymouse_val in s:test_ttymouse
+      if ttymouse_val ==# 'xterm2' && col > 223
+        " When 'ttymouse' is 'xterm2', row/col bigger than 223 are not supported.
+        continue
+--- 401,419 ----
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
++   call test_override('no_query_mouse', 0)
+  endfunc
+  
+! func Test_term_mouse_click_X_to_close_tab()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
++   call test_override('no_query_mouse', 1)
+    set mouse=a term=xterm
+    let row = 1
+    let col = &columns
+  
+!   for ttymouse_val in s:ttymouse_values + s:ttymouse_dec
+      if ttymouse_val ==# 'xterm2' && col > 223
+        " When 'ttymouse' is 'xterm2', row/col bigger than 223 are not supported.
+        continue
+***************
+*** 405,421 ****
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
+  endfunc
+  
+! func Test_xterm_mouse_drag_to_move_tab()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+    " Set 'mousetime' to 1 to avoid recognizing a double-click in the loop
+    set mouse=a term=xterm mousetime=1
+    let row = 1
+  
+!   for ttymouse_val in s:test_ttymouse
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      e Xtab1
+--- 449,467 ----
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
++   call test_override('no_query_mouse', 0)
+  endfunc
+  
+! func Test_term_mouse_drag_to_move_tab()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
++   call test_override('no_query_mouse', 1)
+    " Set 'mousetime' to 1 to avoid recognizing a double-click in the loop
+    set mouse=a term=xterm mousetime=1
+    let row = 1
+  
+!   for ttymouse_val in s:ttymouse_values + s:ttymouse_dec
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      e Xtab1
+***************
+*** 451,463 ****
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
+    set mousetime&
+  endfunc
+  
+! func Test_xterm_mouse_double_click_to_create_tab()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
+    " Set 'mousetime' to a small value, so that double-click works but we don't
+    " have to wait long to avoid a triple-click.
+    set mouse=a term=xterm mousetime=100
+--- 497,511 ----
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
++   call test_override('no_query_mouse', 0)
+    set mousetime&
+  endfunc
+  
+! func Test_term_mouse_double_click_to_create_tab()
+    let save_mouse = &mouse
+    let save_term = &term
+    let save_ttymouse = &ttymouse
++   call test_override('no_query_mouse', 1)
+    " Set 'mousetime' to a small value, so that double-click works but we don't
+    " have to wait long to avoid a triple-click.
+    set mouse=a term=xterm mousetime=100
+***************
+*** 465,471 ****
+    let col = 10
+  
+    let round = 0
+!   for ttymouse_val in s:test_ttymouse
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      e Xtab1
+--- 513,519 ----
+    let col = 10
+  
+    let round = 0
+!   for ttymouse_val in s:ttymouse_values + s:ttymouse_dec
+      let msg = 'ttymouse=' .. ttymouse_val
+      exe 'set ttymouse=' .. ttymouse_val
+      e Xtab1
+***************
+*** 507,512 ****
+--- 555,561 ----
+    let &mouse = save_mouse
+    let &term = save_term
+    let &ttymouse = save_ttymouse
++   call test_override('no_query_mouse', 0)
+    set mousetime&
+  endfunc
+  
+*** ../vim-8.1.1247/runtime/doc/eval.txt	2019-04-27 20:36:52.526303597 +0200
+--- runtime/doc/eval.txt	2019-05-02 22:22:22.267386667 +0200
+***************
+*** 9744,9749 ****
+--- 9805,9812 ----
+  		starting     reset the "starting" variable, see below
+  		nfa_fail     makes the NFA regexp engine fail to force a
+  			     fallback to the old engine
++ 		no_query_mouse  do not query the mouse position for "dec"
++ 				terminals
+  		ALL	     clear all overrides ({val} is not used)
+  
+  		"starting" is to be used when a test should behave like
+*** ../vim-8.1.1247/src/version.c	2019-05-02 21:12:15.800625684 +0200
+--- src/version.c	2019-05-02 22:57:23.900566422 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1248,
+  /**/
+
+-- 
+TALL KNIGHT: When you have found the shrubbery, then you must cut down the
+             mightiest tree in the forest ... with a herring.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

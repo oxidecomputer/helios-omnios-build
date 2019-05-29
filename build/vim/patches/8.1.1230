@@ -1,0 +1,5087 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1230
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1230
+Problem:    A lot of code is shared between vim.exe and gvim.exe.
+Solution:   Optionally put the shared code in vim.dll. (Ken Takata,
+            closes #4287)
+Files:	    Filelist, nsis/gvim.nsi, runtime/doc/gui_w32.txt,
+            src/Make_cyg_ming.mak, src/Make_mvc.mak, src/channel.c,
+            src/evalfunc.c, src/ex_cmds.c, src/ex_docmd.c, src/feature.h,
+            src/fileio.c, src/getchar.c, src/globals.h, src/gui.c, src/gui.h,
+            src/gui_gtk_x11.c, src/gui_w32.c, src/if_mzsch.c, src/main.c,
+            src/mbyte.c, src/memline.c, src/message.c, src/misc2.c,
+            src/normal.c, src/option.c, src/os_mswin.c, src/os_w32dll.c,
+            src/os_w32exe.c, src/os_win32.c, src/os_win32.h,
+            src/proto/gui.pro, src/proto/gui_w32.pro, src/proto/misc2.pro,
+            src/proto/os_mswin.pro, src/proto/os_win32.pro, src/syntax.c,
+            src/term.c, src/terminal.c, src/ui.c, src/version.c, src/vim.rc
+
+
+*** ../vim-8.1.1229/Filelist	2019-04-27 13:03:20.000715982 +0200
+--- Filelist	2019-04-28 18:55:14.804080057 +0200
+***************
+*** 454,459 ****
+--- 454,460 ----
+  		src/iscygpty.h \
+  		src/iid_ole.c \
+  		src/os_dos.h \
++ 		src/os_w32dll.c \
+  		src/os_w32exe.c \
+  		src/os_win32.c \
+  		src/os_mswin.c \
+*** ../vim-8.1.1229/nsis/gvim.nsi	2019-04-12 21:29:30.213641315 +0200
+--- nsis/gvim.nsi	2019-04-28 18:55:14.804080057 +0200
+***************
+*** 322,327 ****
+--- 322,330 ----
+  
+  	SetOutPath $0
+  	File /oname=gvim.exe ${VIMSRC}\gvim_ole.exe
++ !if /FileExists "${VIMSRC}\vim${BIT}.dll"
++ 	File ${VIMSRC}\vim${BIT}.dll
++ !endif
+  	File /oname=install.exe ${VIMSRC}\installw32.exe
+  	File /oname=uninstal.exe ${VIMSRC}\uninstalw32.exe
+  	File ${VIMSRC}\vimrun.exe
+*** ../vim-8.1.1229/runtime/doc/gui_w32.txt	2018-05-17 13:41:40.000000000 +0200
+--- runtime/doc/gui_w32.txt	2019-04-28 19:12:44.911186981 +0200
+***************
+*** 31,36 ****
+--- 31,47 ----
+  return with a command prompt after starting gvim.  If not, you should use the
+  "start" command: >
+  	start gvim [options] file ..
++ <							*E988*
++ The console version with the |-g| option may also start the GUI by executing
++ gvim.exe: >
++ 	vim -g [options] file ..
++ To make this work, gvim.exe must exist in the same directory as the vim.exe,
++ and this feature must be enabled at compile time.
++ 
++ One may also use `:gui` from the console version.  However, this is an
++ experimental feature and this feature must be enabled at compile time.
++ It uses a session file to recreate the current state of the console Vim in the
++ GUI Vim.
+  
+  Note: All fonts (bold, italic) must be of the same size!!!  If you don't do
+  this, text will disappear or mess up the display.  Vim does not check the font
+***************
+*** 442,448 ****
+  
+  XPM support						*w32-xpm-support*
+  
+! Gvim can be build on MS-Windows with support for XPM files.  |+xpm_w32|
+  See the Make_mvc.mak file for instructions, search for XPM.
+  
+  To try out if XPM support works do this: >
+--- 453,459 ----
+  
+  XPM support						*w32-xpm-support*
+  
+! GVim can be build on MS-Windows with support for XPM files.  |+xpm_w32|
+  See the Make_mvc.mak file for instructions, search for XPM.
+  
+  To try out if XPM support works do this: >
+*** ../vim-8.1.1229/src/Make_cyg_ming.mak	2019-04-27 13:03:20.000715982 +0200
+--- src/Make_cyg_ming.mak	2019-04-28 18:55:14.804080057 +0200
+***************
+*** 36,42 ****
+  DEBUG=no
+  
+  # set to yes to create a mapfile
+! # MAP=yes
+  
+  # set to SIZE for size, SPEED for speed, MAXSPEED for maximum optimization
+  OPTIMIZE=MAXSPEED
+--- 36,42 ----
+  DEBUG=no
+  
+  # set to yes to create a mapfile
+! #MAP=yes
+  
+  # set to SIZE for size, SPEED for speed, MAXSPEED for maximum optimization
+  OPTIMIZE=MAXSPEED
+***************
+*** 44,49 ****
+--- 44,54 ----
+  # set to yes to make gvim, no for vim
+  GUI=yes
+  
++ # set to yes to enable the DLL support (EXPERIMENTAL).
++ # Creates vim{32,64}.dll, and stub gvim.exe and vim.exe.
++ # "GUI" should be also set to "yes".
++ #VIMDLL=yes
++ 
+  # set to no if you do not want to use DirectWrite (DirectX)
+  # MinGW-w64 is needed, and ARCH should be set to i686 or x86-64.
+  DIRECTX=yes
+***************
+*** 687,693 ****
+  CFLAGS += -O2
+  endif
+  endif
+! CFLAGS += -s
+  endif
+  
+  LIB = -lkernel32 -luser32 -lgdi32 -ladvapi32 -lcomdlg32 -lcomctl32 -lnetapi32 -lversion
+--- 692,698 ----
+  CFLAGS += -O2
+  endif
+  endif
+! LFLAGS += -s
+  endif
+  
+  LIB = -lkernel32 -luser32 -lgdi32 -ladvapi32 -lcomdlg32 -lcomctl32 -lnetapi32 -lversion
+***************
+*** 739,745 ****
+  	$(OUTDIR)/ops.o \
+  	$(OUTDIR)/option.o \
+  	$(OUTDIR)/os_mswin.o \
+- 	$(OUTDIR)/os_w32exe.o \
+  	$(OUTDIR)/os_win32.o \
+  	$(OUTDIR)/pathdef.o \
+  	$(OUTDIR)/popupmnu.o \
+--- 744,749 ----
+***************
+*** 760,769 ****
+  	$(OUTDIR)/usercmd.o \
+  	$(OUTDIR)/userfunc.o \
+  	$(OUTDIR)/version.o \
+- 	$(OUTDIR)/vimrc.o \
+  	$(OUTDIR)/winclip.o \
+  	$(OUTDIR)/window.o
+  
+  ifdef PERL
+  OBJ += $(OUTDIR)/if_perl.o
+  endif
+--- 764,780 ----
+  	$(OUTDIR)/usercmd.o \
+  	$(OUTDIR)/userfunc.o \
+  	$(OUTDIR)/version.o \
+  	$(OUTDIR)/winclip.o \
+  	$(OUTDIR)/window.o
+  
++ ifeq ($(VIMDLL),yes)
++ OBJ += $(OUTDIR)/os_w32dll.o $(OUTDIR)/vimrcd.o
++ EXEOBJC = $(OUTDIR)/os_w32exec.o $(OUTDIR)/vimrcc.o
++ EXEOBJG = $(OUTDIR)/os_w32exeg.o $(OUTDIR)/vimrcg.o
++ else
++ OBJ += $(OUTDIR)/os_w32exe.o $(OUTDIR)/vimrc.o
++ endif
++ 
+  ifdef PERL
+  OBJ += $(OUTDIR)/if_perl.o
+  endif
+***************
+*** 870,885 ****
+  
+  LFLAGS += -municode
+  
+! ifeq ($(GUI),yes)
+  TARGET := gvim$(DEBUG_SUFFIX).exe
+  DEFINES += $(DEF_GUI)
+  OBJ += $(GUIOBJ)
+  LFLAGS += -mwindows
+  OUTDIR = gobj$(DEBUG_SUFFIX)$(MZSCHEME_SUFFIX)$(ARCH)
+  else
+  OBJ += $(CUIOBJ)
+  TARGET := vim$(DEBUG_SUFFIX).exe
+  OUTDIR = obj$(DEBUG_SUFFIX)$(MZSCHEME_SUFFIX)$(ARCH)
+  endif
+  
+  ifdef GETTEXT
+--- 881,916 ----
+  
+  LFLAGS += -municode
+  
+! ifeq ($(VIMDLL),yes)
+! VIMEXE := vim$(DEBUG_SUFFIX).exe
+! GVIMEXE := gvim$(DEBUG_SUFFIX).exe
+!  ifeq ($(ARCH),x86-64)
+! VIMDLLBASE := vim64$(DEBUG_SUFFIX)
+!  else
+! VIMDLLBASE := vim32$(DEBUG_SUFFIX)
+!  endif
+! TARGET = $(VIMDLLBASE).dll
+! LFLAGS += -shared
+! EXELFLAGS += -municode
+!  ifneq ($(DEBUG),yes)
+! EXELFLAGS += -s
+!  endif
+! DEFINES += $(DEF_GUI) -DVIMDLL
+! OBJ += $(GUIOBJ) $(CUIOBJ)
+! OUTDIR = dobj$(DEBUG_SUFFIX)$(MZSCHEME_SUFFIX)$(ARCH)
+! MAIN_TARGET = $(GVIMEXE) $(VIMEXE) $(VIMDLLBASE).dll
+! else ifeq ($(GUI),yes)
+  TARGET := gvim$(DEBUG_SUFFIX).exe
+  DEFINES += $(DEF_GUI)
+  OBJ += $(GUIOBJ)
+  LFLAGS += -mwindows
+  OUTDIR = gobj$(DEBUG_SUFFIX)$(MZSCHEME_SUFFIX)$(ARCH)
++ MAIN_TARGET = $(TARGET)
+  else
+  OBJ += $(CUIOBJ)
+  TARGET := vim$(DEBUG_SUFFIX).exe
+  OUTDIR = obj$(DEBUG_SUFFIX)$(MZSCHEME_SUFFIX)$(ARCH)
++ MAIN_TARGET = $(TARGET)
+  endif
+  
+  ifdef GETTEXT
+***************
+*** 955,961 ****
+  LFLAGS += -Wl,-Map=$(TARGET).map
+  endif
+  
+! all: $(TARGET) vimrun.exe xxd/xxd.exe tee/tee.exe install.exe uninstal.exe GvimExt/gvimext.dll
+  
+  vimrun.exe: vimrun.c
+  	$(CC) $(CFLAGS) -o vimrun.exe vimrun.c $(LIB)
+--- 986,992 ----
+  LFLAGS += -Wl,-Map=$(TARGET).map
+  endif
+  
+! all: $(MAIN_TARGET) vimrun.exe xxd/xxd.exe tee/tee.exe install.exe uninstal.exe GvimExt/gvimext.dll
+  
+  vimrun.exe: vimrun.c
+  	$(CC) $(CFLAGS) -o vimrun.exe vimrun.c $(LIB)
+***************
+*** 966,973 ****
+--- 997,1015 ----
+  uninstal.exe: uninstal.c
+  	$(CC) $(CFLAGS) -o uninstal.exe uninstal.c $(LIB)
+  
++ ifeq ($(VIMDLL),yes)
++ $(TARGET): $(OUTDIR) $(OBJ)
++ 	$(LINK) $(CFLAGS) $(LFLAGS) -o $@ $(OBJ) $(LIB) -lole32 -luuid -lgdi32 $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)
++ 
++ $(GVIMEXE): $(OUTDIR) $(EXEOBJG) $(VIMDLLBASE).dll
++ 	$(CC) -L. $(EXELFLAGS) -mwindows -o $@ $(EXEOBJG) -l$(VIMDLLBASE)
++ 
++ $(VIMEXE): $(OUTDIR) $(EXEOBJC) $(VIMDLLBASE).dll
++ 	$(CC) -L. $(EXELFLAGS) -o $@ $(EXEOBJC) -l$(VIMDLLBASE)
++ else
+  $(TARGET): $(OUTDIR) $(OBJ)
+  	$(LINK) $(CFLAGS) $(LFLAGS) -o $@ $(OBJ) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)
++ endif
+  
+  upx: exes
+  	upx gvim.exe
+***************
+*** 996,1002 ****
+  	-$(DEL) $(OUTDIR)$(DIRSLASH)*.o
+  	-$(DEL) $(OUTDIR)$(DIRSLASH)*.res
+  	-rmdir $(OUTDIR)
+! 	-$(DEL) $(TARGET) vimrun.exe install.exe uninstal.exe
+  	-$(DEL) pathdef.c
+  ifdef PERL
+  	-$(DEL) if_perl.c
+--- 1038,1044 ----
+  	-$(DEL) $(OUTDIR)$(DIRSLASH)*.o
+  	-$(DEL) $(OUTDIR)$(DIRSLASH)*.res
+  	-rmdir $(OUTDIR)
+! 	-$(DEL) $(MAIN_TARGET) vimrun.exe install.exe uninstal.exe
+  	-$(DEL) pathdef.c
+  ifdef PERL
+  	-$(DEL) if_perl.c
+***************
+*** 1025,1098 ****
+  $(OUTDIR)/%.o : %.c $(INCL)
+  	$(CC) -c $(CFLAGS) $< -o $@
+  
+! $(OUTDIR)/vimrc.o:	vim.rc version.h gui_w32_rc.h
+  	$(WINDRES) $(WINDRES_FLAGS) $(DEFINES) \
+  	    --input-format=rc --output-format=coff -i vim.rc -o $@
+  
+  $(OUTDIR):
+  	$(MKDIR) $(OUTDIR)
+  
+  $(OUTDIR)/gui_dwrite.o:	gui_dwrite.cpp $(INCL) gui_dwrite.h
+! 	$(CC) -c $(CFLAGS) $(CXXFLAGS) gui_dwrite.cpp -o $(OUTDIR)/gui_dwrite.o
+  
+  $(OUTDIR)/gui.o:	gui.c $(INCL) $(GUI_INCL)
+! 	$(CC) -c $(CFLAGS) gui.c -o $(OUTDIR)/gui.o
+  
+  $(OUTDIR)/beval.o:	beval.c $(INCL) $(GUI_INCL)
+! 	$(CC) -c $(CFLAGS) beval.c -o $(OUTDIR)/beval.o
+  
+  $(OUTDIR)/gui_beval.o:	gui_beval.c $(INCL) $(GUI_INCL)
+! 	$(CC) -c $(CFLAGS) gui_beval.c -o $(OUTDIR)/gui_beval.o
+  
+  $(OUTDIR)/gui_w32.o:	gui_w32.c $(INCL) $(GUI_INCL)
+! 	$(CC) -c $(CFLAGS) gui_w32.c -o $(OUTDIR)/gui_w32.o
+  
+  $(OUTDIR)/if_cscope.o:	if_cscope.c $(INCL) if_cscope.h
+! 	$(CC) -c $(CFLAGS) if_cscope.c -o $(OUTDIR)/if_cscope.o
+  
+  $(OUTDIR)/if_mzsch.o:	if_mzsch.c $(INCL) $(MZSCHEME_INCL) $(MZ_EXTRA_DEP)
+! 	$(CC) -c $(CFLAGS) if_mzsch.c -o $(OUTDIR)/if_mzsch.o
+  
+  mzscheme_base.c:
+  	$(MZSCHEME)/mzc --c-mods mzscheme_base.c ++lib scheme/base
+  
+  # Remove -D__IID_DEFINED__ for newer versions of the w32api
+  $(OUTDIR)/if_ole.o:	if_ole.cpp $(INCL) if_ole.h
+! 	$(CC) $(CFLAGS) $(CXXFLAGS) -c -o $(OUTDIR)/if_ole.o if_ole.cpp
+  
+  auto/if_perl.c:		if_perl.xs typemap
+  	$(XSUBPP) -prototypes -typemap \
+  	     $(PERLTYPEMAP) if_perl.xs -output $@
+  
+  $(OUTDIR)/if_perl.o:	auto/if_perl.c $(INCL)
+! 	$(CC) -c $(CFLAGS) auto/if_perl.c -o $(OUTDIR)/if_perl.o
+  
+  
+  $(OUTDIR)/if_ruby.o:	if_ruby.c $(INCL)
+  ifeq (16, $(RUBY))
+! 	$(CC) $(CFLAGS) -U_WIN32 -c -o $(OUTDIR)/if_ruby.o if_ruby.c
+  endif
+  
+  $(OUTDIR)/iscygpty.o:	iscygpty.c $(CUI_INCL)
+  	$(CC) -c $(CFLAGS) iscygpty.c -o $(OUTDIR)/iscygpty.o -U_WIN32_WINNT -D_WIN32_WINNT=0x0600 -DUSE_DYNFILEID -DENABLE_STUB_IMPL
+  
+  $(OUTDIR)/main.o:	main.c $(INCL) $(CUI_INCL)
+! 	$(CC) -c $(CFLAGS) main.c -o $(OUTDIR)/main.o
+  
+  $(OUTDIR)/netbeans.o:	netbeans.c $(INCL) $(NBDEBUG_INCL) $(NBDEBUG_SRC)
+! 	$(CC) -c $(CFLAGS) netbeans.c -o $(OUTDIR)/netbeans.o
+  
+  $(OUTDIR)/os_win32.o:	os_win32.c $(INCL) $(MZSCHEME_INCL)
+! 	$(CC) -c $(CFLAGS) os_win32.c -o $(OUTDIR)/os_win32.o
+  
+  $(OUTDIR)/regexp.o:	regexp.c regexp_nfa.c $(INCL)
+! 	$(CC) -c $(CFLAGS) regexp.c -o $(OUTDIR)/regexp.o
+  
+  $(OUTDIR)/terminal.o:	terminal.c $(INCL) $(TERM_DEPS)
+! 	$(CC) -c $(CFLAGS) terminal.c -o $(OUTDIR)/terminal.o
+! 
+! $(OUTDIR)/textprop.o:	textprop.c $(INCL)
+! 	$(CC) -c $(CFLAGS) textprop.c -o $(OUTDIR)/textprop.o
+  
+  
+  CCCTERM = $(CC) -c $(CFLAGS) -Ilibvterm/include -DINLINE="" \
+--- 1067,1161 ----
+  $(OUTDIR)/%.o : %.c $(INCL)
+  	$(CC) -c $(CFLAGS) $< -o $@
+  
+! ifeq ($(VIMDLL),yes)
+! $(OUTDIR)/vimrcc.o:	vim.rc gvim.exe.mnf version.h gui_w32_rc.h vim.ico
+! 	$(WINDRES) $(WINDRES_FLAGS) $(DEFINES) -UFEAT_GUI_MSWIN \
+! 	    --input-format=rc --output-format=coff -i vim.rc -o $@
+! 
+! $(OUTDIR)/vimrcg.o:	vim.rc gvim.exe.mnf version.h gui_w32_rc.h vim.ico
+! 	$(WINDRES) $(WINDRES_FLAGS) $(DEFINES) \
+! 	    --input-format=rc --output-format=coff -i vim.rc -o $@
+! 
+! $(OUTDIR)/vimrcd.o:	vim.rc version.h gui_w32_rc.h \
+! 			tools.bmp tearoff.bmp vim.ico vim_error.ico \
+! 			vim_alert.ico vim_info.ico vim_quest.ico
+! 	$(WINDRES) $(WINDRES_FLAGS) $(DEFINES) -DRCDLL -DVIMDLLBASE=\\\"$(VIMDLLBASE)\\\" \
+! 	    --input-format=rc --output-format=coff -i vim.rc -o $@
+! else
+! $(OUTDIR)/vimrc.o:	vim.rc gvim.exe.mnf version.h gui_w32_rc.h \
+! 			tools.bmp tearoff.bmp vim.ico vim_error.ico \
+! 			vim_alert.ico vim_info.ico vim_quest.ico
+  	$(WINDRES) $(WINDRES_FLAGS) $(DEFINES) \
+  	    --input-format=rc --output-format=coff -i vim.rc -o $@
++ endif
+  
+  $(OUTDIR):
+  	$(MKDIR) $(OUTDIR)
+  
+  $(OUTDIR)/gui_dwrite.o:	gui_dwrite.cpp $(INCL) gui_dwrite.h
+! 	$(CC) -c $(CFLAGS) $(CXXFLAGS) gui_dwrite.cpp -o $@
+  
+  $(OUTDIR)/gui.o:	gui.c $(INCL) $(GUI_INCL)
+! 	$(CC) -c $(CFLAGS) gui.c -o $@
+  
+  $(OUTDIR)/beval.o:	beval.c $(INCL) $(GUI_INCL)
+! 	$(CC) -c $(CFLAGS) beval.c -o $@
+  
+  $(OUTDIR)/gui_beval.o:	gui_beval.c $(INCL) $(GUI_INCL)
+! 	$(CC) -c $(CFLAGS) gui_beval.c -o $@
+  
+  $(OUTDIR)/gui_w32.o:	gui_w32.c $(INCL) $(GUI_INCL)
+! 	$(CC) -c $(CFLAGS) gui_w32.c -o $@
+  
+  $(OUTDIR)/if_cscope.o:	if_cscope.c $(INCL) if_cscope.h
+! 	$(CC) -c $(CFLAGS) if_cscope.c -o $@
+  
+  $(OUTDIR)/if_mzsch.o:	if_mzsch.c $(INCL) $(MZSCHEME_INCL) $(MZ_EXTRA_DEP)
+! 	$(CC) -c $(CFLAGS) if_mzsch.c -o $@
+  
+  mzscheme_base.c:
+  	$(MZSCHEME)/mzc --c-mods mzscheme_base.c ++lib scheme/base
+  
+  # Remove -D__IID_DEFINED__ for newer versions of the w32api
+  $(OUTDIR)/if_ole.o:	if_ole.cpp $(INCL) if_ole.h
+! 	$(CC) -c $(CFLAGS) $(CXXFLAGS) if_ole.cpp -o $@
+  
+  auto/if_perl.c:		if_perl.xs typemap
+  	$(XSUBPP) -prototypes -typemap \
+  	     $(PERLTYPEMAP) if_perl.xs -output $@
+  
+  $(OUTDIR)/if_perl.o:	auto/if_perl.c $(INCL)
+! 	$(CC) -c $(CFLAGS) auto/if_perl.c -o $@
+  
+  
+  $(OUTDIR)/if_ruby.o:	if_ruby.c $(INCL)
+  ifeq (16, $(RUBY))
+! 	$(CC) $(CFLAGS) -U_WIN32 -c -o $@ if_ruby.c
+  endif
+  
+  $(OUTDIR)/iscygpty.o:	iscygpty.c $(CUI_INCL)
+  	$(CC) -c $(CFLAGS) iscygpty.c -o $(OUTDIR)/iscygpty.o -U_WIN32_WINNT -D_WIN32_WINNT=0x0600 -DUSE_DYNFILEID -DENABLE_STUB_IMPL
+  
+  $(OUTDIR)/main.o:	main.c $(INCL) $(CUI_INCL)
+! 	$(CC) -c $(CFLAGS) main.c -o $@
+  
+  $(OUTDIR)/netbeans.o:	netbeans.c $(INCL) $(NBDEBUG_INCL) $(NBDEBUG_SRC)
+! 	$(CC) -c $(CFLAGS) netbeans.c -o $@
+! 
+! $(OUTDIR)/os_w32exec.o:	os_w32exe.c $(INCL)
+! 	$(CC) -c $(CFLAGS) -UFEAT_GUI_MSWIN os_w32exe.c -o $@
+! 
+! $(OUTDIR)/os_w32exeg.o:	os_w32exe.c $(INCL)
+! 	$(CC) -c $(CFLAGS) os_w32exe.c -o $@
+  
+  $(OUTDIR)/os_win32.o:	os_win32.c $(INCL) $(MZSCHEME_INCL)
+! 	$(CC) -c $(CFLAGS) os_win32.c -o $@
+  
+  $(OUTDIR)/regexp.o:	regexp.c regexp_nfa.c $(INCL)
+! 	$(CC) -c $(CFLAGS) regexp.c -o $@
+  
+  $(OUTDIR)/terminal.o:	terminal.c $(INCL) $(TERM_DEPS)
+! 	$(CC) -c $(CFLAGS) terminal.c -o $@
+  
+  
+  CCCTERM = $(CC) -c $(CFLAGS) -Ilibvterm/include -DINLINE="" \
+***************
+*** 1100,1149 ****
+  	  -DIS_COMBINING_FUNCTION=utf_iscomposing_uint \
+  	  -DWCWIDTH_FUNCTION=utf_uint2cells
+  
+! $(OUTDIR)/encoding.o: libvterm/src/encoding.c $(TERM_DEPS)
+! 	$(CCCTERM) libvterm/src/encoding.c -o $@
+! 
+! $(OUTDIR)/keyboard.o: libvterm/src/keyboard.c $(TERM_DEPS)
+! 	$(CCCTERM) libvterm/src/keyboard.c -o $@
+! 
+! $(OUTDIR)/mouse.o: libvterm/src/mouse.c $(TERM_DEPS)
+! 	$(CCCTERM) libvterm/src/mouse.c -o $@
+! 
+! $(OUTDIR)/parser.o: libvterm/src/parser.c $(TERM_DEPS)
+! 	$(CCCTERM) libvterm/src/parser.c -o $@
+! 
+! $(OUTDIR)/pen.o: libvterm/src/pen.c $(TERM_DEPS)
+! 	$(CCCTERM) libvterm/src/pen.c -o $@
+  
+- $(OUTDIR)/termscreen.o: libvterm/src/termscreen.c $(TERM_DEPS)
+- 	$(CCCTERM) libvterm/src/termscreen.c -o $@
+  
+! $(OUTDIR)/state.o: libvterm/src/state.c $(TERM_DEPS)
+! 	$(CCCTERM) libvterm/src/state.c -o $@
+! 
+! $(OUTDIR)/unicode.o: libvterm/src/unicode.c $(TERM_DEPS)
+! 	$(CCCTERM) libvterm/src/unicode.c -o $@
+! 
+! $(OUTDIR)/vterm.o: libvterm/src/vterm.c $(TERM_DEPS)
+! 	$(CCCTERM) libvterm/src/vterm.c -o $@
+! 
+! $(OUTDIR)/xdiffi.o: xdiff/xdiffi.c $(XDIFF_DEPS)
+! 	$(CC) -c $(CFLAGS) xdiff/xdiffi.c -o $(OUTDIR)/xdiffi.o
+! 
+! $(OUTDIR)/xemit.o: xdiff/xemit.c $(XDIFF_DEPS)
+! 	$(CC) -c $(CFLAGS) xdiff/xemit.c -o $(OUTDIR)/xemit.o
+! 
+! $(OUTDIR)/xprepare.o: xdiff/xprepare.c $(XDIFF_DEPS)
+! 	$(CC) -c $(CFLAGS) xdiff/xprepare.c -o $(OUTDIR)/xprepare.o
+! 
+! $(OUTDIR)/xutils.o: xdiff/xutils.c $(XDIFF_DEPS)
+! 	$(CC) -c $(CFLAGS) xdiff/xutils.c -o $(OUTDIR)/xutils.o
+! 
+! $(OUTDIR)/xhistogram.o: xdiff/xhistogram.c $(XDIFF_DEPS)
+! 	$(CC) -c $(CFLAGS) xdiff/xhistogram.c -o $(OUTDIR)/xhistogram.o
+  
+- $(OUTDIR)/xpatience.o: xdiff/xpatience.c $(XDIFF_DEPS)
+- 	$(CC) -c $(CFLAGS) xdiff/xpatience.c -o $(OUTDIR)/xpatience.o
+  
+  pathdef.c: $(INCL)
+  ifneq (sh.exe, $(SHELL))
+--- 1163,1175 ----
+  	  -DIS_COMBINING_FUNCTION=utf_iscomposing_uint \
+  	  -DWCWIDTH_FUNCTION=utf_uint2cells
+  
+! $(OUTDIR)/%.o : libvterm/src/%.c $(TERM_DEPS)
+! 	$(CCCTERM) $< -o $@
+  
+  
+! $(OUTDIR)/%.o : xdiff/%.c $(XDIFF_DEPS)
+! 	$(CC) -c $(CFLAGS) $< -o $@
+  
+  
+  pathdef.c: $(INCL)
+  ifneq (sh.exe, $(SHELL))
+*** ../vim-8.1.1229/src/Make_mvc.mak	2019-04-27 13:03:20.000715982 +0200
+--- src/Make_mvc.mak	2019-04-28 18:55:14.804080057 +0200
+***************
+*** 40,45 ****
+--- 40,51 ----
+  #
+  #       Terminal support: TERMINAL=yes (default is yes)
+  #
++ #	DLL support (EXPERIMENTAL): VIMDLL=yes (default is no)
++ #	  Creates vim{32,64}.dll, and stub gvim.exe and vim.exe.
++ #	  The shared codes between the GUI and the console are built into
++ #	  the DLL.  This reduces the total file size and memory usage.
++ #	  Also supports `vim -g` and the `:gui` command.
++ #
+  #	Lua interface:
+  #	  LUA=[Path to Lua directory]
+  #	  DYNAMIC_LUA=yes (to load the Lua DLL dynamically)
+***************
+*** 178,183 ****
+--- 184,193 ----
+  
+  TARGETOS = WINNT
+  
++ !if "$(VIMDLL)" == "yes"
++ GUI = yes
++ !endif
++ 
+  !ifndef DIRECTX
+  DIRECTX = $(GUI)
+  !endif
+***************
+*** 185,191 ****
+  # Select one of eight object code directories, depends on GUI, OLE, DEBUG and
+  # interfaces.
+  # If you change something else, do "make clean" first!
+! !if "$(GUI)" == "yes"
+  OBJDIR = .\ObjG
+  !else
+  OBJDIR = .\ObjC
+--- 195,203 ----
+  # Select one of eight object code directories, depends on GUI, OLE, DEBUG and
+  # interfaces.
+  # If you change something else, do "make clean" first!
+! !if "$(VIMDLL)" == "yes"
+! OBJDIR = .\ObjD
+! !elseif "$(GUI)" == "yes"
+  OBJDIR = .\ObjG
+  !else
+  OBJDIR = .\ObjC
+***************
+*** 410,416 ****
+  !endif
+  !endif
+  
+! # GUI sepcific features.
+  !if "$(GUI)" == "yes"
+  # Only allow NETBEANS for a GUI build and CHANNEL.
+  !if "$(NETBEANS)" == "yes" && "$(CHANNEL)" == "yes"
+--- 422,428 ----
+  !endif
+  !endif
+  
+! # GUI specific features.
+  !if "$(GUI)" == "yes"
+  # Only allow NETBEANS for a GUI build and CHANNEL.
+  !if "$(NETBEANS)" == "yes" && "$(CHANNEL)" == "yes"
+***************
+*** 461,467 ****
+  XPM_OBJ   = $(OBJDIR)/xpm_w32.obj
+  XPM_DEFS  = -DFEAT_XPM_W32
+  !if $(MSVC_MAJOR) >= 14
+! # VC14 cannot use a library built by VC12 or eariler, because VC14 uses
+  # Universal CRT.
+  XPM_LIB   = $(XPM)\lib-vc14\libXpm.lib
+  !else
+--- 473,479 ----
+  XPM_OBJ   = $(OBJDIR)/xpm_w32.obj
+  XPM_DEFS  = -DFEAT_XPM_W32
+  !if $(MSVC_MAJOR) >= 14
+! # VC14 cannot use a library built by VC12 or earlier, because VC14 uses
+  # Universal CRT.
+  XPM_LIB   = $(XPM)\lib-vc14\libXpm.lib
+  !else
+***************
+*** 566,572 ****
+  # VC<11 generates fp87 code by default
+  !  if $(MSVC_MAJOR) < 11
+  CPUARG =
+! # VC>=11 needs explicit insturctions to generate fp87 code
+  !  else
+  CPUARG = /arch:IA32
+  !  endif
+--- 578,584 ----
+  # VC<11 generates fp87 code by default
+  !  if $(MSVC_MAJOR) < 11
+  CPUARG =
+! # VC>=11 needs explicit instructions to generate fp87 code
+  !  else
+  CPUARG = /arch:IA32
+  !  endif
+***************
+*** 612,617 ****
+--- 624,640 ----
+  # Pass CPUARG to GvimExt, to avoid using version-dependent defaults
+  MAKEFLAGS_GVIMEXT = $(MAKEFLAGS_GVIMEXT) CPUARG="$(CPUARG)"
+  
++ !if "$(VIMDLL)" == "yes"
++ VIMDLLBASE = vim
++ ! if "$(ASSEMBLY_ARCHITECTURE)" == "i386"
++ VIMDLLBASE = $(VIMDLLBASE)32
++ ! else
++ VIMDLLBASE = $(VIMDLLBASE)64
++ ! endif
++ ! if "$(DEBUG)" == "yes"
++ VIMDLLBASE = $(VIMDLLBASE)d
++ ! endif
++ !endif
+  
+  LIBC =
+  DEBUGINFO = /Zi
+***************
+*** 747,753 ****
+  	$(OUTDIR)\ops.obj \
+  	$(OUTDIR)\option.obj \
+  	$(OUTDIR)\os_mswin.obj \
+- 	$(OUTDIR)\os_w32exe.obj \
+  	$(OUTDIR)\os_win32.obj \
+  	$(OUTDIR)\pathdef.obj \
+  	$(OUTDIR)\popupmnu.obj \
+--- 770,775 ----
+***************
+*** 769,775 ****
+  	$(OUTDIR)\userfunc.obj \
+  	$(OUTDIR)\winclip.obj \
+  	$(OUTDIR)\window.obj \
+! 	$(OUTDIR)\vim.res
+  
+  !if "$(OLE)" == "yes"
+  CFLAGS = $(CFLAGS) -DFEAT_OLE
+--- 791,805 ----
+  	$(OUTDIR)\userfunc.obj \
+  	$(OUTDIR)\winclip.obj \
+  	$(OUTDIR)\window.obj \
+! 
+! !if "$(VIMDLL)" == "yes"
+! OBJ = $(OBJ) $(OUTDIR)\os_w32dll.obj $(OUTDIR)\vimd.res
+! EXEOBJC = $(OUTDIR)\os_w32exec.obj $(OUTDIR)\vimc.res
+! EXEOBJG = $(OUTDIR)\os_w32exeg.obj $(OUTDIR)\vimg.res
+! CFLAGS = $(CFLAGS) -DVIMDLL
+! !else
+! OBJ = $(OBJ) $(OUTDIR)\os_w32exe.obj $(OUTDIR)\vim.res
+! !endif
+  
+  !if "$(OLE)" == "yes"
+  CFLAGS = $(CFLAGS) -DFEAT_OLE
+***************
+*** 800,806 ****
+--- 830,844 ----
+  SUBSYSTEM = windows
+  CFLAGS = $(CFLAGS) -DFEAT_GUI_MSWIN
+  RCFLAGS = $(RCFLAGS) -DFEAT_GUI_MSWIN
++ ! if "$(VIMDLL)" == "yes"
++ SUBSYSTEM_CON = console
++ GVIM = g$(VIM)
++ CUI_INCL = iscygpty.h
++ CUI_OBJ = $(OUTDIR)\iscygpty.obj
++ RCFLAGS = $(RCFLAGS) -DVIMDLL
++ ! else
+  VIM = g$(VIM)
++ ! endif
+  GUI_INCL = \
+  	gui.h
+  GUI_OBJ = \
+***************
+*** 839,844 ****
+--- 877,885 ----
+  !if "$(SUBSYSTEM_VER)" != ""
+  SUBSYSTEM = $(SUBSYSTEM),$(SUBSYSTEM_VER)
+  SUBSYSTEM_TOOLS = $(SUBSYSTEM_TOOLS),$(SUBSYSTEM_VER)
++ ! if "$(VIMDLL)" != "yes"
++ SUBSYSTEM_CON = $(SUBSYSTEM_CON),$(SUBSYSTEM_VER)
++ ! endif
+  # Pass SUBSYSTEM_VER to GvimExt and other tools
+  MAKEFLAGS_GVIMEXT = $(MAKEFLAGS_GVIMEXT) SUBSYSTEM_VER=$(SUBSYSTEM_VER)
+  MAKEFLAGS_TOOLS = $(MAKEFLAGS_TOOLS) SUBSYSTEM_VER=$(SUBSYSTEM_VER)
+***************
+*** 1174,1180 ****
+--- 1215,1225 ----
+  # debug more conveniently (able to look at variables which are in registers)
+  #
+  CFLAGS = $(CFLAGS) /Fd$(OUTDIR)/ $(DEBUGINFO)
++ !if "$(VIMDLL)" == "yes"
++ LINK_PDB = /PDB:$(VIMDLLBASE).pdb -debug
++ !else
+  LINK_PDB = /PDB:$(VIM).pdb -debug
++ !endif
+  
+  #
+  # End extra feature include
+***************
+*** 1186,1192 ****
+  
+  # Add /opt:ref to remove unreferenced functions and data even when /DEBUG is
+  # added.
+! conflags = /nologo /subsystem:$(SUBSYSTEM) /opt:ref
+  
+  PATHDEF_SRC = $(OUTDIR)\pathdef.c
+  
+--- 1231,1237 ----
+  
+  # Add /opt:ref to remove unreferenced functions and data even when /DEBUG is
+  # added.
+! conflags = /nologo /opt:ref
+  
+  PATHDEF_SRC = $(OUTDIR)\pathdef.c
+  
+***************
+*** 1219,1225 ****
+  LINKARGS1 = $(LINKARGS1) /HIGHENTROPYVA:NO
+  !endif
+  
+! all:	$(VIM).exe \
+  	vimrun.exe \
+  	install.exe \
+  	uninstal.exe \
+--- 1264,1276 ----
+  LINKARGS1 = $(LINKARGS1) /HIGHENTROPYVA:NO
+  !endif
+  
+! !if "$(VIMDLL)" == "yes"
+! MAIN_TARGET = $(GVIM).exe $(VIM).exe $(VIMDLLBASE).dll
+! !else
+! MAIN_TARGET = $(VIM).exe
+! !endif
+! 
+! all:	$(MAIN_TARGET) \
+  	vimrun.exe \
+  	install.exe \
+  	uninstal.exe \
+***************
+*** 1227,1243 ****
+  	tee/tee.exe \
+  	GvimExt/gvimext.dll
+  
+  $(VIM).exe: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) \
+  		$(LUA_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
+  		$(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) \
+  		version.c version.h
+  	$(CC) $(CFLAGS_OUTDIR) version.c
+! 	$(link) $(LINKARGS1) -out:$(VIM).exe $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) \
+  		$(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) \
+  		$(TCL_OBJ) $(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) \
+  		$(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
+  	if exist $(VIM).exe.manifest mt.exe -nologo -manifest $(VIM).exe.manifest -updateresource:$(VIM).exe;1
+  
+  $(VIM): $(VIM).exe
+  
+  $(OUTDIR):
+--- 1278,1318 ----
+  	tee/tee.exe \
+  	GvimExt/gvimext.dll
+  
++ !if "$(VIMDLL)" == "yes"
++ 
++ $(VIMDLLBASE).dll: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) \
++ 		$(LUA_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
++ 		$(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) \
++ 		version.c version.h
++ 	$(CC) $(CFLAGS_OUTDIR) version.c
++ 	$(link) $(LINKARGS1) /dll -out:$(VIMDLLBASE).dll $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) \
++ 		$(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) \
++ 		$(TCL_OBJ) $(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) \
++ 		$(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
++ 
++ $(GVIM).exe: $(OUTDIR) $(EXEOBJG) $(VIMDLLBASE).dll
++ 	$(link) $(LINKARGS1) /subsystem:$(SUBSYSTEM) -out:$(GVIM).exe $(EXEOBJG) $(VIMDLLBASE).lib $(LIBC)
++ 	if exist $(GVIM).exe.manifest mt.exe -nologo -manifest $(GVIM).exe.manifest -updateresource:$(GVIM).exe;1
++ 
++ $(VIM).exe: $(OUTDIR) $(EXEOBJC) $(VIMDLLBASE).dll
++ 	$(link) $(LINKARGS1) /subsystem:$(SUBSYSTEM_CON) -out:$(VIM).exe $(EXEOBJC) $(VIMDLLBASE).lib $(LIBC)
++ 	if exist $(VIM).exe.manifest mt.exe -nologo -manifest $(VIM).exe.manifest -updateresource:$(VIM).exe;1
++ 
++ !else
++ 
+  $(VIM).exe: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) \
+  		$(LUA_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
+  		$(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) \
+  		version.c version.h
+  	$(CC) $(CFLAGS_OUTDIR) version.c
+! 	$(link) $(LINKARGS1) /subsystem:$(SUBSYSTEM) -out:$(VIM).exe $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) \
+  		$(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) \
+  		$(TCL_OBJ) $(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) \
+  		$(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
+  	if exist $(VIM).exe.manifest mt.exe -nologo -manifest $(VIM).exe.manifest -updateresource:$(VIM).exe;1
+  
++ !endif
++ 
+  $(VIM): $(VIM).exe
+  
+  $(OUTDIR):
+***************
+*** 1287,1292 ****
+--- 1362,1376 ----
+  	- if exist $(VIM).pdb del $(VIM).pdb
+  	- if exist $(VIM).map del $(VIM).map
+  	- if exist $(VIM).ncb del $(VIM).ncb
++ !if "$(VIMDLL)" == "yes"
++ 	- if exist $(GVIM).exe del $(GVIM).exe
++ 	- if exist $(GVIM).map del $(GVIM).map
++ 	- if exist $(VIMDLLBASE).dll del $(VIMDLLBASE).dll
++ 	- if exist $(VIMDLLBASE).lib del $(VIMDLLBASE).lib
++ 	- if exist $(VIMDLLBASE).exp del $(VIMDLLBASE).exp
++ 	- if exist $(VIMDLLBASE).pdb del $(VIMDLLBASE).pdb
++ 	- if exist $(VIMDLLBASE).map del $(VIMDLLBASE).map
++ !endif
+  	- if exist vimrun.exe del vimrun.exe
+  	- if exist install.exe del install.exe
+  	- if exist uninstal.exe del uninstal.exe
+***************
+*** 1334,1354 ****
+  ###########################################################################
+  
+  # Create a default rule for transforming .c files to .obj files in $(OUTDIR)
+- # Batch compilation is supported by nmake 1.62 (part of VS 5.0) and later)
+- !IF "$(_NMAKE_VER)" == ""
+- .c{$(OUTDIR)/}.obj:
+- !ELSE
+  .c{$(OUTDIR)/}.obj::
+! !ENDIF
+  	$(CC) $(CFLAGS_OUTDIR) $<
+  
+  # Create a default rule for transforming .cpp files to .obj files in $(OUTDIR)
+- # Batch compilation is supported by nmake 1.62 (part of VS 5.0) and later)
+- !IF "$(_NMAKE_VER)" == ""
+- .cpp{$(OUTDIR)/}.obj:
+- !ELSE
+  .cpp{$(OUTDIR)/}.obj::
+- !ENDIF
+  	$(CC) $(CFLAGS_OUTDIR) $<
+  
+  $(OUTDIR)/arabic.obj:	$(OUTDIR) arabic.c  $(INCL)
+--- 1418,1432 ----
+  ###########################################################################
+  
+  # Create a default rule for transforming .c files to .obj files in $(OUTDIR)
+  .c{$(OUTDIR)/}.obj::
+! 	$(CC) $(CFLAGS_OUTDIR) $<
+! 
+! # Create a default rule for xdiff.
+! {xdiff/}.c{$(OUTDIR)/}.obj::
+  	$(CC) $(CFLAGS_OUTDIR) $<
+  
+  # Create a default rule for transforming .cpp files to .obj files in $(OUTDIR)
+  .cpp{$(OUTDIR)/}.obj::
+  	$(CC) $(CFLAGS_OUTDIR) $<
+  
+  $(OUTDIR)/arabic.obj:	$(OUTDIR) arabic.c  $(INCL)
+***************
+*** 1376,1397 ****
+  $(OUTDIR)/diff.obj:	$(OUTDIR) diff.c  $(INCL)
+  
+  $(OUTDIR)/xdiffi.obj:	$(OUTDIR) xdiff/xdiffi.c  $(XDIFF_DEPS)
+- 	$(CC) $(CFLAGS_OUTDIR) xdiff/xdiffi.c 
+  
+  $(OUTDIR)/xemit.obj:	$(OUTDIR) xdiff/xemit.c  $(XDIFF_DEPS)
+- 	$(CC) $(CFLAGS_OUTDIR) xdiff/xemit.c 
+  
+  $(OUTDIR)/xprepare.obj:	$(OUTDIR) xdiff/xprepare.c  $(XDIFF_DEPS)
+- 	$(CC) $(CFLAGS_OUTDIR) xdiff/xprepare.c 
+  
+  $(OUTDIR)/xutils.obj:	$(OUTDIR) xdiff/xutils.c  $(XDIFF_DEPS)
+- 	$(CC) $(CFLAGS_OUTDIR) xdiff/xutils.c 
+  
+  $(OUTDIR)/xhistogram.obj:	$(OUTDIR) xdiff/xhistogram.c  $(XDIFF_DEPS)
+- 	$(CC) $(CFLAGS_OUTDIR) xdiff/xhistogram.c 
+  
+  $(OUTDIR)/xpatience.obj:	$(OUTDIR) xdiff/xpatience.c  $(XDIFF_DEPS)
+- 	$(CC) $(CFLAGS_OUTDIR) xdiff/xpatience.c 
+  
+  $(OUTDIR)/digraph.obj:	$(OUTDIR) digraph.c  $(INCL)
+  
+--- 1454,1469 ----
+***************
+*** 1516,1523 ****
+--- 1588,1603 ----
+  
+  $(OUTDIR)/os_win32.obj:	$(OUTDIR) os_win32.c  $(INCL) $(MZSCHEME_INCL)
+  
++ $(OUTDIR)/os_w32dll.obj:	$(OUTDIR) os_w32dll.c
++ 
+  $(OUTDIR)/os_w32exe.obj:	$(OUTDIR) os_w32exe.c  $(INCL)
+  
++ $(OUTDIR)/os_w32exec.obj:	$(OUTDIR) os_w32exe.c  $(INCL)
++ 	$(CC) $(CFLAGS:-DFEAT_GUI_MSWIN=) /Fo$@ os_w32exe.c
++ 
++ $(OUTDIR)/os_w32exeg.obj:	$(OUTDIR) os_w32exe.c  $(INCL)
++ 	$(CC) $(CFLAGS) /Fo$@ os_w32exe.c
++ 
+  $(OUTDIR)/pathdef.obj:	$(OUTDIR) $(PATHDEF_SRC) $(INCL)
+  	$(CC) $(CFLAGS_OUTDIR) $(PATHDEF_SRC)
+  
+***************
+*** 1560,1569 ****
+  $(OUTDIR)/xpm_w32.obj: $(OUTDIR) xpm_w32.c
+  	$(CC) $(CFLAGS_OUTDIR) $(XPM_INC) xpm_w32.c
+  
+! $(OUTDIR)/vim.res:	$(OUTDIR) vim.rc gvim.exe.mnf version.h tools.bmp \
+! 				tearoff.bmp vim.ico vim_error.ico \
+  				vim_alert.ico vim_info.ico vim_quest.ico
+! 	$(RC) /nologo /l 0x409 /Fo$(OUTDIR)/vim.res $(RCFLAGS) vim.rc
+  
+  iid_ole.c if_ole.h vim.tlb: if_ole.idl
+  	midl /nologo /error none /proxy nul /iid iid_ole.c /tlb vim.tlb \
+--- 1640,1664 ----
+  $(OUTDIR)/xpm_w32.obj: $(OUTDIR) xpm_w32.c
+  	$(CC) $(CFLAGS_OUTDIR) $(XPM_INC) xpm_w32.c
+  
+! !if "$(VIMDLL)" == "yes"
+! $(OUTDIR)/vimc.res:	$(OUTDIR) vim.rc gvim.exe.mnf version.h gui_w32_rc.h \
+! 				vim.ico
+! 	$(RC) /nologo /l 0x409 /Fo$@ $(RCFLAGS:-DFEAT_GUI_MSWIN=) vim.rc
+! 
+! $(OUTDIR)/vimg.res:	$(OUTDIR) vim.rc gvim.exe.mnf version.h gui_w32_rc.h \
+! 				vim.ico
+! 	$(RC) /nologo /l 0x409 /Fo$@ $(RCFLAGS) vim.rc
+! 
+! $(OUTDIR)/vimd.res:	$(OUTDIR) vim.rc version.h gui_w32_rc.h \
+! 				tools.bmp tearoff.bmp vim.ico vim_error.ico \
+! 				vim_alert.ico vim_info.ico vim_quest.ico
+! 	$(RC) /nologo /l 0x409 /Fo$@ $(RCFLAGS) -DRCDLL -DVIMDLLBASE=\"$(VIMDLLBASE)\" vim.rc
+! !else
+! $(OUTDIR)/vim.res:	$(OUTDIR) vim.rc gvim.exe.mnf version.h gui_w32_rc.h \
+! 				tools.bmp tearoff.bmp vim.ico vim_error.ico \
+  				vim_alert.ico vim_info.ico vim_quest.ico
+! 	$(RC) /nologo /l 0x409 /Fo$@ $(RCFLAGS) vim.rc
+! !endif
+  
+  iid_ole.c if_ole.h vim.tlb: if_ole.idl
+  	midl /nologo /error none /proxy nul /iid iid_ole.c /tlb vim.tlb \
+***************
+*** 1583,1614 ****
+  	-DWCWIDTH_FUNCTION=utf_uint2cells \
+  	-D_CRT_SECURE_NO_WARNINGS
+  
+  $(OUTDIR)/encoding.obj: $(OUTDIR) libvterm/src/encoding.c $(TERM_DEPS)
+- 	$(CCCTERM) -Fo$@ libvterm/src/encoding.c
+  
+  $(OUTDIR)/keyboard.obj: $(OUTDIR) libvterm/src/keyboard.c $(TERM_DEPS)
+- 	$(CCCTERM) -Fo$@ libvterm/src/keyboard.c
+  
+  $(OUTDIR)/mouse.obj: $(OUTDIR) libvterm/src/mouse.c $(TERM_DEPS)
+- 	$(CCCTERM) -Fo$@ libvterm/src/mouse.c
+  
+  $(OUTDIR)/parser.obj: $(OUTDIR) libvterm/src/parser.c $(TERM_DEPS)
+- 	$(CCCTERM) -Fo$@ libvterm/src/parser.c
+  
+  $(OUTDIR)/pen.obj: $(OUTDIR) libvterm/src/pen.c $(TERM_DEPS)
+- 	$(CCCTERM) -Fo$@ libvterm/src/pen.c
+  
+  $(OUTDIR)/termscreen.obj: $(OUTDIR) libvterm/src/termscreen.c $(TERM_DEPS)
+- 	$(CCCTERM) -Fo$@ libvterm/src/termscreen.c
+  
+  $(OUTDIR)/state.obj: $(OUTDIR) libvterm/src/state.c $(TERM_DEPS)
+- 	$(CCCTERM) -Fo$@ libvterm/src/state.c
+  
+  $(OUTDIR)/unicode.obj: $(OUTDIR) libvterm/src/unicode.c $(TERM_DEPS)
+- 	$(CCCTERM) -Fo$@ libvterm/src/unicode.c
+  
+  $(OUTDIR)/vterm.obj: $(OUTDIR) libvterm/src/vterm.c $(TERM_DEPS)
+- 	$(CCCTERM) -Fo$@ libvterm/src/vterm.c
+  
+  
+  # $CFLAGS may contain backslashes and double quotes, escape them both.
+--- 1678,1704 ----
+  	-DWCWIDTH_FUNCTION=utf_uint2cells \
+  	-D_CRT_SECURE_NO_WARNINGS
+  
++ # Create a default rule for libvterm.
++ {libvterm/src/}.c{$(OUTDIR)/}.obj::
++ 	$(CCCTERM) -Fo$(OUTDIR)/ $<
++ 
+  $(OUTDIR)/encoding.obj: $(OUTDIR) libvterm/src/encoding.c $(TERM_DEPS)
+  
+  $(OUTDIR)/keyboard.obj: $(OUTDIR) libvterm/src/keyboard.c $(TERM_DEPS)
+  
+  $(OUTDIR)/mouse.obj: $(OUTDIR) libvterm/src/mouse.c $(TERM_DEPS)
+  
+  $(OUTDIR)/parser.obj: $(OUTDIR) libvterm/src/parser.c $(TERM_DEPS)
+  
+  $(OUTDIR)/pen.obj: $(OUTDIR) libvterm/src/pen.c $(TERM_DEPS)
+  
+  $(OUTDIR)/termscreen.obj: $(OUTDIR) libvterm/src/termscreen.c $(TERM_DEPS)
+  
+  $(OUTDIR)/state.obj: $(OUTDIR) libvterm/src/state.c $(TERM_DEPS)
+  
+  $(OUTDIR)/unicode.obj: $(OUTDIR) libvterm/src/unicode.c $(TERM_DEPS)
+  
+  $(OUTDIR)/vterm.obj: $(OUTDIR) libvterm/src/vterm.c $(TERM_DEPS)
+  
+  
+  # $CFLAGS may contain backslashes and double quotes, escape them both.
+*** ../vim-8.1.1229/src/channel.c	2019-04-21 00:00:07.942354840 +0200
+--- src/channel.c	2019-04-28 18:55:14.808080039 +0200
+***************
+*** 5319,5325 ****
+      return job_need_end_check(job) || job_channel_still_useful(job);
+  }
+  
+! #if defined(GUI_MAY_FORK) || defined(PROTO)
+  /*
+   * Return TRUE when there is any running job that we care about.
+   */
+--- 5319,5325 ----
+      return job_need_end_check(job) || job_channel_still_useful(job);
+  }
+  
+! #if defined(GUI_MAY_FORK) || defined(GUI_MAY_SPAWN) || defined(PROTO)
+  /*
+   * Return TRUE when there is any running job that we care about.
+   */
+*** ../vim-8.1.1229/src/evalfunc.c	2019-04-27 20:36:52.530303581 +0200
+--- src/evalfunc.c	2019-04-28 18:55:14.808080039 +0200
+***************
+*** 4201,4211 ****
+  {
+  #ifdef FEAT_GUI
+      if (gui.in_use)
+  	gui_mch_set_foreground();
+! #else
+! # ifdef MSWIN
+      win32_set_foreground();
+- # endif
+  #endif
+  }
+  
+--- 4201,4213 ----
+  {
+  #ifdef FEAT_GUI
+      if (gui.in_use)
++     {
+  	gui_mch_set_foreground();
+! 	return;
+!     }
+! #endif
+! #if defined(MSWIN) && (!defined(FEAT_GUI) || defined(VIMDLL))
+      win32_set_foreground();
+  #endif
+  }
+  
+*** ../vim-8.1.1229/src/ex_cmds.c	2019-04-28 18:04:56.058492178 +0200
+--- src/ex_cmds.c	2019-04-28 18:55:14.808080039 +0200
+***************
+*** 1537,1543 ****
+      int		flags)	/* may be SHELL_DOOUT when output is redirected */
+  {
+      buf_T	*buf;
+! #ifndef FEAT_GUI_MSWIN
+      int		save_nwr;
+  #endif
+  #ifdef MSWIN
+--- 1537,1543 ----
+      int		flags)	/* may be SHELL_DOOUT when output is redirected */
+  {
+      buf_T	*buf;
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+      int		save_nwr;
+  #endif
+  #ifdef MSWIN
+***************
+*** 1636,1667 ****
+  	 * Otherwise there is probably text on the screen that the user wants
+  	 * to read before redrawing, so call wait_return().
+  	 */
+! #ifndef FEAT_GUI_MSWIN
+! 	if (cmd == NULL
+! # ifdef MSWIN
+! 		|| (keep_termcap && !need_wait_return)
+  # endif
+- 	   )
+- 	{
+- 	    if (msg_silent == 0)
+- 		redraw_later_clear();
+- 	    need_wait_return = FALSE;
+- 	}
+- 	else
+  	{
+! 	    /*
+! 	     * If we switch screens when starttermcap() is called, we really
+! 	     * want to wait for "hit return to continue".
+! 	     */
+! 	    save_nwr = no_wait_return;
+! 	    if (swapping_screen())
+! 		no_wait_return = FALSE;
+  # ifdef AMIGA
+! 	    wait_return(term_console ? -1 : msg_silent == 0);	/* see below */
+  # else
+! 	    wait_return(msg_silent == 0);
+  # endif
+! 	    no_wait_return = save_nwr;
+  	}
+  #endif /* FEAT_GUI_MSWIN */
+  
+--- 1636,1672 ----
+  	 * Otherwise there is probably text on the screen that the user wants
+  	 * to read before redrawing, so call wait_return().
+  	 */
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+! # ifdef VIMDLL
+! 	if (!gui.in_use)
+  # endif
+  	{
+! 	    if (cmd == NULL
+! # ifdef MSWIN
+! 		    || (keep_termcap && !need_wait_return)
+! # endif
+! 	       )
+! 	    {
+! 		if (msg_silent == 0)
+! 		    redraw_later_clear();
+! 		need_wait_return = FALSE;
+! 	    }
+! 	    else
+! 	    {
+! 		/*
+! 		 * If we switch screens when starttermcap() is called, we
+! 		 * really want to wait for "hit return to continue".
+! 		 */
+! 		save_nwr = no_wait_return;
+! 		if (swapping_screen())
+! 		    no_wait_return = FALSE;
+  # ifdef AMIGA
+! 		wait_return(term_console ? -1 : msg_silent == 0); // see below
+  # else
+! 		wait_return(msg_silent == 0);
+  # endif
+! 		no_wait_return = save_nwr;
+! 	    }
+  	}
+  #endif /* FEAT_GUI_MSWIN */
+  
+*** ../vim-8.1.1229/src/ex_docmd.c	2019-04-27 20:36:52.530303581 +0200
+--- src/ex_docmd.c	2019-04-28 18:55:14.812080022 +0200
+***************
+*** 7756,7762 ****
+      if (*arg == NUL)
+      {
+  # if defined(FEAT_GUI) || defined(MSWIN)
+! #  ifdef FEAT_GUI
+  	if (gui.in_use && gui_mch_get_winpos(&x, &y) != FAIL)
+  #  else
+  	if (mch_get_winpos(&x, &y) != FAIL)
+--- 7756,7765 ----
+      if (*arg == NUL)
+      {
+  # if defined(FEAT_GUI) || defined(MSWIN)
+! #  ifdef VIMDLL
+! 	if (gui.in_use ? gui_mch_get_winpos(&x, &y) != FAIL :
+! 		mch_get_winpos(&x, &y) != FAIL)
+! #  elif defined(FEAT_GUI)
+  	if (gui.in_use && gui_mch_get_winpos(&x, &y) != FAIL)
+  #  else
+  	if (mch_get_winpos(&x, &y) != FAIL)
+***************
+*** 7789,7801 ****
+  	    gui_win_x = x;
+  	    gui_win_y = y;
+  	}
+! #  ifdef HAVE_TGETENT
+  	else
+  #  endif
+! # else
+! #  ifdef MSWIN
+  	    mch_set_winpos(x, y);
+- #  endif
+  # endif
+  # ifdef HAVE_TGETENT
+  	if (*T_CWP)
+--- 7792,7803 ----
+  	    gui_win_x = x;
+  	    gui_win_y = y;
+  	}
+! #  if defined(HAVE_TGETENT) || defined(VIMDLL)
+  	else
+  #  endif
+! # endif
+! # if defined(MSWIN) && (!defined(FEAT_GUI) || defined(VIMDLL))
+  	    mch_set_winpos(x, y);
+  # endif
+  # ifdef HAVE_TGETENT
+  	if (*T_CWP)
+***************
+*** 8239,8246 ****
+      if (need_maketitle)
+  	maketitle();
+  #endif
+! #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+!     resize_console_buf();
+  #endif
+      RedrawingDisabled = r;
+      p_lz = p;
+--- 8241,8251 ----
+      if (need_maketitle)
+  	maketitle();
+  #endif
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+! # ifdef VIMDLL
+!     if (!gui.in_use)
+! # endif
+! 	resize_console_buf();
+  #endif
+      RedrawingDisabled = r;
+      p_lz = p;
+*** ../vim-8.1.1229/src/feature.h	2019-04-27 13:03:20.008715938 +0200
+--- src/feature.h	2019-04-28 19:05:41.293187966 +0200
+***************
+*** 712,718 ****
+   * there is no terminal version, and on Windows we can't figure out how to
+   * fork one off with :gui.
+   */
+! #if defined(FEAT_GUI_MSWIN) || (defined(FEAT_GUI_MAC) && !defined(MACOS_X_DARWIN))
+  # define ALWAYS_USE_GUI
+  #endif
+  
+--- 712,719 ----
+   * there is no terminal version, and on Windows we can't figure out how to
+   * fork one off with :gui.
+   */
+! #if (defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)) \
+! 	    || (defined(FEAT_GUI_MAC) && !defined(MACOS_X_DARWIN))
+  # define ALWAYS_USE_GUI
+  #endif
+  
+***************
+*** 1138,1145 ****
+   * mouse shape		Adjust the shape of the mouse pointer to the mode.
+   */
+  #ifdef FEAT_NORMAL
+! /* MS-DOS console and Win32 console can change cursor shape */
+! # if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+  #  define MCH_CURSOR_SHAPE
+  # endif
+  # if defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_MOTIF) \
+--- 1139,1146 ----
+   * mouse shape		Adjust the shape of the mouse pointer to the mode.
+   */
+  #ifdef FEAT_NORMAL
+! // Win32 console can change cursor shape
+! # if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+  #  define MCH_CURSOR_SHAPE
+  # endif
+  # if defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_MOTIF) \
+***************
+*** 1263,1269 ****
+   * +balloon_eval_term	Allow balloon expression evaluation in the terminal.
+   */
+  #if defined(FEAT_HUGE) && defined(FEAT_TIMERS) && \
+! 	(defined(UNIX) || defined(VMS) || (defined(MSWIN) && !defined(FEAT_GUI_MSWIN)))
+  # define FEAT_BEVAL_TERM
+  #endif
+  
+--- 1264,1271 ----
+   * +balloon_eval_term	Allow balloon expression evaluation in the terminal.
+   */
+  #if defined(FEAT_HUGE) && defined(FEAT_TIMERS) && \
+! 	(defined(UNIX) || defined(VMS) || \
+! 	 (defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))))
+  # define FEAT_BEVAL_TERM
+  #endif
+  
+***************
+*** 1317,1322 ****
+  /*
+   * +vtp: Win32 virtual console.
+   */
+! #if !defined(FEAT_GUI) && defined(MSWIN)
+  # define FEAT_VTP
+  #endif
+--- 1319,1324 ----
+  /*
+   * +vtp: Win32 virtual console.
+   */
+! #if (!defined(FEAT_GUI) || defined(VIMDLL)) && defined(MSWIN)
+  # define FEAT_VTP
+  #endif
+*** ../vim-8.1.1229/src/fileio.c	2019-03-21 21:45:30.875282175 +0100
+--- src/fileio.c	2019-04-28 18:55:14.812080022 +0200
+***************
+*** 792,798 ****
+  	    if (!is_not_a_term())
+  	    {
+  #ifndef ALWAYS_USE_GUI
+! 		mch_msg(_("Vim: Reading from stdin...\n"));
+  #endif
+  #ifdef FEAT_GUI
+  		/* Also write a message in the GUI window, if there is one. */
+--- 792,801 ----
+  	    if (!is_not_a_term())
+  	    {
+  #ifndef ALWAYS_USE_GUI
+! # ifdef VIMDLL
+! 		if (!gui.in_use)
+! # endif
+! 		    mch_msg(_("Vim: Reading from stdin...\n"));
+  #endif
+  #ifdef FEAT_GUI
+  		/* Also write a message in the GUI window, if there is one. */
+*** ../vim-8.1.1229/src/getchar.c	2019-04-24 23:08:20.078079973 +0200
+--- src/getchar.c	2019-04-28 18:55:14.812080022 +0200
+***************
+*** 1626,1632 ****
+  #if defined(FEAT_GUI_MSWIN) && defined(FEAT_MENU) && defined(FEAT_TEAROFF)
+  		// Handle K_TEAROFF here, the caller of vgetc() doesn't need to
+  		// know that a menu was torn off
+! 		if (c == K_TEAROFF)
+  		{
+  		    char_u	name[200];
+  		    int		i;
+--- 1626,1636 ----
+  #if defined(FEAT_GUI_MSWIN) && defined(FEAT_MENU) && defined(FEAT_TEAROFF)
+  		// Handle K_TEAROFF here, the caller of vgetc() doesn't need to
+  		// know that a menu was torn off
+! 		if (
+! # ifdef VIMDLL
+! 		    gui.in_use &&
+! # endif
+! 		    c == K_TEAROFF)
+  		{
+  		    char_u	name[200];
+  		    int		i;
+***************
+*** 3113,3118 ****
+--- 3117,3123 ----
+  	    p += 2;
+  	    i -= 2;
+  	}
++ # ifndef MSWIN
+  	/* When the GUI is not used CSI needs to be escaped. */
+  	else if (!gui.in_use && p[0] == CSI)
+  	{
+***************
+*** 3122,3133 ****
+  	    *p = (int)KE_CSI;
+  	    len += 2;
+  	}
+  	else
+  #endif
+  	if (p[0] == NUL || (p[0] == K_SPECIAL
+  		    /* timeout may generate K_CURSORHOLD */
+  		    && (i < 2 || p[1] != KS_EXTRA || p[2] != (int)KE_CURSORHOLD)
+! #if defined(MSWIN) && !defined(FEAT_GUI)
+  		    /* Win32 console passes modifiers */
+  		    && (i < 2 || p[1] != KS_MODIFIER)
+  #endif
+--- 3127,3142 ----
+  	    *p = (int)KE_CSI;
+  	    len += 2;
+  	}
++ # endif
+  	else
+  #endif
+  	if (p[0] == NUL || (p[0] == K_SPECIAL
+  		    /* timeout may generate K_CURSORHOLD */
+  		    && (i < 2 || p[1] != KS_EXTRA || p[2] != (int)KE_CURSORHOLD)
+! #if defined(MSWIN) && (!defined(FEAT_GUI) || defined(VIMDLL))
+! # ifdef VIMDLL
+! 		    && !gui.in_use
+! # endif
+  		    /* Win32 console passes modifiers */
+  		    && (i < 2 || p[1] != KS_MODIFIER)
+  #endif
+***************
+*** 5232,5251 ****
+  
+  #if defined(MSWIN) || defined(MACOS_X)
+  
+! #define VIS_SEL	(VISUAL+SELECTMODE)	/* abbreviation */
+  
+  /*
+   * Default mappings for some often used keys.
+   */
+! static struct initmap
+  {
+      char_u	*arg;
+      int		mode;
+! } initmappings[] =
+  {
+- #if defined(MSWIN)
+- 	/* Use the Windows (CUA) keybindings. */
+- # ifdef FEAT_GUI
+  	/* paste, copy and cut */
+  	{(char_u *)"<S-Insert> \"*P", NORMAL},
+  	{(char_u *)"<S-Insert> \"-d\"*P", VIS_SEL},
+--- 5241,5261 ----
+  
+  #if defined(MSWIN) || defined(MACOS_X)
+  
+! # define VIS_SEL	(VISUAL+SELECTMODE)	/* abbreviation */
+  
+  /*
+   * Default mappings for some often used keys.
+   */
+! struct initmap
+  {
+      char_u	*arg;
+      int		mode;
+! };
+! 
+! # ifdef FEAT_GUI_MSWIN
+! /* Use the Windows (CUA) keybindings. (GUI) */
+! static struct initmap initmappings[] =
+  {
+  	/* paste, copy and cut */
+  	{(char_u *)"<S-Insert> \"*P", NORMAL},
+  	{(char_u *)"<S-Insert> \"-d\"*P", VIS_SEL},
+***************
+*** 5255,5261 ****
+  	{(char_u *)"<C-Del> \"*d", VIS_SEL},
+  	{(char_u *)"<C-X> \"*d", VIS_SEL},
+  	/* Missing: CTRL-C (cancel) and CTRL-V (block selection) */
+! # else
+  	{(char_u *)"\316w <C-Home>", NORMAL+VIS_SEL},
+  	{(char_u *)"\316w <C-Home>", INSERT+CMDLINE},
+  	{(char_u *)"\316u <C-End>", NORMAL+VIS_SEL},
+--- 5265,5277 ----
+  	{(char_u *)"<C-Del> \"*d", VIS_SEL},
+  	{(char_u *)"<C-X> \"*d", VIS_SEL},
+  	/* Missing: CTRL-C (cancel) and CTRL-V (block selection) */
+! };
+! # endif
+! 
+! # if defined(MSWIN) && (!defined(FEAT_GUI) || defined(VIMDLL))
+! /* Use the Windows (CUA) keybindings. (Console) */
+! static struct initmap cinitmappings[] =
+! {
+  	{(char_u *)"\316w <C-Home>", NORMAL+VIS_SEL},
+  	{(char_u *)"\316w <C-Home>", INSERT+CMDLINE},
+  	{(char_u *)"\316u <C-End>", NORMAL+VIS_SEL},
+***************
+*** 5278,5287 ****
+  	{(char_u *)"\316\327 d", VIS_SEL},	    /* SHIFT-Del is d */
+  	{(char_u *)"\316\330 d", VIS_SEL},	    /* CTRL-Del is d */
+  #  endif
+  # endif
+- #endif
+  
+! #if defined(MACOS_X)
+  	/* Use the Standard MacOS binding. */
+  	/* paste, copy and cut */
+  	{(char_u *)"<D-v> \"*P", NORMAL},
+--- 5294,5305 ----
+  	{(char_u *)"\316\327 d", VIS_SEL},	    /* SHIFT-Del is d */
+  	{(char_u *)"\316\330 d", VIS_SEL},	    /* CTRL-Del is d */
+  #  endif
++ };
+  # endif
+  
+! # if defined(MACOS_X)
+! static struct initmap initmappings[] =
+! {
+  	/* Use the Standard MacOS binding. */
+  	/* paste, copy and cut */
+  	{(char_u *)"<D-v> \"*P", NORMAL},
+***************
+*** 5290,5297 ****
+  	{(char_u *)"<D-c> \"*y", VIS_SEL},
+  	{(char_u *)"<D-x> \"*d", VIS_SEL},
+  	{(char_u *)"<Backspace> \"-d", VIS_SEL},
+- #endif
+  };
+  
+  # undef VIS_SEL
+  #endif
+--- 5308,5315 ----
+  	{(char_u *)"<D-c> \"*y", VIS_SEL},
+  	{(char_u *)"<D-x> \"*d", VIS_SEL},
+  	{(char_u *)"<Backspace> \"-d", VIS_SEL},
+  };
++ # endif
+  
+  # undef VIS_SEL
+  #endif
+***************
+*** 5305,5312 ****
+--- 5323,5342 ----
+  #if defined(MSWIN) || defined(MACOS_X)
+      int		i;
+  
++ # if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
++ #  ifdef VIMDLL
++     if (!gui.starting)
++ #  endif
++     {
++ 	for (i = 0;
++ 		i < (int)(sizeof(cinitmappings) / sizeof(struct initmap)); ++i)
++ 	    add_map(cinitmappings[i].arg, cinitmappings[i].mode);
++     }
++ # endif
++ # if defined(FEAT_GUI_MSWIN) || defined(MACOS_X)
+      for (i = 0; i < (int)(sizeof(initmappings) / sizeof(struct initmap)); ++i)
+  	add_map(initmappings[i].arg, initmappings[i].mode);
++ # endif
+  #endif
+  }
+  
+*** ../vim-8.1.1229/src/globals.h	2019-04-28 18:04:56.058492178 +0200
+--- src/globals.h	2019-04-28 18:55:14.812080022 +0200
+***************
+*** 1442,1448 ****
+  EXTERN char e_noalt[]		INIT(= N_("E23: No alternate file"));
+  EXTERN char e_noabbr[]	INIT(= N_("E24: No such abbreviation"));
+  EXTERN char e_nobang[]	INIT(= N_("E477: No ! allowed"));
+! #ifndef FEAT_GUI
+  EXTERN char e_nogvim[]	INIT(= N_("E25: GUI cannot be used: Not enabled at compile time"));
+  #endif
+  #ifndef FEAT_RIGHTLEFT
+--- 1442,1448 ----
+  EXTERN char e_noalt[]		INIT(= N_("E23: No alternate file"));
+  EXTERN char e_noabbr[]	INIT(= N_("E24: No such abbreviation"));
+  EXTERN char e_nobang[]	INIT(= N_("E477: No ! allowed"));
+! #if !defined(FEAT_GUI) || defined(VIMDLL)
+  EXTERN char e_nogvim[]	INIT(= N_("E25: GUI cannot be used: Not enabled at compile time"));
+  #endif
+  #ifndef FEAT_RIGHTLEFT
+***************
+*** 1645,1650 ****
+--- 1645,1651 ----
+  
+  #ifdef MSWIN
+  EXTERN int ctrl_break_was_pressed INIT(= FALSE);
++ EXTERN HINSTANCE g_hinst INIT(= NULL);
+  #endif
+  
+  #ifdef FEAT_TEXT_PROP
+*** ../vim-8.1.1229/src/gui.c	2019-03-30 22:26:35.091091278 +0100
+--- src/gui.c	2019-04-28 18:55:14.812080022 +0200
+***************
+*** 65,74 ****
+   * recursive call.
+   */
+      void
+! gui_start(void)
+  {
+      char_u	*old_term;
+      static int	recursive = 0;
+  
+      old_term = vim_strsave(T_NAME);
+  
+--- 65,77 ----
+   * recursive call.
+   */
+      void
+! gui_start(char_u *arg UNUSED)
+  {
+      char_u	*old_term;
+      static int	recursive = 0;
++ #ifdef GUI_MAY_SPAWN
++     char	*msg = NULL;
++ #endif
+  
+      old_term = vim_strsave(T_NAME);
+  
+***************
+*** 98,103 ****
+--- 101,122 ----
+      }
+      else
+  #endif
++ #ifdef GUI_MAY_SPAWN
++     if (gui.dospawn
++ # ifdef EXPERIMENTAL_GUI_CMD
++ 	    && gui.dofork
++ # endif
++ 	    && !vim_strchr(p_go, GO_FORG)
++ 	    && !anyBufIsChanged()
++ # ifdef FEAT_JOB_CHANNEL
++ 	    && !job_any_running()
++ # endif
++ 	    )
++     {
++ 	msg = gui_mch_do_spawn(arg);
++     }
++     else
++ #endif
+      {
+  #ifdef FEAT_GUI_GTK
+  	/* If there is 'f' in 'guioptions' and specify -g argument,
+***************
+*** 125,130 ****
+--- 144,153 ----
+  #ifdef FEAT_TITLE
+  	set_title_defaults();		/* set 'title' and 'icon' again */
+  #endif
++ #if defined(GUI_MAY_SPAWN) && defined(EXPERIMENTAL_GUI_CMD)
++ 	if (msg)
++ 	    emsg(msg);
++ #endif
+      }
+  
+      vim_free(old_term);
+***************
+*** 431,437 ****
+      gui.scrollbar_width = gui.scrollbar_height = SB_DEFAULT_WIDTH;
+      gui.prev_wrap = -1;
+  
+! #ifdef ALWAYS_USE_GUI
+      result = OK;
+  #else
+  # ifdef FEAT_GUI_GTK
+--- 454,460 ----
+      gui.scrollbar_width = gui.scrollbar_height = SB_DEFAULT_WIDTH;
+      gui.prev_wrap = -1;
+  
+! #if defined(ALWAYS_USE_GUI) || defined(VIMDLL)
+      result = OK;
+  #else
+  # ifdef FEAT_GUI_GTK
+***************
+*** 4948,4959 ****
+      }
+      if (!gui.in_use)
+      {
+  	/* Clear the command.  Needed for when forking+exiting, to avoid part
+  	 * of the argument ending up after the shell prompt. */
+  	msg_clr_eos_force();
+! 	gui_start();
+! #ifdef FEAT_JOB_CHANNEL
+  	channel_gui_register_all();
+  #endif
+      }
+      if (!ends_excmd(*eap->arg))
+--- 4971,4992 ----
+      }
+      if (!gui.in_use)
+      {
++ #if defined(VIMDLL) && !defined(EXPERIMENTAL_GUI_CMD)
++ 	emsg(_(e_nogvim));
++ 	return;
++ #else
+  	/* Clear the command.  Needed for when forking+exiting, to avoid part
+  	 * of the argument ending up after the shell prompt. */
+  	msg_clr_eos_force();
+! # ifdef GUI_MAY_SPAWN
+! 	if (!ends_excmd(*eap->arg))
+! 	    gui_start(eap->arg);
+! 	else
+! # endif
+! 	    gui_start(NULL);
+! # ifdef FEAT_JOB_CHANNEL
+  	channel_gui_register_all();
++ # endif
+  #endif
+      }
+      if (!ends_excmd(*eap->arg))
+*** ../vim-8.1.1229/src/gui.h	2019-02-17 17:44:36.207875527 +0100
+--- src/gui.h	2019-04-28 18:55:14.812080022 +0200
+***************
+*** 237,242 ****
+--- 237,252 ----
+  # endif
+  #endif
+  
++ #ifdef VIMDLL
++ // Use spawn when GUI is starting.
++ # define GUI_MAY_SPAWN
++ 
++ // Uncomment the next definition if you want to use the `:gui` command on
++ // Windows.  It uses `:mksession` to inherit the session from vim.exe to
++ // gvim.exe.  So, it doesn't work perfectly. (EXPERIMENTAL)
++ //# define EXPERIMENTAL_GUI_CMD
++ #endif
++ 
+  typedef struct Gui
+  {
+      int		in_focus;	    /* Vim has input focus */
+***************
+*** 245,250 ****
+--- 255,263 ----
+      int		shell_created;	    /* Has the shell been created yet? */
+      int		dying;		    /* Is vim dying? Then output to terminal */
+      int		dofork;		    /* Use fork() when GUI is starting */
++ #ifdef GUI_MAY_SPAWN
++     int		dospawn;	    /* Use spawn() when GUI is starting */
++ #endif
+      int		dragged_sb;	    /* Which scrollbar being dragged, if any? */
+      win_T	*dragged_wp;	    /* Which WIN's sb being dragged, if any? */
+      int		pointer_hidden;	    /* Is the mouse pointer hidden? */
+*** ../vim-8.1.1229/src/gui_gtk_x11.c	2019-04-27 22:06:33.352200698 +0200
+--- src/gui_gtk_x11.c	2019-04-28 18:55:14.812080022 +0200
+***************
+*** 2315,2389 ****
+  }
+  
+  /*
+-  * Generate a script that can be used to restore the current editing session.
+-  * Save the value of v:this_session before running :mksession in order to make
+-  * automagic session save fully transparent.  Return TRUE on success.
+-  */
+-     static int
+- write_session_file(char_u *filename)
+- {
+-     char_u	    *escaped_filename;
+-     char	    *mksession_cmdline;
+-     unsigned int    save_ssop_flags;
+-     int		    failed;
+- 
+-     /*
+-      * Build an ex command line to create a script that restores the current
+-      * session if executed.  Escape the filename to avoid nasty surprises.
+-      */
+-     escaped_filename = vim_strsave_escaped(filename, escape_chars);
+-     if (escaped_filename == NULL)
+- 	return FALSE;
+-     mksession_cmdline = g_strconcat("mksession ", (char *)escaped_filename,
+- 									NULL);
+-     vim_free(escaped_filename);
+- 
+-     /*
+-      * Use a reasonable hardcoded set of 'sessionoptions' flags to avoid
+-      * unpredictable effects when the session is saved automatically.  Also,
+-      * we definitely need SSOP_GLOBALS to be able to restore v:this_session.
+-      * Don't use SSOP_BUFFERS to prevent the buffer list from becoming
+-      * enormously large if the GNOME session feature is used regularly.
+-      */
+-     save_ssop_flags = ssop_flags;
+-     ssop_flags = (SSOP_BLANK|SSOP_CURDIR|SSOP_FOLDS|SSOP_GLOBALS
+- 		  |SSOP_HELP|SSOP_OPTIONS|SSOP_WINSIZE|SSOP_TABPAGES);
+- 
+-     do_cmdline_cmd((char_u *)"let Save_VV_this_session = v:this_session");
+-     failed = (do_cmdline_cmd((char_u *)mksession_cmdline) == FAIL);
+-     do_cmdline_cmd((char_u *)"let v:this_session = Save_VV_this_session");
+-     do_unlet((char_u *)"Save_VV_this_session", TRUE);
+- 
+-     ssop_flags = save_ssop_flags;
+-     g_free(mksession_cmdline);
+- 
+-     /*
+-      * Reopen the file and append a command to restore v:this_session,
+-      * as if this save never happened.	This is to avoid conflicts with
+-      * the user's own sessions.  FIXME: It's probably less hackish to add
+-      * a "stealth" flag to 'sessionoptions' -- gotta ask Bram.
+-      */
+-     if (!failed)
+-     {
+- 	FILE *fd;
+- 
+- 	fd = open_exfile(filename, TRUE, APPENDBIN);
+- 
+- 	failed = (fd == NULL
+- 	       || put_line(fd, "let v:this_session = Save_VV_this_session") == FAIL
+- 	       || put_line(fd, "unlet Save_VV_this_session") == FAIL);
+- 
+- 	if (fd != NULL && fclose(fd) != 0)
+- 	    failed = TRUE;
+- 
+- 	if (failed)
+- 	    mch_remove(filename);
+-     }
+- 
+-     return !failed;
+- }
+- 
+- /*
+   * "save_yourself" signal handler.  Initiate an interaction to ask the user
+   * for confirmation if necessary.  Save the current editing session and tell
+   * the session manager how to restart Vim.
+--- 2315,2320 ----
+*** ../vim-8.1.1229/src/gui_w32.c	2019-04-28 14:02:25.414687593 +0200
+--- src/gui_w32.c	2019-04-28 19:01:10.762451360 +0200
+***************
+*** 320,326 ****
+  						// for find/replace dialog
+  #endif
+  
+- static HINSTANCE	s_hinst = NULL;
+  #if !defined(FEAT_GUI)
+  static
+  #endif
+--- 320,325 ----
+***************
+*** 1424,1430 ****
+  	10,				/* Any value will do for now */
+  	10,				/* Any value will do for now */
+  	s_hwnd, NULL,
+! 	s_hinst, NULL);
+  }
+  
+  /*
+--- 1423,1429 ----
+  	10,				/* Any value will do for now */
+  	10,				/* Any value will do for now */
+  	s_hwnd, NULL,
+! 	g_hinst, NULL);
+  }
+  
+  /*
+***************
+*** 2237,2251 ****
+  }
+  #endif /*FEAT_MENU*/
+  
+- #ifndef PROTO
+- void
+- _cdecl
+- SaveInst(HINSTANCE hInst)
+- {
+-     s_hinst = hInst;
+- }
+- #endif
+- 
+  /*
+   * Return the RGB value of a pixel as a long.
+   */
+--- 2236,2241 ----
+***************
+*** 4839,4844 ****
+--- 4829,4969 ----
+  }
+  #endif
+  
++ #if defined(GUI_MAY_SPAWN) || defined(PROTO)
++     static char *
++ gvim_error(void)
++ {
++     char *msg = _("E988: GUI cannot be used. Cannot execute gvim.exe.");
++ 
++     if (starting)
++     {
++ 	mch_errmsg(msg);
++ 	mch_errmsg("\n");
++ 	mch_exit(2);
++     }
++     return msg;
++ }
++ 
++     char *
++ gui_mch_do_spawn(char_u *arg)
++ {
++     int			len;
++ # if defined(FEAT_SESSION) && defined(EXPERIMENTAL_GUI_CMD)
++     char_u		*session = NULL;
++     LPWSTR		tofree1 = NULL;
++ # endif
++     WCHAR		name[MAX_PATH];
++     LPWSTR		cmd, newcmd = NULL, p, warg, tofree2 = NULL;
++     STARTUPINFOW	si = {sizeof(si)};
++     PROCESS_INFORMATION pi;
++ 
++     if (!GetModuleFileNameW(g_hinst, name, MAX_PATH))
++ 	goto error;
++     p = wcsrchr(name, L'\\');
++     if (p == NULL)
++ 	goto error;
++     // Replace the executable name from vim(d).exe to gvim(d).exe.
++ # ifdef DEBUG
++     wcscpy(p + 1, L"gvimd.exe");
++ # else
++     wcscpy(p + 1, L"gvim.exe");
++ # endif
++ 
++ # if defined(FEAT_SESSION) && defined(EXPERIMENTAL_GUI_CMD)
++     if (starting)
++ # endif
++     {
++ 	// Pass the command line to the new process.
++ 	p = GetCommandLineW();
++ 	// Skip 1st argument.
++ 	while (*p && *p != L' ' && *p != L'\t')
++ 	{
++ 	    if (*p == L'"')
++ 	    {
++ 		while (*p && *p != L'"')
++ 		    ++p;
++ 		if (*p)
++ 		    ++p;
++ 	    }
++ 	    else
++ 		++p;
++ 	}
++ 	cmd = p;
++     }
++ # if defined(FEAT_SESSION) && defined(EXPERIMENTAL_GUI_CMD)
++     else
++     {
++ 	// Create a session file and pass it to the new process.
++ 	LPWSTR	wsession;
++ 	char_u	*savebg;
++ 	int	ret;
++ 
++ 	session = vim_tempname('s', FALSE);
++ 	if (session == NULL)
++ 	    goto error;
++ 	savebg = p_bg;
++ 	p_bg = vim_strsave((char_u *)"light");	// Set 'bg' to "light".
++ 	ret = write_session_file(session);
++ 	vim_free(p_bg);
++ 	p_bg = savebg;
++ 	if (!ret)
++ 	    goto error;
++ 	wsession = enc_to_utf16(session, NULL);
++ 	if (wsession == NULL)
++ 	    goto error;
++ 	len = (int)wcslen(wsession) * 2 + 27 + 1;
++ 	cmd = (LPWSTR)alloc(len * (int)sizeof(WCHAR));
++ 	if (cmd == NULL)
++ 	{
++ 	    vim_free(wsession);
++ 	    goto error;
++ 	}
++ 	tofree1 = cmd;
++ 	_snwprintf(cmd, len, L" -S \"%s\" -c \"call delete('%s')\"",
++ 		wsession, wsession);
++ 	vim_free(wsession);
++     }
++ # endif
++ 
++     // Check additional arguments to the `:gui` command.
++     if (arg != NULL)
++     {
++ 	warg = enc_to_utf16(arg, NULL);
++ 	if (warg == NULL)
++ 	    goto error;
++ 	tofree2 = warg;
++     }
++     else
++ 	warg = L"";
++ 
++     // Set up the new command line.
++     len = (int)wcslen(name) + (int)wcslen(cmd) + (int)wcslen(warg) + 4;
++     newcmd = (LPWSTR)alloc(len * (int)sizeof(WCHAR));
++     if (newcmd == NULL)
++ 	goto error;
++     _snwprintf(newcmd, len, L"\"%s\"%s %s", name, cmd, warg);
++ 
++     // Spawn a new GUI process.
++     if (!CreateProcessW(NULL, newcmd, NULL, NULL, TRUE, 0,
++ 		NULL, NULL, &si, &pi))
++ 	goto error;
++     CloseHandle(pi.hProcess);
++     CloseHandle(pi.hThread);
++     mch_exit(0);
++ 
++ error:
++ # if defined(FEAT_SESSION) && defined(EXPERIMENTAL_GUI_CMD)
++     if (session)
++ 	mch_remove(session);
++     vim_free(session);
++     vim_free(tofree1);
++ # endif
++     vim_free(newcmd);
++     vim_free(tofree2);
++     return gvim_error();
++ }
++ #endif
++ 
+  /*
+   * Parse the GUI related command-line arguments.  Any arguments used are
+   * deleted from argv, and *argc is decremented accordingly.  This is called
+***************
+*** 4957,4963 ****
+       * Load the tearoff bitmap
+       */
+  #ifdef FEAT_TEAROFF
+!     s_htearbitmap = LoadBitmap(s_hinst, "IDB_TEAROFF");
+  #endif
+  
+      gui.scrollbar_width = GetSystemMetrics(SM_CXVSCROLL);
+--- 5082,5088 ----
+       * Load the tearoff bitmap
+       */
+  #ifdef FEAT_TEAROFF
+!     s_htearbitmap = LoadBitmap(g_hinst, "IDB_TEAROFF");
+  #endif
+  
+      gui.scrollbar_width = GetSystemMetrics(SM_CXVSCROLL);
+***************
+*** 4971,4983 ****
+  
+      /* First try using the wide version, so that we can use any title.
+       * Otherwise only characters in the active codepage will work. */
+!     if (GetClassInfoW(s_hinst, szVimWndClassW, &wndclassw) == 0)
+      {
+  	wndclassw.style = CS_DBLCLKS;
+  	wndclassw.lpfnWndProc = _WndProc;
+  	wndclassw.cbClsExtra = 0;
+  	wndclassw.cbWndExtra = 0;
+! 	wndclassw.hInstance = s_hinst;
+  	wndclassw.hIcon = LoadIcon(wndclassw.hInstance, "IDR_VIM");
+  	wndclassw.hCursor = LoadCursor(NULL, IDC_ARROW);
+  	wndclassw.hbrBackground = s_brush;
+--- 5096,5108 ----
+  
+      /* First try using the wide version, so that we can use any title.
+       * Otherwise only characters in the active codepage will work. */
+!     if (GetClassInfoW(g_hinst, szVimWndClassW, &wndclassw) == 0)
+      {
+  	wndclassw.style = CS_DBLCLKS;
+  	wndclassw.lpfnWndProc = _WndProc;
+  	wndclassw.cbClsExtra = 0;
+  	wndclassw.cbWndExtra = 0;
+! 	wndclassw.hInstance = g_hinst;
+  	wndclassw.hIcon = LoadIcon(wndclassw.hInstance, "IDR_VIM");
+  	wndclassw.hCursor = LoadCursor(NULL, IDC_ARROW);
+  	wndclassw.hbrBackground = s_brush;
+***************
+*** 5011,5017 ****
+  		100,				// Any value will do
+  		100,				// Any value will do
+  		vim_parent_hwnd, NULL,
+! 		s_hinst, NULL);
+  #ifdef HAVE_TRY_EXCEPT
+  	}
+  	__except(EXCEPTION_EXECUTE_HANDLER)
+--- 5136,5142 ----
+  		100,				// Any value will do
+  		100,				// Any value will do
+  		vim_parent_hwnd, NULL,
+! 		g_hinst, NULL);
+  #ifdef HAVE_TRY_EXCEPT
+  	}
+  	__except(EXCEPTION_EXECUTE_HANDLER)
+***************
+*** 5043,5049 ****
+  		100,				/* Any value will do */
+  		100,				/* Any value will do */
+  		NULL, NULL,
+! 		s_hinst, NULL);
+  	if (s_hwnd != NULL && win_socket_id != 0)
+  	{
+  	    SetParent(s_hwnd, (HWND)win_socket_id);
+--- 5168,5174 ----
+  		100,				/* Any value will do */
+  		100,				/* Any value will do */
+  		NULL, NULL,
+! 		g_hinst, NULL);
+  	if (s_hwnd != NULL && win_socket_id != 0)
+  	{
+  	    SetParent(s_hwnd, (HWND)win_socket_id);
+***************
+*** 5062,5074 ****
+  #endif
+  
+      /* Create the text area window */
+!     if (GetClassInfoW(s_hinst, szTextAreaClassW, &wndclassw) == 0)
+      {
+  	wndclassw.style = CS_OWNDC;
+  	wndclassw.lpfnWndProc = _TextAreaWndProc;
+  	wndclassw.cbClsExtra = 0;
+  	wndclassw.cbWndExtra = 0;
+! 	wndclassw.hInstance = s_hinst;
+  	wndclassw.hIcon = NULL;
+  	wndclassw.hCursor = LoadCursor(NULL, IDC_ARROW);
+  	wndclassw.hbrBackground = NULL;
+--- 5187,5199 ----
+  #endif
+  
+      /* Create the text area window */
+!     if (GetClassInfoW(g_hinst, szTextAreaClassW, &wndclassw) == 0)
+      {
+  	wndclassw.style = CS_OWNDC;
+  	wndclassw.lpfnWndProc = _TextAreaWndProc;
+  	wndclassw.cbClsExtra = 0;
+  	wndclassw.cbWndExtra = 0;
+! 	wndclassw.hInstance = g_hinst;
+  	wndclassw.hIcon = NULL;
+  	wndclassw.hCursor = LoadCursor(NULL, IDC_ARROW);
+  	wndclassw.hbrBackground = NULL;
+***************
+*** 5086,5092 ****
+  	100,				// Any value will do for now
+  	100,				// Any value will do for now
+  	s_hwnd, NULL,
+! 	s_hinst, NULL);
+  
+      if (s_textArea == NULL)
+  	return FAIL;
+--- 5211,5217 ----
+  	100,				// Any value will do for now
+  	100,				// Any value will do for now
+  	s_hwnd, NULL,
+! 	g_hinst, NULL);
+  
+      if (s_textArea == NULL)
+  	return FAIL;
+***************
+*** 6640,6647 ****
+  
+  #ifndef NO_CONSOLE
+      /* Don't output anything in silent mode ("ex -s") */
+!     if (silent_mode)
+! 	return dfltbutton;   /* return default option */
+  #endif
+  
+      if (s_hwnd == NULL)
+--- 6765,6775 ----
+  
+  #ifndef NO_CONSOLE
+      /* Don't output anything in silent mode ("ex -s") */
+! # ifdef VIMDLL
+!     if (!(gui.in_use || gui.starting))
+! # endif
+! 	if (silent_mode)
+! 	    return dfltbutton;   /* return default option */
+  #endif
+  
+      if (s_hwnd == NULL)
+***************
+*** 7050,7056 ****
+  
+      /* show the dialog box modally and get a return value */
+      nchar = (int)DialogBoxIndirect(
+! 	    s_hinst,
+  	    (LPDLGTEMPLATE)pdlgtemplate,
+  	    s_hwnd,
+  	    (DLGPROC)dialog_callback);
+--- 7178,7184 ----
+  
+      /* show the dialog box modally and get a return value */
+      nchar = (int)DialogBoxIndirect(
+! 	    g_hinst,
+  	    (LPDLGTEMPLATE)pdlgtemplate,
+  	    s_hwnd,
+  	    (DLGPROC)dialog_callback);
+***************
+*** 7644,7650 ****
+  
+      /* show modelessly */
+      the_menu->tearoff_handle = CreateDialogIndirectParam(
+! 	    s_hinst,
+  	    (LPDLGTEMPLATE)pdlgtemplate,
+  	    s_hwnd,
+  	    (DLGPROC)tearoff_callback,
+--- 7772,7778 ----
+  
+      /* show modelessly */
+      the_menu->tearoff_handle = CreateDialogIndirectParam(
+! 	    g_hinst,
+  	    (LPDLGTEMPLATE)pdlgtemplate,
+  	    s_hwnd,
+  	    (DLGPROC)tearoff_callback,
+***************
+*** 7689,7695 ****
+  		    WS_CHILD | TBSTYLE_TOOLTIPS | TBSTYLE_FLAT,
+  		    4000,		//any old big number
+  		    31,			//number of images in initial bitmap
+! 		    s_hinst,
+  		    IDR_TOOLBAR1,	// id of initial bitmap
+  		    NULL,
+  		    0,			// initial number of buttons
+--- 7817,7823 ----
+  		    WS_CHILD | TBSTYLE_TOOLTIPS | TBSTYLE_FLAT,
+  		    4000,		//any old big number
+  		    31,			//number of images in initial bitmap
+! 		    g_hinst,
+  		    IDR_TOOLBAR1,	// id of initial bitmap
+  		    NULL,
+  		    0,			// initial number of buttons
+***************
+*** 7790,7796 ****
+      s_tabhwnd = CreateWindow(WC_TABCONTROL, "Vim tabline",
+  	    WS_CHILD|TCS_FOCUSNEVER|TCS_TOOLTIPS,
+  	    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+! 	    CW_USEDEFAULT, s_hwnd, NULL, s_hinst, NULL);
+      s_tabline_wndproc = SubclassWindow(s_tabhwnd, tabline_wndproc);
+  
+      gui.tabline_height = TABLINE_HEIGHT;
+--- 7918,7924 ----
+      s_tabhwnd = CreateWindow(WC_TABCONTROL, "Vim tabline",
+  	    WS_CHILD|TCS_FOCUSNEVER|TCS_TOOLTIPS,
+  	    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+! 	    CW_USEDEFAULT, s_hwnd, NULL, g_hinst, NULL);
+      s_tabline_wndproc = SubclassWindow(s_tabhwnd, tabline_wndproc);
+  
+      gui.tabline_height = TABLINE_HEIGHT;
+***************
+*** 8245,8251 ****
+      beval->balloon = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW,
+  	    NULL, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+  	    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+! 	    beval->target, NULL, s_hinst, NULL);
+  
+      SetWindowPos(beval->balloon, HWND_TOPMOST, 0, 0, 0, 0,
+  	    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+--- 8373,8379 ----
+      beval->balloon = CreateWindowExW(WS_EX_TOPMOST, TOOLTIPS_CLASSW,
+  	    NULL, WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP,
+  	    CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT,
+! 	    beval->target, NULL, g_hinst, NULL);
+  
+      SetWindowPos(beval->balloon, HWND_TOPMOST, 0, 0, 0, 0,
+  	    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+*** ../vim-8.1.1229/src/if_mzsch.c	2019-03-30 18:46:57.352077376 +0100
+--- src/if_mzsch.c	2019-04-28 18:55:14.816080005 +0200
+***************
+*** 822,828 ****
+  static EventLoopTimerUPP timerUPP;
+  #endif
+  
+! #ifndef FEAT_GUI_MSWIN /* Win32 console and Unix */
+      void
+  mzvim_check_threads(void)
+  {
+--- 822,828 ----
+  static EventLoopTimerUPP timerUPP;
+  #endif
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL) /* Win32 console and Unix */
+      void
+  mzvim_check_threads(void)
+  {
+***************
+*** 1775,1783 ****
+--- 1775,1785 ----
+      case -2:
+  	MZ_GC_UNREG();
+  	raise_vim_exn(_("hidden option"));
++ 	/*NOTREACHED*/
+      case -3:
+  	MZ_GC_UNREG();
+  	raise_vim_exn(_("unknown option"));
++ 	/*NOTREACHED*/
+      }
+      /* unreachable */
+      return scheme_void;
+*** ../vim-8.1.1229/src/main.c	2019-04-21 15:54:29.606587753 +0200
+--- src/main.c	2019-04-28 18:55:14.816080005 +0200
+***************
+*** 19,25 ****
+  # include <limits.h>
+  #endif
+  
+! #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+  # include "iscygpty.h"
+  #endif
+  
+--- 19,25 ----
+  # include <limits.h>
+  #endif
+  
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+  # include "iscygpty.h"
+  #endif
+  
+***************
+*** 95,100 ****
+--- 95,103 ----
+  
+  static int has_dash_c_arg = FALSE;
+  
++ # ifdef VIMDLL
++ __declspec(dllexport)
++ # endif
+      int
+  # ifdef MSWIN
+  #  ifdef __BORLANDC__
+***************
+*** 174,179 ****
+--- 177,187 ----
+  #endif
+      common_init(&params);
+  
++ #ifdef VIMDLL
++     // Check if the current executable file is for the GUI subsystem.
++     gui.starting = mch_is_gui_executable();
++ #endif
++ 
+  #ifdef FEAT_CLIENTSERVER
+      /*
+       * Do the client-server stuff, unless "--servername ''" was used.
+***************
+*** 292,298 ****
+       * For GTK we can't be sure, but when started from the desktop it doesn't
+       * make sense to try using a terminal.
+       */
+! #if defined(ALWAYS_USE_GUI) || defined(FEAT_GUI_X11) || defined(FEAT_GUI_GTK)
+      if (gui.starting
+  # ifdef FEAT_GUI_GTK
+  	    && !isatty(2)
+--- 300,307 ----
+       * For GTK we can't be sure, but when started from the desktop it doesn't
+       * make sense to try using a terminal.
+       */
+! #if defined(ALWAYS_USE_GUI) || defined(FEAT_GUI_X11) || defined(FEAT_GUI_GTK) \
+! 	|| defined(VIMDLL)
+      if (gui.starting
+  # ifdef FEAT_GUI_GTK
+  	    && !isatty(2)
+***************
+*** 542,548 ****
+  	    putchar('\n');
+  #endif
+  
+! 	gui_start();		/* will set full_screen to TRUE */
+  	TIME_MSG("starting GUI");
+  
+  	/* When running "evim" or "gvim -y" we need the menus, exit if we
+--- 551,557 ----
+  	    putchar('\n');
+  #endif
+  
+! 	gui_start(NULL);		/* will set full_screen to TRUE */
+  	TIME_MSG("starting GUI");
+  
+  	/* When running "evim" or "gvim -y" we need the menus, exit if we
+***************
+*** 851,858 ****
+      }
+  #endif
+  
+! #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+!     mch_set_winsize_now();	    /* Allow winsize changes from now on */
+  #endif
+  
+  #if defined(FEAT_GUI)
+--- 860,870 ----
+      }
+  #endif
+  
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+! # ifdef VIMDLL
+!     if (!gui.in_use)
+! # endif
+! 	mch_set_winsize_now();	    /* Allow winsize changes from now on */
+  #endif
+  
+  #if defined(FEAT_GUI)
+***************
+*** 1761,1767 ****
+--- 1773,1787 ----
+  #ifdef FEAT_GUI
+  	++initstr;
+  #endif
++ #ifdef GUI_MAY_SPAWN
++ 	gui.dospawn = FALSE;	// No need to spawn a new process.
++ #endif
+      }
++ #ifdef GUI_MAY_SPAWN
++     else
++ 	gui.dospawn = TRUE;	// Not "gvim". Need to spawn gvim.exe.
++ #endif
++ 
+  
+      if (STRNICMP(initstr, "view", 4) == 0)
+      {
+***************
+*** 2181,2187 ****
+  
+  	    case 'v':		/* "-v"  Vi-mode (as if called "vi") */
+  		exmode_active = 0;
+! #ifdef FEAT_GUI
+  		gui.starting = FALSE;	/* don't start GUI */
+  #endif
+  		break;
+--- 2201,2207 ----
+  
+  	    case 'v':		/* "-v"  Vi-mode (as if called "vi") */
+  		exmode_active = 0;
+! #if defined(FEAT_GUI) && !defined(VIMDLL)
+  		gui.starting = FALSE;	/* don't start GUI */
+  #endif
+  		break;
+***************
+*** 2558,2565 ****
+  	    exit(1);
+  	}
+  #endif
+! #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+! 	if (is_cygpty_used())
+  	{
+  # if defined(HAVE_BIND_TEXTDOMAIN_CODESET) \
+  	&& defined(FEAT_GETTEXT)
+--- 2578,2589 ----
+  	    exit(1);
+  	}
+  #endif
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+! 	if (
+! # ifdef VIMDLL
+! 	    !gui.starting &&
+! # endif
+! 	    is_cygpty_used())
+  	{
+  # if defined(HAVE_BIND_TEXTDOMAIN_CODESET) \
+  	&& defined(FEAT_GETTEXT)
+***************
+*** 3440,3447 ****
+      main_msg(_("--echo-wid\t\tMake gvim echo the Window ID on stdout"));
+  #endif
+  #ifdef FEAT_GUI_MSWIN
+!     main_msg(_("-P <parent title>\tOpen Vim inside parent application"));
+!     main_msg(_("--windowid <HWND>\tOpen Vim inside another win32 widget"));
+  #endif
+  
+  #ifdef FEAT_GUI_GNOME
+--- 3464,3476 ----
+      main_msg(_("--echo-wid\t\tMake gvim echo the Window ID on stdout"));
+  #endif
+  #ifdef FEAT_GUI_MSWIN
+! # ifdef VIMDLL
+!     if (gui.starting)
+! # endif
+!     {
+! 	main_msg(_("-P <parent title>\tOpen Vim inside parent application"));
+! 	main_msg(_("--windowid <HWND>\tOpen Vim inside another win32 widget"));
+!     }
+  #endif
+  
+  #ifdef FEAT_GUI_GNOME
+*** ../vim-8.1.1229/src/mbyte.c	2019-04-12 20:08:51.478186362 +0200
+--- src/mbyte.c	2019-04-28 18:55:14.816080005 +0200
+***************
+*** 4392,4398 ****
+  # include <langinfo.h>
+  #endif
+  
+! #ifndef FEAT_GUI_MSWIN
+  /*
+   * Get the canonicalized encoding from the specified locale string "locale"
+   * or from the environment variables LC_ALL, LC_CTYPE and LANG.
+--- 4392,4398 ----
+  # include <langinfo.h>
+  #endif
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  /*
+   * Get the canonicalized encoding from the specified locale string "locale"
+   * or from the environment variables LC_ALL, LC_CTYPE and LANG.
+*** ../vim-8.1.1229/src/memline.c	2019-03-30 18:46:57.356077354 +0100
+--- src/memline.c	2019-04-28 18:55:14.816080005 +0200
+***************
+*** 4798,4804 ****
+  			// the messages displayed in the Vim window when
+  			// loading a session from the .gvimrc file.
+  			if (gui.starting && !gui.in_use)
+! 			    gui_start();
+  #endif
+  			// Show info about the existing swap file.
+  			attention_message(buf, fname);
+--- 4798,4804 ----
+  			// the messages displayed in the Vim window when
+  			// loading a session from the .gvimrc file.
+  			if (gui.starting && !gui.in_use)
+! 			    gui_start(NULL);
+  #endif
+  			// Show info about the existing swap file.
+  			attention_message(buf, fname);
+*** ../vim-8.1.1229/src/message.c	2019-04-24 23:08:20.078079973 +0200
+--- src/message.c	2019-04-28 18:55:14.816080005 +0200
+***************
+*** 2563,2570 ****
+  msg_use_printf(void)
+  {
+      return (!msg_check_screen()
+! #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+  	    || !termcap_active
+  #endif
+  	    || (swapping_screen() && !termcap_active)
+  	       );
+--- 2563,2574 ----
+  msg_use_printf(void)
+  {
+      return (!msg_check_screen()
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+! # ifdef VIMDLL
+! 	    || (!gui.in_use && !termcap_active)
+! # else
+  	    || !termcap_active
++ # endif
+  #endif
+  	    || (swapping_screen() && !termcap_active)
+  	       );
+***************
+*** 2940,2954 ****
+  # undef mch_msg
+  #endif
+  
+! /*
+!  * Give an error message.  To be used when the screen hasn't been initialized
+!  * yet.  When stderr can't be used, collect error messages until the GUI has
+!  * started and they can be displayed in a message box.
+!  */
+!     void
+! mch_errmsg(char *str)
+  {
+- #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+      int	    len = (int)STRLEN(str);
+      DWORD   nwrite = 0;
+      DWORD   mode = 0;
+--- 2944,2953 ----
+  # undef mch_msg
+  #endif
+  
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+!     static void
+! mch_errmsg_c(char *str)
+  {
+      int	    len = (int)STRLEN(str);
+      DWORD   nwrite = 0;
+      DWORD   mode = 0;
+***************
+*** 2966,2999 ****
+      {
+  	fprintf(stderr, "%s", str);
+      }
+! #else
+      int		len;
+  
+! # if (defined(UNIX) || defined(FEAT_GUI)) && !defined(ALWAYS_USE_GUI)
+      /* On Unix use stderr if it's a tty.
+       * When not going to start the GUI also use stderr.
+       * On Mac, when started from Finder, stderr is the console. */
+      if (
+! #  ifdef UNIX
+! #   ifdef MACOS_X
+  	    (isatty(2) && strcmp("/dev/console", ttyname(2)) != 0)
+! #   else
+  	    isatty(2)
+- #   endif
+- #   ifdef FEAT_GUI
+- 	    ||
+- #   endif
+  #  endif
+  #  ifdef FEAT_GUI
+! 	    !(gui.in_use || gui.starting)
+  #  endif
+  	    )
+      {
+  	fprintf(stderr, "%s", str);
+  	return;
+      }
+  # endif
+  
+      /* avoid a delay for a message that isn't there */
+      emsg_on_display = FALSE;
+  
+--- 2965,3021 ----
+      {
+  	fprintf(stderr, "%s", str);
+      }
+! }
+! #endif
+! 
+! /*
+!  * Give an error message.  To be used when the screen hasn't been initialized
+!  * yet.  When stderr can't be used, collect error messages until the GUI has
+!  * started and they can be displayed in a message box.
+!  */
+!     void
+! mch_errmsg(char *str)
+! {
+! #if !defined(MSWIN) || defined(FEAT_GUI_MSWIN)
+      int		len;
++ #endif
+  
+! #if (defined(UNIX) || defined(FEAT_GUI)) && (!defined(ALWAYS_USE_GUI) || !defined(VIMDLL))
+      /* On Unix use stderr if it's a tty.
+       * When not going to start the GUI also use stderr.
+       * On Mac, when started from Finder, stderr is the console. */
+      if (
+! # ifdef UNIX
+! #  ifdef MACOS_X
+  	    (isatty(2) && strcmp("/dev/console", ttyname(2)) != 0)
+! #  else
+  	    isatty(2)
+  #  endif
+  #  ifdef FEAT_GUI
+! 	    ||
+  #  endif
++ # endif
++ # ifdef FEAT_GUI
++ 	    !(gui.in_use || gui.starting)
++ # endif
+  	    )
+      {
+  	fprintf(stderr, "%s", str);
+  	return;
+      }
++ #endif
++ 
++ #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
++ # ifdef VIMDLL
++     if (!(gui.in_use || gui.starting))
+  # endif
++     {
++ 	mch_errmsg_c(str);
++ 	return;
++     }
++ #endif
+  
++ #if !defined(MSWIN) || defined(FEAT_GUI_MSWIN)
+      /* avoid a delay for a message that isn't there */
+      emsg_on_display = FALSE;
+  
+***************
+*** 3028,3042 ****
+  #endif
+  }
+  
+! /*
+!  * Give a message.  To be used when the screen hasn't been initialized yet.
+!  * When there is no tty, collect messages until the GUI has started and they
+!  * can be displayed in a message box.
+!  */
+!     void
+! mch_msg(char *str)
+  {
+- #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+      int	    len = (int)STRLEN(str);
+      DWORD   nwrite = 0;
+      DWORD   mode;
+--- 3050,3059 ----
+  #endif
+  }
+  
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+!     static void
+! mch_msg_c(char *str)
+  {
+      int	    len = (int)STRLEN(str);
+      DWORD   nwrite = 0;
+      DWORD   mode;
+***************
+*** 3055,3086 ****
+      {
+  	printf("%s", str);
+      }
+! #else
+! # if (defined(UNIX) || defined(FEAT_GUI)) && !defined(ALWAYS_USE_GUI)
+      /* On Unix use stdout if we have a tty.  This allows "vim -h | more" and
+       * uses mch_errmsg() when started from the desktop.
+       * When not going to start the GUI also use stdout.
+       * On Mac, when started from Finder, stderr is the console. */
+      if (
+! #  ifdef UNIX
+! #   ifdef MACOS_X
+  	    (isatty(2) && strcmp("/dev/console", ttyname(2)) != 0)
+! #   else
+  	    isatty(2)
+- #    endif
+- #   ifdef FEAT_GUI
+- 	    ||
+  #   endif
+- #  endif
+  #  ifdef FEAT_GUI
+! 	    !(gui.in_use || gui.starting)
+  #  endif
+  	    )
+      {
+  	printf("%s", str);
+  	return;
+      }
+  # endif
+      mch_errmsg(str);
+  #endif
+  }
+--- 3072,3124 ----
+      {
+  	printf("%s", str);
+      }
+! }
+! #endif
+! 
+! /*
+!  * Give a message.  To be used when the screen hasn't been initialized yet.
+!  * When there is no tty, collect messages until the GUI has started and they
+!  * can be displayed in a message box.
+!  */
+!     void
+! mch_msg(char *str)
+! {
+! #if (defined(UNIX) || defined(FEAT_GUI)) && (!defined(ALWAYS_USE_GUI) || !defined(VIMDLL))
+      /* On Unix use stdout if we have a tty.  This allows "vim -h | more" and
+       * uses mch_errmsg() when started from the desktop.
+       * When not going to start the GUI also use stdout.
+       * On Mac, when started from Finder, stderr is the console. */
+      if (
+! # ifdef UNIX
+! #  ifdef MACOS_X
+  	    (isatty(2) && strcmp("/dev/console", ttyname(2)) != 0)
+! #  else
+  	    isatty(2)
+  #   endif
+  #  ifdef FEAT_GUI
+! 	    ||
+  #  endif
++ # endif
++ # ifdef FEAT_GUI
++ 	    !(gui.in_use || gui.starting)
++ # endif
+  	    )
+      {
+  	printf("%s", str);
+  	return;
+      }
++ #endif
++ 
++ #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
++ # ifdef VIMDLL
++     if (!(gui.in_use || gui.starting))
+  # endif
++     {
++ 	mch_msg_c(str);
++ 	return;
++     }
++ #endif
++ #if !defined(MSWIN) || defined(FEAT_GUI_MSWIN)
+      mch_errmsg(str);
+  #endif
+  }
+*** ../vim-8.1.1229/src/misc2.c	2019-04-27 13:03:20.008715938 +0200
+--- src/misc2.c	2019-04-28 18:55:14.820079984 +0200
+***************
+*** 4650,4652 ****
+--- 4650,4729 ----
+  }
+  # endif
+  #endif
++ 
++ #if defined(FEAT_SESSION) || defined(PROTO)
++ /*
++  * Generate a script that can be used to restore the current editing session.
++  * Save the value of v:this_session before running :mksession in order to make
++  * automagic session save fully transparent.  Return TRUE on success.
++  */
++     int
++ write_session_file(char_u *filename)
++ {
++     char_u	    *escaped_filename;
++     char	    *mksession_cmdline;
++     unsigned int    save_ssop_flags;
++     int		    failed;
++ 
++     /*
++      * Build an ex command line to create a script that restores the current
++      * session if executed.  Escape the filename to avoid nasty surprises.
++      */
++     escaped_filename = vim_strsave_escaped(filename, escape_chars);
++     if (escaped_filename == NULL)
++ 	return FALSE;
++     mksession_cmdline = (char *)alloc(10 + (int)STRLEN(escaped_filename) + 1);
++     if (mksession_cmdline == NULL)
++     {
++ 	vim_free(escaped_filename);
++ 	return FALSE;
++     }
++     strcpy(mksession_cmdline, "mksession ");
++     STRCAT(mksession_cmdline, escaped_filename);
++     vim_free(escaped_filename);
++ 
++     /*
++      * Use a reasonable hardcoded set of 'sessionoptions' flags to avoid
++      * unpredictable effects when the session is saved automatically.  Also,
++      * we definitely need SSOP_GLOBALS to be able to restore v:this_session.
++      * Don't use SSOP_BUFFERS to prevent the buffer list from becoming
++      * enormously large if the GNOME session feature is used regularly.
++      */
++     save_ssop_flags = ssop_flags;
++     ssop_flags = (SSOP_BLANK|SSOP_CURDIR|SSOP_FOLDS|SSOP_GLOBALS
++ 		  |SSOP_HELP|SSOP_OPTIONS|SSOP_WINSIZE|SSOP_TABPAGES);
++ 
++     do_cmdline_cmd((char_u *)"let Save_VV_this_session = v:this_session");
++     failed = (do_cmdline_cmd((char_u *)mksession_cmdline) == FAIL);
++     do_cmdline_cmd((char_u *)"let v:this_session = Save_VV_this_session");
++     do_unlet((char_u *)"Save_VV_this_session", TRUE);
++ 
++     ssop_flags = save_ssop_flags;
++     vim_free(mksession_cmdline);
++ 
++     /*
++      * Reopen the file and append a command to restore v:this_session,
++      * as if this save never happened.	This is to avoid conflicts with
++      * the user's own sessions.  FIXME: It's probably less hackish to add
++      * a "stealth" flag to 'sessionoptions' -- gotta ask Bram.
++      */
++     if (!failed)
++     {
++ 	FILE *fd;
++ 
++ 	fd = open_exfile(filename, TRUE, APPENDBIN);
++ 
++ 	failed = (fd == NULL
++ 	       || put_line(fd, "let v:this_session = Save_VV_this_session") == FAIL
++ 	       || put_line(fd, "unlet Save_VV_this_session") == FAIL);
++ 
++ 	if (fd != NULL && fclose(fd) != 0)
++ 	    failed = TRUE;
++ 
++ 	if (failed)
++ 	    mch_remove(filename);
++     }
++ 
++     return !failed;
++ }
++ #endif
+*** ../vim-8.1.1229/src/normal.c	2019-04-28 18:04:56.058492178 +0200
+--- src/normal.c	2019-04-28 18:55:14.820079984 +0200
+***************
+*** 5394,5401 ****
+  # endif
+  #endif
+  	redraw_later(CLEAR);
+! #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+! 	resize_console_buf();
+  #endif
+      }
+  }
+--- 5394,5404 ----
+  # endif
+  #endif
+  	redraw_later(CLEAR);
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+! # ifdef VIMDLL
+! 	if (!gui.in_use)
+! # endif
+! 	    resize_console_buf();
+  #endif
+      }
+  }
+*** ../vim-8.1.1229/src/option.c	2019-04-28 18:04:56.058492178 +0200
+--- src/option.c	2019-04-28 18:55:14.820079984 +0200
+***************
+*** 3321,3329 ****
+      if (((p = mch_getenv((char_u *)"SHELL")) != NULL && *p != NUL)
+  #if defined(MSWIN)
+  	    || ((p = mch_getenv((char_u *)"COMSPEC")) != NULL && *p != NUL)
+- # ifdef MSWIN
+  	    || ((p = (char_u *)default_shell()) != NULL && *p != NUL)
+- # endif
+  #endif
+  	    )
+  	set_string_default_esc("sh", p, TRUE);
+--- 3321,3327 ----
+***************
+*** 3673,3682 ****
+  	    }
+  #endif
+  
+! #if defined(MSWIN) && !defined(FEAT_GUI)
+  	    /* Win32 console: When GetACP() returns a different value from
+  	     * GetConsoleCP() set 'termencoding'. */
+! 	    if (GetACP() != GetConsoleCP())
+  	    {
+  		char	buf[50];
+  
+--- 3671,3684 ----
+  	    }
+  #endif
+  
+! #if defined(MSWIN) && (!defined(FEAT_GUI) || defined(VIMDLL))
+  	    /* Win32 console: When GetACP() returns a different value from
+  	     * GetConsoleCP() set 'termencoding'. */
+! 	    if (
+! # ifdef VIMDLL
+! 	       (!gui.in_use && !gui.starting) &&
+! # endif
+! 	        GetACP() != GetConsoleCP())
+  	    {
+  		char	buf[50];
+  
+***************
+*** 6856,6866 ****
+  	{
+  	    out_str(T_ME);
+  	    redraw_later(CLEAR);
+! #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+  	    /* Since t_me has been set, this probably means that the user
+  	     * wants to use this as default colors.  Need to reset default
+  	     * background/foreground colors. */
+! 	    mch_set_normal_colors();
+  #endif
+  	}
+  	if (varp == &T_BE && termcap_active)
+--- 6858,6871 ----
+  	{
+  	    out_str(T_ME);
+  	    redraw_later(CLEAR);
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+  	    /* Since t_me has been set, this probably means that the user
+  	     * wants to use this as default colors.  Need to reset default
+  	     * background/foreground colors. */
+! # ifdef VIMDLL
+! 	    if (!gui.in_use && !gui.starting)
+! # endif
+! 		mch_set_normal_colors();
+  #endif
+  	}
+  	if (varp == &T_BE && termcap_active)
+***************
+*** 8838,8844 ****
+      {
+  # ifdef FEAT_VTP
+  	/* Do not turn on 'tgc' when 24-bit colors are not supported. */
+! 	if (!has_vtp_working())
+  	{
+  	    p_tgc = 0;
+  	    return N_("E954: 24-bit colors are not supported on this environment");
+--- 8843,8853 ----
+      {
+  # ifdef FEAT_VTP
+  	/* Do not turn on 'tgc' when 24-bit colors are not supported. */
+! 	if (
+! #  ifdef VIMDLL
+! 	    !gui.in_use && !gui.starting &&
+! #  endif
+! 	    !has_vtp_working())
+  	{
+  	    p_tgc = 0;
+  	    return N_("E954: 24-bit colors are not supported on this environment");
+*** ../vim-8.1.1229/src/os_mswin.c	2019-04-28 14:02:25.414687593 +0200
+--- src/os_mswin.c	2019-04-28 19:00:21.650678844 +0200
+***************
+*** 129,135 ****
+  FILE* fdDump = NULL;
+  #endif
+  
+! #ifndef FEAT_GUI_MSWIN
+  extern char g_szOrigTitle[];
+  #endif
+  
+--- 129,135 ----
+  FILE* fdDump = NULL;
+  #endif
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  extern char g_szOrigTitle[];
+  #endif
+  
+***************
+*** 195,200 ****
+--- 195,211 ----
+  #endif
+  
+  
++ #ifndef PROTO
++ /*
++  * Save the instance handle of the exe/dll.
++  */
++     void
++ SaveInst(HINSTANCE hInst)
++ {
++     g_hinst = hInst;
++ }
++ #endif
++ 
+  #if defined(FEAT_GUI_MSWIN) || defined(PROTO)
+  /*
+   * GUI version of mch_exit().
+***************
+*** 202,208 ****
+   * Careful: mch_exit() may be called before mch_init()!
+   */
+      void
+! mch_exit(int r)
+  {
+      exiting = TRUE;
+  
+--- 213,219 ----
+   * Careful: mch_exit() may be called before mch_init()!
+   */
+      void
+! mch_exit_g(int r)
+  {
+      exiting = TRUE;
+  
+***************
+*** 262,269 ****
+  mch_input_isatty(void)
+  {
+  #ifdef FEAT_GUI_MSWIN
+!     return OK;	    /* GUI always has a tty */
+! #else
+      if (isatty(read_cmd_fd))
+  	return TRUE;
+      return FALSE;
+--- 273,284 ----
+  mch_input_isatty(void)
+  {
+  #ifdef FEAT_GUI_MSWIN
+! # ifdef VIMDLL
+!     if (gui.in_use)
+! # endif
+! 	return TRUE;	    /* GUI always has a tty */
+! #endif
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+      if (isatty(read_cmd_fd))
+  	return TRUE;
+      return FALSE;
+***************
+*** 280,287 ****
+      char_u *icon)
+  {
+  # ifdef FEAT_GUI_MSWIN
+!     gui_mch_settitle(title, icon);
+! # else
+      if (title != NULL)
+      {
+  	WCHAR	*wp = enc_to_utf16(title, NULL);
+--- 295,309 ----
+      char_u *icon)
+  {
+  # ifdef FEAT_GUI_MSWIN
+! #  ifdef VIMDLL
+!     if (gui.in_use)
+! #  endif
+!     {
+! 	gui_mch_settitle(title, icon);
+! 	return;
+!     }
+! # endif
+! # if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+      if (title != NULL)
+      {
+  	WCHAR	*wp = enc_to_utf16(title, NULL);
+***************
+*** 307,314 ****
+      void
+  mch_restore_title(int which UNUSED)
+  {
+! #ifndef FEAT_GUI_MSWIN
+!     SetConsoleTitle(g_szOrigTitle);
+  #endif
+  }
+  
+--- 329,339 ----
+      void
+  mch_restore_title(int which UNUSED)
+  {
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+! # ifdef VIMDLL
+!     if (!gui.in_use)
+! # endif
+! 	SetConsoleTitle(g_szOrigTitle);
+  #endif
+  }
+  
+***************
+*** 554,560 ****
+      return n;
+  }
+  
+! #if defined(FEAT_GUI_MSWIN) || defined(PROTO)
+      void
+  mch_settmode(int tmode UNUSED)
+  {
+--- 579,585 ----
+      return n;
+  }
+  
+! #if (defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)) || defined(PROTO)
+      void
+  mch_settmode(int tmode UNUSED)
+  {
+***************
+*** 596,640 ****
+  
+  #if defined(USE_MCH_ERRMSG) || defined(PROTO)
+  
+! #ifdef display_errors
+! # undef display_errors
+! #endif
+  
+- #ifdef FEAT_GUI
+  /*
+   * Display the saved error message(s).
+   */
+      void
+  display_errors(void)
+  {
+      char *p;
+  
+!     if (error_ga.ga_data != NULL)
+      {
+! 	/* avoid putting up a message box with blanks only */
+! 	for (p = (char *)error_ga.ga_data; *p; ++p)
+! 	    if (!isspace(*p))
+! 	    {
+! 		(void)gui_mch_dialog(
+  				     gui.starting ? VIM_INFO :
+  					     VIM_ERROR,
+  				     gui.starting ? (char_u *)_("Message") :
+  					     (char_u *)_("Error"),
+  				     (char_u *)p, (char_u *)_("&Ok"),
+  					1, NULL, FALSE);
+! 		break;
+! 	    }
+! 	ga_clear(&error_ga);
+      }
+! }
+! #else
+!     void
+! display_errors(void)
+! {
+      FlushFileBuffers(GetStdHandle(STD_ERROR_HANDLE));
+  }
+  #endif
+- #endif
+  
+  
+  /*
+--- 621,668 ----
+  
+  #if defined(USE_MCH_ERRMSG) || defined(PROTO)
+  
+! # ifdef display_errors
+! #  undef display_errors
+! # endif
+  
+  /*
+   * Display the saved error message(s).
+   */
+      void
+  display_errors(void)
+  {
++ # ifdef FEAT_GUI
+      char *p;
+  
+! #  ifdef VIMDLL
+!     if (gui.in_use || gui.starting)
+! #  endif
+      {
+! 	if (error_ga.ga_data != NULL)
+! 	{
+! 	    /* avoid putting up a message box with blanks only */
+! 	    for (p = (char *)error_ga.ga_data; *p; ++p)
+! 		if (!isspace(*p))
+! 		{
+! 		    (void)gui_mch_dialog(
+  				     gui.starting ? VIM_INFO :
+  					     VIM_ERROR,
+  				     gui.starting ? (char_u *)_("Message") :
+  					     (char_u *)_("Error"),
+  				     (char_u *)p, (char_u *)_("&Ok"),
+  					1, NULL, FALSE);
+! 		    break;
+! 		}
+! 	    ga_clear(&error_ga);
+! 	}
+! 	return;
+      }
+! # endif
+! # if !defined(FEAT_GUI) || defined(VIMDLL)
+      FlushFileBuffers(GetStdHandle(STD_ERROR_HANDLE));
++ # endif
+  }
+  #endif
+  
+  
+  /*
+***************
+*** 717,723 ****
+  }
+  
+  
+! #ifdef FEAT_GUI_MSWIN
+  /*
+   * return non-zero if a character is available
+   */
+--- 745,751 ----
+  }
+  
+  
+! #if defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)
+  /*
+   * return non-zero if a character is available
+   */
+***************
+*** 955,961 ****
+  
+  #endif //_DEBUG
+  
+! #if !defined(FEAT_GUI) || defined(PROTO)
+  # ifdef FEAT_TITLE
+  extern HWND g_hWnd;	/* This is in os_win32.c. */
+  # endif
+--- 983,989 ----
+  
+  #endif //_DEBUG
+  
+! #if !defined(FEAT_GUI) || defined(VIMDLL) || defined(PROTO)
+  # ifdef FEAT_TITLE
+  extern HWND g_hWnd;	/* This is in os_win32.c. */
+  # endif
+***************
+*** 1121,1128 ****
+  		VIM_CLEAR(prt_name);
+  	    }
+  	    EnableMenuItem(GetSystemMenu(hDlg, FALSE), SC_CLOSE, MF_GRAYED);
+! #ifndef FEAT_GUI
+! 	    BringWindowToTop(s_hwnd);
+  #endif
+  	    return TRUE;
+  
+--- 1149,1159 ----
+  		VIM_CLEAR(prt_name);
+  	    }
+  	    EnableMenuItem(GetSystemMenu(hDlg, FALSE), SC_CLOSE, MF_GRAYED);
+! #if !defined(FEAT_GUI) || defined(VIMDLL)
+! # ifdef VIMDLL
+! 	    if (!gui.in_use)
+! # endif
+! 		BringWindowToTop(s_hwnd);
+  #endif
+  	    return TRUE;
+  
+***************
+*** 1155,1161 ****
+      return !*bUserAbort;
+  }
+  
+! #ifndef FEAT_GUI
+  
+      static UINT_PTR CALLBACK
+  PrintHookProc(
+--- 1186,1192 ----
+      return !*bUserAbort;
+  }
+  
+! #if !defined(FEAT_GUI) || defined(VIMDLL)
+  
+      static UINT_PTR CALLBACK
+  PrintHookProc(
+***************
+*** 1349,1356 ****
+      bUserAbort = &(psettings->user_abort);
+      vim_memset(&prt_dlg, 0, sizeof(PRINTDLGW));
+      prt_dlg.lStructSize = sizeof(PRINTDLGW);
+! #ifndef FEAT_GUI
+!     GetConsoleHwnd();	    /* get value of s_hwnd */
+  #endif
+      prt_dlg.hwndOwner = s_hwnd;
+      prt_dlg.Flags = PD_NOPAGENUMS | PD_NOSELECTION | PD_RETURNDC;
+--- 1380,1390 ----
+      bUserAbort = &(psettings->user_abort);
+      vim_memset(&prt_dlg, 0, sizeof(PRINTDLGW));
+      prt_dlg.lStructSize = sizeof(PRINTDLGW);
+! #if !defined(FEAT_GUI) || defined(VIMDLL)
+! # ifdef VIMDLL
+!     if (!gui.in_use)
+! # endif
+! 	GetConsoleHwnd();	    /* get value of s_hwnd */
+  #endif
+      prt_dlg.hwndOwner = s_hwnd;
+      prt_dlg.Flags = PD_NOPAGENUMS | PD_NOSELECTION | PD_RETURNDC;
+***************
+*** 1359,1370 ****
+  	prt_dlg.hDevMode = stored_dm;
+  	prt_dlg.hDevNames = stored_devn;
+  	prt_dlg.lCustData = stored_nCopies; // work around bug in print dialog
+! #ifndef FEAT_GUI
+! 	/*
+! 	 * Use hook to prevent console window being sent to back
+! 	 */
+! 	prt_dlg.lpfnPrintHook = PrintHookProc;
+! 	prt_dlg.Flags |= PD_ENABLEPRINTHOOK;
+  #endif
+  	prt_dlg.Flags |= stored_nFlags;
+      }
+--- 1393,1409 ----
+  	prt_dlg.hDevMode = stored_dm;
+  	prt_dlg.hDevNames = stored_devn;
+  	prt_dlg.lCustData = stored_nCopies; // work around bug in print dialog
+! #if !defined(FEAT_GUI) || defined(VIMDLL)
+! # ifdef VIMDLL
+! 	if (!gui.in_use)
+! # endif
+! 	{
+! 	    /*
+! 	     * Use hook to prevent console window being sent to back
+! 	     */
+! 	    prt_dlg.lpfnPrintHook = PrintHookProc;
+! 	    prt_dlg.Flags |= PD_ENABLEPRINTHOOK;
+! 	}
+  #endif
+  	prt_dlg.Flags |= stored_nFlags;
+      }
+***************
+*** 1374,1381 ****
+       * never show dialog if we are running over telnet
+       */
+      if (forceit
+! #ifndef FEAT_GUI
+  	    || !term_console
+  #endif
+  	    )
+      {
+--- 1413,1424 ----
+       * never show dialog if we are running over telnet
+       */
+      if (forceit
+! #if !defined(FEAT_GUI) || defined(VIMDLL)
+! # ifdef VIMDLL
+! 	    || (!gui.in_use && !term_console)
+! # else
+  	    || !term_console
++ # endif
+  #endif
+  	    )
+      {
+***************
+*** 1548,1554 ****
+      char		szBuffer[300];
+      WCHAR		*wp;
+  
+!     hDlgPrint = CreateDialog(GetModuleHandle(NULL), TEXT("PrintDlgBox"),
+  					     prt_dlg.hwndOwner, PrintDlgProc);
+      SetAbortProc(prt_dlg.hDC, AbortProc);
+      wsprintf(szBuffer, _("Printing '%s'"), gettail(psettings->jobname));
+--- 1591,1597 ----
+      char		szBuffer[300];
+      WCHAR		*wp;
+  
+!     hDlgPrint = CreateDialog(g_hinst, TEXT("PrintDlgBox"),
+  					     prt_dlg.hwndOwner, PrintDlgProc);
+      SetAbortProc(prt_dlg.hDC, AbortProc);
+      wsprintf(szBuffer, _("Printing '%s'"), gettail(psettings->jobname));
+***************
+*** 1568,1574 ****
+  
+  #ifdef FEAT_GUI
+      /* Give focus back to main window (when using MDI). */
+!     SetFocus(s_hwnd);
+  #endif
+  
+      return (ret > 0);
+--- 1611,1620 ----
+  
+  #ifdef FEAT_GUI
+      /* Give focus back to main window (when using MDI). */
+! # ifdef VIMDLL
+!     if (gui.in_use)
+! # endif
+! 	SetFocus(s_hwnd);
+  #endif
+  
+      return (ret > 0);
+***************
+*** 1927,1942 ****
+  }
+  #endif
+  
+! #if (defined(FEAT_EVAL) && !defined(FEAT_GUI)) || defined(PROTO)
+  /*
+   * Bring ourselves to the foreground.  Does work if the OS doesn't allow it.
+   */
+      void
+  win32_set_foreground(void)
+  {
+- # ifndef FEAT_GUI
+      GetConsoleHwnd();	    /* get value of s_hwnd */
+- # endif
+      if (s_hwnd != 0)
+  	SetForegroundWindow(s_hwnd);
+  }
+--- 1973,1986 ----
+  }
+  #endif
+  
+! #if (defined(FEAT_EVAL) && (!defined(FEAT_GUI) || defined(VIMDLL))) || defined(PROTO)
+  /*
+   * Bring ourselves to the foreground.  Does work if the OS doesn't allow it.
+   */
+      void
+  win32_set_foreground(void)
+  {
+      GetConsoleHwnd();	    /* get value of s_hwnd */
+      if (s_hwnd != 0)
+  	SetForegroundWindow(s_hwnd);
+  }
+***************
+*** 2078,2085 ****
+  
+  # ifdef FEAT_GUI
+  	    /* Wake up the main GUI loop. */
+! 	    if (s_hwnd != 0)
+! 		PostMessage(s_hwnd, WM_NULL, 0, 0);
+  # endif
+  	    return 1;
+  
+--- 2122,2132 ----
+  
+  # ifdef FEAT_GUI
+  	    /* Wake up the main GUI loop. */
+! #  ifdef VIMDLL
+! 	    if (gui.in_use)
+! #  endif
+! 		if (s_hwnd != 0)
+! 		    PostMessage(s_hwnd, WM_NULL, 0, 0);
+  # endif
+  	    return 1;
+  
+***************
+*** 2145,2152 ****
+      {
+  	/* When the message window is activated (brought to the foreground),
+  	 * this actually applies to the text window. */
+! #ifndef FEAT_GUI
+! 	GetConsoleHwnd();	    /* get value of s_hwnd */
+  #endif
+  	if (s_hwnd != 0)
+  	{
+--- 2192,2202 ----
+      {
+  	/* When the message window is activated (brought to the foreground),
+  	 * this actually applies to the text window. */
+! #if !defined(FEAT_GUI) || defined(VIMDLL)
+! # ifdef VIMDLL
+! 	if (!gui.in_use)
+! # endif
+! 	    GetConsoleHwnd();	    /* get value of s_hwnd */
+  #endif
+  	if (s_hwnd != 0)
+  	{
+***************
+*** 2166,2172 ****
+  serverInitMessaging(void)
+  {
+      WNDCLASS wndclass;
+-     HINSTANCE s_hinst;
+  
+      /* Clean up on exit */
+      atexit(CleanUpMessaging);
+--- 2216,2221 ----
+***************
+*** 2174,2185 ****
+      /* Register a window class - we only really care
+       * about the window procedure
+       */
+-     s_hinst = (HINSTANCE)GetModuleHandle(0);
+      wndclass.style = 0;
+      wndclass.lpfnWndProc = Messaging_WndProc;
+      wndclass.cbClsExtra = 0;
+      wndclass.cbWndExtra = 0;
+!     wndclass.hInstance = s_hinst;
+      wndclass.hIcon = NULL;
+      wndclass.hCursor = NULL;
+      wndclass.hbrBackground = NULL;
+--- 2223,2233 ----
+      /* Register a window class - we only really care
+       * about the window procedure
+       */
+      wndclass.style = 0;
+      wndclass.lpfnWndProc = Messaging_WndProc;
+      wndclass.cbClsExtra = 0;
+      wndclass.cbWndExtra = 0;
+!     wndclass.hInstance = g_hinst;
+      wndclass.hIcon = NULL;
+      wndclass.hCursor = NULL;
+      wndclass.hbrBackground = NULL;
+***************
+*** 2194,2200 ****
+  			 WS_POPUPWINDOW | WS_CAPTION,
+  			 CW_USEDEFAULT, CW_USEDEFAULT,
+  			 100, 100, NULL, NULL,
+! 			 s_hinst, NULL);
+  }
+  
+  /* Used by serverSendToVim() to find an alternate server name. */
+--- 2242,2248 ----
+  			 WS_POPUPWINDOW | WS_CAPTION,
+  			 CW_USEDEFAULT, CW_USEDEFAULT,
+  			 100, 100, NULL, NULL,
+! 			 g_hinst, NULL);
+  }
+  
+  /* Used by serverSendToVim() to find an alternate server name. */
+***************
+*** 2744,2755 ****
+      L"Fixedsys"	/* see _ReadVimIni */
+  };
+  
+! /* Initialise the "current height" to -12 (same as s_lfDefault) just
+!  * in case the user specifies a font in "guifont" with no size before a font
+!  * with an explicit size has been set. This defaults the size to this value
+!  * (-12 equates to roughly 9pt).
+!  */
+! int current_font_height = -12;		/* also used in gui_w48.c */
+  
+  /* Convert a string representing a point size into pixels. The string should
+   * be a positive decimal number, with an optional decimal point (eg, "12", or
+--- 2792,2802 ----
+      L"Fixedsys"	/* see _ReadVimIni */
+  };
+  
+! // Initialise the "current height" to -12 (same as s_lfDefault) just
+! // in case the user specifies a font in "guifont" with no size before a font
+! // with an explicit size has been set. This defaults the size to this value
+! // (-12 equates to roughly 9pt).
+! int current_font_height = -12;		// also used in gui_w32.c
+  
+  /* Convert a string representing a point size into pixels. The string should
+   * be a positive decimal number, with an optional decimal point (eg, "12", or
+*** ../vim-8.1.1229/src/os_w32dll.c	2019-04-28 19:44:58.074429436 +0200
+--- src/os_w32dll.c	2019-04-28 18:58:04.375310506 +0200
+***************
+*** 0 ****
+--- 1,27 ----
++ /* vi:set ts=8 sts=4 sw=4 noet:
++  *
++  * VIM - Vi IMproved		by Bram Moolenaar
++  *
++  * Do ":help uganda"  in Vim to read copying and usage conditions.
++  * Do ":help credits" in Vim to see a list of people who contributed.
++  * See README.txt for an overview of the Vim source code.
++  */
++ /*
++  * Windows GUI: main program (DLL) entry point:
++  *
++  * Ron Aaron <ronaharon@yahoo.com> wrote this and the DLL support code.
++  * Adapted by Ken Takata.
++  */
++ #ifndef WIN32_LEAN_AND_MEAN
++ # define WIN32_LEAN_AND_MEAN
++ #endif
++ #include <windows.h>
++ 
++ void SaveInst(HINSTANCE hInst);
++ 
++ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
++ {
++     if (fdwReason == DLL_PROCESS_ATTACH)
++ 	SaveInst(hinstDLL);
++     return TRUE;
++ }
+*** ../vim-8.1.1229/src/os_w32exe.c	2019-04-03 20:30:56.085017544 +0200
+--- src/os_w32exe.c	2019-04-28 18:55:14.820079984 +0200
+***************
+*** 22,29 ****
+  #endif
+  
+  // cproto doesn't create a prototype for VimMain()
+  int _cdecl VimMain(int argc, char **argv);
+! #ifdef FEAT_GUI
+  void _cdecl SaveInst(HINSTANCE hInst);
+  #endif
+  
+--- 22,32 ----
+  #endif
+  
+  // cproto doesn't create a prototype for VimMain()
++ #ifdef VIMDLL
++ __declspec(dllimport)
++ #endif
+  int _cdecl VimMain(int argc, char **argv);
+! #ifndef VIMDLL
+  void _cdecl SaveInst(HINSTANCE hInst);
+  #endif
+  
+***************
+*** 40,47 ****
+  wmain(int argc UNUSED, wchar_t **argv UNUSED)
+  # endif
+  {
+! # ifdef FEAT_GUI
+      SaveInst(hInstance);
+  # endif
+      VimMain(0, NULL);
+  
+--- 43,54 ----
+  wmain(int argc UNUSED, wchar_t **argv UNUSED)
+  # endif
+  {
+! # ifndef VIMDLL
+! #  ifdef FEAT_GUI
+      SaveInst(hInstance);
++ #  else
++     SaveInst(GetModuleHandleW(NULL));
++ #  endif
+  # endif
+      VimMain(0, NULL);
+  
+*** ../vim-8.1.1229/src/os_win32.c	2019-04-02 22:15:51.348273497 +0200
+--- src/os_win32.c	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 151,157 ****
+  # define wcsicmp(a, b) wcscmpi((a), (b))
+  #endif
+  
+! #ifndef FEAT_GUI_MSWIN
+  /* Win32 Console handles for input and output */
+  static HANDLE g_hConIn  = INVALID_HANDLE_VALUE;
+  static HANDLE g_hConOut = INVALID_HANDLE_VALUE;
+--- 151,157 ----
+  # define wcsicmp(a, b) wcscmpi((a), (b))
+  #endif
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  /* Win32 Console handles for input and output */
+  static HANDLE g_hConIn  = INVALID_HANDLE_VALUE;
+  static HANDLE g_hConOut = INVALID_HANDLE_VALUE;
+***************
+*** 179,185 ****
+  static void standout(void);
+  static int s_cursor_visible = TRUE;
+  static int did_create_conin = FALSE;
+! #else
+  static int s_dont_use_vimrun = TRUE;
+  static int need_vimrun_warning = FALSE;
+  static char *vimrun_path = "vimrun ";
+--- 179,186 ----
+  static void standout(void);
+  static int s_cursor_visible = TRUE;
+  static int did_create_conin = FALSE;
+! #endif
+! #ifdef FEAT_GUI_MSWIN
+  static int s_dont_use_vimrun = TRUE;
+  static int need_vimrun_warning = FALSE;
+  static char *vimrun_path = "vimrun ";
+***************
+*** 193,199 ****
+  static int conpty_stable = 0;
+  static void vtp_flag_init();
+  
+! #ifndef FEAT_GUI_MSWIN
+  static int vtp_working = 0;
+  static void vtp_init();
+  static void vtp_exit();
+--- 194,200 ----
+  static int conpty_stable = 0;
+  static void vtp_flag_init();
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  static int vtp_working = 0;
+  static void vtp_init();
+  static void vtp_exit();
+***************
+*** 227,233 ****
+  # define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+  #endif
+  
+! #ifndef FEAT_GUI_MSWIN
+  static int suppress_winsize = 1;	/* don't fiddle with console */
+  #endif
+  
+--- 228,234 ----
+  # define ENABLE_VIRTUAL_TERMINAL_PROCESSING 0x0004
+  #endif
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  static int suppress_winsize = 1;	/* don't fiddle with console */
+  #endif
+  
+***************
+*** 235,241 ****
+  
+  static BOOL win8_or_later = FALSE;
+  
+! #ifndef FEAT_GUI_MSWIN
+  /* Dynamic loading for portability */
+  typedef struct _DYN_CONSOLE_SCREEN_BUFFER_INFOEX
+  {
+--- 236,242 ----
+  
+  static BOOL win8_or_later = FALSE;
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  /* Dynamic loading for portability */
+  typedef struct _DYN_CONSOLE_SCREEN_BUFFER_INFOEX
+  {
+***************
+*** 284,290 ****
+      return ver;
+  }
+  
+! #ifndef FEAT_GUI_MSWIN
+  /*
+   * Version of ReadConsoleInput() that works with IME.
+   * Works around problems on Windows 8.
+--- 285,291 ----
+      return ver;
+  }
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  /*
+   * Version of ReadConsoleInput() that works with IME.
+   * Works around problems on Windows 8.
+***************
+*** 496,501 ****
+--- 497,524 ----
+      return dll;
+  }
+  
++ #if defined(VIMDLL) || defined(PROTO)
++ /*
++  * Check if the current executable file is for the GUI subsystem.
++  */
++     int
++ mch_is_gui_executable(void)
++ {
++     PBYTE		pImage = (PBYTE)GetModuleHandle(NULL);
++     PIMAGE_DOS_HEADER	pDOS = (PIMAGE_DOS_HEADER)pImage;
++     PIMAGE_NT_HEADERS	pPE;
++ 
++     if (pDOS->e_magic != IMAGE_DOS_SIGNATURE)
++ 	return FALSE;
++     pPE = (PIMAGE_NT_HEADERS)(pImage + pDOS->e_lfanew);
++     if (pPE->Signature != IMAGE_NT_SIGNATURE)
++ 	return FALSE;
++     if (pPE->OptionalHeader.Subsystem == IMAGE_SUBSYSTEM_WINDOWS_GUI)
++ 	return TRUE;
++     return FALSE;
++ }
++ #endif
++ 
+  #if defined(DYNAMIC_ICONV) || defined(DYNAMIC_GETTEXT) || defined(PROTO)
+  /*
+   * Get related information about 'funcname' which is imported by 'hInst'.
+***************
+*** 816,822 ****
+      }
+  }
+  
+! #ifndef FEAT_GUI_MSWIN
+  
+  #define SHIFT  (SHIFT_PRESSED)
+  #define CTRL   (RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED)
+--- 839,845 ----
+      }
+  }
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  
+  #define SHIFT  (SHIFT_PRESSED)
+  #define CTRL   (RIGHT_CTRL_PRESSED | LEFT_CTRL_PRESSED)
+***************
+*** 1116,1122 ****
+  /*
+   * For the GUI the mouse handling is in gui_w32.c.
+   */
+! # ifdef FEAT_GUI_MSWIN
+      void
+  mch_setmouse(int on UNUSED)
+  {
+--- 1139,1145 ----
+  /*
+   * For the GUI the mouse handling is in gui_w32.c.
+   */
+! # if defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)
+      void
+  mch_setmouse(int on UNUSED)
+  {
+***************
+*** 1136,1141 ****
+--- 1159,1168 ----
+  {
+      DWORD cmodein;
+  
++ #  ifdef VIMDLL
++     if (gui.in_use)
++ 	return;
++ #  endif
+      if (!g_fMouseAvail)
+  	return;
+  
+***************
+*** 1454,1459 ****
+--- 1481,1491 ----
+      int		idx;
+      int		thickness;
+  
++ # ifdef VIMDLL
++     if (gui.in_use)
++ 	return;
++ # endif
++ 
+      /*
+       * How the cursor is drawn depends on the current mode.
+       */
+***************
+*** 1467,1473 ****
+  }
+  #endif
+  
+! #ifndef FEAT_GUI_MSWIN	    /* this isn't used for the GUI */
+  /*
+   * Handle FOCUS_EVENT.
+   */
+--- 1499,1505 ----
+  }
+  #endif
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  /*
+   * Handle FOCUS_EVENT.
+   */
+***************
+*** 1677,1689 ****
+      return FALSE;
+  }
+  
+- #ifndef FEAT_GUI_MSWIN
+  /*
+   * return non-zero if a character is available
+   */
+      int
+  mch_char_avail(void)
+  {
+      return WaitForChar(0L, FALSE);
+  }
+  
+--- 1709,1724 ----
+      return FALSE;
+  }
+  
+  /*
+   * return non-zero if a character is available
+   */
+      int
+  mch_char_avail(void)
+  {
++ # ifdef VIMDLL
++     if (gui.in_use)
++ 	return TRUE;
++ # endif
+      return WaitForChar(0L, FALSE);
+  }
+  
+***************
+*** 1694,1703 ****
+      int
+  mch_check_messages(void)
+  {
+      return WaitForChar(0L, TRUE);
+  }
+  # endif
+- #endif
+  
+  /*
+   * Create the console input.  Used when reading stdin doesn't work.
+--- 1729,1741 ----
+      int
+  mch_check_messages(void)
+  {
++ #  ifdef VIMDLL
++     if (gui.in_use)
++ 	return TRUE;
++ #  endif
+      return WaitForChar(0L, TRUE);
+  }
+  # endif
+  
+  /*
+   * Create the console input.  Used when reading stdin doesn't work.
+***************
+*** 1779,1785 ****
+      long	time UNUSED,
+      int		tb_change_cnt UNUSED)
+  {
+! #ifndef FEAT_GUI_MSWIN	    /* this isn't used for the GUI */
+  
+      int		len;
+      int		c;
+--- 1817,1823 ----
+      long	time UNUSED,
+      int		tb_change_cnt UNUSED)
+  {
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  
+      int		len;
+      int		c;
+***************
+*** 1787,1792 ****
+--- 1825,1835 ----
+      static char_u   typeahead[TYPEAHEADLEN];	/* previously typed bytes. */
+      static int	    typeaheadlen = 0;
+  
++ # ifdef VIMDLL
++     if (gui.in_use)
++ 	return 0;
++ # endif
++ 
+      /* First use any typeahead that was kept because "buf" was too small. */
+      if (typeaheadlen > 0)
+  	goto theend;
+***************
+*** 2092,2099 ****
+  /*
+   * GUI version of mch_init().
+   */
+!     void
+! mch_init(void)
+  {
+  #ifndef __MINGW32__
+      extern int _fmode;
+--- 2135,2142 ----
+  /*
+   * GUI version of mch_init().
+   */
+!     static void
+! mch_init_g(void)
+  {
+  #ifndef __MINGW32__
+      extern int _fmode;
+***************
+*** 2160,2166 ****
+  }
+  
+  
+! #else /* FEAT_GUI_MSWIN */
+  
+  #define SRWIDTH(sr) ((sr).Right - (sr).Left + 1)
+  #define SRHEIGHT(sr) ((sr).Bottom - (sr).Top + 1)
+--- 2203,2211 ----
+  }
+  
+  
+! #endif /* FEAT_GUI_MSWIN */
+! 
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  
+  #define SRWIDTH(sr) ((sr).Right - (sr).Left + 1)
+  #define SRHEIGHT(sr) ((sr).Bottom - (sr).Top + 1)
+***************
+*** 2442,2452 ****
+  static ConsoleBuffer g_cbTermcap = { 0 };
+  
+  #ifdef FEAT_TITLE
+- #ifdef __BORLANDC__
+- typedef HWND (__stdcall *GETCONSOLEWINDOWPROC)(VOID);
+- #else
+- typedef HWND (WINAPI *GETCONSOLEWINDOWPROC)(VOID);
+- #endif
+  char g_szOrigTitle[256] = { 0 };
+  HWND g_hWnd = NULL;	/* also used in os_mswin.c */
+  static HICON g_hOrigIconSmall = NULL;
+--- 2487,2492 ----
+***************
+*** 2563,2570 ****
+  /*
+   * non-GUI version of mch_init().
+   */
+!     void
+! mch_init(void)
+  {
+  #ifndef FEAT_RESTORE_ORIG_SCREEN
+      CONSOLE_SCREEN_BUFFER_INFO csbi;
+--- 2603,2610 ----
+  /*
+   * non-GUI version of mch_init().
+   */
+!     static void
+! mch_init_c(void)
+  {
+  #ifndef FEAT_RESTORE_ORIG_SCREEN
+      CONSOLE_SCREEN_BUFFER_INFO csbi;
+***************
+*** 2660,2667 ****
+   * Shut down and exit with status `r'
+   * Careful: mch_exit() may be called before mch_init()!
+   */
+!     void
+! mch_exit(int r)
+  {
+      exiting = TRUE;
+  
+--- 2700,2707 ----
+   * Shut down and exit with status `r'
+   * Careful: mch_exit() may be called before mch_init()!
+   */
+!     static void
+! mch_exit_c(int r)
+  {
+      exiting = TRUE;
+  
+***************
+*** 2711,2716 ****
+--- 2751,2786 ----
+  }
+  #endif /* !FEAT_GUI_MSWIN */
+  
++     void
++ mch_init(void)
++ {
++ #ifdef VIMDLL
++     if (gui.starting)
++ 	mch_init_g();
++     else
++ 	mch_init_c();
++ #elif defined(FEAT_GUI_MSWIN)
++     mch_init_g();
++ #else
++     mch_init_c();
++ #endif
++ }
++ 
++     void
++ mch_exit(int r)
++ {
++ #ifdef VIMDLL
++     if (gui.starting || gui.in_use)
++ 	mch_exit_g(r);
++     else
++ 	mch_exit_c(r);
++ #elif defined(FEAT_GUI_MSWIN)
++     mch_exit_g(r);
++ #else
++     mch_exit_c(r);
++ #endif
++ }
++ 
+  /*
+   * Do we have an interactive window?
+   */
+***************
+*** 2721,2729 ****
+  {
+      get_exe_name();
+  
+! #ifdef FEAT_GUI_MSWIN
+      return OK;	    /* GUI always has a tty */
+  #else
+      if (isatty(1))
+  	return OK;
+      return FAIL;
+--- 2791,2803 ----
+  {
+      get_exe_name();
+  
+! #if defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)
+      return OK;	    /* GUI always has a tty */
+  #else
++ # ifdef VIMDLL
++     if (gui.in_use)
++ 	return OK;
++ # endif
+      if (isatty(1))
+  	return OK;
+      return FAIL;
+***************
+*** 3446,3452 ****
+  #endif
+  }
+  
+! #ifndef FEAT_GUI_MSWIN
+  
+  /*
+   * handler for ctrl-break, ctrl-c interrupts, and fatal events.
+--- 3520,3526 ----
+  #endif
+  }
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  
+  /*
+   * handler for ctrl-break, ctrl-c interrupts, and fatal events.
+***************
+*** 3516,3521 ****
+--- 3590,3599 ----
+      DWORD cmodeout;
+      BOOL bEnableHandler;
+  
++ # ifdef VIMDLL
++     if (gui.in_use)
++ 	return;
++ # endif
+      GetConsoleMode(g_hConIn, &cmodein);
+      GetConsoleMode(g_hConOut, &cmodeout);
+      if (tmode == TMODE_RAW)
+***************
+*** 3528,3534 ****
+  #endif
+  	cmodeout &= ~(
+  #ifdef FEAT_TERMGUICOLORS
+! 	    /* Do not turn off the ENABLE_PROCESSRD_OUTPUT flag when using
+  	     * VTP. */
+  	    ((vtp_working) ? 0 : ENABLE_PROCESSED_OUTPUT) |
+  #else
+--- 3606,3612 ----
+  #endif
+  	cmodeout &= ~(
+  #ifdef FEAT_TERMGUICOLORS
+! 	    /* Do not turn off the ENABLE_PROCESSED_OUTPUT flag when using
+  	     * VTP. */
+  	    ((vtp_working) ? 0 : ENABLE_PROCESSED_OUTPUT) |
+  #else
+***************
+*** 3570,3575 ****
+--- 3648,3657 ----
+  {
+      CONSOLE_SCREEN_BUFFER_INFO csbi;
+  
++ # ifdef VIMDLL
++     if (gui.in_use)
++ 	return OK;
++ # endif
+      if (!g_fTermcapMode && g_cbTermcap.IsValid)
+      {
+  	/*
+***************
+*** 3717,3722 ****
+--- 3799,3808 ----
+  {
+      COORD coordScreen;
+  
++ # ifdef VIMDLL
++     if (gui.in_use)
++ 	return;
++ # endif
+      /* Don't change window size while still starting up */
+      if (suppress_winsize != 0)
+      {
+***************
+*** 3744,3749 ****
+--- 3830,3839 ----
+      void
+  mch_new_shellsize(void)
+  {
++ # ifdef VIMDLL
++     if (gui.in_use)
++ 	return;
++ # endif
+      set_scroll_region(0, 0, Columns - 1, Rows - 1);
+  }
+  
+***************
+*** 4369,4375 ****
+  }
+  
+      static int
+! mch_system(char *cmd, int options)
+  {
+      /* if we can pipe and the shelltemp option is off */
+      if (!p_stmp)
+--- 4459,4465 ----
+  }
+  
+      static int
+! mch_system_g(char *cmd, int options)
+  {
+      /* if we can pipe and the shelltemp option is off */
+      if (!p_stmp)
+***************
+*** 4377,4386 ****
+      else
+  	return mch_system_classic(cmd, options);
+  }
+! #else
+  
+      static int
+! mch_system(char *cmd, int options)
+  {
+      int		ret;
+      WCHAR	*wcmd;
+--- 4467,4477 ----
+      else
+  	return mch_system_classic(cmd, options);
+  }
+! #endif
+  
++ #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+      static int
+! mch_system_c(char *cmd, int options)
+  {
+      int		ret;
+      WCHAR	*wcmd;
+***************
+*** 4396,4401 ****
+--- 4487,4507 ----
+  
+  #endif
+  
++     static int
++ mch_system(char *cmd, int options)
++ {
++ #ifdef VIMDLL
++     if (gui.in_use)
++ 	return mch_system_g(cmd, options);
++     else
++ 	return mch_system_c(cmd, options);
++ #elif defined(FEAT_GUI_MSWIN)
++     return mch_system_g(cmd, options);
++ #else
++     return mch_system_c(cmd, options);
++ #endif
++ }
++ 
+  #if defined(FEAT_GUI) && defined(FEAT_TERMINAL)
+  /*
+   * Use a terminal window to run a shell command in.
+***************
+*** 4527,4533 ****
+  #endif
+  #if defined(FEAT_GUI) && defined(FEAT_TERMINAL)
+      /* TODO: make the terminal window work with input or output redirected. */
+!     if (vim_strchr(p_go, GO_TERMINAL) != NULL
+  	 && (options & (SHELL_FILTER|SHELL_DOOUT|SHELL_WRITE|SHELL_READ)) == 0)
+      {
+  	/* Use a terminal window to run the command in. */
+--- 4633,4643 ----
+  #endif
+  #if defined(FEAT_GUI) && defined(FEAT_TERMINAL)
+      /* TODO: make the terminal window work with input or output redirected. */
+!     if (
+! # ifdef VIMDLL
+! 	gui.in_use &&
+! # endif
+! 	vim_strchr(p_go, GO_TERMINAL) != NULL
+  	 && (options & (SHELL_FILTER|SHELL_DOOUT|SHELL_WRITE|SHELL_READ)) == 0)
+      {
+  	/* Use a terminal window to run the command in. */
+***************
+*** 4679,4685 ****
+  	    {
+  		x = -1;
+  #ifdef FEAT_GUI_MSWIN
+! 		emsg(_("E371: Command not found"));
+  #endif
+  	    }
+  
+--- 4789,4798 ----
+  	    {
+  		x = -1;
+  #ifdef FEAT_GUI_MSWIN
+! # ifdef VIMDLL
+! 		if (gui.in_use)
+! # endif
+! 		    emsg(_("E371: Command not found"));
+  #endif
+  	    }
+  
+***************
+*** 4699,4705 ****
+  	{
+  	    cmdlen = (
+  #ifdef FEAT_GUI_MSWIN
+! 		(!p_stmp ? 0 : STRLEN(vimrun_path)) +
+  #endif
+  		STRLEN(p_sh) + STRLEN(p_shcf) + STRLEN(cmd) + 10);
+  
+--- 4812,4818 ----
+  	{
+  	    cmdlen = (
+  #ifdef FEAT_GUI_MSWIN
+! 		(gui.in_use ? (!p_stmp ? 0 : STRLEN(vimrun_path)) : 0) +
+  #endif
+  		STRLEN(p_sh) + STRLEN(p_shcf) + STRLEN(cmd) + 10);
+  
+***************
+*** 4707,4713 ****
+  	    if (newcmd != NULL)
+  	    {
+  #if defined(FEAT_GUI_MSWIN)
+! 		if (need_vimrun_warning)
+  		{
+  		    char *msg = _("VIMRUN.EXE not found in your $PATH.\n"
+  			"External commands will not pause after completion.\n"
+--- 4820,4830 ----
+  	    if (newcmd != NULL)
+  	    {
+  #if defined(FEAT_GUI_MSWIN)
+! 		if (
+! # ifdef VIMDLL
+! 		    gui.in_use &&
+! # endif
+! 		    need_vimrun_warning)
+  		{
+  		    char *msg = _("VIMRUN.EXE not found in your $PATH.\n"
+  			"External commands will not pause after completion.\n"
+***************
+*** 4722,4728 ****
+  		    vim_free(wtitle);
+  		    need_vimrun_warning = FALSE;
+  		}
+! 		if (!s_dont_use_vimrun && p_stmp)
+  		    /* Use vimrun to execute the command.  It opens a console
+  		     * window, which can be closed without killing Vim. */
+  		    vim_snprintf((char *)newcmd, cmdlen, "%s%s%s %s %s",
+--- 4839,4849 ----
+  		    vim_free(wtitle);
+  		    need_vimrun_warning = FALSE;
+  		}
+! 		if (
+! # ifdef VIMDLL
+! 		    gui.in_use &&
+! # endif
+! 		    !s_dont_use_vimrun && p_stmp)
+  		    /* Use vimrun to execute the command.  It opens a console
+  		     * window, which can be closed without killing Vim. */
+  		    vim_snprintf((char *)newcmd, cmdlen, "%s%s%s %s %s",
+***************
+*** 4746,4752 ****
+      /* Print the return value, unless "vimrun" was used. */
+      if (x != 0 && !(options & SHELL_SILENT) && !emsg_silent
+  #if defined(FEAT_GUI_MSWIN)
+! 		&& ((options & SHELL_DOOUT) || s_dont_use_vimrun || !p_stmp)
+  #endif
+  	    )
+      {
+--- 4867,4874 ----
+      /* Print the return value, unless "vimrun" was used. */
+      if (x != 0 && !(options & SHELL_SILENT) && !emsg_silent
+  #if defined(FEAT_GUI_MSWIN)
+! 	    && (gui.in_use ?
+! 		((options & SHELL_DOOUT) || s_dont_use_vimrun || !p_stmp) : 1)
+  #endif
+  	    )
+      {
+***************
+*** 5278,5284 ****
+  #endif
+  
+  
+! #ifndef FEAT_GUI_MSWIN
+  
+  /*
+   * Start termcap mode
+--- 5400,5406 ----
+  #endif
+  
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+  
+  /*
+   * Start termcap mode
+***************
+*** 5397,5403 ****
+  #endif /* FEAT_GUI_MSWIN */
+  
+  
+! #ifdef FEAT_GUI_MSWIN
+      void
+  mch_write(
+      char_u  *s UNUSED,
+--- 5519,5525 ----
+  #endif /* FEAT_GUI_MSWIN */
+  
+  
+! #if defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)
+      void
+  mch_write(
+      char_u  *s UNUSED,
+***************
+*** 5694,5700 ****
+  
+  /*
+   * Set the current text attribute = (foreground | background)
+!  * See ../doc/os_win32.txt for the numbers.
+   */
+      static void
+  textattr(WORD wAttr)
+--- 5816,5822 ----
+  
+  /*
+   * Set the current text attribute = (foreground | background)
+!  * See ../runtime/doc/os_win32.txt for the numbers.
+   */
+      static void
+  textattr(WORD wAttr)
+***************
+*** 5924,5929 ****
+--- 6046,6056 ----
+      char_u  *s,
+      int	    len)
+  {
++ # ifdef VIMDLL
++     if (gui.in_use)
++ 	return;
++ # endif
++ 
+      s[len] = NUL;
+  
+      if (!term_console)
+***************
+*** 6222,6230 ****
+      long    msec,
+      int	    ignoreinput UNUSED)
+  {
+! #ifdef FEAT_GUI_MSWIN
+      Sleep((int)msec);	    /* never wait for input */
+  #else /* Console */
+      if (ignoreinput)
+  # ifdef FEAT_MZSCHEME
+  	if (mzthreads_allowed() && p_mzq > 0 && msec > p_mzq)
+--- 6349,6364 ----
+      long    msec,
+      int	    ignoreinput UNUSED)
+  {
+! #if defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)
+      Sleep((int)msec);	    /* never wait for input */
+  #else /* Console */
++ # ifdef VIMDLL
++     if (gui.in_use)
++     {
++ 	Sleep((int)msec);	    /* never wait for input */
++ 	return;
++     }
++ # endif
+      if (ignoreinput)
+  # ifdef FEAT_MZSCHEME
+  	if (mzthreads_allowed() && p_mzq > 0 && msec > p_mzq)
+***************
+*** 6286,6298 ****
+      void
+  mch_breakcheck(int force)
+  {
+! #ifndef FEAT_GUI_MSWIN	    /* never used */
+!     if (g_fCtrlCPressed || g_fCBrkPressed)
+!     {
+! 	ctrl_break_was_pressed = g_fCBrkPressed;
+! 	g_fCtrlCPressed = g_fCBrkPressed = FALSE;
+! 	got_int = TRUE;
+!     }
+  #endif
+  }
+  
+--- 6420,6435 ----
+      void
+  mch_breakcheck(int force)
+  {
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+! # ifdef VIMDLL
+!     if (!gui.in_use)
+! # endif
+! 	if (g_fCtrlCPressed || g_fCBrkPressed)
+! 	{
+! 	    ctrl_break_was_pressed = g_fCBrkPressed;
+! 	    g_fCtrlCPressed = g_fCBrkPressed = FALSE;
+! 	    got_int = TRUE;
+! 	}
+  #endif
+  }
+  
+***************
+*** 6308,6314 ****
+      MEMORYSTATUSEX  ms;
+  
+      /* Need to use GlobalMemoryStatusEx() when there is more memory than
+!      * what fits in 32 bits. But it's not always available. */
+      ms.dwLength = sizeof(MEMORYSTATUSEX);
+      GlobalMemoryStatusEx(&ms);
+      if (ms.ullAvailVirtual < ms.ullTotalPhys)
+--- 6445,6451 ----
+      MEMORYSTATUSEX  ms;
+  
+      /* Need to use GlobalMemoryStatusEx() when there is more memory than
+!      * what fits in 32 bits. */
+      ms.dwLength = sizeof(MEMORYSTATUSEX);
+      GlobalMemoryStatusEx(&ms);
+      if (ms.ullAvailVirtual < ms.ullTotalPhys)
+***************
+*** 7098,7114 ****
+  vtp_flag_init(void)
+  {
+      DWORD   ver = get_build_number();
+! #ifndef FEAT_GUI_MSWIN
+      DWORD   mode;
+      HANDLE  out;
+  
+!     out = GetStdHandle(STD_OUTPUT_HANDLE);
+  
+!     vtp_working = (ver >= VTP_FIRST_SUPPORT_BUILD) ? 1 : 0;
+!     GetConsoleMode(out, &mode);
+!     mode |= (ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+!     if (SetConsoleMode(out, mode) == 0)
+! 	vtp_working = 0;
+  #endif
+  
+      if (ver >= CONPTY_FIRST_SUPPORT_BUILD)
+--- 7235,7256 ----
+  vtp_flag_init(void)
+  {
+      DWORD   ver = get_build_number();
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
+      DWORD   mode;
+      HANDLE  out;
+  
+! # ifdef VIMDLL
+!     if (!gui.in_use)
+! # endif
+!     {
+! 	out = GetStdHandle(STD_OUTPUT_HANDLE);
+  
+! 	vtp_working = (ver >= VTP_FIRST_SUPPORT_BUILD) ? 1 : 0;
+! 	GetConsoleMode(out, &mode);
+! 	mode |= (ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
+! 	if (SetConsoleMode(out, mode) == 0)
+! 	    vtp_working = 0;
+!     }
+  #endif
+  
+      if (ver >= CONPTY_FIRST_SUPPORT_BUILD)
+***************
+*** 7118,7124 ****
+  
+  }
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(PROTO)
+  
+      static void
+  vtp_init(void)
+--- 7260,7266 ----
+  
+  }
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL) || defined(PROTO)
+  
+      static void
+  vtp_init(void)
+***************
+*** 7343,7349 ****
+      return conpty_stable;
+  }
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(PROTO)
+      void
+  resize_console_buf(void)
+  {
+--- 7485,7491 ----
+      return conpty_stable;
+  }
+  
+! #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL) || defined(PROTO)
+      void
+  resize_console_buf(void)
+  {
+*** ../vim-8.1.1229/src/os_win32.h	2019-02-17 17:44:36.219875473 +0100
+--- src/os_win32.h	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 78,84 ****
+  
+  #define HAVE_PUTENV		/* at least Bcc 5.2 and MSC have it */
+  
+! #ifdef FEAT_GUI_MSWIN
+  # define NO_CONSOLE		/* don't included console-only code */
+  #endif
+  
+--- 78,84 ----
+  
+  #define HAVE_PUTENV		/* at least Bcc 5.2 and MSC have it */
+  
+! #if defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)
+  # define NO_CONSOLE		/* don't included console-only code */
+  #endif
+  
+*** ../vim-8.1.1229/src/proto/gui.pro	2018-05-17 13:52:58.000000000 +0200
+--- src/proto/gui.pro	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 1,5 ****
+  /* gui.c */
+! void gui_start(void);
+  void gui_prepare(int *argc, char **argv);
+  int gui_init_check(void);
+  void gui_init(void);
+--- 1,5 ----
+  /* gui.c */
+! void gui_start(char_u *arg);
+  void gui_prepare(int *argc, char **argv);
+  int gui_init_check(void);
+  void gui_init(void);
+*** ../vim-8.1.1229/src/proto/gui_w32.pro	2019-04-17 18:24:32.006143206 +0200
+--- src/proto/gui_w32.pro	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 61,66 ****
+--- 61,67 ----
+  char_u *gui_mch_browse(int saving, char_u *title, char_u *dflt, char_u *ext, char_u *initdir, char_u *filter);
+  char_u *gui_mch_browsedir(char_u *title, char_u *initdir);
+  void gui_mch_set_parent(char *title);
++ char *gui_mch_do_spawn(char_u *arg);
+  void gui_mch_prepare(int *argc, char **argv);
+  int gui_mch_init(void);
+  void gui_mch_set_shellsize(int width, int height, int min_width, int min_height, int base_width, int base_height, int direction);
+*** ../vim-8.1.1229/src/proto/misc2.pro	2019-02-13 22:45:21.512636158 +0100
+--- src/proto/misc2.pro	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 108,111 ****
+--- 108,112 ----
+  int mch_parse_cmd(char_u *cmd, int use_shcf, char ***argv, int *argc);
+  int build_argv_from_string(char_u *cmd, char ***argv, int *argc);
+  int build_argv_from_list(list_T *l, char ***argv, int *argc);
++ int write_session_file(char_u *filename);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1229/src/proto/os_mswin.pro	2019-03-30 16:24:12.240380238 +0100
+--- src/proto/os_mswin.pro	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 1,5 ****
+  /* os_mswin.c */
+! void mch_exit(int r);
+  void mch_early_init(void);
+  int mch_input_isatty(void);
+  void mch_settitle(char_u *title, char_u *icon);
+--- 1,5 ----
+  /* os_mswin.c */
+! void mch_exit_g(int r);
+  void mch_early_init(void);
+  int mch_input_isatty(void);
+  void mch_settitle(char_u *title, char_u *icon);
+*** ../vim-8.1.1229/src/proto/os_win32.pro	2019-02-17 15:00:48.450637077 +0100
+--- src/proto/os_win32.pro	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 1,5 ****
+--- 1,6 ----
+  /* os_win32.c */
+  HINSTANCE vimLoadLib(char *name);
++ int mch_is_gui_executable(void);
+  HINSTANCE find_imported_module_by_funcname(HINSTANCE hInst, const char *funcname);
+  void *get_dll_import_func(HINSTANCE hInst, const char *funcname);
+  int dyn_libintl_init(void);
+*** ../vim-8.1.1229/src/syntax.c	2019-04-26 22:33:44.896723710 +0200
+--- src/syntax.c	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 8280,8285 ****
+--- 8280,8292 ----
+       * background/foreground colors. */
+      mch_set_normal_colors();
+  #else
++ # ifdef VIMDLL
++     if (!gui.in_use)
++     {
++ 	mch_set_normal_colors();
++ 	return;
++     }
++ # endif
+      cterm_normal_fg_color = 0;
+      cterm_normal_fg_bold = 0;
+      cterm_normal_bg_color = 0;
+***************
+*** 9823,9829 ****
+  #endif
+  
+  #if (defined(MSWIN) \
+! 	&& !defined(FEAT_GUI_MSWIN) \
+  	&& defined(FEAT_TERMGUICOLORS)) || defined(PROTO)
+      void
+  syn_id2cterm_bg(int hl_id, int *fgp, int *bgp)
+--- 9830,9836 ----
+  #endif
+  
+  #if (defined(MSWIN) \
+! 	&& (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL)) \
+  	&& defined(FEAT_TERMGUICOLORS)) || defined(PROTO)
+      void
+  syn_id2cterm_bg(int hl_id, int *fgp, int *bgp)
+*** ../vim-8.1.1229/src/term.c	2019-04-21 17:22:29.749014298 +0200
+--- src/term.c	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 4094,4100 ****
+  #if defined(MSWIN) && !defined(FEAT_GUI)
+      s = vim_strnsave(string, (int)STRLEN(string) + 1);
+  #else
+!     s = vim_strsave(string);
+  #endif
+      if (s == NULL)
+  	return;
+--- 4094,4105 ----
+  #if defined(MSWIN) && !defined(FEAT_GUI)
+      s = vim_strnsave(string, (int)STRLEN(string) + 1);
+  #else
+! # ifdef VIMDLL
+!     if (!gui.in_use)
+! 	s = vim_strnsave(string, (int)STRLEN(string) + 1);
+!     else
+! # endif
+! 	s = vim_strsave(string);
+  #endif
+      if (s == NULL)
+  	return;
+***************
+*** 4106,4116 ****
+  	s[0] = term_7to8bit(string);
+      }
+  
+! #if defined(MSWIN) && !defined(FEAT_GUI)
+!     if (s[0] == K_NUL)
+      {
+! 	STRMOVE(s + 1, s);
+! 	s[1] = 3;
+      }
+  #endif
+  
+--- 4111,4126 ----
+  	s[0] = term_7to8bit(string);
+      }
+  
+! #if defined(MSWIN) && (!defined(FEAT_GUI) || defined(VIMDLL))
+! # ifdef VIMDLL
+!     if (!gui.in_use)
+! # endif
+      {
+! 	if (s[0] == K_NUL)
+! 	{
+! 	    STRMOVE(s + 1, s);
+! 	    s[1] = 3;
+! 	}
+      }
+  #endif
+  
+***************
+*** 6712,6718 ****
+  }
+  #endif
+  
+! #if (defined(MSWIN) && !defined(FEAT_GUI)) || defined(PROTO)
+  static char ksme_str[20];
+  static char ksmr_str[20];
+  static char ksmd_str[20];
+--- 6722,6728 ----
+  }
+  #endif
+  
+! #if (defined(MSWIN) && (!defined(FEAT_GUI) || defined(VIMDLL))) || defined(PROTO)
+  static char ksme_str[20];
+  static char ksmr_str[20];
+  static char ksmd_str[20];
+***************
+*** 6902,6907 ****
+--- 6912,6930 ----
+      return 0x1ffffff;
+  }
+  
++ # ifdef VIMDLL
++     static guicolor_T
++ gui_adjust_rgb(guicolor_T c)
++ {
++     if (gui.in_use)
++ 	return c;
++     else
++ 	return ((c & 0xff) << 16) | (c & 0x00ff00) | ((c >> 16) & 0xff);
++ }
++ # else
++ #  define gui_adjust_rgb(c) (c)
++ # endif
++ 
+      guicolor_T
+  gui_get_color_cmn(char_u *name)
+  {
+***************
+*** 6973,6985 ****
+  		    ((hex_digit(name[5]) << 4) + hex_digit(name[6])));
+  	if (color > 0xffffff)
+  	    return INVALCOLOR;
+! 	return color;
+      }
+  
+      /* Check if the name is one of the colors we know */
+      for (i = 0; i < (int)(sizeof(rgb_table) / sizeof(rgb_table[0])); i++)
+  	if (STRICMP(name, rgb_table[i].color_name) == 0)
+! 	    return rgb_table[i].color;
+  
+      /*
+       * Last attempt. Look in the file "$VIMRUNTIME/rgb.txt".
+--- 6996,7008 ----
+  		    ((hex_digit(name[5]) << 4) + hex_digit(name[6])));
+  	if (color > 0xffffff)
+  	    return INVALCOLOR;
+! 	return gui_adjust_rgb(color);
+      }
+  
+      /* Check if the name is one of the colors we know */
+      for (i = 0; i < (int)(sizeof(rgb_table) / sizeof(rgb_table[0])); i++)
+  	if (STRICMP(name, rgb_table[i].color_name) == 0)
+! 	    return gui_adjust_rgb(rgb_table[i].color);
+  
+      /*
+       * Last attempt. Look in the file "$VIMRUNTIME/rgb.txt".
+***************
+*** 7060,7066 ****
+  
+      for (i = 0; i < size; i++)
+  	if (STRICMP(name, colornames_table[i].color_name) == 0)
+! 	    return colornames_table[i].color;
+  
+      return INVALCOLOR;
+  }
+--- 7083,7089 ----
+  
+      for (i = 0; i < size; i++)
+  	if (STRICMP(name, colornames_table[i].color_name) == 0)
+! 	    return gui_adjust_rgb(colornames_table[i].color);
+  
+      return INVALCOLOR;
+  }
+***************
+*** 7072,7082 ****
+  
+      if (color > 0xffffff)
+  	return INVALCOLOR;
+!     return color;
+  }
+  #endif
+  
+! #if (defined(MSWIN) && !defined(FEAT_GUI_MSWIN)) || defined(FEAT_TERMINAL) \
+  	|| defined(PROTO)
+  static int cube_value[] = {
+      0x00, 0x5F, 0x87, 0xAF, 0xD7, 0xFF
+--- 7095,7105 ----
+  
+      if (color > 0xffffff)
+  	return INVALCOLOR;
+!     return gui_adjust_rgb(color);
+  }
+  #endif
+  
+! #if (defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))) || defined(FEAT_TERMINAL) \
+  	|| defined(PROTO)
+  static int cube_value[] = {
+      0x00, 0x5F, 0x87, 0xAF, 0xD7, 0xFF
+*** ../vim-8.1.1229/src/terminal.c	2019-04-21 00:00:07.946354820 +0200
+--- src/terminal.c	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 3553,3559 ****
+      }
+      else
+      {
+! #if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+  	int tmp;
+  #endif
+  
+--- 3553,3559 ----
+      }
+      else
+      {
+! #if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+  	int tmp;
+  #endif
+  
+***************
+*** 3561,3570 ****
+  	if (cterm_normal_fg_color > 0)
+  	{
+  	    cterm_color2vterm(cterm_normal_fg_color - 1, fg);
+! # if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+! 	    tmp = fg->red;
+! 	    fg->red = fg->blue;
+! 	    fg->blue = tmp;
+  # endif
+  	}
+  # ifdef FEAT_TERMRESPONSE
+--- 3561,3575 ----
+  	if (cterm_normal_fg_color > 0)
+  	{
+  	    cterm_color2vterm(cterm_normal_fg_color - 1, fg);
+! # if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+! #  ifdef VIMDLL
+! 	    if (!gui.in_use)
+! #  endif
+! 	    {
+! 		tmp = fg->red;
+! 		fg->red = fg->blue;
+! 		fg->blue = tmp;
+! 	    }
+  # endif
+  	}
+  # ifdef FEAT_TERMRESPONSE
+***************
+*** 3575,3584 ****
+  	if (cterm_normal_bg_color > 0)
+  	{
+  	    cterm_color2vterm(cterm_normal_bg_color - 1, bg);
+! # if defined(MSWIN) && !defined(FEAT_GUI_MSWIN)
+! 	    tmp = bg->red;
+! 	    bg->red = bg->blue;
+! 	    bg->blue = tmp;
+  # endif
+  	}
+  # ifdef FEAT_TERMRESPONSE
+--- 3580,3594 ----
+  	if (cterm_normal_bg_color > 0)
+  	{
+  	    cterm_color2vterm(cterm_normal_bg_color - 1, bg);
+! # if defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))
+! #  ifdef VIMDLL
+! 	    if (!gui.in_use)
+! #  endif
+! 	    {
+! 		tmp = fg->red;
+! 		fg->red = fg->blue;
+! 		fg->blue = tmp;
+! 	    }
+  # endif
+  	}
+  # ifdef FEAT_TERMRESPONSE
+***************
+*** 3887,3893 ****
+  #endif
+  	{
+  	    // We roughly estimate the position of the terminal window inside
+! 	    // the Vim window by assuing a 10 x 7 character cell.
+  	    x += wp->w_wincol * 7;
+  	    y += W_WINROW(wp) * 10;
+  	}
+--- 3897,3903 ----
+  #endif
+  	{
+  	    // We roughly estimate the position of the terminal window inside
+! 	    // the Vim window by assuming a 10 x 7 character cell.
+  	    x += wp->w_wincol * 7;
+  	    y += W_WINROW(wp) * 10;
+  	}
+*** ../vim-8.1.1229/src/ui.c	2019-04-06 22:01:20.756989404 +0200
+--- src/ui.c	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 643,649 ****
+      if (gui.in_use)
+  	return gui_mch_get_winpos(x, y);
+  # endif
+! # if defined(MSWIN) && !defined(FEAT_GUI)
+      return mch_get_winpos(x, y);
+  # else
+  #  if defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)
+--- 643,649 ----
+      if (gui.in_use)
+  	return gui_mch_get_winpos(x, y);
+  # endif
+! # if defined(MSWIN) && (!defined(FEAT_GUI) || defined(VIMDLL))
+      return mch_get_winpos(x, y);
+  # else
+  #  if defined(HAVE_TGETENT) && defined(FEAT_TERMRESPONSE)
+*** ../vim-8.1.1229/src/version.c	2019-04-28 18:39:59.559845361 +0200
+--- src/version.c	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 3420,3429 ****
+      msg(longVersion);
+  #ifdef MSWIN
+  # ifdef FEAT_GUI_MSWIN
+! #  ifdef _WIN64
+!     msg_puts(_("\nMS-Windows 64-bit GUI version"));
+  #  else
+      msg_puts(_("\nMS-Windows 32-bit GUI version"));
+  #  endif
+  #  ifdef FEAT_OLE
+      msg_puts(_(" with OLE support"));
+--- 3422,3439 ----
+      msg(longVersion);
+  #ifdef MSWIN
+  # ifdef FEAT_GUI_MSWIN
+! #  ifdef VIMDLL
+! #   ifdef _WIN64
+!     msg_puts(_("\nMS-Windows 64-bit GUI/console version"));
+! #   else
+!     msg_puts(_("\nMS-Windows 32-bit GUI/console version"));
+! #   endif
+  #  else
++ #   ifdef _WIN64
++     msg_puts(_("\nMS-Windows 64-bit GUI version"));
++ #   else
+      msg_puts(_("\nMS-Windows 32-bit GUI version"));
++ #   endif
+  #  endif
+  #  ifdef FEAT_OLE
+      msg_puts(_(" with OLE support"));
+*** ../vim-8.1.1229/src/vim.rc	2019-02-18 21:41:34.477750367 +0100
+--- src/vim.rc	2019-04-28 18:55:14.828079949 +0200
+***************
+*** 23,29 ****
+  //
+  IDR_VIM		ICON "vim.ico"
+  
+! #ifdef FEAT_GUI_MSWIN
+  IDR_VIM_ERROR	ICON "vim_error.ico"
+  IDR_VIM_ALERT	ICON "vim_alert.ico"
+  IDR_VIM_INFO	ICON "vim_info.ico"
+--- 23,29 ----
+  //
+  IDR_VIM		ICON "vim.ico"
+  
+! #if (defined(FEAT_GUI_MSWIN) && !defined(VIMDLL)) || defined(RCDLL)
+  IDR_VIM_ERROR	ICON "vim_error.ico"
+  IDR_VIM_ALERT	ICON "vim_alert.ico"
+  IDR_VIM_INFO	ICON "vim_info.ico"
+***************
+*** 34,40 ****
+--- 34,42 ----
+  //
+  IDB_TEAROFF	BITMAP  DISCARDABLE  "tearoff.bmp"
+  IDR_TOOLBAR1	BITMAP  DISCARDABLE  "tools.bmp"
++ #endif // FEAT_GUI_MSWIN
+  
++ #ifndef RCDLL
+  //
+  // WinXP theme support
+  //
+***************
+*** 46,52 ****
+  #endif
+  
+  CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "gvim.exe.mnf"
+! #endif // FEAT_GUI_MSWIN
+  
+  //
+  // Type Library
+--- 48,54 ----
+  #endif
+  
+  CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "gvim.exe.mnf"
+! #endif // RCDLL
+  
+  //
+  // Type Library
+***************
+*** 79,85 ****
+--- 81,91 ----
+  #endif
+  
+    FILEOS		VOS__WINDOWS32
++ #ifdef RCDLL
++   FILETYPE		VFT_DLL
++ #else
+    FILETYPE		VFT_APP
++ #endif
+    FILESUBTYPE		0x0L
+  BEGIN
+    BLOCK "StringFileInfo"
+***************
+*** 93,99 ****
+  	VALUE "InternalName",		"VIM\0"
+  	VALUE "LegalCopyright",		"Copyright \251 1996\0"
+  	VALUE "LegalTrademarks",	"Vim\0"
+! 	VALUE "OriginalFilename",	"VIM.EXE\0"
+  	VALUE "ProductName",		"Vim\0"
+  	VALUE "ProductVersion",		VIM_VERSION_MAJOR_STR ", " VIM_VERSION_MINOR_STR ", " VIM_VERSION_BUILD_STR ", " VIM_VERSION_PATCHLEVEL_STR "\0"
+      END
+--- 99,111 ----
+  	VALUE "InternalName",		"VIM\0"
+  	VALUE "LegalCopyright",		"Copyright \251 1996\0"
+  	VALUE "LegalTrademarks",	"Vim\0"
+! #ifdef VIMDLLBASE
+! 	VALUE "OriginalFilename",	VIMDLLBASE ".dll\0"
+! #elif defined(FEAT_GUI_MSWIN)
+! 	VALUE "OriginalFilename",	"gvim.exe\0"
+! #else
+! 	VALUE "OriginalFilename",	"vim.exe\0"
+! #endif
+  	VALUE "ProductName",		"Vim\0"
+  	VALUE "ProductVersion",		VIM_VERSION_MAJOR_STR ", " VIM_VERSION_MINOR_STR ", " VIM_VERSION_BUILD_STR ", " VIM_VERSION_PATCHLEVEL_STR "\0"
+      END
+***************
+*** 104,109 ****
+--- 116,122 ----
+    END
+  END
+  
++ #if !defined(VIMDLL) || defined(RCDLL)
+  /*
+   *  Printing Status Dialog (should only be used when FEAT_PRINTER is defined)
+   */
+***************
+*** 121,123 ****
+--- 134,137 ----
+      CTEXT	    "Initializing...",IDC_PROGRESS,24,38,157,9
+      GROUPBOX	    "",IDC_BOX1,19,9,170,47
+  END
++ #endif
+*** ../vim-8.1.1229/src/version.c	2019-04-28 18:39:59.559845361 +0200
+--- src/version.c	2019-04-28 18:55:14.824079967 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1230,
+  /**/
+
+-- 
+Seen on the back of a biker's vest: If you can read this, my wife fell off.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

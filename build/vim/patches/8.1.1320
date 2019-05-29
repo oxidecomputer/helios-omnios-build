@@ -1,0 +1,233 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1320
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1320
+Problem:    It is not possible to track changes to a buffer.
+Solution:   Add listener_add() and listener_remove(). No docs or tests yet.
+Files:      src/structs.h, src/change.c, src/proto/change.pro
+
+
+*** ../vim-8.1.1319/src/structs.h	2019-05-09 21:08:53.764083394 +0200
+--- src/structs.h	2019-05-11 18:25:06.736904482 +0200
+***************
+*** 1873,1878 ****
+--- 1873,1891 ----
+  #endif
+  } jobopt_T;
+  
++ #ifdef FEAT_EVAL
++ /*
++  * Structure used for listeners added with listener_add().
++  */
++ typedef struct listener_S listener_T;
++ struct listener_S
++ {
++     listener_T	*lr_next;
++     int		lr_id;
++     char_u	*lr_callback;
++     partial_T	*lr_partial;
++ };
++ #endif
+  
+  /* structure used for explicit stack while garbage collecting hash tables */
+  typedef struct ht_stack_S
+***************
+*** 2424,2429 ****
+--- 2437,2444 ----
+  #ifdef FEAT_EVAL
+      dictitem_T	b_bufvar;	/* variable for "b:" Dictionary */
+      dict_T	*b_vars;	/* internal variables, local to buffer */
++ 
++     listener_T	*b_listener;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+      int		b_has_textprop;	// TRUE when text props were added
+*** ../vim-8.1.1319/src/change.c	2019-05-11 17:03:55.170019762 +0200
+--- src/change.c	2019-05-11 19:11:46.862043029 +0200
+***************
+*** 151,156 ****
+--- 151,284 ----
+  #endif
+  }
+  
++ #ifdef FEAT_EVAL
++ static list_T *recorded_changes = NULL;
++ static long next_listener_id = 0;
++ 
++ /*
++  * Record a change for listeners added with listener_add().
++  */
++     static void
++ may_record_change(
++     linenr_T	lnum,
++     colnr_T	col,
++     linenr_T	lnume,
++     long	xtra)
++ {
++     dict_T	*dict;
++ 
++     if (curbuf->b_listener == NULL)
++ 	return;
++     if (recorded_changes == NULL)
++     {
++ 	recorded_changes = list_alloc();
++ 	if (recorded_changes == NULL)  // out of memory
++ 	    return;
++ 	++recorded_changes->lv_refcount;
++ 	recorded_changes->lv_lock = VAR_FIXED;
++     }
++ 
++     dict = dict_alloc();
++     if (dict == NULL)
++ 	return;
++     dict_add_number(dict, "lnum", (varnumber_T)lnum);
++     dict_add_number(dict, "end", (varnumber_T)lnume);
++     dict_add_number(dict, "added", (varnumber_T)xtra);
++     dict_add_number(dict, "col", (varnumber_T)col);
++ 
++     list_append_dict(recorded_changes, dict);
++ }
++ 
++ /*
++  * listener_add() function
++  */
++     void
++ f_listener_add(typval_T *argvars, typval_T *rettv)
++ {
++     char_u	*callback;
++     partial_T	*partial;
++     listener_T	*lnr;
++ 
++     callback = get_callback(&argvars[0], &partial);
++     if (callback == NULL)
++ 	return;
++ 
++     lnr = (listener_T *)alloc_clear((sizeof(listener_T)));
++     if (lnr == NULL)
++     {
++ 	free_callback(callback, partial);
++ 	return;
++     }
++     lnr->lr_next = curbuf->b_listener;
++     curbuf->b_listener = lnr;
++ 
++     if (partial == NULL)
++ 	lnr->lr_callback = vim_strsave(callback);
++     else
++ 	lnr->lr_callback = callback;  // pointer into the partial
++     lnr->lr_partial = partial;
++ 
++     lnr->lr_id = ++next_listener_id;
++     rettv->vval.v_number = lnr->lr_id;
++ }
++ 
++ /*
++  * listener_remove() function
++  */
++     void
++ f_listener_remove(typval_T *argvars, typval_T *rettv UNUSED)
++ {
++     listener_T	*lnr;
++     listener_T	*next;
++     listener_T	*prev = NULL;
++     int		id = tv_get_number(argvars);
++     buf_T	*buf = curbuf;
++ 
++     for (lnr = buf->b_listener; lnr != NULL; lnr = next)
++     {
++ 	next = lnr->lr_next;
++ 	if (lnr->lr_id == id)
++ 	{
++ 	    if (prev != NULL)
++ 		prev->lr_next = lnr->lr_next;
++ 	    else
++ 		buf->b_listener = lnr->lr_next;
++ 	    free_callback(lnr->lr_callback, lnr->lr_partial);
++ 	    vim_free(lnr);
++ 	}
++ 	prev = lnr;
++     }
++ }
++ 
++ /*
++  * Called when a sequence of changes is done: invoke listeners added with
++  * listener_add().
++  */
++     void
++ invoke_listeners(void)
++ {
++     listener_T	*lnr;
++     typval_T	rettv;
++     int		dummy;
++     typval_T	argv[2];
++ 
++     if (recorded_changes == NULL)  // nothing changed
++ 	return;
++     argv[0].v_type = VAR_LIST;
++     argv[0].vval.v_list = recorded_changes;
++ 
++     for (lnr = curbuf->b_listener; lnr != NULL; lnr = lnr->lr_next)
++     {
++ 	call_func(lnr->lr_callback, -1, &rettv,
++ 		   1, argv, NULL, 0L, 0L, &dummy, TRUE, lnr->lr_partial, NULL);
++ 	clear_tv(&rettv);
++     }
++ 
++     list_unref(recorded_changes);
++     recorded_changes = NULL;
++ }
++ #endif
++ 
+  /*
+   * Common code for when a change was made.
+   * See changed_lines() for the arguments.
+***************
+*** 175,180 ****
+--- 303,311 ----
+      // mark the buffer as modified
+      changed();
+  
++ #ifdef FEAT_EVAL
++     may_record_change(lnum, col, lnume, xtra);
++ #endif
+  #ifdef FEAT_DIFF
+      if (curwin->w_p_diff && diff_internal())
+  	curtab->tp_diff_update = TRUE;
+*** ../vim-8.1.1319/src/proto/change.pro	2019-05-11 17:03:55.170019762 +0200
+--- src/proto/change.pro	2019-05-11 18:24:29.733104385 +0200
+***************
+*** 2,7 ****
+--- 2,10 ----
+  void change_warning(int col);
+  void changed(void);
+  void changed_internal(void);
++ void f_listener_add(typval_T *argvars, typval_T *rettv);
++ void f_listener_remove(typval_T *argvars, typval_T *rettv);
++ void invoke_listeners(void);
+  void changed_bytes(linenr_T lnum, colnr_T col);
+  void inserted_bytes(linenr_T lnum, colnr_T col, int added);
+  void appended_lines(linenr_T lnum, long count);
+*** ../vim-8.1.1319/src/version.c	2019-05-11 18:28:41.351611622 +0200
+--- src/version.c	2019-05-11 19:12:16.001896710 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1320,
+  /**/
+
+-- 
+It might look like I'm doing nothing, but at the cellular level
+I'm really quite busy.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

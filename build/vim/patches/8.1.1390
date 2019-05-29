@@ -1,0 +1,181 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1390
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1390
+Problem:    Search stats are off when using count or offset.
+Solution:   Recompute the stats when needed. (Masato Nishihata, closes #4410)
+Files:	    src/test_search_stat.vim, src/search.c
+
+
+*** ../vim-8.1.1389/src/testdir/test_search_stat.vim	2019-05-24 13:11:44.311032841 +0200
+--- src/testdir/test_search_stat.vim	2019-05-24 21:59:54.092537447 +0200
+***************
+*** 117,122 ****
+--- 117,141 ----
+      call assert_false(1)
+    endtry
+  
++   " with count
++   call cursor(1, 1)
++   let @/ = 'fo*\(bar\?\)\?'
++   let g:a = execute(':unsilent :norm! 2n')
++   let stat = '\[3/50\]'
++   let pat = escape(@/, '()*?'). '\s\+'
++   call assert_match(pat .. stat, g:a)
++   let g:a = execute(':unsilent :norm! 2n')
++   let stat = '\[5/50\]'
++   call assert_match(pat .. stat, g:a)
++ 
++   " with offset
++   call cursor(1, 1)
++   call feedkeys("/fo*\\(bar\\?\\)\\?/+1\<cr>", 'tx')
++   let g:a = execute(':unsilent :norm! n')
++   let stat = '\[5/50\]'
++   let pat = escape(@/ .. '/+1', '()*?'). '\s\+'
++   call assert_match(pat .. stat, g:a)
++ 
+    " normal, n comes from a mapping
+    "     Need to move over more than 64 lines to trigger char_avail(.
+    nnoremap n nzv
+*** ../vim-8.1.1389/src/search.c	2019-05-24 19:38:59.112545434 +0200
+--- src/search.c	2019-05-24 22:05:28.443062516 +0200
+***************
+*** 26,32 ****
+  #ifdef FEAT_VIMINFO
+  static void wvsp_one(FILE *fp, int idx, char *s, int sc);
+  #endif
+! static void search_stat(int dirc, pos_T *pos, int show_top_bot_msg, char_u  *msgbuf);
+  
+  /*
+   * This file contains various searching-related routines. These fall into
+--- 26,32 ----
+  #ifdef FEAT_VIMINFO
+  static void wvsp_one(FILE *fp, int idx, char *s, int sc);
+  #endif
+! static void search_stat(int dirc, pos_T *pos, int show_top_bot_msg, char_u *msgbuf, int recompute);
+  
+  /*
+   * This file contains various searching-related routines. These fall into
+***************
+*** 1219,1224 ****
+--- 1219,1225 ----
+      char_u	    *ps;
+      char_u	    *msgbuf = NULL;
+      size_t	    len;
++     int		    has_offset = FALSE;
+  #define SEARCH_STAT_BUF_LEN 12
+  
+      /*
+***************
+*** 1550,1555 ****
+--- 1551,1558 ----
+  	 */
+  	if (!(options & SEARCH_NOOF) || (pat != NULL && *pat == ';'))
+  	{
++ 	    pos_T org_pos = pos;
++ 
+  	    if (spats[0].off.line)	/* Add the offset to the line number. */
+  	    {
+  		c = pos.lnum + spats[0].off.off;
+***************
+*** 1581,1586 ****
+--- 1584,1591 ----
+  			    break;
+  		}
+  	    }
++ 	    if (!EQUAL_POS(pos, org_pos))
++ 		has_offset = TRUE;
+  	}
+  
+  	// Show [1/15] if 'S' is not in 'shortmess'.
+***************
+*** 1590,1596 ****
+  		&& c != FAIL
+  		&& !shortmess(SHM_SEARCHCOUNT)
+  		&& msgbuf != NULL)
+! 	    search_stat(dirc, &pos, show_top_bot_msg, msgbuf);
+  
+  	/*
+  	 * The search command can be followed by a ';' to do another search.
+--- 1595,1602 ----
+  		&& c != FAIL
+  		&& !shortmess(SHM_SEARCHCOUNT)
+  		&& msgbuf != NULL)
+! 	    search_stat(dirc, &pos, show_top_bot_msg, msgbuf,
+! 						   (count != 1 || has_offset));
+  
+  	/*
+  	 * The search command can be followed by a ';' to do another search.
+***************
+*** 4915,4927 ****
+  
+  /*
+   * Add the search count "[3/19]" to "msgbuf".
+   */
+      static void
+  search_stat(
+      int	    dirc,
+      pos_T   *pos,
+      int	    show_top_bot_msg,
+!     char_u  *msgbuf)
+  {
+      int		    save_ws = p_ws;
+      int		    wraparound = FALSE;
+--- 4921,4935 ----
+  
+  /*
+   * Add the search count "[3/19]" to "msgbuf".
++  * When "recompute" is TRUE always recompute the numbers.
+   */
+      static void
+  search_stat(
+      int	    dirc,
+      pos_T   *pos,
+      int	    show_top_bot_msg,
+!     char_u  *msgbuf,
+!     int	    recompute)
+  {
+      int		    save_ws = p_ws;
+      int		    wraparound = FALSE;
+***************
+*** 4947,4953 ****
+  	&& MB_STRNICMP(lastpat, spats[last_idx].pat, STRLEN(lastpat)) == 0
+  	&& STRLEN(lastpat) == STRLEN(spats[last_idx].pat)
+  	&& EQUAL_POS(lastpos, curwin->w_cursor)
+! 	&& lbuf == curbuf) || wraparound || cur < 0 || cur > 99)
+      {
+  	cur = 0;
+  	cnt = 0;
+--- 4955,4961 ----
+  	&& MB_STRNICMP(lastpat, spats[last_idx].pat, STRLEN(lastpat)) == 0
+  	&& STRLEN(lastpat) == STRLEN(spats[last_idx].pat)
+  	&& EQUAL_POS(lastpos, curwin->w_cursor)
+! 	&& lbuf == curbuf) || wraparound || cur < 0 || cur > 99 || recompute)
+      {
+  	cur = 0;
+  	cnt = 0;
+*** ../vim-8.1.1389/src/version.c	2019-05-24 21:39:23.893950022 +0200
+--- src/version.c	2019-05-24 22:06:27.574780326 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1390,
+  /**/
+
+-- 
+I am also told that there is a logical proof out there somewhere
+that demonstrates that there is no task which duct tape cannot handle.
+					-- Paul Brannan
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

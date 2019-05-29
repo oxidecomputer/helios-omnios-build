@@ -1,0 +1,212 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1221
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1221
+Problem:    Filtering does not work when listing marks.
+Solution:   Implement filtering marks. (Marcin Szamotulski, closes #3895)
+Files:	    runtime/doc/various.txt, src/mark.c,
+            src/testdir/test_filter_cmd.vim
+
+
+*** ../vim-8.1.1220/runtime/doc/various.txt	2019-04-27 13:03:20.012715914 +0200
+--- runtime/doc/various.txt	2019-04-27 22:29:37.358502260 +0200
+***************
+*** 573,589 ****
+  			the output, not necessarily the whole line. Only some
+  			commands support filtering, try it out to check if it
+  			works. Some of the commands that support filtering:
+!                           |:#|          - filter whole line
+!                           |:command|    - filter by command name
+!                           |:files|      - filter by file name
+!                           |:highlight|  - filter by highlight group
+!                           |:jumps|      - filter by file name
+!                           |:let|        - filter by variable name
+!                           |:list|       - filter whole line
+!                           |:llist|      - filter by file name or module name
+!                           |:oldfiles|   - filter by file name
+!                           |:clist|      - filter by file name or module name
+!                           |:set|        - filter by variable name
+  
+  			Only normal messages are filtered, error messages are
+  			not.
+--- 571,589 ----
+  			the output, not necessarily the whole line. Only some
+  			commands support filtering, try it out to check if it
+  			works. Some of the commands that support filtering:
+! 			   |:#|          - filter whole line
+! 			   |:clist|      - filter by file name or module name
+! 			   |:command|    - filter by command name
+! 			   |:files|      - filter by file name
+! 			   |:highlight|  - filter by highlight group
+! 			   |:jumps|      - filter by file name
+! 			   |:let|        - filter by variable name
+! 			   |:list|       - filter whole line
+! 			   |:llist|      - filter by file name or module name
+! 			   |:marks|      - filter by text in the current file,
+! 					   or file name for other files
+! 			   |:oldfiles|   - filter by file name
+! 			   |:set|        - filter by variable name
+  
+  			Only normal messages are filtered, error messages are
+  			not.
+*** ../vim-8.1.1220/src/mark.c	2019-01-27 15:07:35.161741346 +0100
+--- src/mark.c	2019-04-27 22:28:39.730756612 +0200
+***************
+*** 744,754 ****
+      int		c,
+      char_u	*arg,
+      pos_T	*p,
+!     char_u	*name,
+      int		current)	/* in current file */
+  {
+      static int	did_title = FALSE;
+      int		mustfree = FALSE;
+  
+      if (c == -1)			    /* finish up */
+      {
+--- 744,755 ----
+      int		c,
+      char_u	*arg,
+      pos_T	*p,
+!     char_u	*name_arg,
+      int		current)	/* in current file */
+  {
+      static int	did_title = FALSE;
+      int		mustfree = FALSE;
++     char_u	*name = name_arg;
+  
+      if (c == -1)			    /* finish up */
+      {
+***************
+*** 762,796 ****
+  		semsg(_("E283: No marks matching \"%s\""), arg);
+  	}
+      }
+!     /* don't output anything if 'q' typed at --more-- prompt */
+      else if (!got_int
+  	    && (arg == NULL || vim_strchr(arg, c) != NULL)
+  	    && p->lnum != 0)
+      {
+! 	if (!did_title)
+  	{
+! 	    /* Highlight title */
+! 	    msg_puts_title(_("\nmark line  col file/text"));
+! 	    did_title = TRUE;
+  	}
+! 	msg_putchar('\n');
+! 	if (!got_int)
+  	{
+! 	    sprintf((char *)IObuff, " %c %6ld %4d ", c, p->lnum, p->col);
+! 	    msg_outtrans(IObuff);
+! 	    if (name == NULL && current)
+  	    {
+! 		name = mark_line(p, 15);
+! 		mustfree = TRUE;
+  	    }
+! 	    if (name != NULL)
+  	    {
+! 		msg_outtrans_attr(name, current ? HL_ATTR(HLF_D) : 0);
+! 		if (mustfree)
+! 		    vim_free(name);
+  	    }
+  	}
+! 	out_flush();		    /* show one line at a time */
+      }
+  }
+  
+--- 763,800 ----
+  		semsg(_("E283: No marks matching \"%s\""), arg);
+  	}
+      }
+!     // don't output anything if 'q' typed at --more-- prompt
+      else if (!got_int
+  	    && (arg == NULL || vim_strchr(arg, c) != NULL)
+  	    && p->lnum != 0)
+      {
+! 	if (name == NULL && current)
+  	{
+! 	    name = mark_line(p, 15);
+! 	    mustfree = TRUE;
+  	}
+! 	if (!message_filtered(name))
+  	{
+! 	    if (!did_title)
+  	    {
+! 		// Highlight title
+! 		msg_puts_title(_("\nmark line  col file/text"));
+! 		did_title = TRUE;
+  	    }
+! 	    msg_putchar('\n');
+! 	    if (!got_int)
+  	    {
+! 		sprintf((char *)IObuff, " %c %6ld %4d ", c, p->lnum, p->col);
+! 		msg_outtrans(IObuff);
+! 		if (name != NULL)
+! 		{
+! 		    msg_outtrans_attr(name, current ? HL_ATTR(HLF_D) : 0);
+! 		}
+  	    }
++ 	    out_flush();		    // show one line at a time
+  	}
+! 	if (mustfree)
+! 	    vim_free(name);
+      }
+  }
+  
+*** ../vim-8.1.1220/src/testdir/test_filter_cmd.vim	2018-11-03 18:59:49.690644045 +0100
+--- src/testdir/test_filter_cmd.vim	2019-04-27 22:33:07.745561137 +0200
+***************
+*** 126,132 ****
+    let res = split(execute("filter /\.c$/ jumps"), "\n")[1:]
+    call assert_equal(["   2     1    0 file.c", ">"], res)
+  
+!   bwipe file.c
+!   bwipe file.h
+!   bwipe file.hs
+  endfunc
+--- 126,147 ----
+    let res = split(execute("filter /\.c$/ jumps"), "\n")[1:]
+    call assert_equal(["   2     1    0 file.c", ">"], res)
+  
+!   " Test filtering :marks command
+!   b file.c
+!   mark A
+!   b file.h
+!   mark B
+!   let res = split(execute("filter /\.c$/ marks"), "\n")[1:]
+!   call assert_equal([" A      1    0 file.c"], res)
+! 
+!   call setline(1, ['one', 'two', 'three'])
+!   1mark a
+!   2mark b
+!   3mark c
+!   let res = split(execute("filter /two/ marks abc"), "\n")[1:]
+!   call assert_equal([" b      2    0 two"], res)
+! 
+!   bwipe! file.c
+!   bwipe! file.h
+!   bwipe! file.hs
+  endfunc
+*** ../vim-8.1.1220/src/version.c	2019-04-27 22:38:26.788107972 +0200
+--- src/version.c	2019-04-27 22:39:21.911854726 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1221,
+  /**/
+
+-- 
+Witches prefer brooms: vacuum-cleaners need extension cords!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,290 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1351
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1351
+Problem:    Text property wrong after :substitute.
+Solution:   Save for undo before changing any text properties.
+Files:	    src/testdir/test_textprop.vim, src/ex_cmds.c, src/textprop.c,
+            src/proto/textprop.pro, src/change.c, src/edit.c, src/misc1.c,
+            src/ops.c
+
+
+*** ../vim-8.1.1350/src/testdir/test_textprop.vim	2019-05-17 22:57:06.940157515 +0200
+--- src/testdir/test_textprop.vim	2019-05-19 15:19:17.664637351 +0200
+***************
+*** 608,613 ****
+--- 608,626 ----
+    let expected[0].length = 2
+    call assert_equal(expected, prop_list(1))
+  
++   " substitute a word, then undo
++   call setline(1, 'the number 123 is highlighted.')
++   call prop_add(1, 12, {'length': 3, 'type': 'comment'})
++   let expected = [{'col': 12, 'length': 3, 'id': 0, 'type': 'comment', 'start': 1, 'end': 1} ]
++   call assert_equal(expected, prop_list(1))
++   set ul&
++   1s/number/foo
++   let expected[0].col = 9
++   call assert_equal(expected, prop_list(1))
++   undo
++   let expected[0].col = 12
++   call assert_equal(expected, prop_list(1))
++ 
+    bwipe!
+    call prop_type_delete('comment')
+  endfunc
+*** ../vim-8.1.1350/src/ex_cmds.c	2019-05-18 13:41:19.061511348 +0200
+--- src/ex_cmds.c	2019-05-19 15:17:33.473187669 +0200
+***************
+*** 5187,5192 ****
+--- 5187,5195 ----
+  	    int		do_again;	/* do it again after joining lines */
+  	    int		skip_match = FALSE;
+  	    linenr_T	sub_firstlnum;	/* nr of first sub line */
++ #ifdef FEAT_TEXT_PROP
++ 	    int		save_for_undo = TRUE;
++ #endif
+  
+  	    /*
+  	     * The new text is build up step by step, to avoid too much
+***************
+*** 5603,5611 ****
+  		    p1 = sub_firstline;
+  #ifdef FEAT_TEXT_PROP
+  		    if (curbuf->b_has_textprop)
+! 			adjust_prop_columns(lnum, regmatch.startpos[0].col,
+  			      sublen - 1 - (regmatch.endpos[0].col
+! 						  - regmatch.startpos[0].col));
+  #endif
+  		}
+  		else
+--- 5606,5619 ----
+  		    p1 = sub_firstline;
+  #ifdef FEAT_TEXT_PROP
+  		    if (curbuf->b_has_textprop)
+! 		    {
+! 			// When text properties are changed, need to save for
+! 			// undo first, unless done already.
+! 			if (adjust_prop_columns(lnum, regmatch.startpos[0].col,
+  			      sublen - 1 - (regmatch.endpos[0].col
+! 				   - regmatch.startpos[0].col), save_for_undo))
+! 			    save_for_undo = FALSE;
+! 		    }
+  #endif
+  		}
+  		else
+*** ../vim-8.1.1350/src/textprop.c	2019-05-17 22:57:06.940157515 +0200
+--- src/textprop.c	2019-05-19 15:17:47.801112248 +0200
+***************
+*** 957,969 ****
+   * shift by "bytes_added" (can be negative).
+   * Note that "col" is zero-based, while tp_col is one-based.
+   * Only for the current buffer.
+   * Caller is expected to check b_has_textprop and "bytes_added" being non-zero.
+   */
+!     void
+  adjust_prop_columns(
+  	linenr_T    lnum,
+  	colnr_T	    col,
+! 	int	    bytes_added)
+  {
+      int		proplen;
+      char_u	*props;
+--- 957,973 ----
+   * shift by "bytes_added" (can be negative).
+   * Note that "col" is zero-based, while tp_col is one-based.
+   * Only for the current buffer.
++  * When "save_for_undo" is TRUE then call u_savesub() before making changes to
++  * the line.
+   * Caller is expected to check b_has_textprop and "bytes_added" being non-zero.
++  * Returns TRUE when props were changed.
+   */
+!     int
+  adjust_prop_columns(
+  	linenr_T    lnum,
+  	colnr_T	    col,
+! 	int	    bytes_added,
+! 	int	    save_for_undo)
+  {
+      int		proplen;
+      char_u	*props;
+***************
+*** 974,984 ****
+      size_t	textlen;
+  
+      if (text_prop_frozen > 0)
+! 	return;
+  
+      proplen = get_text_props(curbuf, lnum, &props, TRUE);
+      if (proplen == 0)
+! 	return;
+      textlen = curbuf->b_ml.ml_line_len - proplen * sizeof(textprop_T);
+  
+      wi = 0; // write index
+--- 978,988 ----
+      size_t	textlen;
+  
+      if (text_prop_frozen > 0)
+! 	return FALSE;
+  
+      proplen = get_text_props(curbuf, lnum, &props, TRUE);
+      if (proplen == 0)
+! 	return FALSE;
+      textlen = curbuf->b_ml.ml_line_len - proplen * sizeof(textprop_T);
+  
+      wi = 0; // write index
+***************
+*** 1001,1006 ****
+--- 1005,1013 ----
+  	    }
+  	    else
+  		tmp_prop.tp_col += bytes_added;
++ 	    // Save for undo if requested and not done yet.
++ 	    if (save_for_undo && !dirty)
++ 		u_savesub(lnum);
+  	    dirty = TRUE;
+  	    if (tmp_prop.tp_len <= 0)
+  		continue;  // drop this text property
+***************
+*** 1016,1021 ****
+--- 1023,1031 ----
+  		tmp_prop.tp_len += bytes_added + after;
+  	    else
+  		tmp_prop.tp_len += bytes_added;
++ 	    // Save for undo if requested and not done yet.
++ 	    if (save_for_undo && !dirty)
++ 		u_savesub(lnum);
+  	    dirty = TRUE;
+  	    if (tmp_prop.tp_len <= 0)
+  		continue;  // drop this text property
+***************
+*** 1034,1039 ****
+--- 1044,1050 ----
+  	curbuf->b_ml.ml_flags |= ML_LINE_DIRTY;
+  	curbuf->b_ml.ml_line_len = newlen;
+      }
++     return dirty;
+  }
+  
+  /*
+*** ../vim-8.1.1350/src/proto/textprop.pro	2019-05-17 19:56:29.860129184 +0200
+--- src/proto/textprop.pro	2019-05-19 15:17:07.805322576 +0200
+***************
+*** 13,19 ****
+  void f_prop_type_list(typval_T *argvars, typval_T *rettv);
+  void clear_global_prop_types(void);
+  void clear_buf_prop_types(buf_T *buf);
+! void adjust_prop_columns(linenr_T lnum, colnr_T col, int bytes_added);
+  void adjust_props_for_split(linenr_T lnum_props, linenr_T lnum_top, int kept, int deleted);
+  void adjust_props_for_join(linenr_T lnum, textprop_T **prop_line, int *prop_length, long col, int removed);
+  void join_prop_lines(linenr_T lnum, char_u *newp, textprop_T **prop_lines, int *prop_lengths, int count);
+--- 13,19 ----
+  void f_prop_type_list(typval_T *argvars, typval_T *rettv);
+  void clear_global_prop_types(void);
+  void clear_buf_prop_types(buf_T *buf);
+! int adjust_prop_columns(linenr_T lnum, colnr_T col, int bytes_added, int save_for_undo);
+  void adjust_props_for_split(linenr_T lnum_props, linenr_T lnum_top, int kept, int deleted);
+  void adjust_props_for_join(linenr_T lnum, textprop_T **prop_line, int *prop_length, long col, int removed);
+  void join_prop_lines(linenr_T lnum, char_u *newp, textprop_T **prop_lines, int *prop_lengths, int count);
+*** ../vim-8.1.1350/src/change.c	2019-05-18 13:05:12.466334021 +0200
+--- src/change.c	2019-05-19 14:50:37.532114947 +0200
+***************
+*** 684,690 ****
+  {
+  #ifdef FEAT_TEXT_PROP
+      if (curbuf->b_has_textprop && added != 0)
+! 	adjust_prop_columns(lnum, col, added);
+  #endif
+  
+      changed_bytes(lnum, col);
+--- 684,690 ----
+  {
+  #ifdef FEAT_TEXT_PROP
+      if (curbuf->b_has_textprop && added != 0)
+! 	adjust_prop_columns(lnum, col, added, FALSE);
+  #endif
+  
+      changed_bytes(lnum, col);
+*** ../vim-8.1.1350/src/edit.c	2019-04-21 00:00:07.942354840 +0200
+--- src/edit.c	2019-05-19 14:51:07.307932485 +0200
+***************
+*** 4104,4110 ****
+  
+  	    --text_prop_frozen;
+  	    adjust_prop_columns(curwin->w_cursor.lnum, curwin->w_cursor.col,
+! 						  (int)(len_now - len_before));
+  	}
+  #endif
+      }
+--- 4104,4110 ----
+  
+  	    --text_prop_frozen;
+  	    adjust_prop_columns(curwin->w_cursor.lnum, curwin->w_cursor.col,
+! 					   (int)(len_now - len_before), FALSE);
+  	}
+  #endif
+      }
+*** ../vim-8.1.1350/src/misc1.c	2019-05-17 22:57:06.940157515 +0200
+--- src/misc1.c	2019-05-19 14:51:29.623795732 +0200
+***************
+*** 441,447 ****
+  	    // the old indent, when decreasing indent it behaves like spaces
+  	    // were deleted at the new indent.
+  	    adjust_prop_columns(curwin->w_cursor.lnum,
+! 			(colnr_T)(added > 0 ? (p - oldline) : ind_len), added);
+  	}
+  #endif
+  	retval = TRUE;
+--- 441,447 ----
+  	    // the old indent, when decreasing indent it behaves like spaces
+  	    // were deleted at the new indent.
+  	    adjust_prop_columns(curwin->w_cursor.lnum,
+! 		 (colnr_T)(added > 0 ? (p - oldline) : ind_len), added, FALSE);
+  	}
+  #endif
+  	retval = TRUE;
+*** ../vim-8.1.1350/src/ops.c	2019-05-17 22:57:06.940157515 +0200
+--- src/ops.c	2019-05-19 14:51:44.647703653 +0200
+***************
+*** 1937,1943 ****
+  
+  #ifdef FEAT_TEXT_PROP
+  	    if (curbuf->b_has_textprop && n != 0)
+! 		adjust_prop_columns(lnum, bd.textcol, -n);
+  #endif
+  	}
+  
+--- 1937,1943 ----
+  
+  #ifdef FEAT_TEXT_PROP
+  	    if (curbuf->b_has_textprop && n != 0)
+! 		adjust_prop_columns(lnum, bd.textcol, -n, FALSE);
+  #endif
+  	}
+  
+*** ../vim-8.1.1350/src/version.c	2019-05-18 19:26:25.977151440 +0200
+--- src/version.c	2019-05-19 15:18:28.072899820 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1351,
+  /**/
+
+-- 
+For society, it's probably a good thing that engineers value function over
+appearance.  For example, you wouldn't want engineers to build nuclear power
+plants that only _look_ like they would keep all the radiation inside.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

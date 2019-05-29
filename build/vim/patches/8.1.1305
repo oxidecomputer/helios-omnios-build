@@ -1,0 +1,437 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1305
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1305
+Problem:    There is no easy way to manipulate environment variables.
+Solution:   Add environ(), getenv() and setenv(). (Yasuhiro Matsumoto,
+            closes #2875)
+Files:	    runtime/doc/eval.txt, runtime/doc/usr_41.txt, src/evalfunc.c,
+            src/testdir/Make_all.mak, src/testdir/test_environ.vim
+
+
+*** ../vim-8.1.1304/runtime/doc/eval.txt	2019-05-09 13:50:13.366401975 +0200
+--- runtime/doc/eval.txt	2019-05-09 14:44:18.849767366 +0200
+***************
+*** 1369,1374 ****
+--- 1369,1381 ----
+  
+  The String value of any environment variable.  When it is not defined, the
+  result is an empty string.
++ 
++ The functions `getenv()` and `setenv()` can also be used and work for
++ environment variables with non-alphanumeric names.
++ The function `environ()` can be used to get a Dict with all environment
++ variables.
++ 
++ 
+  						*expr-env-expand*
+  Note that there is a difference between using $VAR directly and using
+  expand("$VAR").  Using it directly will only expand environment variables that
+***************
+*** 2303,2308 ****
+--- 2310,2316 ----
+  diff_filler({lnum})		Number	diff filler lines about {lnum}
+  diff_hlID({lnum}, {col})	Number	diff highlighting at {lnum}/{col}
+  empty({expr})			Number	|TRUE| if {expr} is empty
++ environ()			Dict	return environment variables
+  escape({string}, {chars})	String	escape {chars} in {string} with '\'
+  eval({string})			any	evaluate {string} into its value
+  eventhandler()			Number	|TRUE| if inside an event handler
+***************
+*** 2360,2365 ****
+--- 2368,2374 ----
+  				List	list of cmdline completion matches
+  getcurpos()			List	position of the cursor
+  getcwd([{winnr} [, {tabnr}]])	String	get the current working directory
++ getenv({name})			String	return environment variable
+  getfontname([{name}])		String	name of font being used
+  getfperm({fname})		String	file permissions of file {fname}
+  getfsize({fname})		Number	size in bytes of file {fname}
+***************
+*** 2568,2573 ****
+--- 2577,2583 ----
+  				none	set {varname} in buffer {expr} to {val}
+  setcharsearch({dict})		Dict	set character search from {dict}
+  setcmdpos({pos})		Number	set cursor position in command-line
++ setenv({name}, {val})		none	set environment variable
+  setfperm({fname}, {mode})	Number	set {fname} file permissions to {mode}
+  setline({lnum}, {line})		Number	set line {lnum} to {line}
+  setloclist({nr}, {list} [, {action} [, {what}]])
+***************
+*** 3905,3910 ****
+--- 3915,3928 ----
+  		The highlight ID can be used with |synIDattr()| to obtain
+  		syntax information about the highlighting.
+  
++ environ()						*environ()*
++ 		Return all of environment variables as dictionary. You can
++ 		check if an environment variable exists like this: >
++ 			:echo has_key(environ(), 'HOME')
++ <		Note that the variable name may be CamelCase; to ignore case
++ 		use this: >
++ 			:echo index(keys(environ()), 'HOME', 0, 1) != -1
++ 
+  empty({expr})						*empty()*
+  		Return the Number 1 if {expr} is empty, zero otherwise.
+  		- A |List| or |Dictionary| is empty when it does not have any
+***************
+*** 4970,4982 ****
+  			" Get the working directory of current tabpage
+  			:echo getcwd(-1, 0)
+  <
+! getfsize({fname})					*getfsize()*
+! 		The result is a Number, which is the size in bytes of the
+! 		given file {fname}.
+! 		If {fname} is a directory, 0 is returned.
+! 		If the file {fname} can't be found, -1 is returned.
+! 		If the size of {fname} is too big to fit in a Number then -2
+! 		is returned.
+  
+  getfontname([{name}])					*getfontname()*
+  		Without an argument returns the name of the normal font being
+--- 4988,4998 ----
+  			" Get the working directory of current tabpage
+  			:echo getcwd(-1, 0)
+  <
+! getenv({name})						*getenv()*
+! 		Return the value of environment variable {name}.
+! 		When the variable does not exist |v:null| is returned.  That
+! 		is different from a variable set to an empty string.
+! 		See also |expr-env|.
+  
+  getfontname([{name}])					*getfontname()*
+  		Without an argument returns the name of the normal font being
+***************
+*** 5009,5014 ****
+--- 5025,5038 ----
+  
+  		For setting permissions use |setfperm()|.
+  
++ getfsize({fname})					*getfsize()*
++ 		The result is a Number, which is the size in bytes of the
++ 		given file {fname}.
++ 		If {fname} is a directory, 0 is returned.
++ 		If the file {fname} can't be found, -1 is returned.
++ 		If the size of {fname} is too big to fit in a Number then -2
++ 		is returned.
++ 
+  getftime({fname})					*getftime()*
+  		The result is a Number, which is the last modification time of
+  		the given file {fname}.  The value is measured as seconds
+***************
+*** 8012,8017 ****
+--- 8036,8046 ----
+  		Returns 0 when successful, 1 when not editing the command
+  		line.
+  
++ setenv({name}, {val})						*setenv()*
++ 		Set environment variable {name} to {val}.
++ 		When {val} is |v:null| the environment variable is deleted.
++ 		See also |expr-env|.
++ 
+  setfperm({fname}, {mode})				*setfperm()* *chmod*
+  		Set the file permissions for {fname} to {mode}.
+  		{mode} must be a string with 9 characters.  It is of the form
+*** ../vim-8.1.1304/runtime/doc/usr_41.txt	2019-05-07 22:06:48.675310695 +0200
+--- runtime/doc/usr_41.txt	2019-05-09 14:28:20.978545651 +0200
+***************
+*** 774,779 ****
+--- 774,782 ----
+  	rename()		rename a file
+  	system()		get the result of a shell command as a string
+  	systemlist()		get the result of a shell command as a list
++ 	environ()		get all environment variables
++ 	getenv()		get one environment variable
++ 	setenv()		set an environment variable
+  	hostname()		name of the system
+  	readfile()		read a file into a List of lines
+  	readdir()		get a List of file names in a directory
+***************
+*** 903,908 ****
+--- 906,912 ----
+  	getwinposy()		Y position of the Vim window
+  	balloon_show()		set the balloon content
+  	balloon_split()		split a message for a balloon
++ 	balloon_gettext()	get the text in the balloon
+  
+  Vim server:					*server-functions*
+  	serverlist()		return the list of server names
+*** ../vim-8.1.1304/src/evalfunc.c	2019-05-09 13:50:13.362401997 +0200
+--- src/evalfunc.c	2019-05-09 14:45:25.653442537 +0200
+***************
+*** 137,142 ****
+--- 137,143 ----
+  static void f_diff_filler(typval_T *argvars, typval_T *rettv);
+  static void f_diff_hlID(typval_T *argvars, typval_T *rettv);
+  static void f_empty(typval_T *argvars, typval_T *rettv);
++ static void f_environ(typval_T *argvars, typval_T *rettv);
+  static void f_escape(typval_T *argvars, typval_T *rettv);
+  static void f_eval(typval_T *argvars, typval_T *rettv);
+  static void f_eventhandler(typval_T *argvars, typval_T *rettv);
+***************
+*** 187,192 ****
+--- 188,194 ----
+  static void f_getcmdtype(typval_T *argvars, typval_T *rettv);
+  static void f_getcmdwintype(typval_T *argvars, typval_T *rettv);
+  static void f_getcwd(typval_T *argvars, typval_T *rettv);
++ static void f_getenv(typval_T *argvars, typval_T *rettv);
+  static void f_getfontname(typval_T *argvars, typval_T *rettv);
+  static void f_getfperm(typval_T *argvars, typval_T *rettv);
+  static void f_getfsize(typval_T *argvars, typval_T *rettv);
+***************
+*** 365,370 ****
+--- 367,373 ----
+  static void f_setbufvar(typval_T *argvars, typval_T *rettv);
+  static void f_setcharsearch(typval_T *argvars, typval_T *rettv);
+  static void f_setcmdpos(typval_T *argvars, typval_T *rettv);
++ static void f_setenv(typval_T *argvars, typval_T *rettv);
+  static void f_setfperm(typval_T *argvars, typval_T *rettv);
+  static void f_setline(typval_T *argvars, typval_T *rettv);
+  static void f_setloclist(typval_T *argvars, typval_T *rettv);
+***************
+*** 629,634 ****
+--- 632,638 ----
+      {"diff_filler",	1, 1, f_diff_filler},
+      {"diff_hlID",	2, 2, f_diff_hlID},
+      {"empty",		1, 1, f_empty},
++     {"environ",		0, 0, f_environ},
+      {"escape",		2, 2, f_escape},
+      {"eval",		1, 1, f_eval},
+      {"eventhandler",	0, 0, f_eventhandler},
+***************
+*** 681,686 ****
+--- 685,691 ----
+  #endif
+      {"getcurpos",	0, 0, f_getcurpos},
+      {"getcwd",		0, 2, f_getcwd},
++     {"getenv",		1, 1, f_getenv},
+      {"getfontname",	0, 1, f_getfontname},
+      {"getfperm",	1, 1, f_getfperm},
+      {"getfsize",	1, 1, f_getfsize},
+***************
+*** 873,878 ****
+--- 878,884 ----
+      {"setbufvar",	3, 3, f_setbufvar},
+      {"setcharsearch",	1, 1, f_setcharsearch},
+      {"setcmdpos",	1, 1, f_setcmdpos},
++     {"setenv",		2, 2, f_setenv},
+      {"setfperm",	2, 2, f_setfperm},
+      {"setline",		2, 2, f_setline},
+      {"setloclist",	2, 4, f_setloclist},
+***************
+*** 3340,3345 ****
+--- 3346,3404 ----
+  }
+  
+  /*
++  * "environ()" function
++  */
++     static void
++ f_environ(typval_T *argvars UNUSED, typval_T *rettv)
++ {
++ #if !defined(AMIGA)
++     int			i = 0;
++     char_u		*entry, *value;
++ # ifdef MSWIN
++     extern wchar_t	**_wenviron;
++ # else
++     extern char		**environ;
++ # endif
++ 
++     if (rettv_dict_alloc(rettv) != OK)
++ 	return;
++ 
++ # ifdef MSWIN
++     if (*_wenviron == NULL)
++ 	return;
++ # else
++     if (*environ == NULL)
++ 	return;
++ # endif
++ 
++     for (i = 0; ; ++i)
++     {
++ # ifdef MSWIN
++ 	short_u		*p;
++ 
++ 	if ((p = (short_u *)_wenviron[i]) == NULL)
++ 	    return;
++ 	entry = utf16_to_enc(p, NULL);
++ # else
++ 	if ((entry = (char_u *)environ[i]) == NULL)
++ 	    return;
++ 	entry = vim_strsave(entry);
++ # endif
++ 	if (entry == NULL) // out of memory
++ 	    return;
++ 	if ((value = vim_strchr(entry, '=')) == NULL)
++ 	{
++ 	    vim_free(entry);
++ 	    continue;
++ 	}
++ 	*value++ = NUL;
++ 	dict_add_string(rettv->vval.v_dict, (char *)entry, value);
++ 	vim_free(entry);
++     }
++ #endif
++ }
++ 
++ /*
+   * "escape({string}, {chars})" function
+   */
+      static void
+***************
+*** 5261,5266 ****
+--- 5320,5346 ----
+  }
+  
+  /*
++  * "getenv()" function
++  */
++     static void
++ f_getenv(typval_T *argvars, typval_T *rettv)
++ {
++     int	    mustfree = FALSE;
++     char_u  *p = vim_getenv(tv_get_string(&argvars[0]), &mustfree);
++ 
++     if (p == NULL)
++     {
++ 	rettv->v_type = VAR_SPECIAL;
++ 	rettv->vval.v_number = VVAL_NULL;
++ 	return;
++     }
++     if (!mustfree)
++ 	p = vim_strsave(p);
++     rettv->vval.v_string = p;
++     rettv->v_type = VAR_STRING;
++ }
++ 
++ /*
+   * "getfontname()" function
+   */
+      static void
+***************
+*** 11425,11430 ****
+--- 11505,11527 ----
+  }
+  
+  /*
++  * "setenv()" function
++  */
++     static void
++ f_setenv(typval_T *argvars, typval_T *rettv UNUSED)
++ {
++     char_u   namebuf[NUMBUFLEN];
++     char_u   valbuf[NUMBUFLEN];
++     char_u  *name = tv_get_string_buf(&argvars[0], namebuf);
++ 
++     if (argvars[1].v_type == VAR_SPECIAL
++ 				      && argvars[1].vval.v_number == VVAL_NULL)
++ 	vim_unsetenv(name);
++     else
++ 	vim_setenv(name, tv_get_string_buf(&argvars[1], valbuf));
++ }
++ 
++ /*
+   * "setfperm({fname}, {mode})" function
+   */
+      static void
+*** ../vim-8.1.1304/src/testdir/Make_all.mak	2019-05-08 21:58:54.446597033 +0200
+--- src/testdir/Make_all.mak	2019-05-09 14:24:07.663891160 +0200
+***************
+*** 104,109 ****
+--- 104,110 ----
+  	test_erasebackword \
+  	test_escaped_glob \
+  	test_eval_stuff \
++ 	test_environ \
+  	test_ex_equal \
+  	test_ex_undo \
+  	test_ex_z \
+***************
+*** 320,325 ****
+--- 321,327 ----
+  	test_digraph.res \
+  	test_display.res \
+  	test_edit.res \
++ 	test_environ.res \
+  	test_erasebackword.res \
+  	test_escaped_glob.res \
+  	test_eval_stuff.res \
+*** ../vim-8.1.1304/src/testdir/test_environ.vim	2019-05-09 14:51:39.467575511 +0200
+--- src/testdir/test_environ.vim	2019-05-09 14:24:07.663891160 +0200
+***************
+*** 0 ****
+--- 1,44 ----
++ scriptencoding utf-8
++ 
++ func Test_environ()
++   unlet! $TESTENV
++   call assert_equal(0, has_key(environ(), 'TESTENV'))
++   let $TESTENV = 'foo'
++   call assert_equal(1, has_key(environ(), 'TESTENV'))
++   let $TESTENV = 'こんにちわ'
++   call assert_equal('こんにちわ', environ()['TESTENV'])
++ endfunc
++ 
++ func Test_getenv()
++   unlet! $TESTENV
++   call assert_equal(v:null, getenv('TESTENV'))
++   let $TESTENV = 'foo'
++   call assert_equal('foo', getenv('TESTENV'))
++ endfunc
++ 
++ func Test_setenv()
++   unlet! $TESTENV
++   call setenv('TEST ENV', 'foo')
++   call assert_equal('foo', getenv('TEST ENV'))
++   call setenv('TEST ENV', v:null)
++   call assert_equal(v:null, getenv('TEST ENV'))
++ endfunc
++ 
++ func Test_external_env()
++   call setenv('FOO', 'HelloWorld')
++   if has('win32')
++     let result = system('echo %FOO%')
++   else
++     let result = system('echo $FOO')
++   endif
++   let result = substitute(result, '[ \r\n]', '', 'g')
++   call assert_equal('HelloWorld', result)
++ 
++   call setenv('FOO', v:null)
++   if has('win32')
++     let result = system('set | grep ^FOO=')
++   else
++     let result = system('env | grep ^FOO=')
++   endif
++   call assert_equal('', result)
++ endfunc
+*** ../vim-8.1.1304/src/version.c	2019-05-09 14:14:37.094870868 +0200
+--- src/version.c	2019-05-09 14:51:47.387535281 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1305,
+  /**/
+
+-- 
+JOHN CLEESE PLAYED: SECOND SOLDIER WITH A KEEN INTEREST IN BIRDS, LARGE MAN
+                    WITH DEAD BODY, BLACK KNIGHT, MR NEWT (A VILLAGE
+                    BLACKSMITH INTERESTED IN BURNING WITCHES), A QUITE
+                    EXTRAORDINARILY RUDE FRENCHMAN, TIM THE WIZARD, SIR
+                    LAUNCELOT
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

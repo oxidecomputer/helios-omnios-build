@@ -1,0 +1,164 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1334
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1334
+Problem:    When buffer is hidden "F" in 'shortmess' is not used.
+Solution:   Check the "F" flag in 'shortmess' when the buffer is already
+            loaded. (Jason Franklin)  Add test_getvalue() to be able to test
+            this.
+Files:	    src/buffer.c, src/evalfunc.c, src/testdir/test_options.vim,
+            runtime/doc/eval.txt
+
+
+*** ../vim-8.1.1333/src/buffer.c	2019-04-28 22:25:03.244480028 +0200
+--- src/buffer.c	2019-05-16 20:10:50.813287936 +0200
+***************
+*** 1742,1750 ****
+      }
+      else
+      {
+! 	if (!msg_silent)
+! 	    need_fileinfo = TRUE;	/* display file info after redraw */
+! 	(void)buf_check_timestamp(curbuf, FALSE); /* check if file changed */
+  	curwin->w_topline = 1;
+  #ifdef FEAT_DIFF
+  	curwin->w_topfill = 0;
+--- 1742,1753 ----
+      }
+      else
+      {
+! 	if (!msg_silent && !shortmess(SHM_FILEINFO))
+! 	    need_fileinfo = TRUE;	// display file info after redraw
+! 
+! 	// check if file changed
+! 	(void)buf_check_timestamp(curbuf, FALSE);
+! 
+  	curwin->w_topline = 1;
+  #ifdef FEAT_DIFF
+  	curwin->w_topfill = 0;
+*** ../vim-8.1.1333/src/evalfunc.c	2019-05-14 21:20:32.593441058 +0200
+--- src/evalfunc.c	2019-05-16 20:09:47.749554193 +0200
+***************
+*** 442,447 ****
+--- 442,448 ----
+  static void f_test_alloc_fail(typval_T *argvars, typval_T *rettv);
+  static void f_test_autochdir(typval_T *argvars, typval_T *rettv);
+  static void f_test_feedinput(typval_T *argvars, typval_T *rettv);
++ static void f_test_getvalue(typval_T *argvars, typval_T *rettv);
+  static void f_test_option_not_set(typval_T *argvars, typval_T *rettv);
+  static void f_test_override(typval_T *argvars, typval_T *rettv);
+  static void f_test_refcount(typval_T *argvars, typval_T *rettv);
+***************
+*** 991,996 ****
+--- 992,998 ----
+      {"test_autochdir",	0, 0, f_test_autochdir},
+      {"test_feedinput",	1, 1, f_test_feedinput},
+      {"test_garbagecollect_now",	0, 0, f_test_garbagecollect_now},
++     {"test_getvalue",	1, 1, f_test_getvalue},
+      {"test_ignore_error",	1, 1, f_test_ignore_error},
+      {"test_null_blob",	0, 0, f_test_null_blob},
+  #ifdef FEAT_JOB_CHANNEL
+***************
+*** 14413,14418 ****
+--- 14415,14439 ----
+  }
+  
+  /*
++  * "test_getvalue({name})" function
++  */
++     static void
++ f_test_getvalue(typval_T *argvars, typval_T *rettv)
++ {
++     if (argvars[0].v_type != VAR_STRING)
++ 	emsg(_(e_invarg));
++     else
++     {
++ 	char_u *name = tv_get_string(&argvars[0]);
++ 
++ 	if (STRCMP(name, (char_u *)"need_fileinfo") == 0)
++ 	    rettv->vval.v_number = need_fileinfo;
++ 	else
++ 	    semsg(_(e_invarg2), name);
++     }
++ }
++ 
++ /*
+   * "test_option_not_set({name})" function
+   */
+      static void
+*** ../vim-8.1.1333/src/testdir/test_options.vim	2019-04-03 22:52:30.112905530 +0200
+--- src/testdir/test_options.vim	2019-05-16 20:09:36.533601448 +0200
+***************
+*** 470,482 ****
+--- 470,488 ----
+    call assert_match('file2', execute('bn', ''))
+    set shortmess+=F
+    call assert_true(empty(execute('bn', '')))
++   call assert_false(test_getvalue('need_fileinfo'))
+    call assert_true(empty(execute('bn', '')))
++   call assert_false(test_getvalue('need_fileinfo'))
+    set hidden
+    call assert_true(empty(execute('bn', '')))
++   call assert_false(test_getvalue('need_fileinfo'))
+    call assert_true(empty(execute('bn', '')))
++   call assert_false(test_getvalue('need_fileinfo'))
+    set nohidden
+    call assert_true(empty(execute('bn', '')))
++   call assert_false(test_getvalue('need_fileinfo'))
+    call assert_true(empty(execute('bn', '')))
++   call assert_false(test_getvalue('need_fileinfo'))
+    set shortmess&
+    call assert_match('file1', execute('bn', ''))
+    call assert_match('file2', execute('bn', ''))
+*** ../vim-8.1.1333/runtime/doc/eval.txt	2019-05-14 21:20:32.597441034 +0200
+--- runtime/doc/eval.txt	2019-05-16 20:07:50.766045098 +0200
+***************
+*** 2701,2706 ****
+--- 2701,2707 ----
+  test_autochdir()		none	enable 'autochdir' during startup
+  test_feedinput({string})	none	add key sequence to input buffer
+  test_garbagecollect_now()	none	free memory right now for testing
++ test_getvalue({string})		any	get value of an internal variable
+  test_ignore_error({expr})	none	ignore a specific error
+  test_null_blob()		Blob	null value for testing
+  test_null_channel()		Channel	null value for testing
+***************
+*** 9894,9899 ****
+--- 9895,9905 ----
+  		internally, and |v:testing| must have been set before calling
+  		any function.
+  
++ test_getvalue({name})					*test_getvalue()*
++ 		Get the value of an internal variable.  These values for
++ 		{name} are supported:
++ 			need_fileinfo
++ 
+  test_ignore_error({expr})			 *test_ignore_error()*
+  		Ignore any error containing {expr}.  A normal message is given
+  		instead.
+*** ../vim-8.1.1333/src/version.c	2019-05-15 22:45:33.956067651 +0200
+--- src/version.c	2019-05-16 20:28:12.980254008 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1334,
+  /**/
+
+-- 
+Eye have a spelling checker, it came with my PC;
+It plainly marks four my revue mistakes I cannot sea.
+I've run this poem threw it, I'm sure your please to no,
+It's letter perfect in it's weigh, my checker tolled me sew!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

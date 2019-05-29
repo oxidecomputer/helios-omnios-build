@@ -1,0 +1,128 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1389
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1389
+Problem:    Changes are not flushed when end and start overlap. (Paul Jolly)
+Solution:   When end of a previous changes overlaps with start of a new
+            change, first flush listeners.
+Files:	    src/change.c, src/testdir/test_listener.vim
+
+
+*** ../vim-8.1.1388/src/change.c	2019-05-24 19:38:59.096545552 +0200
+--- src/change.c	2019-05-24 21:34:33.627803910 +0200
+***************
+*** 172,187 ****
+      if (buf->b_recorded_changes != NULL && xtra != 0)
+      {
+  	listitem_T *li;
+! 	linenr_T    nr;
+  
+  	for (li = buf->b_recorded_changes->lv_first; li != NULL;
+  							      li = li->li_next)
+  	{
+! 	    nr = (linenr_T)dict_get_number(
+  				      li->li_tv.vval.v_dict, (char_u *)"lnum");
+! 	    if (nr >= lnum || nr > lnume)
+  	    {
+! 		if (li->li_next == NULL && lnum == nr
+  			&& col + 1 == (colnr_T)dict_get_number(
+  				      li->li_tv.vval.v_dict, (char_u *)"col"))
+  		{
+--- 172,191 ----
+      if (buf->b_recorded_changes != NULL && xtra != 0)
+      {
+  	listitem_T *li;
+! 	linenr_T    prev_lnum;
+! 	linenr_T    prev_lnume;
+  
+  	for (li = buf->b_recorded_changes->lv_first; li != NULL;
+  							      li = li->li_next)
+  	{
+! 	    prev_lnum = (linenr_T)dict_get_number(
+  				      li->li_tv.vval.v_dict, (char_u *)"lnum");
+! 	    prev_lnume = (linenr_T)dict_get_number(
+! 				       li->li_tv.vval.v_dict, (char_u *)"end");
+! 	    if (prev_lnum >= lnum || prev_lnum > lnume
+! 		    || (prev_lnume >= lnum && xtra != 0))
+  	    {
+! 		if (li->li_next == NULL && lnum == prev_lnum
+  			&& col + 1 == (colnr_T)dict_get_number(
+  				      li->li_tv.vval.v_dict, (char_u *)"col"))
+  		{
+***************
+*** 195,202 ****
+  							  (char_u *)"end", -1);
+  			if (di != NULL)
+  			{
+! 			    nr = tv_get_number(&di->di_tv);
+! 			    if (lnume > nr)
+  				di->di_tv.vval.v_number = lnume;
+  			}
+  			di = dict_find(li->li_tv.vval.v_dict,
+--- 199,206 ----
+  							  (char_u *)"end", -1);
+  			if (di != NULL)
+  			{
+! 			    prev_lnum = tv_get_number(&di->di_tv);
+! 			    if (lnume > prev_lnum)
+  				di->di_tv.vval.v_number = lnume;
+  			}
+  			di = dict_find(li->li_tv.vval.v_dict,
+*** ../vim-8.1.1388/src/testdir/test_listener.vim	2019-05-16 22:11:43.715228803 +0200
+--- src/testdir/test_listener.vim	2019-05-24 21:37:12.034786897 +0200
+***************
+*** 187,192 ****
+--- 187,203 ----
+  	\ {'lnum': 4, 'end': 5, 'col': 1, 'added': -1},
+  	\ {'lnum': 6, 'end': 6, 'col': 1, 'added': 1}], s:list)
+  
++   " split a line then insert one, should get two disconnected change lists
++   call setline(1, 'split here')
++   call listener_flush()
++   let s:list = []
++   exe "normal 1ggwi\<CR>\<Esc>"
++   1
++   normal o
++   call assert_equal([{'lnum': 1, 'end': 2, 'col': 7, 'added': 1}], s:list)
++   call listener_flush()
++   call assert_equal([{'lnum': 2, 'end': 2, 'col': 1, 'added': 1}], s:list)
++ 
+    call listener_remove(id)
+    bwipe!
+  endfunc
+*** ../vim-8.1.1388/src/version.c	2019-05-24 21:22:25.672809688 +0200
+--- src/version.c	2019-05-24 21:30:04.381573735 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1389,
+  /**/
+
+-- 
+Now it is such a bizarrely improbable coincidence that anything as
+mind-bogglingly useful as the Babel fish could have evolved purely by chance
+that some thinkers have chosen to see it as a final and clinching proof of the
+NON-existence of God.
+The argument goes something like this: 'I refuse to prove that I exist,' says
+God, 'for proof denies faith, and without faith I am nothing.'
+'But,' says Man, 'the Babel fish is a dead giveaway, isn't it?  It could not
+have evolved by chance.  It proves you exist, and so therefore, by your own
+arguments, you don't.  QED.'
+'Oh dear,' says God, 'I hadn't thought of that,' and promptly vanishes in a
+puff of logic.
+'Oh, that was easy,' says Man, and for an encore goes on to prove that black
+is white and gets himself killed on the next pedestrian crossing.
+		-- Douglas Adams, "The Hitchhiker's Guide to the Galaxy"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

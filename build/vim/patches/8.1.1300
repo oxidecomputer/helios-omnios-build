@@ -1,0 +1,149 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1300
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1300
+Problem:    In a terminal 'ballooneval' does not work right away.
+Solution:   Flush output after drawing the balloon.  Add the <Ignore> key
+            code.  Add a test.
+Files:	    src/ex_cmds2.c, src/testdir/test_balloon.vim, src/misc2.c,
+            src/testdir/Make_all.mak,
+            src/testdir/dumps/Test_balloon_eval_term_01.dump
+
+
+*** ../vim-8.1.1299/src/ex_cmds2.c	2019-05-04 15:05:24.927269310 +0200
+--- src/ex_cmds2.c	2019-05-08 21:53:14.976434811 +0200
+***************
+*** 229,234 ****
+--- 229,237 ----
+  static timer_T	*first_timer = NULL;
+  static long	last_timer_id = 0;
+  
++ /*
++  * Return time left until "due".  Negative if past "due".
++  */
+      long
+  proftime_time_left(proftime_T *due, proftime_T *now)
+  {
+***************
+*** 445,451 ****
+--- 448,458 ----
+  		balloonEvalForTerm = TRUE;
+  	    }
+  	    if (balloonEval != NULL)
++ 	    {
+  		general_beval_cb(balloonEval, 0);
++ 		setcursor();
++ 		out_flush();
++ 	    }
+  	}
+  	else if (next_due == -1 || next_due > this_due)
+  	    next_due = this_due;
+*** ../vim-8.1.1299/src/testdir/test_balloon.vim	2019-05-08 21:58:18.422791080 +0200
+--- src/testdir/test_balloon.vim	2019-05-08 21:56:15.599454145 +0200
+***************
+*** 0 ****
+--- 1,32 ----
++ " Tests for 'balloonevalterm'.
++ 
++ if !has('balloon_eval_term') || has('gui_running')
++   finish
++ endif
++ 
++ source screendump.vim
++ if !CanRunVimInTerminal()
++   finish
++ endif
++ 
++ func Test_balloon_eval_term()
++   call writefile([
++ 	\ 'call setline(1, ["one one one", "two tXo two", "three three three"])',
++ 	\ 'set balloonevalterm balloonexpr=MyBalloonExpr() balloondelay=100',
++ 	\ 'func MyBalloonExpr()',
++ 	\ ' return "line " . v:beval_lnum . " column " . v:beval_col',
++ 	\ 'endfun',
++ 	\ 'redraw',
++ 	\ 'call test_setmouse(2, 6)',
++ 	\ 'call feedkeys("\<MouseMove>\<Ignore>", "xt")',
++ 	\ ], 'XTest_beval')
++ 
++   " Check that the balloon shows up
++   let buf = RunVimInTerminal('-S XTest_beval', {'rows': 10, 'cols': 50})
++   call term_wait(buf, 100)
++   call VerifyScreenDump(buf, 'Test_balloon_eval_term_01', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XTest_beval')
++ endfunc
+*** ../vim-8.1.1299/src/misc2.c	2019-05-03 23:15:34.048180407 +0200
+--- src/misc2.c	2019-05-08 21:39:12.545192758 +0200
+***************
+*** 2496,2501 ****
+--- 2496,2502 ----
+  #endif
+      {K_PLUG,		(char_u *)"Plug"},
+      {K_CURSORHOLD,	(char_u *)"CursorHold"},
++     {K_IGNORE,		(char_u *)"Ignore"},
+      {0,			NULL}
+      /* NOTE: When adding a long name update MAX_KEY_NAME_LEN. */
+  };
+*** ../vim-8.1.1299/src/testdir/Make_all.mak	2019-05-06 21:59:42.194211119 +0200
+--- src/testdir/Make_all.mak	2019-05-08 21:24:00.426433475 +0200
+***************
+*** 68,73 ****
+--- 68,74 ----
+  	test_autoload \
+  	test_backspace_opt \
+  	test_backup \
++ 	test_balloon \
+  	test_behave \
+  	test_blob \
+  	test_blockedit \
+***************
+*** 294,299 ****
+--- 295,301 ----
+  	test_autocmd.res \
+  	test_autoload.res \
+  	test_backspace_opt.res \
++ 	test_balloon.res \
+  	test_blob.res \
+  	test_blockedit.res \
+  	test_breakindent.res \
+*** ../vim-8.1.1299/src/testdir/dumps/Test_balloon_eval_term_01.dump	2019-05-08 21:58:18.434791015 +0200
+--- src/testdir/dumps/Test_balloon_eval_term_01.dump	2019-05-08 21:56:22.407417328 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >o+0&#ffffff0|n|e| |o|n|e| |o|n|e| @38
++ @2|o| |t|X|o| |t|w|o| @38
++ |t|h|r|e| +0#0000001#ffd7ff255@16| +0#0000000#ffffff0@28
++ |~+0#4040ff13&| @2| +0#0000001#ffd7ff255|l|i|n|e| |2| |c|o|l|u|m|n| |6| | +0#4040ff13#ffffff0@28
++ |~| @2| +0#0000001#ffd7ff255@16| +0#4040ff13#ffffff0@28
++ |~| @48
++ |~| @48
++ |~| @48
++ |~| @48
++ | +0#0000000&@31|1|,|1| @10|A|l@1| 
+*** ../vim-8.1.1299/src/version.c	2019-05-08 20:20:42.596141850 +0200
+--- src/version.c	2019-05-08 21:07:47.886462766 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1300,
+  /**/
+
+-- 
+SIGIRO -- irony detected (iron core dumped)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

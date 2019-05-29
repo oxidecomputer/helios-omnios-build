@@ -1,0 +1,431 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1341
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1341
+Problem:    Text properties are lost when joining lines.
+Solution:   Move the text properties to the joined line.
+Files:	    src/ops.c, src/textprop.c, src/proto/textprop.pro,
+            src/testdir/test_textprop.vim,
+            src/testdir/dumps/Test_textprop_01.dump
+
+
+*** ../vim-8.1.1340/src/ops.c	2019-04-27 22:06:33.348200718 +0200
+--- src/ops.c	2019-05-17 16:42:27.190882289 +0200
+***************
+*** 1211,1217 ****
+      int		retval = OK;
+      int		remap;
+  
+!     if (regname == '@')			/* repeat previous one */
+      {
+  	if (execreg_lastc == NUL)
+  	{
+--- 1211,1218 ----
+      int		retval = OK;
+      int		remap;
+  
+!     // repeat previous one
+!     if (regname == '@')
+      {
+  	if (execreg_lastc == NUL)
+  	{
+***************
+*** 1220,1226 ****
+  	}
+  	regname = execreg_lastc;
+      }
+! 					/* check for valid regname */
+      if (regname == '%' || regname == '#' || !valid_yank_reg(regname, FALSE))
+      {
+  	emsg_invreg(regname);
+--- 1221,1227 ----
+  	}
+  	regname = execreg_lastc;
+      }
+!     // check for valid regname
+      if (regname == '%' || regname == '#' || !valid_yank_reg(regname, FALSE))
+      {
+  	emsg_invreg(regname);
+***************
+*** 1232,1242 ****
+      regname = may_get_selection(regname);
+  #endif
+  
+!     if (regname == '_')			/* black hole: don't stuff anything */
+  	return OK;
+  
+  #ifdef FEAT_CMDHIST
+!     if (regname == ':')			/* use last command line */
+      {
+  	if (last_cmdline == NULL)
+  	{
+--- 1233,1245 ----
+      regname = may_get_selection(regname);
+  #endif
+  
+!     // black hole: don't stuff anything
+!     if (regname == '_')
+  	return OK;
+  
+  #ifdef FEAT_CMDHIST
+!     // use last command line
+!     if (regname == ':')
+      {
+  	if (last_cmdline == NULL)
+  	{
+***************
+*** 4438,4444 ****
+  				  && has_format_option(FO_REMOVE_COMS);
+      int		prev_was_comment;
+  #endif
+! 
+  
+      if (save_undo && u_save((linenr_T)(curwin->w_cursor.lnum - 1),
+  			    (linenr_T)(curwin->w_cursor.lnum + count)) == FAIL)
+--- 4441,4450 ----
+  				  && has_format_option(FO_REMOVE_COMS);
+      int		prev_was_comment;
+  #endif
+! #ifdef FEAT_TEXT_PROP
+!     textprop_T	**prop_lines = NULL;
+!     int		*prop_lengths = NULL;
+! #endif
+  
+      if (save_undo && u_save((linenr_T)(curwin->w_cursor.lnum - 1),
+  			    (linenr_T)(curwin->w_cursor.lnum + count)) == FAIL)
+***************
+*** 4463,4470 ****
+  #endif
+  
+      /*
+!      * Don't move anything, just compute the final line length
+       * and setup the array of space strings lengths
+       */
+      for (t = 0; t < count; ++t)
+      {
+--- 4469,4477 ----
+  #endif
+  
+      /*
+!      * Don't move anything yet, just compute the final line length
+       * and setup the array of space strings lengths
++      * This loops forward over the joined lines.
+       */
+      for (t = 0; t < count; ++t)
+      {
+***************
+*** 4556,4563 ****
+--- 4563,4586 ----
+      cend = newp + sumsize;
+      *cend = 0;
+  
++ #ifdef FEAT_TEXT_PROP
++     // We need to move properties of the lines that are going to be deleted to
++     // the new long one.
++     if (curbuf->b_has_textprop && !text_prop_frozen)
++     {
++ 	// Allocate an array to copy the text properties of joined lines into.
++ 	// And another array to store the number of properties in each line.
++ 	prop_lines = (textprop_T **)alloc_clear(
++ 				      (int)(count - 1) * sizeof(textprop_T *));
++ 	prop_lengths = (int *)alloc_clear((int)(count - 1) * sizeof(int));
++ 	if (prop_lengths == NULL)
++ 	    VIM_CLEAR(prop_lines);
++     }
++ #endif
++ 
+      /*
+       * Move affected lines to the new long one.
++      * This loops backwards over the joined lines, including the original line.
+       *
+       * Move marks from each deleted line to the joined line, adjusting the
+       * column.  This is not Vi compatible, but Vi deletes the marks, thus that
+***************
+*** 4583,4590 ****
+  			 (long)(cend - newp - spaces_removed), spaces_removed);
+  	if (t == 0)
+  	    break;
+  	curr = curr_start = ml_get((linenr_T)(curwin->w_cursor.lnum + t - 1));
+! #if defined(FEAT_COMMENTS) || defined(PROTO)
+  	if (remove_comments)
+  	    curr += comments[t - 1];
+  #endif
+--- 4606,4620 ----
+  			 (long)(cend - newp - spaces_removed), spaces_removed);
+  	if (t == 0)
+  	    break;
++ #ifdef FEAT_TEXT_PROP
++ 	if (prop_lines != NULL)
++ 	    adjust_props_for_join(curwin->w_cursor.lnum + t,
++ 				      prop_lines + t - 1, prop_lengths + t - 1,
++ 			 (long)(cend - newp - spaces_removed), spaces_removed);
++ #endif
++ 
+  	curr = curr_start = ml_get((linenr_T)(curwin->w_cursor.lnum + t - 1));
+! #if defined(FEAT_COMMENTS)
+  	if (remove_comments)
+  	    curr += comments[t - 1];
+  #endif
+***************
+*** 4592,4598 ****
+  	    curr = skipwhite(curr);
+  	currsize = (int)STRLEN(curr);
+      }
+!     ml_replace(curwin->w_cursor.lnum, newp, FALSE);
+  
+      if (setmark)
+      {
+--- 4622,4635 ----
+  	    curr = skipwhite(curr);
+  	currsize = (int)STRLEN(curr);
+      }
+! 
+! #ifdef FEAT_TEXT_PROP
+!     if (prop_lines != NULL)
+! 	join_prop_lines(curwin->w_cursor.lnum, newp,
+! 					      prop_lines, prop_lengths, count);
+!     else
+! #endif
+! 	ml_replace(curwin->w_cursor.lnum, newp, FALSE);
+  
+      if (setmark)
+      {
+***************
+*** 4605,4611 ****
+       * the deleted line. */
+      changed_lines(curwin->w_cursor.lnum, currsize,
+  					       curwin->w_cursor.lnum + 1, 0L);
+- 
+      /*
+       * Delete following lines. To do this we move the cursor there
+       * briefly, and then move it back. After del_lines() the cursor may
+--- 4642,4647 ----
+*** ../vim-8.1.1340/src/textprop.c	2019-05-17 13:05:03.795770160 +0200
+--- src/textprop.c	2019-05-17 19:31:14.135899352 +0200
+***************
+*** 13,20 ****
+   * TODO:
+   * - Adjust text property column and length when text is inserted/deleted.
+   *   -> a :substitute with a multi-line match
+-  *   -> join two lines, also with BS in Insert mode
+   *   -> search for changed_bytes() from misc1.c
+   * - Perhaps we only need TP_FLAG_CONT_NEXT and can drop TP_FLAG_CONT_PREV?
+   * - Add an arrray for global_proptypes, to quickly lookup a prop type by ID
+   * - Add an arrray for b_proptypes, to quickly lookup a prop type by ID
+--- 13,20 ----
+   * TODO:
+   * - Adjust text property column and length when text is inserted/deleted.
+   *   -> a :substitute with a multi-line match
+   *   -> search for changed_bytes() from misc1.c
++  *   -> search for mark_col_adjust()
+   * - Perhaps we only need TP_FLAG_CONT_NEXT and can drop TP_FLAG_CONT_PREV?
+   * - Add an arrray for global_proptypes, to quickly lookup a prop type by ID
+   * - Add an arrray for b_proptypes, to quickly lookup a prop type by ID
+***************
+*** 1097,1100 ****
+--- 1097,1205 ----
+      ga_clear(&nextprop);
+  }
+  
++ /*
++  * Line "lnum" has been joined and will end up at column "col" in the new line.
++  * "removed" bytes have been removed from the start of the line, properties
++  * there are to be discarded.
++  * Move the adjusted text properties to an allocated string, store it in
++  * "prop_line" and adjust the columns.
++  */
++     void
++ adjust_props_for_join(
++ 	linenr_T    lnum,
++ 	textprop_T  **prop_line,
++ 	int	    *prop_length,
++ 	long	    col,
++ 	int	    removed)
++ {
++     int		proplen;
++     char_u	*props;
++     int		ri;
++     int		wi = 0;
++ 
++     proplen = get_text_props(curbuf, lnum, &props, FALSE);
++     if (proplen > 0)
++     {
++ 	*prop_line = (textprop_T *)alloc(proplen * (int)sizeof(textprop_T));
++ 	if (*prop_line != NULL)
++ 	{
++ 	    for (ri = 0; ri < proplen; ++ri)
++ 	    {
++ 		textprop_T *cp = *prop_line + wi;
++ 
++ 		mch_memmove(cp, props + ri * sizeof(textprop_T),
++ 							   sizeof(textprop_T));
++ 		if (cp->tp_col + cp->tp_len > removed)
++ 		{
++ 		    if (cp->tp_col > removed)
++ 			cp->tp_col += col;
++ 		    else
++ 		    {
++ 			// property was partly deleted, make it shorter
++ 			cp->tp_len -= removed - cp->tp_col;
++ 			cp->tp_col = col;
++ 		    }
++ 		    ++wi;
++ 		}
++ 	    }
++ 	}
++ 	*prop_length = wi;
++     }
++ }
++ 
++ /*
++  * After joining lines: concatenate the text and the properties of all joined
++  * lines into one line and replace the line.
++  */
++     void
++ join_prop_lines(
++ 	linenr_T    lnum,
++ 	char_u	    *newp,
++ 	textprop_T  **prop_lines,
++ 	int	    *prop_lengths,
++ 	int	    count)
++ {
++     size_t	proplen = 0;
++     size_t	oldproplen;
++     char_u	*props;
++     int		i;
++     int		len;
++     char_u	*line;
++     size_t	l;
++ 
++     for (i = 0; i < count - 1; ++i)
++ 	proplen += prop_lengths[i];
++     if (proplen == 0)
++     {
++ 	ml_replace(lnum, newp, FALSE);
++ 	return;
++     }
++ 
++     // get existing properties of the joined line
++     oldproplen = get_text_props(curbuf, lnum, &props, FALSE);
++ 
++     len = (int)STRLEN(newp) + 1;
++     line = alloc(len + (oldproplen + proplen) * (int)sizeof(textprop_T));
++     if (line == NULL)
++ 	return;
++     mch_memmove(line, newp, len);
++     l = oldproplen * sizeof(textprop_T);
++     mch_memmove(line + len, props, l);
++     len += l;
++ 
++     for (i = 0; i < count - 1; ++i)
++ 	if (prop_lines[i] != NULL)
++ 	{
++ 	    l = prop_lengths[i] * sizeof(textprop_T);
++ 	    mch_memmove(line + len, prop_lines[i], l);
++ 	    len += l;
++ 	    vim_free(prop_lines[i]);
++ 	}
++ 
++     ml_replace_len(lnum, line, len, TRUE, FALSE);
++     vim_free(newp);
++     vim_free(prop_lines);
++     vim_free(prop_lengths);
++ }
++ 
+  #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.1340/src/proto/textprop.pro	2019-05-15 22:45:33.956067651 +0200
+--- src/proto/textprop.pro	2019-05-17 16:55:50.965270535 +0200
+***************
+*** 15,18 ****
+--- 15,20 ----
+  void clear_buf_prop_types(buf_T *buf);
+  void adjust_prop_columns(linenr_T lnum, colnr_T col, int bytes_added);
+  void adjust_props_for_split(linenr_T lnum_props, linenr_T lnum_top, int kept, int deleted);
++ void adjust_props_for_join(linenr_T lnum, textprop_T **prop_line, int *prop_length, long col, int removed);
++ void join_prop_lines(linenr_T lnum, char_u *newp, textprop_T **prop_lines, int *prop_lengths, int count);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1340/src/testdir/test_textprop.vim	2019-05-17 13:05:03.795770160 +0200
+--- src/testdir/test_textprop.vim	2019-05-17 19:34:08.751016230 +0200
+***************
+*** 624,629 ****
+--- 624,633 ----
+  	\	.. "'Numbér 123 änd thœn 4¾7.',"
+  	\	.. "'--aa--bb--cc--dd--',"
+  	\	.. "'// comment with error in it',"
++ 	\	.. "'first line',"
++ 	\	.. "'  second line  ',"
++ 	\	.. "'third line',"
++ 	\	.. "'   fourth line',"
+  	\	.. "])",
+  	\ "hi NumberProp ctermfg=blue",
+  	\ "hi LongProp ctermbg=yellow",
+***************
+*** 645,650 ****
+--- 649,658 ----
+  	\ "call prop_add(3, 15, {'length': 2, 'type': 'both'})",
+  	\ "call prop_add(4, 12, {'length': 10, 'type': 'background'})",
+  	\ "call prop_add(4, 17, {'length': 5, 'type': 'error'})",
++ 	\ "call prop_add(5, 7, {'length': 4, 'type': 'long'})",
++ 	\ "call prop_add(6, 1, {'length': 8, 'type': 'long'})",
++ 	\ "call prop_add(8, 1, {'length': 1, 'type': 'long'})",
++ 	\ "call prop_add(8, 11, {'length': 4, 'type': 'long'})",
+  	\ "set number cursorline",
+  	\ "hi clear SpellBad",
+  	\ "set spell",
+***************
+*** 652,659 ****
+  	\ "hi Comment ctermfg=green",
+  	\ "normal 3G0llix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>",
+  	\ "normal 3G0lli\<BS>\<Esc>",
+  	\], 'XtestProp')
+!   let buf = RunVimInTerminal('-S XtestProp', {'rows': 7})
+    call VerifyScreenDump(buf, 'Test_textprop_01', {})
+  
+    " clean up
+--- 660,670 ----
+  	\ "hi Comment ctermfg=green",
+  	\ "normal 3G0llix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>lllix\<Esc>",
+  	\ "normal 3G0lli\<BS>\<Esc>",
++ 	\ "normal 6G0i\<BS>\<Esc>",
++ 	\ "normal 3J",
++ 	\ "normal 3G",
+  	\], 'XtestProp')
+!   let buf = RunVimInTerminal('-S XtestProp', {'rows': 8})
+    call VerifyScreenDump(buf, 'Test_textprop_01', {})
+  
+    " clean up
+*** ../vim-8.1.1340/src/testdir/dumps/Test_textprop_01.dump	2019-05-17 13:05:03.795770160 +0200
+--- src/testdir/dumps/Test_textprop_01.dump	2019-05-17 19:34:56.874772440 +0200
+***************
+*** 2,7 ****
+--- 2,8 ----
+  | +0#af5f00255&@1|2| |N+0#0000000#ffff4012|u|m|b|é|r| |1+0#4040ff13&|2|3| +0#0000000&|ä|n|d| |t|h|œ|n| |4+0#4040ff13&|¾|7|.+0#0000000&| +0&#ffffff0@46
+  | +0#af5f00255&@1|3| >-+8#0000000#ffff4012|x+8&#ffffff0|a+8#4040ff13&@1|x+8#0000000&|-@1|x+8#4040ff13&|b@1|x+8#0000000&|-@1|x|c+8#4040ff13&@1|x|-+8#0000000&@1|x+8#4040ff13&|d@1|x|-+8#0000000&@1| @45
+  | +0#af5f00255&@1|4| |/+0#40ff4011&@1| |c|o|m@1|e|n|t| |w+0&#e0e0e08|i|t|h| |e+8&&|r@1|o|r| +0&#ffffff0|i|n| |i|t| +0#0000000&@43
++ | +0#af5f00255&@1|5| |f+0#0000000&|i|r|s|t| |l+0&#ffff4012|i|n|e| @1|s|e|c|o|n|d| +0&#ffffff0|l|i|n|e| @1|t|h|i|r|d| |l|i|n|e| |f|o|u|r|t|h| |l+0&#ffff4012|i|n|e| +0&#ffffff0@23
+  |~+0#4040ff13&| @73
+  |~| @73
+  | +0#0000000&@56|3|,|1| @10|A|l@1| 
+*** ../vim-8.1.1340/src/version.c	2019-05-17 13:05:03.795770160 +0200
+--- src/version.c	2019-05-17 19:35:36.942569315 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1341,
+  /**/
+
+-- 
+Lower life forms have more fun!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

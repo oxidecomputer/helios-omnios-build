@@ -1,0 +1,275 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1354
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1354
+Problem:    Getting a list of text lines is clumsy.
+Solution:   Add the =<< assignment. (Yegappan Lakshmanan, closes #4386)
+Files:	    runtime/doc/eval.txt, src/eval.c, src/testdir/test_let.vim
+
+
+*** ../vim-8.1.1353/runtime/doc/eval.txt	2019-05-16 20:29:40.799834279 +0200
+--- runtime/doc/eval.txt	2019-05-19 18:32:00.400895195 +0200
+***************
+*** 11416,11421 ****
+--- 11416,11459 ----
+  			Like above, but append/add/subtract the value for each
+  			|List| item.
+  
++ 					*:let=<<* *:let-heredoc* *E990* *E991*
++ :let {var-name} =<< [trim] {marker}
++ text...
++ text...
++ {marker}
++ 			Set internal variable {var-name} to a List containing
++ 			the lines of text bounded by the string {marker}.
++ 			{marker} must not contain white space.
++ 			The last line should end only with the {marker} string
++ 			without any other character.  Watch out for white
++ 			space after {marker}!
++ 			If {marker} is not supplied, then "." is used as the
++ 			default marker.
++ 
++ 			Any white space characters in the lines of text are
++ 			preserved.  If "trim" is specified before {marker},
++ 			then all the leading indentation exactly matching the
++ 			leading indentation before `let` is stripped from the
++ 			input lines and the line containing {marker}.  Note
++ 			that the difference between space and tab matters
++ 			here.
++ 
++ 			If {var-name} didn't exist yet, it is created.
++ 			Cannot be followed by another command, but can be
++ 			followed by a comment.
++ 
++ 			Examples: >
++ 				let var1 =<< END
++ 			Sample text 1
++ 			    Sample text 2
++ 			Sample text 3
++ 			END
++ 
++ 				let data =<< trim DATA
++ 				1 2 3 4
++ 				5 6 7 8
++ 				DATA
++ <
+  								*E121*
+  :let {var-name}	..	List the value of variable {var-name}.  Multiple
+  			variable names may be given.  Special names recognized
+*** ../vim-8.1.1353/src/eval.c	2019-05-11 18:28:41.351611622 +0200
+--- src/eval.c	2019-05-19 18:31:49.948943991 +0200
+***************
+*** 1225,1230 ****
+--- 1225,1326 ----
+  #endif
+  
+  /*
++  * Get a list of lines from a HERE document. The here document is a list of
++  * lines surrounded by a marker.
++  *	cmd << {marker}
++  *	  {line1}
++  *	  {line2}
++  *	  ....
++  *	{marker}
++  *
++  * The {marker} is a string. If the optional 'trim' word is supplied before the
++  * marker, then the leading indentation before the lines (matching the
++  * indentation in the 'cmd' line) is stripped.
++  * Returns a List with {lines} or NULL.
++  */
++     static list_T *
++ heredoc_get(exarg_T *eap, char_u *cmd)
++ {
++     char_u	*theline;
++     char_u	*marker;
++     list_T	*l;
++     char_u	*p;
++     int		indent_len = 0;
++ 
++     if (eap->getline == NULL)
++     {
++ 	emsg(_("E991: cannot use =<< here"));
++ 	return NULL;
++     }
++ 
++     // Check for the optional 'trim' word before the marker
++     cmd = skipwhite(cmd);
++     if (STRNCMP(cmd, "trim", 4) == 0 && (cmd[4] == NUL || VIM_ISWHITE(cmd[4])))
++     {
++ 	cmd = skipwhite(cmd + 4);
++ 
++ 	// Trim the indentation from all the lines in the here document
++ 	// The amount of indentation trimmed is the same as the indentation of
++ 	// the :let command line.
++ 	p = *eap->cmdlinep;
++ 	while (VIM_ISWHITE(*p))
++ 	{
++ 	    p++;
++ 	    indent_len++;
++ 	}
++     }
++ 
++     // The marker is the next word.  Default marker is "."
++     if (*cmd != NUL && *cmd != '"')
++     {
++ 	marker = skipwhite(cmd);
++ 	p = skiptowhite(marker);
++ 	if (*skipwhite(p) != NUL && *skipwhite(p) != '"')
++ 	{
++ 	    emsg(_(e_trailing));
++ 	    return NULL;
++ 	}
++ 	*p = NUL;
++     }
++     else
++ 	marker = (char_u *)".";
++ 
++     l = list_alloc();
++     if (l == NULL)
++ 	return NULL;
++ 
++     for (;;)
++     {
++ 	int	i = 0;
++ 
++ 	theline = eap->getline(NUL, eap->cookie, 0);
++ 	if (theline != NULL && indent_len > 0)
++ 	{
++ 	    // trim the indent matching the first line
++ 	    if (STRNCMP(theline, *eap->cmdlinep, indent_len) == 0)
++ 		i = indent_len;
++ 	}
++ 
++ 	if (theline == NULL)
++ 	{
++ 	    semsg(_("E990: Missing end marker '%s'"), marker);
++ 	    break;
++ 	}
++ 	if (STRCMP(marker, theline + i) == 0)
++ 	{
++ 	    vim_free(theline);
++ 	    break;
++ 	}
++ 
++ 	if (list_append_string(l, theline + i, -1) == FAIL)
++ 	    break;
++ 	vim_free(theline);
++     }
++ 
++     return l;
++ }
++ 
++ /*
+   * ":let"			list all variable values
+   * ":let var1 var2"		list variable values
+   * ":let var = expr"		assignment command.
+***************
+*** 1286,1291 ****
+--- 1382,1403 ----
+  	}
+  	eap->nextcmd = check_nextcmd(arg);
+      }
++     else if (expr[0] == '=' && expr[1] == '<' && expr[2] == '<')
++     {
++ 	list_T	*l;
++ 
++ 	// HERE document
++ 	l = heredoc_get(eap, expr + 3);
++ 	if (l != NULL)
++ 	{
++ 	    rettv_list_set(&rettv, l);
++ 	    op[0] = '=';
++ 	    op[1] = NUL;
++ 	    (void)ex_let_vars(eap->arg, &rettv, FALSE, semicolon, var_count,
++ 									  op);
++ 	    clear_tv(&rettv);
++ 	}
++     }
+      else
+      {
+  	op[0] = '=';
+*** ../vim-8.1.1353/src/testdir/test_let.vim	2019-03-30 20:11:45.749471761 +0100
+--- src/testdir/test_let.vim	2019-05-19 18:34:28.132194698 +0200
+***************
+*** 151,153 ****
+--- 151,207 ----
+    let $a = 'ĀĒĪŌŪあいうえお'
+    call assert_equal('ĀĒĪŌŪあいうえお', $a)
+  endfunc
++ 
++ " Test for the setting a variable using the heredoc syntax
++ func Test_let_heredoc()
++   let var1 =<< END
++ Some sample text
++ 	Text with indent
++   !@#$%^&*()-+_={}|[]\~`:";'<>?,./
++ END
++ 
++   call assert_equal(["Some sample text", "\tText with indent", "  !@#$%^&*()-+_={}|[]\\~`:\";'<>?,./"], var1)
++ 
++   let var2 =<<
++ Editor
++ .
++   call assert_equal(['Editor'], var2)
++ 
++   let var3 =<<END
++ END
++   call assert_equal([], var3)
++ 
++   let var3 =<<END
++ vim
++ 
++ end
++   END
++ END 
++ END
++   call assert_equal(['vim', '', 'end', '  END', 'END '], var3)
++ 
++ 	let var1 =<< trim END
++ 	Line1
++ 	  Line2
++ 		Line3
++ 	 END
++ 	END
++   call assert_equal(['Line1', '  Line2', "\tLine3", ' END'], var1)
++ 
++   let var1 =<< trim
++     Line1
++   .
++   call assert_equal(['  Line1'], var1)
++ 
++   call assert_fails('let v =<< marker', 'E991:')
++   call assert_fails('call WrongSyntax()', 'E488:')
++   call assert_fails('call MissingEnd()', 'E990:')
++ endfunc
++ 
++ func WrongSyntax()
++   let fail =<< that there
++ endfunc
++ 
++ func MissingEnd()
++   let fail =<< END
++ endfunc
+*** ../vim-8.1.1353/src/version.c	2019-05-19 16:38:53.034327682 +0200
+--- src/version.c	2019-05-19 17:34:18.127908356 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1354,
+  /**/
+
+-- 
+Imagine a world without hypothetical situations.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,414 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1138
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1138
+Problem:    Plugins don't get notified when the popup menu changes.
+Solution:   Add the CompleteChanged event. (Andy Massimino. closes #4176)
+Files:	    runtime/doc/autocmd.txt, src/autocmd.c, src/dict.c,
+            src/insexpand.c, src/popupmnu.c, src/proto/autocmd.pro,
+            src/proto/dict.pro, src/proto/popupmnu.pro,
+            src/testdir/test_popup.vim, src/vim.h
+
+
+*** ../vim-8.1.1137/runtime/doc/autocmd.txt	2019-04-04 15:04:32.962792211 +0200
+--- runtime/doc/autocmd.txt	2019-04-08 18:00:41.100946679 +0200
+***************
+*** 365,370 ****
+--- 367,373 ----
+  |SessionLoadPost|	after loading a session file
+  
+  |MenuPopup|		just before showing the popup menu
++ |CompleteChanged|	after Insert mode completion menu changed
+  |CompleteDone|		after Insert mode completion is done
+  
+  |User|			to be used in combination with ":doautocmd"
+***************
+*** 577,583 ****
+--- 580,601 ----
+  ColorSchemePre			Before loading a color scheme. |:colorscheme|
+  				Useful to setup removing things added by a
+  				color scheme, before another one is loaded.
++ CompleteChanged 					*CompleteChanged*
++ 				After each time the Insert mode completion
++ 				menu changed.  Not fired on popup menu hide,
++ 				use |CompleteDone| for that.  Never triggered
++ 				recursively.
++ 
++ 				Sets these |v:event| keys:
++ 				    completed_item
++ 				    height		nr of items visible
++ 				    width		screen cells
++ 				    row			top screen row
++ 				    col			leftmost screen column
++ 				    size		total nr of items
++ 				    scrollbar		TRUE if visible
+  
++ 				It is not allowed to change the text |textlock|.
+  							*CompleteDone*
+  CompleteDone			After Insert mode completion is done.  Either
+  				when something was completed or abandoning
+*** ../vim-8.1.1137/src/autocmd.c	2019-04-04 15:40:53.011337945 +0200
+--- src/autocmd.c	2019-04-08 17:45:52.897440559 +0200
+***************
+*** 112,117 ****
+--- 112,118 ----
+      {"CmdUndefined",	EVENT_CMDUNDEFINED},
+      {"ColorScheme",	EVENT_COLORSCHEME},
+      {"ColorSchemePre",	EVENT_COLORSCHEMEPRE},
++     {"CompleteChanged",	EVENT_COMPLETECHANGED},
+      {"CompleteDone",	EVENT_COMPLETEDONE},
+      {"CursorHold",	EVENT_CURSORHOLD},
+      {"CursorHoldI",	EVENT_CURSORHOLDI},
+***************
+*** 1794,1799 ****
+--- 1795,1811 ----
+  }
+  #endif
+  
++ #if defined(FEAT_EVAL) || defined(PROTO)
++ /*
++  * Return TRUE when there is a CompleteChanged autocommand defined.
++  */
++     int
++ has_completechanged(void)
++ {
++     return (first_autopat[(int)EVENT_COMPLETECHANGED] != NULL);
++ }
++ #endif
++ 
+  /*
+   * Execute autocommands for "event" and file name "fname".
+   * Return TRUE if some commands were executed.
+*** ../vim-8.1.1137/src/dict.c	2019-02-11 22:00:07.667917634 +0100
+--- src/dict.c	2019-04-08 17:45:52.897440559 +0200
+***************
+*** 342,359 ****
+  }
+  
+  /*
+!  * Add a number entry to dictionary "d".
+   * Returns FAIL when out of memory and when key already exists.
+   */
+!     int
+! dict_add_number(dict_T *d, char *key, varnumber_T nr)
+  {
+      dictitem_T	*item;
+  
+      item = dictitem_alloc((char_u *)key);
+      if (item == NULL)
+  	return FAIL;
+!     item->di_tv.v_type = VAR_NUMBER;
+      item->di_tv.vval.v_number = nr;
+      if (dict_add(d, item) == FAIL)
+      {
+--- 342,359 ----
+  }
+  
+  /*
+!  * Add a number or special entry to dictionary "d".
+   * Returns FAIL when out of memory and when key already exists.
+   */
+!     static int
+! dict_add_number_special(dict_T *d, char *key, varnumber_T nr, int special)
+  {
+      dictitem_T	*item;
+  
+      item = dictitem_alloc((char_u *)key);
+      if (item == NULL)
+  	return FAIL;
+!     item->di_tv.v_type = special ? VAR_SPECIAL : VAR_NUMBER;
+      item->di_tv.vval.v_number = nr;
+      if (dict_add(d, item) == FAIL)
+      {
+***************
+*** 364,369 ****
+--- 364,389 ----
+  }
+  
+  /*
++  * Add a number entry to dictionary "d".
++  * Returns FAIL when out of memory and when key already exists.
++  */
++     int
++ dict_add_number(dict_T *d, char *key, varnumber_T nr)
++ {
++     return dict_add_number_special(d, key, nr, FALSE);
++ }
++ 
++ /*
++  * Add a special entry to dictionary "d".
++  * Returns FAIL when out of memory and when key already exists.
++  */
++     int
++ dict_add_special(dict_T *d, char *key, varnumber_T nr)
++ {
++     return dict_add_number_special(d, key, nr, TRUE);
++ }
++ 
++ /*
+   * Add a string entry to dictionary "d".
+   * Returns FAIL when out of memory and when key already exists.
+   */
+*** ../vim-8.1.1137/src/insexpand.c	2019-04-06 14:22:17.754642647 +0200
+--- src/insexpand.c	2019-04-08 18:09:25.454100998 +0200
+***************
+*** 203,208 ****
+--- 203,209 ----
+  static void ins_compl_add_list(list_T *list);
+  static void ins_compl_add_dict(dict_T *dict);
+  # endif
++ static dict_T *ins_compl_dict_alloc(compl_T *match);
+  static int  ins_compl_key2dir(int c);
+  static int  ins_compl_pum_key(int c);
+  static int  ins_compl_key2count(int c);
+***************
+*** 994,999 ****
+--- 995,1031 ----
+      return (i >= 2);
+  }
+  
++     static void
++ trigger_complete_changed_event(int cur)
++ {
++     dict_T	    *v_event;
++     dict_T	    *item;
++     static int	    recursive = FALSE;
++ 
++     if (recursive)
++ 	return;
++ 
++     v_event = get_vim_var_dict(VV_EVENT);
++     if (cur < 0)
++ 	item = dict_alloc();
++     else
++ 	item = ins_compl_dict_alloc(compl_curr_match);
++     if (item == NULL)
++ 	return;
++     dict_add_dict(v_event, "completed_item", item);
++     pum_set_event_info(v_event);
++     dict_set_items_ro(v_event);
++ 
++     recursive = TRUE;
++     textlock++;
++     apply_autocmds(EVENT_COMPLETECHANGED, NULL, NULL, FALSE, curbuf);
++     textlock--;
++     recursive = FALSE;
++ 
++     dict_free_contents(v_event);
++     hash_init(&v_event->dv_hashtab);
++ }
++ 
+  /*
+   * Show the popup menu for the list of matches.
+   * Also adjusts "compl_shown_match" to an entry that is actually displayed.
+***************
+*** 1136,1141 ****
+--- 1168,1176 ----
+  	curwin->w_cursor.col = compl_col;
+  	pum_display(compl_match_array, compl_match_arraysize, cur);
+  	curwin->w_cursor.col = col;
++ 
++ 	if (has_completechanged())
++ 	    trigger_complete_changed_event(cur);
+      }
+  }
+  
+***************
+*** 2899,2921 ****
+  	compl_used_match = FALSE;
+      else
+  	compl_used_match = TRUE;
+  
+-     // Set completed item.
+-     // { word, abbr, menu, kind, info }
+-     dict = dict_alloc_lock(VAR_FIXED);
+      if (dict != NULL)
+      {
+! 	dict_add_string(dict, "word", compl_shown_match->cp_str);
+! 	dict_add_string(dict, "abbr", compl_shown_match->cp_text[CPT_ABBR]);
+! 	dict_add_string(dict, "menu", compl_shown_match->cp_text[CPT_MENU]);
+! 	dict_add_string(dict, "kind", compl_shown_match->cp_text[CPT_KIND]);
+! 	dict_add_string(dict, "info", compl_shown_match->cp_text[CPT_INFO]);
+! 	dict_add_string(dict, "user_data",
+! 				 compl_shown_match->cp_text[CPT_USER_DATA]);
+      }
+!     set_vim_var_dict(VV_COMPLETED_ITEM, dict);
+!     if (!in_compl_func)
+! 	compl_curr_match = compl_shown_match;
+  }
+  
+  /*
+--- 2934,2964 ----
+  	compl_used_match = FALSE;
+      else
+  	compl_used_match = TRUE;
++     dict = ins_compl_dict_alloc(compl_shown_match);
++     set_vim_var_dict(VV_COMPLETED_ITEM, dict);
++     if (!in_compl_func)
++ 	compl_curr_match = compl_shown_match;
++ }
++ 
++ /*
++  * Allocate Dict for the completed item.
++  * { word, abbr, menu, kind, info }
++  */
++     static dict_T *
++ ins_compl_dict_alloc(compl_T *match)
++ {
++     dict_T *dict = dict_alloc_lock(VAR_FIXED);
+  
+      if (dict != NULL)
+      {
+! 	dict_add_string(dict, "word", match->cp_str);
+! 	dict_add_string(dict, "abbr", match->cp_text[CPT_ABBR]);
+! 	dict_add_string(dict, "menu", match->cp_text[CPT_MENU]);
+! 	dict_add_string(dict, "kind", match->cp_text[CPT_KIND]);
+! 	dict_add_string(dict, "info", match->cp_text[CPT_INFO]);
+! 	dict_add_string(dict, "user_data", match->cp_text[CPT_USER_DATA]);
+      }
+!     return dict;
+  }
+  
+  /*
+*** ../vim-8.1.1137/src/popupmnu.c	2019-03-02 10:13:36.796974835 +0100
+--- src/popupmnu.c	2019-04-08 18:05:53.751263571 +0200
+***************
+*** 923,928 ****
+--- 923,944 ----
+      return pum_height;
+  }
+  
++ /*
++  * Add size information about the pum to "dict".
++  */
++     void
++ pum_set_event_info(dict_T *dict)
++ {
++     if (!pum_visible())
++ 	return;
++     dict_add_number(dict, "height", pum_height);
++     dict_add_number(dict, "width", pum_width);
++     dict_add_number(dict, "row", pum_row);
++     dict_add_number(dict, "col", pum_col);
++     dict_add_number(dict, "size", pum_size);
++     dict_add_special(dict, "scrollbar", pum_scrollbar ? VVAL_TRUE : VVAL_FALSE);
++ }
++ 
+  # if defined(FEAT_BEVAL_TERM) || defined(FEAT_TERM_POPUP_MENU) || defined(PROTO)
+      static void
+  pum_position_at_mouse(int min_width)
+*** ../vim-8.1.1137/src/proto/autocmd.pro	2019-01-26 16:20:44.264683546 +0100
+--- src/proto/autocmd.pro	2019-04-08 18:01:19.088781927 +0200
+***************
+*** 26,31 ****
+--- 26,32 ----
+  int has_cmdundefined(void);
+  int has_funcundefined(void);
+  int has_textyankpost(void);
++ int has_completechanged(void);
+  void block_autocmds(void);
+  void unblock_autocmds(void);
+  int is_autocmd_blocked(void);
+*** ../vim-8.1.1137/src/proto/dict.pro	2018-12-26 22:57:37.978550895 +0100
+--- src/proto/dict.pro	2019-04-08 17:45:52.905440501 +0200
+***************
+*** 14,19 ****
+--- 14,20 ----
+  dict_T *dict_copy(dict_T *orig, int deep, int copyID);
+  int dict_add(dict_T *d, dictitem_T *item);
+  int dict_add_number(dict_T *d, char *key, varnumber_T nr);
++ int dict_add_special(dict_T *d, char *key, varnumber_T nr);
+  int dict_add_string(dict_T *d, char *key, char_u *str);
+  int dict_add_string_len(dict_T *d, char *key, char_u *str, int len);
+  int dict_add_list(dict_T *d, char *key, list_T *list);
+*** ../vim-8.1.1137/src/proto/popupmnu.pro	2019-01-17 21:09:02.045706371 +0100
+--- src/proto/popupmnu.pro	2019-04-08 18:06:01.919216971 +0200
+***************
+*** 8,13 ****
+--- 8,14 ----
+  int pum_visible(void);
+  void pum_may_redraw(void);
+  int pum_get_height(void);
++ void pum_set_event_info(dict_T *dict);
+  int split_message(char_u *mesg, pumitem_T **array);
+  void ui_remove_balloon(void);
+  void ui_post_balloon(char_u *mesg, list_T *list);
+*** ../vim-8.1.1137/src/testdir/test_popup.vim	2019-04-06 13:45:51.568756943 +0200
+--- src/testdir/test_popup.vim	2019-04-08 17:45:52.909440473 +0200
+***************
+*** 1029,1032 ****
+--- 1029,1066 ----
+    bwipe!
+  endfunc
+  
++ func Test_CompleteChanged()
++   new
++   call setline(1, ['foo', 'bar', 'foobar', ''])
++   set complete=. completeopt=noinsert,noselect,menuone
++   function! OnPumChange()
++     let g:event = copy(v:event)
++     let g:item = get(v:event, 'completed_item', {})
++     let g:word = get(g:item, 'word', v:null)
++   endfunction
++   augroup AAAAA_Group
++     au!
++     autocmd CompleteChanged * :call OnPumChange()
++   augroup END
++   call cursor(4, 1)
++ 
++   call feedkeys("Sf\<C-N>", 'tx')
++   call assert_equal({'completed_item': {}, 'width': 15,
++         \ 'height': 2, 'size': 2,
++         \ 'col': 0, 'row': 4, 'scrollbar': v:false}, g:event)
++   call feedkeys("a\<C-N>\<C-N>\<C-E>", 'tx')
++   call assert_equal('foo', g:word)
++   call feedkeys("a\<C-N>\<C-N>\<C-N>\<C-E>", 'tx')
++   call assert_equal('foobar', g:word)
++   call feedkeys("a\<C-N>\<C-N>\<C-N>\<C-N>\<C-E>", 'tx')
++   call assert_equal(v:null, g:word)
++   call feedkeys("a\<C-N>\<C-N>\<C-N>\<C-N>\<C-P>", 'tx')
++   call assert_equal('foobar', g:word)
++ 
++   autocmd! AAAAA_Group
++   set complete& completeopt&
++   delfunc! OnPumchange
++   bw!
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1137/src/vim.h	2019-04-02 22:15:51.348273497 +0200
+--- src/vim.h	2019-04-08 17:45:52.909440473 +0200
+***************
+*** 1270,1275 ****
+--- 1270,1276 ----
+      EVENT_CMDWINLEAVE,		// before leaving the cmdline window
+      EVENT_COLORSCHEME,		// after loading a colorscheme
+      EVENT_COLORSCHEMEPRE,	// before loading a colorscheme
++     EVENT_COMPLETECHANGED,	// after completion popup menu changed
+      EVENT_COMPLETEDONE,		// after finishing insert complete
+      EVENT_CURSORHOLD,		// cursor in same position for a while
+      EVENT_CURSORHOLDI,		// idem, in Insert mode
+*** ../vim-8.1.1137/src/version.c	2019-04-07 21:55:03.736116273 +0200
+--- src/version.c	2019-04-08 18:14:25.904569298 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1138,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+230. You spend your Friday nights typing away at your keyboard
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

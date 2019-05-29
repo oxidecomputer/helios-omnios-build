@@ -1,0 +1,320 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1400
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1400
+Problem:    Using global pointer for tab-local popups is clumsy.
+Solution:   Use the pointer in tabpage_T.
+Files:	    src/popupwin.c, src/globals.h, src/eval.c, src/screen.c,
+            src/window.c
+
+
+*** ../vim-8.1.1399/src/popupwin.c	2019-05-26 14:10:59.909979018 +0200
+--- src/popupwin.c	2019-05-26 18:35:27.278514988 +0200
+***************
+*** 85,92 ****
+      if (nr == 0)
+      {
+  	// popup on current tab
+! 	wp->w_next = first_tab_popupwin;
+! 	first_tab_popupwin = wp;
+      }
+      else if (nr < 0)
+      {
+--- 85,92 ----
+      if (nr == 0)
+      {
+  	// popup on current tab
+! 	wp->w_next = curtab->tp_first_popupwin;
+! 	curtab->tp_first_popupwin = wp;
+      }
+      else if (nr < 0)
+      {
+***************
+*** 212,224 ****
+  popup_close_tabpage(tabpage_T *tp, int id)
+  {
+      win_T	*wp;
+!     win_T	**root;
+      win_T	*prev = NULL;
+  
+-     if (tp == curtab)
+- 	root = &first_tab_popupwin;
+-     else
+- 	root = &tp->tp_first_popupwin;
+      for (wp = *root; wp != NULL; prev = wp, wp = wp->w_next)
+  	if (wp->w_id == id)
+  	{
+--- 212,220 ----
+  popup_close_tabpage(tabpage_T *tp, int id)
+  {
+      win_T	*wp;
+!     win_T	**root = &tp->tp_first_popupwin;
+      win_T	*prev = NULL;
+  
+      for (wp = *root; wp != NULL; prev = wp, wp = wp->w_next)
+  	if (wp->w_id == id)
+  	{
+***************
+*** 237,244 ****
+  {
+      while (first_popupwin != NULL)
+  	popup_close(first_popupwin->w_id);
+!     while (first_tab_popupwin != NULL)
+! 	popup_close(first_tab_popupwin->w_id);
+  }
+  
+      void
+--- 233,240 ----
+  {
+      while (first_popupwin != NULL)
+  	popup_close(first_popupwin->w_id);
+!     while (curtab->tp_first_popupwin != NULL)
+! 	popup_close(curtab->tp_first_popupwin->w_id);
+  }
+  
+      void
+*** ../vim-8.1.1399/src/globals.h	2019-05-25 19:51:03.776408456 +0200
+--- src/globals.h	2019-05-26 18:40:51.312802393 +0200
+***************
+*** 582,588 ****
+  EXTERN int	aucmd_win_used INIT(= FALSE);	/* aucmd_win is being used */
+  
+  #ifdef FEAT_TEXT_PROP
+- EXTERN win_T    *first_tab_popupwin;	// first popup window local to tab page
+  EXTERN win_T    *first_popupwin;	// first global popup window
+  #endif
+  
+--- 582,587 ----
+*** ../vim-8.1.1399/src/eval.c	2019-05-25 19:51:03.776408456 +0200
+--- src/eval.c	2019-05-26 18:37:25.693888227 +0200
+***************
+*** 5589,5600 ****
+      for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+  	abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
+  								  NULL, NULL);
+-     for (wp = first_tab_popupwin; wp != NULL; wp = wp->w_next)
+- 	abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
+- 								  NULL, NULL);
+      FOR_ALL_TABPAGES(tp)
+! 	if (tp != curtab)
+! 	    for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+  		abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
+  								  NULL, NULL);
+  #endif
+--- 5589,5596 ----
+      for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+  	abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
+  								  NULL, NULL);
+      FOR_ALL_TABPAGES(tp)
+! 	for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+  		abort = abort || set_ref_in_item(&wp->w_winvar.di_tv, copyID,
+  								  NULL, NULL);
+  #endif
+***************
+*** 8816,8827 ****
+      if (nr >= LOWEST_WIN_ID)
+      {
+  #ifdef FEAT_TEXT_PROP
+! 	// popup windows are in a separate list
+! 	for (wp = (tp == NULL || tp == curtab)
+! 		? first_tab_popupwin : tp->tp_first_popupwin;
+! 						   wp != NULL; wp = wp->w_next)
+  	    if (wp->w_id == nr)
+  		return wp;
+  	for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+  	    if (wp->w_id == nr)
+  		return wp;
+--- 8812,8822 ----
+      if (nr >= LOWEST_WIN_ID)
+      {
+  #ifdef FEAT_TEXT_PROP
+! 	// check tab-local popup windows
+! 	for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+  	    if (wp->w_id == nr)
+  		return wp;
++ 	// check global popup windows
+  	for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+  	    if (wp->w_id == nr)
+  		return wp;
+*** ../vim-8.1.1399/src/screen.c	2019-05-25 22:56:46.679669071 +0200
+--- src/screen.c	2019-05-26 18:38:53.905422054 +0200
+***************
+*** 610,616 ****
+      }
+  #ifdef FEAT_TEXT_PROP
+      // TODO: avoid redrawing everything when there is a popup window.
+!     if (first_popupwin != NULL || first_tab_popupwin != NULL)
+  	type = NOT_VALID;
+  #endif
+  
+--- 610,616 ----
+      }
+  #ifdef FEAT_TEXT_PROP
+      // TODO: avoid redrawing everything when there is a popup window.
+!     if (first_popupwin != NULL || curtab->tp_first_popupwin != NULL)
+  	type = NOT_VALID;
+  #endif
+  
+***************
+*** 1000,1006 ****
+      // Reset all the VALID_POPUP flags.
+      for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+  	wp->w_valid &= ~VALID_POPUP;
+!     for (wp = first_tab_popupwin; wp != NULL; wp = wp->w_next)
+  	wp->w_valid &= ~VALID_POPUP;
+  
+      // TODO: don't redraw every popup every time.
+--- 1000,1006 ----
+      // Reset all the VALID_POPUP flags.
+      for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+  	wp->w_valid &= ~VALID_POPUP;
+!     for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+  	wp->w_valid &= ~VALID_POPUP;
+  
+      // TODO: don't redraw every popup every time.
+***************
+*** 1018,1024 ****
+  		lowest_zindex = wp->w_zindex;
+  		lowest_wp = wp;
+  	    }
+! 	for (wp = first_tab_popupwin; wp != NULL; wp = wp->w_next)
+  	    if ((wp->w_valid & VALID_POPUP) == 0
+  					       && wp->w_zindex < lowest_zindex)
+  	    {
+--- 1018,1024 ----
+  		lowest_zindex = wp->w_zindex;
+  		lowest_wp = wp;
+  	    }
+! 	for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+  	    if ((wp->w_valid & VALID_POPUP) == 0
+  					       && wp->w_zindex < lowest_zindex)
+  	    {
+*** ../vim-8.1.1399/src/window.c	2019-05-26 14:10:59.909979018 +0200
+--- src/window.c	2019-05-26 18:40:46.224829227 +0200
+***************
+*** 1371,1377 ****
+      for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+  	if (wp == win)
+  	    return TRUE;
+!     for (wp = first_tab_popupwin; wp != NULL; wp = wp->w_next)
+  	if (wp == win)
+  	    return TRUE;
+  #endif
+--- 1371,1377 ----
+      for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+  	if (wp == win)
+  	    return TRUE;
+!     for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+  	if (wp == win)
+  	    return TRUE;
+  #endif
+***************
+*** 3673,3685 ****
+      {
+  	win_T *wp;
+  
+! 	for (;;)
+! 	{
+! 	    wp = tp == curtab ? first_tab_popupwin : tp->tp_first_popupwin;
+! 	    if (wp == NULL)
+! 		break;
+! 	    popup_close_tabpage(tp, wp->w_id);
+! 	}
+      }
+  #endif
+      for (idx = 0; idx < SNAP_COUNT; ++idx)
+--- 3673,3680 ----
+      {
+  	win_T *wp;
+  
+! 	while (tp->tp_first_popupwin != NULL)
+! 	    popup_close_tabpage(tp, tp->tp_first_popupwin->w_id);
+      }
+  #endif
+      for (idx = 0; idx < SNAP_COUNT; ++idx)
+***************
+*** 3973,3982 ****
+      tp->tp_prevwin = prevwin;
+      tp->tp_firstwin = firstwin;
+      tp->tp_lastwin = lastwin;
+- #ifdef FEAT_TEXT_PROP
+-     tp->tp_first_popupwin = first_tab_popupwin;
+-     first_tab_popupwin = NULL;
+- #endif
+      tp->tp_old_Rows = Rows;
+      tp->tp_old_Columns = Columns;
+      firstwin = NULL;
+--- 3968,3973 ----
+***************
+*** 4004,4012 ****
+      firstwin = tp->tp_firstwin;
+      lastwin = tp->tp_lastwin;
+      topframe = tp->tp_topframe;
+- #ifdef FEAT_TEXT_PROP
+-     first_tab_popupwin = tp->tp_first_popupwin;
+- #endif
+  
+      /* We would like doing the TabEnter event first, but we don't have a
+       * valid current window yet, which may break some commands.
+--- 3995,4000 ----
+***************
+*** 6513,6527 ****
+  	{
+  	    curtab->tp_firstwin = firstwin;
+  	    curtab->tp_lastwin = lastwin;
+- #ifdef FEAT_TEXT_PROP
+- 	    curtab->tp_first_popupwin = first_tab_popupwin ;
+- #endif
+  	    curtab = tp;
+  	    firstwin = curtab->tp_firstwin;
+  	    lastwin = curtab->tp_lastwin;
+- #ifdef FEAT_TEXT_PROP
+- 	    first_tab_popupwin = curtab->tp_first_popupwin;
+- #endif
+  	}
+  	else
+  	    goto_tabpage_tp(tp, FALSE, FALSE);
+--- 6501,6509 ----
+***************
+*** 6550,6564 ****
+  	{
+  	    curtab->tp_firstwin = firstwin;
+  	    curtab->tp_lastwin = lastwin;
+- #ifdef FEAT_TEXT_PROP
+- 	    curtab->tp_first_popupwin = first_tab_popupwin ;
+- #endif
+  	    curtab = save_curtab;
+  	    firstwin = curtab->tp_firstwin;
+  	    lastwin = curtab->tp_lastwin;
+- #ifdef FEAT_TEXT_PROP
+- 	    first_tab_popupwin = curtab->tp_first_popupwin;
+- #endif
+  	}
+  	else
+  	    goto_tabpage_tp(save_curtab, FALSE, FALSE);
+--- 6532,6540 ----
+*** ../vim-8.1.1399/src/version.c	2019-05-26 14:10:59.909979018 +0200
+--- src/version.c	2019-05-26 18:47:58.438593632 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1400,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+30. Even though you died last week, you've managed to retain OPS on your
+    favorite IRC channel.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

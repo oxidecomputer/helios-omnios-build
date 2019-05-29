@@ -1,0 +1,470 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1098
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1098
+Problem:    Quickfix code duplication.
+Solution:   Refactor the qf_init_ext() function. (Yegappan Lakshmanan,
+            closes #4193)
+Files:	    src/README.md, src/quickfix.c
+
+
+*** ../vim-8.1.1097/src/README.md	2019-03-29 13:09:37.972782868 +0100
+--- src/README.md	2019-03-31 15:28:56.837503882 +0200
+***************
+*** 32,37 ****
+--- 32,38 ----
+  fold.c		| folding
+  getchar.c	| getting characters and key mapping
+  indent.c	| C and Lisp indentation
++ insexpand.c	| Insert mode completion
+  mark.c		| marks
+  mbyte.c		| multi-byte character handling
+  memfile.c	| storing lines for buffers in a swapfile
+*** ../vim-8.1.1097/src/quickfix.c	2019-03-28 20:31:03.412924538 +0100
+--- src/quickfix.c	2019-03-31 15:28:56.837503882 +0200
+***************
+*** 195,203 ****
+   */
+  #define GET_LOC_LIST(wp) (IS_LL_WINDOW(wp) ? wp->w_llist_ref : wp->w_llist)
+  
+  #define FOR_ALL_QFL_ITEMS(qfl, qfp, i) \
+! 		    for (i = 0, qfp = qfl->qf_start; \
+! 			    !got_int && i < qfl->qf_count && qfp != NULL; \
+  			    ++i, qfp = qfp->qf_next)
+  
+  /*
+--- 195,205 ----
+   */
+  #define GET_LOC_LIST(wp) (IS_LL_WINDOW(wp) ? wp->w_llist_ref : wp->w_llist)
+  
++ // Macro to loop through all the items in a quickfix list
++ // Quickfix item index starts from 1, so i below starts at 1
+  #define FOR_ALL_QFL_ITEMS(qfl, qfp, i) \
+! 		    for (i = 1, qfp = qfl->qf_start; \
+! 			    !got_int && i <= qfl->qf_count && qfp != NULL; \
+  			    ++i, qfp = qfp->qf_next)
+  
+  /*
+***************
+*** 1585,1590 ****
+--- 1587,1633 ----
+  }
+  
+  /*
++  * Process the next line from a file/buffer/list/string and add it
++  * to the quickfix list 'qfl'.
++  */
++     static int
++ qf_init_process_nextline(
++ 	qf_list_T	*qfl,
++ 	efm_T		*fmt_first,
++ 	qfstate_T	*state,
++ 	qffields_T	*fields)
++ {
++     int		    status;
++ 
++     // Get the next line from a file/buffer/list/string
++     status = qf_get_nextline(state);
++     if (status != QF_OK)
++ 	return status;
++ 
++     status = qf_parse_line(qfl, state->linebuf, state->linelen,
++ 	    fmt_first, fields);
++     if (status != QF_OK)
++ 	return status;
++ 
++     return qf_add_entry(qfl,
++ 		qfl->qf_directory,
++ 		(*fields->namebuf || qfl->qf_directory != NULL)
++ 		? fields->namebuf
++ 		: ((qfl->qf_currfile != NULL && fields->valid)
++ 		    ? qfl->qf_currfile : (char_u *)NULL),
++ 		fields->module,
++ 		0,
++ 		fields->errmsg,
++ 		fields->lnum,
++ 		fields->col,
++ 		fields->use_viscol,
++ 		fields->pattern,
++ 		fields->enr,
++ 		fields->type,
++ 		fields->valid);
++ }
++ 
++ /*
+   * Read the errorfile "efile" into memory, line by line, building the error
+   * list.
+   * Alternative: when "efile" is NULL read errors from buffer "buf".
+***************
+*** 1676,1714 ****
+      // Try to recognize one of the error formats in each line.
+      while (!got_int)
+      {
+! 	// Get the next line from a file/buffer/list/string
+! 	status = qf_get_nextline(&state);
+  	if (status == QF_NOMEM)		// memory alloc failure
+  	    goto qf_init_end;
+  	if (status == QF_END_OF_INPUT)	// end of input
+  	    break;
+- 
+- 	status = qf_parse_line(qfl, state.linebuf, state.linelen,
+- 							fmt_first, &fields);
+  	if (status == QF_FAIL)
+  	    goto error2;
+- 	if (status == QF_NOMEM)
+- 	    goto qf_init_end;
+- 	if (status == QF_IGNORE_LINE)
+- 	    continue;
+  
+- 	if (qf_add_entry(qfl,
+- 			qfl->qf_directory,
+- 			(*fields.namebuf || qfl->qf_directory != NULL)
+- 			    ? fields.namebuf
+- 			    : ((qfl->qf_currfile != NULL && fields.valid)
+- 				? qfl->qf_currfile : (char_u *)NULL),
+- 			fields.module,
+- 			0,
+- 			fields.errmsg,
+- 			fields.lnum,
+- 			fields.col,
+- 			fields.use_viscol,
+- 			fields.pattern,
+- 			fields.enr,
+- 			fields.type,
+- 			fields.valid) == FAIL)
+- 	    goto error2;
+  	line_breakcheck();
+      }
+      if (state.fd == NULL || !ferror(state.fd))
+--- 1719,1732 ----
+      // Try to recognize one of the error formats in each line.
+      while (!got_int)
+      {
+! 	status = qf_init_process_nextline(qfl, fmt_first, &state, &fields);
+  	if (status == QF_NOMEM)		// memory alloc failure
+  	    goto qf_init_end;
+  	if (status == QF_END_OF_INPUT)	// end of input
+  	    break;
+  	if (status == QF_FAIL)
+  	    goto error2;
+  
+  	line_breakcheck();
+      }
+      if (state.fd == NULL || !ferror(state.fd))
+***************
+*** 2013,2019 ****
+  
+  /*
+   * Add an entry to the end of the list of errors.
+!  * Returns OK or FAIL.
+   */
+      static int
+  qf_add_entry(
+--- 2031,2037 ----
+  
+  /*
+   * Add an entry to the end of the list of errors.
+!  * Returns QF_OK or QF_FAIL.
+   */
+      static int
+  qf_add_entry(
+***************
+*** 2035,2041 ****
+      qfline_T	**lastp;	// pointer to qf_last or NULL
+  
+      if ((qfp = (qfline_T *)alloc((unsigned)sizeof(qfline_T))) == NULL)
+! 	return FAIL;
+      if (bufnum != 0)
+      {
+  	buf_T *buf = buflist_findnr(bufnum);
+--- 2053,2059 ----
+      qfline_T	**lastp;	// pointer to qf_last or NULL
+  
+      if ((qfp = (qfline_T *)alloc((unsigned)sizeof(qfline_T))) == NULL)
+! 	return QF_FAIL;
+      if (bufnum != 0)
+      {
+  	buf_T *buf = buflist_findnr(bufnum);
+***************
+*** 2050,2056 ****
+      if ((qfp->qf_text = vim_strsave(mesg)) == NULL)
+      {
+  	vim_free(qfp);
+! 	return FAIL;
+      }
+      qfp->qf_lnum = lnum;
+      qfp->qf_col = col;
+--- 2068,2074 ----
+      if ((qfp->qf_text = vim_strsave(mesg)) == NULL)
+      {
+  	vim_free(qfp);
+! 	return QF_FAIL;
+      }
+      qfp->qf_lnum = lnum;
+      qfp->qf_col = col;
+***************
+*** 2061,2067 ****
+      {
+  	vim_free(qfp->qf_text);
+  	vim_free(qfp);
+! 	return FAIL;
+      }
+      if (module == NULL || *module == NUL)
+  	qfp->qf_module = NULL;
+--- 2079,2085 ----
+      {
+  	vim_free(qfp->qf_text);
+  	vim_free(qfp);
+! 	return QF_FAIL;
+      }
+      if (module == NULL || *module == NUL)
+  	qfp->qf_module = NULL;
+***************
+*** 2070,2076 ****
+  	vim_free(qfp->qf_text);
+  	vim_free(qfp->qf_pattern);
+  	vim_free(qfp);
+! 	return FAIL;
+      }
+      qfp->qf_nr = nr;
+      if (type != 1 && !vim_isprintc(type)) // only printable chars allowed
+--- 2088,2094 ----
+  	vim_free(qfp->qf_text);
+  	vim_free(qfp->qf_pattern);
+  	vim_free(qfp);
+! 	return QF_FAIL;
+      }
+      qfp->qf_nr = nr;
+      if (type != 1 && !vim_isprintc(type)) // only printable chars allowed
+***************
+*** 2101,2107 ****
+  	qfl->qf_ptr = qfp;
+      }
+  
+!     return OK;
+  }
+  
+  /*
+--- 2119,2125 ----
+  	qfl->qf_ptr = qfp;
+      }
+  
+!     return QF_OK;
+  }
+  
+  /*
+***************
+*** 2167,2173 ****
+  		    from_qfp->qf_pattern,
+  		    from_qfp->qf_nr,
+  		    0,
+! 		    from_qfp->qf_valid) == FAIL)
+  	    return FAIL;
+  
+  	// qf_add_entry() will not set the qf_num field, as the
+--- 2185,2191 ----
+  		    from_qfp->qf_pattern,
+  		    from_qfp->qf_nr,
+  		    0,
+! 		    from_qfp->qf_valid) == QF_FAIL)
+  	    return FAIL;
+  
+  	// qf_add_entry() will not set the qf_num field, as the
+***************
+*** 2551,2557 ****
+  	if (qfp == qf_ptr)
+  	    break;
+  
+!     if (i == qfl->qf_count) // Entry is not found
+  	return FALSE;
+  
+      return TRUE;
+--- 2569,2575 ----
+  	if (qfp == qf_ptr)
+  	    break;
+  
+!     if (i > qfl->qf_count) // Entry is not found
+  	return FALSE;
+  
+      return TRUE;
+***************
+*** 3554,3574 ****
+  
+      if (qfl->qf_nonevalid)
+  	all = TRUE;
+!     qfp = qfl->qf_start;
+!     for (i = 1; !got_int && i <= qfl->qf_count; )
+      {
+  	if ((qfp->qf_valid || all) && idx1 <= i && i <= idx2)
+- 	{
+- 	    if (got_int)
+- 		break;
+- 
+  	    qf_list_entry(qfp, i, i == qfl->qf_index);
+- 	}
+  
+- 	qfp = qfp->qf_next;
+- 	if (qfp == NULL)
+- 	    break;
+- 	++i;
+  	ui_breakcheck();
+      }
+  }
+--- 3572,3582 ----
+  
+      if (qfl->qf_nonevalid)
+  	all = TRUE;
+!     FOR_ALL_QFL_ITEMS(qfl, qfp, i)
+      {
+  	if ((qfp->qf_valid || all) && idx1 <= i && i <= idx2)
+  	    qf_list_entry(qfp, i, i == qfl->qf_index);
+  
+  	ui_breakcheck();
+      }
+  }
+***************
+*** 4915,4921 ****
+      static int
+  qf_get_nth_valid_entry(qf_list_T *qfl, int n, int fdo)
+  {
+!     qfline_T	*qfp = qfl->qf_start;
+      int		i, eidx;
+      int		prev_fnum = 0;
+  
+--- 4923,4929 ----
+      static int
+  qf_get_nth_valid_entry(qf_list_T *qfl, int n, int fdo)
+  {
+!     qfline_T	*qfp;
+      int		i, eidx;
+      int		prev_fnum = 0;
+  
+***************
+*** 4923,4930 ****
+      if (qfl->qf_count <= 0 || qfl->qf_nonevalid)
+  	return 1;
+  
+!     for (i = 1, eidx = 0; i <= qfl->qf_count && qfp != NULL;
+! 	    i++, qfp = qfp->qf_next)
+      {
+  	if (qfp->qf_valid)
+  	{
+--- 4931,4938 ----
+      if (qfl->qf_count <= 0 || qfl->qf_nonevalid)
+  	return 1;
+  
+!     eidx = 0;
+!     FOR_ALL_QFL_ITEMS(qfl, qfp, i)
+      {
+  	if (qfp->qf_valid)
+  	{
+***************
+*** 5330,5336 ****
+  			0,	    // nr
+  			0,	    // type
+  			TRUE	    // valid
+! 			) == FAIL)
+  	    {
+  		got_int = TRUE;
+  		break;
+--- 5338,5344 ----
+  			0,	    // nr
+  			0,	    // type
+  			TRUE	    // valid
+! 			) == QF_FAIL)
+  	    {
+  		got_int = TRUE;
+  		break;
+***************
+*** 6434,6440 ****
+  
+  	retval = qf_add_entry_from_dict(qfl, d, li == list->lv_first,
+  								&valid_entry);
+! 	if (retval == FAIL)
+  	    break;
+      }
+  
+--- 6442,6448 ----
+  
+  	retval = qf_add_entry_from_dict(qfl, d, li == list->lv_first,
+  								&valid_entry);
+! 	if (retval == QF_FAIL)
+  	    break;
+      }
+  
+***************
+*** 6744,6757 ****
+  	// If the location list window is open, then create a new empty
+  	// location list
+  	qf_info_T *new_ll = qf_alloc_stack(QFLT_LOCATION);
+- 	new_ll->qf_bufnr = qfwin->w_buffer->b_fnum;
+  
+! 	// first free the list reference in the location list window
+! 	ll_free_all(&qfwin->w_llist_ref);
+  
+! 	qfwin->w_llist_ref = new_ll;
+! 	if (wp != qfwin)
+! 	    win_set_loclist(wp, new_ll);
+      }
+  }
+  
+--- 6752,6769 ----
+  	// If the location list window is open, then create a new empty
+  	// location list
+  	qf_info_T *new_ll = qf_alloc_stack(QFLT_LOCATION);
+  
+! 	if (new_ll != NULL)
+! 	{
+! 	    new_ll->qf_bufnr = qfwin->w_buffer->b_fnum;
+  
+! 	    // first free the list reference in the location list window
+! 	    ll_free_all(&qfwin->w_llist_ref);
+! 
+! 	    qfwin->w_llist_ref = new_ll;
+! 	    if (wp != qfwin)
+! 		win_set_loclist(wp, new_ll);
+! 	}
+      }
+  }
+  
+***************
+*** 7203,7209 ****
+  			0,	// nr
+  			1,	// type
+  			TRUE	// valid
+! 			) == FAIL)
+  	    {
+  		got_int = TRUE;
+  		if (line != IObuff)
+--- 7215,7221 ----
+  			0,	// nr
+  			1,	// type
+  			TRUE	// valid
+! 			) == QF_FAIL)
+  	    {
+  		got_int = TRUE;
+  		if (line != IObuff)
+*** ../vim-8.1.1097/src/version.c	2019-03-30 22:26:35.091091278 +0100
+--- src/version.c	2019-03-31 15:30:09.781016061 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1098,
+  /**/
+
+-- 
+Living in Hollywood is like living in a bowl of granola.  What ain't
+fruits and nuts is flakes.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

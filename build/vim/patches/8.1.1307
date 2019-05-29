@@ -1,0 +1,278 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1307
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1307
+Problem:    Cannot reconnect to the X server after it restarted.
+Solution:   Add the :xrestore command. (Adrian Kocis, closes #844)
+Files:	    runtime/doc/index.txt, runtime/doc/various.txt, src/os_unix.c,
+            src/proto/os_unix.pro, src/globals.h, src/ex_cmds.h,
+            src/ex_cmdidxs.h, src/ex_docmd.c, src/testdir/test_paste.vim
+
+
+*** ../vim-8.1.1306/runtime/doc/index.txt	2019-05-05 18:11:46.316590662 +0200
+--- runtime/doc/index.txt	2019-05-09 16:55:09.231912512 +0200
+***************
+*** 1714,1719 ****
+--- 1714,1720 ----
+  |:xmapclear|	:xmapc[lear]	remove all mappings for Visual mode
+  |:xmap|		:xm[ap]		like ":map" but for Visual mode
+  |:xmenu|	:xme[nu]	add menu for Visual mode
++ |:xrestore|	:xr[estore]	restores the X server connection
+  |:xnoremap|	:xn[oremap]	like ":noremap" but for Visual mode
+  |:xnoremenu|	:xnoreme[nu]	like ":noremenu" but for Visual mode
+  |:xunmap|	:xu[nmap]	like ":unmap" but for Visual mode
+*** ../vim-8.1.1306/runtime/doc/various.txt	2019-05-05 18:11:46.328590595 +0200
+--- runtime/doc/various.txt	2019-05-09 16:57:27.375214537 +0200
+***************
+*** 704,709 ****
+--- 704,724 ----
+  			available when compiled with the |+netbeans_intg|
+  			feature}
+  
++ 							*:xrestore* *:xr*
++ :xr[estore] [display]	Reinitializes the connection to the X11 server. Useful
++ 			after the X server restarts, e.g. when running Vim for
++ 			long time inside screen/tmux and connecting from
++ 			different machines).
++ 			[display] should be in the format of the $DISPLAY 
++ 			environment variable (e.g. "localhost:10.0")
++ 			If [display] is	omitted, then it reinitializes the
++ 			connection to the X11 server using the same value as
++ 			was used for the previous execution of this command.
++ 			If the value was never specified, then it uses the
++ 			value of $DISPLAY environment variable as it was when
++ 			Vim was started.
++ 			{only available when compiled with the |+clipboard| 
++ 			feature}
+  
+  							*g_CTRL-A*
+  g CTRL-A		Only when Vim was compiled with MEM_PROFILING defined
+*** ../vim-8.1.1306/src/os_unix.c	2019-05-04 17:34:30.653353882 +0200
+--- src/os_unix.c	2019-05-09 18:51:32.467132185 +0200
+***************
+*** 1659,1664 ****
+--- 1659,1683 ----
+  	get_x11_title(FALSE);
+      }
+  }
++ 
++     void
++ ex_xrestore(exarg_T *eap)
++ {
++     if (eap->arg != NULL && STRLEN(eap->arg) > 0)
++     {
++         if (xterm_display_allocated)
++             vim_free(xterm_display);
++         xterm_display = (char *)vim_strsave(eap->arg);
++         xterm_display_allocated = TRUE;
++     }
++     smsg(_("restoring display %s"), xterm_display == NULL
++ 			      ? (char *)mch_getenv("DISPLAY") : xterm_display);
++ 
++     clear_xterm_clip();
++     x11_window = 0;
++     xterm_dpy_retry_count = 5;  // Try reconnecting five times
++     may_restore_clipboard();
++ }
+  #endif
+  
+  /*
+***************
+*** 1761,1766 ****
+--- 1780,1789 ----
+  	x11_window = (Window)atol(winid);
+  
+  #ifdef FEAT_XCLIPBOARD
++     if (xterm_dpy == x11_display)
++ 	// x11_display may have been set to xterm_dpy elsewhere
++ 	x11_display_from = XD_XTERM;
++ 
+      if (xterm_dpy != NULL && x11_window != 0)
+      {
+  	/* We may have checked it already, but Gnome terminal can move us to
+***************
+*** 7661,7667 ****
+      return TRUE;
+  }
+  
+! # if defined(FEAT_GUI) || defined(PROTO)
+  /*
+   * Destroy the display, window and app_context.  Required for GTK.
+   */
+--- 7684,7690 ----
+      return TRUE;
+  }
+  
+! # if defined(FEAT_GUI) || defined(FEAT_XCLIPBOARD) || defined(PROTO)
+  /*
+   * Destroy the display, window and app_context.  Required for GTK.
+   */
+*** ../vim-8.1.1306/src/proto/os_unix.pro	2019-05-04 17:34:30.653353882 +0200
+--- src/proto/os_unix.pro	2019-05-09 17:11:39.922883130 +0200
+***************
+*** 13,18 ****
+--- 13,19 ----
+  int vim_handle_signal(int sig);
+  int mch_check_win(int argc, char **argv);
+  int mch_input_isatty(void);
++ void ex_xrestore(exarg_T *eap);
+  int mch_can_restore_title(void);
+  int mch_can_restore_icon(void);
+  void mch_settitle(char_u *title, char_u *icon);
+*** ../vim-8.1.1306/src/globals.h	2019-05-02 23:00:19.227658452 +0200
+--- src/globals.h	2019-05-09 17:02:10.449779876 +0200
+***************
+*** 1279,1287 ****
+  #endif
+  
+  #ifdef FEAT_XCLIPBOARD
+! EXTERN char	*xterm_display INIT(= NULL);	/* xterm display name; points
+! 						   into argv[] */
+! EXTERN Display	*xterm_dpy INIT(= NULL);	/* xterm display pointer */
+  #endif
+  #if defined(FEAT_XCLIPBOARD) || defined(FEAT_GUI_X11)
+  EXTERN XtAppContext app_context INIT(= (XtAppContext)NULL);
+--- 1279,1292 ----
+  #endif
+  
+  #ifdef FEAT_XCLIPBOARD
+! // xterm display name
+! EXTERN char	*xterm_display INIT(= NULL);
+! 
+! // whether xterm_display was allocated, when FALSE it points into argv[]
+! EXTERN int	xterm_display_allocated INIT(= FALSE);
+! 
+! // xterm display pointer
+! EXTERN Display	*xterm_dpy INIT(= NULL);
+  #endif
+  #if defined(FEAT_XCLIPBOARD) || defined(FEAT_GUI_X11)
+  EXTERN XtAppContext app_context INIT(= (XtAppContext)NULL);
+*** ../vim-8.1.1306/src/ex_cmds.h	2019-05-05 21:00:22.850603981 +0200
+--- src/ex_cmds.h	2019-05-09 17:12:48.258535032 +0200
+***************
+*** 1739,1744 ****
+--- 1739,1747 ----
+  EX(CMD_xnoremenu,	"xnoremenu",	ex_menu,
+  			RANGE|ZEROR|EXTRA|TRLBAR|NOTRLCOM|USECTRLV|CMDWIN,
+  			ADDR_OTHER),
++ EX(CMD_xrestore,	"xrestore",	ex_xrestore,
++ 			EXTRA|TRLBAR|CMDWIN,
++ 			ADDR_NONE),
+  EX(CMD_xunmap,		"xunmap",	ex_unmap,
+  			EXTRA|TRLBAR|NOTRLCOM|USECTRLV|CMDWIN,
+  			ADDR_NONE),
+*** ../vim-8.1.1306/src/ex_cmdidxs.h	2019-05-05 15:02:26.176319819 +0200
+--- src/ex_cmdidxs.h	2019-05-09 17:12:57.942485705 +0200
+***************
+*** 29,36 ****
+    /* v */ 503,
+    /* w */ 521,
+    /* x */ 535,
+!   /* y */ 544,
+!   /* z */ 545
+  };
+  
+  /*
+--- 29,36 ----
+    /* v */ 503,
+    /* w */ 521,
+    /* x */ 535,
+!   /* y */ 545,
+!   /* z */ 546
+  };
+  
+  /*
+***************
+*** 64,72 ****
+    /* u */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* v */ {  0,  0,  0,  0,  1,  0,  0,  0,  4,  0,  0,  0,  9, 12,  0,  0,  0,  0, 15,  0, 16,  0,  0,  0,  0,  0 },
+    /* w */ {  2,  0,  0,  0,  0,  0,  0,  3,  4,  0,  0,  0,  0,  8,  0,  9, 10,  0,  0,  0, 12, 13,  0,  0,  0,  0 },
+!   /* x */ {  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,  5,  0,  0,  0,  0,  0,  0,  7,  0,  0,  0,  0,  0 },
+    /* y */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 558;
+--- 64,72 ----
+    /* u */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* v */ {  0,  0,  0,  0,  1,  0,  0,  0,  4,  0,  0,  0,  9, 12,  0,  0,  0,  0, 15,  0, 16,  0,  0,  0,  0,  0 },
+    /* w */ {  2,  0,  0,  0,  0,  0,  0,  3,  4,  0,  0,  0,  0,  8,  0,  9, 10,  0,  0,  0, 12, 13,  0,  0,  0,  0 },
+!   /* x */ {  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  2,  5,  0,  0,  0,  7,  0,  0,  8,  0,  0,  0,  0,  0 },
+    /* y */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 559;
+*** ../vim-8.1.1306/src/ex_docmd.c	2019-05-07 22:06:48.679310672 +0200
+--- src/ex_docmd.c	2019-05-09 17:18:30.268791994 +0200
+***************
+*** 394,399 ****
+--- 394,402 ----
+  #ifndef FEAT_TERMINAL
+  # define ex_terminal		ex_ni
+  #endif
++ #if !defined(FEAT_X11) || !defined(FEAT_XCLIPBOARD)
++ # define ex_xrestore		ex_ni
++ #endif
+  
+  /*
+   * Declare cmdnames[].
+*** ../vim-8.1.1306/src/testdir/test_paste.vim	2019-03-23 13:30:19.247356528 +0100
+--- src/testdir/test_paste.vim	2019-05-09 18:42:01.986284433 +0200
+***************
+*** 110,112 ****
+--- 110,138 ----
+  
+    bwipe!
+  endfunc
++ 
++ func CheckCopyPaste()
++   call setline(1, ['copy this', ''])
++   normal 1G0"*y$
++   normal j"*p
++   call assert_equal('copy this', getline(2))
++ endfunc
++ 
++ func Test_xrestore()
++   if !has('xterm_clipboard')
++     return
++   endif
++ call ch_logfile('logfile', 'w')
++   let display = $DISPLAY
++   new
++   call CheckCopyPaste()
++ 
++   xrestore
++   call CheckCopyPaste()
++ 
++   exe "xrestore " .. display
++   call CheckCopyPaste()
++ 
++ call ch_logfile('', '')
++   bwipe!
++ endfunc
+*** ../vim-8.1.1306/src/version.c	2019-05-09 15:12:45.180723879 +0200
+--- src/version.c	2019-05-09 18:57:26.853142128 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1307,
+  /**/
+
+-- 
+NEIL INNES PLAYED: THE FIRST SELF-DESTRUCTIVE MONK, ROBIN'S LEAST FAVORITE
+                   MINSTREL, THE PAGE CRUSHED BY A RABBIT, THE OWNER OF A DUCK
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

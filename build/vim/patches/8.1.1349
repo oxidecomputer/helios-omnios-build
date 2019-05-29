@@ -1,0 +1,127 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1349
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1349
+Problem:    If writing runs into a conversion error the backup file is
+            deleted. (Arseny Nasokin)
+Solution:   Don't delete the backup file is the file was overwritten and a
+            conversion error occurred. (Christian Brabandt, closes #4387)
+Files:	    src/fileio.c, src/testdir/test_writefile.vim
+
+
+*** ../vim-8.1.1348/src/fileio.c	2019-04-28 22:25:03.244480028 +0200
+--- src/fileio.c	2019-05-18 18:39:15.668980172 +0200
+***************
+*** 4985,4994 ****
+  	}
+      }
+  
+!     /*
+!      * Remove the backup unless 'backup' option is set
+!      */
+!     if (!p_bk && backup != NULL && mch_remove(backup) != 0)
+  	emsg(_("E207: Can't delete backup file"));
+  
+      goto nofail;
+--- 4985,4994 ----
+  	}
+      }
+  
+!     // Remove the backup unless 'backup' option is set or there was a
+!     // conversion error.
+!     if (!p_bk && backup != NULL && !write_info.bw_conv_error
+! 	    && mch_remove(backup) != 0)
+  	emsg(_("E207: Can't delete backup file"));
+  
+      goto nofail;
+*** ../vim-8.1.1348/src/testdir/test_writefile.vim	2019-01-29 22:58:02.401136295 +0100
+--- src/testdir/test_writefile.vim	2019-05-18 18:46:39.610661802 +0200
+***************
+*** 36,48 ****
+    if !has('iconv') || has('sun')
+      return
+    endif
+    set nobackup nowritebackup
+    new
+    let contents = ["line one", "line two"]
+    call writefile(contents, 'Xfile')
+    edit Xfile
+    call setline(1, ["first line", "cannot convert \u010b", "third line"])
+!   call assert_fails('write ++enc=cp932')
+    call assert_equal(contents, readfile('Xfile'))
+  
+    call delete('Xfile')
+--- 36,50 ----
+    if !has('iconv') || has('sun')
+      return
+    endif
++   " Without a backup file the write won't happen if there is a conversion
++   " error.
+    set nobackup nowritebackup
+    new
+    let contents = ["line one", "line two"]
+    call writefile(contents, 'Xfile')
+    edit Xfile
+    call setline(1, ["first line", "cannot convert \u010b", "third line"])
+!   call assert_fails('write ++enc=cp932', 'E513:')
+    call assert_equal(contents, readfile('Xfile'))
+  
+    call delete('Xfile')
+***************
+*** 50,55 ****
+--- 52,78 ----
+    set backup& writebackup&
+  endfunc
+  
++ func Test_writefile_fails_conversion2()
++   if !has('iconv') || has('sun')
++     return
++   endif
++   " With a backup file the write happens even if there is a conversion error,
++   " but then the backup file must remain
++   set nobackup writebackup
++   let contents = ["line one", "line two"]
++   call writefile(contents, 'Xfile_conversion_err')
++   edit Xfile_conversion_err
++   call setline(1, ["first line", "cannot convert \u010b", "third line"])
++   set fileencoding=latin1
++   let output = execute('write')
++   call assert_match('CONVERSION ERROR', output)
++   call assert_equal(contents, readfile('Xfile_conversion_err~'))
++ 
++   call delete('Xfile_conversion_err')
++   call delete('Xfile_conversion_err~')
++   bwipe!
++ endfunc
++ 
+  func SetFlag(timer)
+    let g:flag = 1
+  endfunc
+*** ../vim-8.1.1348/src/version.c	2019-05-18 17:22:51.016673960 +0200
+--- src/version.c	2019-05-18 18:48:34.190060199 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1349,
+  /**/
+
+-- 
+Engineers are always delighted to share wisdom, even in areas in which they
+have no experience whatsoever.  Their logic provides them with inherent
+insight into any field of expertise.  This can be a problem when dealing with
+the illogical people who believe that knowledge can only be derived through
+experience.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,141 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1077
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1077
+Problem:    reg_executing() is reset by calling input().
+Solution:   Implement a more generic way to save and restore reg_executing.
+            (Ozaki Kiichi, closes #4192)
+Files:	    src/evalfunc.c, src/ex_docmd.c, src/testdir/test_functions.vim
+
+
+*** ../vim-8.1.1076/src/evalfunc.c	2019-03-30 13:53:26.170425120 +0100
+--- src/evalfunc.c	2019-03-30 14:20:39.794888514 +0100
+***************
+*** 4848,4854 ****
+  {
+      varnumber_T		n;
+      int			error = FALSE;
+-     int			save_reg_executing = reg_executing;
+  
+  #ifdef MESSAGE_QUEUE
+      // vpeekc() used to check for messages, but that caused problems, invoking
+--- 4848,4853 ----
+***************
+*** 4883,4889 ****
+      }
+      --no_mapping;
+      --allow_keys;
+-     reg_executing = save_reg_executing;
+  
+      set_vim_var_nr(VV_MOUSE_WIN, 0);
+      set_vim_var_nr(VV_MOUSE_WINID, 0);
+--- 4882,4887 ----
+*** ../vim-8.1.1076/src/ex_docmd.c	2019-03-04 11:40:06.274241644 +0100
+--- src/ex_docmd.c	2019-03-30 14:20:39.794888514 +0100
+***************
+*** 1699,1704 ****
+--- 1699,1705 ----
+      exarg_T		ea;			/* Ex command arguments */
+      int			save_msg_scroll = msg_scroll;
+      cmdmod_T		save_cmdmod;
++     int			save_reg_executing = reg_executing;
+      int			ni;			/* set when Not Implemented */
+      char_u		*cmd;
+  
+***************
+*** 2579,2584 ****
+--- 2580,2586 ----
+  
+      free_cmdmod();
+      cmdmod = save_cmdmod;
++     reg_executing = save_reg_executing;
+  
+      if (ea.save_msg_silent != -1)
+      {
+*** ../vim-8.1.1076/src/testdir/test_functions.vim	2019-03-05 12:24:04.795965374 +0100
+--- src/testdir/test_functions.vim	2019-03-30 14:20:39.794888514 +0100
+***************
+*** 1150,1169 ****
+    " getchar() command saves and restores reg_executing
+    map W :call TestFunc()<CR>
+    let @q = "W"
+    func TestFunc() abort
+!     let g:reg1 = reg_executing()
+      let g:typed = getchar(0)
+!     let g:reg2 = reg_executing()
+    endfunc
+    call feedkeys("@qy", 'xt')
+    call assert_equal(char2nr("y"), g:typed)
+!   call assert_equal('q', g:reg1)
+!   call assert_equal('q', g:reg2)
+    delfunc TestFunc
+    unmap W
+    unlet g:typed
+!   unlet g:reg1
+!   unlet g:reg2
+  
+    bwipe!
+    delfunc s:save_reg_stat
+--- 1150,1187 ----
+    " getchar() command saves and restores reg_executing
+    map W :call TestFunc()<CR>
+    let @q = "W"
++   let g:typed = ''
++   let g:regs = []
+    func TestFunc() abort
+!     let g:regs += [reg_executing()]
+      let g:typed = getchar(0)
+!     let g:regs += [reg_executing()]
+    endfunc
+    call feedkeys("@qy", 'xt')
+    call assert_equal(char2nr("y"), g:typed)
+!   call assert_equal(['q', 'q'], g:regs)
+    delfunc TestFunc
+    unmap W
+    unlet g:typed
+!   unlet g:regs
+! 
+!   " input() command saves and restores reg_executing
+!   map W :call TestFunc()<CR>
+!   let @q = "W"
+!   let g:typed = ''
+!   let g:regs = []
+!   func TestFunc() abort
+!     let g:regs += [reg_executing()]
+!     let g:typed = input('?')
+!     let g:regs += [reg_executing()]
+!   endfunc
+!   call feedkeys("@qy\<CR>", 'xt')
+!   call assert_equal("y", g:typed)
+!   call assert_equal(['q', 'q'], g:regs)
+!   delfunc TestFunc
+!   unmap W
+!   unlet g:typed
+!   unlet g:regs
+  
+    bwipe!
+    delfunc s:save_reg_stat
+*** ../vim-8.1.1076/src/version.c	2019-03-30 13:53:26.174425093 +0100
+--- src/version.c	2019-03-30 14:22:17.738221749 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1077,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+155. You forget to eat because you're too busy surfing the net.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

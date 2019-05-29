@@ -1,0 +1,116 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1301
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1301
+Problem:    When compiled with VIMDLL some messages are not shown.
+Solution:   Set/reset gui.in_use and gui.starting as needed. (Ken Takata,
+            closes #4361)
+Files:	    src/gui_w32.c, src/main.c, src/message.c
+
+
+*** ../vim-8.1.1300/src/gui_w32.c	2019-05-07 22:52:46.688518695 +0200
+--- src/gui_w32.c	2019-05-08 22:21:43.235895833 +0200
+***************
+*** 4827,4832 ****
+--- 4827,4836 ----
+  {
+      char buf[IOSIZE];
+  
++ # ifdef VIMDLL
++     gui.in_use = mch_is_gui_executable();
++ # endif
++ 
+      /* Can't use emsg() here, we have not finished initialisation yet. */
+      vim_snprintf(buf, IOSIZE,
+  	    _("E243: Argument not supported: \"-%s\"; Use the OLE version."),
+*** ../vim-8.1.1300/src/main.c	2019-05-03 22:25:36.292643839 +0200
+--- src/main.c	2019-05-08 22:21:43.235895833 +0200
+***************
+*** 178,183 ****
+--- 178,185 ----
+  #ifdef VIMDLL
+      // Check if the current executable file is for the GUI subsystem.
+      gui.starting = mch_is_gui_executable();
++ #elif defined(FEAT_GUI_MSWIN)
++     gui.starting = TRUE;
+  #endif
+  
+  #ifdef FEAT_CLIENTSERVER
+***************
+*** 3242,3247 ****
+--- 3244,3257 ----
+      reset_signals();		/* kill us with CTRL-C here, if you like */
+  #endif
+  
++     // If this is a Windows GUI executable, show an error dialog box.
++ #ifdef VIMDLL
++     gui.in_use = mch_is_gui_executable();
++ #endif
++ #ifdef FEAT_GUI_MSWIN
++     gui.starting = FALSE;   // Needed to show as error.
++ #endif
++ 
+      init_longVersion();
+      mch_errmsg(longVersion);
+      mch_errmsg("\n");
+*** ../vim-8.1.1300/src/message.c	2019-04-28 22:53:37.440370169 +0200
+--- src/message.c	2019-05-08 22:21:43.235895833 +0200
+***************
+*** 2977,2983 ****
+      int		len;
+  #endif
+  
+! #if (defined(UNIX) || defined(FEAT_GUI)) && (!defined(ALWAYS_USE_GUI) || !defined(VIMDLL))
+      /* On Unix use stderr if it's a tty.
+       * When not going to start the GUI also use stderr.
+       * On Mac, when started from Finder, stderr is the console. */
+--- 2977,2983 ----
+      int		len;
+  #endif
+  
+! #if (defined(UNIX) || defined(FEAT_GUI)) && !defined(ALWAYS_USE_GUI) && !defined(VIMDLL)
+      /* On Unix use stderr if it's a tty.
+       * When not going to start the GUI also use stderr.
+       * On Mac, when started from Finder, stderr is the console. */
+***************
+*** 3080,3086 ****
+      void
+  mch_msg(char *str)
+  {
+! #if (defined(UNIX) || defined(FEAT_GUI)) && (!defined(ALWAYS_USE_GUI) || !defined(VIMDLL))
+      /* On Unix use stdout if we have a tty.  This allows "vim -h | more" and
+       * uses mch_errmsg() when started from the desktop.
+       * When not going to start the GUI also use stdout.
+--- 3080,3086 ----
+      void
+  mch_msg(char *str)
+  {
+! #if (defined(UNIX) || defined(FEAT_GUI)) && !defined(ALWAYS_USE_GUI) && !defined(VIMDLL)
+      /* On Unix use stdout if we have a tty.  This allows "vim -h | more" and
+       * uses mch_errmsg() when started from the desktop.
+       * When not going to start the GUI also use stdout.
+*** ../vim-8.1.1300/src/version.c	2019-05-08 21:58:54.446597033 +0200
+--- src/version.c	2019-05-08 22:28:23.609858407 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1301,
+  /**/
+
+-- 
+   Another bucket of what can only be described as human ordure hits ARTHUR.
+ARTHUR: ... Right!  (to the KNIGHTS) That settles it!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

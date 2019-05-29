@@ -1,0 +1,323 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1396
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1396
+Problem:    'wincolor' does not apply to lines below the buffer.
+Solution:   Also apply 'wincolor' to the "~" lines and the number column.
+Files:	    src/screen.c, src/testdir/test_highlight.vim,
+            src/testdir/dumps/Test_wincolor_01.dump
+
+
+*** ../vim-8.1.1395/src/screen.c	2019-05-25 20:21:24.681950994 +0200
+--- src/screen.c	2019-05-25 22:55:07.412061896 +0200
+***************
+*** 2418,2423 ****
+--- 2418,2431 ----
+      hlf_T	hl)
+  {
+      int		n = 0;
++     int		attr = HL_ATTR(hl);
++     int		wcr_attr = 0;
++ 
++     if (*wp->w_p_wcr != NUL)
++     {
++ 	wcr_attr = syn_name2attr(wp->w_p_wcr);
++ 	attr = hl_combine_attr(wcr_attr, attr);
++     }
+  
+      if (draw_margin)
+      {
+***************
+*** 2427,2445 ****
+  	if (fdc > 0)
+  	    // draw the fold column
+  	    n = screen_fill_end(wp, ' ', ' ', n, fdc,
+! 					     row, endrow, HL_ATTR(HLF_FC));
+  #endif
+  #ifdef FEAT_SIGNS
+  	if (signcolumn_on(wp))
+  	    // draw the sign column
+  	    n = screen_fill_end(wp, ' ', ' ', n, 2,
+! 					     row, endrow, HL_ATTR(HLF_SC));
+  #endif
+  	if ((wp->w_p_nu || wp->w_p_rnu)
+  				  && vim_strchr(p_cpo, CPO_NUMCOL) == NULL)
+  	    // draw the number column
+  	    n = screen_fill_end(wp, ' ', ' ', n, number_width(wp) + 1,
+! 					     row, endrow, HL_ATTR(HLF_N));
+      }
+  
+  #ifdef FEAT_RIGHTLEFT
+--- 2435,2453 ----
+  	if (fdc > 0)
+  	    // draw the fold column
+  	    n = screen_fill_end(wp, ' ', ' ', n, fdc,
+! 		      row, endrow, hl_combine_attr(wcr_attr, HL_ATTR(HLF_FC)));
+  #endif
+  #ifdef FEAT_SIGNS
+  	if (signcolumn_on(wp))
+  	    // draw the sign column
+  	    n = screen_fill_end(wp, ' ', ' ', n, 2,
+! 		      row, endrow, hl_combine_attr(wcr_attr, HL_ATTR(HLF_SC)));
+  #endif
+  	if ((wp->w_p_nu || wp->w_p_rnu)
+  				  && vim_strchr(p_cpo, CPO_NUMCOL) == NULL)
+  	    // draw the number column
+  	    n = screen_fill_end(wp, ' ', ' ', n, number_width(wp) + 1,
+! 		       row, endrow, hl_combine_attr(wcr_attr, HL_ATTR(HLF_N)));
+      }
+  
+  #ifdef FEAT_RIGHTLEFT
+***************
+*** 2447,2463 ****
+      {
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+  		wp->w_wincol, W_ENDCOL(wp) - 1 - n,
+! 		c2, c2, HL_ATTR(hl));
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+  		W_ENDCOL(wp) - 1 - n, W_ENDCOL(wp) - n,
+! 		c1, c2, HL_ATTR(hl));
+      }
+      else
+  #endif
+      {
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+  		wp->w_wincol + n, (int)W_ENDCOL(wp),
+! 		c1, c2, HL_ATTR(hl));
+      }
+  
+      set_empty_rows(wp, row);
+--- 2455,2471 ----
+      {
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+  		wp->w_wincol, W_ENDCOL(wp) - 1 - n,
+! 		c2, c2, attr);
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+  		W_ENDCOL(wp) - 1 - n, W_ENDCOL(wp) - n,
+! 		c1, c2, attr);
+      }
+      else
+  #endif
+      {
+  	screen_fill(W_WINROW(wp) + row, W_WINROW(wp) + endrow,
+  		wp->w_wincol + n, (int)W_ENDCOL(wp),
+! 		c1, c2, attr);
+      }
+  
+      set_empty_rows(wp, row);
+***************
+*** 3100,3113 ****
+      pos_T	pos;
+      long	v;
+  
+!     int		char_attr = 0;		/* attributes for next character */
+!     int		attr_pri = FALSE;	/* char_attr has priority */
+!     int		area_highlighting = FALSE; /* Visual or incsearch highlighting
+! 					      in this line */
+!     int		vi_attr = 0;		/* attributes for Visual and incsearch
+! 					   highlighting */
+!     int		area_attr = 0;		/* attributes desired by highlighting */
+!     int		search_attr = 0;	/* attributes desired by 'hlsearch' */
+  #ifdef FEAT_SYN_HL
+      int		vcol_save_attr = 0;	/* saved attr for 'cursorcolumn' */
+      int		syntax_attr = 0;	/* attributes desired by syntax */
+--- 3108,3122 ----
+      pos_T	pos;
+      long	v;
+  
+!     int		char_attr = 0;		// attributes for next character
+!     int		attr_pri = FALSE;	// char_attr has priority
+!     int		area_highlighting = FALSE; // Visual or incsearch highlighting
+! 					   // in this line
+!     int		vi_attr = 0;		// attributes for Visual and incsearch
+! 					// highlighting
+!     int		wcr_attr = 0;		// attributes from 'wincolor'
+!     int		area_attr = 0;		// attributes desired by highlighting
+!     int		search_attr = 0;	// attributes desired by 'hlsearch'
+  #ifdef FEAT_SYN_HL
+      int		vcol_save_attr = 0;	/* saved attr for 'cursorcolumn' */
+      int		syntax_attr = 0;	/* attributes desired by syntax */
+***************
+*** 3559,3570 ****
+  
+      if (*wp->w_p_wcr != NUL)
+      {
+! 	int attr = syn_name2attr(wp->w_p_wcr);
+  
+  	// 'wincolor' highlighting for the whole window
+! 	if (attr != 0)
+  	{
+! 	    win_attr = attr;
+  	    area_highlighting = TRUE;
+  	}
+      }
+--- 3568,3579 ----
+  
+      if (*wp->w_p_wcr != NUL)
+      {
+! 	wcr_attr = syn_name2attr(wp->w_p_wcr);
+  
+  	// 'wincolor' highlighting for the whole window
+! 	if (wcr_attr != 0)
+  	{
+! 	    win_attr = wcr_attr;
+  	    area_highlighting = TRUE;
+  	}
+      }
+***************
+*** 3850,3856 ****
+  		    n_extra = 1;
+  		    c_extra = cmdwin_type;
+  		    c_final = NUL;
+! 		    char_attr = HL_ATTR(HLF_AT);
+  		}
+  	    }
+  #endif
+--- 3859,3865 ----
+  		    n_extra = 1;
+  		    c_extra = cmdwin_type;
+  		    c_final = NUL;
+! 		    char_attr = hl_combine_attr(wcr_attr, HL_ATTR(HLF_AT));
+  		}
+  	    }
+  #endif
+***************
+*** 3876,3882 ****
+  			p_extra = p_extra_free;
+  			c_extra = NUL;
+  			c_final = NUL;
+! 			char_attr = HL_ATTR(HLF_FC);
+  		    }
+  		}
+  	    }
+--- 3885,3891 ----
+  			p_extra = p_extra_free;
+  			c_extra = NUL;
+  			c_final = NUL;
+! 			char_attr = hl_combine_attr(wcr_attr, HL_ATTR(HLF_FC));
+  		    }
+  		}
+  	    }
+***************
+*** 3898,3904 ****
+  		    /* Draw two cells with the sign value or blank. */
+  		    c_extra = ' ';
+  		    c_final = NUL;
+! 		    char_attr = HL_ATTR(HLF_SC);
+  		    n_extra = 2;
+  
+  		    if (row == startrow
+--- 3907,3913 ----
+  		    /* Draw two cells with the sign value or blank. */
+  		    c_extra = ' ';
+  		    c_final = NUL;
+! 		    char_attr = hl_combine_attr(wcr_attr, HL_ATTR(HLF_SC));
+  		    n_extra = 2;
+  
+  		    if (row == startrow
+***************
+*** 4012,4018 ****
+  			c_final = NUL;
+  		    }
+  		    n_extra = number_width(wp) + 1;
+! 		    char_attr = HL_ATTR(HLF_N);
+  #ifdef FEAT_SYN_HL
+  		    /* When 'cursorline' is set highlight the line number of
+  		     * the current line differently.
+--- 4021,4027 ----
+  			c_final = NUL;
+  		    }
+  		    n_extra = number_width(wp) + 1;
+! 		    char_attr = hl_combine_attr(wcr_attr, HL_ATTR(HLF_N));
+  #ifdef FEAT_SYN_HL
+  		    /* When 'cursorline' is set highlight the line number of
+  		     * the current line differently.
+***************
+*** 4020,4026 ****
+  		     * when CursorLineNr isn't set? */
+  		    if ((wp->w_p_cul || wp->w_p_rnu)
+  						 && lnum == wp->w_cursor.lnum)
+! 			char_attr = HL_ATTR(HLF_CLN);
+  #endif
+  		}
+  	    }
+--- 4029,4035 ----
+  		     * when CursorLineNr isn't set? */
+  		    if ((wp->w_p_cul || wp->w_p_rnu)
+  						 && lnum == wp->w_cursor.lnum)
+! 			char_attr = hl_combine_attr(wcr_attr, HL_ATTR(HLF_CLN));
+  #endif
+  		}
+  	    }
+*** ../vim-8.1.1395/src/testdir/test_highlight.vim	2019-05-09 20:07:30.310817540 +0200
+--- src/testdir/test_highlight.vim	2019-05-25 22:46:50.942385413 +0200
+***************
+*** 573,578 ****
+--- 573,602 ----
+    call delete('Xtest_cursorline_with_visualmode')
+  endfunc
+  
++ func Test_wincolor()
++   if !CanRunVimInTerminal()
++     return
++   endif
++ 
++   call writefile([
++ 	\ 'set cursorline cursorcolumn rnu',
++ 	\ 'call setline(1, ["","1111111111","22222222222","3 here 3",""])',
++ 	\ 'set wincolor=Pmenu',
++ 	\ '/here',
++ 	\ ], 'Xtest_wincolor')
++   let buf = RunVimInTerminal('-S Xtest_wincolor', {'rows': 8})
++   call term_wait(buf)
++   call term_sendkeys(buf, "2G5lvj")
++   call term_wait(buf)
++ 
++   call VerifyScreenDump(buf, 'Test_wincolor_01', {})
++ 
++   " clean up
++   call term_sendkeys(buf, "\<Esc>")
++   call StopVimInTerminal(buf)
++   call delete('Xtest_wincolor')
++ endfunc
++ 
+  " This test must come before the Test_cursorline test, as it appears this
+  " defines the Normal highlighting group anyway.
+  func Test_1_highlight_Normalgroup_exists()
+*** ../vim-8.1.1395/src/testdir/dumps/Test_wincolor_01.dump	2019-05-25 22:56:14.639798568 +0200
+--- src/testdir/dumps/Test_wincolor_01.dump	2019-05-25 22:55:16.532026895 +0200
+***************
+*** 0 ****
+--- 1,8 ----
++ | +0#af5f00255#ffd7ff255@1|2| | +0#0000001&@4| +0&#e0e0e08| +0&#ffd7ff255@64
++ | +0#af5f00255&@1|1| |1+0#0000001&@4|1+0#0000000#e0e0e08@4| | +0#0000001#ffd7ff255@59
++ | +0#af5f00255&@1|0| |2+0#0000000#e0e0e08@4>2+0#0000001#ffd7ff255@5| +8&&@59
++ | +0#af5f00255&@1|1| |3+0#0000001&| |h|e|r|e+0&#e0e0e08| +0&#ffd7ff255|3| @62
++ | +0#af5f00255&@1|2| | +0#0000001&@4| +0&#e0e0e08| +0&#ffd7ff255@64
++ |~+0#4040ff13&| @73
++ |~| @73
++ |-+2#0000000#ffffff0@1| |V|I|S|U|A|L| |-@1| +0&&@34|2| @8|3|,|6| @10|A|l@1| 
+*** ../vim-8.1.1395/src/version.c	2019-05-25 22:11:42.474849134 +0200
+--- src/version.c	2019-05-25 22:42:49.275740047 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1396,
+  /**/
+
+-- 
+What a wonderfully exciting cough!  Do you mind if I join you?
+		-- Douglas Adams, "The Hitchhiker's Guide to the Galaxy"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

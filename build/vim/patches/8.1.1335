@@ -1,0 +1,449 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1335
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1335
+Problem:    Listener callback is called after inserting text.
+Solution:   Flush the changes before inserting or deleting a line.  Store
+            changes per buffer.
+Files:	    src/change.c, src/proto/change.pro, src/memline.c,
+            src/structs.h, src/testdir/test_listener.vim
+
+
+*** ../vim-8.1.1334/src/change.c	2019-05-15 22:45:33.956067651 +0200
+--- src/change.c	2019-05-16 21:44:23.932078618 +0200
+***************
+*** 152,183 ****
+  }
+  
+  #ifdef FEAT_EVAL
+- static list_T *recorded_changes = NULL;
+  static long next_listener_id = 0;
+  
+  /*
+!  * Record a change for listeners added with listener_add().
+   */
+!     static void
+! may_record_change(
+!     linenr_T	lnum,
+!     colnr_T	col,
+!     linenr_T	lnume,
+!     long	xtra)
+  {
+!     dict_T	*dict;
+! 
+!     if (curbuf->b_listener == NULL)
+! 	return;
+! 
+!     // If the new change is going to change the line numbers in already listed
+!     // changes, then flush.
+!     if (recorded_changes != NULL && xtra != 0)
+      {
+  	listitem_T *li;
+  	linenr_T    nr;
+  
+! 	for (li = recorded_changes->lv_first; li != NULL; li = li->li_next)
+  	{
+  	    nr = (linenr_T)dict_get_number(
+  				      li->li_tv.vval.v_dict, (char_u *)"lnum");
+--- 152,181 ----
+  }
+  
+  #ifdef FEAT_EVAL
+  static long next_listener_id = 0;
+  
+  /*
+!  * Check if the change at "lnum" / "col" is above or overlaps with an existing
+!  * changed. If above then flush changes and invoke listeners.
+!  * If "merge" is TRUE do the merge.
+!  * Returns TRUE if the change was merged.
+   */
+!     static int
+! check_recorded_changes(
+! 	buf_T		*buf,
+! 	linenr_T	lnum,
+! 	colnr_T		col,
+! 	linenr_T	lnume,
+! 	long		xtra,
+! 	int		merge)
+  {
+!     if (buf->b_recorded_changes != NULL && xtra != 0)
+      {
+  	listitem_T *li;
+  	linenr_T    nr;
+  
+! 	for (li = buf->b_recorded_changes->lv_first; li != NULL;
+! 							      li = li->li_next)
+  	{
+  	    nr = (linenr_T)dict_get_number(
+  				      li->li_tv.vval.v_dict, (char_u *)"lnum");
+***************
+*** 187,221 ****
+  			&& col + 1 == (colnr_T)dict_get_number(
+  				      li->li_tv.vval.v_dict, (char_u *)"col"))
+  		{
+! 		    dictitem_T	*di;
+! 
+! 		    // Same start point and nothing is following, entries can
+! 		    // be merged.
+! 		    di = dict_find(li->li_tv.vval.v_dict, (char_u *)"end", -1);
+! 		    nr = tv_get_number(&di->di_tv);
+! 		    if (lnume > nr)
+! 			di->di_tv.vval.v_number = lnume;
+! 		    di = dict_find(li->li_tv.vval.v_dict,
+  							(char_u *)"added", -1);
+! 		    di->di_tv.vval.v_number += xtra;
+! 		    return;
+  		}
+- 
+- 		// the current change is going to make the line number in the
+- 		// older change invalid, flush now
+- 		invoke_listeners(curbuf);
+- 		break;
+  	    }
+  	}
+      }
+  
+!     if (recorded_changes == NULL)
+      {
+! 	recorded_changes = list_alloc();
+! 	if (recorded_changes == NULL)  // out of memory
+  	    return;
+! 	++recorded_changes->lv_refcount;
+! 	recorded_changes->lv_lock = VAR_FIXED;
+      }
+  
+      dict = dict_alloc();
+--- 185,248 ----
+  			&& col + 1 == (colnr_T)dict_get_number(
+  				      li->li_tv.vval.v_dict, (char_u *)"col"))
+  		{
+! 		    if (merge)
+! 		    {
+! 			dictitem_T	*di;
+! 
+! 			// Same start point and nothing is following, entries
+! 			// can be merged.
+! 			di = dict_find(li->li_tv.vval.v_dict,
+! 							  (char_u *)"end", -1);
+! 			nr = tv_get_number(&di->di_tv);
+! 			if (lnume > nr)
+! 			    di->di_tv.vval.v_number = lnume;
+! 			di = dict_find(li->li_tv.vval.v_dict,
+  							(char_u *)"added", -1);
+! 			di->di_tv.vval.v_number += xtra;
+! 			return TRUE;
+! 		    }
+! 		}
+! 		else
+! 		{
+! 		    // the current change is going to make the line number in
+! 		    // the older change invalid, flush now
+! 		    invoke_listeners(curbuf);
+! 		    break;
+  		}
+  	    }
+  	}
+      }
++     return FALSE;
++ }
+  
+! /*
+!  * Record a change for listeners added with listener_add().
+!  * Always for the current buffer.
+!  */
+!     static void
+! may_record_change(
+!     linenr_T	lnum,
+!     colnr_T	col,
+!     linenr_T	lnume,
+!     long	xtra)
+! {
+!     dict_T	*dict;
+! 
+!     if (curbuf->b_listener == NULL)
+! 	return;
+! 
+!     // If the new change is going to change the line numbers in already listed
+!     // changes, then flush.
+!     if (check_recorded_changes(curbuf, lnum, col, lnume, xtra, TRUE))
+! 	return;
+! 
+!     if (curbuf->b_recorded_changes == NULL)
+      {
+! 	curbuf->b_recorded_changes = list_alloc();
+! 	if (curbuf->b_recorded_changes == NULL)  // out of memory
+  	    return;
+! 	++curbuf->b_recorded_changes->lv_refcount;
+! 	curbuf->b_recorded_changes->lv_lock = VAR_FIXED;
+      }
+  
+      dict = dict_alloc();
+***************
+*** 226,232 ****
+      dict_add_number(dict, "added", (varnumber_T)xtra);
+      dict_add_number(dict, "col", (varnumber_T)col + 1);
+  
+!     list_append_dict(recorded_changes, dict);
+  }
+  
+  /*
+--- 253,259 ----
+      dict_add_number(dict, "added", (varnumber_T)xtra);
+      dict_add_number(dict, "col", (varnumber_T)col + 1);
+  
+!     list_append_dict(curbuf->b_recorded_changes, dict);
+  }
+  
+  /*
+***************
+*** 317,322 ****
+--- 344,359 ----
+  }
+  
+  /*
++  * Called before inserting a line above "lnum"/"lnum3" or deleting line "lnum"
++  * to "lnume".
++  */
++     void
++ may_invoke_listeners(buf_T *buf, linenr_T lnum, linenr_T lnume, int added)
++ {
++     check_recorded_changes(buf, lnum, 0, lnume, added, FALSE);
++ }
++ 
++ /*
+   * Called when a sequence of changes is done: invoke listeners added with
+   * listener_add().
+   */
+***************
+*** 332,338 ****
+      linenr_T	end = 0;
+      linenr_T	added = 0;
+  
+!     if (recorded_changes == NULL  // nothing changed
+  	    || buf->b_listener == NULL)  // no listeners
+  	return;
+  
+--- 369,375 ----
+      linenr_T	end = 0;
+      linenr_T	added = 0;
+  
+!     if (buf->b_recorded_changes == NULL  // nothing changed
+  	    || buf->b_listener == NULL)  // no listeners
+  	return;
+  
+***************
+*** 340,346 ****
+      argv[0].vval.v_number = buf->b_fnum; // a:bufnr
+  
+  
+!     for (li = recorded_changes->lv_first; li != NULL; li = li->li_next)
+      {
+  	varnumber_T lnum;
+  
+--- 377,383 ----
+      argv[0].vval.v_number = buf->b_fnum; // a:bufnr
+  
+  
+!     for (li = buf->b_recorded_changes->lv_first; li != NULL; li = li->li_next)
+      {
+  	varnumber_T lnum;
+  
+***************
+*** 360,366 ****
+      argv[3].vval.v_number = added;
+  
+      argv[4].v_type = VAR_LIST;
+!     argv[4].vval.v_list = recorded_changes;
+      ++textlock;
+  
+      for (lnr = buf->b_listener; lnr != NULL; lnr = lnr->lr_next)
+--- 397,403 ----
+      argv[3].vval.v_number = added;
+  
+      argv[4].v_type = VAR_LIST;
+!     argv[4].vval.v_list = buf->b_recorded_changes;
+      ++textlock;
+  
+      for (lnr = buf->b_listener; lnr != NULL; lnr = lnr->lr_next)
+***************
+*** 371,378 ****
+      }
+  
+      --textlock;
+!     list_unref(recorded_changes);
+!     recorded_changes = NULL;
+  }
+  #endif
+  
+--- 408,415 ----
+      }
+  
+      --textlock;
+!     list_unref(buf->b_recorded_changes);
+!     buf->b_recorded_changes = NULL;
+  }
+  #endif
+  
+*** ../vim-8.1.1334/src/proto/change.pro	2019-05-14 21:20:32.597441034 +0200
+--- src/proto/change.pro	2019-05-16 21:43:11.104455404 +0200
+***************
+*** 5,10 ****
+--- 5,11 ----
+  void f_listener_add(typval_T *argvars, typval_T *rettv);
+  void f_listener_flush(typval_T *argvars, typval_T *rettv);
+  void f_listener_remove(typval_T *argvars, typval_T *rettv);
++ void may_invoke_listeners(buf_T *buf, linenr_T lnum, linenr_T lnume, int added);
+  void invoke_listeners(buf_T *buf);
+  void changed_bytes(linenr_T lnum, colnr_T col);
+  void inserted_bytes(linenr_T lnum, colnr_T col, int added);
+*** ../vim-8.1.1334/src/memline.c	2019-05-11 17:03:55.170019762 +0200
+--- src/memline.c	2019-05-16 22:10:02.903781871 +0200
+***************
+*** 2790,2795 ****
+--- 2790,2801 ----
+      if (len == 0)
+  	len = (colnr_T)STRLEN(line) + 1;	// space needed for the text
+  
++ #ifdef FEAT_EVAL
++     // When inserting above recorded changes: flush the changes before changing
++     // the text.
++     may_invoke_listeners(buf, lnum + 1, lnum + 1, 1);
++ #endif
++ 
+  #ifdef FEAT_TEXT_PROP
+      if (curbuf->b_has_textprop && lnum > 0)
+  	// Add text properties that continue from the previous line.
+***************
+*** 3526,3531 ****
+--- 3532,3542 ----
+      if (lnum < 1 || lnum > buf->b_ml.ml_line_count)
+  	return FAIL;
+  
++ #ifdef FEAT_EVAL
++     // When inserting above recorded changes: flush the changes before changing
++     // the text.
++     may_invoke_listeners(buf, lnum, lnum + 1, -1);
++ #endif
+      if (lowest_marked && lowest_marked > lnum)
+  	lowest_marked--;
+  
+*** ../vim-8.1.1334/src/structs.h	2019-05-11 19:14:11.585314006 +0200
+--- src/structs.h	2019-05-16 21:35:50.642762505 +0200
+***************
+*** 2439,2444 ****
+--- 2439,2445 ----
+      dict_T	*b_vars;	/* internal variables, local to buffer */
+  
+      listener_T	*b_listener;
++     list_T	*b_recorded_changes;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+      int		b_has_textprop;	// TRUE when text props were added
+*** ../vim-8.1.1334/src/testdir/test_listener.vim	2019-05-14 21:20:32.597441034 +0200
+--- src/testdir/test_listener.vim	2019-05-16 22:09:20.164017981 +0200
+***************
+*** 1,6 ****
+  " tests for listener_add() and listener_remove()
+  
+! func s:StoreList(l)
+    let s:list = a:l
+  endfunc
+  
+--- 1,8 ----
+  " tests for listener_add() and listener_remove()
+  
+! func s:StoreList(s, l)
+!   let s:start = a:s
+!   let s:text = getline(a:s)
+    let s:list = a:l
+  endfunc
+  
+***************
+*** 17,23 ****
+    new
+    call setline(1, ['one', 'two'])
+    let s:list = []
+!   let id = listener_add({b, s, e, a, l -> s:StoreList(l)})
+    call setline(1, 'one one')
+    call listener_flush()
+    call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
+--- 19,25 ----
+    new
+    call setline(1, ['one', 'two'])
+    let s:list = []
+!   let id = listener_add({b, s, e, a, l -> s:StoreList(s, l)})
+    call setline(1, 'one one')
+    call listener_flush()
+    call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
+***************
+*** 66,73 ****
+--- 68,77 ----
+    " an insert just above a previous change that was the last one gets merged
+    call setline(1, ['one one', 'two'])
+    call listener_flush()
++   let s:list = []
+    call setline(2, 'something')
+    call append(1, 'two two')
++   call assert_equal([], s:list)
+    call listener_flush()
+    call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': 1}], s:list)
+  
+***************
+*** 77,84 ****
+--- 81,112 ----
+    call setline(2, 'something')
+    call append(0, 'two two')
+    call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': 0}], s:list)
++   call assert_equal('something', s:text)
+    call listener_flush()
+    call assert_equal([{'lnum': 1, 'end': 1, 'col': 1, 'added': 1}], s:list)
++   call assert_equal('two two', s:text)
++ 
++   " a delete at a previous change that was the last one gets merged
++   call setline(1, ['one one', 'two'])
++   call listener_flush()
++   let s:list = []
++   call setline(2, 'something')
++   2del
++   call assert_equal([], s:list)
++   call listener_flush()
++   call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': -1}], s:list)
++ 
++   " a delete above a previous change causes a flush
++   call setline(1, ['one one', 'two'])
++   call listener_flush()
++   call setline(2, 'another')
++   1del
++   call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': 0}], s:list)
++   call assert_equal(2, s:start)
++   call assert_equal('another', s:text)
++   call listener_flush()
++   call assert_equal([{'lnum': 1, 'end': 2, 'col': 1, 'added': -1}], s:list)
++   call assert_equal('another', s:text)
+  
+    " the "o" command first adds an empty line and then changes it
+    %del
+*** ../vim-8.1.1334/src/version.c	2019-05-16 20:29:40.799834279 +0200
+--- src/version.c	2019-05-16 22:10:40.187576723 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1335,
+  /**/
+
+-- 
+Hacker: Someone skilled in computer programming (good guy).
+Cracker: A hacker that uses his skills to crack software (bad guy).
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

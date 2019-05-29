@@ -1,0 +1,588 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1068
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1068
+Problem:    Cannot get all the information about current completion.
+Solution:   Add complete_info(). (Shougo, Hirohito Higashi, closes #4106)
+Files:	    runtime/doc/eval.txt, runtime/doc/insert.txt,
+            runtime/doc/usr_41.txt, src/edit.c, src/evalfunc.c,
+            src/proto/edit.pro, src/testdir/test_popup.vim
+
+
+*** ../vim-8.1.1067/runtime/doc/eval.txt	2019-03-26 22:50:19.147698161 +0100
+--- runtime/doc/eval.txt	2019-03-29 12:09:44.357635376 +0100
+***************
+*** 2242,2254 ****
+  complete({startcol}, {matches}) none	set Insert mode completion
+  complete_add({expr})		Number	add completion match
+  complete_check()		Number	check for key typed during completion
+  confirm({msg} [, {choices} [, {default} [, {type}]]])
+  				Number	number of choice picked by user
+  copy({expr})			any	make a shallow copy of {expr}
+  cos({expr})			Float	cosine of {expr}
+  cosh({expr})			Float	hyperbolic cosine of {expr}
+! count({list}, {expr} [, {ic} [, {start}]])
+! 				Number	count how many {expr} are in {list}
+  cscope_connection([{num}, {dbpath} [, {prepend}]])
+  				Number	checks existence of cscope connection
+  cursor({lnum}, {col} [, {off}])
+--- 2267,2280 ----
+  complete({startcol}, {matches}) none	set Insert mode completion
+  complete_add({expr})		Number	add completion match
+  complete_check()		Number	check for key typed during completion
++ complete_info([{what}])		Dict	get current completion information
+  confirm({msg} [, {choices} [, {default} [, {type}]]])
+  				Number	number of choice picked by user
+  copy({expr})			any	make a shallow copy of {expr}
+  cos({expr})			Float	cosine of {expr}
+  cosh({expr})			Float	hyperbolic cosine of {expr}
+! count({comp}, {expr} [, {ic} [, {start}]])
+! 				Number	count how many {expr} are in {comp}
+  cscope_connection([{num}, {dbpath} [, {prepend}]])
+  				Number	checks existence of cscope connection
+  cursor({lnum}, {col} [, {off}])
+***************
+*** 3512,3520 ****
+  		Only to be used by the function specified with the
+  		'completefunc' option.
+  
+  						*confirm()*
+  confirm({msg} [, {choices} [, {default} [, {type}]]])
+! 		Confirm() offers the user a dialog, from which a choice can be
+  		made.  It returns the number of the choice.  For the first
+  		choice this is 1.
+  		Note: confirm() is only supported when compiled with dialog
+--- 3539,3596 ----
+  		Only to be used by the function specified with the
+  		'completefunc' option.
+  
++ 							*complete_info()*
++ complete_info([{what}])
++ 		Returns a Dictionary with information about Insert mode
++ 		completion.  See |ins-completion|.
++ 		The items are:
++ 		   mode		Current completion mode name string.
++ 				See |completion_info_mode| for the values.
++ 		   pum_visible	|TRUE| if popup menu is visible.
++ 				See |pumvisible()|.
++ 		   items	List of completion matches.  Each item is a
++ 				dictionary containing the entries "word",
++ 				"abbr", "menu", "kind", "info" and "user_data".
++ 				See |complete-items|.
++ 		   selected	Selected item index.  First index is zero.
++ 				Index is -1 if no item is selected (showing
++ 				typed text only)
++ 		   inserted	Inserted string. [NOT IMPLEMENT YET]
++ 
++ 							*complete_info_mode*
++ 		mode values are:
++ 		   ""		     Not in completion mode
++ 		   "keyword"	     Keyword completion |i_CTRL-X_CTRL-N|
++ 		   "ctrl_x"	     Just pressed CTRL-X |i_CTRL-X|
++ 		   "whole_line"	     Whole lines |i_CTRL-X_CTRL-L|
++ 		   "files"	     File names |i_CTRL-X_CTRL-F|
++ 		   "tags"	     Tags |i_CTRL-X_CTRL-]|
++ 		   "path_defines"    Definition completion |i_CTRL-X_CTRL-D|
++ 		   "path_patterns"   Include completion |i_CTRL-X_CTRL-I|
++ 		   "dictionary"	     Dictionary |i_CTRL-X_CTRL-K|
++ 		   "thesaurus"	     Thesaurus |i_CTRL-X_CTRL-T|
++ 		   "cmdline"	     Vim Command line |i_CTRL-X_CTRL-V|
++ 		   "function"	     User defined completion |i_CTRL-X_CTRL-U|
++ 		   "omni"	     Omni completion |i_CTRL-X_CTRL-O|
++ 		   "spell"	     Spelling suggestions |i_CTRL-X_s|
++ 		   "eval"            |complete()| completion
++ 		   "unknown"	     Other internal modes
++ 
++ 		If the optional {what} list argument is supplied, then only
++ 		the items listed in {what} are returned.  Unsupported items in
++ 		{what} are silently ignored.
++ 
++ 		Examples: >
++ 			" Get all items
++ 			call complete_info()
++ 			" Get only 'mode'
++ 			call complete_info(['mode'])
++ 			" Get only 'mode' and 'pum_visible'
++ 			call complete_info(['mode', 'pum_visible'])
++ <
+  						*confirm()*
+  confirm({msg} [, {choices} [, {default} [, {type}]]])
+! 		confirm() offers the user a dialog, from which a choice can be
+  		made.  It returns the number of the choice.  For the first
+  		choice this is 1.
+  		Note: confirm() is only supported when compiled with dialog
+*** ../vim-8.1.1067/runtime/doc/insert.txt	2019-01-11 13:02:20.101567912 +0100
+--- runtime/doc/insert.txt	2019-03-29 11:55:56.275979508 +0100
+***************
+*** 642,647 ****
+--- 642,648 ----
+  not a valid CTRL-X mode command.  Valid keys are the CTRL-X command itself,
+  CTRL-N (next), and CTRL-P (previous).
+  
++ To get the current completion information, |complete_info()| can be used.
+  Also see the 'infercase' option if you want to adjust the case of the match.
+  
+  							*complete_CTRL-E*
+***************
+*** 1051,1063 ****
+  number between zero and the cursor column "col('.')".  This involves looking
+  at the characters just before the cursor and including those characters that
+  could be part of the completed item.  The text between this column and the
+! cursor column will be replaced with the matches.
+  
+! Special return values:
+!    -1 If no completion can be done, the completion will be cancelled with an
+!       error message.
+!    -2 To cancel silently and stay in completion mode.
+!    -3 To cancel silently and leave completion mode.
+  
+  On the second invocation the arguments are:
+     a:findstart  0
+--- 1052,1064 ----
+  number between zero and the cursor column "col('.')".  This involves looking
+  at the characters just before the cursor and including those characters that
+  could be part of the completed item.  The text between this column and the
+! cursor column will be replaced with the matches.  If the returned value is
+! larger than the cursor column, the cursor column is used.
+  
+! Negative return values:
+!    -2 	To cancel silently and stay in completion mode.
+!    -3 	To cancel silently and leave completion mode.
+!    Another negative value: completion starts at the cursor column
+  
+  On the second invocation the arguments are:
+     a:findstart  0
+*** ../vim-8.1.1067/runtime/doc/usr_41.txt	2019-01-11 13:42:31.680331155 +0100
+--- runtime/doc/usr_41.txt	2019-03-29 11:55:56.275979508 +0100
+***************
+*** 829,834 ****
+--- 834,840 ----
+  	complete()		set found matches
+  	complete_add()		add to found matches
+  	complete_check()	check if completion should be aborted
++ 	complete_info()		get current completion information
+  	pumvisible()		check if the popup menu is displayed
+  
+  Folding:					*folding-functions*
+*** ../vim-8.1.1067/src/edit.c	2019-03-26 22:46:01.885928372 +0100
+--- src/edit.c	2019-03-29 12:12:58.388217318 +0100
+***************
+*** 15,21 ****
+  
+  #ifdef FEAT_INS_EXPAND
+  /*
+!  * definitions used for CTRL-X submode
+   */
+  # define CTRL_X_WANT_IDENT	0x100
+  
+--- 15,23 ----
+  
+  #ifdef FEAT_INS_EXPAND
+  /*
+!  * Definitions used for CTRL-X submode.
+!  * Note: If you change CTRL-X submode, you must also maintain ctrl_x_msgs[] and
+!  * ctrl_x_mode_names[].
+   */
+  # define CTRL_X_WANT_IDENT	0x100
+  
+***************
+*** 40,57 ****
+  # define CTRL_X_MSG(i) ctrl_x_msgs[(i) & ~CTRL_X_WANT_IDENT]
+  # define CTRL_X_MODE_LINE_OR_EVAL(m) ((m) == CTRL_X_WHOLE_LINE || (m) == CTRL_X_EVAL)
+  
+! /* Message for CTRL-X mode, index is ctrl_x_mode. */
+  static char *ctrl_x_msgs[] =
+  {
+!     N_(" Keyword completion (^N^P)"), /* CTRL_X_NORMAL, ^P/^N compl. */
+      N_(" ^X mode (^]^D^E^F^I^K^L^N^O^Ps^U^V^Y)"),
+!     NULL, /* CTRL_X_SCROLL: depends on state */
+      N_(" Whole line completion (^L^N^P)"),
+      N_(" File name completion (^F^N^P)"),
+      N_(" Tag completion (^]^N^P)"),
+      N_(" Path pattern completion (^N^P)"),
+      N_(" Definition completion (^D^N^P)"),
+!     NULL, /* CTRL_X_FINISHED */
+      N_(" Dictionary completion (^K^N^P)"),
+      N_(" Thesaurus completion (^T^N^P)"),
+      N_(" Command-line completion (^V^N^P)"),
+--- 42,59 ----
+  # define CTRL_X_MSG(i) ctrl_x_msgs[(i) & ~CTRL_X_WANT_IDENT]
+  # define CTRL_X_MODE_LINE_OR_EVAL(m) ((m) == CTRL_X_WHOLE_LINE || (m) == CTRL_X_EVAL)
+  
+! // Message for CTRL-X mode, index is ctrl_x_mode.
+  static char *ctrl_x_msgs[] =
+  {
+!     N_(" Keyword completion (^N^P)"), // CTRL_X_NORMAL, ^P/^N compl.
+      N_(" ^X mode (^]^D^E^F^I^K^L^N^O^Ps^U^V^Y)"),
+!     NULL, // CTRL_X_SCROLL: depends on state
+      N_(" Whole line completion (^L^N^P)"),
+      N_(" File name completion (^F^N^P)"),
+      N_(" Tag completion (^]^N^P)"),
+      N_(" Path pattern completion (^N^P)"),
+      N_(" Definition completion (^D^N^P)"),
+!     NULL, // CTRL_X_FINISHED
+      N_(" Dictionary completion (^K^N^P)"),
+      N_(" Thesaurus completion (^T^N^P)"),
+      N_(" Command-line completion (^V^N^P)"),
+***************
+*** 59,67 ****
+      N_(" Omni completion (^O^N^P)"),
+      N_(" Spelling suggestion (s^N^P)"),
+      N_(" Keyword Local completion (^N^P)"),
+!     NULL,   /* CTRL_X_EVAL doesn't use msg. */
+  };
+  
+  static char e_hitend[] = N_("Hit end of paragraph");
+  # ifdef FEAT_COMPL_FUNC
+  static char e_complwin[] = N_("E839: Completion function changed window");
+--- 61,90 ----
+      N_(" Omni completion (^O^N^P)"),
+      N_(" Spelling suggestion (s^N^P)"),
+      N_(" Keyword Local completion (^N^P)"),
+!     NULL,   // CTRL_X_EVAL doesn't use msg.
+  };
+  
++ static char *ctrl_x_mode_names[] = {
++ 	"keyword",
++ 	"ctrl_x",
++ 	"unknown",	    // CTRL_X_SCROLL
++ 	"whole_line",
++ 	"files",
++ 	"tags",
++ 	"path_patterns",
++ 	"path_defines",
++ 	"unknown",	    // CTRL_X_FINISHED
++ 	"dictionary",
++ 	"thesaurus",
++ 	"cmdline",
++ 	"function",
++ 	"omni",
++ 	"spell",
++ 	NULL,		    // CTRL_X_LOCAL_MSG only used in "ctrl_x_msgs"
++ 	"eval"
++     };
++ 
++ 
+  static char e_hitend[] = N_("Hit end of paragraph");
+  # ifdef FEAT_COMPL_FUNC
+  static char e_complwin[] = N_("E839: Completion function changed window");
+***************
+*** 163,168 ****
+--- 186,192 ----
+  static char_u *find_line_end(char_u *ptr);
+  static void ins_compl_free(void);
+  static void ins_compl_clear(void);
++ static char_u *ins_compl_mode(void);
+  static int  ins_compl_bs(void);
+  static int  ins_compl_need_restart(void);
+  static void ins_compl_new_leader(void);
+***************
+*** 3525,3530 ****
+--- 3549,3656 ----
+      return compl_started;
+  }
+  
++ 
++ /*
++  * Get complete information
++  */
++     void
++ get_complete_info(list_T *what_list, dict_T *retdict)
++ {
++     int		ret = OK;
++     listitem_T	*item;
++ #define CI_WHAT_MODE		0x01
++ #define CI_WHAT_PUM_VISIBLE	0x02
++ #define CI_WHAT_ITEMS		0x04
++ #define CI_WHAT_SELECTED	0x08
++ #define CI_WHAT_INSERTED	0x10
++ #define CI_WHAT_ALL		0xff
++     int		what_flag;
++ 
++     if (what_list == NULL)
++ 	what_flag = CI_WHAT_ALL;
++     else
++     {
++ 	what_flag = 0;
++ 	for (item = what_list->lv_first; item != NULL; item = item->li_next)
++ 	{
++ 	    char_u *what = tv_get_string(&item->li_tv);
++ 
++ 	    if (STRCMP(what, "mode") == 0)
++ 		what_flag |= CI_WHAT_MODE;
++ 	    else if (STRCMP(what, "pum_visible") == 0)
++ 		what_flag |= CI_WHAT_PUM_VISIBLE;
++ 	    else if (STRCMP(what, "items") == 0)
++ 		what_flag |= CI_WHAT_ITEMS;
++ 	    else if (STRCMP(what, "selected") == 0)
++ 		what_flag |= CI_WHAT_SELECTED;
++ 	    else if (STRCMP(what, "inserted") == 0)
++ 		what_flag |= CI_WHAT_INSERTED;
++ 	}
++     }
++ 
++     if (ret == OK && (what_flag & CI_WHAT_MODE))
++ 	ret = dict_add_string(retdict, "mode", ins_compl_mode());
++ 
++     if (ret == OK && (what_flag & CI_WHAT_PUM_VISIBLE))
++ 	ret = dict_add_number(retdict, "pum_visible", pum_visible());
++ 
++     if (ret == OK && (what_flag & CI_WHAT_ITEMS))
++     {
++ 	list_T	    *li;
++ 	dict_T	    *di;
++ 	compl_T     *match;
++ 
++ 	li = list_alloc();
++ 	if (li == NULL)
++ 	    return;
++ 	ret = dict_add_list(retdict, "items", li);
++ 	if (ret == OK && compl_first_match != NULL)
++ 	{
++ 	    match = compl_first_match;
++ 	    do
++ 	    {
++ 		if (!(match->cp_flags & ORIGINAL_TEXT))
++ 		{
++ 		    di = dict_alloc();
++ 		    if (di == NULL)
++ 			return;
++ 		    ret = list_append_dict(li, di);
++ 		    if (ret != OK)
++ 			return;
++ 		    dict_add_string(di, "word", match->cp_str);
++ 		    dict_add_string(di, "abbr", match->cp_text[CPT_ABBR]);
++ 		    dict_add_string(di, "menu", match->cp_text[CPT_MENU]);
++ 		    dict_add_string(di, "kind", match->cp_text[CPT_KIND]);
++ 		    dict_add_string(di, "info", match->cp_text[CPT_INFO]);
++ 		    dict_add_string(di, "user_data",
++ 					    match->cp_text[CPT_USER_DATA]);
++ 		}
++ 		match = match->cp_next;
++ 	    }
++ 	    while (match != NULL && match != compl_first_match);
++ 	}
++     }
++ 
++     if (ret == OK && (what_flag & CI_WHAT_SELECTED))
++ 	ret = dict_add_number(retdict, "selected", (compl_curr_match != NULL) ?
++ 			compl_curr_match->cp_number - 1 : -1);
++ 
++     // TODO
++     // if (ret == OK && (what_flag & CI_WHAT_INSERTED))
++ }
++ 
++ /*
++  * Return Insert completion mode name string
++  */
++     static char_u *
++ ins_compl_mode(void)
++ {
++     if (ctrl_x_mode == CTRL_X_NOT_DEFINED_YET || compl_started)
++ 	return (char_u *)ctrl_x_mode_names[ctrl_x_mode & ~CTRL_X_WANT_IDENT];
++ 
++     return (char_u *)"";
++ }
++ 
+  /*
+   * Delete one character before the cursor and show the subset of the matches
+   * that match the word that is now before the cursor.
+*** ../vim-8.1.1067/src/evalfunc.c	2019-03-26 22:50:19.151698126 +0100
+--- src/evalfunc.c	2019-03-29 12:15:43.859016653 +0100
+***************
+*** 113,118 ****
+--- 113,119 ----
+  static void f_complete(typval_T *argvars, typval_T *rettv);
+  static void f_complete_add(typval_T *argvars, typval_T *rettv);
+  static void f_complete_check(typval_T *argvars, typval_T *rettv);
++ static void f_complete_info(typval_T *argvars, typval_T *rettv);
+  #endif
+  static void f_confirm(typval_T *argvars, typval_T *rettv);
+  static void f_copy(typval_T *argvars, typval_T *rettv);
+***************
+*** 593,598 ****
+--- 594,600 ----
+      {"complete",	2, 2, f_complete},
+      {"complete_add",	1, 1, f_complete_add},
+      {"complete_check",	0, 0, f_complete_check},
++     {"complete_info",	0, 1, f_complete_info},
+  #endif
+      {"confirm",		1, 4, f_confirm},
+      {"copy",		1, 1, f_copy},
+***************
+*** 2600,2605 ****
+--- 2602,2630 ----
+      rettv->vval.v_number = compl_interrupted;
+      RedrawingDisabled = saved;
+  }
++ 
++ /*
++  * "complete_info()" function
++  */
++     static void
++ f_complete_info(typval_T *argvars, typval_T *rettv)
++ {
++     list_T	*what_list = NULL;
++ 
++     if (rettv_dict_alloc(rettv) != OK)
++ 	return;
++ 
++     if (argvars[0].v_type != VAR_UNKNOWN)
++     {
++ 	if (argvars[0].v_type != VAR_LIST)
++ 	{
++ 	    emsg(_(e_listreq));
++ 	    return;
++ 	}
++ 	what_list = argvars[0].vval.v_list;
++     }
++     get_complete_info(what_list, rettv->vval.v_dict);
++ }
+  #endif
+  
+  /*
+*** ../vim-8.1.1067/src/proto/edit.pro	2019-01-31 13:47:51.126632619 +0100
+--- src/proto/edit.pro	2019-03-29 12:13:26.104015732 +0100
+***************
+*** 18,23 ****
+--- 18,24 ----
+  char_u *find_word_start(char_u *ptr);
+  char_u *find_word_end(char_u *ptr);
+  int ins_compl_active(void);
++ void get_complete_info(list_T *what_list, dict_T *retdict);
+  int ins_compl_add_tv(typval_T *tv, int dir);
+  void ins_compl_check_keys(int frequency, int in_compl_func);
+  int get_literal(void);
+*** ../vim-8.1.1067/src/testdir/test_popup.vim	2019-01-06 13:10:46.332499076 +0100
+--- src/testdir/test_popup.vim	2019-03-29 11:55:56.279979474 +0100
+***************
+*** 896,899 ****
+--- 896,1000 ----
+    endtry
+  endfunc
+  
++ func Test_popup_complete_info_01()
++   new
++   inoremap <buffer><F5> <C-R>=complete_info().mode<CR>
++   func s:complTestEval() abort
++     call complete(1, ['aa', 'ab'])
++     return ''
++   endfunc
++   inoremap <buffer><F6> <C-R>=s:complTestEval()<CR>
++   call writefile([
++         \ 'dummy	dummy.txt	1',
++         \], 'Xdummy.txt')
++   setlocal tags=Xdummy.txt
++   setlocal dictionary=Xdummy.txt
++   setlocal thesaurus=Xdummy.txt
++   setlocal omnifunc=syntaxcomplete#Complete
++   setlocal completefunc=syntaxcomplete#Complete
++   setlocal spell
++   for [keys, mode_name] in [
++         \ ["", ''],
++         \ ["\<C-X>", 'ctrl_x'],
++         \ ["\<C-X>\<C-N>", 'keyword'],
++         \ ["\<C-X>\<C-P>", 'keyword'],
++         \ ["\<C-X>\<C-L>", 'whole_line'],
++         \ ["\<C-X>\<C-F>", 'files'],
++         \ ["\<C-X>\<C-]>", 'tags'],
++         \ ["\<C-X>\<C-D>", 'path_defines'],
++         \ ["\<C-X>\<C-I>", 'path_patterns'],
++         \ ["\<C-X>\<C-K>", 'dictionary'],
++         \ ["\<C-X>\<C-T>", 'thesaurus'],
++         \ ["\<C-X>\<C-V>", 'cmdline'],
++         \ ["\<C-X>\<C-U>", 'function'],
++         \ ["\<C-X>\<C-O>", 'omni'],
++         \ ["\<C-X>s", 'spell'],
++         \ ["\<F6>", 'eval'],
++         \]
++     call feedkeys("i" . keys . "\<F5>\<Esc>", 'tx')
++     call assert_equal(mode_name, getline('.'))
++     %d
++   endfor
++   call delete('Xdummy.txt')
++   bwipe!
++ endfunc
++ 
++ func UserDefinedComplete(findstart, base)
++   if a:findstart
++     return 0
++   else
++     return [
++           \   { 'word': 'Jan', 'menu': 'January' },
++           \   { 'word': 'Feb', 'menu': 'February' },
++           \   { 'word': 'Mar', 'menu': 'March' },
++           \   { 'word': 'Apr', 'menu': 'April' },
++           \   { 'word': 'May', 'menu': 'May' },
++           \ ]
++   endif
++ endfunc
++ 
++ func GetCompleteInfo()
++   if empty(g:compl_what)
++     let g:compl_info = complete_info()
++   else
++     let g:compl_info = complete_info(g:compl_what)
++   endif
++   return ''
++ endfunc
++ 
++ func Test_popup_complete_info_02()
++   new
++   inoremap <buffer><F5> <C-R>=GetCompleteInfo()<CR>
++   setlocal completefunc=UserDefinedComplete
++ 
++   let d = {
++     \   'mode': 'function',
++     \   'pum_visible': 1,
++     \   'items': [
++     \     {'word': 'Jan', 'menu': 'January', 'user_data': '', 'info': '', 'kind': '', 'abbr': ''},
++     \     {'word': 'Feb', 'menu': 'February', 'user_data': '', 'info': '', 'kind': '', 'abbr': ''},
++     \     {'word': 'Mar', 'menu': 'March', 'user_data': '', 'info': '', 'kind': '', 'abbr': ''},
++     \     {'word': 'Apr', 'menu': 'April', 'user_data': '', 'info': '', 'kind': '', 'abbr': ''},
++     \     {'word': 'May', 'menu': 'May', 'user_data': '', 'info': '', 'kind': '', 'abbr': ''}
++     \   ],
++     \   'selected': 0,
++     \ }
++ 
++   let g:compl_what = []
++   call feedkeys("i\<C-X>\<C-U>\<F5>", 'tx')
++   call assert_equal(d, g:compl_info)
++ 
++   let g:compl_what = ['mode', 'pum_visible', 'selected']
++   call remove(d, 'items')
++   call feedkeys("i\<C-X>\<C-U>\<F5>", 'tx')
++   call assert_equal(d, g:compl_info)
++ 
++   let g:compl_what = ['mode']
++   call remove(d, 'selected')
++   call remove(d, 'pum_visible')
++   call feedkeys("i\<C-X>\<C-U>\<F5>", 'tx')
++   call assert_equal(d, g:compl_info)
++   bwipe!
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1067/src/version.c	2019-03-29 10:54:17.711209062 +0100
+--- src/version.c	2019-03-29 11:57:29.903220370 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1068,
+  /**/
+
+-- 
+Drink wet cement and get really stoned.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

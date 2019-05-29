@@ -1,0 +1,286 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1060
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1060
+Problem:    MS-Windows: get_cmd_args() is no longer needed, get_cmd_argsW() is
+            always used.
+Solution:   Remove get_cmd_args(). (Ken Takata, closes #4171)
+Files:	    src/gui_w32.c, src/os_w32exe.c
+
+
+*** ../vim-8.1.1059/src/gui_w32.c	2019-03-21 20:50:08.868741864 +0100
+--- src/gui_w32.c	2019-03-27 21:56:47.457072295 +0100
+***************
+*** 3882,4032 ****
+  }
+  
+  
+- /*
+-  * Get command line arguments.
+-  * Use "prog" as the name of the program and "cmdline" as the arguments.
+-  * Copy the arguments to allocated memory.
+-  * Return the number of arguments (including program name).
+-  * Return pointers to the arguments in "argvp".  Memory is allocated with
+-  * malloc(), use free() instead of vim_free().
+-  * Return pointer to buffer in "tofree".
+-  * Returns zero when out of memory.
+-  */
+-     int
+- get_cmd_args(char *prog, char *cmdline, char ***argvp, char **tofree)
+- {
+-     int		i;
+-     char	*p;
+-     char	*progp;
+-     char	*pnew = NULL;
+-     char	*newcmdline;
+-     int		inquote;
+-     int		argc;
+-     char	**argv = NULL;
+-     int		round;
+- 
+-     *tofree = NULL;
+- 
+-     /* Try using the Unicode version first, it takes care of conversion when
+-      * 'encoding' is changed. */
+-     argc = get_cmd_argsW(&argv);
+-     if (argc != 0)
+- 	goto done;
+- 
+-     /* Handle the program name.  Remove the ".exe" extension, and find the 1st
+-      * non-space. */
+-     p = strrchr(prog, '.');
+-     if (p != NULL)
+- 	*p = NUL;
+-     for (progp = prog; *progp == ' '; ++progp)
+- 	;
+- 
+-     /* The command line is copied to allocated memory, so that we can change
+-      * it.  Add the size of the string, the separating NUL and a terminating
+-      * NUL. */
+-     newcmdline = malloc(STRLEN(cmdline) + STRLEN(progp) + 2);
+-     if (newcmdline == NULL)
+- 	return 0;
+- 
+-     /*
+-      * First round: count the number of arguments ("pnew" == NULL).
+-      * Second round: produce the arguments.
+-      */
+-     for (round = 1; round <= 2; ++round)
+-     {
+- 	/* First argument is the program name. */
+- 	if (pnew != NULL)
+- 	{
+- 	    argv[0] = pnew;
+- 	    strcpy(pnew, progp);
+- 	    pnew += strlen(pnew);
+- 	    *pnew++ = NUL;
+- 	}
+- 
+- 	/*
+- 	 * Isolate each argument and put it in argv[].
+- 	 */
+- 	p = cmdline;
+- 	argc = 1;
+- 	while (*p != NUL)
+- 	{
+- 	    inquote = FALSE;
+- 	    if (pnew != NULL)
+- 		argv[argc] = pnew;
+- 	    ++argc;
+- 	    while (*p != NUL && (inquote || (*p != ' ' && *p != '\t')))
+- 	    {
+- 		/* Backslashes are only special when followed by a double
+- 		 * quote. */
+- 		i = (int)strspn(p, "\\");
+- 		if (p[i] == '"')
+- 		{
+- 		    /* Halve the number of backslashes. */
+- 		    if (i > 1 && pnew != NULL)
+- 		    {
+- 			vim_memset(pnew, '\\', i / 2);
+- 			pnew += i / 2;
+- 		    }
+- 
+- 		    /* Even nr of backslashes toggles quoting, uneven copies
+- 		     * the double quote. */
+- 		    if ((i & 1) == 0)
+- 			inquote = !inquote;
+- 		    else if (pnew != NULL)
+- 			*pnew++ = '"';
+- 		    p += i + 1;
+- 		}
+- 		else if (i > 0)
+- 		{
+- 		    /* Copy span of backslashes unmodified. */
+- 		    if (pnew != NULL)
+- 		    {
+- 			vim_memset(pnew, '\\', i);
+- 			pnew += i;
+- 		    }
+- 		    p += i;
+- 		}
+- 		else
+- 		{
+- 		    if (pnew != NULL)
+- 			*pnew++ = *p;
+- 		    /* Can't use mb_* functions, because 'encoding' is not
+- 		     * initialized yet here. */
+- 		    if (IsDBCSLeadByte(*p))
+- 		    {
+- 			++p;
+- 			if (pnew != NULL)
+- 			    *pnew++ = *p;
+- 		    }
+- 		    ++p;
+- 		}
+- 	    }
+- 
+- 	    if (pnew != NULL)
+- 		*pnew++ = NUL;
+- 	    while (*p == ' ' || *p == '\t')
+- 		++p;		    /* advance until a non-space */
+- 	}
+- 
+- 	if (round == 1)
+- 	{
+- 	    argv = (char **)malloc((argc + 1) * sizeof(char *));
+- 	    if (argv == NULL )
+- 	    {
+- 		free(newcmdline);
+- 		return 0;		   /* malloc error */
+- 	    }
+- 	    pnew = newcmdline;
+- 	    *tofree = newcmdline;
+- 	}
+-     }
+- 
+- done:
+-     argv[argc] = NULL;		/* NULL-terminated list */
+-     *argvp = argv;
+-     return argc;
+- }
+- 
+  #ifdef FEAT_XPM_W32
+  # include "xpm_w32.h"
+  #endif
+--- 3882,3887 ----
+*** ../vim-8.1.1059/src/os_w32exe.c	2019-02-17 17:44:36.219875473 +0100
+--- src/os_w32exe.c	2019-03-27 21:56:47.457072295 +0100
+***************
+*** 10,16 ****
+  /*
+   * Windows GUI: main program (EXE) entry point:
+   *
+!  * Ron Aaron <ronaharon@yahoo.com> wrote this and  the DLL support code.
+   */
+  #include "vim.h"
+  
+--- 10,16 ----
+  /*
+   * Windows GUI: main program (EXE) entry point:
+   *
+!  * Ron Aaron <ronaharon@yahoo.com> wrote this and the DLL support code.
+   */
+  #include "vim.h"
+  
+***************
+*** 42,77 ****
+  WinMain(
+      HINSTANCE	hInstance UNUSED,
+      HINSTANCE	hPrevInst UNUSED,
+!     LPSTR	lpszCmdLine,
+      int		nCmdShow UNUSED)
+  {
+      int		argc = 0;
+!     char	**argv;
+!     char	*tofree;
+!     char	prog[256];
+  #ifdef VIMDLL
+      char	*p;
+      HANDLE	hLib;
+- #endif
+  
+      /* Ron: added full path name so that the $VIM variable will get set to our
+       * startup path (so the .vimrc file can be found w/o a VIM env. var.) */
+      GetModuleFileName(NULL, prog, 255);
+  
+!     argc = get_cmd_args(prog, (char *)lpszCmdLine, &argv, &tofree);
+!     if (argc == 0)
+!     {
+! 	MessageBox(0, "Could not allocate memory for command line.",
+! 							      "VIM Error", 0);
+! 	return 0;
+!     }
+! 
+! #ifdef DYNAMIC_GETTEXT
+      /* Initialize gettext library */
+      dyn_libintl_init();
+! #endif
+  
+- #ifdef VIMDLL
+      // LoadLibrary - get name of dll to load in here:
+      p = strrchr(prog, '\\');
+      if (p != NULL)
+--- 42,66 ----
+  WinMain(
+      HINSTANCE	hInstance UNUSED,
+      HINSTANCE	hPrevInst UNUSED,
+!     LPSTR	lpszCmdLine UNUSED,
+      int		nCmdShow UNUSED)
+  {
+      int		argc = 0;
+!     char	**argv = NULL;
+  #ifdef VIMDLL
++     char	prog[256];
+      char	*p;
+      HANDLE	hLib;
+  
+      /* Ron: added full path name so that the $VIM variable will get set to our
+       * startup path (so the .vimrc file can be found w/o a VIM env. var.) */
+      GetModuleFileName(NULL, prog, 255);
+  
+! # ifdef DYNAMIC_GETTEXT
+      /* Initialize gettext library */
+      dyn_libintl_init();
+! # endif
+  
+      // LoadLibrary - get name of dll to load in here:
+      p = strrchr(prog, '\\');
+      if (p != NULL)
+***************
+*** 127,135 ****
+      FreeLibrary(hLib);
+  errout:
+  #endif
+-     free(argv);
+-     if (tofree != NULL)
+- 	free(tofree);
+      free_cmd_argsW();
+  
+      return 0;
+--- 116,121 ----
+*** ../vim-8.1.1059/src/version.c	2019-03-27 21:49:10.761396675 +0100
+--- src/version.c	2019-03-27 21:58:01.508417951 +0100
+***************
+*** 777,778 ****
+--- 777,780 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1060,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+133. You communicate with people on other continents more than you
+     do with your own neighbors.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

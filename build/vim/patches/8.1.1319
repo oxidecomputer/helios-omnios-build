@@ -1,0 +1,455 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1319
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1319
+Problem:    Computing function length name in many places.
+Solution:   compute name length in call_func().
+Files:      src/eval.c, src/userfunc.c, src/channel.c, src/evalfunc.c,
+            src/ex_cmds2.c, src/regexp.c, src/terminal.c
+
+
+*** ../vim-8.1.1318/src/eval.c	2019-05-04 15:05:24.927269310 +0200
+--- src/eval.c	2019-05-11 18:20:17.766390123 +0200
+***************
+*** 765,771 ****
+  	s = expr->vval.v_string;
+  	if (s == NULL || *s == NUL)
+  	    return FAIL;
+! 	if (call_func(s, (int)STRLEN(s), rettv, argc, argv, NULL,
+  				     0L, 0L, &dummy, TRUE, NULL, NULL) == FAIL)
+  	    return FAIL;
+      }
+--- 765,771 ----
+  	s = expr->vval.v_string;
+  	if (s == NULL || *s == NUL)
+  	    return FAIL;
+! 	if (call_func(s, -1, rettv, argc, argv, NULL,
+  				     0L, 0L, &dummy, TRUE, NULL, NULL) == FAIL)
+  	    return FAIL;
+      }
+***************
+*** 776,782 ****
+  	s = partial_name(partial);
+  	if (s == NULL || *s == NUL)
+  	    return FAIL;
+! 	if (call_func(s, (int)STRLEN(s), rettv, argc, argv, NULL,
+  				  0L, 0L, &dummy, TRUE, partial, NULL) == FAIL)
+  	    return FAIL;
+      }
+--- 776,782 ----
+  	s = partial_name(partial);
+  	if (s == NULL || *s == NUL)
+  	    return FAIL;
+! 	if (call_func(s, -1, rettv, argc, argv, NULL,
+  				  0L, 0L, &dummy, TRUE, partial, NULL) == FAIL)
+  	    return FAIL;
+      }
+***************
+*** 1088,1094 ****
+      int		ret;
+  
+      rettv->v_type = VAR_UNKNOWN;		/* clear_tv() uses this */
+!     ret = call_func(func, (int)STRLEN(func), rettv, argc, argv, NULL,
+  		    curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+  		    &doesrange, TRUE, NULL, NULL);
+      if (ret == FAIL)
+--- 1088,1094 ----
+      int		ret;
+  
+      rettv->v_type = VAR_UNKNOWN;		/* clear_tv() uses this */
+!     ret = call_func(func, -1, rettv, argc, argv, NULL,
+  		    curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+  		    &doesrange, TRUE, NULL, NULL);
+      if (ret == FAIL)
+***************
+*** 7109,7115 ****
+  	    }
+  	    else
+  		s = (char_u *)"";
+! 	    ret = get_func_tv(s, (int)STRLEN(s), rettv, arg,
+  			curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+  			&len, evaluate, pt, selfdict);
+  
+--- 7109,7115 ----
+  	    }
+  	    else
+  		s = (char_u *)"";
+! 	    ret = get_func_tv(s, -1, rettv, arg,
+  			curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+  			&len, evaluate, pt, selfdict);
+  
+*** ../vim-8.1.1318/src/userfunc.c	2019-05-09 21:08:53.764083394 +0200
+--- src/userfunc.c	2019-05-11 18:24:10.045205033 +0200
+***************
+*** 432,447 ****
+   */
+      int
+  get_func_tv(
+!     char_u	*name,		/* name of the function */
+!     int		len,		/* length of "name" */
+      typval_T	*rettv,
+!     char_u	**arg,		/* argument, pointing to the '(' */
+!     linenr_T	firstline,	/* first line of range */
+!     linenr_T	lastline,	/* last line of range */
+!     int		*doesrange,	/* return: function handled range */
+      int		evaluate,
+!     partial_T	*partial,	/* for extra arguments */
+!     dict_T	*selfdict)	/* Dictionary for "self" */
+  {
+      char_u	*argp;
+      int		ret = OK;
+--- 432,447 ----
+   */
+      int
+  get_func_tv(
+!     char_u	*name,		// name of the function
+!     int		len,		// length of "name" or -1 to use strlen()
+      typval_T	*rettv,
+!     char_u	**arg,		// argument, pointing to the '('
+!     linenr_T	firstline,	// first line of range
+!     linenr_T	lastline,	// last line of range
+!     int		*doesrange,	// return: function handled range
+      int		evaluate,
+!     partial_T	*partial,	// for extra arguments
+!     dict_T	*selfdict)	// Dictionary for "self"
+  {
+      char_u	*argp;
+      int		ret = OK;
+***************
+*** 1435,1441 ****
+      }
+  
+      if (item == NULL)
+! 	r = call_func(name, (int)STRLEN(name), rettv, argc, argv, NULL,
+  				 curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+  					     &dummy, TRUE, partial, selfdict);
+  
+--- 1435,1441 ----
+      }
+  
+      if (item == NULL)
+! 	r = call_func(name, -1, rettv, argc, argv, NULL,
+  				 curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+  					     &dummy, TRUE, partial, selfdict);
+  
+***************
+*** 1458,1477 ****
+   */
+      int
+  call_func(
+!     char_u	*funcname,	/* name of the function */
+!     int		len,		/* length of "name" */
+!     typval_T	*rettv,		/* return value goes here */
+!     int		argcount_in,	/* number of "argvars" */
+!     typval_T	*argvars_in,	/* vars for arguments, must have "argcount"
+! 				   PLUS ONE elements! */
+      int		(* argv_func)(int, typval_T *, int),
+! 				/* function to fill in argvars */
+!     linenr_T	firstline,	/* first line of range */
+!     linenr_T	lastline,	/* last line of range */
+!     int		*doesrange,	/* return: function handled range */
+      int		evaluate,
+!     partial_T	*partial,	/* optional, can be NULL */
+!     dict_T	*selfdict_in)	/* Dictionary for "self" */
+  {
+      int		ret = FAIL;
+      int		error = ERROR_NONE;
+--- 1458,1477 ----
+   */
+      int
+  call_func(
+!     char_u	*funcname,	// name of the function
+!     int		len,		// length of "name" or -1 to use strlen()
+!     typval_T	*rettv,		// return value goes here
+!     int		argcount_in,	// number of "argvars"
+!     typval_T	*argvars_in,	// vars for arguments, must have "argcount"
+! 				// PLUS ONE elements!
+      int		(* argv_func)(int, typval_T *, int),
+! 				// function to fill in argvars
+!     linenr_T	firstline,	// first line of range
+!     linenr_T	lastline,	// last line of range
+!     int		*doesrange,	// return: function handled range
+      int		evaluate,
+!     partial_T	*partial,	// optional, can be NULL
+!     dict_T	*selfdict_in)	// Dictionary for "self"
+  {
+      int		ret = FAIL;
+      int		error = ERROR_NONE;
+***************
+*** 1487,1495 ****
+      typval_T	argv[MAX_FUNC_ARGS + 1]; /* used when "partial" is not NULL */
+      int		argv_clear = 0;
+  
+!     /* Make a copy of the name, if it comes from a funcref variable it could
+!      * be changed or deleted in the called function. */
+!     name = vim_strnsave(funcname, len);
+      if (name == NULL)
+  	return ret;
+  
+--- 1487,1495 ----
+      typval_T	argv[MAX_FUNC_ARGS + 1]; /* used when "partial" is not NULL */
+      int		argv_clear = 0;
+  
+!     // Make a copy of the name, if it comes from a funcref variable it could
+!     // be changed or deleted in the called function.
+!     name = len > 0 ? vim_strnsave(funcname, len) : vim_strsave(funcname);
+      if (name == NULL)
+  	return ret;
+  
+***************
+*** 3285,3291 ****
+  	    curwin->w_cursor.coladd = 0;
+  	}
+  	arg = startarg;
+! 	if (get_func_tv(name, (int)STRLEN(name), &rettv, &arg,
+  		    eap->line1, eap->line2, &doesrange,
+  				   !eap->skip, partial, fudi.fd_dict) == FAIL)
+  	{
+--- 3285,3291 ----
+  	    curwin->w_cursor.coladd = 0;
+  	}
+  	arg = startarg;
+! 	if (get_func_tv(name, -1, &rettv, &arg,
+  		    eap->line1, eap->line2, &doesrange,
+  				   !eap->skip, partial, fudi.fd_dict) == FAIL)
+  	{
+*** ../vim-8.1.1318/src/channel.c	2019-05-09 21:48:29.033295465 +0200
+--- src/channel.c	2019-05-11 18:19:50.954526577 +0200
+***************
+*** 1650,1656 ****
+      argv[0].v_type = VAR_CHANNEL;
+      argv[0].vval.v_channel = channel;
+  
+!     call_func(callback, (int)STRLEN(callback), &rettv, 2, argv, NULL,
+  					  0L, 0L, &dummy, TRUE, partial, NULL);
+      clear_tv(&rettv);
+      channel_need_redraw = TRUE;
+--- 1650,1656 ----
+      argv[0].v_type = VAR_CHANNEL;
+      argv[0].vval.v_channel = channel;
+  
+!     call_func(callback, -1, &rettv, 2, argv, NULL,
+  					  0L, 0L, &dummy, TRUE, partial, NULL);
+      clear_tv(&rettv);
+      channel_need_redraw = TRUE;
+***************
+*** 2989,2995 ****
+  						(char *)channel->ch_close_cb);
+  	      argv[0].v_type = VAR_CHANNEL;
+  	      argv[0].vval.v_channel = channel;
+! 	      call_func(channel->ch_close_cb, (int)STRLEN(channel->ch_close_cb),
+  			   &rettv, 1, argv, NULL, 0L, 0L, &dummy, TRUE,
+  			   channel->ch_close_partial, NULL);
+  	      clear_tv(&rettv);
+--- 2989,2995 ----
+  						(char *)channel->ch_close_cb);
+  	      argv[0].v_type = VAR_CHANNEL;
+  	      argv[0].vval.v_channel = channel;
+! 	      call_func(channel->ch_close_cb, -1,
+  			   &rettv, 1, argv, NULL, 0L, 0L, &dummy, TRUE,
+  			   channel->ch_close_partial, NULL);
+  	      clear_tv(&rettv);
+***************
+*** 5478,5484 ****
+  	argv[0].vval.v_job = job;
+  	argv[1].v_type = VAR_NUMBER;
+  	argv[1].vval.v_number = job->jv_exitval;
+! 	call_func(job->jv_exit_cb, (int)STRLEN(job->jv_exit_cb),
+  	    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE,
+  	    job->jv_exit_partial, NULL);
+  	clear_tv(&rettv);
+--- 5478,5484 ----
+  	argv[0].vval.v_job = job;
+  	argv[1].v_type = VAR_NUMBER;
+  	argv[1].vval.v_number = job->jv_exitval;
+! 	call_func(job->jv_exit_cb, -1,
+  	    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE,
+  	    job->jv_exit_partial, NULL);
+  	clear_tv(&rettv);
+***************
+*** 6069,6076 ****
+      argv[0].vval.v_string = vim_strsave(text);
+      argv[1].v_type = VAR_UNKNOWN;
+  
+!     call_func(curbuf->b_prompt_callback,
+! 	      (int)STRLEN(curbuf->b_prompt_callback),
+  	      &rettv, 1, argv, NULL, 0L, 0L, &dummy, TRUE,
+  	      curbuf->b_prompt_partial, NULL);
+      clear_tv(&argv[0]);
+--- 6069,6075 ----
+      argv[0].vval.v_string = vim_strsave(text);
+      argv[1].v_type = VAR_UNKNOWN;
+  
+!     call_func(curbuf->b_prompt_callback, -1,
+  	      &rettv, 1, argv, NULL, 0L, 0L, &dummy, TRUE,
+  	      curbuf->b_prompt_partial, NULL);
+      clear_tv(&argv[0]);
+***************
+*** 6093,6100 ****
+      argv[0].v_type = VAR_UNKNOWN;
+  
+      got_int = FALSE; // don't skip executing commands
+!     call_func(curbuf->b_prompt_interrupt,
+! 	      (int)STRLEN(curbuf->b_prompt_interrupt),
+  	      &rettv, 0, argv, NULL, 0L, 0L, &dummy, TRUE,
+  	      curbuf->b_prompt_int_partial, NULL);
+      clear_tv(&rettv);
+--- 6092,6098 ----
+      argv[0].v_type = VAR_UNKNOWN;
+  
+      got_int = FALSE; // don't skip executing commands
+!     call_func(curbuf->b_prompt_interrupt, -1,
+  	      &rettv, 0, argv, NULL, 0L, 0L, &dummy, TRUE,
+  	      curbuf->b_prompt_int_partial, NULL);
+      clear_tv(&rettv);
+*** ../vim-8.1.1318/src/evalfunc.c	2019-05-10 21:28:35.184612974 +0200
+--- src/evalfunc.c	2019-05-11 18:20:28.850333682 +0200
+***************
+*** 767,772 ****
+--- 767,774 ----
+      {"line2byte",	1, 1, f_line2byte},
+      {"lispindent",	1, 1, f_lispindent},
+      {"list2str",	1, 2, f_list2str},
++     {"listener_add",	1, 2, f_listener_add},
++     {"listener_remove",	1, 1, f_listener_remove},
+      {"localtime",	0, 0, f_localtime},
+  #ifdef FEAT_FLOAT
+      {"log",		1, 1, f_log},
+***************
+*** 9746,9754 ****
+  
+      if (failed)
+      {
+  	list_free(rettv->vval.v_list);
+! 	/* readfile doc says an empty list is returned on error */
+! 	rettv->vval.v_list = list_alloc();
+      }
+  
+      vim_free(prev);
+--- 9748,9756 ----
+  
+      if (failed)
+      {
++ 	// an empty list is returned on error
+  	list_free(rettv->vval.v_list);
+! 	rettv_list_alloc(rettv);
+      }
+  
+      vim_free(prev);
+***************
+*** 12644,12651 ****
+      copy_tv(&si2->item->li_tv, &argv[1]);
+  
+      rettv.v_type = VAR_UNKNOWN;		/* clear_tv() uses this */
+!     res = call_func(func_name, (int)STRLEN(func_name),
+! 				 &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE,
+  				 partial, sortinfo->item_compare_selfdict);
+      clear_tv(&argv[0]);
+      clear_tv(&argv[1]);
+--- 12646,12652 ----
+      copy_tv(&si2->item->li_tv, &argv[1]);
+  
+      rettv.v_type = VAR_UNKNOWN;		/* clear_tv() uses this */
+!     res = call_func(func_name, -1, &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE,
+  				 partial, sortinfo->item_compare_selfdict);
+      clear_tv(&argv[0]);
+      clear_tv(&argv[1]);
+*** ../vim-8.1.1318/src/ex_cmds2.c	2019-05-09 21:48:29.033295465 +0200
+--- src/ex_cmds2.c	2019-05-11 18:20:52.590212764 +0200
+***************
+*** 325,331 ****
+      argv[0].vval.v_number = (varnumber_T)timer->tr_id;
+      argv[1].v_type = VAR_UNKNOWN;
+  
+!     call_func(timer->tr_callback, (int)STRLEN(timer->tr_callback),
+  			&rettv, 1, argv, NULL, 0L, 0L, &dummy, TRUE,
+  			timer->tr_partial, NULL);
+      clear_tv(&rettv);
+--- 325,331 ----
+      argv[0].vval.v_number = (varnumber_T)timer->tr_id;
+      argv[1].v_type = VAR_UNKNOWN;
+  
+!     call_func(timer->tr_callback, -1,
+  			&rettv, 1, argv, NULL, 0L, 0L, &dummy, TRUE,
+  			timer->tr_partial, NULL);
+      clear_tv(&rettv);
+*** ../vim-8.1.1318/src/regexp.c	2019-04-25 20:07:44.167327851 +0200
+--- src/regexp.c	2019-05-11 18:21:14.426101507 +0200
+***************
+*** 7423,7429 ****
+  		if (expr->v_type == VAR_FUNC)
+  		{
+  		    s = expr->vval.v_string;
+! 		    call_func(s, (int)STRLEN(s), &rettv,
+  				    1, argv, fill_submatch_list,
+  					 0L, 0L, &dummy, TRUE, NULL, NULL);
+  		}
+--- 7423,7429 ----
+  		if (expr->v_type == VAR_FUNC)
+  		{
+  		    s = expr->vval.v_string;
+! 		    call_func(s, -1, &rettv,
+  				    1, argv, fill_submatch_list,
+  					 0L, 0L, &dummy, TRUE, NULL, NULL);
+  		}
+***************
+*** 7432,7438 ****
+  		    partial_T   *partial = expr->vval.v_partial;
+  
+  		    s = partial_name(partial);
+! 		    call_func(s, (int)STRLEN(s), &rettv,
+  				    1, argv, fill_submatch_list,
+  				      0L, 0L, &dummy, TRUE, partial, NULL);
+  		}
+--- 7432,7438 ----
+  		    partial_T   *partial = expr->vval.v_partial;
+  
+  		    s = partial_name(partial);
+! 		    call_func(s, -1, &rettv,
+  				    1, argv, fill_submatch_list,
+  				      0L, 0L, &dummy, TRUE, partial, NULL);
+  		}
+*** ../vim-8.1.1318/src/terminal.c	2019-04-28 19:46:17.034060084 +0200
+--- src/terminal.c	2019-05-11 18:21:27.618034258 +0200
+***************
+*** 3779,3785 ****
+      argvars[0].v_type = VAR_NUMBER;
+      argvars[0].vval.v_number = term->tl_buffer->b_fnum;
+      argvars[1] = item->li_next->li_tv;
+!     if (call_func(func, (int)STRLEN(func), &rettv,
+  		2, argvars, /* argv_func */ NULL,
+  		/* firstline */ 1, /* lastline */ 1,
+  		&doesrange, /* evaluate */ TRUE,
+--- 3779,3785 ----
+      argvars[0].v_type = VAR_NUMBER;
+      argvars[0].vval.v_number = term->tl_buffer->b_fnum;
+      argvars[1] = item->li_next->li_tv;
+!     if (call_func(func, -1, &rettv,
+  		2, argvars, /* argv_func */ NULL,
+  		/* firstline */ 1, /* lastline */ 1,
+  		&doesrange, /* evaluate */ TRUE,
+*** ../vim-8.1.1318/src/version.c	2019-05-11 17:03:55.170019762 +0200
+--- src/version.c	2019-05-11 18:27:05.296182093 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1319,
+  /**/
+
+-- 
+We apologise again for the fault in the subtitles.  Those responsible for
+sacking the people who have just been sacked have been sacked.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

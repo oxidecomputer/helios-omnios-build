@@ -1,0 +1,772 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1116
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1116
+Problem:    Cannot enforce a Vim script style.
+Solution:   Add the :scriptversion command. (closes #3857)
+Files:	    runtime/doc/repeat.txt, runtime/doc/eval.txt, src/eval.c,
+            src/ex_cmds.h, src/evalfunc.c, src/ex_cmds2.c,
+            src/proto/ex_cmds2.pro, src/structs.h, src/buffer.c, src/main.c,
+            src/option.c, src/ex_cmdidxs.h, src/testdir/test_eval_stuff.vim
+
+
+*** ../vim-8.1.1115/runtime/doc/repeat.txt	2018-11-30 22:40:09.098211991 +0100
+--- runtime/doc/repeat.txt	2019-04-04 16:16:57.187793562 +0200
+***************
+*** 323,332 ****
+  				set encoding=utf-8
+  				scriptencoding utf-8
+  <
+- 			When compiled without the |+multi_byte| feature this
+- 			command is ignored.
+  			{not in Vi}
+  
+  						*:scr* *:scriptnames*
+  :scr[iptnames]		List all sourced script names, in the order they were
+  			first sourced.  The number is used for the script ID
+--- 323,341 ----
+  				set encoding=utf-8
+  				scriptencoding utf-8
+  <
+  			{not in Vi}
+  
++ :scriptv[ersion] {version}		*:scriptv* *:scriptversion*
++ 								*E999* *E984*
++ 			Specify the version of Vim for the lines that follow.
++ 			Does not apply to sourced scripts.
++ 
++ 			If {version} is higher than what the current Vim
++ 			version supports E999 will be given.  You either need
++ 			to rewrite the script to make it work with an older
++ 			Vim version, or update Vim to a newer version.  See
++ 			|vimscript-version| for what changed between versions.
++ 
+  						*:scr* *:scriptnames*
+  :scr[iptnames]		List all sourced script names, in the order they were
+  			first sourced.  The number is used for the script ID
+*** ../vim-8.1.1115/runtime/doc/eval.txt	2019-04-04 15:35:42.833132544 +0200
+--- runtime/doc/eval.txt	2019-04-04 18:13:06.835496283 +0200
+***************
+*** 1024,1029 ****
+--- 1038,1044 ----
+  
+  For String concatenation ".." is preferred, since "." is ambiguous, it is also
+  used for |Dict| member access and floating point numbers.
++ When |vimscript-version| is 2 or higher, using "." is not allowed.
+  
+  expr7 * expr7  Number multiplication				*expr-star*
+  expr7 / expr7  Number division					*expr-/*
+***************
+*** 10418,10444 ****
+  vcon			Win32: Virtual console support is working, can use
+  			'termguicolors'. Also see |+vtp|.
+  vertsplit		Compiled with vertically split windows |:vsplit|.
+  vim_starting		True while initial source'ing takes place. |startup|
+  			*vim_starting*
+  viminfo			Compiled with viminfo support.
+! virtualedit		Compiled with 'virtualedit' option.
+! visual			Compiled with Visual mode.
+! visualextra		Compiled with extra Visual mode commands.
+! 			|blockwise-operators|.
+  vms			VMS version of Vim.
+! vreplace		Compiled with |gR| and |gr| commands.
+  vtp			Compiled for vcon support |+vtp| (check vcon to find
+  			out if it works in the current console).
+  wildignore		Compiled with 'wildignore' option.
+  wildmenu		Compiled with 'wildmenu' option.
+! win16			old version for MS-Windows 3.1 (always False)
+  win32			Win32 version of Vim (MS-Windows 95 and later, 32 or
+  			64 bits)
+  win32unix		Win32 version of Vim, using Unix files (Cygwin)
+  win64			Win64 version of Vim (MS-Windows 64 bit).
+! win95			Win32 version for MS-Windows 95/98/ME (always False)
+  winaltkeys		Compiled with 'winaltkeys' option.
+  windows			Compiled with support for more than one window.
+  writebackup		Compiled with 'writebackup' default on.
+  xfontset		Compiled with X fontset support |xfontset|.
+  xim			Compiled with X input method support |xim|.
+--- 10474,10504 ----
+  vcon			Win32: Virtual console support is working, can use
+  			'termguicolors'. Also see |+vtp|.
+  vertsplit		Compiled with vertically split windows |:vsplit|.
++ 			(always true)
+  vim_starting		True while initial source'ing takes place. |startup|
+  			*vim_starting*
+  viminfo			Compiled with viminfo support.
+! vimscript-1		Compiled Vim script version 1 support
+! vimscript-2		Compiled Vim script version 2 support
+! virtualedit		Compiled with 'virtualedit' option. (always true)
+! visual			Compiled with Visual mode. (always true)
+! visualextra		Compiled with extra Visual mode commands. (always
+! 			true) |blockwise-operators|.
+  vms			VMS version of Vim.
+! vreplace		Compiled with |gR| and |gr| commands. (always true)
+  vtp			Compiled for vcon support |+vtp| (check vcon to find
+  			out if it works in the current console).
+  wildignore		Compiled with 'wildignore' option.
+  wildmenu		Compiled with 'wildmenu' option.
+! win16			old version for MS-Windows 3.1 (always false)
+  win32			Win32 version of Vim (MS-Windows 95 and later, 32 or
+  			64 bits)
+  win32unix		Win32 version of Vim, using Unix files (Cygwin)
+  win64			Win64 version of Vim (MS-Windows 64 bit).
+! win95			Win32 version for MS-Windows 95/98/ME (always false)
+  winaltkeys		Compiled with 'winaltkeys' option.
+  windows			Compiled with support for more than one window.
++ 			(always true)
+  writebackup		Compiled with 'writebackup' default on.
+  xfontset		Compiled with X fontset support |xfontset|.
+  xim			Compiled with X input method support |xim|.
+***************
+*** 10910,10925 ****
+  			When the selected range of items is partly past the
+  			end of the list, items will be added.
+  
+!                                             *:let+=* *:let-=* *:letstar=*
+!                                             *:let/=* *:let%=* *:let.=* *E734*
+  :let {var} += {expr1}	Like ":let {var} = {var} + {expr1}".
+  :let {var} -= {expr1}	Like ":let {var} = {var} - {expr1}".
+  :let {var} *= {expr1}	Like ":let {var} = {var} * {expr1}".
+  :let {var} /= {expr1}	Like ":let {var} = {var} / {expr1}".
+  :let {var} %= {expr1}	Like ":let {var} = {var} % {expr1}".
+  :let {var} .= {expr1}	Like ":let {var} = {var} . {expr1}".
+  			These fail if {var} was not set yet and when the type
+  			of {var} and {expr1} don't fit the operator.
+  
+  
+  :let ${env-name} = {expr1}			*:let-environment* *:let-$*
+--- 10970,10988 ----
+  			When the selected range of items is partly past the
+  			end of the list, items will be added.
+  
+! 			*:let+=* *:let-=* *:letstar=*
+! 			*:let/=* *:let%=* *:let.=* *:let..=* *E734* *E985*
+  :let {var} += {expr1}	Like ":let {var} = {var} + {expr1}".
+  :let {var} -= {expr1}	Like ":let {var} = {var} - {expr1}".
+  :let {var} *= {expr1}	Like ":let {var} = {var} * {expr1}".
+  :let {var} /= {expr1}	Like ":let {var} = {var} / {expr1}".
+  :let {var} %= {expr1}	Like ":let {var} = {var} % {expr1}".
+  :let {var} .= {expr1}	Like ":let {var} = {var} . {expr1}".
++ :let {var} ..= {expr1}	Like ":let {var} = {var} .. {expr1}".
+  			These fail if {var} was not set yet and when the type
+  			of {var} and {expr1} don't fit the operator.
++ 			`.=` is not supported with Vim script version 2 and
++ 			later, see |vimscript-version|.
+  
+  
+  :let ${env-name} = {expr1}			*:let-environment* *:let-$*
+***************
+*** 12547,12553 ****
+      unlet scriptnames_output
+  
+  ==============================================================================
+! 10. No +eval feature				*no-eval-feature*
+  
+  When the |+eval| feature was disabled at compile time, none of the expression
+  evaluation commands are available.  To prevent this from causing Vim scripts
+--- 12616,12649 ----
+      unlet scriptnames_output
+  
+  ==============================================================================
+! 10. Vim script versions		*vimscript-version* *vimscript-versions*
+! 
+! Over time many features have been added to Vim script.  This includes Ex
+! commands, functions, variable types, etc.  Each individual feature can be
+! checked with the |has()| and |exists()| functions.
+! 
+! Sometimes old syntax of functionality gets in the way of making Vim better.
+! When support is taken away this will break older Vim scripts.  To make this
+! explicit the |:scriptversion| command can be used.  When a Vim script is not
+! compatible with older versions of Vim this will give an explicit error,
+! instead of failing in mysterious ways. >
+! 
+!  :scriptversion 1
+! <	This is the original Vim script, same as not using a |:scriptversion|
+! 	command.  Can be used to go back to old syntax for a range of lines.
+! 	Test for support with: >
+! 		has('vimscript-1')
+! 
+!  :scriptversion 2
+! < 	String concatenation with "." is not supported, use ".." instead.
+! 	This avoids the ambiguity using "." for Dict member access and
+! 	floating point numbers.  Now ".5" means the number 0.5.
+! 	Test for support with: >
+! 		has('vimscript-2')
+! 
+! 
+! ==============================================================================
+! 11. No +eval feature				*no-eval-feature*
+  
+  When the |+eval| feature was disabled at compile time, none of the expression
+  evaluation commands are available.  To prevent this from causing Vim scripts
+***************
+*** 12578,12584 ****
+  silently ignored, and the command is executed.
+  
+  ==============================================================================
+! 11. The sandbox					*eval-sandbox* *sandbox* *E48*
+  
+  The 'foldexpr', 'formatexpr', 'includeexpr', 'indentexpr', 'statusline' and
+  'foldtext' options may be evaluated in a sandbox.  This means that you are
+--- 12674,12680 ----
+  silently ignored, and the command is executed.
+  
+  ==============================================================================
+! 12. The sandbox					*eval-sandbox* *sandbox* *E48*
+  
+  The 'foldexpr', 'formatexpr', 'includeexpr', 'indentexpr', 'statusline' and
+  'foldtext' options may be evaluated in a sandbox.  This means that you are
+***************
+*** 12611,12622 ****
+  - sourcing a .vimrc or .exrc in the current directory
+  - while executing in the sandbox
+  - value coming from a modeline
+  
+  Note that when in the sandbox and saving an option value and restoring it, the
+  option will still be marked as it was set in the sandbox.
+  
+  ==============================================================================
+! 12. Textlock							*textlock*
+  
+  In a few situations it is not allowed to change the text in the buffer, jump
+  to another window and some other things that might confuse or break what Vim
+--- 12707,12719 ----
+  - sourcing a .vimrc or .exrc in the current directory
+  - while executing in the sandbox
+  - value coming from a modeline
++ - executing a function that was defined in the sandbox
+  
+  Note that when in the sandbox and saving an option value and restoring it, the
+  option will still be marked as it was set in the sandbox.
+  
+  ==============================================================================
+! 13. Textlock							*textlock*
+  
+  In a few situations it is not allowed to change the text in the buffer, jump
+  to another window and some other things that might confuse or break what Vim
+***************
+*** 12632,12638 ****
+  	- etc.
+  
+  ==============================================================================
+! 13. Testing							*testing*
+  
+  Vim can be tested after building it, usually with "make test".
+  The tests are located in the directory "src/testdir".
+--- 12729,12735 ----
+  	- etc.
+  
+  ==============================================================================
+! 14. Testing							*testing*
+  
+  Vim can be tested after building it, usually with "make test".
+  The tests are located in the directory "src/testdir".
+*** ../vim-8.1.1115/src/eval.c	2019-04-04 15:35:42.829132566 +0200
+--- src/eval.c	2019-04-04 18:09:27.848677159 +0200
+***************
+*** 1249,1254 ****
+--- 1249,1255 ----
+      char_u	op[2];
+      char_u	*argend;
+      int		first = TRUE;
++     int		concat;
+  
+      argend = skip_var_list(arg, &var_count, &semicolon);
+      if (argend == NULL)
+***************
+*** 1256,1269 ****
+      if (argend > arg && argend[-1] == '.')  // for var.='str'
+  	--argend;
+      expr = skipwhite(argend);
+!     if (*expr != '=' && !((vim_strchr((char_u *)"+-*/%.", *expr) != NULL
+! 			   && expr[1] == '=') || STRNCMP(expr, "..=", 3) == 0))
+      {
+  	/*
+  	 * ":let" without "=": list variables
+  	 */
+  	if (*arg == '[')
+  	    emsg(_(e_invarg));
+  	else if (!ends_excmd(*arg))
+  	    /* ":let var1 var2" */
+  	    arg = list_arg_vars(eap, arg, &first);
+--- 1257,1275 ----
+      if (argend > arg && argend[-1] == '.')  // for var.='str'
+  	--argend;
+      expr = skipwhite(argend);
+!     concat = expr[0] == '.'
+! 	&& ((expr[1] == '=' && current_sctx.sc_version < 2)
+! 		|| (expr[1] == '.' && expr[2] == '='));
+!     if (*expr != '=' && !((vim_strchr((char_u *)"+-*/%", *expr) != NULL
+! 						 && expr[1] == '=') || concat))
+      {
+  	/*
+  	 * ":let" without "=": list variables
+  	 */
+  	if (*arg == '[')
+  	    emsg(_(e_invarg));
++ 	else if (expr[0] == '.')
++ 	    emsg(_("E985: .= is not supported with script version 2"));
+  	else if (!ends_excmd(*arg))
+  	    /* ":let var1 var2" */
+  	    arg = list_arg_vars(eap, arg, &first);
+***************
+*** 3817,3823 ****
+   * Handle fourth level expression:
+   *	+	number addition
+   *	-	number subtraction
+!  *	.	string concatenation
+   *	..	string concatenation
+   *
+   * "arg" must point to the first non-white of the expression.
+--- 3823,3829 ----
+   * Handle fourth level expression:
+   *	+	number addition
+   *	-	number subtraction
+!  *	.	string concatenation (if script version is 1)
+   *	..	string concatenation
+   *
+   * "arg" must point to the first non-white of the expression.
+***************
+*** 3838,3843 ****
+--- 3844,3850 ----
+      char_u	*s1, *s2;
+      char_u	buf1[NUMBUFLEN], buf2[NUMBUFLEN];
+      char_u	*p;
++     int		concat;
+  
+      /*
+       * Get the first variable.
+***************
+*** 3850,3857 ****
+       */
+      for (;;)
+      {
+  	op = **arg;
+! 	if (op != '+' && op != '-' && op != '.')
+  	    break;
+  
+  	if ((op != '+' || (rettv->v_type != VAR_LIST
+--- 3857,3867 ----
+       */
+      for (;;)
+      {
++ 	// "." is only string concatenation when scriptversion is 1
+  	op = **arg;
+! 	concat = op == '.'
+! 			&& (*(*arg + 1) == '.' || current_sctx.sc_version < 2);
+! 	if (op != '+' && op != '-' && !concat)
+  	    break;
+  
+  	if ((op != '+' || (rettv->v_type != VAR_LIST
+***************
+*** 4224,4229 ****
+--- 4234,4250 ----
+  	*arg = skipwhite(*arg + 1);
+      end_leader = *arg;
+  
++     if (**arg == '.' && (!isdigit(*(*arg + 1))
++ #ifdef FEAT_FLOAT
++ 	    || current_sctx.sc_version < 2
++ #endif
++ 	    ))
++     {
++ 	semsg(_(e_invexpr2), *arg);
++ 	++*arg;
++ 	return FAIL;
++     }
++ 
+      switch (**arg)
+      {
+      /*
+***************
+*** 4239,4254 ****
+      case '7':
+      case '8':
+      case '9':
+  	{
+  #ifdef FEAT_FLOAT
+! 		char_u *p = skipdigits(*arg + 1);
+  		int    get_float = FALSE;
+  
+  		/* We accept a float when the format matches
+  		 * "[0-9]\+\.[0-9]\+\([eE][+-]\?[0-9]\+\)\?".  This is very
+  		 * strict to avoid backwards compatibility problems.
+  		 * Don't look for a float after the "." operator, so that
+  		 * ":let vers = 1.2.3" doesn't fail. */
+  		if (!want_string && p[0] == '.' && vim_isdigit(p[1]))
+  		{
+  		    get_float = TRUE;
+--- 4260,4282 ----
+      case '7':
+      case '8':
+      case '9':
++     case '.':
+  	{
+  #ifdef FEAT_FLOAT
+! 		char_u *p;
+  		int    get_float = FALSE;
+  
+  		/* We accept a float when the format matches
+  		 * "[0-9]\+\.[0-9]\+\([eE][+-]\?[0-9]\+\)\?".  This is very
+  		 * strict to avoid backwards compatibility problems.
++ 		 * With script version 2 and later the leading digit can be
++ 		 * omitted.
+  		 * Don't look for a float after the "." operator, so that
+  		 * ":let vers = 1.2.3" doesn't fail. */
++ 		if (**arg == '.')
++ 		    p = *arg;
++ 		else
++ 		    p = skipdigits(*arg + 1);
+  		if (!want_string && p[0] == '.' && vim_isdigit(p[1]))
+  		{
+  		    get_float = TRUE;
+*** ../vim-8.1.1115/src/ex_cmds.h	2019-02-08 16:50:22.786660536 +0100
+--- src/ex_cmds.h	2019-04-04 16:14:40.560510525 +0200
+***************
+*** 1269,1274 ****
+--- 1269,1277 ----
+  EX(CMD_scriptencoding,	"scriptencoding", ex_scriptencoding,
+  			WORD1|TRLBAR|CMDWIN,
+  			ADDR_LINES),
++ EX(CMD_scriptversion,	"scriptversion", ex_scriptversion,
++ 			WORD1|TRLBAR|CMDWIN,
++ 			ADDR_LINES),
+  EX(CMD_scscope,		"scscope",	ex_scscope,
+  			EXTRA|NOTRLCOM,
+  			ADDR_LINES),
+*** ../vim-8.1.1115/src/evalfunc.c	2019-04-04 13:44:31.031594540 +0200
+--- src/evalfunc.c	2019-04-04 15:50:54.400014083 +0200
+***************
+*** 6631,6640 ****
+  #ifdef FEAT_VARTABS
+  	"vartabs",
+  #endif
+  #ifdef FEAT_VIMINFO
+  	"viminfo",
+  #endif
+! 	"vertsplit",
+  	"virtualedit",
+  	"visual",
+  	"visualextra",
+--- 6631,6642 ----
+  #ifdef FEAT_VARTABS
+  	"vartabs",
+  #endif
++ 	"vertsplit",
+  #ifdef FEAT_VIMINFO
+  	"viminfo",
+  #endif
+! 	"vimscript-1",
+! 	"vimscript-2",
+  	"virtualedit",
+  	"visual",
+  	"visualextra",
+*** ../vim-8.1.1115/src/ex_cmds2.c	2019-03-02 10:13:36.792974862 +0100
+--- src/ex_cmds2.c	2019-04-04 16:46:05.875239523 +0200
+***************
+*** 2321,2327 ****
+  	    else
+  #endif
+  	    /* Try auto-writing the buffer.  If this fails but the buffer no
+! 	    * longer exists it's not changed, that's OK. */
+  	    if (check_changed(buf, (p_awa ? CCGD_AW : 0)
+  				 | CCGD_MULTWIN
+  				 | CCGD_ALLBUF) && bufref_valid(&bufref))
+--- 2321,2327 ----
+  	    else
+  #endif
+  	    /* Try auto-writing the buffer.  If this fails but the buffer no
+! 	     * longer exists it's not changed, that's OK. */
+  	    if (check_changed(buf, (p_awa ? CCGD_AW : 0)
+  				 | CCGD_MULTWIN
+  				 | CCGD_ALLBUF) && bufref_valid(&bufref))
+***************
+*** 4501,4512 ****
+       * Also starts profiling timer for nested script. */
+      save_funccal(&funccalp_entry);
+  
+      // Check if this script was sourced before to finds its SID.
+      // If it's new, generate a new SID.
+      // Always use a new sequence number.
+-     save_current_sctx = current_sctx;
+      current_sctx.sc_seq = ++last_current_SID_seq;
+-     current_sctx.sc_lnum = 0;
+  # ifdef UNIX
+      stat_ok = (mch_stat((char *)fname_exp, &st) >= 0);
+  # endif
+--- 4501,4514 ----
+       * Also starts profiling timer for nested script. */
+      save_funccal(&funccalp_entry);
+  
++     save_current_sctx = current_sctx;
++     current_sctx.sc_lnum = 0;
++     current_sctx.sc_version = 1;
++ 
+      // Check if this script was sourced before to finds its SID.
+      // If it's new, generate a new SID.
+      // Always use a new sequence number.
+      current_sctx.sc_seq = ++last_current_SID_seq;
+  # ifdef UNIX
+      stat_ok = (mch_stat((char *)fname_exp, &st) >= 0);
+  # endif
+***************
+*** 5077,5086 ****
+  
+  /*
+   * ":scriptencoding": Set encoding conversion for a sourced script.
+-  * Without the multi-byte feature it's simply ignored.
+   */
+      void
+! ex_scriptencoding(exarg_T *eap UNUSED)
+  {
+      struct source_cookie	*sp;
+      char_u			*name;
+--- 5079,5087 ----
+  
+  /*
+   * ":scriptencoding": Set encoding conversion for a sourced script.
+   */
+      void
+! ex_scriptencoding(exarg_T *eap)
+  {
+      struct source_cookie	*sp;
+      char_u			*name;
+***************
+*** 5108,5113 ****
+--- 5109,5137 ----
+  	vim_free(name);
+  }
+  
++ /*
++  * ":scriptversion": Set Vim script version for a sourced script.
++  */
++     void
++ ex_scriptversion(exarg_T *eap UNUSED)
++ {
++     int		nr;
++ 
++     if (!getline_equal(eap->getline, eap->cookie, getsourceline))
++     {
++ 	emsg(_("E984: :scriptversion used outside of a sourced file"));
++ 	return;
++     }
++ 
++     nr = getdigits(&eap->arg);
++     if (nr == 0 || *eap->arg != NUL)
++ 	emsg(_(e_invarg));
++     else if (nr > 2)
++ 	semsg(_("E999: scriptversion not supported: %d"), nr);
++     else
++ 	current_sctx.sc_version = nr;
++ }
++ 
+  #if defined(FEAT_EVAL) || defined(PROTO)
+  /*
+   * ":finish": Mark a sourced file as finished.
+*** ../vim-8.1.1115/src/proto/ex_cmds2.pro	2019-02-15 21:06:05.342289715 +0100
+--- src/proto/ex_cmds2.pro	2019-04-04 16:32:19.198927017 +0200
+***************
+*** 98,103 ****
+--- 98,104 ----
+  void script_line_exec(void);
+  void script_line_end(void);
+  void ex_scriptencoding(exarg_T *eap);
++ void ex_scriptversion(exarg_T *eap);
+  void ex_finish(exarg_T *eap);
+  void do_finish(exarg_T *eap, int reanimate);
+  int source_finished(char_u *(*fgetline)(int, void *, int), void *cookie);
+*** ../vim-8.1.1115/src/structs.h	2019-03-30 13:53:26.174425093 +0100
+--- src/structs.h	2019-04-04 16:24:11.821503583 +0200
+***************
+*** 79,84 ****
+--- 79,85 ----
+      scid_T	sc_sid;		// script ID
+      int		sc_seq;		// sourcing sequence number
+      linenr_T	sc_lnum;	// line number
++     int		sc_version;	// :scriptversion
+  } sctx_T;
+  
+  /*
+*** ../vim-8.1.1115/src/buffer.c	2019-03-30 18:46:57.340077448 +0100
+--- src/buffer.c	2019-04-04 16:25:06.765213438 +0200
+***************
+*** 5493,5498 ****
+--- 5493,5499 ----
+  		current_sctx.sc_sid = SID_MODELINE;
+  		current_sctx.sc_seq = 0;
+  		current_sctx.sc_lnum = 0;
++ 		current_sctx.sc_version = 1;
+  #endif
+  		// Make sure no risky things are executed as a side effect.
+  		secure = 1;
+*** ../vim-8.1.1115/src/main.c	2019-04-03 20:30:56.085017544 +0200
+--- src/main.c	2019-04-04 16:29:16.515893423 +0200
+***************
+*** 3166,3171 ****
+--- 3166,3172 ----
+  	current_sctx.sc_sid = SID_ENV;
+  	current_sctx.sc_seq = 0;
+  	current_sctx.sc_lnum = 0;
++ 	current_sctx.sc_version = 1;
+  #endif
+  	do_cmdline_cmd(initstr);
+  	sourcing_name = save_sourcing_name;
+*** ../vim-8.1.1115/src/option.c	2019-03-30 18:46:57.360077328 +0100
+--- src/option.c	2019-04-04 16:33:07.574671018 +0200
+***************
+*** 407,413 ****
+      char_u	*def_val[2];	// default values for variable (vi and vim)
+  #ifdef FEAT_EVAL
+      sctx_T	script_ctx;	// script context where the option was last set
+! # define SCTX_INIT , {0, 0, 0}
+  #else
+  # define SCTX_INIT
+  #endif
+--- 407,413 ----
+      char_u	*def_val[2];	// default values for variable (vi and vim)
+  #ifdef FEAT_EVAL
+      sctx_T	script_ctx;	// script context where the option was last set
+! # define SCTX_INIT , {0, 0, 0, 1}
+  #else
+  # define SCTX_INIT
+  #endif
+***************
+*** 5911,5916 ****
+--- 5911,5917 ----
+  		script_ctx.sc_sid = set_sid;
+  		script_ctx.sc_seq = 0;
+  		script_ctx.sc_lnum = 0;
++ 		script_ctx.sc_version = 1;
+  	    }
+  	    set_option_sctx_idx(idx, opt_flags, script_ctx);
+  	}
+*** ../vim-8.1.1115/src/ex_cmdidxs.h	2019-01-17 15:43:21.765878343 +0100
+--- src/ex_cmdidxs.h	2019-04-04 16:33:38.390507927 +0200
+***************
+*** 24,36 ****
+    /* q */ 348,
+    /* r */ 351,
+    /* s */ 371,
+!   /* t */ 438,
+!   /* u */ 481,
+!   /* v */ 492,
+!   /* w */ 510,
+!   /* x */ 524,
+!   /* y */ 533,
+!   /* z */ 534
+  };
+  
+  /*
+--- 24,36 ----
+    /* q */ 348,
+    /* r */ 351,
+    /* s */ 371,
+!   /* t */ 439,
+!   /* u */ 482,
+!   /* v */ 493,
+!   /* w */ 511,
+!   /* x */ 525,
+!   /* y */ 534,
+!   /* z */ 535
+  };
+  
+  /*
+***************
+*** 59,65 ****
+    /* p */ {  1,  0,  3,  0,  4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  9,  0,  0, 16, 17, 26,  0, 27,  0, 28,  0 },
+    /* q */ {  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* r */ {  0,  0,  0,  0,  0,  0,  0,  0, 12,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 14, 19,  0,  0,  0,  0 },
+!   /* s */ {  2,  6, 15,  0, 18, 22,  0, 24, 25,  0,  0, 28, 30, 34, 38, 40,  0, 48,  0, 49,  0, 61, 62,  0, 63,  0 },
+    /* t */ {  2,  0, 19,  0, 22, 24,  0, 25,  0, 26,  0, 27, 31, 34, 36, 37,  0, 38, 40,  0, 41,  0,  0,  0,  0,  0 },
+    /* u */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* v */ {  0,  0,  0,  0,  1,  0,  0,  0,  4,  0,  0,  0,  9, 12,  0,  0,  0,  0, 15,  0, 16,  0,  0,  0,  0,  0 },
+--- 59,65 ----
+    /* p */ {  1,  0,  3,  0,  4,  0,  0,  0,  0,  0,  0,  0,  0,  0,  7,  9,  0,  0, 16, 17, 26,  0, 27,  0, 28,  0 },
+    /* q */ {  2,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* r */ {  0,  0,  0,  0,  0,  0,  0,  0, 12,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 14, 19,  0,  0,  0,  0 },
+!   /* s */ {  2,  6, 15,  0, 19, 23,  0, 25, 26,  0,  0, 29, 31, 35, 39, 41,  0, 49,  0, 50,  0, 62, 63,  0, 64,  0 },
+    /* t */ {  2,  0, 19,  0, 22, 24,  0, 25,  0, 26,  0, 27, 31, 34, 36, 37,  0, 38, 40,  0, 41,  0,  0,  0,  0,  0 },
+    /* u */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 },
+    /* v */ {  0,  0,  0,  0,  1,  0,  0,  0,  4,  0,  0,  0,  9, 12,  0,  0,  0,  0, 15,  0, 16,  0,  0,  0,  0,  0 },
+***************
+*** 69,72 ****
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 547;
+--- 69,72 ----
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 548;
+*** ../vim-8.1.1115/src/testdir/test_eval_stuff.vim	2019-04-04 15:35:42.829132566 +0200
+--- src/testdir/test_eval_stuff.vim	2019-04-04 17:32:12.165223462 +0200
+***************
+*** 123,125 ****
+--- 123,161 ----
+    let a..=b
+    call assert_equal('ab', a)
+  endfunc
++ 
++ scriptversion 2
++ func Test_string_concat_scriptversion2()
++   let a = 'a'
++   let b = 'b'
++ 
++   call assert_fails('echo a . b', 'E15:')
++   call assert_fails('let a .= b', 'E985:')
++   call assert_fails('let vers = 1.2.3', 'E15:')
++ 
++   if has('float')
++     let f = .5
++     call assert_equal(0.5, f)
++   endif
++ endfunc
++ 
++ scriptversion 1
++ func Test_string_concat_scriptversion1()
++   let a = 'a'
++   let b = 'b'
++ 
++   echo a . b
++   let a .= b
++   let vers = 1.2.3
++   call assert_equal('123', vers)
++ 
++   if has('float')
++     call assert_fails('let f = .5', 'E15:')
++   endif
++ endfunc
++ 
++ func Test_scriptversion()
++   call writefile(['scriptversion 9'], 'Xversionscript')
++   call assert_fails('source Xversionscript', 'E999:')
++   call delete('Xversionscript')
++ endfunc
+*** ../vim-8.1.1115/src/version.c	2019-04-04 15:40:53.011337945 +0200
+--- src/version.c	2019-04-04 15:49:17.156543611 +0200
+***************
+*** 773,774 ****
+--- 773,776 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1116,
+  /**/
+
+-- 
+Some of the well known MS-Windows errors:
+	ESLEEP		Operator fell asleep
+	ENOERR		No error yet
+	EDOLLAR		OS too expensive
+	EWINDOWS	MS-Windows loaded, system in danger
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,401 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1375
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1375
+Problem:    Without "TS" in 'shortmess' get a hit-enter prompt often.
+Solution:   Always truncate the search message.  Also avoid putting it in the
+            message history. (closes #4413)
+Files:	    src/search.c, src/main.c, src/testdir/test_search_stat.vim
+
+
+*** ../vim-8.1.1374/src/search.c	2019-05-23 21:35:44.455922641 +0200
+--- src/search.c	2019-05-24 13:05:13.405227544 +0200
+***************
+*** 1381,1390 ****
+--- 1381,1409 ----
+  					    && !cmd_silent && msg_silent == 0)
+  	{
+  	    char_u	*trunc;
++ 	    char_u	off_buf[40];
++ 	    int		off_len = 0;
+  
+  	    // Compute msg_row early.
+  	    msg_start();
+  
++ 	    // Get the offset, so we know how long it is.
++ 	    if (spats[0].off.line || spats[0].off.end || spats[0].off.off)
++ 	    {
++ 		p = off_buf;
++ 		*p++ = dirc;
++ 		if (spats[0].off.end)
++ 		    *p++ = 'e';
++ 		else if (!spats[0].off.line)
++ 		    *p++ = 's';
++ 		if (spats[0].off.off > 0 || spats[0].off.line)
++ 		    *p++ = '+';
++ 		*p = NUL;
++ 		if (spats[0].off.off != 0 || spats[0].off.line)
++ 		    sprintf((char *)p, "%ld", spats[0].off.off);
++ 		off_len = STRLEN(off_buf);
++ 	    }
++ 
+  	    if (*searchstr == NUL)
+  		p = spats[0].pat;
+  	    else
+***************
+*** 1393,1411 ****
+  	    if (!shortmess(SHM_SEARCHCOUNT))
+  	    {
+  		// Reserve enough space for the search pattern + offset +
+! 		// search stat.
+  		if (msg_scrolled != 0)
+  		    // Use all the columns.
+  		    len = (int)(Rows - msg_row) * Columns - 1;
+  		else
+  		    // Use up to 'showcmd' column.
+  		    len = (int)(Rows - msg_row - 1) * Columns + sc_col - 1;
+! 		if (len < STRLEN(p) + 40 + SEARCH_STAT_BUF_LEN + 1)
+! 		    len = STRLEN(p) + 40 + SEARCH_STAT_BUF_LEN + 1;
+  	    }
+  	    else
+  		// Reserve enough space for the search pattern + offset.
+! 		len = STRLEN(p) + 40;
+  
+  	    msgbuf = alloc((int)len);
+  	    if (msgbuf != NULL)
+--- 1412,1432 ----
+  	    if (!shortmess(SHM_SEARCHCOUNT))
+  	    {
+  		// Reserve enough space for the search pattern + offset +
+! 		// search stat.  Use all the space available, so that the
+! 		// search state is right aligned.  If there is not enough space
+! 		// msg_strtrunc() will shorten in the middle.
+  		if (msg_scrolled != 0)
+  		    // Use all the columns.
+  		    len = (int)(Rows - msg_row) * Columns - 1;
+  		else
+  		    // Use up to 'showcmd' column.
+  		    len = (int)(Rows - msg_row - 1) * Columns + sc_col - 1;
+! 		if (len < STRLEN(p) + off_len + SEARCH_STAT_BUF_LEN + 3)
+! 		    len = STRLEN(p) + off_len + SEARCH_STAT_BUF_LEN + 3;
+  	    }
+  	    else
+  		// Reserve enough space for the search pattern + offset.
+! 		len = STRLEN(p) + off_len + 3;
+  
+  	    msgbuf = alloc((int)len);
+  	    if (msgbuf != NULL)
+***************
+*** 1422,1446 ****
+  		}
+  		else
+  		    mch_memmove(msgbuf + 1, p, STRLEN(p));
+! 		if (spats[0].off.line || spats[0].off.end || spats[0].off.off)
+! 		{
+! 		    p = msgbuf + STRLEN(p) + 1;
+! 		    *p++ = dirc;
+! 		    if (spats[0].off.end)
+! 			*p++ = 'e';
+! 		    else if (!spats[0].off.line)
+! 			*p++ = 's';
+! 		    if (spats[0].off.off > 0 || spats[0].off.line)
+! 			*p++ = '+';
+! 		    if (spats[0].off.off != 0 || spats[0].off.line)
+! 		    {
+! 			int l = 0;
+! 			l = sprintf((char *)p, "%ld", spats[0].off.off);
+! 			p[l] = ' '; // remove NUL from sprintf
+! 		    }
+! 		}
+  
+! 		trunc = msg_strtrunc(msgbuf, FALSE);
+  		if (trunc != NULL)
+  		{
+  		    vim_free(msgbuf);
+--- 1443,1452 ----
+  		}
+  		else
+  		    mch_memmove(msgbuf + 1, p, STRLEN(p));
+! 		if (off_len > 0)
+! 		    mch_memmove(msgbuf + STRLEN(p) + 1, off_buf, off_len);
+  
+! 		trunc = msg_strtrunc(msgbuf, TRUE);
+  		if (trunc != NULL)
+  		{
+  		    vim_free(msgbuf);
+***************
+*** 5028,5035 ****
+  	lbuf    = curbuf;
+  	lastpos = p;
+  
+! 	// keep the message even after redraw
+  	give_warning(msgbuf, FALSE);
+      }
+      p_ws = save_ws;
+  }
+--- 5034,5043 ----
+  	lbuf    = curbuf;
+  	lastpos = p;
+  
+! 	// keep the message even after redraw, but don't put in history
+! 	msg_hist_off = TRUE;
+  	give_warning(msgbuf, FALSE);
++ 	msg_hist_off = FALSE;
+      }
+      p_ws = save_ws;
+  }
+*** ../vim-8.1.1374/src/main.c	2019-05-23 21:35:44.455922641 +0200
+--- src/main.c	2019-05-24 12:38:14.310483062 +0200
+***************
+*** 1271,1281 ****
+  	    {
+  		char_u *p;
+  
+! 		/* msg_attr_keep() will set keep_msg to NULL, must free the
+! 		 * string here. Don't reset keep_msg, msg_attr_keep() uses it
+! 		 * to check for duplicates. */
+  		p = keep_msg;
+  		msg_attr((char *)p, keep_msg_attr);
+  		vim_free(p);
+  	    }
+  	    if (need_fileinfo)		/* show file info after redraw */
+--- 1271,1283 ----
+  	    {
+  		char_u *p;
+  
+! 		// msg_attr_keep() will set keep_msg to NULL, must free the
+! 		// string here. Don't reset keep_msg, msg_attr_keep() uses it
+! 		// to check for duplicates.  Never put this message in history.
+  		p = keep_msg;
++ 		msg_hist_off = TRUE;
+  		msg_attr((char *)p, keep_msg_attr);
++ 		msg_hist_off = FALSE;
+  		vim_free(p);
+  	    }
+  	    if (need_fileinfo)		/* show file info after redraw */
+*** ../vim-8.1.1374/src/testdir/test_search_stat.vim	2019-05-18 19:26:25.973151461 +0200
+--- src/testdir/test_search_stat.vim	2019-05-24 12:47:41.903233016 +0200
+***************
+*** 11,31 ****
+    " Append 50 lines with text to search for, "foobar" appears 20 times
+    call append(0, repeat(['foobar', 'foo', 'fooooobar', 'foba', 'foobar'], 10))
+  
+!   " 1) match at second line
+    call cursor(1, 1)
+    let @/ = 'fo*\(bar\?\)\?'
+    let g:a = execute(':unsilent :norm! n')
+    let stat = '\[2/50\]'
+    let pat = escape(@/, '()*?'). '\s\+'
+    call assert_match(pat .. stat, g:a)
+  
+!   " 2) Match at last line
+    call cursor(line('$')-2, 1)
+    let g:a = execute(':unsilent :norm! n')
+    let stat = '\[50/50\]'
+    call assert_match(pat .. stat, g:a)
+  
+!   " 3) No search stat
+    set shortmess+=S
+    call cursor(1, 1)
+    let stat = '\[2/50\]'
+--- 11,34 ----
+    " Append 50 lines with text to search for, "foobar" appears 20 times
+    call append(0, repeat(['foobar', 'foo', 'fooooobar', 'foba', 'foobar'], 10))
+  
+!   " match at second line
+    call cursor(1, 1)
++   let messages_before = execute('messages')
+    let @/ = 'fo*\(bar\?\)\?'
+    let g:a = execute(':unsilent :norm! n')
+    let stat = '\[2/50\]'
+    let pat = escape(@/, '()*?'). '\s\+'
+    call assert_match(pat .. stat, g:a)
++   " didn't get added to message history
++   call assert_equal(messages_before, execute('messages'))
+  
+!   " Match at last line
+    call cursor(line('$')-2, 1)
+    let g:a = execute(':unsilent :norm! n')
+    let stat = '\[50/50\]'
+    call assert_match(pat .. stat, g:a)
+  
+!   " No search stat
+    set shortmess+=S
+    call cursor(1, 1)
+    let stat = '\[2/50\]'
+***************
+*** 33,39 ****
+    call assert_notmatch(pat .. stat, g:a)
+    set shortmess-=S
+  
+!   " 4) Many matches
+    call cursor(line('$')-2, 1)
+    let @/ = '.'
+    let pat = escape(@/, '()*?'). '\s\+'
+--- 36,42 ----
+    call assert_notmatch(pat .. stat, g:a)
+    set shortmess-=S
+  
+!   " Many matches
+    call cursor(line('$')-2, 1)
+    let @/ = '.'
+    let pat = escape(@/, '()*?'). '\s\+'
+***************
+*** 45,51 ****
+    let stat = '\[1/>99\] W'
+    call assert_match(pat .. stat, g:a)
+  
+!   " 5) Many matches
+    call cursor(1, 1)
+    let g:a = execute(':unsilent :norm! n')
+    let stat = '\[2/>99\]'
+--- 48,54 ----
+    let stat = '\[1/>99\] W'
+    call assert_match(pat .. stat, g:a)
+  
+!   " Many matches
+    call cursor(1, 1)
+    let g:a = execute(':unsilent :norm! n')
+    let stat = '\[2/>99\]'
+***************
+*** 55,61 ****
+    let stat = '\[>99/>99\] W'
+    call assert_match(pat .. stat, g:a)
+  
+!   " 6) right-left
+    if exists("+rightleft")
+      set rl
+      call cursor(1,1)
+--- 58,64 ----
+    let stat = '\[>99/>99\] W'
+    call assert_match(pat .. stat, g:a)
+  
+!   " right-left
+    if exists("+rightleft")
+      set rl
+      call cursor(1,1)
+***************
+*** 67,73 ****
+      set norl
+    endif
+  
+!   " 7) right-left bottom
+    if exists("+rightleft")
+      set rl
+      call cursor('$',1)
+--- 70,76 ----
+      set norl
+    endif
+  
+!   " right-left bottom
+    if exists("+rightleft")
+      set rl
+      call cursor('$',1)
+***************
+*** 78,84 ****
+      set norl
+    endif
+  
+!   " 8) right-left back at top
+    if exists("+rightleft")
+      set rl
+      call cursor('$',1)
+--- 81,87 ----
+      set norl
+    endif
+  
+!   " right-left back at top
+    if exists("+rightleft")
+      set rl
+      call cursor('$',1)
+***************
+*** 90,96 ****
+      set norl
+    endif
+  
+!   " 9) normal, back at bottom
+    call cursor(1,1)
+    let @/ = 'foobar'
+    let pat = '?foobar\s\+'
+--- 93,99 ----
+      set norl
+    endif
+  
+!   " normal, back at bottom
+    call cursor(1,1)
+    let @/ = 'foobar'
+    let pat = '?foobar\s\+'
+***************
+*** 100,106 ****
+    call assert_match('search hit TOP, continuing at BOTTOM', g:a)
+    call assert_match('\[20/20\] W', Screenline(&lines))
+  
+!   " 10) normal, no match
+    call cursor(1,1)
+    let @/ = 'zzzzzz'
+    let g:a = ''
+--- 103,109 ----
+    call assert_match('search hit TOP, continuing at BOTTOM', g:a)
+    call assert_match('\[20/20\] W', Screenline(&lines))
+  
+!   " normal, no match
+    call cursor(1,1)
+    let @/ = 'zzzzzz'
+    let g:a = ''
+***************
+*** 114,120 ****
+      call assert_false(1)
+    endtry
+  
+!   " 11) normal, n comes from a mapping
+    "     Need to move over more than 64 lines to trigger char_avail(.
+    nnoremap n nzv
+    call cursor(1,1)
+--- 117,123 ----
+      call assert_false(1)
+    endtry
+  
+!   " normal, n comes from a mapping
+    "     Need to move over more than 64 lines to trigger char_avail(.
+    nnoremap n nzv
+    call cursor(1,1)
+***************
+*** 130,136 ****
+    call assert_match(pat .. stat, g:b)
+    unmap n
+  
+!   " 11) normal, but silent
+    call cursor(1,1)
+    let @/ = 'find this'
+    let pat = '/find this\s\+'
+--- 133,139 ----
+    call assert_match(pat .. stat, g:b)
+    unmap n
+  
+!   " normal, but silent
+    call cursor(1,1)
+    let @/ = 'find this'
+    let pat = '/find this\s\+'
+*** ../vim-8.1.1374/src/version.c	2019-05-24 11:45:18.987591736 +0200
+--- src/version.c	2019-05-24 12:34:50.371607742 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1375,
+  /**/
+
+-- 
+I have a drinking problem -- I can't afford it.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///
