@@ -31,7 +31,7 @@ VERHUMAN=$VER
 PKG=terminal/tmux
 SUMMARY="Terminal multiplexer"
 DESC="$SUMMARY"
-LIBEVENT_VER=2.1.8
+LIBEVENT_VER=2.1.10
 LIBEVENT_DIR=libevent-${LIBEVENT_VER}-stable
 XFORM_ARGS+=" -DLIBEVENT=$LIBEVENT_VER"
 
@@ -51,8 +51,17 @@ CONFIGURE_OPTS="
     --disable-shared
 "
 
+save_function configure64 _configure64
+
+configure64(){
+    run_autoreconf -fi
+    _configure64
+}
+
 build_dependency libevent $LIBEVENT_DIR \
     libevent libevent ${LIBEVENT_VER}-stable
+
+save_function _configure64 configure64
 
 #########################################################################
 
