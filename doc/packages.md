@@ -36,7 +36,7 @@
 | library/mpfr				| 4.0.2			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
 | library/libedit			| 20190324-3.1		| http://thrysoee.dk/editline/
-| library/libevent			| 2.1.8			| https://github.com/libevent/libevent/releases | Used solely by tmux
+| library/libevent			| 2.1.10		| https://github.com/libevent/libevent/releases | Used solely by tmux
 | library/libidn			| 1.35			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags
 | library/libffi			| 3.2.1			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
@@ -80,7 +80,7 @@
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
-| system/test/fio			| 3.13			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.14			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
 | terminal/tmux				| 2.9			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.0.0			| https://ftp.gnu.org/gnu/gawk/
