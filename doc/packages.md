@@ -60,7 +60,7 @@
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
-| runtime/perl				| 5.28.2		| http://www.cpan.org/src/README.html
+| runtime/perl				| 5.30.0		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.16		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.7			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.27		| https://www.sudo.ws/

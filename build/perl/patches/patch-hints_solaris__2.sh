@@ -2,9 +2,9 @@ $NetBSD: patch-hints_solaris__2.sh,v 1.2 2015/10/27 09:10:44 jperkin Exp $
 
 Redo PR pkg/44999.
 
-diff -pruN '--exclude=*.orig' perl-5.26.1~/hints/solaris_2.sh perl-5.26.1/hints/solaris_2.sh
---- perl-5.26.1~/hints/solaris_2.sh	2017-07-19 00:50:01.000000000 +0000
-+++ perl-5.26.1/hints/solaris_2.sh	2017-11-08 19:35:51.446664035 +0000
+diff -wpruN '--exclude=*.orig' a~/hints/solaris_2.sh a/hints/solaris_2.sh
+--- a~/hints/solaris_2.sh	1970-01-01 00:00:00
++++ a/hints/solaris_2.sh	1970-01-01 00:00:00
 @@ -585,7 +585,7 @@ EOM
  		fi
  	    fi
