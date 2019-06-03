@@ -56,7 +56,7 @@ BUILD_DEPENDS_IPS="
     developer/linker
     system/library/gcc-runtime
 "
-RUN_DEPEND_IPS="
+RUN_DEPENDS_IPS="
     $BUILD_DEPENDS_IPS
     system/library/c-runtime
 "
