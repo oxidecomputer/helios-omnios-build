@@ -21,6 +21,8 @@
 PROG=gfx-drm
 PKG=driver/graphics/agpgart
 PKG=driver/graphics/drm
+PKG=system/header/header-agp
+PKG=system/header/header-drm
 VER=0.152
 DASHREV=152
 SUMMARY="DRM kernel modules"
@@ -80,19 +82,27 @@ pre_build() {
 build() {
     logmsg "Building AGP GART and DRM Kernel Drivers"
     pushd $WORKDIR > /dev/null
-    dirs="tools uts cmd/devfsadm cmd/mdb man/man7d man/man7i"
+
+    logmsg "--- Preparing (non-DEBUG)"
+    logcmd env -i $BLDENV $WORKDIR/env.sh \
+        "cd $WORKDIR/usr/src && dmake setup" \
+        || logerr "$dir build failed"
+    logmsg "--- Preparing (DEBUG)"
+    logcmd env -i $BLDENV $WORKDIR/env-d.sh \
+        "cd $WORKDIR/usr/src && dmake setup" \
+        || logerr "$dir build failed"
+
     logmsg "--- Building"
+    dirs="uts cmd/devfsadm cmd/mdb man/man7d man/man7i"
     for dir in $dirs; do
         logmsg " -- $dir"
         logmsg "  - Non-debug"
         logcmd env -i $BLDENV $WORKDIR/env.sh \
             "cd $WORKDIR/usr/src/$dir && dmake install" \
             || logerr "$dir build failed"
-        logcmd env -i $BLDENV $WORKDIR/env.sh \
-            "cd $WORKDIR/usr/src/$dir && dmake clobber"
         logmsg "  - Debug"
         logcmd env -i $BLDENV -d $WORKDIR/env-d.sh \
-            "cd $WORKDIR/usr/src/$dir && dmake install" \
+            "cd $WORKDIR/usr/src/$dir && dmake clobber install" \
             || logerr "$dir build failed"
     done
     popd > /dev/null
@@ -100,10 +110,10 @@ build() {
 
 make_package() {
     pushd $WORKDIR/usr/src/pkg/manifests
-    logcmd rm -f {system-header-*,system-test-*,x11-*-libdrm}.mf
+    logcmd rm -f {system-test-*,x11-*-libdrm}.mf
     popd
 
-    logmsg "Packages for driver/graphics/agpgart and driver/graphics/drm"
+    logmsg "Packages for agpgart and drm"
     pushd $WORKDIR > /dev/null
     logcmd env -i $BLDENV $WORKDIR/env.sh \
         "cd $WORKDIR/usr/src/pkg && make install" \
@@ -123,6 +133,8 @@ push_pkgs() {
     if [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ]; then
         diff_package driver/graphics/agpgart@0.5.11,$SUNOSVER-$RELVER.$DASHREV
         diff_package driver/graphics/drm@0.5.11,$SUNOSVER-$RELVER.$DASHREV
+        diff_package system/header/header-agp@0.5.11,$SUNOSVER-$RELVER.$DASHREV
+        diff_package system/header/header-drm@0.5.11,$SUNOSVER-$RELVER.$DASHREV
     fi
 }
 
