@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=dbus
-VER=1.12.14
+VER=1.12.16
 PKG=dbus ##IGNORE##
 SUMMARY="filled in below"
 DESC="$SUMMARY"
