@@ -29,7 +29,7 @@
 PKG=developer/gcc7
 PROG=gcc
 VER=7.4.0
-ILVER=il-1
+ILVER=il-2
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
 
