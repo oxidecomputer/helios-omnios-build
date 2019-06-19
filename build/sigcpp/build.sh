@@ -21,13 +21,12 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=libsigc++
-VER=2.99.12
+VER=2.99.13
 VERHUMAN=$VER
 PKG=library/c++/sigcpp
 SUMMARY="libsigc++ - a library that implements typesafe callback system"

@@ -1,26 +1,7 @@
-diff -wpruN '--exclude=*.orig' a~/mesonbuild/compilers/c.py a/mesonbuild/compilers/c.py
---- a~/mesonbuild/compilers/c.py	1970-01-01 00:00:00
-+++ a/mesonbuild/compilers/c.py	1970-01-01 00:00:00
-@@ -1133,11 +1133,15 @@ class CCompiler(Compiler):
-     def thread_flags(self, env):
-         if for_haiku(self.is_cross, env) or for_darwin(self.is_cross, env):
-             return []
-+        if self.compiler_type.is_illumos_compiler:
-+            return []
-         return ['-pthread']
- 
-     def thread_link_flags(self, env):
-         if for_haiku(self.is_cross, env) or for_darwin(self.is_cross, env):
-             return []
-+        if self.compiler_type.is_illumos_compiler:
-+            return []
-         return ['-pthread']
- 
-     def linker_to_compiler_args(self, args):
 diff -wpruN '--exclude=*.orig' a~/mesonbuild/compilers/compilers.py a/mesonbuild/compilers/compilers.py
 --- a~/mesonbuild/compilers/compilers.py	1970-01-01 00:00:00
 +++ a/mesonbuild/compilers/compilers.py	1970-01-01 00:00:00
-@@ -1345,6 +1345,7 @@ class CompilerType(enum.Enum):
+@@ -1395,6 +1395,7 @@ class CompilerType(enum.Enum):
      GCC_OSX = 1
      GCC_MINGW = 2
      GCC_CYGWIN = 3
@@ -28,8 +9,8 @@ diff -wpruN '--exclude=*.orig' a~/mesonbuild/compilers/compilers.py a/mesonbuild
  
      CLANG_STANDARD = 10
      CLANG_OSX = 11
-@@ -1370,6 +1371,10 @@ class CompilerType(enum.Enum):
-         return self.name in ('GCC_OSX', 'CLANG_OSX', 'ICC_OSX')
+@@ -1422,6 +1423,10 @@ class CompilerType(enum.Enum):
+         return self.name in ('GCC_OSX', 'CLANG_OSX', 'ICC_OSX', 'PGI_OSX')
  
      @property
 +    def is_illumos_compiler(self):
@@ -37,9 +18,9 @@ diff -wpruN '--exclude=*.orig' a~/mesonbuild/compilers/compilers.py a/mesonbuild
 +
 +    @property
      def is_windows_compiler(self):
-         return self.name in ('GCC_MINGW', 'GCC_CYGWIN', 'CLANG_MINGW', 'ICC_WIN', 'ARM_WIN', 'CCRX_WIN')
+         return self.name in ('GCC_MINGW', 'GCC_CYGWIN', 'CLANG_MINGW', 'ICC_WIN', 'ARM_WIN', 'CCRX_WIN', 'PGI_WIN')
  
-@@ -1382,7 +1387,7 @@ def get_macos_dylib_install_name(prefix,
+@@ -1434,7 +1439,7 @@ def get_macos_dylib_install_name(prefix,
      return '@rpath/' + install_name
  
  def get_gcc_soname_args(compiler_type, prefix, shlib_name, suffix, soversion, darwin_versions, is_shared_module):
@@ -48,9 +29,9 @@ diff -wpruN '--exclude=*.orig' a~/mesonbuild/compilers/compilers.py a/mesonbuild
          sostr = '' if soversion is None else '.' + soversion
          return ['-Wl,-soname,%s%s.%s%s' % (prefix, shlib_name, suffix, sostr)]
      elif compiler_type.is_windows_compiler:
-@@ -1593,6 +1598,8 @@ class GnuLikeCompiler(abc.ABC):
-         elif self.compiler_type.is_windows_compiler:
-             # For PE/COFF this is impossible
+@@ -1981,6 +1986,8 @@ class GnuLikeCompiler(abc.ABC):
+             return []
+         elif mesonlib.is_sunos():
              return []
 +        elif self.compiler_type.is_illumos_compiler:
 +            return []
@@ -60,7 +41,7 @@ diff -wpruN '--exclude=*.orig' a~/mesonbuild/compilers/compilers.py a/mesonbuild
 diff -wpruN '--exclude=*.orig' a~/mesonbuild/environment.py a/mesonbuild/environment.py
 --- a~/mesonbuild/environment.py	1970-01-01 00:00:00
 +++ a/mesonbuild/environment.py	1970-01-01 00:00:00
-@@ -440,7 +440,7 @@ class Environment:
+@@ -500,12 +500,12 @@ class Environment:
          self.default_rust = ['rustc']
          self.default_swift = ['swiftc']
          self.default_vala = ['valac']
@@ -69,7 +50,13 @@ diff -wpruN '--exclude=*.orig' a~/mesonbuild/environment.py a/mesonbuild/environ
          self.default_strip = ['strip']
          self.vs_static_linker = ['lib']
          self.clang_cl_static_linker = ['llvm-lib']
-@@ -569,6 +569,8 @@ class Environment:
+         self.cuda_static_linker = ['nvlink']
+-        self.gcc_static_linker = ['gcc-ar']
++        self.gcc_static_linker = ['gar']
+         self.clang_static_linker = ['llvm-ar']
+         self.default_cmake = ['cmake']
+         self.default_pkgconfig = ['pkg-config']
+@@ -613,6 +613,8 @@ class Environment:
              return CompilerType.GCC_MINGW
          elif '__CYGWIN__' in defines:
              return CompilerType.GCC_CYGWIN
@@ -77,4 +64,4 @@ diff -wpruN '--exclude=*.orig' a~/mesonbuild/environment.py a/mesonbuild/environ
 +            return CompilerType.GCC_ILLUMOS
          return CompilerType.GCC_STANDARD
  
-     def _get_compilers(self, lang, want_cross):
+     def _get_compilers(self, lang, for_machine):
