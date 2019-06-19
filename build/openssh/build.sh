@@ -22,12 +22,11 @@
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+
 . ../../lib/functions.sh
 
 PROG=openssh
-VER=7.9p1
+VER=8.0p1
 PKG=network/openssh
 SUMMARY="OpenSSH Client and utilities"
 DESC="OpenSSH Secure Shell protocol Client and associated Utilities"
@@ -110,8 +109,12 @@ export TESTSUITE_FILTER='^ok |^test_|failed|^all tests'
 (
     # The test SSH daemon needs root privileges to properly access PAM
     # on OmniOS. Sudo does not work well enough so use pfexec here.
-    export SUDO=pfexec
-    run_testsuite tests
+    if [ `pfexec id -u` != "0" ]; then
+        logerr "Your account is not set up for pfexec, cannot run testsuite"
+    else
+        export SUDO=pfexec
+        run_testsuite tests
+    fi
 )
 
 # Remove the letter from VER for packaging
