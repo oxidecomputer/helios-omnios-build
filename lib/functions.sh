@@ -1225,6 +1225,10 @@ make_package() {
     grep '^depend ' $P5M_FINAL | while read line; do
         logmsg "$line"
     done
+
+    logmsg "--- Formatting manifest"
+    logcmd $PKGFMT -s $P5M_FINAL
+
     if [ -z "$SKIP_PKGLINT" ] && ( [ -n "$BATCH" ] || ask_to_pkglint ); then
         run_pkglint $PKGSRVR $P5M_FINAL
     fi
