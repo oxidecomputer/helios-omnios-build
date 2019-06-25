@@ -105,7 +105,7 @@
 | library/python-3/attrs-35		| 19.1.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-35		| 1.12.3		| https://pypi.org/project/cffi
 | library/python-3/cheroot-35		| 6.5.5			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-35		| 18.1.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/cherrypy-35		| 18.1.2		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.3			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
