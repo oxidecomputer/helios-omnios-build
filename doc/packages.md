@@ -121,7 +121,7 @@
 | library/python-3/prettytable-35	| 0.7.2			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-35		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycparser-35		| 2.19			| https://pypi.org/project/pycparser
-| library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
+| library/python-3/pycurl-35		| 7.43.0.3		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-35	| 0.15.2		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-35		| 2019.1		| https://pypi.org/project/pytz
