@@ -43,7 +43,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20190601		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.39.1		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.44			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.44.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.21			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.33			| https://ftp.pcre.org/pub/pcre/
@@ -65,7 +65,7 @@
 | runtime/python-35			| 3.5.7			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.27		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
-| service/network/ntpsec		| 1.1.3			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
+| service/network/ntpsec		| 1.1.4			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.11			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
 | shell/bash44-patchlvl			| 023			| https://ftp.gnu.org/gnu/bash/bash-4.4-patches
@@ -105,7 +105,7 @@
 | library/python-3/attrs-35		| 19.1.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-35		| 1.12.3		| https://pypi.org/project/cffi
 | library/python-3/cheroot-35		| 6.5.5			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-35		| 18.1.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/cherrypy-35		| 18.1.2		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.3			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
@@ -121,7 +121,7 @@
 | library/python-3/prettytable-35	| 0.7.2			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-35		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycparser-35		| 2.19			| https://pypi.org/project/pycparser
-| library/python-3/pycurl-35		| 7.43.0.2		| https://pypi.org/project/pycurl
+| library/python-3/pycurl-35		| 7.43.0.3		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-35	| 0.15.2		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-35		| 2019.1		| https://pypi.org/project/pytz
