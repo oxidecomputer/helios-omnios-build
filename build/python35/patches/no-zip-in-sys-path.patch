@@ -1,0 +1,50 @@
+
+By default, python places a zip file at the start of the module path
+
+>>> import sys; sys.path
+['', '/usr/lib/python35.zip', '/usr/lib/python3.5', ...
+
+We don't ship this or have any need to provide modules there, so remove it
+from the path. This also cleans up package dependency resolution output
+which frequently refers to this non-existent file.
+
+--- src/Modules/getpath.c~	2019-06-25 09:48:47.240956886 +0000
++++ src/Modules/getpath.c	2019-06-25 09:49:35.413848668 +0000
+@@ -675,6 +675,7 @@
+     else
+         reduce(prefix);
+ 
++#ifndef SKIP_ZIP_PATH
+     wcsncpy(zip_path, prefix, MAXPATHLEN);
+     zip_path[MAXPATHLEN] = L'\0';
+     if (pfound > 0) { /* Use the reduced prefix returned by Py_GetPrefix() */
+@@ -687,6 +688,7 @@
+     bufsz = wcslen(zip_path);   /* Replace "00" with version */
+     zip_path[bufsz - 6] = VERSION[0];
+     zip_path[bufsz - 5] = VERSION[2];
++#endif
+ 
+     efound = search_for_exec_prefix(argv0_path, home,
+                                     _exec_prefix, lib_python);
+@@ -732,7 +734,9 @@
+         defpath = delim + 1;
+     }
+ 
++#ifndef SKIP_ZIP_PATH
+     bufsz += wcslen(zip_path) + 1;
++#endif
+     bufsz += wcslen(exec_prefix) + 1;
+ 
+     buf = PyMem_New(wchar_t, bufsz);
+@@ -749,9 +753,11 @@
+     else
+         buf[0] = '\0';
+ 
++#ifndef SKIP_ZIP_PATH
+     /* Next is the default zip path */
+     wcscat(buf, zip_path);
+     wcscat(buf, delimiter);
++#endif
+ 
+     /* Next goes merge of compile-time $PYTHONPATH with
+      * dynamically located prefix.
