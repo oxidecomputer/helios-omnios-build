@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=bind
-VER=9.11.7
+VER=9.11.8
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"

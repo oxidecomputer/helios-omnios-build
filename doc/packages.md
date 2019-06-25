@@ -54,7 +54,7 @@
 | library/security/openssl-1.1		| 1.1.1c		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| network/dns/bind			| 9.11.7		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.11.8		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.0p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
