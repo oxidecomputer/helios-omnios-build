@@ -41,7 +41,7 @@
 | library/libffi			| 3.2.1			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/ncurses			| 6.1.20190601		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
+| library/ncurses			| 6.1.20190623		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.39.1		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.44.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.21			| http://archive.mozilla.org/pub/nspr/releases/
@@ -54,7 +54,7 @@
 | library/security/openssl-1.1		| 1.1.1c		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| network/dns/bind			| 9.11.7		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.11.8		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.0p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
