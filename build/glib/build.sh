@@ -22,16 +22,14 @@
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-#
+
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.60.0
+VER=2.60.4
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
-
-BUILD_DEPENDS_IPS="library/python-${PYTHONVER%%.*}/meson-$PYTHONPKGVER"
 
 RUN_DEPENDS_IPS="
     runtime/python-$PYTHONPKGVER
@@ -51,12 +49,6 @@ CFLAGS+=" -Wno-error=format-nonliteral -Wno-error=format=2"
 CFLAGS+=" -D_XPG6 -D_POSIX_PTHREAD_SEMANTICS"
 
 LDFLAGS+=" -Wl,-z,ignore"
-
-CONFIGURE_CMD="$PYTHONLIB/python$PYTHONVER/bin/meson setup _build"
-
-MAKE="ninja -C _build"
-
-TESTSUITE_MAKE=$MAKE
 
 CONFIGURE_OPTS="
     --prefix=$PREFIX
@@ -84,7 +76,7 @@ TESTSUITE_SED='
 
 make_clean() {
     logmsg "--- make (dist)clean"
-    [ -d $TMPDIR/$BUILDDIR/_build ] && logcmd rm -rf $TMPDIR/$BUILDDIR/_build
+    [ -d $TMPDIR/$BUILDDIR ] && logcmd rm -rf $TMPDIR/$BUILDDIR
 }
 
 make_install() {
@@ -96,7 +88,7 @@ make_install() {
 init
 download_source $PROG $PROG $VER
 patch_source
-prep_build
+prep_build meson
 build
 run_testsuite
 make_package
