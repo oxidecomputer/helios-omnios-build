@@ -1,0 +1,94 @@
+From d970bad3371761555d249374e70012bba705ed73 Mon Sep 17 00:00:00 2001
+From: Mark Wielaard <mark@klomp.org>
+Date: Fri, 28 Jun 2019 12:38:41 +0200
+Subject: [PATCH] Be more liberal in the number of selectors we accept when
+ decoding.
+
+As proposed by Julian Seward:
+
+* split BZ_MAX_SELECTORS into two different values:
+
+  - BZ_MAX_SELECTORS_ENC = (2 + (900000 / BZ_G_SIZE)) [= 18002], the max
+    number of selectors that bzip2 can create ("encode")
+
+  - BZ_MAX_SELECTORS_DEC = BZ_MAX_SELECTORS_ENC + 6 [= 18008], the max
+    number of selectors that we'll accept during decoding, and add a
+    comment explaining that the difference is due to buggy lbzip2/whatever
+    creating more than BZ_MAX_SELECTORS_ENC
+
+* use BZ_MAX_SELECTORS_ENC to dimension the arrays in struct EState
+
+* use BZ_MAX_SELECTORS_DEC to dimension the arrays in struct DState,
+  and for the new decompress.c range check
+
+* change the compress.c assertion
+
+  AssertH( nSelectors < 32768 &&
+           nSelectors <= (2 + (900000 / BZ_G_SIZE)),
+           3003 );
+
+  to actually mention BZ_MAX_SELECTORS_ENC directly, instead of
+  (2 + (900000 / BZ_G_SIZE)), [which is embarrassingly lame]
+diff -wpruN '--exclude=*.orig' a~/bzlib_private.h a/bzlib_private.h
+--- a~/bzlib_private.h	1970-01-01 00:00:00
++++ a/bzlib_private.h	1970-01-01 00:00:00
+@@ -122,7 +122,12 @@ extern void bz_internal_error ( int errc
+ #define BZ_G_SIZE   50
+ #define BZ_N_ITERS  4
+ 
+-#define BZ_MAX_SELECTORS (2 + (900000 / BZ_G_SIZE))
++/* The max number of selectors that bzip2 can create ("encode") [= 18002] */
++#define BZ_MAX_SELECTORS_ENC (2 + (900000 / BZ_G_SIZE))
++/* The max number of selectors that bzip2 accept during decoding [= 18008]
++   This is larger than BZ_MAX_SELECTORS_ENC because some implementations,
++   might round up the number of selectors to a factor of 8. */
++#define BZ_MAX_SELECTORS_DEC (BZ_MAX_SELECTORS_ENC + 6)
+ 
+ 
+ 
+@@ -253,8 +258,8 @@ typedef
+       /* stuff for coding the MTF values */
+       Int32    nMTF;
+       Int32    mtfFreq    [BZ_MAX_ALPHA_SIZE];
+-      UChar    selector   [BZ_MAX_SELECTORS];
+-      UChar    selectorMtf[BZ_MAX_SELECTORS];
++      UChar    selector   [BZ_MAX_SELECTORS_ENC];
++      UChar    selectorMtf[BZ_MAX_SELECTORS_ENC];
+ 
+       UChar    len     [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+       Int32    code    [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+@@ -399,8 +404,8 @@ typedef
+       /* for decoding the MTF values */
+       UChar    mtfa   [MTFA_SIZE];
+       Int32    mtfbase[256 / MTFL_SIZE];
+-      UChar    selector   [BZ_MAX_SELECTORS];
+-      UChar    selectorMtf[BZ_MAX_SELECTORS];
++      UChar    selector   [BZ_MAX_SELECTORS_DEC];
++      UChar    selectorMtf[BZ_MAX_SELECTORS_DEC];
+       UChar    len  [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+ 
+       Int32    limit  [BZ_N_GROUPS][BZ_MAX_ALPHA_SIZE];
+diff -wpruN '--exclude=*.orig' a~/compress.c a/compress.c
+--- a~/compress.c	1970-01-01 00:00:00
++++ a/compress.c	1970-01-01 00:00:00
+@@ -454,7 +454,7 @@ void sendMTFValues ( EState* s )
+ 
+    AssertH( nGroups < 8, 3002 );
+    AssertH( nSelectors < 32768 &&
+-            nSelectors <= (2 + (900000 / BZ_G_SIZE)),
++            nSelectors <= BZ_MAX_SELECTORS_ENC,
+             3003 );
+ 
+ 
+diff -wpruN '--exclude=*.orig' a~/decompress.c a/decompress.c
+--- a~/decompress.c	1970-01-01 00:00:00
++++ a/decompress.c	1970-01-01 00:00:00
+@@ -287,7 +287,7 @@ Int32 BZ2_decompress ( DState* s )
+       GET_BITS(BZ_X_SELECTOR_1, nGroups, 3);
+       if (nGroups < 2 || nGroups > BZ_N_GROUPS) RETURN(BZ_DATA_ERROR);
+       GET_BITS(BZ_X_SELECTOR_2, nSelectors, 15);
+-      if (nSelectors < 1 || nSelectors > BZ_MAX_SELECTORS) RETURN(BZ_DATA_ERROR);
++      if (nSelectors < 1 || nSelectors > BZ_MAX_SELECTORS_DEC) RETURN(BZ_DATA_ERROR);
+       for (i = 0; i < nSelectors; i++) {
+          j = 0;
+          while (True) {
