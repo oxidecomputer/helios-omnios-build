@@ -21,18 +21,18 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=bzip2
-VER=1.0.6
+VER=1.0.7
 PKG=compress/bzip2
 SUMMARY="The bzip compression utility"
-DESC="$SUMMARY"
+DESC="A patent free high-quality data compressor"
 
 SKIP_LICENCES=bzip2
+XFORM_ARGS="-D VER=$VER"
 
 # We don't use configure, so explicitly export PREFIX
 PREFIX=/usr
@@ -65,7 +65,7 @@ make_clean() {
 
 # We need to build the shared lib using a second Makefile
 make_shlib() {
-    [[ -n $NO_PARALLEL_MAKE ]] && MAKE_JOBS=""
+    [ -n "$NO_PARALLEL_MAKE" ] && MAKE_JOBS=
     logmsg "--- make (shared lib)"
     OLD_CFLAGS=$CFLAGS
     CFLAGS="-fPIC $CFLAGS"
@@ -104,12 +104,12 @@ build64() {
     make_shlib
     make_prog64
     make_install64
-    for src in libbz2.so libbz2.so.1; do
-        ln -s ./libbz2.so.1.0.6 $DESTDIR/usr/lib/$src
-        ln -s ./libbz2.so.1.0.6 $DESTDIR/usr/lib/$ISAPART64/$src
-    done
     popd > /dev/null
 }
+
+TESTSUITE_SED="
+    /in business/q
+"
 
 init
 download_source $PROG $PROG $VER
@@ -118,6 +118,7 @@ prep_build
 build
 make_isa_stub
 strip_install
+run_testsuite
 make_package
 clean_up
 
