@@ -112,7 +112,7 @@
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
-| library/python-3/mako-35		| 1.0.12		| https://pypi.org/project/Mako
+| library/python-3/mako-35		| 1.0.13		| https://pypi.org/project/Mako
 | library/python-3/meson-35		| 0.51.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-35	| 7.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/

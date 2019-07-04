@@ -18,7 +18,7 @@
 
 PKG=library/python-3/mako-35
 PROG=Mako
-VER=1.0.12
+VER=1.0.13
 SUMMARY="Mako - a python templating language"
 DESC="$SUMMARY"
 
