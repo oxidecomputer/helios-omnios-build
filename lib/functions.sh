@@ -1524,8 +1524,13 @@ make_install() {
     local args="$@"
     eval set -- $MAKE_INSTALL_ARGS_WS
     logmsg "--- make install"
-    logcmd $MAKE DESTDIR=${DESTDIR} $args $MAKE_INSTALL_ARGS "$@" install \
-        || logerr "--- Make install failed"
+    if [ "${MAKE##*/}" = "ninja" ]; then
+        DESTDIR=${DESTDIR} logcmd $MAKE $args $MAKE_INSTALL_ARGS "$@" install \
+            || logerr "--- Make install failed"
+    else
+        logcmd $MAKE DESTDIR=${DESTDIR} $args $MAKE_INSTALL_ARGS "$@" install \
+            || logerr "--- Make install failed"
+    fi
 }
 
 make_install32() {

@@ -79,12 +79,6 @@ make_clean() {
     [ -d $TMPDIR/$BUILDDIR ] && logcmd rm -rf $TMPDIR/$BUILDDIR
 }
 
-make_install() {
-    logmsg "--- make install"
-    DESTDIR=$DESTDIR logcmd $MAKE $args $MAKE_INSTALL_ARGS install \
-        || logerr "--- Make install failed"
-}
-
 init
 download_source $PROG $PROG $VER
 patch_source
