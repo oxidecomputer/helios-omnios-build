@@ -49,6 +49,8 @@ CONFIGURE_OPTS_COMMON="
     --enable-symlinks
     --includedir=$PREFIX/include/ncurses
     --prefix=$GPREFIX
+    --with-terminfo-dirs=$GPREFIX/share/terminfo
+    --with-default-terminfo-dir=$GPREFIX/share/terminfo
 "
 CONFIGURE_OPTS_ABI6="$CONFIGURE_OPTS_COMMON"
 CONFIGURE_OPTS_ABI5="$CONFIGURE_OPTS_COMMON --with-abi-version=5"
