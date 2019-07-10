@@ -12,19 +12,19 @@
 
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-PYVER=$PYTHON3VER		# 3.5
-PYMVER=${PYTHON3VER%%.*}	# 3
-SPYVER=${PYTHON3VER//./}	# 35
+PYVER=$PYTHON3VER           # 3.5
+PYMVER=${PYTHON3VER%%.*}    # 3
+SPYVER=${PYTHON3VER//./}    # 35
 
 set_python_version $PYTHON3VER
 
 RUN_DEPENDS_IPS="runtime/python-$SPYVER "
 XFORM_ARGS="
-	-D PYTHONVER=$PYVER
-	-D PYTHONLIB=$PYTHONLIB/python$PYVER
-	-D PYVER=$PYVER
-	-D PYMVER=$PYMVER
-	-D SPYVER=$SPYVER
+    -D PYTHONVER=$PYVER
+    -D PYTHONLIB=${PYTHONLIB#/}/python$PYVER
+    -D PYVER=$PYVER
+    -D PYMVER=$PYMVER
+    -D SPYVER=$SPYVER
 "
 
 # Use an extra directory level for building each module since there can be
