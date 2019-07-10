@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=ncurses
-VER=6.1-20190623
+VER=6.1-20190706
 PKG=library/ncurses
 SUMMARY="A CRT screen handling package"
 DESC="Utilities and shared libraries for terminal handling"
@@ -49,6 +49,8 @@ CONFIGURE_OPTS_COMMON="
     --enable-symlinks
     --includedir=$PREFIX/include/ncurses
     --prefix=$GPREFIX
+    --with-terminfo-dirs=$GPREFIX/share/terminfo
+    --with-default-terminfo-dir=$GPREFIX/share/terminfo
 "
 CONFIGURE_OPTS_ABI6="$CONFIGURE_OPTS_COMMON"
 CONFIGURE_OPTS_ABI5="$CONFIGURE_OPTS_COMMON --with-abi-version=5"
@@ -68,22 +70,17 @@ gnu_links() {
        $DESTDIR/$PREFIX/lib/$ISAPART64
 }
 
-save_function make_install make_install_orig
-make_install_libs() {
-    logmsg "--- make install.libs"
-    logcmd $MAKE DESTDIR=${DESTDIR} install.libs || \
-        logerr "--- Make install.libs failed"
-}
 build_abi5() {
     logmsg '--- Building backward-compatible ABI version 5 libraries.'
     CONFIGURE_OPTS="$CONFIGURE_OPTS_ABI5"
-    save_function make_install_libs make_install
+    MAKE_INSTALL_TARGET=install.libs
     build
 }
+
 build_abi6() {
     logmsg '--- Building ABI version 6.'
     CONFIGURE_OPTS="$CONFIGURE_OPTS_ABI6"
-    save_function make_install_orig make_install
+    MAKE_INSTALL_TARGET=install
     build
 }
 
