@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.60.4
+VER=2.60.5
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
@@ -67,12 +67,28 @@ CONFIGURE_OPTS_64="
     --libdir=$PREFIX/lib/$ISAPART64
 "
 
-TESTSUITE_SED='
-    # Remove elapsed time
-    s/ *[0-9][0-9]*\.[0-9][0-9] s .*//
-    # Strip failed test output
-    /^The output from .* first failed/,$d
-'
+clean_testsuite() {
+    local tf=`mktemp`
+    run_testsuite test "" $tf
+    [ ! -s $tf ] && rm -f $tf && return
+    nawk '
+        # Strip failed test output
+        /^The output from .* first failed/ { exit }
+        # Found a test
+        /^ *[0-9][0-9]*\/[0-9]/ {
+            # Remove elapsed time
+            sub(/ *[0-9][0-9]*\.[0-9][0-9] s .*/, "")
+            # Remove sequence number
+            sub(/ *[0-9]*\/[0-9]* */, "")
+            print | "sort"
+            flag = 1
+            next
+        }
+        flag { close "sort" }
+        { print }
+    ' < $tf > $SRCDIR/testsuite.log
+    rm -f $tf
+}
 
 make_clean() {
     logmsg "--- make (dist)clean"
@@ -84,7 +100,7 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build meson
 build
-run_testsuite
+clean_testsuite
 make_package
 clean_up
 

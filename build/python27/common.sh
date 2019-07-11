@@ -12,19 +12,19 @@
 
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-PYVER=$PYTHON2VER		# 2.7
-PYMVER=${PYTHON2VER%%.*}	# 2
-SPYVER=${PYTHON2VER//./}	# 27
+PYVER=$PYTHON2VER           # 2.7
+PYMVER=${PYTHON2VER%%.*}    # 2
+SPYVER=${PYTHON2VER//./}    # 27
 
 set_python_version $PYTHON2VER
 
 RUN_DEPENDS_IPS="runtime/python-$SPYVER "
 XFORM_ARGS="
-	-D PYTHONVER=$PYVER
-	-D PYTHONLIB=$PYTHONLIB/python$PYVER
-	-D PYVER=$PYVER
-	-D PYMVER=$PYMVER
-	-D SPYVER=$SPYVER
+    -D PYTHONVER=$PYVER
+    -D PYTHONLIB=${PYTHONLIB#/}/python$PYVER
+    -D PYVER=$PYVER
+    -D PYMVER=$PYMVER
+    -D SPYVER=$SPYVER
 "
 
 # Use an extra directory level for building each module since there can be

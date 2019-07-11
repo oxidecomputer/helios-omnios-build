@@ -8,7 +8,7 @@
 | compress/xz				| 5.2.4			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | data/iso-codes			| 4.2			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3280000		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3290000		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.1		| https://git.savannah.gnu.org/cgit/automake.git/refs/tags https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.2.1			| http://git.savannah.gnu.org/cgit/make.git/refs/tags
@@ -23,7 +23,7 @@
 | developer/parser/bison		| 3.4.1			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.22.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.0.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.0.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.1			| http://ftp.vim.org/pub/vim/unix
@@ -93,7 +93,7 @@
 | text/less				| 530			| https://ftp.gnu.org/gnu/less/
 | web/curl				| 7.65.1		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.60.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.60.5		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.32			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.41		| https://github.com/Azure/WALinuxAgent/releases
@@ -113,7 +113,7 @@
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.0.13		| https://pypi.org/project/Mako
-| library/python-3/meson-35		| 0.51.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-35		| 0.51.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-35	| 7.1.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
