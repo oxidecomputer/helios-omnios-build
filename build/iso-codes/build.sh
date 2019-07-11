@@ -27,8 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=iso-codes
-VER=4.2
-VERHUMAN=$VER
+VER=4.3
 PKG=data/iso-codes
 SUMMARY="ISO code lists and translations"
 DESC="Lists of various ISO standards "
@@ -36,7 +35,9 @@ DESC+="(e.g. country, language, language scripts, and currency names)"
 
 BUILD_DEPENDS_IPS="data/iso-codes"
 
-set_arch 32
+BUILDDIR=$PROG-$PROG-$VER
+
+set_arch 64
 
 init
 download_source $PROG $PROG $VER
