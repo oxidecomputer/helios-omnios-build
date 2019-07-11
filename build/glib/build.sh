@@ -68,10 +68,9 @@ CONFIGURE_OPTS_64="
 "
 
 clean_testsuite() {
-    local tf=`mktemp`
+    local tf=testsuite.log.$$
     run_testsuite test "" $tf
-    [ ! -s $tf ] && rm -f $tf && return
-    nawk '
+    [ -s $SRCDIR/$tf ] && nawk '
         # Strip failed test output
         /^The output from .* first failed/ { exit }
         # Found a test
@@ -86,8 +85,8 @@ clean_testsuite() {
         }
         flag { close "sort" }
         { print }
-    ' < $tf > $SRCDIR/testsuite.log
-    rm -f $tf
+    ' < $SRCDIR/$tf > $SRCDIR/testsuite.log
+    rm -f $SRCDIR/$tf
 }
 
 make_clean() {
