@@ -21,16 +21,14 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=cabundle
 VER=5.11
-VERHUMAN=$VER
 PKG=web/ca-bundle
-SUMMARY="$PROG - Bundle of SSL Root CA certificates"
+SUMMARY="Bundle of Root CA certificates"
 
 nsbuild=$SRCDIR/../mozilla-nss-nspr/build.sh
 NSSVER="`grep '^VER=' $nsbuild | sed 's/.*=//;q'`"
@@ -38,8 +36,8 @@ NSPRVER="`grep '^NSPRVER=' $nsbuild | sed 's/.*=//;q'`"
 # Make-ca from https://github.com/djlucas/make-ca
 MAKECAVER=0.6
 
-DESC="SSL Root CA certificates extracted from mozilla-nss $NSSVER source"
-DESC+=", plus OmniOSce CA cert."
+DESC="Root CA certificates extracted from mozilla-nss $NSSVER source"
+DESC+=", plus OmniOS CA cert."
 
 OVERRIDE_SOURCE_URL=none
 
