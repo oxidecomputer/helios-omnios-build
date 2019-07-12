@@ -7,7 +7,7 @@
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.4			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
-| data/iso-codes			| 4.2			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
+| data/iso-codes			| 4.3			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3290000		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.1		| https://git.savannah.gnu.org/cgit/automake.git/refs/tags https://ftp.gnu.org/gnu/automake/
@@ -65,7 +65,7 @@
 | runtime/python-35			| 3.5.7			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.27		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
-| service/network/ntpsec		| 1.1.5			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
+| service/network/ntpsec		| 1.1.6			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.11			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
 | shell/bash44-patchlvl			| 023			| https://ftp.gnu.org/gnu/bash/bash-4.4-patches
