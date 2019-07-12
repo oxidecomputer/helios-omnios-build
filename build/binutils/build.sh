@@ -22,7 +22,6 @@
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
@@ -33,19 +32,19 @@ SUMMARY="GNU binary utilities"
 DESC="A set of programming tools for creating and managing binary programs, "
 DESC+="object files, libraries, etc."
 
-[ "$BUILDARCH" = "both" ] && BUILDARCH=32
+set_arch 64
 
 HARDLINK_TARGETS="
-    usr/bin/i386/gar
-    usr/bin/i386/gas
-    usr/bin/i386/gld
-    usr/bin/i386/gld.gold
-    usr/bin/i386/gnm
-    usr/bin/i386/gobjcopy
-    usr/bin/i386/gobjdump
-    usr/bin/i386/granlib
-    usr/bin/i386/greadelf
-    usr/bin/i386/gstrip
+    usr/bin/gar
+    usr/bin/gas
+    usr/bin/gld
+    usr/bin/gld.gold
+    usr/bin/gnm
+    usr/bin/gobjcopy
+    usr/bin/gobjdump
+    usr/bin/granlib
+    usr/bin/greadelf
+    usr/bin/gstrip
 "
 
 CONFIGURE_OPTS="
@@ -80,7 +79,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 basic_tests
 make_package
 clean_up
