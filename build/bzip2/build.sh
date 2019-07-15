@@ -22,11 +22,11 @@
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-#
+
 . ../../lib/functions.sh
 
 PROG=bzip2
-VER=1.0.7
+VER=1.0.8
 PKG=compress/bzip2
 SUMMARY="The bzip compression utility"
 DESC="A patent free high-quality data compressor"

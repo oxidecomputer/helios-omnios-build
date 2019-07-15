@@ -25,15 +25,15 @@
 #
 # Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-#
+
 . ../../lib/functions.sh
 
 PROG=fio
-VER=3.14
+VER=3.15
 VERHUMAN=$VER
 PKG=system/test/fio
 SUMMARY="Flexible IO Tester"
-DESC="Flexible IO Tester"
+DESC="A tool that is able to simulate a given I/O workload"
 
 set_builddir "$PROG-$PROG-$VER"
 set_arch 64

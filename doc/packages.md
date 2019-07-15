@@ -1,7 +1,7 @@
 | Package | Version | Link | Notes |
 | :------ | :------ | :--- | :---- |
 | archiver/gnu-tar			| 1.32			| https://ftp.gnu.org/gnu/tar/ http://git.savannah.gnu.org/cgit/tar.git/refs/tags
-| compress/bzip2			| 1.0.7			| https://sourceware.org/pub/bzip2/
+| compress/bzip2			| 1.0.8			| https://sourceware.org/pub/bzip2/
 | compress/gzip				| 1.10			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
 | compress/p7zip			| 16.02			| https://sourceforge.net/projects/p7zip/files/p7zip
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
@@ -80,7 +80,7 @@
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
-| system/test/fio			| 3.14			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.15			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
 | terminal/tmux				| 2.9			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.0.1			| https://ftp.gnu.org/gnu/gawk/
