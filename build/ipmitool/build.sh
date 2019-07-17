@@ -27,7 +27,6 @@
 
 PROG=ipmitool
 VER=1.8.18
-VERHUMAN=$VER
 PKG=system/management/ipmitool
 SUMMARY="IPMI management tool"
 DESC="A utility for managing and configuring devices that support the "
