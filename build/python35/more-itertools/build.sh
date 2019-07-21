@@ -19,7 +19,7 @@
 
 PKG=library/python-3/more-itertools-35
 PROG=more-itertools
-VER=7.1.0
+VER=7.2.0
 SUMMARY="More routines for operating on iterables"
 DESC="$SUMMARY, beyond itertools"
 
