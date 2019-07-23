@@ -33,16 +33,27 @@ DESC="GNU core utilities"
 
 BUILD_DEPENDS_IPS="compress/xz library/gmp"
 
-CPPFLAGS="-I/usr/include/gmp"
 PREFIX=/usr/gnu
-reset_configure_opts
+
+# We ship 64-bit binaries under /usr/gnu/bin/ with selected ones linked back
+# to /usr/bin/, but we need to continue building dual arch so that the
+# 32-bit libstdbuf.so is available. This enables the stdbuf command to
+# work with 32-bit binaries.
+set_arch both
+
+CPPFLAGS="-I/usr/include/gmp"
 CONFIGURE_OPTS+="
     --with-openssl=auto
     gl_cv_host_operating_system=illumos
     ac_cv_func_inotify_init=no
 "
-CONFIGURE_OPTS_32+=" --libexecdir=/usr/lib --bindir=/usr/gnu/bin"
-CONFIGURE_OPTS_64+=" --libexecdir=/usr/lib/$ISAPART64"
+CONFIGURE_OPTS_32+="
+    --bindir=/usr/gnu/bin/__i386
+    --libexecdir=/usr/lib
+"
+CONFIGURE_OPTS_64+="
+    --libexecdir=/usr/lib/$ISAPART64
+"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
