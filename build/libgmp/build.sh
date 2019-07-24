@@ -21,24 +21,28 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=gmp
 VER=6.1.2
-VERHUMAN=$VER
 PKG=library/gmp
-SUMMARY="GNU MP $VER"
+SUMMARY="GNU MP"
 DESC="The GNU Multiple Precision (Bignum) Library"
 
-# Cribbed from upstream, used to set MPN_PATH during configure
+# Build library to use only common CPU features rather than those supported
+# on the build machine.
 MPN32="x86/pentium x86 generic"
 MPN64="x86_64/pentium4 x86_64 generic"
 export MPN32 MPN64
 
 BUILD_DEPENDS_IPS=developer/build/libtool
+
+TESTSUITE_SED="
+    /^ *[a-z]/d
+    /^Making /d
+"
 
 CFLAGS+=" -fexceptions"
 CONFIGURE_OPTS="
@@ -50,31 +54,26 @@ CONFIGURE_OPTS="
     --disable-alloca
     --enable-cxx
     --enable-fft
-    --enable-mpbsd
     --disable-fat
     --with-pic
 "
 
-save_function configure32 _configure32
-configure32() {
-    export ABI=32
-    export MPNPATH="$MPN32"
-    _configure32
-}
+CONFIGURE_OPTS_WS_32="
+    ABI=32
+    MPN_PATH=\"$MPN32\"
+"
 
-save_function configure64 _configure64
-configure64() {
-    export ABI=64
-    export MPNPATH="$MPN64"
-    _configure64
-}
+CONFIGURE_OPTS_WS_64="
+    ABI=64
+    MPN_PATH=\"$MPN64\"
+"
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
+run_testsuite check
 make_package
 clean_up
 
