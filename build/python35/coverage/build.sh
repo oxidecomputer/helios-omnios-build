@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-#
+
 . ../../../lib/functions.sh
 
 PKG=library/python-3/coverage-35
 PROG=coverage
-VER=4.5.3
+VER=4.5.4
 SUMMARY="Python coverage module"
 DESC="Code coverage testing for Python"
 
