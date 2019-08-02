@@ -111,7 +111,7 @@
 | library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-35	| 3.0.2			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.0.14		| https://pypi.org/project/Mako
 | library/python-3/meson-35		| 0.51.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-35	| 7.2.0			| https://pypi.org/project/more-itertools
