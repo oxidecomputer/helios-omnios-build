@@ -40,7 +40,7 @@
 | library/libffi			| 3.2.1			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/ncurses			| 6.1.20190720		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
+| library/ncurses			| 6.1.20190728		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.39.1		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.45			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.21			| http://archive.mozilla.org/pub/nspr/releases/
@@ -107,7 +107,7 @@
 | library/python-3/cheroot-35		| 6.5.5			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 18.1.2		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
-| library/python-3/coverage-35		| 4.5.3			| https://pypi.org/project/coverage
+| library/python-3/coverage-35		| 4.5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
@@ -123,8 +123,8 @@
 | library/python-3/pycparser-35		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-35		| 7.43.0.3		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-35	| 0.15.3		| https://pypi.org/project/pyrsistent
-| library/python-3/pytz-35		| 2019.1		| https://pypi.org/project/pytz
+| library/python-3/pyrsistent-35	| 0.15.4		| https://pypi.org/project/pyrsistent
+| library/python-3/pytz-35		| 2019.2		| https://pypi.org/project/pytz
 | library/python-3/setuptools-35	| 41.0.1		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
