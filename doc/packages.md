@@ -22,7 +22,7 @@
 | developer/parser/bison		| 3.4.1			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.22.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.0.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.1			| http://ftp.vim.org/pub/vim/unix
@@ -35,7 +35,7 @@
 | library/mpfr				| 4.0.2			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
 | library/libedit			| 20190324-3.1		| http://thrysoee.dk/editline/
-| library/libevent			| 2.1.10		| https://github.com/libevent/libevent/releases | Used solely by tmux
+| library/libevent			| 2.1.11		| https://github.com/libevent/libevent/releases | Used solely by tmux
 | library/libidn			| 1.35			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags
 | library/libffi			| 3.2.1			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
@@ -111,8 +111,8 @@
 | library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-35	| 3.0.1			| https://pypi.org/project/jsonschema
-| library/python-3/mako-35		| 1.0.14		| https://pypi.org/project/Mako
+| library/python-3/jsonschema-35	| 3.0.2			| https://pypi.org/project/jsonschema
+| library/python-3/mako-35		| 1.1.0			| https://pypi.org/project/Mako
 | library/python-3/meson-35		| 0.51.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-35	| 7.2.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
