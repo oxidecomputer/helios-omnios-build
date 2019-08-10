@@ -1,230 +1,232 @@
-<?xml version='1.0' ?>
-<!DOCTYPE service_bundle SYSTEM '/usr/share/lib/xml/dtd/service_bundle.dtd.1'>
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE service_bundle SYSTEM "/usr/share/lib/xml/dtd/service_bundle.dtd.1">
 <!--
+ CDDL HEADER START
 
-	This file and its contents are supplied under the terms of the
-	Common Development and Distribution License ("CDDL"), version 1.0.
-	You may only use this file in accordance with the terms of version
-	1.0 of the CDDL.
+ The contents of this file are subject to the terms of the
+ Common Development and Distribution License (the "License").
+ You may not use this file except in compliance with the License.
 
-	A full copy of the text of the CDDL should have accompanied this
-	source.  A copy of the CDDL is also available via the Internet at
-	http://www.illumos.org/license/CDDL.
+ You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
+ or http://www.opensolaris.org/os/licensing.
+ See the License for the specific language governing permissions
+ and limitations under the License.
 
-	Copyright 2014 OmniTI Computer Consulting, Inc. All rights reserved.
+ When distributing Covered Code, include this CDDL HEADER in each
+ file and include the License file at usr/src/OPENSOLARIS.LICENSE.
+ If applicable, add the following below this CDDL HEADER, with the
+ fields enclosed by brackets "[]" replaced with your own identifying
+ information: Portions Copyright [yyyy] [name of copyright owner]
 
+ CDDL HEADER END
 -->
-
-<!--	XXX KEBE SAYS we need more properties, and we may need a method
-	script to start these running.
+<!--
+    Copyright (c) 2011, 2016, Oracle and/or its affiliates. All rights reserved.
+    Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 -->
-
-<service_bundle type='manifest' name='isc-dhcp'>
+<service_bundle type='manifest' name='isc-dhcp:server'>
 
 <service name='network/service/dhcp' type='service' version='1'>
-	<dependency name='loopback'  grouping='require_all'
-	restart_on='none' type='service'>
-		<service_fmri value='svc:/network/loopback:default' />
+
+	<dependency name='multi-user'
+		grouping='require_all'
+		restart_on='refresh'
+		type='service'>
+		<service_fmri value='svc:/milestone/multi-user'/>
 	</dependency>
 
-	<dependency name='physical'  grouping='require_all'
-	restart_on='none' type='service'>
-		<service_fmri value='svc:/network/physical:default' />
-	</dependency>
+	<exec_method type='method' name='start'
+		exec='/lib/svc/method/isc-dhcp' timeout_seconds='60'>
+		<method_context>
+			<method_credential
+				user='dhcpserv' group='netadm'
+				privileges='basic,net_rawaccess,net_icmpaccess,net_privaddr,sys_ip_config'
+			/>
+		</method_context>
+	</exec_method>
 
-	<dependency name='localfs'  grouping='require_all'
-	restart_on='none' type='service'>
-		<service_fmri value='svc:/system/filesystem/local:default' />
-	</dependency>
+	<exec_method type='method' name='stop' exec=':kill'
+		timeout_seconds='60'/>
 
-	<instance name='ipv4' enabled='false'>
-	<exec_method name='start' type='method'
-	exec='/usr/sbin/dhcpd -q -cf %{config_file} -lf %{lease_file} -p %{port} -s %{address} %{listen_ifnames}'
-	timeout_seconds='60' />
-	
-	<exec_method name='stop' type='method'
-	exec=':kill'
-	timeout_seconds='60' />
-	
-	<exec_method name='refresh' type='method'
-	exec=':kill -HUP'
-	timeout_seconds='60' />
+	<exec_method type='method' name='refresh' exec=':true'
+		timeout_seconds='60'/>
+
+	<property_group name='firewall_context' type='com.sun,fw_definition'>
+		<propval name='name' type='astring' value='bootps'/>
+	</property_group>
+
+	<property_group name='firewall_config' type='com.sun,fw_configuration'>
+		<propval name='policy' type='astring' value='use_global'/>
+		<propval name='apply_to' type='astring' value=''/>
+		<propval name='exceptions' type='astring' value=''/>
+		<propval name='value_authorization' type='astring'
+			value='solaris.smf.value.firewall.config'/>
+	</property_group>
 
 	<property_group name='general' type='framework'>
+		<!-- to start stop dhcp services -->
 		<propval name='action_authorization' type='astring'
-		value='omnios.smf.manage.dhcp' />
+			value='solaris.smf.manage.dhcp' />
+		<propval name='value_authorization' type='astring'
+			value='solaris.smf.manage.dhcp' />
 	</property_group>
 
-        <property_group name='application' type='application'>
-		<propval name='port' type='integer' value='67' />
-		<propval name='address' type='astring'
-		value='255.255.255.255' />
-		<!-- For least-suprise from other ISC DHCP deployments. -->
-		<!-- OI or Oracle Solaris folks know how to fix these. -->
-		<propval name='config_file' type='astring'
-		value='/etc/dhcpd.conf' />
-		<propval name='lease_file' type='astring'
-		value='/var/db/dhcpd.leases' />
-		<!-- Slight incompatibility. Use space-separated ifnames
-		     in one astring instead of an astring_list.
-		-->
-		<propval name='listen_ifnames' type='astring' value='' />
-	</property_group>
-
-	<template>
-		<common_name>
-			<loctext xml:lang='C'>ISC DHCP server</loctext>
-		</common_name>
-
-		<documentation>
-			<manpage title='dhcpd' section='8' />
-			<doc_link name='isc.org' uri='http://isc.org' />
-		</documentation>
-	</template>
+	<instance name='ipv4' enabled='false'>
+		<property_group name='config' type='application'>
+			<propval name='debug' type='boolean' value='false'/>
+			<propval name='omapi_conn_limit' type='integer'
+				value='200'/>
+			<propval name='config_file' type='astring'
+				value='/etc/dhcpd.conf'/>
+			<propval name='lease_file' type='astring'
+				value='/var/db/dhcpd.leases'/>
+			<property name='listen_ifnames' type='astring' >
+				<astring_list>
+					<value_node value='' />
+				</astring_list>
+			</property>
+			<propval name='value_authorization' type='astring'
+				value='solaris.smf.value.dhcp' />
+		</property_group>
 	</instance>
 
 	<instance name='ipv6' enabled='false'>
-	<exec_method name='start' type='method'
-	exec='/usr/sbin/dhcpd -6 -q -cf %{config_file} -lf %{lease_file} -p %{port} %{listen_ifnames}'
-	timeout_seconds='60' />
-	
-	<exec_method name='stop' type='method'
-	exec=':kill'
-	timeout_seconds='60' />
-	
-	<exec_method name='refresh' type='method'
-	exec=':kill -HUP'
-	timeout_seconds='60' />
+		<property_group name='config' type='application'>
+			<propval name='debug' type='boolean' value='false'/>
+			<propval name='omapi_conn_limit' type='integer'
+				value='200'/>
+			<propval name='config_file' type='astring'
+				value='/etc/dhcpd6.conf'/>
+			<propval name='lease_file' type='astring'
+				value='/var/db/dhcpd6.leases'/>
+			<property name='listen_ifnames' type='astring'>
+				<astring_list>
+					<value_node value='' />
+				</astring_list>
+			</property>
+			<propval name='value_authorization' type='astring'
+				value='solaris.smf.value.dhcp' />
+		</property_group>
+	</instance>
 
-	<property_group name='general' type='framework'>
-		<propval name='action_authorization' type='astring'
-		value='omnios.smf.manage.dhcp' />
-	</property_group>
-
-        <property_group name='application' type='application'>
-		<propval name='port' type='integer' value='67' />
-		<!-- Slight incompatibility. Use space-separated ifnames
-		     in one astring instead of an astring_list.
-		-->
-		<propval name='listen_ifnames' type='astring' value="" />
-		<propval name='config_file' type='astring'
-		value='/etc/dhcpd6.conf' />
-		<propval name='lease_file' type='astring'
-		value='/var/db/dhcpd6.leases' />
-	</property_group>
+	<stability value='Unstable'/>
 
 	<template>
 		<common_name>
-			<loctext xml:lang='C'>ISC DHCPv6 server</loctext>
+			<loctext xml:lang='C'>
+				ISC DHCP Server
+			</loctext>
 		</common_name>
-
+		<description>
+			<loctext xml:lang='C'>
+ISC DHCP server provides DHCP and BOOTP protocol services to network clients.
+			</loctext>
+		</description>
 		<documentation>
-			<manpage title='dhcpd' section='8' />
-			<doc_link name='isc.org' uri='http://isc.org' />
+			<manpage title='dhcpd' section='8'
+				manpath='/usr/share/man'/>
 		</documentation>
 	</template>
-	</instance>
-
-	<stability value='Evolving' />
-
 </service>
 
 <service name='network/service/dhcrelay' type='service' version='1'>
-	<dependency name='loopback'  grouping='require_all'
-	restart_on='none' type='service'>
-		<service_fmri value='svc:/network/loopback:default' />
+	<dependency name='multi-user'
+		grouping='require_all'
+		restart_on='refresh'
+		type='service'>
+		<service_fmri value='svc:/milestone/multi-user'/>
 	</dependency>
 
-	<dependency name='physical'  grouping='require_all'
-	restart_on='none' type='service'>
-		<service_fmri value='svc:/network/physical:default' />
-	</dependency>
+	<exec_method type='method' name='start'
+		exec='/lib/svc/method/isc-dhcp' timeout_seconds='60'>
+		<method_context>
+			<method_credential user='dhcpserv' group='netadm'
+		privileges='basic,net_rawaccess,net_icmpaccess,net_privaddr,sys_ip_config'/>
+		</method_context>
+	</exec_method>
 
-	<dependency name='localfs'  grouping='require_all'
-	restart_on='none' type='service'>
-		<service_fmri value='svc:/system/filesystem/local:default' />
-	</dependency>
+	<exec_method type='method' name='stop' exec=':kill'
+		timeout_seconds='60'/>
 
-	<instance name='ipv4' enabled='false'>
-	<exec_method name='start' type='method'
-	exec='/lib/svc/method/dhcrelay -4 %{hop_count} %{append_agent_option} %{listen_ifnames} %{servers}'
-	timeout_seconds='60' />
-	
-	<exec_method name='stop' type='method'
-	exec=':kill'
-	timeout_seconds='60' />
-	
-	<exec_method name='refresh' type='method'
-	exec=':kill -HUP'
-	timeout_seconds='60' />
+	<exec_method type='method' name='refresh' exec=':true'
+		timeout_seconds='60'/>
 
-	<property_group name='general' type='framework'>
-		<propval name='action_authorization' type='astring'
-		value='omnios.smf.manage.dhcp' />
+	<property_group name='firewall_context' type='com.sun,fw_definition'>
+		<propval name='name' type='astring' value='bootps'/>
 	</property_group>
 
-        <property_group name='application' type='application'>
-		<propval name='hop_count' type='integer' value='10' />
-		<propval name='append_agent_option' type='boolean'
-		value='false'/>
-		<!-- A space-separated server list is here for now. -->
-		<propval name='servers' type='astring' value='' />
-		<!-- A space-separated interface list is here for now. -->
-		<propval name='listen_ifnames' type='astring' value='' />
+	<property_group name='firewall_config' type='com.sun,fw_configuration'>
+		<propval name='policy' type='astring' value='use_global'/>
+		<propval name='apply_to' type='astring' value=''/>
+		<propval name='exceptions' type='astring' value=''/>
+		<propval name='value_authorization' type='astring'
+			value='solaris.smf.value.firewall.config'/>
+	</property_group>
+
+	<property_group name='general' type='framework'>
+		<!-- to start stop dhcp services -->
+		<propval name='action_authorization' type='astring'
+			value='solaris.smf.manage.dhcp' />
+		<propval name='value_authorization' type='astring'
+                        value='solaris.smf.manage.dhcp' />
         </property_group>
 
-	<template>
-		<common_name>
-			<loctext xml:lang='C'>ISC DHCP relay</loctext>
-		</common_name>
-
-		<documentation>
-			<manpage title='dhcrelay' section='8' />
-			<doc_link name='isc.org' uri='http://isc.org' />
-		</documentation>
-	</template>
+	<instance name='ipv4' enabled='false'>
+		<property_group name='config' type='application'>
+			<propval name='debug' type='boolean' value='false'/>
+			<propval name='append_agent_option' type='boolean'
+			    value='false'/>
+			<property name='servers' type='astring'>
+				<astring_list>
+					<value_node value=''/>
+				</astring_list>
+			</property>
+			<property name='listen_ifnames' type='astring' >
+				<astring_list>
+					<value_node value=''/>
+				</astring_list>
+			</property>
+			<propval name='value_authorization' type='astring'
+				value='solaris.smf.value.dhcp' />
+		</property_group>
 	</instance>
 
 	<instance name='ipv6' enabled='false'>
-	<exec_method name='start' type='method'
-	exec='/lib/svc/method/dhcrelay -6 %{hop_count} NOP %{receive_query_links} %{forward_query_links}'
-	timeout_seconds='60' />
-	
-	<exec_method name='stop' type='method'
-	exec=':kill'
-	timeout_seconds='60' />
-	
-	<exec_method name='refresh' type='method'
-	exec=':kill -HUP'
-	timeout_seconds='60' />
+		<property_group name='config' type='application'>
+			<propval name='debug' type='boolean' value='false'/>
+			<property name='receive_query_links' type='astring'>
+				<astring_list>
+					<value_node value=''/>
+				</astring_list>
+			</property>
+			<property name='forward_query_links' type='astring'>
+				<astring_list>
+					<value_node value=''/>
+				</astring_list>
+			</property>
+			<propval name='value_authorization' type='astring'
+                                value='solaris.smf.value.dhcp' />
+		</property_group>
+	</instance>
 
-	<property_group name='general' type='framework'>
-		<propval name='action_authorization' type='astring'
-		value='omnios.smf.manage.dhcp' />
-	</property_group>
-
-        <property_group name='application' type='application'>
-		<propval name='hop_count' type='integer' value='10' />
-		<!-- A space-separated receive list is here for now. -->
-		<propval name='receive_query_links' type='astring' value='' />
-		<!-- A space-separated forward list is here for now. -->
-		<propval name='forward_query_links' type='astring' value='' />
-        </property_group>
+	<stability value='Unstable'/>
 
 	<template>
 		<common_name>
-			<loctext xml:lang='C'>ISC DHCPv6 relay</loctext>
+			<loctext xml:lang='C'>
+				ISC DHCP Relay
+			</loctext>
 		</common_name>
-
+		<description>
+			<loctext xml:lang='C'>
+ISC DHCP Relay service relays DHCP and BOOTP requests from one subnet with no DHCP server to another subnet with a DHCP server.
+			</loctext>
+		</description>
 		<documentation>
-			<manpage title='dhcpd' section='8' />
-			<doc_link name='isc.org' uri='http://isc.org' />
+			<manpage title='dhcrelay' section='8'
+				manpath='/usr/share/man'/>
 		</documentation>
 	</template>
-	</instance>
-
-	<stability value='Evolving' />
-
 </service>
 
 </service_bundle>

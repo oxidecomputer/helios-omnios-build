@@ -14,7 +14,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -49,8 +49,7 @@ CONFIGURE_OPTS+=" ac_cv_search_inet_aton=-lnsl "
 pre_package() {
     # Make empty lease files. They get preserve=true in local.mog.
     logcmd mkdir -p $DESTDIR/var/db || logerr "mkdir of $DESTDIR/var/db failed"
-    logcmd touch $DESTDIR/var/db/dhcpd.leases
-    logcmd touch $DESTDIR/var/db/dhcpd6.leases
+    logcmd touch $DESTDIR/var/db/dhcpd{,6}.leases{,~}
 }
 
 init
@@ -58,7 +57,7 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-install_smf network isc-dhcp.xml dhcrelay
+install_smf network isc-dhcp.xml isc-dhcp
 pre_package
 make_package
 clean_up
