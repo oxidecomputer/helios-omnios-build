@@ -1,35 +1,26 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+
 . ../../lib/functions.sh
 
 PKG=developer/gcc7
 PROG=gcc
 VER=7.4.0
-ILVER=il-2
+ILVER=il-3
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
 
@@ -47,6 +38,11 @@ RUN_DEPENDS_IPS="
     developer/gnu-binutils
     system/header
     system/library/c-runtime
+"
+
+BUILD_DEPENDS_IPS="
+    ooce/developer/autogen
+    ooce/developer/dejagnu
 "
 
 PREFIX=$OPT
@@ -113,8 +109,41 @@ make_install() {
 }
 
 tests() {
+    # A specific test to ensure that this is properly enabled by configure
     egrep -s gcc_cv_as_eh_frame=yes $TMPDIR/$BUILDDIR/gcc/config.log \
         || logerr "The .eh_frame based unwinder is not enabled"
+
+    export GUILE_AUTO_COMPILE=0
+    export PATH+=:/opt/ooce/bin
+    # The tests can be run in parallel - we sort them afterwards for consistent
+    # results.
+    MAKE_TESTSUITE_ARGS+=" $MAKE_JOBS"
+    # Some gcc tests (e.g. limits-exprparen.c) need a larger stack
+    ulimit -Ss 16385
+    # Lots of tests create core files via assertions
+    ulimit -c 0
+    # This causes the testsuite to be run twice, once with no additional
+    # options (see the leading , in the {} expression), and once with
+    # -msave-args
+    MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{,-msave-args\}"
+    run_testsuite "check check-target" "" build.log.testsuite
+    pushd $TMPDIR/$BUILDDIR >/dev/null
+    # Sort the test results in the individual summary files
+    find $TMPDIR/$BUILDDIR -name '*.sum' -type f | while read s; do
+        cp $s $s.orig
+        nawk '
+            /^Running target unix/ { sorting = 1; print; next }
+            /Summary .*===$/ { close("sort -k2"); sorting = 0; print; next }
+            sorting { print | "sort -k2" }
+            # The version lines include the build path
+            /  version / { next }
+            { print }
+        ' < $s.orig > $s
+    done
+    make_param mail-report.log
+    cat mail-report.log > $SRCDIR/testsuite.log.detail
+    egrep ' Summary (for .*)?===$|^#' mail-report.log > $SRCDIR/testsuite.log
+    popd >/dev/null
 }
 
 # gcc should be built out-of-tree
