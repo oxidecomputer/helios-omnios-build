@@ -1,0 +1,210 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1578
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1578
+Problem:    MS-Windows: pathdef.c should depend on build options.
+Solution:   Generate pathdef.c in the object directory.  Fix dependencies.
+            (Ken Takata, closes #4565)
+Files:	    .gitignore, .hgignore, src/Make_cyg_ming.mak, src/Make_mvc.mak
+
+
+*** ../vim-8.1.1577/.gitignore	2019-05-09 15:12:45.164723999 +0200
+--- .gitignore	2019-06-21 17:31:32.287089615 +0200
+***************
+*** 35,41 ****
+  *.RES
+  vim*.dll
+  vim*.lib
+! src/pathdef.c
+  src/Obj*/pathdef.c
+  gvimext.dll
+  gvimext.lib
+--- 35,43 ----
+  *.RES
+  vim*.dll
+  vim*.lib
+! src/dobj*/pathdef.c
+! src/gobj*/pathdef.c
+! src/obj*/pathdef.c
+  src/Obj*/pathdef.c
+  gvimext.dll
+  gvimext.lib
+*** ../vim-8.1.1577/.hgignore	2019-05-09 15:12:45.164723999 +0200
+--- .hgignore	2019-06-21 17:31:32.287089615 +0200
+***************
+*** 37,43 ****
+  *.RES
+  vim*.dll
+  vim*.lib
+! src/pathdef.c
+  src/Obj*/pathdef.c
+  gvimext.dll
+  gvimext.lib
+--- 37,45 ----
+  *.RES
+  vim*.dll
+  vim*.lib
+! src/dobj*/pathdef.c
+! src/gobj*/pathdef.c
+! src/obj*/pathdef.c
+  src/Obj*/pathdef.c
+  gvimext.dll
+  gvimext.lib
+*** ../vim-8.1.1577/src/Make_cyg_ming.mak	2019-06-17 22:19:09.360785869 +0200
+--- src/Make_cyg_ming.mak	2019-06-21 17:31:32.287089615 +0200
+***************
+*** 1048,1056 ****
+  clean:
+  	-$(DEL) $(OUTDIR)$(DIRSLASH)*.o
+  	-$(DEL) $(OUTDIR)$(DIRSLASH)*.res
+  	-rmdir $(OUTDIR)
+  	-$(DEL) $(MAIN_TARGET) vimrun.exe install.exe uninstal.exe
+- 	-$(DEL) pathdef.c
+  ifdef PERL
+  	-$(DEL) if_perl.c
+  	-$(DEL) auto$(DIRSLASH)if_perl.c
+--- 1048,1056 ----
+  clean:
+  	-$(DEL) $(OUTDIR)$(DIRSLASH)*.o
+  	-$(DEL) $(OUTDIR)$(DIRSLASH)*.res
++ 	-$(DEL) $(OUTDIR)$(DIRSLASH)pathdef.c
+  	-rmdir $(OUTDIR)
+  	-$(DEL) $(MAIN_TARGET) vimrun.exe install.exe uninstal.exe
+  ifdef PERL
+  	-$(DEL) if_perl.c
+  	-$(DEL) auto$(DIRSLASH)if_perl.c
+***************
+*** 1072,1077 ****
+--- 1072,1079 ----
+  endif
+  CUI_INCL = iscygpty.h
+  
++ PATHDEF_SRC = $(OUTDIR)/pathdef.c
++ 
+  $(OUTDIR)/if_python.o:	if_python.c if_py_both.h $(INCL)
+  	$(CC) -c $(CFLAGS) $(PYTHONINC) $(PYTHON_HOME_DEF) $< -o $@
+  
+***************
+*** 1171,1176 ****
+--- 1173,1181 ----
+  $(OUTDIR)/terminal.o:	terminal.c $(INCL) $(TERM_DEPS)
+  	$(CC) -c $(CFLAGS) terminal.c -o $@
+  
++ $(OUTDIR)/pathdef.o:	$(PATHDEF_SRC) $(INCL)
++ 	$(CC) -c $(CFLAGS) $(PATHDEF_SRC) -o $@
++ 
+  
+  CCCTERM = $(CC) -c $(CFLAGS) -Ilibvterm/include -DINLINE="" \
+  	  -DVSNPRINTF=vim_vsnprintf \
+***************
+*** 1185,1211 ****
+  	$(CC) -c $(CFLAGS) $< -o $@
+  
+  
+! pathdef.c: $(INCL)
+  ifneq (sh.exe, $(SHELL))
+! 	@echo creating pathdef.c
+! 	@echo '/* pathdef.c */' > pathdef.c
+! 	@echo '#include "vim.h"' >> pathdef.c
+! 	@echo 'char_u *default_vim_dir = (char_u *)"$(VIMRCLOC)";' >> pathdef.c
+! 	@echo 'char_u *default_vimruntime_dir = (char_u *)"$(VIMRUNTIMEDIR)";' >> pathdef.c
+! 	@echo 'char_u *all_cflags = (char_u *)"$(CC) $(CFLAGS)";' >> pathdef.c
+! 	@echo 'char_u *all_lflags = (char_u *)"$(LINK) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)";' >> pathdef.c
+! 	@echo 'char_u *compiled_user = (char_u *)"$(USERNAME)";' >> pathdef.c
+! 	@echo 'char_u *compiled_sys = (char_u *)"$(USERDOMAIN)";' >> pathdef.c
+  else
+! 	@echo creating pathdef.c
+! 	@echo /* pathdef.c */ > pathdef.c
+! 	@echo #include "vim.h" >> pathdef.c
+! 	@echo char_u *default_vim_dir = (char_u *)"$(VIMRCLOC)"; >> pathdef.c
+! 	@echo char_u *default_vimruntime_dir = (char_u *)"$(VIMRUNTIMEDIR)"; >> pathdef.c
+! 	@echo char_u *all_cflags = (char_u *)"$(CC) $(CFLAGS)"; >> pathdef.c
+! 	@echo char_u *all_lflags = (char_u *)"$(CC) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)"; >> pathdef.c
+! 	@echo char_u *compiled_user = (char_u *)"$(USERNAME)"; >> pathdef.c
+! 	@echo char_u *compiled_sys = (char_u *)"$(USERDOMAIN)"; >> pathdef.c
+  endif
+  
+  # vim: set noet sw=8 ts=8 sts=0 wm=0 tw=0:
+--- 1190,1216 ----
+  	$(CC) -c $(CFLAGS) $< -o $@
+  
+  
+! $(PATHDEF_SRC): Make_cyg_ming.mak Make_cyg.mak Make_ming.mak
+  ifneq (sh.exe, $(SHELL))
+! 	@echo creating $(PATHDEF_SRC)
+! 	@echo '/* pathdef.c */' > $(PATHDEF_SRC)
+! 	@echo '#include "vim.h"' >> $(PATHDEF_SRC)
+! 	@echo 'char_u *default_vim_dir = (char_u *)"$(VIMRCLOC)";' >> $(PATHDEF_SRC)
+! 	@echo 'char_u *default_vimruntime_dir = (char_u *)"$(VIMRUNTIMEDIR)";' >> $(PATHDEF_SRC)
+! 	@echo 'char_u *all_cflags = (char_u *)"$(CC) $(CFLAGS)";' >> $(PATHDEF_SRC)
+! 	@echo 'char_u *all_lflags = (char_u *)"$(LINK) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)";' >> $(PATHDEF_SRC)
+! 	@echo 'char_u *compiled_user = (char_u *)"$(USERNAME)";' >> $(PATHDEF_SRC)
+! 	@echo 'char_u *compiled_sys = (char_u *)"$(USERDOMAIN)";' >> $(PATHDEF_SRC)
+  else
+! 	@echo creating $(PATHDEF_SRC)
+! 	@echo /* pathdef.c */ > $(PATHDEF_SRC)
+! 	@echo #include "vim.h" >> $(PATHDEF_SRC)
+! 	@echo char_u *default_vim_dir = (char_u *)"$(VIMRCLOC)"; >> $(PATHDEF_SRC)
+! 	@echo char_u *default_vimruntime_dir = (char_u *)"$(VIMRUNTIMEDIR)"; >> $(PATHDEF_SRC)
+! 	@echo char_u *all_cflags = (char_u *)"$(CC) $(CFLAGS)"; >> $(PATHDEF_SRC)
+! 	@echo char_u *all_lflags = (char_u *)"$(CC) $(CFLAGS) $(LFLAGS) -o $(TARGET) $(LIB) -lole32 -luuid $(LUA_LIB) $(MZSCHEME_LIBDIR) $(MZSCHEME_LIB) $(PYTHONLIB) $(PYTHON3LIB) $(RUBYLIB)"; >> $(PATHDEF_SRC)
+! 	@echo char_u *compiled_user = (char_u *)"$(USERNAME)"; >> $(PATHDEF_SRC)
+! 	@echo char_u *compiled_sys = (char_u *)"$(USERDOMAIN)"; >> $(PATHDEF_SRC)
+  endif
+  
+  # vim: set noet sw=8 ts=8 sts=0 wm=0 tw=0:
+*** ../vim-8.1.1577/src/Make_mvc.mak	2019-06-17 22:19:09.360785869 +0200
+--- src/Make_mvc.mak	2019-06-21 17:31:32.287089615 +0200
+***************
+*** 1702,1708 ****
+  E_LINKARGS2 = $(E0_LINKARGS2:"=\")
+  # ") stop the string
+  
+! $(PATHDEF_SRC): auto
+  	@echo creating $(PATHDEF_SRC)
+  	@echo /* pathdef.c */ > $(PATHDEF_SRC)
+  	@echo #include "vim.h" >> $(PATHDEF_SRC)
+--- 1702,1708 ----
+  E_LINKARGS2 = $(E0_LINKARGS2:"=\")
+  # ") stop the string
+  
+! $(PATHDEF_SRC): Make_mvc.mak
+  	@echo creating $(PATHDEF_SRC)
+  	@echo /* pathdef.c */ > $(PATHDEF_SRC)
+  	@echo #include "vim.h" >> $(PATHDEF_SRC)
+***************
+*** 1713,1721 ****
+  	@echo char_u *compiled_user = (char_u *)"$(USERNAME)"; >> $(PATHDEF_SRC)
+  	@echo char_u *compiled_sys = (char_u *)"$(USERDOMAIN)"; >> $(PATHDEF_SRC)
+  
+- auto:
+- 	if not exist auto/nul mkdir auto
+- 
+  # End Custom Build
+  proto.h: \
+  	proto/arabic.pro \
+--- 1713,1718 ----
+*** ../vim-8.1.1577/src/version.c	2019-06-21 02:30:33.988511813 +0200
+--- src/version.c	2019-06-21 17:33:42.002573335 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1578,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+246. You use up your free 1 Gbyte in two days.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

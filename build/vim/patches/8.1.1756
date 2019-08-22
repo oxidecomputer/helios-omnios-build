@@ -1,0 +1,232 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1756
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1756
+Problem:    Autocommand that splits window messes up window layout.
+Solution:   Disallow splitting a window while closing one.  In ":all" give an
+            error when moving a window will not work.
+Files:	    src/buffer.c, src/window.c, src/testdir/test_window_cmd.vim
+
+
+*** ../vim-8.1.1755/src/buffer.c	2019-07-21 19:25:16.650609440 +0200
+--- src/buffer.c	2019-07-27 17:23:37.408727673 +0200
+***************
+*** 5101,5106 ****
+--- 5101,5113 ----
+  			    new_curwin = wpnext;
+  			    new_curtab = curtab;
+  			}
++ 			else if (wpnext->w_frame->fr_parent
++ 						 != curwin->w_frame->fr_parent)
++ 			{
++ 			    emsg(_("E249: window layout changed unexpectedly"));
++ 			    i = count;
++ 			    break;
++ 			}
+  			else
+  			    win_move_after(wpnext, curwin);
+  			break;
+*** ../vim-8.1.1755/src/window.c	2019-07-26 22:22:34.468383292 +0200
+--- src/window.c	2019-07-27 17:26:26.068802167 +0200
+***************
+*** 66,71 ****
+--- 66,103 ----
+  
+  static char *m_onlyone = N_("Already only one window");
+  
++ // When non-zero splitting a window is forbidden.  Used to avoid that nasty
++ // autocommands mess up the window structure.
++ static int split_disallowed = 0;
++ 
++ // #define WIN_DEBUG
++ #ifdef WIN_DEBUG
++ /*
++  * Call this method to log the current window layout.
++  */
++     static void
++ log_frame_layout(frame_T *frame)
++ {
++     ch_log(NULL, "layout %s, wi: %d, he: %d, wwi: %d, whe: %d, id: %d",
++ 	    frame->fr_layout == FR_LEAF ? "LEAF"
++ 				  : frame->fr_layout == FR_ROW ? "ROW" : "COL",
++ 	    frame->fr_width,
++ 	    frame->fr_height,
++ 	    frame->fr_win == NULL ? -1 : frame->fr_win->w_width,
++ 	    frame->fr_win == NULL ? -1 : frame->fr_win->w_height,
++ 	    frame->fr_win == NULL ? -1 : frame->fr_win->w_id);
++     if (frame->fr_child != NULL)
++     {
++ 	ch_log(NULL, "children");
++ 	log_frame_layout(frame->fr_child);
++ 	if (frame->fr_next != NULL)
++ 	    ch_log(NULL, "END of children");
++     }
++     if (frame->fr_next != NULL)
++ 	log_frame_layout(frame->fr_next);
++ }
++ #endif
++ 
+  /*
+   * All CTRL-W window commands are handled here, called from normal_cmd().
+   */
+***************
+*** 718,723 ****
+--- 750,770 ----
+  }
+  
+  /*
++  * If "split_disallowed" is set given an error and return FAIL.
++  * Otherwise return OK.
++  */
++     static int
++ check_split_disallowed()
++ {
++     if (split_disallowed > 0)
++     {
++ 	emsg(_("E242: Can't split a window while closing another"));
++ 	return FAIL;
++     }
++     return OK;
++ }
++ 
++ /*
+   * split the current window, implements CTRL-W s and :split
+   *
+   * "size" is the height or width for the new window, 0 to use half of current
+***************
+*** 749,754 ****
+--- 796,803 ----
+  	emsg(_("E442: Can't split topleft and botright at the same time"));
+  	return FAIL;
+      }
++     if (check_split_disallowed() == FAIL)
++ 	return FAIL;
+  
+      /* When creating the help window make a snapshot of the window layout.
+       * Otherwise clear the snapshot, it's now invalid. */
+***************
+*** 882,888 ****
+  	/* Only make all windows the same width if one of them (except oldwin)
+  	 * is wider than one of the split windows. */
+  	if (!do_equal && p_ea && size == 0 && *p_ead != 'v'
+! 	   && oldwin->w_frame->fr_parent != NULL)
+  	{
+  	    frp = oldwin->w_frame->fr_parent->fr_child;
+  	    while (frp != NULL)
+--- 931,937 ----
+  	/* Only make all windows the same width if one of them (except oldwin)
+  	 * is wider than one of the split windows. */
+  	if (!do_equal && p_ea && size == 0 && *p_ead != 'v'
+! 					 && oldwin->w_frame->fr_parent != NULL)
+  	{
+  	    frp = oldwin->w_frame->fr_parent->fr_child;
+  	    while (frp != NULL)
+***************
+*** 1711,1716 ****
+--- 1760,1767 ----
+  	beep_flush();
+  	return;
+      }
++     if (check_split_disallowed() == FAIL)
++ 	return;
+  
+      /* Remove the window and frame from the tree of frames. */
+      (void)winframe_remove(curwin, &dir, NULL);
+***************
+*** 1750,1755 ****
+--- 1801,1812 ----
+      /* check if there is something to do */
+      if (win2->w_next != win1)
+      {
++ 	if (win1->w_frame->fr_parent != win2->w_frame->fr_parent)
++ 	{
++ 	    iemsg("INTERNAL: trying to move a window into another frame");
++ 	    return;
++ 	}
++ 
+  	/* may need move the status line/vertical separator of the last window
+  	 * */
+  	if (win1 == lastwin)
+***************
+*** 2490,2495 ****
+--- 2547,2556 ----
+  	    || close_last_window_tabpage(win, free_buf, prev_curtab))
+  	return FAIL;
+  
++     // Now we are really going to close the window.  Disallow any autocommand
++     // to split a window to avoid trouble.
++     ++split_disallowed;
++ 
+      /* Free the memory used for the window and get the window that received
+       * the screen space. */
+      wp = win_free_mem(win, &dir, NULL);
+***************
+*** 2544,2549 ****
+--- 2605,2612 ----
+  	    apply_autocmds(EVENT_BUFENTER, NULL, NULL, FALSE, curbuf);
+      }
+  
++     --split_disallowed;
++ 
+      /*
+       * If last window has a status line now and we don't want one,
+       * remove the status line.
+*** ../vim-8.1.1755/src/testdir/test_window_cmd.vim	2019-07-13 18:08:56.182316876 +0200
+--- src/testdir/test_window_cmd.vim	2019-07-27 17:23:09.224684983 +0200
+***************
+*** 531,544 ****
+  endfunc
+  
+  func Test_access_freed_mem()
+    " This was accessing freed memory
+    au * 0 vs xxx
+    arg 0
+    argadd
+!   all
+!   all
+    au!
+    bwipe xxx
+  endfunc
+  
+  func Test_visual_cleared_after_window_split()
+--- 531,545 ----
+  endfunc
+  
+  func Test_access_freed_mem()
++   call assert_equal(&columns, winwidth(0))
+    " This was accessing freed memory
+    au * 0 vs xxx
+    arg 0
+    argadd
+!   call assert_fails("all", "E249:")
+    au!
+    bwipe xxx
++   call assert_equal(&columns, winwidth(0))
+  endfunc
+  
+  func Test_visual_cleared_after_window_split()
+*** ../vim-8.1.1755/src/version.c	2019-07-26 22:22:34.468383292 +0200
+--- src/version.c	2019-07-27 16:11:18.682053334 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1756,
+  /**/
+
+-- 
+            |
+
+Ceci n'est pas une pipe.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

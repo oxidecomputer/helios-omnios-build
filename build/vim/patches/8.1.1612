@@ -1,0 +1,794 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1612
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1612
+Problem:    Cannot show an existing buffer in a popup window.
+Solution:   Support buffer number argument in popup_create().
+Files:	    src/buffer.c, src/proto/buffer.pro, src/evalfunc.c,
+            src/popupwin.c, src/vim.h, src/normal.c, src/screen.c, src/ui.c,
+            src/window.c, src/testdir/test_popupwin.vim, runtime/doc/popup.txt
+
+
+*** ../vim-8.1.1611/src/buffer.c	2019-06-20 03:45:31.167536959 +0200
+--- src/buffer.c	2019-06-30 20:52:17.048551781 +0200
+***************
+*** 122,127 ****
+--- 122,144 ----
+  }
+  
+  /*
++  * Ensure buffer "buf" is loaded.  Does not trigger the swap-exists action.
++  */
++     void
++ buffer_ensure_loaded(buf_T *buf)
++ {
++     if (buf->b_ml.ml_mfp == NULL)
++     {
++ 	aco_save_T	aco;
++ 
++ 	aucmd_prepbuf(&aco, buf);
++ 	swap_exists_action = SEA_NONE;
++ 	open_buffer(FALSE, NULL, 0);
++ 	aucmd_restbuf(&aco);
++     }
++ }
++ 
++ /*
+   * Open current buffer, that is: open the memfile and read the file into
+   * memory.
+   * Return FAIL for failure, OK otherwise.
+*** ../vim-8.1.1611/src/proto/buffer.pro	2019-06-20 03:45:31.171536943 +0200
+--- src/proto/buffer.pro	2019-06-30 21:11:44.776703059 +0200
+***************
+*** 1,4 ****
+--- 1,5 ----
+  /* buffer.c */
++ void buffer_ensure_loaded(buf_T *buf);
+  int open_buffer(int read_stdin, exarg_T *eap, int flags);
+  void set_bufref(bufref_T *bufref, buf_T *buf);
+  int bufref_valid(bufref_T *bufref);
+*** ../vim-8.1.1611/src/evalfunc.c	2019-06-30 20:32:58.424000713 +0200
+--- src/evalfunc.c	2019-06-30 21:06:14.166871080 +0200
+***************
+*** 1963,1977 ****
+  {
+      buf_T	*buf = get_buf_arg(&argvars[0]);
+  
+!     if (buf != NULL && buf->b_ml.ml_mfp == NULL)
+!     {
+! 	aco_save_T	aco;
+! 
+! 	aucmd_prepbuf(&aco, buf);
+! 	swap_exists_action = SEA_NONE;
+! 	open_buffer(FALSE, NULL, 0);
+! 	aucmd_restbuf(&aco);
+!     }
+  }
+  
+  /*
+--- 1963,1970 ----
+  {
+      buf_T	*buf = get_buf_arg(&argvars[0]);
+  
+!     if (buf != NULL)
+! 	buffer_ensure_loaded(buf);
+  }
+  
+  /*
+***************
+*** 4905,4911 ****
+  		    return;
+  		(void)mouse_comp_pos(win, &row, &col, &lnum);
+  # ifdef FEAT_TEXT_PROP
+! 		if (bt_popup(win->w_buffer))
+  		    winnr = 0;
+  		else
+  # endif
+--- 4898,4904 ----
+  		    return;
+  		(void)mouse_comp_pos(win, &row, &col, &lnum);
+  # ifdef FEAT_TEXT_PROP
+! 		if (WIN_IS_POPUP(win))
+  		    winnr = 0;
+  		else
+  # endif
+*** ../vim-8.1.1611/src/popupwin.c	2019-06-30 18:04:53.793559360 +0200
+--- src/popupwin.c	2019-06-30 21:46:23.763132010 +0200
+***************
+*** 997,1010 ****
+      win_T	*wp;
+      tabpage_T	*tp = NULL;
+      int		tabnr;
+!     buf_T	*buf;
+      dict_T	*d;
+      int		nr;
+      int		i;
+  
+      // Check arguments look OK.
+!     if (!(argvars[0].v_type == VAR_STRING && argvars[0].vval.v_string != NULL)
+! 	&& !(argvars[0].v_type == VAR_LIST && argvars[0].vval.v_list != NULL))
+      {
+  	emsg(_(e_listreq));
+  	return NULL;
+--- 997,1022 ----
+      win_T	*wp;
+      tabpage_T	*tp = NULL;
+      int		tabnr;
+!     int		new_buffer;
+!     buf_T	*buf = NULL;
+      dict_T	*d;
+      int		nr;
+      int		i;
+  
+      // Check arguments look OK.
+!     if (argvars[0].v_type == VAR_NUMBER)
+!     {
+! 	buf = buflist_findnr( argvars[0].vval.v_number);
+! 	if (buf == NULL)
+! 	{
+! 	    semsg(_(e_nobufnr), argvars[0].vval.v_number);
+! 	    return NULL;
+! 	}
+!     }
+!     else if (!(argvars[0].v_type == VAR_STRING
+! 		    && argvars[0].vval.v_string != NULL)
+! 		&& !(argvars[0].v_type == VAR_LIST
+! 		    && argvars[0].vval.v_list != NULL))
+      {
+  	emsg(_(e_listreq));
+  	return NULL;
+***************
+*** 1038,1064 ****
+  	return NULL;
+      rettv->vval.v_number = wp->w_id;
+      wp->w_popup_pos = POPPOS_TOPLEFT;
+  
+!     buf = buflist_new(NULL, NULL, (linenr_T)0, BLN_NEW|BLN_LISTED|BLN_DUMMY);
+!     if (buf == NULL)
+! 	return NULL;
+!     ml_open(buf);
+  
+!     win_init_popup_win(wp, buf);
+  
+!     set_local_options_default(wp);
+!     set_string_option_direct_in_buf(buf, (char_u *)"buftype", -1,
+  				     (char_u *)"popup", OPT_FREE|OPT_LOCAL, 0);
+!     set_string_option_direct_in_buf(buf, (char_u *)"bufhidden", -1,
+! 				     (char_u *)"hide", OPT_FREE|OPT_LOCAL, 0);
+!     buf->b_p_ul = -1;	    // no undo
+!     buf->b_p_swf = FALSE;   // no swap file
+!     buf->b_p_bl = FALSE;    // unlisted buffer
+!     buf->b_locked = TRUE;
+!     wp->w_p_wrap = TRUE;  // 'wrap' is default on
+  
+!     // Avoid that 'buftype' is reset when this buffer is entered.
+!     buf->b_p_initialized = TRUE;
+  
+      if (tp != NULL)
+      {
+--- 1050,1091 ----
+  	return NULL;
+      rettv->vval.v_number = wp->w_id;
+      wp->w_popup_pos = POPPOS_TOPLEFT;
++     wp->w_popup_flags = POPF_IS_POPUP;
+  
+!     if (buf != NULL)
+!     {
+! 	// use existing buffer
+! 	new_buffer = FALSE;
+! 	wp->w_buffer = buf;
+! 	++buf->b_nwindows;
+! 	buffer_ensure_loaded(buf);
+!     }
+!     else
+!     {
+! 	// create a new buffer associated with the popup
+! 	new_buffer = TRUE;
+! 	buf = buflist_new(NULL, NULL, (linenr_T)0,
+! 						 BLN_NEW|BLN_LISTED|BLN_DUMMY);
+! 	if (buf == NULL)
+! 	    return NULL;
+! 	ml_open(buf);
+  
+! 	win_init_popup_win(wp, buf);
+  
+! 	set_local_options_default(wp);
+! 	set_string_option_direct_in_buf(buf, (char_u *)"buftype", -1,
+  				     (char_u *)"popup", OPT_FREE|OPT_LOCAL, 0);
+! 	set_string_option_direct_in_buf(buf, (char_u *)"bufhidden", -1,
+! 				      (char_u *)"hide", OPT_FREE|OPT_LOCAL, 0);
+! 	buf->b_p_ul = -1;	// no undo
+! 	buf->b_p_swf = FALSE;   // no swap file
+! 	buf->b_p_bl = FALSE;    // unlisted buffer
+! 	buf->b_locked = TRUE;
+! 	wp->w_p_wrap = TRUE;	// 'wrap' is default on
+  
+! 	// Avoid that 'buftype' is reset when this buffer is entered.
+! 	buf->b_p_initialized = TRUE;
+!     }
+  
+      if (tp != NULL)
+      {
+***************
+*** 1088,1094 ****
+  	}
+      }
+  
+!     popup_set_buffer_text(buf, argvars[0]);
+  
+      if (type == TYPE_ATCURSOR)
+      {
+--- 1115,1122 ----
+  	}
+      }
+  
+!     if (new_buffer)
+! 	popup_set_buffer_text(buf, argvars[0]);
+  
+      if (type == TYPE_ATCURSOR)
+      {
+***************
+*** 1456,1462 ****
+  {
+      win_T *wp = win_id2wp(id);
+  
+!     if (wp != NULL && !bt_popup(wp->w_buffer))
+      {
+  	semsg(_("E993: window %d is not a popup window"), id);
+  	return NULL;
+--- 1484,1490 ----
+  {
+      win_T *wp = win_id2wp(id);
+  
+!     if (wp != NULL && !WIN_IS_POPUP(wp))
+      {
+  	semsg(_("E993: window %d is not a popup window"), id);
+  	return NULL;
+***************
+*** 1524,1531 ****
+  
+      if (wp != NULL)
+      {
+! 	popup_set_buffer_text(wp->w_buffer, argvars[1]);
+! 	popup_adjust_position(wp);
+      }
+  }
+  
+--- 1552,1564 ----
+  
+      if (wp != NULL)
+      {
+! 	if (argvars[1].v_type != VAR_STRING && argvars[1].v_type != VAR_LIST)
+! 	    semsg(_(e_invarg2), tv_get_string(&argvars[1]));
+! 	else
+! 	{
+! 	    popup_set_buffer_text(wp->w_buffer, argvars[1]);
+! 	    popup_adjust_position(wp);
+! 	}
+      }
+  }
+  
+***************
+*** 1880,1886 ****
+      int
+  error_if_popup_window()
+  {
+!     if (bt_popup(curwin->w_buffer))
+      {
+  	emsg(_("E994: Not allowed in a popup window"));
+  	return TRUE;
+--- 1913,1919 ----
+      int
+  error_if_popup_window()
+  {
+!     if (WIN_IS_POPUP(curwin))
+      {
+  	emsg(_("E994: Not allowed in a popup window"));
+  	return TRUE;
+*** ../vim-8.1.1611/src/vim.h	2019-06-23 00:15:02.581534910 +0200
+--- src/vim.h	2019-06-30 21:05:19.151234091 +0200
+***************
+*** 614,621 ****
+  #define VALID_TOPLINE	0x80	// w_topline is valid (for cursor position)
+  
+  // Values for w_popup_flags.
+! #define POPF_HIDDEN	1	// popup is not displayed
+! #define POPF_HANDLED	2	// popup was just redrawn or filtered
+  
+  /*
+   * Terminal highlighting attribute bits.
+--- 614,627 ----
+  #define VALID_TOPLINE	0x80	// w_topline is valid (for cursor position)
+  
+  // Values for w_popup_flags.
+! #define POPF_IS_POPUP	1	// this is a popup window
+! #define POPF_HIDDEN	2	// popup is not displayed
+! #define POPF_HANDLED	4	// popup was just redrawn or filtered
+! #ifdef FEAT_TEXT_PROP
+! # define WIN_IS_POPUP(wp) ((wp)->w_popup_flags != 0)
+! #else
+! # define WIN_IS_POPUP(wp) 0
+! #endif
+  
+  /*
+   * Terminal highlighting attribute bits.
+*** ../vim-8.1.1611/src/normal.c	2019-06-29 07:36:05.348264881 +0200
+--- src/normal.c	2019-06-30 21:07:40.414303484 +0200
+***************
+*** 4525,4531 ****
+  	if (wp == NULL)
+  	    return;
+  #ifdef FEAT_TEXT_PROP
+! 	if (bt_popup(wp->w_buffer) && !wp->w_has_scrollbar)
+  	    return;
+  #endif
+  	curwin = wp;
+--- 4525,4531 ----
+  	if (wp == NULL)
+  	    return;
+  #ifdef FEAT_TEXT_PROP
+! 	if (WIN_IS_POPUP(wp) && !wp->w_has_scrollbar)
+  	    return;
+  #endif
+  	curwin = wp;
+***************
+*** 4560,4566 ****
+  	    nv_scroll_line(cap);
+  	}
+  #ifdef FEAT_TEXT_PROP
+! 	if (bt_popup(curwin->w_buffer))
+  	    popup_set_firstline(curwin);
+  #endif
+      }
+--- 4560,4566 ----
+  	    nv_scroll_line(cap);
+  	}
+  #ifdef FEAT_TEXT_PROP
+! 	if (WIN_IS_POPUP(curwin))
+  	    popup_set_firstline(curwin);
+  #endif
+      }
+*** ../vim-8.1.1611/src/screen.c	2019-06-28 21:37:56.758355954 +0200
+--- src/screen.c	2019-06-30 21:10:16.537279829 +0200
+***************
+*** 1005,1011 ****
+      if (*wp->w_p_wcr != NUL)
+  	wcr_attr = syn_name2attr(wp->w_p_wcr);
+  #ifdef FEAT_TEXT_PROP
+!     if (bt_popup(wp->w_buffer) && wcr_attr == 0)
+  	wcr_attr = HL_ATTR(HLF_PNI);
+  #endif
+      return wcr_attr;
+--- 1005,1011 ----
+      if (*wp->w_p_wcr != NUL)
+  	wcr_attr = syn_name2attr(wp->w_p_wcr);
+  #ifdef FEAT_TEXT_PROP
+!     if (WIN_IS_POPUP(wp) && wcr_attr == 0)
+  	wcr_attr = HL_ATTR(HLF_PNI);
+  #endif
+      return wcr_attr;
+***************
+*** 1555,1565 ****
+  	if (mid_start == 0)
+  	{
+  	    mid_end = wp->w_height;
+! 	    if (ONE_WINDOW
+! #ifdef FEAT_TEXT_PROP
+! 		    && !bt_popup(wp->w_buffer)
+! #endif
+! 		    )
+  	    {
+  		/* Clear the screen when it was not done by win_del_lines() or
+  		 * win_ins_lines() above, "screen_cleared" is FALSE or MAYBE
+--- 1555,1561 ----
+  	if (mid_start == 0)
+  	{
+  	    mid_end = wp->w_height;
+! 	    if (ONE_WINDOW && !WIN_IS_POPUP(wp))
+  	    {
+  		/* Clear the screen when it was not done by win_del_lines() or
+  		 * win_ins_lines() above, "screen_cleared" is FALSE or MAYBE
+***************
+*** 2085,2093 ****
+  		    && wp->w_lines[idx].wl_lnum == lnum
+  		    && lnum > wp->w_topline
+  		    && !(dy_flags & (DY_LASTLINE | DY_TRUNCATE))
+! #ifdef FEAT_TEXT_PROP
+! 		    && !bt_popup(wp->w_buffer)
+! #endif
+  		    && srow + wp->w_lines[idx].wl_size > wp->w_height
+  #ifdef FEAT_DIFF
+  		    && diff_check_fill(wp, lnum) == 0
+--- 2081,2087 ----
+  		    && wp->w_lines[idx].wl_lnum == lnum
+  		    && lnum > wp->w_topline
+  		    && !(dy_flags & (DY_LASTLINE | DY_TRUNCATE))
+! 		    && !WIN_IS_POPUP(wp)
+  		    && srow + wp->w_lines[idx].wl_size > wp->w_height
+  #ifdef FEAT_DIFF
+  		    && diff_check_fill(wp, lnum) == 0
+***************
+*** 2244,2250 ****
+  	}
+  #endif
+  #ifdef FEAT_TEXT_PROP
+! 	else if (bt_popup(wp->w_buffer))
+  	{
+  	    // popup line that doesn't fit is left as-is
+  	    wp->w_botline = lnum;
+--- 2238,2244 ----
+  	}
+  #endif
+  #ifdef FEAT_TEXT_PROP
+! 	else if (WIN_IS_POPUP(wp))
+  	{
+  	    // popup line that doesn't fit is left as-is
+  	    wp->w_botline = lnum;
+***************
+*** 2310,2320 ****
+  
+  	// Make sure the rest of the screen is blank
+  	// put '~'s on rows that aren't part of the file.
+! 	win_draw_end(wp,
+! #ifdef FEAT_TEXT_PROP
+! 		bt_popup(wp->w_buffer) ? ' ' :
+! #endif
+! 				  '~', ' ', FALSE, row, wp->w_height, HLF_EOB);
+      }
+  
+  #ifdef SYN_TIME_LIMIT
+--- 2304,2311 ----
+  
+  	// Make sure the rest of the screen is blank
+  	// put '~'s on rows that aren't part of the file.
+! 	win_draw_end(wp, WIN_IS_POPUP(wp) ? ' ' : '~',
+! 				       ' ', FALSE, row, wp->w_height, HLF_EOB);
+      }
+  
+  #ifdef SYN_TIME_LIMIT
+***************
+*** 3673,3679 ****
+  	area_highlighting = TRUE;
+      }
+  #ifdef FEAT_TEXT_PROP
+!     if (bt_popup(wp->w_buffer))
+  	screen_line_flags |= SLF_POPUP;
+  #endif
+  
+--- 3664,3670 ----
+  	area_highlighting = TRUE;
+      }
+  #ifdef FEAT_TEXT_PROP
+!     if (WIN_IS_POPUP(wp))
+  	screen_line_flags |= SLF_POPUP;
+  #endif
+  
+*** ../vim-8.1.1611/src/ui.c	2019-06-30 18:04:53.793559360 +0200
+--- src/ui.c	2019-06-30 21:10:52.817042529 +0200
+***************
+*** 1078,1084 ****
+  	int	    col_cp = col;
+  
+  	wp = mouse_find_win(&row_cp, &col_cp, FIND_POPUP);
+! 	if (wp != NULL && bt_popup(wp->w_buffer))
+  	{
+  	    // Click in a popup window restricts selection to that window,
+  	    // excluding the border.
+--- 1078,1084 ----
+  	int	    col_cp = col;
+  
+  	wp = mouse_find_win(&row_cp, &col_cp, FIND_POPUP);
+! 	if (wp != NULL && WIN_IS_POPUP(wp))
+  	{
+  	    // Click in a popup window restricts selection to that window,
+  	    // excluding the border.
+***************
+*** 3052,3058 ****
+  #ifdef FEAT_TEXT_PROP
+  	// Click in a popup window may start dragging or modeless selection,
+  	// but not much else.
+! 	if (bt_popup(wp->w_buffer))
+  	{
+  	    on_sep_line = 0;
+  	    in_popup_win = TRUE;
+--- 3052,3058 ----
+  #ifdef FEAT_TEXT_PROP
+  	// Click in a popup window may start dragging or modeless selection,
+  	// but not much else.
+! 	if (WIN_IS_POPUP(wp))
+  	{
+  	    on_sep_line = 0;
+  	    in_popup_win = TRUE;
+*** ../vim-8.1.1611/src/window.c	2019-06-26 05:13:51.799753098 +0200
+--- src/window.c	2019-06-30 21:38:18.710290147 +0200
+***************
+*** 4887,4893 ****
+      int
+  win_unlisted(win_T *wp)
+  {
+!     return wp == aucmd_win || bt_popup(wp->w_buffer);
+  }
+  
+  #if defined(FEAT_TEXT_PROP) || defined(PROTO)
+--- 4887,4893 ----
+      int
+  win_unlisted(win_T *wp)
+  {
+!     return wp == aucmd_win || WIN_IS_POPUP(wp);
+  }
+  
+  #if defined(FEAT_TEXT_PROP) || defined(PROTO)
+***************
+*** 4898,4904 ****
+      void
+  win_free_popup(win_T *win)
+  {
+!     win_close_buffer(win, DOBUF_WIPE, FALSE);
+  # if defined(FEAT_TIMERS)
+      if (win->w_popup_timer != NULL)
+  	stop_timer(win->w_popup_timer);
+--- 4898,4907 ----
+      void
+  win_free_popup(win_T *win)
+  {
+!     if (bt_popup(win->w_buffer))
+! 	win_close_buffer(win, DOBUF_WIPE, FALSE);
+!     else
+! 	close_buffer(win, win->w_buffer, 0, FALSE);
+  # if defined(FEAT_TIMERS)
+      if (win->w_popup_timer != NULL)
+  	stop_timer(win->w_popup_timer);
+***************
+*** 6605,6611 ****
+  	curbuf = curwin->w_buffer;
+      }
+  #ifdef FEAT_TEXT_PROP
+!     else if (bt_popup(curwin->w_buffer))
+  	// original window was closed and now we're in a popup window: Go
+  	// to the first valid window.
+  	win_goto(firstwin);
+--- 6608,6614 ----
+  	curbuf = curwin->w_buffer;
+      }
+  #ifdef FEAT_TEXT_PROP
+!     else if (WIN_IS_POPUP(curwin))
+  	// original window was closed and now we're in a popup window: Go
+  	// to the first valid window.
+  	win_goto(firstwin);
+*** ../vim-8.1.1611/src/testdir/test_popupwin.vim	2019-06-30 18:04:53.793559360 +0200
+--- src/testdir/test_popupwin.vim	2019-06-30 22:13:41.956739605 +0200
+***************
+*** 559,565 ****
+  endfunc
+  
+  func Test_popup_invalid_arguments()
+!   call assert_fails('call popup_create(666, {})', 'E714:')
+    call popup_clear()
+    call assert_fails('call popup_create("text", "none")', 'E715:')
+    call popup_clear()
+--- 559,565 ----
+  endfunc
+  
+  func Test_popup_invalid_arguments()
+!   call assert_fails('call popup_create(666, {})', 'E86:')
+    call popup_clear()
+    call assert_fails('call popup_create("text", "none")', 'E715:')
+    call popup_clear()
+***************
+*** 1654,1656 ****
+--- 1654,1671 ----
+    call popup_close(winid)
+    delfunc MyPopupFilter
+  endfunc
++ 
++ func Test_popupwin_with_buffer()
++   call writefile(['some text', 'in a buffer'], 'XsomeFile')
++   let buf = bufadd('XsomeFile')
++   call assert_equal(0, bufloaded(buf))
++   let winid = popup_create(buf, {})
++   call assert_notequal(0, winid)
++   let pos = popup_getpos(winid)
++   call assert_equal(2, pos.height)
++   call assert_equal(1, bufloaded(buf))
++   call popup_close(winid)
++   call assert_equal({}, popup_getpos(winid))
++   call assert_equal(1, bufloaded(buf))
++   exe 'bwipe! ' .. buf
++ endfunc
+*** ../vim-8.1.1611/runtime/doc/popup.txt	2019-06-30 18:04:53.793559360 +0200
+--- runtime/doc/popup.txt	2019-06-30 22:13:18.380888563 +0200
+***************
+*** 98,106 ****
+  
+  
+  TODO:
+- - Currently 'buftype' is set to "popup", but all the specifics are on the
+-   window.  Can we use a "normal" buffer and put the type on the window? (#4595)
+-   What if it's modified and the window closes?
+  - Add test for when popup with mask is off the left and off the right of the
+    screen.
+  - check padding/border when popup is off the left and right of the screen.
+--- 98,103 ----
+***************
+*** 164,173 ****
+  
+  [functions help to be moved to eval.txt later]
+  
+! popup_atcursor({text}, {options})			 *popup_atcursor()*
+! 		Show the {text} above the cursor, and close it when the cursor
+  		moves.  This works like: >
+! 			call popup_create({text}, {
+  				\ 'pos': 'botleft',
+  				\ 'line': 'cursor-1',
+  				\ 'col': 'cursor',
+--- 161,170 ----
+  
+  [functions help to be moved to eval.txt later]
+  
+! popup_atcursor({what}, {options})			 *popup_atcursor()*
+! 		Show the {what} above the cursor, and close it when the cursor
+  		moves.  This works like: >
+! 			call popup_create({what}, {
+  				\ 'pos': 'botleft',
+  				\ 'line': 'cursor-1',
+  				\ 'col': 'cursor',
+***************
+*** 191,201 ****
+  		Otherwise zero is passed to the callback.
+  
+  
+! popup_create({text}, {options})				*popup_create()*
+! 		Open a popup window showing {text}, which is either:
+  		- a string
+  		- a list of strings
+  		- a list of text lines with text properties
+  
+  		{options} is a dictionary with many possible entries.
+  		See |popup_create-usage| for details.
+--- 188,202 ----
+  		Otherwise zero is passed to the callback.
+  
+  
+! popup_create({what}, {options})				*popup_create()*
+! 		Open a popup window showing {what}, which is either:
+! 		- a buffer number
+  		- a string
+  		- a list of strings
+  		- a list of text lines with text properties
++ 		When {what} is not a buffer number, a buffer is created with
++ 		'buftype' set to "popup".  That buffer will be wiped out once
++ 		the popup closes.
+  
+  		{options} is a dictionary with many possible entries.
+  		See |popup_create-usage| for details.
+***************
+*** 209,217 ****
+  <		In case of failure zero is returned.
+  
+  
+! popup_dialog({text}, {options})				*popup_dialog()*
+  		Just like |popup_create()| but with these default options: >
+! 			call popup_create({text}, {
+  				\ 'pos': 'center',
+  				\ 'zindex': 200,
+  				\ 'drag': 1,
+--- 210,218 ----
+  <		In case of failure zero is returned.
+  
+  
+! popup_dialog({what}, {options})				*popup_dialog()*
+  		Just like |popup_create()| but with these default options: >
+! 			call popup_create({what}, {
+  				\ 'pos': 'center',
+  				\ 'zindex': 200,
+  				\ 'drag': 1,
+***************
+*** 312,323 ****
+  		exists but is not a popup window an error is given. *E993*
+  
+  
+! popup_menu({text}, {options})				 *popup_menu()*
+! 		Show the {text} near the cursor, handle selecting one of the
+  		items with cursorkeys, and close it an item is selected with
+! 		Space or Enter. {text} should have multiple lines to make this
+  		useful.  This works like: >
+! 			call popup_create({text}, {
+  				\ 'pos': 'center',
+  				\ 'zindex': 200,
+  				\ 'drag': 1,
+--- 313,324 ----
+  		exists but is not a popup window an error is given. *E993*
+  
+  
+! popup_menu({what}, {options})				 *popup_menu()*
+! 		Show the {what} near the cursor, handle selecting one of the
+  		items with cursorkeys, and close it an item is selected with
+! 		Space or Enter. {what} should have multiple lines to make this
+  		useful.  This works like: >
+! 			call popup_create({what}, {
+  				\ 'pos': 'center',
+  				\ 'zindex': 200,
+  				\ 'drag': 1,
+***************
+*** 349,358 ****
+  		For other options see |popup_setoptions()|.
+  
+  
+! popup_notification({text}, {options})			 *popup_notification()*
+! 		Show the {text} for 3 seconds at the top of the Vim window.
+  		This works like: >
+! 			call popup_create({text}, {
+  				\ 'line': 1,
+  				\ 'col': 10,
+  				\ 'minwidth': 20,
+--- 350,359 ----
+  		For other options see |popup_setoptions()|.
+  
+  
+! popup_notification({what}, {options})			 *popup_notification()*
+! 		Show the {what} for 3 seconds at the top of the Vim window.
+  		This works like: >
+! 			call popup_create({what}, {
+  				\ 'line': 1,
+  				\ 'col': 10,
+  				\ 'minwidth': 20,
+***************
+*** 410,416 ****
+  
+  popup_settext({id}, {text})				*popup_settext()*
+  		Set the text of the buffer in poup win {id}. {text} is the
+! 		same as supplied to |popup_create()|.
+  		Does not change the window size or position, other than caused
+  		by the different text.
+  
+--- 411,418 ----
+  
+  popup_settext({id}, {text})				*popup_settext()*
+  		Set the text of the buffer in poup win {id}. {text} is the
+! 		same as supplied to |popup_create()|, except that a buffer
+! 		number is not allowed.
+  		Does not change the window size or position, other than caused
+  		by the different text.
+  
+***************
+*** 450,456 ****
+  
+  The first argument of |popup_create()| (and the second argument to
+  |popup_settext()|) specifies the text to be displayed, and optionally text
+! properties.  It is in one of three forms:
+  - a string
+  - a list of strings
+  - a list of dictionaries, where each dictionary has these entries:
+--- 452,459 ----
+  
+  The first argument of |popup_create()| (and the second argument to
+  |popup_settext()|) specifies the text to be displayed, and optionally text
+! properties.  It is in one of four forms:
+! - a buffer number
+  - a string
+  - a list of strings
+  - a list of dictionaries, where each dictionary has these entries:
+*** ../vim-8.1.1611/src/version.c	2019-06-30 20:32:58.424000713 +0200
+--- src/version.c	2019-06-30 22:14:40.936366556 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1612,
+  /**/
+
+-- 
+A successful man is one who makes more money than his wife can spend.
+A successful woman is one who can find such a man.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,197 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1868
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1868
+Problem:    Multibyte characters in 'listchars' don't work correctly if
+            'linebreak' is also enabled. (Martin Tournoij)
+Solution:   Make it work correctly. (Christian Brabandt, closes #4822,
+            closes #4812)
+Files:	    src/screen.c, src/testdir/test_listchars.vim
+
+
+*** ../vim-8.1.1867/src/screen.c	2019-08-13 23:09:44.574400577 +0200
+--- src/screen.c	2019-08-17 14:08:51.393265930 +0200
+***************
+*** 4891,4897 ****
+  		    if (*p_sbr != NUL && vcol == vcol_sbr && wp->w_p_wrap)
+  			vcol_adjusted = vcol - MB_CHARLEN(p_sbr);
+  #endif
+! 		    /* tab amount depends on current column */
+  #ifdef FEAT_VARTABS
+  		    tab_len = tabstop_padding(vcol_adjusted,
+  					      wp->w_buffer->b_p_ts,
+--- 4891,4897 ----
+  		    if (*p_sbr != NUL && vcol == vcol_sbr && wp->w_p_wrap)
+  			vcol_adjusted = vcol - MB_CHARLEN(p_sbr);
+  #endif
+! 		    // tab amount depends on current column
+  #ifdef FEAT_VARTABS
+  		    tab_len = tabstop_padding(vcol_adjusted,
+  					      wp->w_buffer->b_p_ts,
+***************
+*** 4904,4933 ****
+  #ifdef FEAT_LINEBREAK
+  		    if (!wp->w_p_lbr || !wp->w_p_list)
+  #endif
+! 		    /* tab amount depends on current column */
+  			n_extra = tab_len;
+  #ifdef FEAT_LINEBREAK
+  		    else
+  		    {
+! 			char_u *p;
+  			int	len;
+  			int	i;
+  			int	saved_nextra = n_extra;
+  
+  #ifdef FEAT_CONCEAL
+  			if (vcol_off > 0)
+! 			    /* there are characters to conceal */
+  			    tab_len += vcol_off;
+! 			/* boguscols before FIX_FOR_BOGUSCOLS macro from above
+! 			 */
+  			if (wp->w_p_list && lcs_tab1 && old_boguscols > 0
+  							 && n_extra > tab_len)
+  			    tab_len += n_extra - tab_len;
+  #endif
+  
+! 			/* if n_extra > 0, it gives the number of chars, to
+! 			 * use for a tab, else we need to calculate the width
+! 			 * for a tab */
+  			len = (tab_len * mb_char2len(lcs_tab2));
+  			if (n_extra > 0)
+  			    len += n_extra - tab_len;
+--- 4904,4932 ----
+  #ifdef FEAT_LINEBREAK
+  		    if (!wp->w_p_lbr || !wp->w_p_list)
+  #endif
+! 			// tab amount depends on current column
+  			n_extra = tab_len;
+  #ifdef FEAT_LINEBREAK
+  		    else
+  		    {
+! 			char_u	*p;
+  			int	len;
+  			int	i;
+  			int	saved_nextra = n_extra;
+  
+  #ifdef FEAT_CONCEAL
+  			if (vcol_off > 0)
+! 			    // there are characters to conceal
+  			    tab_len += vcol_off;
+! 			// boguscols before FIX_FOR_BOGUSCOLS macro from above
+  			if (wp->w_p_list && lcs_tab1 && old_boguscols > 0
+  							 && n_extra > tab_len)
+  			    tab_len += n_extra - tab_len;
+  #endif
+  
+! 			// if n_extra > 0, it gives the number of chars, to
+! 			// use for a tab, else we need to calculate the width
+! 			// for a tab
+  			len = (tab_len * mb_char2len(lcs_tab2));
+  			if (n_extra > 0)
+  			    len += n_extra - tab_len;
+***************
+*** 4939,4958 ****
+  			p_extra_free = p;
+  			for (i = 0; i < tab_len; i++)
+  			{
+  			    if (*p == NUL)
+  			    {
+  				tab_len = i;
+  				break;
+  			    }
+! 			    mb_char2bytes(lcs_tab2, p);
+! 			    p += mb_char2len(lcs_tab2);
+! 			    n_extra += mb_char2len(lcs_tab2)
+! 						 - (saved_nextra > 0 ? 1 : 0);
+  			}
+  			p_extra = p_extra_free;
+  #ifdef FEAT_CONCEAL
+! 			/* n_extra will be increased by FIX_FOX_BOGUSCOLS
+! 			 * macro below, so need to adjust for that here */
+  			if (vcol_off > 0)
+  			    n_extra -= vcol_off;
+  #endif
+--- 4938,4964 ----
+  			p_extra_free = p;
+  			for (i = 0; i < tab_len; i++)
+  			{
++ 			    int lcs = lcs_tab2;
++ 
+  			    if (*p == NUL)
+  			    {
+  				tab_len = i;
+  				break;
+  			    }
+! 
+! 			    // if lcs_tab3 is given, need to change the char
+! 			    // for tab
+! 			    if (lcs_tab3 && i == tab_len - 1)
+! 				lcs = lcs_tab3;
+! 			    mb_char2bytes(lcs, p);
+! 			    p += mb_char2len(lcs);
+! 			    n_extra += mb_char2len(lcs)
+! 						  - (saved_nextra > 0 ? 1 : 0);
+  			}
+  			p_extra = p_extra_free;
+  #ifdef FEAT_CONCEAL
+! 			// n_extra will be increased by FIX_FOX_BOGUSCOLS
+! 			// macro below, so need to adjust for that here
+  			if (vcol_off > 0)
+  			    n_extra -= vcol_off;
+  #endif
+*** ../vim-8.1.1867/src/testdir/test_listchars.vim	2019-05-08 20:20:42.596141850 +0200
+--- src/testdir/test_listchars.vim	2019-08-17 14:04:26.078816564 +0200
+***************
+*** 58,63 ****
+--- 58,83 ----
+      call assert_equal([expected[i - 1]], ScreenLines(i, virtcol('$')))
+    endfor
+  
++   " tab with 3rd character and linebreak set
++   set listchars-=tab:<=>
++   set listchars+=tab:<·>
++   set linebreak
++   let expected = [
++ 	      \ '<······>aa<····>$',
++ 	      \ '..bb<··>--$',
++ 	      \ '...cccc>-$',
++ 	      \ 'dd........ee--<>$',
++ 	      \ '-$'
++ 	      \ ]
++   redraw!
++   for i in range(1, 5)
++     call cursor(i, 1)
++     call assert_equal([expected[i - 1]], ScreenLines(i, virtcol('$')))
++   endfor
++   set nolinebreak
++   set listchars-=tab:<·>
++   set listchars+=tab:<=>
++ 
+    set listchars-=trail:-
+    let expected = [
+  	      \ '<======>aa<====>$',
+*** ../vim-8.1.1867/src/version.c	2019-08-17 13:18:12.642746852 +0200
+--- src/version.c	2019-08-17 14:10:36.184599089 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1868,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+77. The phone company asks you to test drive their new PBX system
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

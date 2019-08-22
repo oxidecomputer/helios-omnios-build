@@ -1,0 +1,285 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1804
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1804
+Problem:    No test for display updating without a scroll region.
+Solution:   Add a test.
+Files:	    src/testdir/test_display.vim, src/testdir/check.vim,
+            src/testdir/test_diffmode.vim,
+            src/testdir/dumps/Test_scroll_no_region_1.dump,
+            src/testdir/dumps/Test_scroll_no_region_2.dump,
+            src/testdir/dumps/Test_scroll_no_region_3.dump
+
+
+*** ../vim-8.1.1803/src/testdir/test_display.vim	2019-01-24 17:59:35.139217458 +0100
+--- src/testdir/test_display.vim	2019-08-03 22:52:58.696109027 +0200
+***************
+*** 4,14 ****
+  endif
+  
+  source view_util.vim
+  
+  func Test_display_foldcolumn()
+!   if !has("folding")
+!     return
+!   endif
+    new
+    vnew
+    vert resize 25
+--- 4,15 ----
+  endif
+  
+  source view_util.vim
++ source check.vim
++ source screendump.vim
+  
+  func Test_display_foldcolumn()
+!   CheckFeature folding
+! 
+    new
+    vnew
+    vert resize 25
+***************
+*** 24,33 ****
+  
+    call cursor(2, 1)
+    norm! zt
+!   let lines=ScreenLines([1,2], winwidth(0))
+    call assert_equal(expect, lines)
+    set fdc=2
+!   let lines=ScreenLines([1,2], winwidth(0))
+    let expect = [
+          \ "  e more noise blah blah<",
+          \ "  82> more stuff here    "
+--- 25,34 ----
+  
+    call cursor(2, 1)
+    norm! zt
+!   let lines = ScreenLines([1,2], winwidth(0))
+    call assert_equal(expect, lines)
+    set fdc=2
+!   let lines = ScreenLines([1,2], winwidth(0))
+    let expect = [
+          \ "  e more noise blah blah<",
+          \ "  82> more stuff here    "
+***************
+*** 39,47 ****
+  endfunc
+  
+  func Test_display_foldtext_mbyte()
+!   if !has("folding")
+!     return
+!   endif
+    call NewWindow(10, 40)
+    call append(0, range(1,20))
+    exe "set foldmethod=manual foldtext=foldtext() fillchars=fold:\u2500,vert:\u2502 fdc=2"
+--- 40,47 ----
+  endfunc
+  
+  func Test_display_foldtext_mbyte()
+!   CheckFeature folding
+! 
+    call NewWindow(10, 40)
+    call append(0, range(1,20))
+    exe "set foldmethod=manual foldtext=foldtext() fillchars=fold:\u2500,vert:\u2502 fdc=2"
+***************
+*** 67,69 ****
+--- 67,94 ----
+    set foldtext& fillchars& foldmethod& fdc&
+    bw!
+  endfunc
++ 
++ " check that win_ins_lines() and win_del_lines() work when t_cs is empty.
++ func Test_scroll_without_region()
++   CheckScreendump
++ 
++   let lines =<< trim END
++     call setline(1, range(1, 20))
++     set t_cs=
++     set laststatus=2
++   END
++   call writefile(lines, 'Xtestscroll')
++   let buf = RunVimInTerminal('-S Xtestscroll', #{rows: 10})
++ 
++   call VerifyScreenDump(buf, 'Test_scroll_no_region_1', {})
++ 
++   call term_sendkeys(buf, ":3delete\<cr>")
++   call VerifyScreenDump(buf, 'Test_scroll_no_region_2', {})
++ 
++   call term_sendkeys(buf, ":4put\<cr>")
++   call VerifyScreenDump(buf, 'Test_scroll_no_region_3', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('Xtestscroll')
++ endfunc
+*** ../vim-8.1.1803/src/testdir/check.vim	2019-07-29 22:10:04.309414434 +0200
+--- src/testdir/check.vim	2019-08-03 22:39:47.377863913 +0200
+***************
+*** 37,39 ****
+--- 37,56 ----
+      throw 'Skipped: only works on Unix'
+    endif
+  endfunc
++ 
++ " Command to check that making screendumps is supported.
++ " Caller must source screendump.vim
++ command CheckScreendump call CheckScreendump()
++ func CheckScreendump()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ endfunc
++ 
++ " Command to check that we can Run Vim in a terminal window
++ command CheckRunVimInTerminal call CheckRunVimInTerminal()
++ func CheckRunVimInTerminal()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot run Vim in a terminal window'
++   endif
++ endfunc
+*** ../vim-8.1.1803/src/testdir/test_diffmode.vim	2019-07-14 17:26:42.692482795 +0200
+--- src/testdir/test_diffmode.vim	2019-08-03 22:40:17.309643282 +0200
+***************
+*** 1,6 ****
+--- 1,7 ----
+  " Tests for diff mode
+  source shared.vim
+  source screendump.vim
++ source check.vim
+  
+  func Test_diff_fold_sync()
+    enew!
+***************
+*** 748,756 ****
+  endfunc
+  
+  func Test_diff_screen()
+!   if !CanRunVimInTerminal() || !has('menu')
+!     throw 'Skipped: cannot make screendumps and/or menu feature missing'
+!   endif
+    " clean up already existing swap files, just in case
+    call delete('.Xfile1.swp')
+    call delete('.Xfile2.swp')
+--- 749,757 ----
+  endfunc
+  
+  func Test_diff_screen()
+!   CheckScreendump
+!   CheckFeature menu
+! 
+    " clean up already existing swap files, just in case
+    call delete('.Xfile1.swp')
+    call delete('.Xfile2.swp')
+***************
+*** 880,888 ****
+  endfunc
+  
+  func Test_diff_with_cursorline()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot run Vim in a terminal window'
+!   endif
+  
+    call writefile([
+  	\ 'hi CursorLine ctermbg=red ctermfg=white',
+--- 881,887 ----
+  endfunc
+  
+  func Test_diff_with_cursorline()
+!   CheckScreendump
+  
+    call writefile([
+  	\ 'hi CursorLine ctermbg=red ctermfg=white',
+***************
+*** 907,918 ****
+  endfunc
+  
+  func Test_diff_of_diff()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot run Vim in a terminal window'
+!   endif
+!   if !has("rightleft")
+!     throw 'Skipped: rightleft not supported'
+!   endif
+  
+    call writefile([
+  	\ 'call setline(1, ["aa","bb","cc","@@ -3,2 +5,7 @@","dd","ee","ff"])',
+--- 906,913 ----
+  endfunc
+  
+  func Test_diff_of_diff()
+!   CheckScreendump
+!   CheckFeature rightleft
+  
+    call writefile([
+  	\ 'call setline(1, ["aa","bb","cc","@@ -3,2 +5,7 @@","dd","ee","ff"])',
+*** ../vim-8.1.1803/src/testdir/dumps/Test_scroll_no_region_1.dump	2019-08-03 22:54:42.819358812 +0200
+--- src/testdir/dumps/Test_scroll_no_region_1.dump	2019-08-03 22:53:06.624051876 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @73
++ |5| @73
++ |6| @73
++ |7| @73
++ |8| @73
++ |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @43|1|,|1| @11|T|o|p
++ | +0&&@74
+*** ../vim-8.1.1803/src/testdir/dumps/Test_scroll_no_region_2.dump	2019-08-03 22:54:42.823358784 +0200
+--- src/testdir/dumps/Test_scroll_no_region_2.dump	2019-08-03 22:53:07.680044264 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ |1+0&#ffffff0| @73
++ |2| @73
++ >4| @73
++ |5| @73
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @43|3|,|1| @11|T|o|p
++ | +0&&@74
+*** ../vim-8.1.1803/src/testdir/dumps/Test_scroll_no_region_3.dump	2019-08-03 22:54:42.827358754 +0200
+--- src/testdir/dumps/Test_scroll_no_region_3.dump	2019-08-03 22:53:08.732036678 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ |1+0&#ffffff0| @73
++ |2| @73
++ |4| @73
++ |5| @73
++ >3| @73
++ |6| @73
++ |7| @73
++ |8| @73
++ |[+3&&|N|o| |N|a|m|e|]| |[|+|]| @43|5|,|1| @11|T|o|p
++ | +0&&@74
+*** ../vim-8.1.1803/src/version.c	2019-08-03 21:58:17.753476626 +0200
+--- src/version.c	2019-08-03 22:54:02.823646886 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1804,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+22. You've already visited all the links at Yahoo and you're halfway through
+    Lycos.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

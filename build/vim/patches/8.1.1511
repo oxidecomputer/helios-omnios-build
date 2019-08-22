@@ -1,0 +1,131 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1511
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1511
+Problem:    Matches in a popup window are not displayed properly.
+Solution:   Do display matches in a popup window. (closes #4517)
+Files:	    src/screen.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_matches.dump
+
+
+*** ../vim-8.1.1510/src/screen.c	2019-06-08 19:00:58.065909757 +0200
+--- src/screen.c	2019-06-09 17:53:39.535603105 +0200
+***************
+*** 3957,3968 ****
+      /*
+       * Handle highlighting the last used search pattern and matches.
+       * Do this for both search_hl and the match list.
+!      * Not in a popup window.
+       */
+      cur = wp->w_match_head;
+!     shl_flag = FALSE;
+!     while ((cur != NULL || shl_flag == FALSE) && !number_only
+! 					   && !(screen_line_flags & SLF_POPUP))
+      {
+  	if (shl_flag == FALSE)
+  	{
+--- 3957,3967 ----
+      /*
+       * Handle highlighting the last used search pattern and matches.
+       * Do this for both search_hl and the match list.
+!      * Do not use search_hl in a popup window.
+       */
+      cur = wp->w_match_head;
+!     shl_flag = (screen_line_flags & SLF_POPUP);
+!     while ((cur != NULL || shl_flag == FALSE) && !number_only)
+      {
+  	if (shl_flag == FALSE)
+  	{
+***************
+*** 4438,4444 ****
+  		 */
+  		v = (long)(ptr - line);
+  		cur = wp->w_match_head;
+! 		shl_flag = FALSE;
+  		while (cur != NULL || shl_flag == FALSE)
+  		{
+  		    if (shl_flag == FALSE
+--- 4437,4443 ----
+  		 */
+  		v = (long)(ptr - line);
+  		cur = wp->w_match_head;
+! 		shl_flag = (screen_line_flags & SLF_POPUP);
+  		while (cur != NULL || shl_flag == FALSE)
+  		{
+  		    if (shl_flag == FALSE
+*** ../vim-8.1.1510/src/testdir/test_popupwin.vim	2019-06-08 19:00:58.065909757 +0200
+--- src/testdir/test_popupwin.vim	2019-06-09 17:51:32.236509899 +0200
+***************
+*** 188,193 ****
+--- 188,219 ----
+    call delete('XtestPopup')
+  endfunc
+  
++ func Test_popup_with_matches()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++   let lines =<< trim END
++ 	call setline(1, ['111 222 333', '444 555 666'])
++ 	let winid = popup_create([
++ 	    \ '111 222 333',
++ 	    \ '444 555 666',
++ 	    \], {'line': 3, 'col': 10, 'border': []})
++ 	set hlsearch
++ 	/666
++ 	call matchadd('ErrorMsg', '111')
++ 	call matchadd('ErrorMsg', '444')
++ 	call win_execute(winid, "call matchadd('ErrorMsg', '111')")
++ 	call win_execute(winid, "call matchadd('ErrorMsg', '555')")
++   END
++   call writefile(lines, 'XtestPopupMatches')
++   let buf = RunVimInTerminal('-S XtestPopupMatches', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_matches', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupMatches')
++ endfunc
++ 
+  func Test_popup_all_corners()
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+*** ../vim-8.1.1510/src/testdir/dumps/Test_popupwin_matches.dump	2019-06-09 17:55:07.746991967 +0200
+--- src/testdir/dumps/Test_popupwin_matches.dump	2019-06-09 17:53:52.231514347 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ |1+0#ffffff16#e000002@2| +0#0000000#ffffff0|2@2| |3@2| @63
++ >4+0#ffffff16#e000002@2| +0#0000000#ffffff0|5@2| |6+0&#ffff4012@2| +0&#ffffff0@63
++ |~+0#4040ff13&| @7|╔+0#0000001#ffd7ff255|═@10|╗| +0#4040ff13#ffffff0@52
++ |~| @7|║+0#0000001#ffd7ff255|1+0#ffffff16#e000002@2| +0#0000001#ffd7ff255|2@2| |3@2|║| +0#4040ff13#ffffff0@52
++ |~| @7|║+0#0000001#ffd7ff255|4@2| |5+0#ffffff16#e000002@2| +0#0000001#ffd7ff255|6@2|║| +0#4040ff13#ffffff0@52
++ |~| @7|╚+0#0000001#ffd7ff255|═@10|╝| +0#4040ff13#ffffff0@52
++ |~| @73
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|2|,|1| @10|A|l@1| 
+*** ../vim-8.1.1510/src/version.c	2019-06-09 17:21:48.657261063 +0200
+--- src/version.c	2019-06-09 17:45:40.347238051 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1511,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+135. You cut classes or miss work so you can stay home and browse the web.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

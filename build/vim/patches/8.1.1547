@@ -1,0 +1,316 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1547
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1547
+Problem:    Functionality of bt_nofile() is confusing.
+Solution:   Split into bt_nofile() and bt_nofilename().
+Files:	    src/buffer.c, src/proto/buffer.pro, src/evalfunc.c, src/ex_cmds.c,
+            src/ex_docmd.c, src/fileio.c, src/popupmnu.c, src/quickfix.c
+
+
+*** ../vim-8.1.1546/src/buffer.c	2019-06-08 18:07:17.748161711 +0200
+--- src/buffer.c	2019-06-15 19:35:22.293234143 +0200
+***************
+*** 5698,5704 ****
+   * buffer.  This means the buffer name is not a file name.
+   */
+      int
+! bt_nofile(buf_T *buf)
+  {
+      return buf != NULL && ((buf->b_p_bt[0] == 'n' && buf->b_p_bt[2] == 'f')
+  	    || buf->b_p_bt[0] == 'a'
+--- 5698,5704 ----
+   * buffer.  This means the buffer name is not a file name.
+   */
+      int
+! bt_nofilename(buf_T *buf)
+  {
+      return buf != NULL && ((buf->b_p_bt[0] == 'n' && buf->b_p_bt[2] == 'f')
+  	    || buf->b_p_bt[0] == 'a'
+***************
+*** 5707,5712 ****
+--- 5707,5721 ----
+  }
+  
+  /*
++  * Return TRUE if "buf" has 'buftype' set to "nofile".
++  */
++     int
++ bt_nofile(buf_T *buf)
++ {
++     return buf != NULL && buf->b_p_bt[0] == 'n' && buf->b_p_bt[2] == 'f';
++ }
++ 
++ /*
+   * Return TRUE if "buf" is a "nowrite", "nofile", "terminal" or "prompt"
+   * buffer.
+   */
+***************
+*** 5772,5778 ****
+  
+      /* There is no _file_ when 'buftype' is "nofile", b_sfname
+       * contains the name as specified by the user. */
+!     if (bt_nofile(buf))
+      {
+  #ifdef FEAT_TERMINAL
+  	if (buf->b_term != NULL)
+--- 5781,5787 ----
+  
+      /* There is no _file_ when 'buftype' is "nofile", b_sfname
+       * contains the name as specified by the user. */
+!     if (bt_nofilename(buf))
+      {
+  #ifdef FEAT_TERMINAL
+  	if (buf->b_term != NULL)
+*** ../vim-8.1.1546/src/proto/buffer.pro	2019-05-25 19:51:03.772408479 +0200
+--- src/proto/buffer.pro	2019-06-15 19:34:59.165365805 +0200
+***************
+*** 62,67 ****
+--- 62,68 ----
+  int bt_help(buf_T *buf);
+  int bt_prompt(buf_T *buf);
+  int bt_popup(buf_T *buf);
++ int bt_nofilename(buf_T *buf);
+  int bt_nofile(buf_T *buf);
+  int bt_dontwrite(buf_T *buf);
+  int bt_dontwrite_msg(buf_T *buf);
+*** ../vim-8.1.1546/src/evalfunc.c	2019-06-12 22:42:05.020146044 +0200
+--- src/evalfunc.c	2019-06-15 19:31:01.330703171 +0200
+***************
+*** 1943,1949 ****
+  		if (buf->b_fname != NULL
+  			&& (path_with_url(buf->b_fname)
+  #ifdef FEAT_QUICKFIX
+! 			    || bt_nofile(buf)
+  #endif
+  			   )
+  			&& STRCMP(buf->b_fname, avar->vval.v_string) == 0)
+--- 1943,1949 ----
+  		if (buf->b_fname != NULL
+  			&& (path_with_url(buf->b_fname)
+  #ifdef FEAT_QUICKFIX
+! 			    || bt_nofilename(buf)
+  #endif
+  			   )
+  			&& STRCMP(buf->b_fname, avar->vval.v_string) == 0)
+*** ../vim-8.1.1546/src/ex_cmds.c	2019-05-28 23:08:12.060648736 +0200
+--- src/ex_cmds.c	2019-06-15 19:31:11.834644840 +0200
+***************
+*** 3399,3405 ****
+  		|| (buf->b_flags & BF_READERR))
+  	    && !p_wa
+  #ifdef FEAT_QUICKFIX
+! 	    && !bt_nofile(buf)
+  #endif
+  	    && vim_fexists(ffname))
+      {
+--- 3399,3405 ----
+  		|| (buf->b_flags & BF_READERR))
+  	    && !p_wa
+  #ifdef FEAT_QUICKFIX
+! 	    && !bt_nofilename(buf)
+  #endif
+  	    && vim_fexists(ffname))
+      {
+*** ../vim-8.1.1546/src/ex_docmd.c	2019-06-15 16:05:53.111933852 +0200
+--- src/ex_docmd.c	2019-06-15 19:31:40.146487188 +0200
+***************
+*** 9909,9915 ****
+  		    && wp->w_buffer->b_ffname != NULL
+  		    && !bt_help(wp->w_buffer)
+  #ifdef FEAT_QUICKFIX
+! 		    && !bt_nofile(wp->w_buffer)
+  #endif
+  		    )
+  	    {
+--- 9909,9915 ----
+  		    && wp->w_buffer->b_ffname != NULL
+  		    && !bt_help(wp->w_buffer)
+  #ifdef FEAT_QUICKFIX
+! 		    && !bt_nofilename(wp->w_buffer)
+  #endif
+  		    )
+  	    {
+***************
+*** 10236,10242 ****
+      if (wp->w_buffer->b_fname == NULL
+  #ifdef FEAT_QUICKFIX
+  	    /* When 'buftype' is "nofile" can't restore the window contents. */
+! 	    || bt_nofile(wp->w_buffer)
+  #endif
+         )
+  	return (ssop_flags & SSOP_BLANK);
+--- 10236,10242 ----
+      if (wp->w_buffer->b_fname == NULL
+  #ifdef FEAT_QUICKFIX
+  	    /* When 'buftype' is "nofile" can't restore the window contents. */
+! 	    || bt_nofilename(wp->w_buffer)
+  #endif
+         )
+  	return (ssop_flags & SSOP_BLANK);
+***************
+*** 10323,10329 ****
+  	 */
+  	if (wp->w_buffer->b_ffname != NULL
+  # ifdef FEAT_QUICKFIX
+! 		&& !bt_nofile(wp->w_buffer)
+  # endif
+  		)
+  	{
+--- 10323,10329 ----
+  	 */
+  	if (wp->w_buffer->b_ffname != NULL
+  # ifdef FEAT_QUICKFIX
+! 		&& !bt_nofilename(wp->w_buffer)
+  # endif
+  		)
+  	{
+*** ../vim-8.1.1546/src/fileio.c	2019-06-08 18:07:17.748161711 +0200
+--- src/fileio.c	2019-06-15 19:32:14.538295003 +0200
+***************
+*** 3160,3166 ****
+  	    && whole
+  	    && buf == curbuf
+  #ifdef FEAT_QUICKFIX
+! 	    && !bt_nofile(buf)
+  #endif
+  	    && !filtering
+  	    && (!append || vim_strchr(p_cpo, CPO_FNAMEAPP) != NULL)
+--- 3160,3166 ----
+  	    && whole
+  	    && buf == curbuf
+  #ifdef FEAT_QUICKFIX
+! 	    && !bt_nofilename(buf)
+  #endif
+  	    && !filtering
+  	    && (!append || vim_strchr(p_cpo, CPO_FNAMEAPP) != NULL)
+***************
+*** 3237,3243 ****
+  					 sfname, sfname, FALSE, curbuf, eap)))
+  	    {
+  #ifdef FEAT_QUICKFIX
+! 		if (overwriting && bt_nofile(curbuf))
+  		    nofile_err = TRUE;
+  		else
+  #endif
+--- 3237,3243 ----
+  					 sfname, sfname, FALSE, curbuf, eap)))
+  	    {
+  #ifdef FEAT_QUICKFIX
+! 		if (overwriting && bt_nofilename(curbuf))
+  		    nofile_err = TRUE;
+  		else
+  #endif
+***************
+*** 3270,3276 ****
+  	    else
+  	    {
+  #ifdef FEAT_QUICKFIX
+! 		if (overwriting && bt_nofile(curbuf))
+  		    nofile_err = TRUE;
+  		else
+  #endif
+--- 3270,3276 ----
+  	    else
+  	    {
+  #ifdef FEAT_QUICKFIX
+! 		if (overwriting && bt_nofilename(curbuf))
+  		    nofile_err = TRUE;
+  		else
+  #endif
+***************
+*** 3284,3290 ****
+  					 sfname, sfname, FALSE, curbuf, eap)))
+  	    {
+  #ifdef FEAT_QUICKFIX
+! 		if (overwriting && bt_nofile(curbuf))
+  		    nofile_err = TRUE;
+  		else
+  #endif
+--- 3284,3290 ----
+  					 sfname, sfname, FALSE, curbuf, eap)))
+  	    {
+  #ifdef FEAT_QUICKFIX
+! 		if (overwriting && bt_nofilename(curbuf))
+  		    nofile_err = TRUE;
+  		else
+  #endif
+***************
+*** 6083,6089 ****
+  
+      if (buf->b_fname != NULL
+  #ifdef FEAT_QUICKFIX
+! 	    && !bt_nofile(buf)
+  #endif
+  	    && !path_with_url(buf->b_fname)
+  	    && (force
+--- 6083,6089 ----
+  
+      if (buf->b_fname != NULL
+  #ifdef FEAT_QUICKFIX
+! 	    && !bt_nofilename(buf)
+  #endif
+  	    && !path_with_url(buf->b_fname)
+  	    && (force
+*** ../vim-8.1.1546/src/popupmnu.c	2019-06-08 16:01:10.643493653 +0200
+--- src/popupmnu.c	2019-06-15 19:34:15.097615956 +0200
+***************
+*** 727,733 ****
+  		if (!resized
+  			&& curbuf->b_nwindows == 1
+  			&& curbuf->b_fname == NULL
+! 			&& curbuf->b_p_bt[0] == 'n' && curbuf->b_p_bt[2] == 'f'
+  			&& curbuf->b_p_bh[0] == 'w')
+  		{
+  		    /* Already a "wipeout" buffer, make it empty. */
+--- 727,733 ----
+  		if (!resized
+  			&& curbuf->b_nwindows == 1
+  			&& curbuf->b_fname == NULL
+! 			&& bt_nofile(curbuf)
+  			&& curbuf->b_p_bh[0] == 'w')
+  		{
+  		    /* Already a "wipeout" buffer, make it empty. */
+*** ../vim-8.1.1546/src/quickfix.c	2019-06-07 21:37:10.409300183 +0200
+--- src/quickfix.c	2019-06-15 19:34:44.665448224 +0200
+***************
+*** 4135,4141 ****
+      // Set the options for the quickfix buffer/window (if not already done)
+      // Do this even if the quickfix buffer was already present, as an autocmd
+      // might have previously deleted (:bdelete) the quickfix buffer.
+!     if (curbuf->b_p_bt[0] != 'q')
+  	qf_set_cwindow_options();
+  
+      // Only set the height when still in the same tab page and there is no
+--- 4135,4141 ----
+      // Set the options for the quickfix buffer/window (if not already done)
+      // Do this even if the quickfix buffer was already present, as an autocmd
+      // might have previously deleted (:bdelete) the quickfix buffer.
+!     if (bt_quickfix(curbuf))
+  	qf_set_cwindow_options();
+  
+      // Only set the height when still in the same tab page and there is no
+*** ../vim-8.1.1546/src/version.c	2019-06-15 18:40:11.044368488 +0200
+--- src/version.c	2019-06-15 19:36:17.300920114 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1547,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+194. Your business cards contain your e-mail and home page address.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

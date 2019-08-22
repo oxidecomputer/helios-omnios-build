@@ -1,0 +1,578 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1787
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1787
+Problem:    Cannot resize a popup window.
+Solution:   Allow for resizing by dragging the lower right corncer.
+Files:	    runtime/doc/popup.txt, src/popupwin.c, src/structs.h, src/vim.h,
+            src/ui.c src/testdir/test_popupwin.vim,
+            testdir/dumps/Test_popupwin_drag_01.dump,
+            testdir/dumps/Test_popupwin_drag_02.dump,
+            testdir/dumps/Test_popupwin_drag_03.dump,
+            testdir/dumps/Test_popupwin_previewpopup_1.dump,
+            testdir/dumps/Test_popupwin_previewpopup_2.dump,
+            testdir/dumps/Test_popupwin_previewpopup_3.dump,
+            testdir/dumps/Test_popupwin_previewpopup_4.dump
+
+*** ../vim-8.1.1786/runtime/doc/popup.txt	2019-07-28 17:57:04.845046867 +0200
+--- runtime/doc/popup.txt	2019-08-01 16:28:05.649978230 +0200
+***************
+*** 434,439 ****
+--- 434,440 ----
+  			callback
+  			close
+  			drag
++ 			resize
+  			cursorline
+  			filter
+  			firstline
+***************
+*** 515,524 ****
+  			padding.
+  	minheight	Minimum height of the contents, excluding border and
+  			padding.
+! 	maxwidth	Maximum width of the contents, excluding border and
+! 			padding.
+! 	minwidth	Minimum width of the contents, excluding border and
+! 			padding.
+  	firstline	First buffer line to display.  When larger than one it
+  			looks like the text scrolled up.  When out of range
+  			the last buffer line will at the top of the window.
+--- 516,525 ----
+  			padding.
+  	minheight	Minimum height of the contents, excluding border and
+  			padding.
+! 	maxwidth	Maximum width of the contents, excluding border,
+! 			padding and scrollbar.
+! 	minwidth	Minimum width of the contents, excluding border,
+! 			padding and scrollbar.
+  	firstline	First buffer line to display.  When larger than one it
+  			looks like the text scrolled up.  When out of range
+  			the last buffer line will at the top of the window.
+***************
+*** 542,547 ****
+--- 543,551 ----
+  			popup does not have a border. As soon as dragging
+  			starts and "pos" is "center" it is changed to
+  			"topleft".
++ 	resize		TRUE to allow the popup to be resized with the mouse
++ 			by grabbing at at the bottom right cornder.  Has no
++ 			effect if the popup does not have a border.
+  	close		When "button" an X is displayed in the top-right, on
+  			top of any border, padding or text.  When clicked on
+  			the X the popup will close.  Any callback is invoked
+*** ../vim-8.1.1786/src/popupwin.c	2019-08-01 15:52:42.516863960 +0200
+--- src/popupwin.c	2019-08-01 17:29:15.529491451 +0200
+***************
+*** 235,247 ****
+  static int drag_start_col;
+  static int drag_start_wantline;
+  static int drag_start_wantcol;
+  
+  /*
+   * Mouse down on border of popup window: start dragging it.
+   * Uses mouse_col and mouse_row.
+   */
+      void
+! popup_start_drag(win_T *wp)
+  {
+      drag_start_row = mouse_row;
+      drag_start_col = mouse_col;
+--- 235,248 ----
+  static int drag_start_col;
+  static int drag_start_wantline;
+  static int drag_start_wantcol;
++ static int drag_on_resize_handle;
+  
+  /*
+   * Mouse down on border of popup window: start dragging it.
+   * Uses mouse_col and mouse_row.
+   */
+      void
+! popup_start_drag(win_T *wp, int row, int col)
+  {
+      drag_start_row = mouse_row;
+      drag_start_col = mouse_col;
+***************
+*** 258,267 ****
+      // Stop centering the popup
+      if (wp->w_popup_pos == POPPOS_CENTER)
+  	wp->w_popup_pos = POPPOS_TOPLEFT;
+  }
+  
+  /*
+!  * Mouse moved while dragging a popup window: adjust the window popup position.
+   */
+      void
+  popup_drag(win_T *wp)
+--- 259,284 ----
+      // Stop centering the popup
+      if (wp->w_popup_pos == POPPOS_CENTER)
+  	wp->w_popup_pos = POPPOS_TOPLEFT;
++ 
++     drag_on_resize_handle = wp->w_popup_border[1] > 0
++ 			    && wp->w_popup_border[2] > 0
++ 			    && row == popup_height(wp) - 1
++ 			    && col == popup_width(wp) - 1;
++ 
++     if (wp->w_popup_pos != POPPOS_TOPLEFT && drag_on_resize_handle)
++     {
++ 	if (wp->w_popup_pos == POPPOS_TOPRIGHT
++ 		|| wp->w_popup_pos == POPPOS_BOTRIGHT)
++ 	    wp->w_wantcol = wp->w_wincol + 1;
++ 	if (wp->w_popup_pos == POPPOS_BOTLEFT)
++ 	    wp->w_wantline = wp->w_winrow + 1;
++ 	wp->w_popup_pos = POPPOS_TOPLEFT;
++     }
+  }
+  
+  /*
+!  * Mouse moved while dragging a popup window: adjust the window popup position
+!  * or resize.
+   */
+      void
+  popup_drag(win_T *wp)
+***************
+*** 270,275 ****
+--- 287,325 ----
+      if (!win_valid_popup(wp))
+  	return;
+  
++     if ((wp->w_popup_flags & POPF_RESIZE) && drag_on_resize_handle)
++     {
++ 	int width_inc = mouse_col - drag_start_col;
++ 	int height_inc = mouse_row - drag_start_row;
++ 
++ 	if (width_inc != 0)
++ 	{
++ 	    int width = wp->w_width + width_inc;
++ 
++ 	    if (width < 1)
++ 		width = 1;
++ 	    wp->w_minwidth = width;
++ 	    wp->w_maxwidth = width;
++ 	    drag_start_col = mouse_col;
++ 	}
++ 
++ 	if (height_inc != 0)
++ 	{
++ 	    int height = wp->w_height + height_inc;
++ 
++ 	    if (height < 1)
++ 		height = 1;
++ 	    wp->w_minheight = height;
++ 	    wp->w_maxheight = height;
++ 	    drag_start_row = mouse_row;
++ 	}
++ 
++ 	popup_adjust_position(wp);
++ 	return;
++     }
++ 
++     if (!(wp->w_popup_flags & POPF_DRAG))
++ 	return;
+      wp->w_wantline = drag_start_wantline + (mouse_row - drag_start_row);
+      if (wp->w_wantline < 1)
+  	wp->w_wantline = 1;
+***************
+*** 550,556 ****
+  
+      di = dict_find(dict, (char_u *)"drag", -1);
+      if (di != NULL)
+! 	wp->w_popup_drag = dict_get_number(dict, (char_u *)"drag");
+  
+      di = dict_find(dict, (char_u *)"close", -1);
+      if (di != NULL)
+--- 600,622 ----
+  
+      di = dict_find(dict, (char_u *)"drag", -1);
+      if (di != NULL)
+!     {
+! 	nr = dict_get_number(dict, (char_u *)"drag");
+! 	if (nr)
+! 	    wp->w_popup_flags |= POPF_DRAG;
+! 	else
+! 	    wp->w_popup_flags &= ~POPF_DRAG;
+!     }
+! 
+!     di = dict_find(dict, (char_u *)"resize", -1);
+!     if (di != NULL)
+!     {
+! 	nr = dict_get_number(dict, (char_u *)"resize");
+! 	if (nr)
+! 	    wp->w_popup_flags |= POPF_RESIZE;
+! 	else
+! 	    wp->w_popup_flags &= ~POPF_RESIZE;
+!     }
+  
+      di = dict_find(dict, (char_u *)"close", -1);
+      if (di != NULL)
+***************
+*** 1477,1483 ****
+  	wp->w_wantcol = 10;
+  	wp->w_zindex = POPUPWIN_NOTIFICATION_ZINDEX;
+  	wp->w_minwidth = 20;
+! 	wp->w_popup_drag = 1;
+  	wp->w_popup_close = POPCLOSE_CLICK;
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+--- 1543,1549 ----
+  	wp->w_wantcol = 10;
+  	wp->w_zindex = POPUPWIN_NOTIFICATION_ZINDEX;
+  	wp->w_minwidth = 20;
+! 	wp->w_popup_flags |= POPF_DRAG;
+  	wp->w_popup_close = POPCLOSE_CLICK;
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+***************
+*** 1494,1500 ****
+      {
+  	wp->w_popup_pos = POPPOS_CENTER;
+  	wp->w_zindex = POPUPWIN_DIALOG_ZINDEX;
+! 	wp->w_popup_drag = 1;
+  	for (i = 0; i < 4; ++i)
+  	{
+  	    wp->w_popup_border[i] = 1;
+--- 1560,1566 ----
+      {
+  	wp->w_popup_pos = POPPOS_CENTER;
+  	wp->w_zindex = POPUPWIN_DIALOG_ZINDEX;
+! 	wp->w_popup_flags |= POPF_DRAG;
+  	for (i = 0; i < 4; ++i)
+  	{
+  	    wp->w_popup_border[i] = 1;
+***************
+*** 1519,1525 ****
+  
+      if (type == TYPE_PREVIEW)
+      {
+! 	wp->w_popup_drag = 1;
+  	wp->w_popup_close = POPCLOSE_BUTTON;
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+--- 1585,1591 ----
+  
+      if (type == TYPE_PREVIEW)
+      {
+! 	wp->w_popup_flags |= POPF_DRAG | POPF_RESIZE;
+  	wp->w_popup_close = POPCLOSE_BUTTON;
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+***************
+*** 1707,1713 ****
+      int	row = mouse_row;
+      int	col = mouse_col;
+  
+!     if (wp->w_popup_drag
+  	    && is_mouse_key(c)
+  	    && (wp == popup_dragwin
+  			  || wp == mouse_find_win(&row, &col, FIND_POPUP)))
+--- 1773,1779 ----
+      int	row = mouse_row;
+      int	col = mouse_col;
+  
+!     if ((wp->w_popup_flags & POPF_DRAG)
+  	    && is_mouse_key(c)
+  	    && (wp == popup_dragwin
+  			  || wp == mouse_find_win(&row, &col, FIND_POPUP)))
+***************
+*** 2244,2250 ****
+  	dict_add_number(dict, "fixed", wp->w_popup_fixed);
+  	dict_add_string(dict, "title", wp->w_popup_title);
+  	dict_add_number(dict, "wrap", wp->w_p_wrap);
+! 	dict_add_number(dict, "drag", wp->w_popup_drag);
+  	dict_add_number(dict, "cursorline",
+  				   (wp->w_popup_flags & POPF_CURSORLINE) != 0);
+  	dict_add_string(dict, "highlight", wp->w_p_wcr);
+--- 2310,2317 ----
+  	dict_add_number(dict, "fixed", wp->w_popup_fixed);
+  	dict_add_string(dict, "title", wp->w_popup_title);
+  	dict_add_number(dict, "wrap", wp->w_p_wrap);
+! 	dict_add_number(dict, "drag", (wp->w_popup_flags & POPF_DRAG) != 0);
+! 	dict_add_number(dict, "resize", (wp->w_popup_flags & POPF_RESIZE) != 0);
+  	dict_add_number(dict, "cursorline",
+  				   (wp->w_popup_flags & POPF_CURSORLINE) != 0);
+  	dict_add_string(dict, "highlight", wp->w_p_wcr);
+***************
+*** 2811,2817 ****
+  	    border_char[1] = border_char[3] = 0x2551;
+  	    border_char[4] = 0x2554;
+  	    border_char[5] = 0x2557;
+! 	    border_char[6] = 0x255d;
+  	    border_char[7] = 0x255a;
+  	}
+  	else
+--- 2878,2885 ----
+  	    border_char[1] = border_char[3] = 0x2551;
+  	    border_char[4] = 0x2554;
+  	    border_char[5] = 0x2557;
+! 	    border_char[6] = (wp->w_popup_flags & POPF_RESIZE)
+! 							     ? 0x21f2 : 0x255d;
+  	    border_char[7] = 0x255a;
+  	}
+  	else
+***************
+*** 2820,2825 ****
+--- 2888,2895 ----
+  	    border_char[1] = border_char[3] = '|';
+  	    for (i = 4; i < 8; ++i)
+  		border_char[i] = '+';
++ 	    if (wp->w_popup_flags & POPF_RESIZE)
++ 		border_char[6] = '@';
+  	}
+  	for (i = 0; i < 8; ++i)
+  	    if (wp->w_border_char[i] != 0)
+*** ../vim-8.1.1786/src/structs.h	2019-08-01 14:26:53.200455812 +0200
+--- src/structs.h	2019-08-01 16:31:18.752640219 +0200
+***************
+*** 3017,3023 ****
+      int		w_popup_mouse_row;  // close popup if mouse moves away
+      int		w_popup_mouse_mincol;  // close popup if mouse moves away
+      int		w_popup_mouse_maxcol;  // close popup if mouse moves away
+-     int		w_popup_drag;	    // allow moving the popup with the mouse
+      popclose_T	w_popup_close;	    // allow closing the popup with the mouse
+  
+      list_T	*w_popup_mask;	     // list of lists for "mask"
+--- 3017,3022 ----
+*** ../vim-8.1.1786/src/vim.h	2019-07-28 21:42:23.177406571 +0200
+--- src/vim.h	2019-08-01 16:31:07.788715674 +0200
+***************
+*** 614,624 ****
+  #define VALID_TOPLINE	0x80	// w_topline is valid (for cursor position)
+  
+  // Values for w_popup_flags.
+! #define POPF_IS_POPUP	1	// this is a popup window
+! #define POPF_HIDDEN	2	// popup is not displayed
+! #define POPF_HANDLED	4	// popup was just redrawn or filtered
+! #define POPF_CURSORLINE	8	// popup is highlighting at the cursorline
+! #define POPF_ON_CMDLINE	16	// popup overlaps command line
+  
+  #ifdef FEAT_TEXT_PROP
+  # define WIN_IS_POPUP(wp) ((wp)->w_popup_flags != 0)
+--- 614,626 ----
+  #define VALID_TOPLINE	0x80	// w_topline is valid (for cursor position)
+  
+  // Values for w_popup_flags.
+! #define POPF_IS_POPUP	0x01	// this is a popup window
+! #define POPF_HIDDEN	0x02	// popup is not displayed
+! #define POPF_HANDLED	0x04	// popup was just redrawn or filtered
+! #define POPF_CURSORLINE	0x08	// popup is highlighting at the cursorline
+! #define POPF_ON_CMDLINE	0x10	// popup overlaps command line
+! #define POPF_DRAG	0x20	// popup can be moved by dragging
+! #define POPF_RESIZE	0x40	// popup can be resized by dragging
+  
+  #ifdef FEAT_TEXT_PROP
+  # define WIN_IS_POPUP(wp) ((wp)->w_popup_flags != 0)
+*** ../vim-8.1.1786/src/ui.c	2019-08-01 15:52:42.516863960 +0200
+--- src/ui.c	2019-08-01 16:48:44.369587105 +0200
+***************
+*** 3067,3076 ****
+  		popup_close_for_mouse_click(wp);
+  		return IN_UNKNOWN;
+  	    }
+! 	    else if (wp->w_popup_drag && popup_on_border(wp, row, col))
+  	    {
+  		popup_dragwin = wp;
+! 		popup_start_drag(wp);
+  		return IN_UNKNOWN;
+  	    }
+  	    // Only close on release, otherwise it's not possible to drag or do
+--- 3067,3077 ----
+  		popup_close_for_mouse_click(wp);
+  		return IN_UNKNOWN;
+  	    }
+! 	    else if ((wp->w_popup_flags & (POPF_DRAG | POPF_RESIZE))
+! 					      && popup_on_border(wp, row, col))
+  	    {
+  		popup_dragwin = wp;
+! 		popup_start_drag(wp, row, col);
+  		return IN_UNKNOWN;
+  	    }
+  	    // Only close on release, otherwise it's not possible to drag or do
+*** ../vim-8.1.1786/src/testdir/test_popupwin.vim	2019-07-28 21:42:23.181406545 +0200
+--- src/testdir/test_popupwin.vim	2019-08-01 21:01:51.734738039 +0200
+***************
+*** 354,359 ****
+--- 354,360 ----
+  	call setline(1, range(1, 20))
+  	let winid = popup_create(['1111', '222222', '33333'], #{
+  	      \ drag: 1,
++ 	      \ resize: 1,
+  	      \ border: [],
+  	      \ line: &lines - 4,
+  	      \ })
+***************
+*** 362,367 ****
+--- 363,373 ----
+  	endfunc
+  	map <silent> <F3> :call test_setmouse(&lines - 4, &columns / 2)<CR>
+  	map <silent> <F4> :call test_setmouse(&lines - 8, &columns / 2)<CR>
++ 	func Resize()
++ 	  call feedkeys("\<F5>\<LeftMouse>\<F6>\<LeftDrag>\<LeftRelease>", "xt")
++ 	endfunc
++ 	map <silent> <F5> :call test_setmouse(6, 41)<CR>
++ 	map <silent> <F6> :call test_setmouse(7, 45)<CR>
+    END
+    call writefile(lines, 'XtestPopupDrag')
+    let buf = RunVimInTerminal('-S XtestPopupDrag', #{rows: 10})
+***************
+*** 370,375 ****
+--- 376,384 ----
+    call term_sendkeys(buf, ":call Dragit()\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_drag_02', {})
+  
++   call term_sendkeys(buf, ":call Resize()\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_drag_03', {})
++ 
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupDrag')
+*** ../vim-8.1.1786/src/testdir/dumps/Test_popupwin_drag_01.dump	2019-06-16 19:05:08.714676794 +0200
+--- src/testdir/dumps/Test_popupwin_drag_01.dump	2019-08-01 21:02:06.458625528 +0200
+***************
+*** 7,10 ****
+  |7| @31|║+0#0000001#ffd7ff255|1@3| @1|║| +0#0000000#ffffff0@33
+  |8| @31|║+0#0000001#ffd7ff255|2@5|║| +0#0000000#ffffff0@33
+  |9| @31|║+0#0000001#ffd7ff255|3@4| |║| +0#0000000#ffffff0@33
+! @33|╚+0#0000001#ffd7ff255|═@5|╝| +0#0000000#ffffff0@15|1|,|1| @10|T|o|p| 
+--- 7,10 ----
+  |7| @31|║+0#0000001#ffd7ff255|1@3| @1|║| +0#0000000#ffffff0@33
+  |8| @31|║+0#0000001#ffd7ff255|2@5|║| +0#0000000#ffffff0@33
+  |9| @31|║+0#0000001#ffd7ff255|3@4| |║| +0#0000000#ffffff0@33
+! @33|╚+0#0000001#ffd7ff255|═@5|⇲| +0#0000000#ffffff0@15|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1786/src/testdir/dumps/Test_popupwin_drag_02.dump	2019-06-16 19:05:08.714676794 +0200
+--- src/testdir/dumps/Test_popupwin_drag_02.dump	2019-08-01 21:02:07.514617465 +0200
+***************
+*** 3,9 ****
+  |3| @31|║+0#0000001#ffd7ff255|1@3| @1|║| +0#0000000#ffffff0@33
+  |4| @31|║+0#0000001#ffd7ff255|2@5|║| +0#0000000#ffffff0@33
+  |5| @31|║+0#0000001#ffd7ff255|3@4| |║| +0#0000000#ffffff0@33
+! |6| @31|╚+0#0000001#ffd7ff255|═@5|╝| +0#0000000#ffffff0@33
+  |7| @73
+  |8| @73
+  |9| @73
+--- 3,9 ----
+  |3| @31|║+0#0000001#ffd7ff255|1@3| @1|║| +0#0000000#ffffff0@33
+  |4| @31|║+0#0000001#ffd7ff255|2@5|║| +0#0000000#ffffff0@33
+  |5| @31|║+0#0000001#ffd7ff255|3@4| |║| +0#0000000#ffffff0@33
+! |6| @31|╚+0#0000001#ffd7ff255|═@5|⇲| +0#0000000#ffffff0@33
+  |7| @73
+  |8| @73
+  |9| @73
+*** ../vim-8.1.1786/src/testdir/dumps/Test_popupwin_drag_03.dump	2019-08-01 21:09:14.635420231 +0200
+--- src/testdir/dumps/Test_popupwin_drag_03.dump	2019-08-01 21:02:08.566609439 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @31|╔+0#0000001#ffd7ff255|═@9|╗| +0#0000000#ffffff0@29
++ |3| @31|║+0#0000001#ffd7ff255|1@3| @5|║| +0#0000000#ffffff0@29
++ |4| @31|║+0#0000001#ffd7ff255|2@5| @3|║| +0#0000000#ffffff0@29
++ |5| @31|║+0#0000001#ffd7ff255|3@4| @4|║| +0#0000000#ffffff0@29
++ |6| @31|║+0#0000001#ffd7ff255| +0#4040ff13&@9|║+0#0000001&| +0#0000000#ffffff0@29
++ |7| @31|╚+0#0000001#ffd7ff255|═@9|⇲| +0#0000000#ffffff0@29
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |R|e|s|i|z|e|(|)| @42|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1786/src/testdir/dumps/Test_popupwin_previewpopup_1.dump	2019-07-28 21:42:23.181406545 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_1.dump	2019-08-01 21:02:19.330527351 +0200
+***************
+*** 4,10 ****
+  |f|o|u|r| |║+0#0000001#ffd7ff255|t|h|e|w|o|r|d| |i|s| |h|e|r|e| @24| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+  |f|i|v|e| |║+0#0000001#ffd7ff255|2@1| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+  |s|i|x| @1|║+0#0000001#ffd7ff255|2|3| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+! |s|e|v|e|n|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@26
+  |f|i|n|d| >t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @52
+  |n|i|n|e| @70
+  |t|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @54
+--- 4,10 ----
+  |f|o|u|r| |║+0#0000001#ffd7ff255|t|h|e|w|o|r|d| |i|s| |h|e|r|e| @24| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+  |f|i|v|e| |║+0#0000001#ffd7ff255|2@1| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+  |s|i|x| @1|║+0#0000001#ffd7ff255|2|3| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+! |s|e|v|e|n|╚+0#0000001#ffd7ff255|═@40|⇲| +0#0000000#ffffff0@26
+  |f|i|n|d| >t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @52
+  |n|i|n|e| @70
+  |t|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @54
+*** ../vim-8.1.1786/src/testdir/dumps/Test_popupwin_previewpopup_2.dump	2019-07-28 21:42:23.181406545 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_2.dump	2019-08-01 21:02:20.390519271 +0200
+***************
+*** 6,12 ****
+  |s|i|x| @4|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |s|e|v|e|n| @2|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |f|i|n|d| |t|h|e|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+! |n|i|n|e| @3|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@23
+  |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
+  |v|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| |a|n|o|t|h|e|r| @29
+  |~+0#4040ff13&| @73
+--- 6,12 ----
+  |s|i|x| @4|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |s|e|v|e|n| @2|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |f|i|n|d| |t|h|e|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+! |n|i|n|e| @3|╚+0#0000001#ffd7ff255|═@40|⇲| +0#0000000#ffffff0@23
+  |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
+  |v|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| |a|n|o|t|h|e|r| @29
+  |~+0#4040ff13&| @73
+*** ../vim-8.1.1786/src/testdir/dumps/Test_popupwin_previewpopup_3.dump	2019-07-28 21:42:23.181406545 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_3.dump	2019-08-01 21:02:21.454511163 +0200
+***************
+*** 6,12 ****
+  |s|i|x| @10|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |s|e|v|e|n| @8|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |f|i|n|d| |t|h|e|w|o|r|d| |s|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+! |n|i|n|e| @9|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@17
+  |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
+  |v|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| |a|n|o|t|h|e|r| @29
+  |~+0#4040ff13&| @73
+--- 6,12 ----
+  |s|i|x| @10|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |s|e|v|e|n| @8|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |f|i|n|d| |t|h|e|w|o|r|d| |s|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+! |n|i|n|e| @9|╚+0#0000001#ffd7ff255|═@40|⇲| +0#0000000#ffffff0@17
+  |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
+  |v|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| |a|n|o|t|h|e|r| @29
+  |~+0#4040ff13&| @73
+*** ../vim-8.1.1786/src/testdir/dumps/Test_popupwin_previewpopup_4.dump	2019-07-28 21:42:23.181406545 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_4.dump	2019-08-01 21:07:02.820395859 +0200
+***************
+*** 7,13 ****
+  |s+0#0000000#ffffff0|e|v|e|n| @26|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
+  |f+0#0000000#ffffff0|i|n|d| |t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @9|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255
+  |n+0#0000000#ffffff0|i|n|e| @27|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
+! |t+0#0000000#ffffff0|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @11|╚+0#0000001#ffd7ff255|═@40|╝
+  |v+0#0000000#ffffff0|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| >a|n|o|t|h|e|r| @29
+  |~+0#4040ff13&| @73
+  |~| @73
+--- 7,13 ----
+  |s+0#0000000#ffffff0|e|v|e|n| @26|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
+  |f+0#0000000#ffffff0|i|n|d| |t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @9|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255
+  |n+0#0000000#ffffff0|i|n|e| @27|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
+! |t+0#0000000#ffffff0|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @11|╚+0#0000001#ffd7ff255|═@40|⇲
+  |v+0#0000000#ffffff0|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| >a|n|o|t|h|e|r| @29
+  |~+0#4040ff13&| @73
+  |~| @73
+*** ../vim-8.1.1786/src/version.c	2019-08-01 15:52:42.516863960 +0200
+--- src/version.c	2019-08-01 16:26:09.214796433 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1787,
+  /**/
+
+-- 
+Often you're less important than your furniture.  If you think about it, you
+can get fired but your furniture stays behind, gainfully employed at the
+company that didn't need _you_ anymore.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

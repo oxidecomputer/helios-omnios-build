@@ -1,0 +1,232 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1600
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1600
+Problem:    Cannot specify highlighting for popup window scrollbar.
+Solution:   Add "scrollbarhighlight" and "thumbhighlight" options.
+Files:	    src/popupwin.c, src/structs.h, src/window.c,
+            src/testdir/dumps/Test_popupwin_scroll_5.dump,
+            src/testdir/dumps/Test_popupwin_scroll_6.dump,
+            src/testdir/dumps/Test_popupwin_scroll_7.dump
+
+
+*** ../vim-8.1.1599/src/popupwin.c	2019-06-26 04:06:53.147706691 +0200
+--- src/popupwin.c	2019-06-26 05:08:07.293537465 +0200
+***************
+*** 269,274 ****
+--- 269,294 ----
+      get_pos_options(wp, d);
+  }
+  
++     static void
++ check_highlight(dict_T *dict, char *name, char_u **pval)
++ {
++     dictitem_T  *di;
++     char_u	*str;
++ 
++     di = dict_find(dict, (char_u *)name, -1);
++     if (di != NULL)
++     {
++ 	if (di->di_tv.v_type != VAR_STRING)
++ 	    semsg(_(e_invargval), name);
++ 	else
++ 	{
++ 	    str = tv_get_string(&di->di_tv);
++ 	    if (*str != NUL)
++ 		*pval = vim_strsave(str);
++ 	}
++     }
++ }
++ 
+  /*
+   * Shared between popup_create() and f_popup_setoptions().
+   */
+***************
+*** 375,380 ****
+--- 395,403 ----
+  	}
+      }
+  
++     check_highlight(dict, "scrollbarhighlight", &wp->w_scrollbar_highlight);
++     check_highlight(dict, "thumbhighlight", &wp->w_thumb_highlight);
++ 
+      di = dict_find(dict, (char_u *)"zindex", -1);
+      if (di != NULL)
+      {
+***************
+*** 1677,1682 ****
+--- 1700,1710 ----
+  	dict_add_number(dict, "wrap", wp->w_p_wrap);
+  	dict_add_number(dict, "drag", wp->w_popup_drag);
+  	dict_add_string(dict, "highlight", wp->w_p_wcr);
++ 	if (wp->w_scrollbar_highlight != NULL)
++ 	    dict_add_string(dict, "scrollbarhighlight",
++ 						    wp->w_scrollbar_highlight);
++ 	if (wp->w_thumb_highlight != NULL)
++ 	    dict_add_string(dict, "thumbhighlight", wp->w_thumb_highlight);
+  
+  	// find the tabpage that holds this popup
+  	i = 1;
+***************
+*** 2131,2138 ****
+      int	    i;
+      int	    sb_thumb_top = 0;
+      int	    sb_thumb_height = 0;
+!     int	    attr_scroll = highlight_attr[HLF_PSB];
+!     int	    attr_thumb = highlight_attr[HLF_PST];
+  
+      // Find the window with the lowest zindex that hasn't been updated yet,
+      // so that the window with a higher zindex is drawn later, thus goes on
+--- 2159,2166 ----
+      int	    i;
+      int	    sb_thumb_top = 0;
+      int	    sb_thumb_height = 0;
+!     int	    attr_scroll = 0;
+!     int	    attr_thumb = 0;
+  
+      // Find the window with the lowest zindex that hasn't been updated yet,
+      // so that the window with a higher zindex is drawn later, thus goes on
+***************
+*** 2246,2251 ****
+--- 2274,2287 ----
+  	    sb_thumb_top = (wp->w_topline - 1 + (linecount / wp->w_height) / 2)
+  				* (wp->w_height - sb_thumb_height)
+  						  / (linecount - wp->w_height);
++ 	    if (wp->w_scrollbar_highlight != NULL)
++ 		attr_scroll = syn_name2attr(wp->w_scrollbar_highlight);
++ 	    else
++ 		attr_scroll = highlight_attr[HLF_PSB];
++ 	    if (wp->w_thumb_highlight != NULL)
++ 		attr_thumb = syn_name2attr(wp->w_thumb_highlight);
++ 	    else
++ 		attr_thumb = highlight_attr[HLF_PST];
+  	}
+  
+  	for (i = wp->w_popup_border[0];
+*** ../vim-8.1.1599/src/structs.h	2019-06-25 05:15:15.188891898 +0200
+--- src/structs.h	2019-06-26 04:51:49.385405346 +0200
+***************
+*** 2904,2909 ****
+--- 2904,2911 ----
+      int		w_firstline;	    // "firstline" for popup window
+      int		w_want_scrollbar;   // when zero don't use a scrollbar
+      int		w_has_scrollbar;    // scrollbar displayed
++     char_u	*w_scrollbar_highlight; // "scrollbarhighlight"
++     char_u	*w_thumb_highlight; // "thumbhighlight"
+      int		w_popup_padding[4]; // popup padding top/right/bot/left
+      int		w_popup_border[4];  // popup border top/right/bot/left
+      char_u	*w_border_highlight[4];  // popup border highlight
+*** ../vim-8.1.1599/src/window.c	2019-06-23 00:15:02.577534926 +0200
+--- src/window.c	2019-06-26 04:52:27.985258767 +0200
+***************
+*** 4857,4862 ****
+--- 4857,4864 ----
+      free_callback(&wp->w_filter_cb);
+      for (i = 0; i < 4; ++i)
+  	VIM_CLEAR(wp->w_border_highlight[i]);
++     vim_free(wp->w_scrollbar_highlight);
++     vim_free(wp->w_thumb_highlight);
+      vim_free(wp->w_popup_title);
+      list_unref(wp->w_popup_mask);
+  #endif
+*** ../vim-8.1.1599/src/testdir/dumps/Test_popupwin_scroll_5.dump	2019-06-26 03:39:59.897650758 +0200
+--- src/testdir/dumps/Test_popupwin_scroll_5.dump	2019-06-26 05:10:46.368679729 +0200
+***************
+*** 1,10 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @73
+! |4| @31|o+0#0000001#ffd7ff255|n|e| @4| +0#0000000#0000001| +0&#ffffff0@32
+! |5| @31|t+0#0000001#ffd7ff255|w|o| @4| +0#0000000#0000001| +0&#ffffff0@32
+! |6| @31|t+0#0000001#ffd7ff255|h|r|e@1| @2| +0#0000000#a8a8a8255| +0&#ffffff0@32
+! |7| @31|f+0#0000001#ffd7ff255|o|u|r| @3| +0#0000000#a8a8a8255| +0&#ffffff0@32
+  |8| @73
+  |9| @73
+  |:|c|a|l@1| |S|c|r|o|l@1|U|p|(|)| @40|1|,|1| @10|T|o|p| 
+--- 1,10 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @73
+! |4| @31|o+0#0000001#ffd7ff255|n|e| @4| +0#0000000#4040ff13| +0&#ffffff0@32
+! |5| @31|t+0#0000001#ffd7ff255|w|o| @4| +0#0000000#4040ff13| +0&#ffffff0@32
+! |6| @31|t+0#0000001#ffd7ff255|h|r|e@1| @2| +0#0000000#ff404010| +0&#ffffff0@32
+! |7| @31|f+0#0000001#ffd7ff255|o|u|r| @3| +0#0000000#ff404010| +0&#ffffff0@32
+  |8| @73
+  |9| @73
+  |:|c|a|l@1| |S|c|r|o|l@1|U|p|(|)| @40|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1599/src/testdir/dumps/Test_popupwin_scroll_6.dump	2019-06-26 03:39:59.897650758 +0200
+--- src/testdir/dumps/Test_popupwin_scroll_6.dump	2019-06-26 05:10:47.416674294 +0200
+***************
+*** 1,10 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @73
+! |4| @31|t+0#0000001#ffd7ff255|h|r|e@1| @2| +0#0000000#a8a8a8255| +0&#ffffff0@32
+! |5| @31|f+0#0000001#ffd7ff255|o|u|r| @3| +0#0000000#0000001| +0&#ffffff0@32
+! |6| @31|f+0#0000001#ffd7ff255|i|v|e| @3| +0#0000000#0000001| +0&#ffffff0@32
+! |7| @31|s+0#0000001#ffd7ff255|i|x| @4| +0#0000000#a8a8a8255| +0&#ffffff0@32
+  |8| @73
+  |9| @73
+  |:|c|a|l@1| |S|c|r|o|l@1|D|o|w|n|(|)| @38|1|,|1| @10|T|o|p| 
+--- 1,10 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @73
+! |4| @31|t+0#0000001#ffd7ff255|h|r|e@1| @2| +0#0000000#ff404010| +0&#ffffff0@32
+! |5| @31|f+0#0000001#ffd7ff255|o|u|r| @3| +0#0000000#4040ff13| +0&#ffffff0@32
+! |6| @31|f+0#0000001#ffd7ff255|i|v|e| @3| +0#0000000#4040ff13| +0&#ffffff0@32
+! |7| @31|s+0#0000001#ffd7ff255|i|x| @4| +0#0000000#ff404010| +0&#ffffff0@32
+  |8| @73
+  |9| @73
+  |:|c|a|l@1| |S|c|r|o|l@1|D|o|w|n|(|)| @38|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1599/src/testdir/dumps/Test_popupwin_scroll_7.dump	2019-06-26 03:39:59.897650758 +0200
+--- src/testdir/dumps/Test_popupwin_scroll_7.dump	2019-06-26 05:10:48.468668840 +0200
+***************
+*** 1,10 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @73
+! |4| @31|s+0#0000001#ffd7ff255|i|x| @4| +0#0000000#a8a8a8255| +0&#ffffff0@32
+! |5| @31|s+0#0000001#ffd7ff255|e|v|e|n| @2| +0#0000000#a8a8a8255| +0&#ffffff0@32
+! |6| @31|e+0#0000001#ffd7ff255|i|g|h|t| @2| +0#0000000#0000001| +0&#ffffff0@32
+! |7| @31|n+0#0000001#ffd7ff255|i|n|e| @3| +0#0000000#0000001| +0&#ffffff0@32
+  |8| @73
+  |9| @73
+  |:|c|a|l@1| |S|c|r|o|l@1|D|o|w|n|(|)| @38|1|,|1| @10|T|o|p| 
+--- 1,10 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @73
+! |4| @31|s+0#0000001#ffd7ff255|i|x| @4| +0#0000000#ff404010| +0&#ffffff0@32
+! |5| @31|s+0#0000001#ffd7ff255|e|v|e|n| @2| +0#0000000#ff404010| +0&#ffffff0@32
+! |6| @31|e+0#0000001#ffd7ff255|i|g|h|t| @2| +0#0000000#4040ff13| +0&#ffffff0@32
+! |7| @31|n+0#0000001#ffd7ff255|i|n|e| @3| +0#0000000#4040ff13| +0&#ffffff0@32
+  |8| @73
+  |9| @73
+  |:|c|a|l@1| |S|c|r|o|l@1|D|o|w|n|(|)| @38|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1599/src/version.c	2019-06-26 04:06:53.147706691 +0200
+--- src/version.c	2019-06-26 05:13:19.343910672 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1600,
+  /**/
+
+-- 
+ARTHUR: (as the MAN next to him is squashed by a sheep) Knights!  Run away!
+   Midst echoing shouts of "run away" the KNIGHTS retreat to cover with the odd
+   cow or goose hitting them still.  The KNIGHTS crouch down under cover.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

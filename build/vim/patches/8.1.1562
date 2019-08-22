@@ -1,0 +1,96 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1562
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1562
+Problem:    Popup window not always redrawn after popup_setoptions().
+Solution:   Force a redraw.
+Files:	    src/popupwin.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_23.dump
+
+
+*** ../vim-8.1.1561/src/popupwin.c	2019-06-16 22:54:10.649908500 +0200
+--- src/popupwin.c	2019-06-17 20:05:12.442950287 +0200
+***************
+*** 1449,1454 ****
+--- 1449,1455 ----
+      apply_move_options(wp, dict);
+      apply_general_options(wp, dict);
+  
++     popup_mask_refresh = TRUE;
+      popup_adjust_position(wp);
+  }
+  
+*** ../vim-8.1.1561/src/testdir/test_popupwin.vim	2019-06-16 22:54:10.649908500 +0200
+--- src/testdir/test_popupwin.vim	2019-06-17 20:04:48.875047221 +0200
+***************
+*** 108,119 ****
+  	\ "call popup_create(['hello border', 'and more'], {'line': 2, 'col': 23, 'border': [], 'borderhighlight': ['TopColor', 'RightColor', 'BottomColor', 'LeftColor']})",
+  	\ "call popup_create(['hello border', 'lines only'], {'line': 2, 'col': 43, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['x']})",
+  	\ "call popup_create(['hello border', 'with corners'], {'line': 2, 'col': 60, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['x', '#']})",
+! 	\ "call popup_create(['hello border', 'with numbers'], {'line': 6, 'col': 3, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['0', '1', '2', '3', '4', '5', '6', '7']})",
+  	\ "call popup_create(['hello border', 'just blanks'], {'line': 7, 'col': 23, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': [' ']})",
+  	\], 'XtestPopupBorder')
+    let buf = RunVimInTerminal('-S XtestPopupBorder', {'rows': 12})
+    call VerifyScreenDump(buf, 'Test_popupwin_22', {})
+  
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupBorder')
+  
+--- 108,123 ----
+  	\ "call popup_create(['hello border', 'and more'], {'line': 2, 'col': 23, 'border': [], 'borderhighlight': ['TopColor', 'RightColor', 'BottomColor', 'LeftColor']})",
+  	\ "call popup_create(['hello border', 'lines only'], {'line': 2, 'col': 43, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['x']})",
+  	\ "call popup_create(['hello border', 'with corners'], {'line': 2, 'col': 60, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['x', '#']})",
+! 	\ "let winid = popup_create(['hello border', 'with numbers'], {'line': 6, 'col': 3, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['0', '1', '2', '3', '4', '5', '6', '7']})",
+  	\ "call popup_create(['hello border', 'just blanks'], {'line': 7, 'col': 23, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': [' ']})",
+  	\], 'XtestPopupBorder')
+    let buf = RunVimInTerminal('-S XtestPopupBorder', {'rows': 12})
+    call VerifyScreenDump(buf, 'Test_popupwin_22', {})
+  
++   " check that changing borderchars triggers a redraw
++   call term_sendkeys(buf, ":call popup_setoptions(winid, {'borderchars': ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']})\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_23', {})
++ 
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupBorder')
+  
+*** ../vim-8.1.1561/src/testdir/dumps/Test_popupwin_23.dump	2019-06-17 20:04:17.059178342 +0200
+--- src/testdir/dumps/Test_popupwin_23.dump	2019-06-17 20:02:38.667585962 +0200
+***************
+*** 0 ****
+--- 1,12 ----
++ >1+0&#ffffff0| @73
++ |2| |╔+0&#5fd7ff255|═@11|╗| +0&#ffffff0@5|╔+0&#dadada255|═@11|╗+0&#8a8a8a255| +0&#ffffff0@5|x+0&#5fd7ff255@13| +0&#ffffff0@2|#+0&#5fd7ff255|x@11|#| +0&#ffffff0@1
++ |3| |║+0&#5fd7ff255|h+0#0000001#ffd7ff255|e|l@1|o| |b|o|r|d|e|r|║+0#0000000#5fd7ff255| +0&#ffffff0@5|║+0&#a8a8a8255|h+0#0000001#ffd7ff255|e|l@1|o| |b|o|r|d|e|r|║+0#0000000#8a8a8a255| +0&#ffffff0@5|x+0&#5fd7ff255|h+0#0000001#ffd7ff255|e|l@1|o| |b|o|r|d|e|r|x+0#0000000#5fd7ff255| +0&#ffffff0@2|x+0&#5fd7ff255|h+0#0000001#ffd7ff255|e|l@1|o| |b|o|r|d|e|r|x+0#0000000#5fd7ff255| +0&#ffffff0@1
++ |4| |╚+0&#5fd7ff255|═@11|╝| +0&#ffffff0@5|║+0&#a8a8a8255|a+0#0000001#ffd7ff255|n|d| |m|o|r|e| @3|║+0#0000000#8a8a8a255| +0&#ffffff0@5|x+0&#5fd7ff255|l+0#0000001#ffd7ff255|i|n|e|s| |o|n|l|y| @1|x+0#0000000#5fd7ff255| +0&#ffffff0@2|x+0&#5fd7ff255|w+0#0000001#ffd7ff255|i|t|h| |c|o|r|n|e|r|s|x+0#0000000#5fd7ff255| +0&#ffffff0@1
++ |5| @20|╚+0&#585858255|═@11|╝| +0&#ffffff0@5|x+0&#5fd7ff255@13| +0&#ffffff0@2|#+0&#5fd7ff255|x@11|#| +0&#ffffff0@1
++ |6| |e+0&#5fd7ff255|a@11|f| +0&#ffffff0@58
++ |7| |d+0&#5fd7ff255|h+0#0000001#ffd7ff255|e|l@1|o| |b|o|r|d|e|r|b+0#0000000#5fd7ff255| +0&#ffffff0@5| +0&#5fd7ff255@13| +0&#ffffff0@38
++ |8| |d+0&#5fd7ff255|w+0#0000001#ffd7ff255|i|t|h| |n|u|m|b|e|r|s|b+0#0000000#5fd7ff255| +0&#ffffff0@5| +0&#5fd7ff255|h+0#0000001#ffd7ff255|e|l@1|o| |b|o|r|d|e|r| +0#0000000#5fd7ff255| +0&#ffffff0@38
++ |9| |h+0&#5fd7ff255|c@11|g| +0&#ffffff0@5| +0&#5fd7ff255|j+0#0000001#ffd7ff255|u|s|t| |b|l|a|n|k|s| | +0#0000000#5fd7ff255| +0&#ffffff0@38
++ |1|0| @19| +0&#5fd7ff255@13| +0&#ffffff0@38
++ |1@1| @72
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1561/src/version.c	2019-06-16 22:54:10.649908500 +0200
+--- src/version.c	2019-06-17 20:03:49.435292432 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1562,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+215. Your mouse-clicking forearm rivals Popeye's.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

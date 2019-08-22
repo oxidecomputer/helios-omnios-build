@@ -1,0 +1,2735 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1585
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1585
+Problem:    :let-heredoc does not trim enough.
+Solution:   Trim indent from the contents based on the indent of the first
+            line.  Use let-heredoc in more tests.
+Files:	    runtime/doc/eval.txt, src/eval.c, src/testdir/test_balloon.vim,
+            src/testdir/test_cindent.vim, src/testdir/test_const.vim,
+            src/testdir/test_debugger.vim, src/testdir/test_functions.vim,
+            src/testdir/test_goto.vim, src/testdir/test_gui.vim,
+            src/testdir/test_highlight.vim, src/testdir/test_join.vim,
+            src/testdir/test_let.vim, src/testdir/test_memory_usage.vim,
+            src/testdir/test_messages.vim,
+            src/testdir/test_mksession_utf8.vim, src/testdir/test_normal.vim,
+            src/testdir/test_popup.vim, src/testdir/test_popupwin.vim,
+            src/testdir/test_profile.vim, src/testdir/test_quickfix.vim,
+            src/testdir/test_xxd.vim
+
+
+*** ../vim-8.1.1584/runtime/doc/eval.txt	2019-06-22 01:40:38.173537408 +0200
+--- runtime/doc/eval.txt	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 11564,11576 ****
+  			If {marker} is not supplied, then "." is used as the
+  			default marker.
+  
+! 			Any white space characters in the lines of text are
+! 			preserved.  If "trim" is specified before {marker},
+! 			then all the leading indentation exactly matching the
+! 			leading indentation before `let` is stripped from the
+! 			input lines and the line containing {marker}.  Note
+! 			that the difference between space and tab matters
+! 			here.
+  
+  			If {var-name} didn't exist yet, it is created.
+  			Cannot be followed by another command, but can be
+--- 11565,11588 ----
+  			If {marker} is not supplied, then "." is used as the
+  			default marker.
+  
+! 			Without "trim" any white space characters in the lines
+! 			of text are preserved.  If "trim" is specified before
+! 			{marker}, then indentation is stripped so you can do: >
+! 				let text =<< trim END
+! 				   if ok
+! 				     echo 'done'
+! 				   endif
+! 				END
+! <			Results in: ["if ok", "  echo 'done'", "endif"]
+! 			The marker must line up with "let" and the indentation
+! 			of the first line is removed from all the text lines.
+! 			Specifically: all the leading indentation exactly
+! 			matching the leading indentation of the first
+! 			non-empty text line is stripped from the input lines.
+! 			All leading indentation exactly matching the leading
+! 			indentation before `let` is stripped from the line
+! 			containing {marker}.  Note that the difference between
+! 			space and tab matters here.
+  
+  			If {var-name} didn't exist yet, it is created.
+  			Cannot be followed by another command, but can be
+*** ../vim-8.1.1584/src/eval.c	2019-06-23 01:46:11.836059807 +0200
+--- src/eval.c	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 1254,1260 ****
+      char_u	*marker;
+      list_T	*l;
+      char_u	*p;
+!     int		indent_len = 0;
+  
+      if (eap->getline == NULL)
+      {
+--- 1254,1262 ----
+      char_u	*marker;
+      list_T	*l;
+      char_u	*p;
+!     int		marker_indent_len = 0;
+!     int		text_indent_len = 0;
+!     char_u	*text_indent = NULL;
+  
+      if (eap->getline == NULL)
+      {
+***************
+*** 1268,1282 ****
+      {
+  	cmd = skipwhite(cmd + 4);
+  
+! 	// Trim the indentation from all the lines in the here document
+  	// The amount of indentation trimmed is the same as the indentation of
+! 	// the :let command line.
+  	p = *eap->cmdlinep;
+  	while (VIM_ISWHITE(*p))
+  	{
+  	    p++;
+! 	    indent_len++;
+  	}
+      }
+  
+      // The marker is the next word.  Default marker is "."
+--- 1270,1286 ----
+      {
+  	cmd = skipwhite(cmd + 4);
+  
+! 	// Trim the indentation from all the lines in the here document.
+  	// The amount of indentation trimmed is the same as the indentation of
+! 	// the first line after the :let command line.  To find the end marker
+! 	// the indent of the :let command line is trimmed.
+  	p = *eap->cmdlinep;
+  	while (VIM_ISWHITE(*p))
+  	{
+  	    p++;
+! 	    marker_indent_len++;
+  	}
++ 	text_indent_len = -1;
+      }
+  
+      // The marker is the next word.  Default marker is "."
+***************
+*** 1300,1330 ****
+  
+      for (;;)
+      {
+! 	int	i = 0;
+  
+  	theline = eap->getline(NUL, eap->cookie, 0);
+- 	if (theline != NULL && indent_len > 0)
+- 	{
+- 	    // trim the indent matching the first line
+- 	    if (STRNCMP(theline, *eap->cmdlinep, indent_len) == 0)
+- 		i = indent_len;
+- 	}
+- 
+  	if (theline == NULL)
+  	{
+  	    semsg(_("E990: Missing end marker '%s'"), marker);
+  	    break;
+  	}
+! 	if (STRCMP(marker, theline + i) == 0)
+  	{
+  	    vim_free(theline);
+  	    break;
+  	}
+  
+! 	if (list_append_string(l, theline + i, -1) == FAIL)
+  	    break;
+  	vim_free(theline);
+      }
+  
+      return l;
+  }
+--- 1304,1353 ----
+  
+      for (;;)
+      {
+! 	int	mi = 0;
+! 	int	ti = 0;
+  
+  	theline = eap->getline(NUL, eap->cookie, 0);
+  	if (theline == NULL)
+  	{
+  	    semsg(_("E990: Missing end marker '%s'"), marker);
+  	    break;
+  	}
+! 
+! 	// with "trim": skip the indent matching the :let line to find the
+! 	// marker
+! 	if (marker_indent_len > 0
+! 		&& STRNCMP(theline, *eap->cmdlinep, marker_indent_len) == 0)
+! 	    mi = marker_indent_len;
+! 	if (STRCMP(marker, theline + mi) == 0)
+  	{
+  	    vim_free(theline);
+  	    break;
+  	}
+  
+! 	if (text_indent_len == -1 && *theline != NUL)
+! 	{
+! 	    // set the text indent from the first line.
+! 	    p = theline;
+! 	    text_indent_len = 0;
+! 	    while (VIM_ISWHITE(*p))
+! 	    {
+! 		p++;
+! 		text_indent_len++;
+! 	    }
+! 	    text_indent = vim_strnsave(theline, text_indent_len);
+! 	}
+! 	// with "trim": skip the indent matching the first line
+! 	if (text_indent != NULL)
+! 	    for (ti = 0; ti < text_indent_len; ++ti)
+! 		if (theline[ti] != text_indent[ti])
+! 		    break;
+! 
+! 	if (list_append_string(l, theline + ti, -1) == FAIL)
+  	    break;
+  	vim_free(theline);
+      }
++     vim_free(text_indent);
+  
+      return l;
+  }
+*** ../vim-8.1.1584/src/testdir/test_balloon.vim	2019-06-15 17:57:43.968724059 +0200
+--- src/testdir/test_balloon.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 13,19 ****
+    throw 'Skipped: cannot make screendumps'
+  endif
+  
+! let s:common_script =<< [CODE]
+    call setline(1, ["one one one", "two tXo two", "three three three"])
+    set balloonevalterm balloonexpr=MyBalloonExpr() balloondelay=100
+    func MyBalloonExpr()
+--- 13,19 ----
+    throw 'Skipped: cannot make screendumps'
+  endif
+  
+! let s:common_script =<< trim [CODE]
+    call setline(1, ["one one one", "two tXo two", "three three three"])
+    set balloonevalterm balloonexpr=MyBalloonExpr() balloondelay=100
+    func MyBalloonExpr()
+*** ../vim-8.1.1584/src/testdir/test_cindent.vim	2019-05-31 20:02:47.567231180 +0200
+--- src/testdir/test_cindent.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 18,40 ****
+    " Test for cino-E
+  
+    let without_ind =<< trim [CODE]
+!   #ifdef __cplusplus
+!   extern "C" {
+!   #endif
+!   int func_a(void);
+!   #ifdef __cplusplus
+!   }
+!   #endif
+    [CODE]
+  
+    let with_ind =<< trim [CODE]
+!   #ifdef __cplusplus
+!   extern "C" {
+!   #endif
+!   	int func_a(void);
+!   #ifdef __cplusplus
+!   }
+!   #endif
+    [CODE]
+    new
+    setlocal cindent cinoptions=E0
+--- 18,40 ----
+    " Test for cino-E
+  
+    let without_ind =<< trim [CODE]
+!     #ifdef __cplusplus
+!     extern "C" {
+!     #endif
+!     int func_a(void);
+!     #ifdef __cplusplus
+!     }
+!     #endif
+    [CODE]
+  
+    let with_ind =<< trim [CODE]
+!     #ifdef __cplusplus
+!     extern "C" {
+!     #endif
+!     	int func_a(void);
+!     #ifdef __cplusplus
+!     }
+!     #endif
+    [CODE]
+    new
+    setlocal cindent cinoptions=E0
+***************
+*** 89,118 ****
+    endfunc
+    setl expandtab sw=8 indentkeys+=; indentexpr=MyIndentFunction()
+    let testinput =<< trim [CODE]
+!   var_a = something()
+!   b = something()
+    [CODE]
+    call setline(1, testinput)
+    call cursor(1, 1)
+    call feedkeys("^\<c-v>j$A;\<esc>", 'tnix')
+!   let expected =<< trim [CODE]
+!           var_a = something();
+!   b = something();
+!   [CODE]
+    call assert_equal(expected, getline(1, '$'))
+  
+    %d
+!   let testinput =<< trim [CODE]
+!                   var_a = something()
+!                   b = something()
+!   [CODE]
+    call setline(1, testinput)
+    call cursor(1, 1)
+    call feedkeys("^\<c-v>j$A;\<esc>", 'tnix')
+!   let expected =<< trim [CODE]
+!           var_a = something();
+!                   b = something()
+!   [CODE]
+    call assert_equal(expected, getline(1, '$'))
+    bw!
+  endfunc
+--- 89,118 ----
+    endfunc
+    setl expandtab sw=8 indentkeys+=; indentexpr=MyIndentFunction()
+    let testinput =<< trim [CODE]
+!     var_a = something()
+!     b = something()
+    [CODE]
+    call setline(1, testinput)
+    call cursor(1, 1)
+    call feedkeys("^\<c-v>j$A;\<esc>", 'tnix')
+!   let expected =<< [CODE]
+!         var_a = something();
+! b = something();
+! [CODE]
+    call assert_equal(expected, getline(1, '$'))
+  
+    %d
+!   let testinput =<< [CODE]
+!                 var_a = something()
+!                 b = something()
+! [CODE]
+    call setline(1, testinput)
+    call cursor(1, 1)
+    call feedkeys("^\<c-v>j$A;\<esc>", 'tnix')
+!   let expected =<< [CODE]
+!         var_a = something();
+!                 b = something()
+! [CODE]
+    call assert_equal(expected, getline(1, '$'))
+    bw!
+  endfunc
+***************
+*** 2069,2082 ****
+    let &wm = &columns - 20
+  
+    let code =<< trim [CODE]
+!   {
+! 
+!   /* this is
+!    * a real serious important big
+!    * comment
+!    */
+!   	/* insert " about life, the universe, and the rest" after "serious" */
+!   }
+    [CODE]
+  
+    call append(0, code)
+--- 2069,2082 ----
+    let &wm = &columns - 20
+  
+    let code =<< trim [CODE]
+!     {
+!   
+!     /* this is
+!      * a real serious important big
+!      * comment
+!      */
+!     	/* insert " about life, the universe, and the rest" after "serious" */
+!     }
+    [CODE]
+  
+    call append(0, code)
+***************
+*** 3243,3274 ****
+    setl cindent ts=4 sw=4
+    setl cino=+20
+  
+!   let code =<< trim [CODE]
+!   	void
+!   foo()
+!   {
+!   	if (a)
+!   	{
+!   	} else
+!   		asdf;
+!   }
+!   [CODE]
+  
+    call append(0, code)
+    normal gg
+    normal ]]=][
+  
+!   let expected =<< trim [CODE]
+!   	void
+!   foo()
+!   {
+!   	if (a)
+!   	{
+!   	} else
+!   		asdf;
+!   }
+  
+!   [CODE]
+  
+    call assert_equal(expected, getline(1, '$'))
+    enew! | close
+--- 3243,3274 ----
+    setl cindent ts=4 sw=4
+    setl cino=+20
+  
+!   let code =<< [CODE]
+! 	void
+! foo()
+! {
+! 	if (a)
+! 	{
+! 	} else
+! 		asdf;
+! }
+! [CODE]
+  
+    call append(0, code)
+    normal gg
+    normal ]]=][
+  
+!   let expected =<< [CODE]
+! 	void
+! foo()
+! {
+! 	if (a)
+! 	{
+! 	} else
+! 		asdf;
+! }
+  
+! [CODE]
+  
+    call assert_equal(expected, getline(1, '$'))
+    enew! | close
+***************
+*** 3461,3467 ****
+    normal =][
+  
+    let expected =<< trim [CODE]
+! 
+    	void
+    func(int a
+    #if defined(FOO)
+--- 3461,3467 ----
+    normal =][
+  
+    let expected =<< trim [CODE]
+!   
+    	void
+    func(int a
+    #if defined(FOO)
+*** ../vim-8.1.1584/src/testdir/test_const.vim	2019-06-16 15:41:54.730684164 +0200
+--- src/testdir/test_const.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 18,24 ****
+      const n = v:null
+      const bl = 0zC0FFEE
+      const here =<< trim EOS
+!     hello
+      EOS
+  
+      call assert_true(exists('i'))
+--- 18,24 ----
+      const n = v:null
+      const bl = 0zC0FFEE
+      const here =<< trim EOS
+!       hello
+      EOS
+  
+      call assert_true(exists('i'))
+***************
+*** 84,90 ****
+      const l:n = v:null
+      const l:bl = 0zC0FFEE
+      const l:here =<< trim EOS
+!     hello
+      EOS
+  
+      call assert_fails('let l:i = 1', 'E741:')
+--- 84,90 ----
+      const l:n = v:null
+      const l:bl = 0zC0FFEE
+      const l:here =<< trim EOS
+!       hello
+      EOS
+  
+      call assert_fails('let l:i = 1', 'E741:')
+*** ../vim-8.1.1584/src/testdir/test_debugger.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_debugger.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 26,52 ****
+    endif
+  
+    " Create a Vim script with some functions
+!   call writefile([
+! 	      \ 'func Foo()',
+! 	      \ '  let var1 = 1',
+! 	      \ '  let var2 = Bar(var1) + 9',
+! 	      \ '  return var2',
+! 	      \ 'endfunc',
+! 	      \ 'func Bar(var)',
+! 	      \ '  let var1 = 2 + a:var',
+! 	      \ '  let var2 = Bazz(var1) + 4',
+! 	      \ '  return var2',
+! 	      \ 'endfunc',
+! 	      \ 'func Bazz(var)',
+! 	      \ '  try',
+! 	      \ '    let var1 = 3 + a:var',
+! 	      \ '    let var3 = "another var"',
+! 	      \ '    let var3 = "value2"',
+! 	      \ '  catch',
+! 	      \ '    let var4 = "exception"',
+! 	      \ '  endtry',
+! 	      \ '  return var1',
+! 	      \ 'endfunc'], 'Xtest.vim')
+  
+    " Start Vim in a terminal
+    let buf = RunVimInTerminal('-S Xtest.vim', {})
+--- 26,54 ----
+    endif
+  
+    " Create a Vim script with some functions
+!   let lines =<< trim END
+! 	func Foo()
+! 	  let var1 = 1
+! 	  let var2 = Bar(var1) + 9
+! 	  return var2
+! 	endfunc
+! 	func Bar(var)
+! 	  let var1 = 2 + a:var
+! 	  let var2 = Bazz(var1) + 4
+! 	  return var2
+! 	endfunc
+! 	func Bazz(var)
+! 	  try
+! 	    let var1 = 3 + a:var
+! 	    let var3 = "another var"
+! 	    let var3 = "value2"
+! 	  catch
+! 	    let var4 = "exception"
+! 	  endtry
+! 	  return var1
+! 	endfunc
+!   END
+!   call writefile(lines, 'Xtest.vim')
+  
+    " Start Vim in a terminal
+    let buf = RunVimInTerminal('-S Xtest.vim', {})
+***************
+*** 294,304 ****
+    " Tests for :breakadd file and :breakadd here
+    " Breakpoints should be set before sourcing the file
+  
+!   call writefile([
+! 	      \ 'let var1 = 10',
+! 	      \ 'let var2 = 20',
+! 	      \ 'let var3 = 30',
+! 	      \ 'let var4 = 40'], 'Xtest.vim')
+  
+    " Start Vim in a terminal
+    let buf = RunVimInTerminal('Xtest.vim', {})
+--- 296,308 ----
+    " Tests for :breakadd file and :breakadd here
+    " Breakpoints should be set before sourcing the file
+  
+!   let lines =<< trim END
+! 	let var1 = 10
+! 	let var2 = 20
+! 	let var3 = 30
+! 	let var4 = 40
+!   END
+!   call writefile(lines, 'Xtest.vim')
+  
+    " Start Vim in a terminal
+    let buf = RunVimInTerminal('Xtest.vim', {})
+*** ../vim-8.1.1584/src/testdir/test_functions.vim	2019-06-18 23:07:34.705315692 +0200
+--- src/testdir/test_functions.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 277,289 ****
+    if executable('cscript')
+      new Xfile
+      wq
+!     call writefile([
+!     \ 'Set fs = CreateObject("Scripting.FileSystemObject")',
+!     \ 'Set ws = WScript.CreateObject("WScript.Shell")',
+!     \ 'Set shortcut = ws.CreateShortcut("Xlink.lnk")',
+!     \ 'shortcut.TargetPath = fs.BuildPath(ws.CurrentDirectory, "Xfile")', 
+!     \ 'shortcut.Save'
+!     \], 'link.vbs')
+      silent !cscript link.vbs
+      call delete('link.vbs')
+      call assert_equal(s:normalize_fname(getcwd() . '\Xfile'), s:normalize_fname(resolve('./Xlink.lnk')))
+--- 277,290 ----
+    if executable('cscript')
+      new Xfile
+      wq
+!     let lines =<< trim END
+! 	Set fs = CreateObject("Scripting.FileSystemObject")
+! 	Set ws = WScript.CreateObject("WScript.Shell")
+! 	Set shortcut = ws.CreateShortcut("Xlink.lnk")
+! 	shortcut.TargetPath = fs.BuildPath(ws.CurrentDirectory, "Xfile")
+! 	shortcut.Save
+!     END
+!     call writefile(lines, 'link.vbs')
+      silent !cscript link.vbs
+      call delete('link.vbs')
+      call assert_equal(s:normalize_fname(getcwd() . '\Xfile'), s:normalize_fname(resolve('./Xlink.lnk')))
+*** ../vim-8.1.1584/src/testdir/test_goto.vim	2019-05-20 22:12:30.720442793 +0200
+--- src/testdir/test_goto.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 16,27 ****
+  
+  func Test_gD()
+    let lines =<< trim [CODE]
+!   int x;
+! 
+!   int func(void)
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 1, 5)
+--- 16,27 ----
+  
+  func Test_gD()
+    let lines =<< trim [CODE]
+!     int x;
+!   
+!     int func(void)
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 1, 5)
+***************
+*** 29,40 ****
+  
+  func Test_gD_too()
+    let lines =<< trim [CODE]
+-   Filename x;
+- 
+-   int Filename
+-   int func() {
+      Filename x;
+!     return x;
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 1, 10)
+--- 29,40 ----
+  
+  func Test_gD_too()
+    let lines =<< trim [CODE]
+      Filename x;
+!   
+!     int Filename
+!     int func() {
+!       Filename x;
+!       return x;
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 1, 10)
+***************
+*** 42,54 ****
+  
+  func Test_gD_comment()
+    let lines =<< trim [CODE]
+!   /* int x; */
+!   int x;
+! 
+!   int func(void)
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 2, 5)
+--- 42,54 ----
+  
+  func Test_gD_comment()
+    let lines =<< trim [CODE]
+!     /* int x; */
+!     int x;
+!   
+!     int func(void)
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 2, 5)
+***************
+*** 56,68 ****
+  
+  func Test_gD_inline_comment()
+    let lines =<< trim [CODE]
+!   int y /* , x */;
+!   int x;
+! 
+!   int func(void)
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 2, 5)
+--- 56,68 ----
+  
+  func Test_gD_inline_comment()
+    let lines =<< trim [CODE]
+!     int y /* , x */;
+!     int x;
+!   
+!     int func(void)
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 2, 5)
+***************
+*** 70,82 ****
+  
+  func Test_gD_string()
+    let lines =<< trim [CODE]
+!   char *s[] = "x";
+!   int x = 1;
+! 
+!   int func(void)
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 2, 5)
+--- 70,82 ----
+  
+  func Test_gD_string()
+    let lines =<< trim [CODE]
+!     char *s[] = "x";
+!     int x = 1;
+!   
+!     int func(void)
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 2, 5)
+***************
+*** 84,95 ****
+  
+  func Test_gD_string_same_line()
+    let lines =<< trim [CODE]
+!   char *s[] = "x", int x = 1;
+! 
+!   int func(void)
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 1, 22)
+--- 84,95 ----
+  
+  func Test_gD_string_same_line()
+    let lines =<< trim [CODE]
+!     char *s[] = "x", int x = 1;
+!   
+!     int func(void)
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 1, 22)
+***************
+*** 97,109 ****
+  
+  func Test_gD_char()
+    let lines =<< trim [CODE]
+!   char c = 'x';
+!   int x = 1;
+! 
+!   int func(void)
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 2, 5)
+--- 97,109 ----
+  
+  func Test_gD_char()
+    let lines =<< trim [CODE]
+!     char c = 'x';
+!     int x = 1;
+!   
+!     int func(void)
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gD', lines, 2, 5)
+***************
+*** 111,122 ****
+  
+  func Test_gd()
+    let lines =<< trim [CODE]
+!   int x;
+! 
+!   int func(int x)
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 14)
+--- 111,122 ----
+  
+  func Test_gd()
+    let lines =<< trim [CODE]
+!     int x;
+!   
+!     int func(int x)
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 14)
+***************
+*** 124,138 ****
+  
+  func Test_gd_not_local()
+    let lines =<< trim [CODE]
+!   int func1(void)
+!   {
+!     return x;
+!   }
+! 
+!   int func2(int x)
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 10)
+--- 124,138 ----
+  
+  func Test_gd_not_local()
+    let lines =<< trim [CODE]
+!     int func1(void)
+!     {
+!       return x;
+!     }
+!   
+!     int func2(int x)
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 10)
+***************
+*** 140,150 ****
+  
+  func Test_gd_kr_style()
+    let lines =<< trim [CODE]
+!   int func(x)
+!     int x;
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 2, 7)
+--- 140,150 ----
+  
+  func Test_gd_kr_style()
+    let lines =<< trim [CODE]
+!     int func(x)
+!       int x;
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 2, 7)
+***************
+*** 152,166 ****
+  
+  func Test_gd_missing_braces()
+    let lines =<< trim [CODE]
+!   def func1(a)
+!     a + 1
+!   end
+! 
+!   a = 1
+! 
+!   def func2()
+!     return a
+!   end
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 1, 11)
+--- 152,166 ----
+  
+  func Test_gd_missing_braces()
+    let lines =<< trim [CODE]
+!     def func1(a)
+!       a + 1
+!     end
+!   
+!     a = 1
+!   
+!     def func2()
+!       return a
+!     end
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 1, 11)
+***************
+*** 168,179 ****
+  
+  func Test_gd_comment()
+    let lines =<< trim [CODE]
+!   int func(void)
+!   {
+!     /* int x; */
+!     int x;
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 4, 7)
+--- 168,179 ----
+  
+  func Test_gd_comment()
+    let lines =<< trim [CODE]
+!     int func(void)
+!     {
+!       /* int x; */
+!       int x;
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 4, 7)
+***************
+*** 181,192 ****
+  
+  func Test_gd_comment_in_string()
+    let lines =<< trim [CODE]
+!   int func(void)
+!   {
+!     char *s ="//"; int x;
+!     int x;
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 22)
+--- 181,192 ----
+  
+  func Test_gd_comment_in_string()
+    let lines =<< trim [CODE]
+!     int func(void)
+!     {
+!       char *s ="//"; int x;
+!       int x;
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 22)
+***************
+*** 195,206 ****
+  func Test_gd_string_in_comment()
+    set comments=
+    let lines =<< trim [CODE]
+!   int func(void)
+!   {
+!     /* " */ int x;
+!     int x;
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 15)
+--- 195,206 ----
+  func Test_gd_string_in_comment()
+    set comments=
+    let lines =<< trim [CODE]
+!     int func(void)
+!     {
+!       /* " */ int x;
+!       int x;
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 15)
+***************
+*** 209,218 ****
+  
+  func Test_gd_inline_comment()
+    let lines =<< trim [CODE]
+!   int func(/* x is an int */ int x)
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 1, 32)
+--- 209,218 ----
+  
+  func Test_gd_inline_comment()
+    let lines =<< trim [CODE]
+!     int func(/* x is an int */ int x)
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 1, 32)
+***************
+*** 220,229 ****
+  
+  func Test_gd_inline_comment_only()
+    let lines =<< trim [CODE]
+!   int func(void) /* one lonely x */
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 10)
+--- 220,229 ----
+  
+  func Test_gd_inline_comment_only()
+    let lines =<< trim [CODE]
+!     int func(void) /* one lonely x */
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 3, 10)
+***************
+*** 231,246 ****
+  
+  func Test_gd_inline_comment_body()
+    let lines =<< trim [CODE]
+!   int func(void)
+!   {
+!     int y /* , x */;
+! 
+!     for (/* int x = 0 */; y < 2; y++);
+! 
+!     int x = 0;
+! 
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 7, 7)
+--- 231,246 ----
+  
+  func Test_gd_inline_comment_body()
+    let lines =<< trim [CODE]
+!     int func(void)
+!     {
+!       int y /* , x */;
+!   
+!       for (/* int x = 0 */; y < 2; y++);
+!   
+!       int x = 0;
+!   
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 7, 7)
+***************
+*** 248,257 ****
+  
+  func Test_gd_trailing_multiline_comment()
+    let lines =<< trim [CODE]
+!   int func(int x) /* x is an int */
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 1, 14)
+--- 248,257 ----
+  
+  func Test_gd_trailing_multiline_comment()
+    let lines =<< trim [CODE]
+!     int func(int x) /* x is an int */
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 1, 14)
+***************
+*** 259,268 ****
+  
+  func Test_gd_trailing_comment()
+    let lines =<< trim [CODE]
+!   int func(int x) // x is an int
+!   {
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 1, 14)
+--- 259,268 ----
+  
+  func Test_gd_trailing_comment()
+    let lines =<< trim [CODE]
+!     int func(int x) // x is an int
+!     {
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 1, 14)
+***************
+*** 270,294 ****
+  
+  func Test_gd_string()
+    let lines =<< trim [CODE]
+!   int func(void)
+!   {
+!     char *s = "x";
+!     int x = 1;
+! 
+!     return x;
+!   }
+    [CODE]
+    call XTest_goto_decl('gd', lines, 4, 7)
+  endfunc
+  
+  func Test_gd_string_only()
+    let lines =<< trim [CODE]
+!   int func(void)
+!   {
+!     char *s = "x";
+! 
+!     return x;
+!   }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 5, 10)
+--- 270,294 ----
+  
+  func Test_gd_string()
+    let lines =<< trim [CODE]
+!     int func(void)
+!     {
+!       char *s = "x";
+!       int x = 1;
+!   
+!       return x;
+!     }
+    [CODE]
+    call XTest_goto_decl('gd', lines, 4, 7)
+  endfunc
+  
+  func Test_gd_string_only()
+    let lines =<< trim [CODE]
+!     int func(void)
+!     {
+!       char *s = "x";
+!   
+!       return x;
+!     }
+    [CODE]
+  
+    call XTest_goto_decl('gd', lines, 5, 10)
+***************
+*** 311,331 ****
+  func Test_gd_local_block()
+    let lines =<< trim [CODE]
+      int main()
+-   {
+-     char *a = "NOT NULL";
+-     if(a)
+-     {
+-       char *b = a;
+-       printf("%s\n", b);
+-     }
+-     else
+      {
+!       char *b = "NULL";
+!       return b;
+      }
+- 
+-     return 0;
+-   }
+    [CODE]
+  
+    call XTest_goto_decl('1gd', lines, 11, 11)
+--- 311,331 ----
+  func Test_gd_local_block()
+    let lines =<< trim [CODE]
+      int main()
+      {
+!       char *a = "NOT NULL";
+!       if(a)
+!       {
+!         char *b = a;
+!         printf("%s\n", b);
+!       }
+!       else
+!       {
+!         char *b = "NULL";
+!         return b;
+!       }
+!   
+!       return 0;
+      }
+    [CODE]
+  
+    call XTest_goto_decl('1gd', lines, 11, 11)
+*** ../vim-8.1.1584/src/testdir/test_gui.vim	2019-06-15 17:57:43.968724059 +0200
+--- src/testdir/test_gui.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 792,801 ****
+  func Test_gui_dash_g()
+    let cmd = GetVimCommand('Xscriptgui')
+    call writefile([""], "Xtestgui")
+!   call writefile([
+! 	\ 'au GUIEnter * call writefile(["insertmode: " . &insertmode], "Xtestgui")',
+! 	\ 'au GUIEnter * qall',
+! 	\ ], 'Xscriptgui')
+    call system(cmd . ' -g')
+    call WaitForAssert({-> assert_equal(['insertmode: 0'], readfile('Xtestgui'))})
+  
+--- 792,802 ----
+  func Test_gui_dash_g()
+    let cmd = GetVimCommand('Xscriptgui')
+    call writefile([""], "Xtestgui")
+!   let lines =<< trim END
+! 	au GUIEnter * call writefile(["insertmode: " . &insertmode], "Xtestgui")
+! 	au GUIEnter * qall
+!   END
+!   call writefile(lines, 'Xscriptgui')
+    call system(cmd . ' -g')
+    call WaitForAssert({-> assert_equal(['insertmode: 0'], readfile('Xtestgui'))})
+  
+***************
+*** 807,816 ****
+  func Test_gui_dash_y()
+    let cmd = GetVimCommand('Xscriptgui')
+    call writefile([""], "Xtestgui")
+!   call writefile([
+! 	\ 'au GUIEnter * call writefile(["insertmode: " . &insertmode], "Xtestgui")',
+! 	\ 'au GUIEnter * qall',
+! 	\ ], 'Xscriptgui')
+    call system(cmd . ' -y')
+    call WaitForAssert({-> assert_equal(['insertmode: 1'], readfile('Xtestgui'))})
+  
+--- 808,818 ----
+  func Test_gui_dash_y()
+    let cmd = GetVimCommand('Xscriptgui')
+    call writefile([""], "Xtestgui")
+!   let lines =<< trim END
+! 	au GUIEnter * call writefile(["insertmode: " . &insertmode], "Xtestgui")
+! 	au GUIEnter * qall
+!   END
+!   call writefile(lines, 'Xscriptgui')
+    call system(cmd . ' -y')
+    call WaitForAssert({-> assert_equal(['insertmode: 1'], readfile('Xtestgui'))})
+  
+*** ../vim-8.1.1584/src/testdir/test_highlight.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_highlight.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 578,589 ****
+      throw 'Skipped: cannot make screendumps'
+    endif
+  
+!   call writefile([
+! 	\ 'set cursorline cursorcolumn rnu',
+! 	\ 'call setline(1, ["","1111111111","22222222222","3 here 3",""])',
+! 	\ 'set wincolor=Pmenu',
+! 	\ '/here',
+! 	\ ], 'Xtest_wincolor')
+    let buf = RunVimInTerminal('-S Xtest_wincolor', {'rows': 8})
+    call term_wait(buf)
+    call term_sendkeys(buf, "2G5lvj")
+--- 578,590 ----
+      throw 'Skipped: cannot make screendumps'
+    endif
+  
+!   let lines =<< trim END
+! 	set cursorline cursorcolumn rnu
+! 	call setline(1, ["","1111111111","22222222222","3 here 3",""])
+! 	set wincolor=Pmenu
+! 	/here
+!   END
+!   call writefile(lines, 'Xtest_wincolor')
+    let buf = RunVimInTerminal('-S Xtest_wincolor', {'rows': 8})
+    call term_wait(buf)
+    call term_sendkeys(buf, "2G5lvj")
+*** ../vim-8.1.1584/src/testdir/test_join.vim	2019-05-20 22:12:30.720442793 +0200
+--- src/testdir/test_join.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 100,121 ****
+  
+    " Expected output
+    let expected =<< trim [DATA]
+!   asdfasdf. asdf
+!   asdfasdf. asdf
+!   asdfasdf.  asdf
+!   asdfasdf.	asdf
+!   asdfasdf. 	asdf
+!   asdfasdf.	 asdf
+!   asdfasdf.		asdf
+!   asdfasdf asdf
+!   asdfasdf asdf
+!   asdfasdf  asdf
+!   asdfasdf	asdf
+!   asdfasdf	 asdf
+!   asdfasdf 	asdf
+!   asdfasdf		asdf
+!   zx cvn. as dfg? hjkl iop! ert ernop
+!   zx cvn. as dfg? hjkl iop! ert ernop
+    [DATA]
+  
+    call assert_equal(expected, getline(1, '$'))
+--- 100,121 ----
+  
+    " Expected output
+    let expected =<< trim [DATA]
+!     asdfasdf. asdf
+!     asdfasdf. asdf
+!     asdfasdf.  asdf
+!     asdfasdf.	asdf
+!     asdfasdf. 	asdf
+!     asdfasdf.	 asdf
+!     asdfasdf.		asdf
+!     asdfasdf asdf
+!     asdfasdf asdf
+!     asdfasdf  asdf
+!     asdfasdf	asdf
+!     asdfasdf	 asdf
+!     asdfasdf 	asdf
+!     asdfasdf		asdf
+!     zx cvn. as dfg? hjkl iop! ert ernop
+!     zx cvn. as dfg? hjkl iop! ert ernop
+    [DATA]
+  
+    call assert_equal(expected, getline(1, '$'))
+***************
+*** 142,163 ****
+  
+    " Expected output
+    let expected =<< trim [DATA]
+!   asdfasdf.  asdf
+!   asdfasdf.  asdf
+!   asdfasdf.  asdf
+!   asdfasdf.	asdf
+!   asdfasdf. 	asdf
+!   asdfasdf.	 asdf
+!   asdfasdf.		asdf
+!   asdfasdf asdf
+!   asdfasdf asdf
+!   asdfasdf  asdf
+!   asdfasdf	asdf
+!   asdfasdf	 asdf
+!   asdfasdf 	asdf
+!   asdfasdf		asdf
+!   zx cvn.  as dfg?  hjkl iop!  ert  enop
+!   zx cvn.  as dfg? hjkl iop! ert ernop
+  
+    [DATA]
+  
+--- 142,163 ----
+  
+    " Expected output
+    let expected =<< trim [DATA]
+!     asdfasdf.  asdf
+!     asdfasdf.  asdf
+!     asdfasdf.  asdf
+!     asdfasdf.	asdf
+!     asdfasdf. 	asdf
+!     asdfasdf.	 asdf
+!     asdfasdf.		asdf
+!     asdfasdf asdf
+!     asdfasdf asdf
+!     asdfasdf  asdf
+!     asdfasdf	asdf
+!     asdfasdf	 asdf
+!     asdfasdf 	asdf
+!     asdfasdf		asdf
+!     zx cvn.  as dfg?  hjkl iop!  ert  enop
+!     zx cvn.  as dfg? hjkl iop! ert ernop
+  
+    [DATA]
+  
+***************
+*** 176,196 ****
+  
+    " Expected output
+    let expected =<< trim [DATA]
+!   asdfasdf.  asdf
+!   asdfasdf.  asdf
+!   asdfasdf.  asdf
+!   asdfasdf.	asdf
+!   asdfasdf. 	asdf
+!   asdfasdf.	 asdf
+!   asdfasdf.		asdf
+!   asdfasdf asdf
+!   asdfasdf asdf
+!   asdfasdf  asdf
+!   asdfasdf	asdf
+!   asdfasdf	 asdf
+!   asdfasdf 	asdf
+!   asdfasdf		asdf
+!   zx cvn.  as dfg? hjkl iop! ert  a
+    [DATA]
+  
+    call assert_equal(expected, getline(1, '$'))
+--- 176,196 ----
+  
+    " Expected output
+    let expected =<< trim [DATA]
+!     asdfasdf.  asdf
+!     asdfasdf.  asdf
+!     asdfasdf.  asdf
+!     asdfasdf.	asdf
+!     asdfasdf. 	asdf
+!     asdfasdf.	 asdf
+!     asdfasdf.		asdf
+!     asdfasdf asdf
+!     asdfasdf asdf
+!     asdfasdf  asdf
+!     asdfasdf	asdf
+!     asdfasdf	 asdf
+!     asdfasdf 	asdf
+!     asdfasdf		asdf
+!     zx cvn.  as dfg? hjkl iop! ert  a
+    [DATA]
+  
+    call assert_equal(expected, getline(1, '$'))
+***************
+*** 255,272 ****
+  
+    " Expected output
+    let expected =<< trim [CODE]
+! {
+! /* Make sure the previous comment leader is not removed. */
+! /* Make sure the previous comment leader is not removed. */
+! // Should the next comment leader be left alone? Yes.
+! // Should the next comment leader be left alone? Yes.
+! /* Here the comment leader should be left intact. */ // And so should this one.
+! /* Here the comment leader should be left intact. */ // And so should this one.
+! if (condition) // Remove the next comment leader! OK, I will.
+! action();
+! if (condition) // Remove the next comment leader! OK, I will.
+! action();
+! }
+    [CODE]
+  
+    call assert_equal(expected, getline(1, '$'))
+--- 255,272 ----
+  
+    " Expected output
+    let expected =<< trim [CODE]
+!     {
+!     /* Make sure the previous comment leader is not removed. */
+!     /* Make sure the previous comment leader is not removed. */
+!     // Should the next comment leader be left alone? Yes.
+!     // Should the next comment leader be left alone? Yes.
+!     /* Here the comment leader should be left intact. */ // And so should this one.
+!     /* Here the comment leader should be left intact. */ // And so should this one.
+!     if (condition) // Remove the next comment leader! OK, I will.
+!     action();
+!     if (condition) // Remove the next comment leader! OK, I will.
+!     action();
+!     }
+    [CODE]
+  
+    call assert_equal(expected, getline(1, '$'))
+***************
+*** 378,407 ****
+    exe "normal oSome code!\<CR>// Make sure backspacing does not remove this comment leader.\<Esc>0i\<C-H>\<Esc>"
+  
+    " Expected output
+!   let expected =<< [CODE]
+! {
+! /* Make sure the previous comment leader is not removed.  */
+! /* Make sure the previous comment leader is not removed.  */
+! /* List: item1 foo bar baz foo bar baz item2 foo bar baz foo bar baz */
+! /* List: item1 foo bar baz foo bar baz item2 foo bar baz foo bar baz */
+! // Should the next comment leader be left alone?  Yes.
+! // Should the next comment leader be left alone?  Yes.
+! /* Here the comment leader should be left intact. */ // And so should this one.
+! /* Here the comment leader should be left intact. */ // And so should this one.
+! if (condition) // Remove the next comment leader!  OK, I will.
+!     action();
+! if (condition) // Remove the next comment leader!  OK, I will.
+!     action();
+! int i = 7 /* foo *// 3 // comment
+!  ;
+! int i = 7 /* foo *// 3 // comment
+!  ;
+! ># Note that the last character of the ending comment leader (left angle bracket) is a comment leader itself. Make sure that this comment leader is not removed from the next line #< < On this line a new comment is opened which spans 2 lines. This comment should retain its comment leader.
+! ># Note that the last character of the ending comment leader (left angle bracket) is a comment leader itself. Make sure that this comment leader is not removed from the next line #< < On this line a new comment is opened which spans 2 lines. This comment should retain its comment leader.
+! 
+! Some code!// Make sure backspacing does not remove this comment leader.
+! }
+! [CODE]
+  
+    call assert_equal(expected, getline(1, '$'))
+    close!
+--- 378,407 ----
+    exe "normal oSome code!\<CR>// Make sure backspacing does not remove this comment leader.\<Esc>0i\<C-H>\<Esc>"
+  
+    " Expected output
+!   let expected =<< trim [CODE]
+!     {
+!     /* Make sure the previous comment leader is not removed.  */
+!     /* Make sure the previous comment leader is not removed.  */
+!     /* List: item1 foo bar baz foo bar baz item2 foo bar baz foo bar baz */
+!     /* List: item1 foo bar baz foo bar baz item2 foo bar baz foo bar baz */
+!     // Should the next comment leader be left alone?  Yes.
+!     // Should the next comment leader be left alone?  Yes.
+!     /* Here the comment leader should be left intact. */ // And so should this one.
+!     /* Here the comment leader should be left intact. */ // And so should this one.
+!     if (condition) // Remove the next comment leader!  OK, I will.
+!         action();
+!     if (condition) // Remove the next comment leader!  OK, I will.
+!         action();
+!     int i = 7 /* foo *// 3 // comment
+!      ;
+!     int i = 7 /* foo *// 3 // comment
+!      ;
+!     ># Note that the last character of the ending comment leader (left angle bracket) is a comment leader itself. Make sure that this comment leader is not removed from the next line #< < On this line a new comment is opened which spans 2 lines. This comment should retain its comment leader.
+!     ># Note that the last character of the ending comment leader (left angle bracket) is a comment leader itself. Make sure that this comment leader is not removed from the next line #< < On this line a new comment is opened which spans 2 lines. This comment should retain its comment leader.
+!     
+!     Some code!// Make sure backspacing does not remove this comment leader.
+!     }
+!   [CODE]
+  
+    call assert_equal(expected, getline(1, '$'))
+    close!
+*** ../vim-8.1.1584/src/testdir/test_let.vim	2019-05-19 21:37:14.189063500 +0200
+--- src/testdir/test_let.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 210,219 ****
+  	END
+    call assert_equal(['Line1', '  Line2', "\tLine3", ' END'], var1)
+  
+    let var1 =<< trim
+      Line1
+    .
+!   call assert_equal(['  Line1'], var1)
+  
+    " ignore "endfunc"
+    let var1 =<< END
+--- 210,227 ----
+  	END
+    call assert_equal(['Line1', '  Line2', "\tLine3", ' END'], var1)
+  
++   let var1 =<< trim !!!
++ 	Line1
++ 	 line2
++ 		Line3
++ 	!!!
++   !!!
++   call assert_equal(['Line1', ' line2', "\tLine3", '!!!',], var1)
++ 
+    let var1 =<< trim
+      Line1
+    .
+!   call assert_equal(['Line1'], var1)
+  
+    " ignore "endfunc"
+    let var1 =<< END
+*** ../vim-8.1.1584/src/testdir/test_memory_usage.vim	2019-06-15 17:57:43.972724036 +0200
+--- src/testdir/test_memory_usage.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 85,98 ****
+    " Case: if a local variable captures a:000, funccall object will be free
+    " just after it finishes.
+    let testfile = 'Xtest.vim'
+!   call writefile([
+!         \ 'func s:f(...)',
+!         \ '  let x = a:000',
+!         \ 'endfunc',
+!         \ 'for _ in range(10000)',
+!         \ '  call s:f(0)',
+!         \ 'endfor',
+!         \ ], testfile)
+  
+    let vim = s:vim_new()
+    call vim.start('--clean', '-c', 'set noswapfile', testfile)
+--- 85,99 ----
+    " Case: if a local variable captures a:000, funccall object will be free
+    " just after it finishes.
+    let testfile = 'Xtest.vim'
+!   let lines =<< trim END
+!         func s:f(...)
+!           let x = a:000
+!         endfunc
+!         for _ in range(10000)
+!           call s:f(0)
+!         endfor
+!   END
+!   call writefile(lines, testfile)
+  
+    let vim = s:vim_new()
+    call vim.start('--clean', '-c', 'set noswapfile', testfile)
+***************
+*** 122,135 ****
+    " free until garbage collector runs, but after that memory usage doesn't
+    " increase so much even when rerun Xtest.vim since system memory caches.
+    let testfile = 'Xtest.vim'
+!   call writefile([
+!         \ 'func s:f()',
+!         \ '  let x = l:',
+!         \ 'endfunc',
+!         \ 'for _ in range(10000)',
+!         \ '  call s:f()',
+!         \ 'endfor',
+!         \ ], testfile)
+  
+    let vim = s:vim_new()
+    call vim.start('--clean', '-c', 'set noswapfile', testfile)
+--- 123,137 ----
+    " free until garbage collector runs, but after that memory usage doesn't
+    " increase so much even when rerun Xtest.vim since system memory caches.
+    let testfile = 'Xtest.vim'
+!   let lines =<< trim END
+!         func s:f()
+!           let x = l:
+!         endfunc
+!         for _ in range(10000)
+!           call s:f()
+!         endfor
+!   END
+!   call writefile(lines, testfile)
+  
+    let vim = s:vim_new()
+    call vim.start('--clean', '-c', 'set noswapfile', testfile)
+*** ../vim-8.1.1584/src/testdir/test_messages.vim	2019-04-20 23:38:02.189504258 +0200
+--- src/testdir/test_messages.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 102,114 ****
+  
+    " Set custom statusline built by user-defined function.
+    let testfile = 'Xtest.vim'
+!   call writefile([
+!         \ 'func StatusLine() abort',
+!         \ '  return ""',
+!         \ 'endfunc',
+!         \ 'set statusline=%!StatusLine()',
+!         \ 'set laststatus=2',
+!         \ ], testfile)
+  
+    let rows = 10
+    let buf = term_start([GetVimProg(), '--clean', '-S', testfile], {'term_rows': rows})
+--- 102,115 ----
+  
+    " Set custom statusline built by user-defined function.
+    let testfile = 'Xtest.vim'
+!   let lines =<< trim END
+!         func StatusLine() abort
+!           return ""
+!         endfunc
+!         set statusline=%!StatusLine()
+!         set laststatus=2
+!   END
+!   call writefile(lines, testfile)
+  
+    let rows = 10
+    let buf = term_start([GetVimProg(), '--clean', '-S', testfile], {'term_rows': rows})
+***************
+*** 133,142 ****
+  
+    " Set custom statusline built by user-defined function.
+    let testfile = 'Xtest.vim'
+!   call writefile([
+!         \ 'set laststatus=2',
+!         \ 'inoremap <Esc> <Esc>00',
+!         \ ], testfile)
+  
+    let rows = 10
+    let buf = term_start([GetVimProg(), '--clean', '-S', testfile], {'term_rows': rows})
+--- 134,144 ----
+  
+    " Set custom statusline built by user-defined function.
+    let testfile = 'Xtest.vim'
+!   let lines =<< trim END
+!         set laststatus=2
+!         inoremap <Esc> <Esc>00
+!   END
+!   call writefile(lines, testfile)
+  
+    let rows = 10
+    let buf = term_start([GetVimProg(), '--clean', '-S', testfile], {'term_rows': rows})
+*** ../vim-8.1.1584/src/testdir/test_mksession_utf8.vim	2019-06-15 17:57:43.972724036 +0200
+--- src/testdir/test_mksession_utf8.vim	2019-06-24 00:46:28.386980521 +0200
+***************
+*** 65,96 ****
+    mksession! test_mks.out
+    let li = filter(readfile('test_mks.out'), 'v:val =~# "\\(^ *normal! 0\\|^ *exe ''normal!\\)"')
+    let expected =<< trim [DATA]
+-   normal! 016|
+-   normal! 016|
+-   normal! 016|
+-   normal! 08|
+-   normal! 08|
+-   normal! 016|
+-   normal! 016|
+-   normal! 016|
+-     exe 'normal! ' . s:c . '|zs' . 16 . '|'
+      normal! 016|
+-     exe 'normal! ' . s:c . '|zs' . 16 . '|'
+      normal! 016|
+-     exe 'normal! ' . s:c . '|zs' . 16 . '|'
+      normal! 016|
+-     exe 'normal! ' . s:c . '|zs' . 8 . '|'
+      normal! 08|
+-     exe 'normal! ' . s:c . '|zs' . 8 . '|'
+      normal! 08|
+-     exe 'normal! ' . s:c . '|zs' . 16 . '|'
+      normal! 016|
+-     exe 'normal! ' . s:c . '|zs' . 16 . '|'
+      normal! 016|
+-     exe 'normal! ' . s:c . '|zs' . 16 . '|'
+-     normal! 016|
+-     exe 'normal! ' . s:c . '|zs' . 16 . '|'
+      normal! 016|
+    [DATA]
+  
+    call assert_equal(expected, li)
+--- 65,96 ----
+    mksession! test_mks.out
+    let li = filter(readfile('test_mks.out'), 'v:val =~# "\\(^ *normal! 0\\|^ *exe ''normal!\\)"')
+    let expected =<< trim [DATA]
+      normal! 016|
+      normal! 016|
+      normal! 016|
+      normal! 08|
+      normal! 08|
+      normal! 016|
+      normal! 016|
+      normal! 016|
++       exe 'normal! ' . s:c . '|zs' . 16 . '|'
++       normal! 016|
++       exe 'normal! ' . s:c . '|zs' . 16 . '|'
++       normal! 016|
++       exe 'normal! ' . s:c . '|zs' . 16 . '|'
++       normal! 016|
++       exe 'normal! ' . s:c . '|zs' . 8 . '|'
++       normal! 08|
++       exe 'normal! ' . s:c . '|zs' . 8 . '|'
++       normal! 08|
++       exe 'normal! ' . s:c . '|zs' . 16 . '|'
++       normal! 016|
++       exe 'normal! ' . s:c . '|zs' . 16 . '|'
++       normal! 016|
++       exe 'normal! ' . s:c . '|zs' . 16 . '|'
++       normal! 016|
++       exe 'normal! ' . s:c . '|zs' . 16 . '|'
++       normal! 016|
+    [DATA]
+  
+    call assert_equal(expected, li)
+*** ../vim-8.1.1584/src/testdir/test_normal.vim	2019-05-20 22:12:30.720442793 +0200
+--- src/testdir/test_normal.vim	2019-06-24 00:46:28.390980503 +0200
+***************
+*** 1556,1589 ****
+  fun! Test_normal29_brace()
+    " basic test for { and } movements
+    let text =<< trim [DATA]
+!   A paragraph begins after each empty line, and also at each of a set of
+!   paragraph macros, specified by the pairs of characters in the 'paragraphs'
+!   option.  The default is "IPLPPPQPP TPHPLIPpLpItpplpipbp", which corresponds to
+!   the macros ".IP", ".LP", etc.  (These are nroff macros, so the dot must be in
+!   the first column).  A section boundary is also a paragraph boundary.
+!   Note that a blank line (only containing white space) is NOT a paragraph
+!   boundary.
+! 
+! 
+!   Also note that this does not include a '{' or '}' in the first column.  When
+!   the '{' flag is in 'cpoptions' then '{' in the first column is used as a
+!   paragraph boundary |posix|.
+!   {
+!   This is no paragraph
+!   unless the '{' is set
+!   in 'cpoptions'
+!   }
+!   .IP
+!   The nroff macros IP separates a paragraph
+!   That means, it must be a '.'
+!   followed by IP
+!   .LPIt does not matter, if afterwards some
+!   more characters follow.
+!   .SHAlso section boundaries from the nroff
+!   macros terminate a paragraph. That means
+!   a character like this:
+!   .NH
+!   End of text here
+    [DATA]
+  
+    new
+--- 1556,1589 ----
+  fun! Test_normal29_brace()
+    " basic test for { and } movements
+    let text =<< trim [DATA]
+!     A paragraph begins after each empty line, and also at each of a set of
+!     paragraph macros, specified by the pairs of characters in the 'paragraphs'
+!     option.  The default is "IPLPPPQPP TPHPLIPpLpItpplpipbp", which corresponds to
+!     the macros ".IP", ".LP", etc.  (These are nroff macros, so the dot must be in
+!     the first column).  A section boundary is also a paragraph boundary.
+!     Note that a blank line (only containing white space) is NOT a paragraph
+!     boundary.
+! 
+! 
+!     Also note that this does not include a '{' or '}' in the first column.  When
+!     the '{' flag is in 'cpoptions' then '{' in the first column is used as a
+!     paragraph boundary |posix|.
+!     {
+!     This is no paragraph
+!     unless the '{' is set
+!     in 'cpoptions'
+!     }
+!     .IP
+!     The nroff macros IP separates a paragraph
+!     That means, it must be a '.'
+!     followed by IP
+!     .LPIt does not matter, if afterwards some
+!     more characters follow.
+!     .SHAlso section boundaries from the nroff
+!     macros terminate a paragraph. That means
+!     a character like this:
+!     .NH
+!     End of text here
+    [DATA]
+  
+    new
+***************
+*** 1592,1608 ****
+    norm! 0d2}
+  
+    let expected =<< trim [DATA]
+!   .IP
+!   The nroff macros IP separates a paragraph
+!   That means, it must be a '.'
+!   followed by IP
+!   .LPIt does not matter, if afterwards some
+!   more characters follow.
+!   .SHAlso section boundaries from the nroff
+!   macros terminate a paragraph. That means
+!   a character like this:
+!   .NH
+!   End of text here
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+--- 1592,1608 ----
+    norm! 0d2}
+  
+    let expected =<< trim [DATA]
+!     .IP
+!     The nroff macros IP separates a paragraph
+!     That means, it must be a '.'
+!     followed by IP
+!     .LPIt does not matter, if afterwards some
+!     more characters follow.
+!     .SHAlso section boundaries from the nroff
+!     macros terminate a paragraph. That means
+!     a character like this:
+!     .NH
+!     End of text here
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+***************
+*** 1610,1623 ****
+    norm! 0d}
+  
+    let expected =<< trim [DATA]
+!   .LPIt does not matter, if afterwards some
+!   more characters follow.
+!   .SHAlso section boundaries from the nroff
+!   macros terminate a paragraph. That means
+!   a character like this:
+!   .NH
+!   End of text here
+! 
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+  
+--- 1610,1623 ----
+    norm! 0d}
+  
+    let expected =<< trim [DATA]
+!     .LPIt does not matter, if afterwards some
+!     more characters follow.
+!     .SHAlso section boundaries from the nroff
+!     macros terminate a paragraph. That means
+!     a character like this:
+!     .NH
+!     End of text here
+!   
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+  
+***************
+*** 1625,1635 ****
+    norm! d{
+  
+    let expected =<< trim [DATA]
+!   .LPIt does not matter, if afterwards some
+!   more characters follow.
+!   .SHAlso section boundaries from the nroff
+!   macros terminate a paragraph. That means
+!   a character like this:
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+--- 1625,1635 ----
+    norm! d{
+  
+    let expected =<< trim [DATA]
+!     .LPIt does not matter, if afterwards some
+!     more characters follow.
+!     .SHAlso section boundaries from the nroff
+!     macros terminate a paragraph. That means
+!     a character like this:
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+***************
+*** 1637,1644 ****
+    norm! d{
+  
+    let expected =<< trim [DATA]
+!   .LPIt does not matter, if afterwards some
+!   more characters follow.
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+--- 1637,1644 ----
+    norm! d{
+  
+    let expected =<< trim [DATA]
+!     .LPIt does not matter, if afterwards some
+!     more characters follow.
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+***************
+*** 1651,1672 ****
+    norm! 0d2}
+  
+    let expected =<< trim [DATA]
+!   {
+!   This is no paragraph
+!   unless the '{' is set
+!   in 'cpoptions'
+!   }
+!   .IP
+!   The nroff macros IP separates a paragraph
+!   That means, it must be a '.'
+!   followed by IP
+!   .LPIt does not matter, if afterwards some
+!   more characters follow.
+!   .SHAlso section boundaries from the nroff
+!   macros terminate a paragraph. That means
+!   a character like this:
+!   .NH
+!   End of text here
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+--- 1651,1672 ----
+    norm! 0d2}
+  
+    let expected =<< trim [DATA]
+!     {
+!     This is no paragraph
+!     unless the '{' is set
+!     in 'cpoptions'
+!     }
+!     .IP
+!     The nroff macros IP separates a paragraph
+!     That means, it must be a '.'
+!     followed by IP
+!     .LPIt does not matter, if afterwards some
+!     more characters follow.
+!     .SHAlso section boundaries from the nroff
+!     macros terminate a paragraph. That means
+!     a character like this:
+!     .NH
+!     End of text here
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+***************
+*** 1675,1696 ****
+    norm! d}
+  
+    let expected =<< trim [DATA]
+!   {
+!   This is no paragraph
+!   unless the '{' is set
+!   in 'cpoptions'
+!   }
+!   .IP
+!   The nroff macros IP separates a paragraph
+!   That means, it must be a '.'
+!   followed by IP
+!   .LPIt does not matter, if afterwards some
+!   more characters follow.
+!   .SHAlso section boundaries from the nroff
+!   macros terminate a paragraph. That means
+!   a character like this:
+!   .NH
+!   End of text here
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+--- 1675,1696 ----
+    norm! d}
+  
+    let expected =<< trim [DATA]
+!     {
+!     This is no paragraph
+!     unless the '{' is set
+!     in 'cpoptions'
+!     }
+!     .IP
+!     The nroff macros IP separates a paragraph
+!     That means, it must be a '.'
+!     followed by IP
+!     .LPIt does not matter, if afterwards some
+!     more characters follow.
+!     .SHAlso section boundaries from the nroff
+!     macros terminate a paragraph. That means
+!     a character like this:
+!     .NH
+!     End of text here
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+***************
+*** 1699,1709 ****
+    norm! d5}
+  
+    let expected =<< trim [DATA]
+!   {
+!   This is no paragraph
+!   unless the '{' is set
+!   in 'cpoptions'
+!   }
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+--- 1699,1709 ----
+    norm! d5}
+  
+    let expected =<< trim [DATA]
+!     {
+!     This is no paragraph
+!     unless the '{' is set
+!     in 'cpoptions'
+!     }
+  
+    [DATA]
+    call assert_equal(expected, getline(1, '$'))
+*** ../vim-8.1.1584/src/testdir/test_popup.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_popup.vim	2019-06-24 00:46:28.390980503 +0200
+***************
+*** 737,748 ****
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+    endif
+!   call writefile([
+!     \ 'set previewheight=9',
+!     \ 'silent! pedit',
+!     \ 'call setline(1, map(repeat(["ab"], 10), "v:val. v:key"))',
+!     \ 'exec "norm! G\<C-E>\<C-E>"',
+! 	\ ], 'Xscript')
+    let buf = RunVimInTerminal('-S Xscript', {})
+  
+    " Test that popup and previewwindow do not overlap.
+--- 737,749 ----
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+    endif
+!   let lines =<< trim END
+!     set previewheight=9
+!     silent! pedit
+!     call setline(1, map(repeat(["ab"], 10), "v:val. v:key"))
+!     exec "norm! G\<C-E>\<C-E>"
+!   END
+!   call writefile(lines, 'Xscript')
+    let buf = RunVimInTerminal('-S Xscript', {})
+  
+    " Test that popup and previewwindow do not overlap.
+***************
+*** 799,809 ****
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+    endif
+!   call writefile([
+! 	\ '123456789_123456789_123456789_a',
+! 	\ '123456789_123456789_123456789_b',
+! 	\ '            123',
+! 	\ ], 'Xtest')
+    let buf = RunVimInTerminal('Xtest', {})
+    call term_sendkeys(buf, ":vsplit\<CR>")
+  
+--- 800,811 ----
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+    endif
+!   let lines =<< trim END
+!     123456789_123456789_123456789_a
+!     123456789_123456789_123456789_b
+!                 123
+!   END
+!   call writefile(lines, 'Xtest')
+    let buf = RunVimInTerminal('Xtest', {})
+    call term_sendkeys(buf, ":vsplit\<CR>")
+  
+***************
+*** 842,852 ****
+      throw 'Skipped: cannot make screendumps and/or menu feature missing'
+    endif
+  
+!   call writefile([
+! 	\ 'one two three four five',
+! 	\ 'and one two Xthree four five',
+! 	\ 'one more two three four five',
+! 	\ ], 'Xtest')
+    let buf = RunVimInTerminal('Xtest', {})
+    call term_sendkeys(buf, ":source $VIMRUNTIME/menu.vim\<CR>")
+    call term_sendkeys(buf, "/X\<CR>:popup PopUp\<CR>")
+--- 844,855 ----
+      throw 'Skipped: cannot make screendumps and/or menu feature missing'
+    endif
+  
+!   let lines =<< trim END
+! 	one two three four five
+! 	and one two Xthree four five
+! 	one more two three four five
+!   END
+!   call writefile(lines, 'Xtest')
+    let buf = RunVimInTerminal('Xtest', {})
+    call term_sendkeys(buf, ":source $VIMRUNTIME/menu.vim\<CR>")
+    call term_sendkeys(buf, "/X\<CR>:popup PopUp\<CR>")
+*** ../vim-8.1.1584/src/testdir/test_popupwin.vim	2019-06-20 03:45:31.175536929 +0200
+--- src/testdir/test_popupwin.vim	2019-06-24 00:46:28.390980503 +0200
+***************
+*** 9,24 ****
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+    endif
+!   call writefile([
+! 	\ "call setline(1, range(1, 100))",
+! 	\ "hi PopupColor1 ctermbg=lightblue",
+! 	\ "hi PopupColor2 ctermbg=lightcyan",
+! 	\ "hi Comment ctermfg=red",
+! 	\ "call prop_type_add('comment', {'highlight': 'Comment'})",
+! 	\ "let winid = popup_create('hello there', {'line': 3, 'col': 11, 'minwidth': 20, 'highlight': 'PopupColor1'})",
+! 	\ "let winid2 = popup_create(['another one', 'another two', 'another three'], {'line': 3, 'col': 25, 'minwidth': 20})",
+! 	\ "call setwinvar(winid2, '&wincolor', 'PopupColor2')",
+! 	\], 'XtestPopup')
+    let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_01', {})
+  
+--- 9,25 ----
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+    endif
+!   let lines =<< trim END
+! 	call setline(1, range(1, 100))
+! 	hi PopupColor1 ctermbg=lightblue
+! 	hi PopupColor2 ctermbg=lightcyan
+! 	hi Comment ctermfg=red
+! 	call prop_type_add('comment', {'highlight': 'Comment'})
+! 	let winid = popup_create('hello there', {'line': 3, 'col': 11, 'minwidth': 20, 'highlight': 'PopupColor1'})
+! 	let winid2 = popup_create(['another one', 'another two', 'another three'], {'line': 3, 'col': 25, 'minwidth': 20})
+! 	call setwinvar(winid2, '&wincolor', 'PopupColor2')
+!   END
+!   call writefile(lines, 'XtestPopup')
+    let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_01', {})
+  
+***************
+*** 80,95 ****
+    endif
+  
+    for iter in range(0, 1)
+!     call writefile([iter == 1 ? '' : 'set enc=latin1',
+! 	  \ "call setline(1, range(1, 100))",
+! 	  \ "call popup_create('hello border', {'line': 2, 'col': 3, 'border': []})",
+! 	  \ "call popup_create('hello padding', {'line': 2, 'col': 23, 'padding': []})",
+! 	  \ "call popup_create('hello both', {'line': 2, 'col': 43, 'border': [], 'padding': []})",
+! 	  \ "call popup_create('border TL', {'line': 6, 'col': 3, 'border': [1, 0, 0, 4]})",
+! 	  \ "call popup_create('paddings', {'line': 6, 'col': 23, 'padding': [1, 3, 2, 4]})",
+! 	  \ "call popup_create('wrapped longer text', {'line': 8, 'col': 55, 'padding': [0, 3, 0, 3], 'border': [0, 1, 0, 1]})",
+! 	  \ "call popup_create('right aligned text', {'line': 11, 'col': 56, 'wrap': 0, 'padding': [0, 3, 0, 3], 'border': [0, 1, 0, 1]})",
+! 	  \], 'XtestPopupBorder')
+      let buf = RunVimInTerminal('-S XtestPopupBorder', {'rows': 15})
+      call VerifyScreenDump(buf, 'Test_popupwin_2' .. iter, {})
+  
+--- 81,98 ----
+    endif
+  
+    for iter in range(0, 1)
+!     let lines =<< trim END
+! 	  call setline(1, range(1, 100))
+! 	  call popup_create('hello border', {'line': 2, 'col': 3, 'border': []})
+! 	  call popup_create('hello padding', {'line': 2, 'col': 23, 'padding': []})
+! 	  call popup_create('hello both', {'line': 2, 'col': 43, 'border': [], 'padding': []})
+! 	  call popup_create('border TL', {'line': 6, 'col': 3, 'border': [1, 0, 0, 4]})
+! 	  call popup_create('paddings', {'line': 6, 'col': 23, 'padding': [1, 3, 2, 4]})
+! 	  call popup_create('wrapped longer text', {'line': 8, 'col': 55, 'padding': [0, 3, 0, 3], 'border': [0, 1, 0, 1]})
+! 	  call popup_create('right aligned text', {'line': 11, 'col': 56, 'wrap': 0, 'padding': [0, 3, 0, 3], 'border': [0, 1, 0, 1]})
+!     END
+!     call insert(lines, iter == 1 ? '' : 'set enc=latin1')
+!     call writefile(lines, 'XtestPopupBorder')
+      let buf = RunVimInTerminal('-S XtestPopupBorder', {'rows': 15})
+      call VerifyScreenDump(buf, 'Test_popupwin_2' .. iter, {})
+  
+***************
+*** 97,116 ****
+      call delete('XtestPopupBorder')
+    endfor
+  
+!   call writefile([
+! 	\ "call setline(1, range(1, 100))",
+! 	\ "hi BlueColor ctermbg=lightblue",
+! 	\ "hi TopColor ctermbg=253",
+! 	\ "hi RightColor ctermbg=245",
+! 	\ "hi BottomColor ctermbg=240",
+! 	\ "hi LeftColor ctermbg=248",
+! 	\ "call popup_create('hello border', {'line': 2, 'col': 3, 'border': [], 'borderhighlight': ['BlueColor']})",
+! 	\ "call popup_create(['hello border', 'and more'], {'line': 2, 'col': 23, 'border': [], 'borderhighlight': ['TopColor', 'RightColor', 'BottomColor', 'LeftColor']})",
+! 	\ "call popup_create(['hello border', 'lines only'], {'line': 2, 'col': 43, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['x']})",
+! 	\ "call popup_create(['hello border', 'with corners'], {'line': 2, 'col': 60, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['x', '#']})",
+! 	\ "let winid = popup_create(['hello border', 'with numbers'], {'line': 6, 'col': 3, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['0', '1', '2', '3', '4', '5', '6', '7']})",
+! 	\ "call popup_create(['hello border', 'just blanks'], {'line': 7, 'col': 23, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': [' ']})",
+! 	\], 'XtestPopupBorder')
+    let buf = RunVimInTerminal('-S XtestPopupBorder', {'rows': 12})
+    call VerifyScreenDump(buf, 'Test_popupwin_22', {})
+  
+--- 100,120 ----
+      call delete('XtestPopupBorder')
+    endfor
+  
+!   let lines =<< trim END
+! 	call setline(1, range(1, 100))
+! 	hi BlueColor ctermbg=lightblue
+! 	hi TopColor ctermbg=253
+! 	hi RightColor ctermbg=245
+! 	hi BottomColor ctermbg=240
+! 	hi LeftColor ctermbg=248
+! 	call popup_create('hello border', {'line': 2, 'col': 3, 'border': [], 'borderhighlight': ['BlueColor']})
+! 	call popup_create(['hello border', 'and more'], {'line': 2, 'col': 23, 'border': [], 'borderhighlight': ['TopColor', 'RightColor', 'BottomColor', 'LeftColor']})
+! 	call popup_create(['hello border', 'lines only'], {'line': 2, 'col': 43, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['x']})
+! 	call popup_create(['hello border', 'with corners'], {'line': 2, 'col': 60, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['x', '#']})
+! 	let winid = popup_create(['hello border', 'with numbers'], {'line': 6, 'col': 3, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': ['0', '1', '2', '3', '4', '5', '6', '7']})
+! 	call popup_create(['hello border', 'just blanks'], {'line': 7, 'col': 23, 'border': [], 'borderhighlight': ['BlueColor'], 'borderchars': [' ']})
+!   END
+!   call writefile(lines, 'XtestPopupBorder')
+    let buf = RunVimInTerminal('-S XtestPopupBorder', {'rows': 12})
+    call VerifyScreenDump(buf, 'Test_popupwin_22', {})
+  
+***************
+*** 176,193 ****
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+    endif
+!   call writefile([
+! 	\ "call setline(1, range(1, 100))",
+! 	\ "hi PopupColor ctermbg=lightblue",
+! 	\ "let winid = popup_create([",
+! 	\ "\\ '#include <stdio.h>',",
+! 	\ "\\ 'int main(void)',",
+! 	\ "\\ '{',",
+! 	\ "\\ '    printf(123);',",
+! 	\ "\\ '}',",
+! 	\ "\\], {'line': 3, 'col': 25, 'highlight': 'PopupColor'})",
+! 	\ "call win_execute(winid, 'set syntax=cpp')",
+! 	\], 'XtestPopup')
+    let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_10', {})
+  
+--- 180,198 ----
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+    endif
+!   let lines =<< trim END
+! 	call setline(1, range(1, 100))
+! 	hi PopupColor ctermbg=lightblue
+! 	let winid = popup_create([
+! 	    \ '#include <stdio.h>',
+! 	    \ 'int main(void)',
+! 	    \ '{',
+! 	    \ '    printf(123);',
+! 	    \ '}',
+! 	    \], {'line': 3, 'col': 25, 'highlight': 'PopupColor'})
+! 	call win_execute(winid, 'set syntax=cpp')
+!   END
+!   call writefile(lines, 'XtestPopup')
+    let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_10', {})
+  
+***************
+*** 356,361 ****
+--- 361,403 ----
+    call delete('XtestPopupDrag')
+  endfunc
+  
++ func Test_popup_with_mask()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++   let lines =<< trim END
++ 	call setline(1, repeat([join(range(1, 40), '')], 10))
++ 	hi PopupColor ctermbg=lightgrey
++ 	let winid = popup_create([
++ 	    \ 'some text',
++ 	    \ 'another line',
++ 	    \], {
++ 	    \ 'line': 2,
++ 	    \ 'col': 10,
++ 	    \ 'zindex': 90,
++ 	    \ 'padding': [],
++ 	    \ 'highlight': 'PopupColor',
++ 	    \ 'mask': [[1,1,1,1], [-5,-1,4,4], [7,9,2,3], [2,4,3,3]]})
++ 	call popup_create([
++ 	    \ 'xxxxxxxxx',
++ 	    \ 'yyyyyyyyy',
++ 	    \], {
++ 	    \ 'line': 3,
++ 	    \ 'col': 18,
++ 	    \ 'zindex': 20})
++   END
++   call writefile(lines, 'XtestPopupMask')
++   let buf = RunVimInTerminal('-S XtestPopupMask', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_mask_1', {})
++ 
++   call term_sendkeys(buf, ":call popup_move(winid, {'col': 11, 'line': 3})\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_mask_2', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupMask')
++ endfunc
++ 
+  func Test_popup_select()
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+*** ../vim-8.1.1584/src/testdir/test_profile.vim	2019-06-15 17:57:43.972724036 +0200
+--- src/testdir/test_profile.vim	2019-06-24 00:46:28.390980503 +0200
+***************
+*** 310,322 ****
+  
+  func Test_profile_file()
+    let lines =<< trim [CODE]
+!   func! Foo()
+!   endfunc
+!   for i in range(10)
+!     " a comment
+      call Foo()
+-   endfor
+-   call Foo()
+    [CODE]
+  
+    call writefile(lines, 'Xprofile_file.vim')
+--- 310,322 ----
+  
+  func Test_profile_file()
+    let lines =<< trim [CODE]
+!     func! Foo()
+!     endfunc
+!     for i in range(10)
+!       " a comment
+!       call Foo()
+!     endfor
+      call Foo()
+    [CODE]
+  
+    call writefile(lines, 'Xprofile_file.vim')
+*** ../vim-8.1.1584/src/testdir/test_quickfix.vim	2019-06-15 17:57:43.972724036 +0200
+--- src/testdir/test_quickfix.vim	2019-06-24 00:46:28.390980503 +0200
+***************
+*** 818,884 ****
+      endif
+  
+      let l =<< trim [DATA]
+!     "Xtestfile", line 4.12: 1506-045 (S) Undeclared identifier fd_set.
+!     ﻿"Xtestfile", line 6 col 19; this is an error
+!     gcc -c -DHAVE_CONFIsing-prototypes -I/usr/X11R6/include  version.c
+!     Xtestfile:9: parse error before `asd'
+!     make: *** [vim] Error 1
+!     in file "Xtestfile" linenr 10: there is an error
+! 
+!     2 returned
+!     "Xtestfile", line 11 col 1; this is an error
+!     "Xtestfile", line 12 col 2; this is another error
+!     "Xtestfile", line 14:10; this is an error in column 10
+!     =Xtestfile=, line 15:10; this is another error, but in vcol 10 this time
+!     "Xtestfile", linenr 16: yet another problem
+!     Error in "Xtestfile" at line 17:
+!     x should be a dot
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 17
+!                 ^
+!     Error in "Xtestfile" at line 18:
+!     x should be a dot
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 18
+!     .............^
+!     Error in "Xtestfile" at line 19:
+!     x should be a dot
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 19
+!     --------------^
+!     Error in "Xtestfile" at line 20:
+!     x should be a dot
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 20
+!     	       ^
+! 
+!     Does anyone know what is the problem and how to correction it?
+!     "Xtestfile", line 21 col 9: What is the title of the quickfix window?
+!     "Xtestfile", line 22 col 9: What is the title of the quickfix window?
+      [DATA]
+  
+      call writefile(l, 'Xerrorfile1')
+      call writefile(l[:-2], 'Xerrorfile2')
+  
+!     let m =<< trim [DATA]
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  2
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  3
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  4
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  5
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  6
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  7
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  8
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  9
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 10
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 11
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 12
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 13
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 14
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 15
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 16
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 17
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 18
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 19
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 20
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 21
+!     	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 22
+!     [DATA]
+      call writefile(m, 'Xtestfile')
+  
+      let save_efm = &efm
+--- 818,884 ----
+      endif
+  
+      let l =<< trim [DATA]
+!       "Xtestfile", line 4.12: 1506-045 (S) Undeclared identifier fd_set.
+!       ﻿"Xtestfile", line 6 col 19; this is an error
+!       gcc -c -DHAVE_CONFIsing-prototypes -I/usr/X11R6/include  version.c
+!       Xtestfile:9: parse error before `asd'
+!       make: *** [vim] Error 1
+!       in file "Xtestfile" linenr 10: there is an error
+!   
+!       2 returned
+!       "Xtestfile", line 11 col 1; this is an error
+!       "Xtestfile", line 12 col 2; this is another error
+!       "Xtestfile", line 14:10; this is an error in column 10
+!       =Xtestfile=, line 15:10; this is another error, but in vcol 10 this time
+!       "Xtestfile", linenr 16: yet another problem
+!       Error in "Xtestfile" at line 17:
+!       x should be a dot
+!       	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 17
+!                   ^
+!       Error in "Xtestfile" at line 18:
+!       x should be a dot
+!       	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 18
+!       .............^
+!       Error in "Xtestfile" at line 19:
+!       x should be a dot
+!       	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 19
+!       --------------^
+!       Error in "Xtestfile" at line 20:
+!       x should be a dot
+!       	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 20
+!       	       ^
+!   
+!       Does anyone know what is the problem and how to correction it?
+!       "Xtestfile", line 21 col 9: What is the title of the quickfix window?
+!       "Xtestfile", line 22 col 9: What is the title of the quickfix window?
+      [DATA]
+  
+      call writefile(l, 'Xerrorfile1')
+      call writefile(l[:-2], 'Xerrorfile2')
+  
+!     let m =<< [DATA]
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  2
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  3
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  4
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  5
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  6
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  7
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  8
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line  9
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 10
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 11
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 12
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 13
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 14
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 15
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 16
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 17
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 18
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 19
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 20
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 21
+! 	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx    line 22
+! [DATA]
+      call writefile(m, 'Xtestfile')
+  
+      let save_efm = &efm
+***************
+*** 1092,1111 ****
+  
+    " Test for %P, %Q and %t format specifiers
+    let lines =<< trim [DATA]
+!   [Xtestfile1]
+!   (1,17)  error: ';' missing
+!   (21,2)  warning: variable 'z' not defined
+!   (67,3)  error: end of file found before string ended
+!   --
+! 
+!   [Xtestfile2]
+!   --
+! 
+!   [Xtestfile3]
+!   NEW compiler v1.1
+!   (2,2)   warning: variable 'x' not defined
+!   (67,3)  warning: 's' already defined
+!   --
+    [DATA]
+  
+    set efm=%+P[%f]%r,(%l\\,%c)%*[\ ]%t%*[^:]:\ %m,%+Q--%r
+--- 1092,1111 ----
+  
+    " Test for %P, %Q and %t format specifiers
+    let lines =<< trim [DATA]
+!     [Xtestfile1]
+!     (1,17)  error: ';' missing
+!     (21,2)  warning: variable 'z' not defined
+!     (67,3)  error: end of file found before string ended
+!     --
+! 
+!     [Xtestfile2]
+!     --
+! 
+!     [Xtestfile3]
+!     NEW compiler v1.1
+!     (2,2)   warning: variable 'x' not defined
+!     (67,3)  warning: 's' already defined
+!     --
+    [DATA]
+  
+    set efm=%+P[%f]%r,(%l\\,%c)%*[\ ]%t%*[^:]:\ %m,%+Q--%r
+***************
+*** 1130,1139 ****
+  
+    " Tests for %E, %C and %Z format specifiers
+    let lines =<< trim [DATA]
+!   Error 275
+!   line 42
+!   column 3
+!   ' ' expected after '--'
+    [DATA]
+  
+    set efm=%EError\ %n,%Cline\ %l,%Ccolumn\ %c,%Z%m
+--- 1130,1139 ----
+  
+    " Tests for %E, %C and %Z format specifiers
+    let lines =<< trim [DATA]
+!     Error 275
+!     line 42
+!     column 3
+!     ' ' expected after '--'
+    [DATA]
+  
+    set efm=%EError\ %n,%Cline\ %l,%Ccolumn\ %c,%Z%m
+***************
+*** 1147,1154 ****
+  
+    " Test for %>
+    let lines =<< trim [DATA]
+!   Error in line 147 of foo.c:
+!   unknown variable 'i'
+    [DATA]
+  
+    set efm=unknown\ variable\ %m,%E%>Error\ in\ line\ %l\ of\ %f:,%Z%m
+--- 1147,1154 ----
+  
+    " Test for %>
+    let lines =<< trim [DATA]
+!     Error in line 147 of foo.c:
+!     unknown variable 'i'
+    [DATA]
+  
+    set efm=unknown\ variable\ %m,%E%>Error\ in\ line\ %l\ of\ %f:,%Z%m
+***************
+*** 1160,1178 ****
+  
+    " Test for %A, %C and other formats
+    let lines =<< trim [DATA]
+!   ==============================================================
+!   FAIL: testGetTypeIdCachesResult (dbfacadeTest.DjsDBFacadeTest)
+!   --------------------------------------------------------------
+!   Traceback (most recent call last):
+!     File "unittests/dbfacadeTest.py", line 89, in testFoo
+!       self.assertEquals(34, dtid)
+!     File "/usr/lib/python2.2/unittest.py", line 286, in
+!    failUnlessEqual
+!       raise self.failureException, \\
+!   AssertionError: 34 != 33
+! 
+!   --------------------------------------------------------------
+!   Ran 27 tests in 0.063s
+    [DATA]
+  
+    set efm=%C\ %.%#,%A\ \ File\ \"%f\"\\,\ line\ %l%.%#,%Z%[%^\ ]%\\@=%m
+--- 1160,1178 ----
+  
+    " Test for %A, %C and other formats
+    let lines =<< trim [DATA]
+!     ==============================================================
+!     FAIL: testGetTypeIdCachesResult (dbfacadeTest.DjsDBFacadeTest)
+!     --------------------------------------------------------------
+!     Traceback (most recent call last):
+!       File "unittests/dbfacadeTest.py", line 89, in testFoo
+!         self.assertEquals(34, dtid)
+!       File "/usr/lib/python2.2/unittest.py", line 286, in
+!      failUnlessEqual
+!         raise self.failureException, \\
+!     AssertionError: 34 != 33
+!   
+!     --------------------------------------------------------------
+!     Ran 27 tests in 0.063s
+    [DATA]
+  
+    set efm=%C\ %.%#,%A\ \ File\ \"%f\"\\,\ line\ %l%.%#,%Z%[%^\ ]%\\@=%m
+*** ../vim-8.1.1584/src/testdir/test_xxd.vim	2019-06-15 17:57:43.976724009 +0200
+--- src/testdir/test_xxd.vim	2019-06-24 00:46:28.390980503 +0200
+***************
+*** 96,105 ****
+    exe '0r! ' . s:xxd_cmd . ' -i XXDfile'
+    $d
+    let expected =<< trim [CODE]
+!   unsigned char XXDfile[] = {
+!     0x54, 0x45, 0x53, 0x54, 0x61, 0x62, 0x63, 0x64, 0x30, 0x39, 0x0a
+!   };
+!   unsigned int XXDfile_len = 11;
+    [CODE]
+  
+    call assert_equal(expected, getline(1,'$'), s:Mess(s:test))
+--- 96,105 ----
+    exe '0r! ' . s:xxd_cmd . ' -i XXDfile'
+    $d
+    let expected =<< trim [CODE]
+!     unsigned char XXDfile[] = {
+!       0x54, 0x45, 0x53, 0x54, 0x61, 0x62, 0x63, 0x64, 0x30, 0x39, 0x0a
+!     };
+!     unsigned int XXDfile_len = 11;
+    [CODE]
+  
+    call assert_equal(expected, getline(1,'$'), s:Mess(s:test))
+***************
+*** 112,121 ****
+      exe '0r! ' . s:xxd_cmd . ' -i ' . arg . ' XXDfile'
+      $d
+      let expected =<< trim [CODE]
+!     unsigned char XXDFILE[] = {
+!       0x54, 0x45, 0x53, 0x54, 0x61, 0x62, 0x63, 0x64, 0x30, 0x39, 0x0a
+!     };
+!     unsigned int XXDFILE_LEN = 11;
+      [CODE]
+      call assert_equal(expected, getline(1,'$'), s:Mess(s:test))
+    endfor
+--- 112,121 ----
+      exe '0r! ' . s:xxd_cmd . ' -i ' . arg . ' XXDfile'
+      $d
+      let expected =<< trim [CODE]
+!       unsigned char XXDFILE[] = {
+!         0x54, 0x45, 0x53, 0x54, 0x61, 0x62, 0x63, 0x64, 0x30, 0x39, 0x0a
+!       };
+!       unsigned int XXDFILE_LEN = 11;
+      [CODE]
+      call assert_equal(expected, getline(1,'$'), s:Mess(s:test))
+    endfor
+*** ../vim-8.1.1584/src/version.c	2019-06-24 00:43:31.459691842 +0200
+--- src/version.c	2019-06-24 00:48:43.374383221 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1585,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+258. When you want to see your girlfriend, you surf to her homepage.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

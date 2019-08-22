@@ -1,0 +1,132 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1577
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1577
+Problem:    Command line redrawn for +arabic without Arabic characters.
+            (Dominique Pelle)
+Solution:   Check if there actually are any Arabic characters.  Do redraw
+            after displaying incsearch. (closes #4569)
+Files:	    src/ex_getln.c
+
+
+*** ../vim-8.1.1576/src/ex_getln.c	2019-05-28 23:08:12.060648736 +0200
+--- src/ex_getln.c	2019-06-21 02:28:48.264893466 +0200
+***************
+*** 450,455 ****
+--- 450,456 ----
+  #endif
+      int		next_char;
+      int		use_last_pat;
++     int		did_do_incsearch = is_state->did_incsearch;
+  
+      // Parsing range may already set the last search pattern.
+      // NOTE: must call restore_last_search_pattern() before returning!
+***************
+*** 459,464 ****
+--- 460,468 ----
+      {
+  	restore_last_search_pattern();
+  	finish_incsearch_highlighting(FALSE, is_state, TRUE);
++ 	if (did_do_incsearch && vpeekc() == NUL)
++ 	    // may have skipped a redraw, do it now
++ 	    redrawcmd();
+  	return;
+      }
+  
+***************
+*** 776,781 ****
+--- 780,814 ----
+  }
+  #endif
+  
++ #ifdef FEAT_ARABIC
++ /*
++  * Return TRUE if the command line has an Arabic character at or after "start"
++  * for "len" bytes.
++  */
++     static int
++ cmdline_has_arabic(int start, int len)
++ {
++     int	    j;
++     int	    mb_l;
++     int	    u8c;
++     char_u  *p;
++     int	    u8cc[MAX_MCO];
++ 
++     if (!enc_utf8)
++ 	return FALSE;
++ 
++     for (j = start; j < start + len; j += mb_l)
++     {
++ 	p = ccline.cmdbuff + j;
++ 	u8c = utfc_ptr2char_len(p, u8cc, start + len - j);
++ 	mb_l = utfc_ptr2len_len(p, start + len - j);
++ 	if (ARABIC_CHAR(u8c))
++ 	    return TRUE;
++     }
++     return FALSE;
++ }
++ #endif
++ 
+      void
+  cmdline_init(void)
+  {
+***************
+*** 2366,2372 ****
+  #ifdef FEAT_RIGHTLEFT
+  	if (cmdmsg_rl
+  # ifdef FEAT_ARABIC
+! 		|| (p_arshape && !p_tbidi && enc_utf8)
+  # endif
+  		)
+  	    /* Always redraw the whole command line to fix shaping and
+--- 2399,2406 ----
+  #ifdef FEAT_RIGHTLEFT
+  	if (cmdmsg_rl
+  # ifdef FEAT_ARABIC
+! 		|| (p_arshape && !p_tbidi
+! 				       && cmdline_has_arabic(0, ccline.cmdlen))
+  # endif
+  		)
+  	    /* Always redraw the whole command line to fix shaping and
+***************
+*** 3164,3170 ****
+      else
+  #endif
+  #ifdef FEAT_ARABIC
+! 	if (p_arshape && !p_tbidi && enc_utf8 && len > 0)
+      {
+  	static int	buflen = 0;
+  	char_u		*p;
+--- 3198,3204 ----
+      else
+  #endif
+  #ifdef FEAT_ARABIC
+! 	if (p_arshape && !p_tbidi && cmdline_has_arabic(start, len))
+      {
+  	static int	buflen = 0;
+  	char_u		*p;
+*** ../vim-8.1.1576/src/version.c	2019-06-21 00:12:25.688049606 +0200
+--- src/version.c	2019-06-21 01:38:48.659591446 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1577,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+244. You use more than 20 passwords.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

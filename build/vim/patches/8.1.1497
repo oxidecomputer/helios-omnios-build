@@ -1,0 +1,114 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1497
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1497
+Problem:    Accessing memory beyond allocated space.
+Solution:   Check column before accessing popup mask.
+Files:	    src/screen.c
+
+
+*** ../vim-8.1.1496/src/screen.c	2019-06-08 16:55:12.139336495 +0200
+--- src/screen.c	2019-06-08 17:23:29.780392057 +0200
+***************
+*** 6797,6831 ****
+      if (clear_width > 0
+  #ifdef FEAT_TEXT_PROP
+  	    && !(flags & SLF_POPUP)  // no separator for popup window
+- 	    && popup_mask[row * screen_Columns + col + coloff] <= screen_zindex
+  #endif
+  	    )
+      {
+  	// For a window that has a right neighbor, draw the separator char
+! 	// right of the window contents.
+  	if (coloff + col < Columns)
+  	{
+! 	    int c;
+! 
+! 	    c = fillchar_vsep(&hl);
+! 	    if (ScreenLines[off_to] != (schar_T)c
+! 		    || (enc_utf8 && (int)ScreenLinesUC[off_to]
+! 						       != (c >= 0x80 ? c : 0))
+! 		    || ScreenAttrs[off_to] != hl)
+  	    {
+! 		ScreenLines[off_to] = c;
+! 		ScreenAttrs[off_to] = hl;
+! 		if (enc_utf8)
+  		{
+! 		    if (c >= 0x80)
+  		    {
+! 			ScreenLinesUC[off_to] = c;
+! 			ScreenLinesC[0][off_to] = 0;
+  		    }
+! 		    else
+! 			ScreenLinesUC[off_to] = 0;
+  		}
+- 		screen_char(off_to, row, col + coloff);
+  	    }
+  	}
+  	else
+--- 6797,6836 ----
+      if (clear_width > 0
+  #ifdef FEAT_TEXT_PROP
+  	    && !(flags & SLF_POPUP)  // no separator for popup window
+  #endif
+  	    )
+      {
+  	// For a window that has a right neighbor, draw the separator char
+! 	// right of the window contents.  But not on top of a popup window.
+  	if (coloff + col < Columns)
+  	{
+! #ifdef FEAT_TEXT_PROP
+! 	    if (popup_mask[row * screen_Columns + col + coloff]
+! 							     <= screen_zindex)
+! #endif
+  	    {
+! 		int c;
+! 
+! 		c = fillchar_vsep(&hl);
+! 		if (ScreenLines[off_to] != (schar_T)c
+! 			|| (enc_utf8 && (int)ScreenLinesUC[off_to]
+! 							!= (c >= 0x80 ? c : 0))
+! 			|| ScreenAttrs[off_to] != hl)
+  		{
+! 		    ScreenLines[off_to] = c;
+! 		    ScreenAttrs[off_to] = hl;
+! 		    if (enc_utf8)
+  		    {
+! 			if (c >= 0x80)
+! 			{
+! 			    ScreenLinesUC[off_to] = c;
+! 			    ScreenLinesC[0][off_to] = 0;
+! 			}
+! 			else
+! 			    ScreenLinesUC[off_to] = 0;
+  		    }
+! 		    screen_char(off_to, row, col + coloff);
+  		}
+  	    }
+  	}
+  	else
+*** ../vim-8.1.1496/src/version.c	2019-06-08 17:15:47.671568076 +0200
+--- src/version.c	2019-06-08 17:24:42.491930408 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1497,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+122. You ask if the Netaholics Anonymous t-shirt you ordered can be
+     sent to you via e-mail.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

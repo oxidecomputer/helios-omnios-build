@@ -1,0 +1,156 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1770
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1770
+Problem:    Cannot get the window ID of the popup preview window.
+Solution:   Add popup_getpreview().
+Files:	    src/evalfunc.c, src/popupwin.c, src/proto/popupwin.pro,
+            runtime/doc/eval.txt, runtime/doc/popup.txt,
+            src/testdir/dumps/Test_popupwin_previewpopup_3.dump
+
+
+*** ../vim-8.1.1769/src/evalfunc.c	2019-07-28 15:21:50.809275875 +0200
+--- src/evalfunc.c	2019-07-28 17:07:55.132617531 +0200
+***************
+*** 715,720 ****
+--- 715,721 ----
+      {"popup_filter_yesno", 2, 2, f_popup_filter_yesno},
+      {"popup_getoptions", 1, 1, f_popup_getoptions},
+      {"popup_getpos",	1, 1, f_popup_getpos},
++     {"popup_getpreview", 0, 0, f_popup_getpreview},
+      {"popup_hide",	1, 1, f_popup_hide},
+      {"popup_locate",	2, 2, f_popup_locate},
+      {"popup_menu",	2, 2, f_popup_menu},
+*** ../vim-8.1.1769/src/popupwin.c	2019-07-26 22:15:47.015244922 +0200
+--- src/popupwin.c	2019-07-28 17:04:41.085574310 +0200
+***************
+*** 3019,3025 ****
+      for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+  	if (wp->w_p_pvw)
+  	    return wp;
+!     return wp;
+  }
+  
+      int
+--- 3019,3033 ----
+      for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+  	if (wp->w_p_pvw)
+  	    return wp;
+!     return NULL;
+! }
+! 
+!     void
+! f_popup_getpreview(typval_T *argvars UNUSED, typval_T *rettv)
+! {
+!     win_T   *wp = popup_find_preview_window();
+! 
+!     rettv->vval.v_number = wp == NULL ? 0 : wp->w_id;
+  }
+  
+      int
+*** ../vim-8.1.1769/src/proto/popupwin.pro	2019-07-18 21:42:45.959840521 +0200
+--- src/proto/popupwin.pro	2019-07-28 17:07:33.284725227 +0200
+***************
+*** 42,47 ****
+--- 42,48 ----
+  void update_popups(void (*win_update)(win_T *wp));
+  int set_ref_in_popups(int copyID);
+  win_T *popup_find_preview_window(void);
++ void f_popup_getpreview(typval_T *argvars, typval_T *rettv);
+  int popup_is_popup(win_T *wp);
+  int popup_create_preview_window(void);
+  void popup_close_preview(void);
+*** ../vim-8.1.1769/runtime/doc/eval.txt	2019-07-21 16:39:56.200095876 +0200
+--- runtime/doc/eval.txt	2019-07-28 17:48:28.917796151 +0200
+***************
+*** 2554,2559 ****
+--- 2554,2560 ----
+  popup_filter_yesno({id}, {key}) Number	filter for a dialog popup window
+  popup_getoptions({id})		Dict	get options of popup window {id}
+  popup_getpos({id})		Dict	get position of popup window {id}
++ popup_getpreview()		Number	get window ID of preview popup window
+  popup_hide({id})		none	hide popup menu {id}
+  popup_menu({what}, {options})	Number	create a popup window used as a menu
+  popup_move({id}, {options})	none	set position of popup window {id}
+*** ../vim-8.1.1769/runtime/doc/popup.txt	2019-07-18 13:45:54.346319302 +0200
+--- runtime/doc/popup.txt	2019-07-28 17:07:15.512812847 +0200
+***************
+*** 335,340 ****
+--- 335,344 ----
+  
+  		If popup window {id} is not found an empty Dict is returned.
+  
++ popup_getpreview()					*popup_getpreview()*
++ 		Get the |window-ID| for the popup preview window.
++ 		Return zero if there is none.
++ 
+  
+  popup_hide({id})						*popup_hide()*
+  		If {id} is a displayed popup, hide it now. If the popup has a
+***************
+*** 702,710 ****
+  the window.  This can be disabled by setting the "scrollbar" option to zero.
+  When the scrollbar is displayed mouse scroll events, while the mouse pointer
+  is on the popup, will cause the text to scroll up or down as you would expect.
+! A click in the upper half of the scrollbar will scroll the text one line
+! down.  A click in the lower half wil scroll the text one line up.  However,
+! this is limited so that the popup does not get smaller.
+  
+  
+  POPUP MASK						*popup-mask*
+--- 706,714 ----
+  the window.  This can be disabled by setting the "scrollbar" option to zero.
+  When the scrollbar is displayed mouse scroll events, while the mouse pointer
+  is on the popup, will cause the text to scroll up or down as you would expect.
+! A click in the upper half of the scrollbar will scroll the text down one line.
+! A click in the lower half will scroll the text up one line.  However, this is
+! limited so that the popup does not get smaller.
+  
+  
+  POPUP MASK						*popup-mask*
+*** ../vim-8.1.1769/src/testdir/dumps/Test_popupwin_previewpopup_3.dump	2019-07-28 17:27:40.781081502 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_3.dump	2019-07-28 17:26:00.437726556 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |o+0&#ffffff0|n|e| @71
++ |t|w|o| @71
++ |t|h|r|e@1| @69
++ |f|o|u|r| @9|╔+0#0000001#ffd7ff255|═@40|X| +0#0000000#ffffff0@17
++ |f|i|v|e| @9|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
++ |s|i|x| @10|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
++ |s|e|v|e|n| @8|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
++ |f|i|n|d| |t|h|e|w|o|r|d| |s|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
++ |n|i|n|e| @9|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@17
++ |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |:+0#0000000&| @55|1|0|,|9| @9|A|l@1| 
+*** ../vim-8.1.1769/src/version.c	2019-07-28 16:36:31.677949509 +0200
+--- src/version.c	2019-07-28 17:27:49.345027224 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1770,
+  /**/
+
+-- 
+I once paid $12 to peer at the box that held King Tutankhamen's little
+bandage-covered midget corpse at the De Young Museum in San Francisco.  I
+remember thinking how pleased he'd be about the way things turned out in his
+afterlife.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

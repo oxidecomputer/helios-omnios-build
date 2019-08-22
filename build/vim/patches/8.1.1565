@@ -1,0 +1,625 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1565
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1565
+Problem:    MS-Windows: no sound support.
+Solution:   Add sound support for MS-Windows. (Yasuhiro Matsumoto, Ken Takata,
+            closes #4522)
+Files:	    runtime/doc/eval.txt, src/Make_cyg_ming.mak, src/Make_mvc.mak,
+            src/sound.c, src/testdir/test_sound.vim
+
+
+*** ../vim-8.1.1564/runtime/doc/eval.txt	2019-06-16 15:41:54.730684164 +0200
+--- runtime/doc/eval.txt	2019-06-17 22:11:26.710425433 +0200
+***************
+*** 8883,8889 ****
+  <
+  sound_clear()						*sound_clear()*
+  		Stop playing all sounds.
+! 		{only available when compiled with the +sound feature}
+  
+  							*sound_playevent()*
+  sound_playevent({name} [, {callback}])
+--- 8883,8889 ----
+  <
+  sound_clear()						*sound_clear()*
+  		Stop playing all sounds.
+! 		{only available when compiled with the |+sound| feature}
+  
+  							*sound_playevent()*
+  sound_playevent({name} [, {callback}])
+***************
+*** 8892,8903 ****
+  		are used.  On Ubuntu they may be found in
+  		/usr/share/sounds/freedesktop/stereo.  Example: >
+  			call sound_playevent('bell')
+  
+! <		When {callback} is specified it is invoked when the sound is
+  		finished.  The first argument is the sound ID, the second
+  		argument is the status:
+  			0	sound was played to the end
+! 			1	sound was interruped
+  			2	error occured after sound started
+  		Example: >
+  		   func Callback(id, status)
+--- 8892,8906 ----
+  		are used.  On Ubuntu they may be found in
+  		/usr/share/sounds/freedesktop/stereo.  Example: >
+  			call sound_playevent('bell')
++ <		On MS-Windows, {name} can be SystemAsterisk, SystemDefault,
++ 		SystemExclamation, SystemExit, SystemHand, SystemQuestion,
++ 		SystemStart, SystemWelcome, etc.
+  
+! 		When {callback} is specified it is invoked when the sound is
+  		finished.  The first argument is the sound ID, the second
+  		argument is the status:
+  			0	sound was played to the end
+! 			1	sound was interrupted
+  			2	error occured after sound started
+  		Example: >
+  		   func Callback(id, status)
+***************
+*** 8905,8913 ****
+  		   endfunc
+  		   call sound_playevent('bell', 'Callback')
+  
+! <		Returns the sound ID, which can be passed to `sound_stop()`.
+  		Returns zero if the sound could not be played.
+! 		{only available when compiled with the +sound feature}
+  
+  							*sound_playfile()*
+  sound_playfile({path} [, {callback}])
+--- 8908,8918 ----
+  		   endfunc
+  		   call sound_playevent('bell', 'Callback')
+  
+! <		MS-Windows: {callback} doesn't work for this function.
+! 
+! 		Returns the sound ID, which can be passed to `sound_stop()`.
+  		Returns zero if the sound could not be played.
+! 		{only available when compiled with the |+sound| feature}
+  
+  							*sound_playfile()*
+  sound_playfile({path} [, {callback}])
+***************
+*** 8915,8927 ****
+  		must be a full path.  On Ubuntu you may find files to play
+  		with this command: >
+  		    :!find /usr/share/sounds -type f | grep -v index.theme
+! <		{only available when compiled with the +sound feature}
+  
+  
+  sound_stop({id})					*sound_stop()*
+  		Stop playing sound {id}.  {id} must be previously returned by
+  		`sound_playevent()` or `sound_playfile()`.
+! 		{only available when compiled with the +sound feature}
+  
+  							*soundfold()*
+  soundfold({word})
+--- 8920,8936 ----
+  		must be a full path.  On Ubuntu you may find files to play
+  		with this command: >
+  		    :!find /usr/share/sounds -type f | grep -v index.theme
+! <		{only available when compiled with the |+sound| feature}
+  
+  
+  sound_stop({id})					*sound_stop()*
+  		Stop playing sound {id}.  {id} must be previously returned by
+  		`sound_playevent()` or `sound_playfile()`.
+! 
+! 		On MS-Windows, this does not work for event sound started by
+! 		`sound_playevent()`. To stop event sounds, use `sound_clear()`.
+! 
+! 		{only available when compiled with the |+sound| feature}
+  
+  							*soundfold()*
+  soundfold({word})
+*** ../vim-8.1.1564/src/Make_cyg_ming.mak	2019-05-25 19:51:03.772408479 +0200
+--- src/Make_cyg_ming.mak	2019-06-17 22:09:31.042805999 +0200
+***************
+*** 106,111 ****
+--- 106,118 ----
+  TERMINAL=no
+  endif
+  
++ # Set to yes to enable sound support.
++ ifneq ($(findstring $(FEATURES),BIG HUGE),)
++ SOUND=yes
++ else
++ SOUND=no
++ endif
++ 
+  ifndef CTAGS
+  # this assumes ctags is Exuberant ctags
+  CTAGS = ctags -I INIT+ --fields=+S
+***************
+*** 633,638 ****
+--- 640,649 ----
+  	libvterm/src/vterm_internal.h
+  endif
+  
++ ifeq ($(SOUND),yes)
++ DEFINES += -DFEAT_SOUND
++ endif
++ 
+  # DirectWrite (DirectX)
+  ifeq ($(DIRECTX),yes)
+  # Only allow DirectWrite for a GUI build.
+***************
+*** 849,854 ****
+--- 860,869 ----
+  	$(OUTDIR)/vterm.o
+  endif
+  
++ ifeq ($(SOUND),yes)
++ OBJ += $(OUTDIR)/sound.o
++ endif
++ 
+  # Include xdiff
+  OBJ +=  $(OUTDIR)/xdiffi.o \
+  	$(OUTDIR)/xemit.o \
+***************
+*** 957,962 ****
+--- 972,981 ----
+  DEFINES+=-DDYNAMIC_ICONV
+  endif
+  
++ ifeq (yes, $(SOUND))
++ LIB += -lwinmm
++ endif
++ 
+  ifeq (yes, $(USE_STDCPLUS))
+  LINK = $(CXX)
+   ifeq (yes, $(STATIC_STDCPLUS))
+*** ../vim-8.1.1564/src/Make_mvc.mak	2019-05-26 13:13:59.243216016 +0200
+--- src/Make_mvc.mak	2019-06-17 22:09:31.042805999 +0200
+***************
+*** 38,44 ****
+  #	  is yes)
+  #	Global IME support: GIME=yes (requires GUI=yes)
+  #
+! #       Terminal support: TERMINAL=yes (default is yes)
+  #
+  #	DLL support (EXPERIMENTAL): VIMDLL=yes (default is no)
+  #	  Creates vim{32,64}.dll, and stub gvim.exe and vim.exe.
+--- 38,46 ----
+  #	  is yes)
+  #	Global IME support: GIME=yes (requires GUI=yes)
+  #
+! #	Terminal support: TERMINAL=yes (default is yes)
+! #
+! #	Sound support: SOUND=yes (default is yes)
+  #
+  #	DLL support (EXPERIMENTAL): VIMDLL=yes (default is no)
+  #	  Creates vim{32,64}.dll, and stub gvim.exe and vim.exe.
+***************
+*** 381,386 ****
+--- 383,396 ----
+  	libvterm/src/vterm_internal.h
+  !endif
+  
++ !ifndef SOUND
++ ! if "$(FEATURES)"=="HUGE" || "$(FEATURES)"=="BIG"
++ SOUND = yes
++ ! else
++ SOUND = no
++ ! endif
++ !endif
++ 
+  !ifndef NETBEANS
+  NETBEANS = $(GUI)
+  !endif
+***************
+*** 454,459 ****
+--- 464,476 ----
+  ! endif
+  !endif # GUI
+  
++ !if "$(SOUND)" == "yes"
++ SOUND_PRO	= proto/sound.pro
++ SOUND_OBJ	= $(OBJDIR)/sound.obj
++ SOUND_DEFS	= -DFEAT_SOUND
++ SOUND_LIB	= winmm.lib
++ !endif
++ 
+  !if "$(CHANNEL)" == "yes"
+  CHANNEL_PRO	= proto/channel.pro
+  CHANNEL_OBJ	= $(OBJDIR)/channel.obj
+***************
+*** 494,500 ****
+  #VIMRUNTIMEDIR = somewhere
+  
+  CFLAGS = -c /W3 /nologo $(CVARS) -I. -Iproto -DHAVE_PATHDEF -DWIN32 \
+! 		$(CSCOPE_DEFS) $(TERM_DEFS) $(NETBEANS_DEFS) $(CHANNEL_DEFS) \
+  		$(NBDEBUG_DEFS) $(XPM_DEFS) \
+  		$(DEFINES) -DWINVER=$(WINVER) -D_WIN32_WINNT=$(WINVER)
+  
+--- 511,517 ----
+  #VIMRUNTIMEDIR = somewhere
+  
+  CFLAGS = -c /W3 /nologo $(CVARS) -I. -Iproto -DHAVE_PATHDEF -DWIN32 \
+! 		$(CSCOPE_DEFS) $(TERM_DEFS) $(SOUND_DEFS) $(NETBEANS_DEFS) $(CHANNEL_DEFS) \
+  		$(NBDEBUG_DEFS) $(XPM_DEFS) \
+  		$(DEFINES) -DWINVER=$(WINVER) -D_WIN32_WINNT=$(WINVER)
+  
+***************
+*** 1217,1223 ****
+  LINKARGS1 = $(linkdebug) $(conflags)
+  LINKARGS2 = $(CON_LIB) $(GUI_LIB) $(NODEFAULTLIB) $(LIBC) $(OLE_LIB) user32.lib \
+  		$(LUA_LIB) $(MZSCHEME_LIB) $(PERL_LIB) $(PYTHON_LIB) $(PYTHON3_LIB) $(RUBY_LIB) \
+! 		$(TCL_LIB) $(NETBEANS_LIB) $(XPM_LIB) $(LINK_PDB)
+  
+  # Report link time code generation progress if used. 
+  !ifdef NODEBUG
+--- 1234,1240 ----
+  LINKARGS1 = $(linkdebug) $(conflags)
+  LINKARGS2 = $(CON_LIB) $(GUI_LIB) $(NODEFAULTLIB) $(LIBC) $(OLE_LIB) user32.lib \
+  		$(LUA_LIB) $(MZSCHEME_LIB) $(PERL_LIB) $(PYTHON_LIB) $(PYTHON3_LIB) $(RUBY_LIB) \
+! 		$(TCL_LIB) $(SOUND_LIB) $(NETBEANS_LIB) $(XPM_LIB) $(LINK_PDB)
+  
+  # Report link time code generation progress if used. 
+  !ifdef NODEBUG
+***************
+*** 1253,1264 ****
+  
+  $(VIMDLLBASE).dll: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) \
+  		$(LUA_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
+! 		$(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) \
+  		version.c version.h
+  	$(CC) $(CFLAGS_OUTDIR) version.c
+  	$(link) $(LINKARGS1) /dll -out:$(VIMDLLBASE).dll $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) \
+  		$(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) \
+! 		$(TCL_OBJ) $(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) \
+  		$(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
+  
+  $(GVIM).exe: $(OUTDIR) $(EXEOBJG) $(VIMDLLBASE).dll
+--- 1270,1281 ----
+  
+  $(VIMDLLBASE).dll: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) \
+  		$(LUA_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
+! 		$(CSCOPE_OBJ) $(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) \
+  		version.c version.h
+  	$(CC) $(CFLAGS_OUTDIR) version.c
+  	$(link) $(LINKARGS1) /dll -out:$(VIMDLLBASE).dll $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) \
+  		$(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) \
+! 		$(TCL_OBJ) $(CSCOPE_OBJ) $(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) \
+  		$(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
+  
+  $(GVIM).exe: $(OUTDIR) $(EXEOBJG) $(VIMDLLBASE).dll
+***************
+*** 1273,1284 ****
+  
+  $(VIM).exe: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) \
+  		$(LUA_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
+! 		$(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) \
+  		version.c version.h
+  	$(CC) $(CFLAGS_OUTDIR) version.c
+  	$(link) $(LINKARGS1) /subsystem:$(SUBSYSTEM) -out:$(VIM).exe $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) \
+  		$(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) \
+! 		$(TCL_OBJ) $(CSCOPE_OBJ) $(TERM_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) \
+  		$(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
+  	if exist $(VIM).exe.manifest mt.exe -nologo -manifest $(VIM).exe.manifest -updateresource:$(VIM).exe;1
+  
+--- 1290,1301 ----
+  
+  $(VIM).exe: $(OUTDIR) $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) $(OLE_IDL) $(MZSCHEME_OBJ) \
+  		$(LUA_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) $(TCL_OBJ) \
+! 		$(CSCOPE_OBJ) $(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) $(XPM_OBJ) \
+  		version.c version.h
+  	$(CC) $(CFLAGS_OUTDIR) version.c
+  	$(link) $(LINKARGS1) /subsystem:$(SUBSYSTEM) -out:$(VIM).exe $(OBJ) $(XDIFF_OBJ) $(GUI_OBJ) $(CUI_OBJ) $(OLE_OBJ) \
+  		$(LUA_OBJ) $(MZSCHEME_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(PYTHON3_OBJ) $(RUBY_OBJ) \
+! 		$(TCL_OBJ) $(CSCOPE_OBJ) $(TERM_OBJ) $(SOUND_OBJ) $(NETBEANS_OBJ) $(CHANNEL_OBJ) \
+  		$(XPM_OBJ) $(OUTDIR)\version.obj $(LINKARGS2)
+  	if exist $(VIM).exe.manifest mt.exe -nologo -manifest $(VIM).exe.manifest -updateresource:$(VIM).exe;1
+  
+***************
+*** 1766,1771 ****
+--- 1783,1789 ----
+  	proto/usercmd.pro \
+  	proto/userfunc.pro \
+  	proto/window.pro \
++ 	$(SOUND_PRO) \
+  	$(NETBEANS_PRO) \
+  	$(CHANNEL_PRO)
+  
+*** ../vim-8.1.1564/src/sound.c	2019-06-10 13:10:45.370588270 +0200
+--- src/sound.c	2019-06-17 22:16:08.669443372 +0200
+***************
+*** 13,29 ****
+  
+  #include "vim.h"
+  
+! #if (defined(FEAT_SOUND) && defined(HAVE_CANBERRA)) || defined(PROTO)
+! 
+! #include <canberra.h>
+  
+  static long	    sound_id = 0;
+- static ca_context   *context = NULL;
+  
+  typedef struct soundcb_S soundcb_T;
+  
+  struct soundcb_S {
+      callback_T	snd_callback;
+      soundcb_T	*snd_next;
+  };
+  
+--- 13,30 ----
+  
+  #include "vim.h"
+  
+! #if defined(FEAT_SOUND) || defined(PROTO)
+  
+  static long	    sound_id = 0;
+  
+  typedef struct soundcb_S soundcb_T;
+  
+  struct soundcb_S {
+      callback_T	snd_callback;
++ #ifdef MSWIN
++     MCIDEVICEID	snd_device_id;
++     long	snd_id;
++ #endif
+      soundcb_T	*snd_next;
+  };
+  
+***************
+*** 75,80 ****
+--- 76,90 ----
+  	}
+  }
+  
++ #if defined(HAVE_CANBERRA) || defined(PROTO)
++ 
++ /*
++  * Sound implementation for Linux/Unix/Mac using libcanberra.
++  */
++ # include <canberra.h>
++ 
++ static ca_context   *context = NULL;
++ 
+      static void
+  sound_callback(
+  	ca_context  *c UNUSED,
+***************
+*** 188,194 ****
+      }
+  }
+  
+! #if defined(EXITFREE) || defined(PROTO)
+      void
+  sound_free(void)
+  {
+--- 198,204 ----
+      }
+  }
+  
+! # if defined(EXITFREE) || defined(PROTO)
+      void
+  sound_free(void)
+  {
+***************
+*** 197,202 ****
+      while (first_callback != NULL)
+  	delete_sound_callback(first_callback);
+  }
+! #endif
+  
+! #endif  // FEAT_SOUND && HAVE_CANBERRA
+--- 207,384 ----
+      while (first_callback != NULL)
+  	delete_sound_callback(first_callback);
+  }
+! # endif
+! 
+! #elif defined(MSWIN)
+! 
+! /*
+!  * Sound implementation for MS-Windows.
+!  */
+! 
+! static HWND g_hWndSound = NULL;
+! 
+!     static LRESULT CALLBACK
+! sound_wndproc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+! {
+!     soundcb_T	*p;
+! 
+!     switch (message)
+!     {
+! 	case MM_MCINOTIFY:
+! 	    for (p = first_callback; p != NULL; p = p->snd_next)
+! 		if (p->snd_device_id == (MCIDEVICEID) lParam)
+! 		{
+! 		    typval_T	argv[3];
+! 		    typval_T	rettv;
+! 		    int		dummy;
+! 		    char	buf[32];
+! 
+! 		    vim_snprintf(buf, sizeof(buf), "close sound%06ld",
+! 								p->snd_id);
+! 		    mciSendString(buf, NULL, 0, 0);
+! 
+! 		    argv[0].v_type = VAR_NUMBER;
+! 		    argv[0].vval.v_number = p->snd_id;
+! 		    argv[1].v_type = VAR_NUMBER;
+! 		    argv[1].vval.v_number =
+! 					wParam == MCI_NOTIFY_SUCCESSFUL ? 0
+! 				      : wParam == MCI_NOTIFY_ABORTED ? 1 : 2;
+! 		    argv[2].v_type = VAR_UNKNOWN;
+! 
+! 		    call_callback(&p->snd_callback, -1,
+! 			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+! 		    clear_tv(&rettv);
+! 
+! 		    delete_sound_callback(p);
+! 		    redraw_after_callback(TRUE);
+! 
+! 		}
+! 	    break;
+!     }
+! 
+!     return DefWindowProc(hwnd, message, wParam, lParam);
+! }
+! 
+!     static HWND
+! sound_window()
+! {
+!     if (g_hWndSound == NULL)
+!     {
+! 	LPCSTR clazz = "VimSound";
+! 	WNDCLASS wndclass = {
+! 	    0, sound_wndproc, 0, 0, g_hinst, NULL, 0, 0, NULL, clazz };
+! 	RegisterClass(&wndclass);
+! 	g_hWndSound = CreateWindow(clazz, NULL, 0, 0, 0, 0, 0,
+! 		HWND_MESSAGE, NULL, g_hinst, NULL);
+!     }
+! 
+!     return g_hWndSound;
+! }
+! 
+!     void
+! f_sound_playevent(typval_T *argvars, typval_T *rettv)
+! {
+!     WCHAR	    *wp;
+! 
+!     rettv->v_type = VAR_NUMBER;
+!     rettv->vval.v_number = 0;
+! 
+!     wp = enc_to_utf16(tv_get_string(&argvars[0]), NULL);
+!     if (wp == NULL)
+! 	return;
+! 
+!     PlaySoundW(wp, NULL, SND_ASYNC | SND_ALIAS);
+!     free(wp);
+! 
+!     rettv->vval.v_number = ++sound_id;
+! }
+! 
+!     void
+! f_sound_playfile(typval_T *argvars, typval_T *rettv)
+! {
+!     long	newid = sound_id + 1;
+!     size_t	len;
+!     char_u	*p, *esc;
+!     WCHAR	*wp;
+!     soundcb_T	*soundcb;
+!     char	buf[32];
+!     MCIERROR	err;
+! 
+!     rettv->v_type = VAR_NUMBER;
+!     rettv->vval.v_number = 0;
+! 
+!     esc = vim_strsave_shellescape(tv_get_string(&argvars[0]), FALSE, FALSE);
+! 
+!     len = STRLEN(esc) + 5 + 18 + 1;
+!     p = alloc(len);
+!     if (p == NULL)
+!     {
+! 	free(esc);
+! 	return;
+!     }
+!     vim_snprintf((char *)p, len, "open %s alias sound%06ld", esc, newid);
+!     free(esc);
+! 
+!     wp = enc_to_utf16((char_u *)p, NULL);
+!     free(p);
+!     if (wp == NULL)
+! 	return;
+! 
+!     err = mciSendStringW(wp, NULL, 0, sound_window());
+!     free(wp);
+!     if (err != 0)
+! 	return;
+! 
+!     vim_snprintf(buf, sizeof(buf), "play sound%06ld notify", newid);
+!     err = mciSendString(buf, NULL, 0, sound_window());
+!     if (err != 0)
+! 	goto failure;
+! 
+!     sound_id = newid;
+!     rettv->vval.v_number = sound_id;
+! 
+!     soundcb = get_sound_callback(&argvars[1]);
+!     if (soundcb != NULL)
+!     {
+! 	vim_snprintf(buf, sizeof(buf), "sound%06ld", newid);
+! 	soundcb->snd_id = newid;
+! 	soundcb->snd_device_id = mciGetDeviceID(buf);
+!     }
+!     return;
+! 
+! failure:
+!     vim_snprintf(buf, sizeof(buf), "close sound%06ld", newid);
+!     mciSendString(buf, NULL, 0, NULL);
+! }
+! 
+!     void
+! f_sound_stop(typval_T *argvars, typval_T *rettv UNUSED)
+! {
+!     long    id = tv_get_number(&argvars[0]);
+!     char    buf[32];
+! 
+!     vim_snprintf(buf, sizeof(buf), "stop sound%06ld", id);
+!     mciSendString(buf, NULL, 0, NULL);
+! }
+! 
+!     void
+! f_sound_clear(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
+! {
+!     PlaySound(NULL, NULL, 0);
+!     mciSendString("close all", NULL, 0, NULL);
+! }
+! 
+! # if defined(EXITFREE)
+!     void
+! sound_free(void)
+! {
+!     CloseWindow(g_hWndSound);
+! 
+!     while (first_callback != NULL)
+! 	delete_sound_callback(first_callback);
+! }
+! # endif
+! 
+! #endif // MSWIN
+  
+! #endif  // FEAT_SOUND
+*** ../vim-8.1.1564/src/testdir/test_sound.vim	2019-06-10 13:10:45.374588250 +0200
+--- src/testdir/test_sound.vim	2019-06-17 22:09:31.042805999 +0200
+***************
+*** 10,15 ****
+--- 10,19 ----
+  endfunc
+  
+  func Test_play_event()
++   if has('win32')
++     throw 'Skipped: Playing event with callback is not supported on Windows'
++   endif
++ 
+    let id = sound_playevent('bell', 'PlayCallback')
+    if id == 0
+      throw 'Skipped: bell event not available'
+*** ../vim-8.1.1564/src/version.c	2019-06-17 21:48:02.215646277 +0200
+--- src/version.c	2019-06-17 22:10:07.750686984 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1565,
+  /**/
+
+-- 
+How do I set the laser printer to stun? 
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

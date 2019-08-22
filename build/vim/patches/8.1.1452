@@ -1,0 +1,288 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1452
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1452
+Problem:    Line and col property of popup windows not properly checked.
+Solution:   Check for "+" or "-" sign.
+Files:	    src/popupwin.c, src/dict.c, src/proto/dict.pro,
+            src/window.c, src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1451/src/popupwin.c	2019-06-02 15:34:15.458696427 +0200
+--- src/popupwin.c	2019-06-02 16:47:24.668428506 +0200
+***************
+*** 29,35 ****
+  };
+  
+  /*
+!  * Get option value for"key", which is "line" or "col".
+   * Handles "cursor+N" and "cursor-N".
+   */
+      static int
+--- 29,35 ----
+  };
+  
+  /*
+!  * Get option value for "key", which is "line" or "col".
+   * Handles "cursor+N" and "cursor-N".
+   */
+      static int
+***************
+*** 47,59 ****
+  
+      val = tv_get_string(&di->di_tv);
+      if (STRNCMP(val, "cursor", 6) != 0)
+! 	return dict_get_number(dict, key);
+  
+      setcursor_mayforce(TRUE);
+      s = val + 6;
+      if (*s != NUL)
+      {
+! 	n = strtol((char *)s, (char **)&endp, 10);
+  	if (endp != NULL && *skipwhite(endp) != NUL)
+  	{
+  	    semsg(_(e_invexpr2), val);
+--- 47,61 ----
+  
+      val = tv_get_string(&di->di_tv);
+      if (STRNCMP(val, "cursor", 6) != 0)
+! 	return dict_get_number_check(dict, key);
+  
+      setcursor_mayforce(TRUE);
+      s = val + 6;
+      if (*s != NUL)
+      {
+! 	endp = s;
+! 	if (*skipwhite(s) == '+' || *skipwhite(s) == '-')
+! 	    n = strtol((char *)s, (char **)&endp, 10);
+  	if (endp != NULL && *skipwhite(endp) != NUL)
+  	{
+  	    semsg(_(e_invexpr2), val);
+***************
+*** 902,908 ****
+  	dict_add_number(dict, "core_height", wp->w_height);
+  
+  	dict_add_number(dict, "visible",
+! 				       (wp->w_popup_flags & POPF_HIDDEN) == 0);
+      }
+  }
+  
+--- 904,910 ----
+  	dict_add_number(dict, "core_height", wp->w_height);
+  
+  	dict_add_number(dict, "visible",
+! 		      win_valid(wp) && (wp->w_popup_flags & POPF_HIDDEN) == 0);
+      }
+  }
+  
+*** ../vim-8.1.1451/src/dict.c	2019-05-28 23:08:12.056648758 +0200
+--- src/dict.c	2019-06-02 16:15:26.717634023 +0200
+***************
+*** 605,610 ****
+--- 605,631 ----
+  }
+  
+  /*
++  * Get a number item from a dictionary.
++  * Returns 0 if the entry doesn't exist.
++  * Give an error if the entry is not a number.
++  */
++     varnumber_T
++ dict_get_number_check(dict_T *d, char_u *key)
++ {
++     dictitem_T	*di;
++ 
++     di = dict_find(d, key, -1);
++     if (di == NULL)
++ 	return 0;
++     if (di->di_tv.v_type != VAR_NUMBER)
++     {
++ 	semsg(_(e_invarg2), tv_get_string(&di->di_tv));
++ 	return 0;
++     }
++     return tv_get_number(&di->di_tv);
++ }
++ 
++ /*
+   * Return an allocated string with the string representation of a Dictionary.
+   * May return NULL.
+   */
+*** ../vim-8.1.1451/src/proto/dict.pro	2019-04-28 18:04:56.058492178 +0200
+--- src/proto/dict.pro	2019-06-02 16:15:30.649613201 +0200
+***************
+*** 25,30 ****
+--- 25,31 ----
+  dictitem_T *dict_find(dict_T *d, char_u *key, int len);
+  char_u *dict_get_string(dict_T *d, char_u *key, int save);
+  varnumber_T dict_get_number(dict_T *d, char_u *key);
++ varnumber_T dict_get_number_check(dict_T *d, char_u *key);
+  char_u *dict2string(typval_T *tv, int copyID, int restore_copyID);
+  int dict_get_tv(char_u **arg, typval_T *rettv, int evaluate);
+  void dict_extend(dict_T *d1, dict_T *d2, char_u *action);
+*** ../vim-8.1.1451/src/window.c	2019-06-01 22:49:23.701685671 +0200
+--- src/window.c	2019-06-02 16:46:22.068740562 +0200
+***************
+*** 1368,1373 ****
+--- 1368,1376 ----
+      win_copy_options(oldp, newp);
+  }
+  
++ /*
++  * Return TRUE if "win" is a global popup or a popup in the current tab page.
++  */
+      static int
+  win_valid_popup(win_T *win UNUSED)
+  {
+***************
+*** 1418,1423 ****
+--- 1421,1431 ----
+  	    if (wp == win)
+  		return TRUE;
+  	}
++ #ifdef FEAT_TEXT_PROP
++ 	for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	    if (wp == win)
++ 		return TRUE;
++ #endif
+      }
+      return win_valid_popup(win);
+  }
+*** ../vim-8.1.1451/src/testdir/test_popupwin.vim	2019-06-02 15:34:15.458696427 +0200
+--- src/testdir/test_popupwin.vim	2019-06-02 16:50:01.087644950 +0200
+***************
+*** 224,229 ****
+--- 224,315 ----
+    call delete('XtestPopupCorners')
+  endfunc
+  
++ func Test_popup_in_tab()
++   " default popup is local to tab, not visible when in other tab
++   let winid = popup_create("text", {})
++   call assert_equal(1, popup_getpos(winid).visible)
++   tabnew
++   call assert_equal(0, popup_getpos(winid).visible)
++   quit
++   call assert_equal(1, popup_getpos(winid).visible)
++   popupclear
++ 
++   " global popup is visible in any tab
++   let winid = popup_create("text", {'tab': -1})
++   call assert_equal(1, popup_getpos(winid).visible)
++   tabnew
++   call assert_equal(1, popup_getpos(winid).visible)
++   quit
++   call assert_equal(1, popup_getpos(winid).visible)
++   popupclear
++ endfunc
++ 
++ func Test_popup_valid_arguments()
++   " Zero value is like the property wasn't there
++   let winid = popup_create("text", {"col": 0})
++   let pos = popup_getpos(winid)
++   call assert_inrange(&columns / 2 - 1, &columns / 2 + 1, pos.col)
++   popupclear
++ 
++   " using cursor column has minimum value of 1
++   let winid = popup_create("text", {"col": 'cursor-100'})
++   let pos = popup_getpos(winid)
++   call assert_equal(1, pos.col)
++   popupclear
++ 
++   " center
++   let winid = popup_create("text", {"pos": 'center'})
++   let pos = popup_getpos(winid)
++   let around = (&columns - pos.width) / 2
++   call assert_inrange(around - 1, around + 1, pos.col)
++   let around = (&lines - pos.height) / 2
++   call assert_inrange(around - 1, around + 1, pos.line)
++   popupclear
++ endfunc
++ 
++ func Test_popup_invalid_arguments()
++   call assert_fails('call popup_create(666, {})', 'E714:')
++   popupclear
++   call assert_fails('call popup_create("text", "none")', 'E715:')
++   popupclear
++ 
++   call assert_fails('call popup_create("text", {"col": "xxx"})', 'E475:')
++   popupclear
++   call assert_fails('call popup_create("text", {"col": "cursor8"})', 'E15:')
++   popupclear
++   call assert_fails('call popup_create("text", {"col": "cursor+x"})', 'E15:')
++   popupclear
++   call assert_fails('call popup_create("text", {"col": "cursor+8x"})', 'E15:')
++   popupclear
++ 
++   call assert_fails('call popup_create("text", {"line": "xxx"})', 'E475:')
++   popupclear
++   call assert_fails('call popup_create("text", {"line": "cursor8"})', 'E15:')
++   popupclear
++   call assert_fails('call popup_create("text", {"line": "cursor+x"})', 'E15:')
++   popupclear
++   call assert_fails('call popup_create("text", {"line": "cursor+8x"})', 'E15:')
++   popupclear
++ 
++   call assert_fails('call popup_create("text", {"pos": "there"})', 'E475:')
++   popupclear
++   call assert_fails('call popup_create("text", {"padding": "none"})', 'E714:')
++   popupclear
++   call assert_fails('call popup_create("text", {"border": "none"})', 'E714:')
++   popupclear
++   call assert_fails('call popup_create("text", {"borderhighlight": "none"})', 'E714:')
++   popupclear
++   call assert_fails('call popup_create("text", {"borderchars": "none"})', 'E714:')
++   popupclear
++ 
++   call assert_fails('call popup_create([{"text": "text"}, 666], {})', 'E715:')
++   popupclear
++   call assert_fails('call popup_create([{"text": "text", "props": "none"}], {})', 'E714:')
++   popupclear
++   call assert_fails('call popup_create([{"text": "text", "props": ["none"]}], {})', 'E715:')
++   popupclear
++ endfunc
++ 
+  func Test_win_execute_closing_curwin()
+    split
+    let winid = popup_create('some text', {})
+***************
+*** 593,598 ****
+--- 679,693 ----
+    call assert_equal(4, pos.line)
+    call popup_close(winid)
+  
++   " cursor in first line, popup in line 2
++   call cursor(1, 1)
++   redraw
++   let winid = popup_atcursor(['vim', 'is', 'great'], {})
++   redraw
++   let pos = popup_getpos(winid)
++   call assert_equal(2, pos.line)
++   call popup_close(winid)
++ 
+    bwipe!
+  endfunc
+  
+*** ../vim-8.1.1451/src/version.c	2019-06-02 15:56:11.839730143 +0200
+--- src/version.c	2019-06-02 16:51:00.935343965 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1452,
+  /**/
+
+-- 
+From "know your smileys":
+ :----}  You lie like Pinocchio
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,150 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1526
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1526
+Problem:    No numerical value for the patchlevel.
+Solution:   Add v:versionlong.
+Files:	    src/version.c, src/eval.c, src/vim.h, runtime/doc/eval.txt,
+            src/testdir/test_eval_stuff.vim
+
+
+*** ../vim-8.1.1525/src/version.c	2019-06-13 23:59:46.788290732 +0200
+--- src/version.c	2019-06-14 14:35:29.346980134 +0200
+***************
+*** 3847,3859 ****
+      int
+  highest_patch(void)
+  {
+!     int		i;
+!     int		h = 0;
+! 
+!     for (i = 0; included_patches[i] != 0; ++i)
+! 	if (included_patches[i] > h)
+! 	    h = included_patches[i];
+!     return h;
+  }
+  
+  #if defined(FEAT_EVAL) || defined(PROTO)
+--- 3849,3856 ----
+      int
+  highest_patch(void)
+  {
+!     // this relies on the highest patch number to be the first entry
+!     return included_patches[0];
+  }
+  
+  #if defined(FEAT_EVAL) || defined(PROTO)
+*** ../vim-8.1.1525/src/eval.c	2019-06-07 23:15:16.647436360 +0200
+--- src/eval.c	2019-06-13 21:21:55.486299779 +0200
+***************
+*** 193,201 ****
+      {VV_NAME("termrfgresp",	 VAR_STRING), VV_RO},
+      {VV_NAME("termrbgresp",	 VAR_STRING), VV_RO},
+      {VV_NAME("termu7resp",	 VAR_STRING), VV_RO},
+!     {VV_NAME("termstyleresp",	VAR_STRING), VV_RO},
+!     {VV_NAME("termblinkresp",	VAR_STRING), VV_RO},
+!     {VV_NAME("event",		VAR_DICT), VV_RO},
+  };
+  
+  /* shorthand */
+--- 193,202 ----
+      {VV_NAME("termrfgresp",	 VAR_STRING), VV_RO},
+      {VV_NAME("termrbgresp",	 VAR_STRING), VV_RO},
+      {VV_NAME("termu7resp",	 VAR_STRING), VV_RO},
+!     {VV_NAME("termstyleresp",	 VAR_STRING), VV_RO},
+!     {VV_NAME("termblinkresp",	 VAR_STRING), VV_RO},
+!     {VV_NAME("event",		 VAR_DICT), VV_RO},
+!     {VV_NAME("versionlong",	 VAR_NUMBER), VV_RO},
+  };
+  
+  /* shorthand */
+***************
+*** 354,359 ****
+--- 355,361 ----
+  	    hash_add(&compat_hashtab, p->vv_di.di_key);
+      }
+      vimvars[VV_VERSION].vv_nr = VIM_VERSION_100;
++     vimvars[VV_VERSIONLONG].vv_nr = VIM_VERSION_100 * 10000 + highest_patch();
+  
+      set_vim_var_nr(VV_SEARCHFORWARD, 1L);
+      set_vim_var_nr(VV_HLSEARCH, 1L);
+*** ../vim-8.1.1525/src/vim.h	2019-06-02 19:53:40.998714309 +0200
+--- src/vim.h	2019-06-13 21:11:38.457474740 +0200
+***************
+*** 1960,1966 ****
+  #define VV_TERMSTYLERESP 85
+  #define VV_TERMBLINKRESP 86
+  #define VV_EVENT	87
+! #define VV_LEN		88	/* number of v: vars */
+  
+  /* used for v_number in VAR_SPECIAL */
+  #define VVAL_FALSE	0L
+--- 1960,1967 ----
+  #define VV_TERMSTYLERESP 85
+  #define VV_TERMBLINKRESP 86
+  #define VV_EVENT	87
+! #define VV_VERSIONLONG	88
+! #define VV_LEN		89	// number of v: vars
+  
+  /* used for v_number in VAR_SPECIAL */
+  #define VVAL_FALSE	0L
+*** ../vim-8.1.1525/runtime/doc/eval.txt	2019-06-10 13:10:45.374588250 +0200
+--- runtime/doc/eval.txt	2019-06-14 14:32:57.135562169 +0200
+***************
+*** 2172,2177 ****
+--- 2173,2189 ----
+  		version 5.0 and 5.1 may have a patch 123, but these are
+  		completely different.
+  
++ 					*v:versionlong* *versionlong-variable*
++ v:versionlong	Like v:version, but also including the patchlevel.  Version
++ 		8.1 with patch 1234 has value 8011234.  This can be used like
++ 		this: >
++ 			if v:versionlong >= 8011234
++ <		However, if there are gaps in the list of patches included
++ 		this will not work well.  This can happen if a recent patch
++ 		was included into an older version, e.g. for a security fix.
++ 		Use the has() function to make sure the patch is actually
++ 		included.
++ 
+  				*v:vim_did_enter* *vim_did_enter-variable*
+  v:vim_did_enter	Zero until most of startup is done.  It is set to one just
+  		before |VimEnter| autocommands are triggered.
+*** ../vim-8.1.1525/src/testdir/test_eval_stuff.vim	2019-06-07 23:15:16.651436336 +0200
+--- src/testdir/test_eval_stuff.vim	2019-06-14 14:34:54.751113775 +0200
+***************
+*** 171,176 ****
+--- 171,179 ----
+    echo version
+    call assert_fails('let version = 1', 'E46:')
+    call assert_equal(v:version, version)
++ 
++   call assert_equal(v:version, v:versionlong / 10000)
++   call assert_true(v:versionlong > 8011525)
+  endfunc
+  
+  func Test_scriptversion()
+*** ../vim-8.1.1525/src/version.c	2019-06-13 23:59:46.788290732 +0200
+--- src/version.c	2019-06-14 14:35:29.346980134 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1526,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+172. You join listservers just for the extra e-mail.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

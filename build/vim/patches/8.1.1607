@@ -1,0 +1,343 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1607
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1607
+Problem:    Popup window scrollbar does not respond to click.
+Solution:   Mouse click in scrollbar scrolls by one line.
+Files:	    src/popupwin.c, src/proto/popupwin.pro, src/structs.h, src/ui.c,
+            src/normal.c, runtime/doc/popup.txt,
+            src/testdir/dumps/Test_popupwin_scroll_8.dump,
+            src/testdir/dumps/Test_popupwin_scroll_9.dump
+
+
+*** ../vim-8.1.1607/src/popupwin.c	2019-06-29 07:27:10.854648332 +0200
+--- src/popupwin.c	2019-06-29 06:28:23.717538142 +0200
+***************
+*** 234,239 ****
+--- 234,291 ----
+      popup_adjust_position(wp);
+  }
+  
++ /*
++  * Set w_firstline to match the current "wp->w_topline".
++  */
++     void
++ popup_set_firstline(win_T *wp)
++ {
++     int	    height = wp->w_height;
++ 
++     wp->w_firstline = wp->w_topline;
++     popup_adjust_position(wp);
++ 
++     // we don't want the popup to get smaller, decrement the first line
++     // until it doesn't
++     while (wp->w_firstline > 1 && wp->w_height < height)
++     {
++ 	--wp->w_firstline;
++ 	popup_adjust_position(wp);
++     }
++ }
++ 
++ /*
++  * Handle a click in a popup window, if it is in the scrollbar.
++  */
++     void
++ popup_handle_scrollbar_click(win_T *wp, int row, int col)
++ {
++     int	    height = popup_height(wp);
++     int	    old_topline = wp->w_topline;
++ 
++     if (wp->w_has_scrollbar == 0)
++ 	return;
++     if (row >= wp->w_popup_border[0]
++ 	    && row < height - wp->w_popup_border[2]
++ 	    && col == popup_width(wp) - 1)
++     {
++ 	if (row >= height / 2)
++ 	{
++ 	    // Click in lower half, scroll down.
++ 	    if (wp->w_topline < wp->w_buffer->b_ml.ml_line_count)
++ 		++wp->w_topline;
++ 	}
++ 	else if (wp->w_topline > 1)
++ 	    // click on upper half, scroll up.
++ 	    --wp->w_topline;
++ 	if (wp->w_topline != old_topline)
++ 	{
++ 	    popup_set_firstline(wp);
++ 	    redraw_win_later(wp, NOT_VALID);
++ 	}
++     }
++ }
++ 
+  #if defined(FEAT_TIMERS)
+      static void
+  popup_add_timeout(win_T *wp, int time)
+***************
+*** 631,637 ****
+  {
+      return wp->w_width
+  	+ wp->w_popup_padding[3] + wp->w_popup_border[3]
+! 	+ wp->w_popup_padding[1] + wp->w_popup_border[1];
+  }
+  
+  /*
+--- 683,690 ----
+  {
+      return wp->w_width
+  	+ wp->w_popup_padding[3] + wp->w_popup_border[3]
+! 	+ wp->w_popup_padding[1] + wp->w_popup_border[1]
+! 	+ wp->w_has_scrollbar;
+  }
+  
+  /*
+*** ../vim-8.1.1607/src/proto/popupwin.pro	2019-06-29 07:27:10.854648332 +0200
+--- src/proto/popupwin.pro	2019-06-29 06:27:59.745639954 +0200
+***************
+*** 2,7 ****
+--- 2,9 ----
+  int popup_on_border(win_T *wp, int row, int col);
+  void popup_start_drag(win_T *wp);
+  void popup_drag(win_T *wp);
++ void popup_set_firstline(win_T *wp);
++ void popup_handle_scrollbar_click(win_T *wp, int row, int col);
+  int popup_height(win_T *wp);
+  int popup_width(win_T *wp);
+  void popup_adjust_position(win_T *wp);
+*** ../vim-8.1.1607/src/structs.h	2019-06-29 07:27:10.854648332 +0200
+--- src/structs.h	2019-06-29 06:07:42.882757458 +0200
+***************
+*** 2903,2909 ****
+      int		w_wantcol;	    // "col" for popup window
+      int		w_firstline;	    // "firstline" for popup window
+      int		w_want_scrollbar;   // when zero don't use a scrollbar
+!     int		w_has_scrollbar;    // scrollbar displayed
+      char_u	*w_scrollbar_highlight; // "scrollbarhighlight"
+      char_u	*w_thumb_highlight; // "thumbhighlight"
+      int		w_popup_padding[4]; // popup padding top/right/bot/left
+--- 2903,2909 ----
+      int		w_wantcol;	    // "col" for popup window
+      int		w_firstline;	    // "firstline" for popup window
+      int		w_want_scrollbar;   // when zero don't use a scrollbar
+!     int		w_has_scrollbar;    // 1 if scrollbar displayed, 0 otherwise
+      char_u	*w_scrollbar_highlight; // "scrollbarhighlight"
+      char_u	*w_thumb_highlight; // "thumbhighlight"
+      int		w_popup_padding[4]; // popup padding top/right/bot/left
+*** ../vim-8.1.1607/src/ui.c	2019-06-29 07:27:10.854648332 +0200
+--- src/ui.c	2019-06-29 06:07:42.882757458 +0200
+***************
+*** 2998,3004 ****
+  	    return IN_OTHER_WIN;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+! 	// Continue a modeless selection in a popup window.
+  	if (in_popup_win)
+  	{
+  	    if (popup_dragwin != NULL)
+--- 2998,3004 ----
+  	    return IN_OTHER_WIN;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+! 	// Continue a modeless selection in a popup window or dragging it.
+  	if (in_popup_win)
+  	{
+  	    if (popup_dragwin != NULL)
+***************
+*** 3056,3061 ****
+--- 3056,3064 ----
+  		popup_start_drag(wp);
+  		return IN_UNKNOWN;
+  	    }
++ 	    if (which_button == MOUSE_LEFT)
++ 		// If the click is in the scrollbar, may scroll up/down.
++ 		popup_handle_scrollbar_click(wp, row, col);
+  # ifdef FEAT_CLIPBOARD
+  	    return IN_OTHER_WIN;
+  # else
+***************
+*** 3517,3523 ****
+  	{
+  	    if (*rowp >= wp->w_winrow && *rowp < wp->w_winrow + popup_height(wp)
+  		    && *colp >= wp->w_wincol
+! 					 && *colp < wp->w_wincol + popup_width(wp))
+  		pwp = wp;
+  	}
+  	if (pwp != NULL)
+--- 3520,3526 ----
+  	{
+  	    if (*rowp >= wp->w_winrow && *rowp < wp->w_winrow + popup_height(wp)
+  		    && *colp >= wp->w_wincol
+! 				    && *colp < wp->w_wincol + popup_width(wp))
+  		pwp = wp;
+  	}
+  	if (pwp != NULL)
+*** ../vim-8.1.1607/src/normal.c	2019-06-29 07:27:10.854648332 +0200
+--- src/normal.c	2019-06-29 06:28:33.969494606 +0200
+***************
+*** 4561,4580 ****
+  	}
+  #ifdef FEAT_TEXT_PROP
+  	if (bt_popup(curwin->w_buffer))
+! 	{
+! 	    int	    height = curwin->w_height;
+! 
+! 	    curwin->w_firstline = curwin->w_topline;
+! 	    popup_adjust_position(curwin);
+! 
+! 	    // we don't want the popup to get smaller, decrement the first line
+! 	    // until it doesn't
+! 	    while (curwin->w_firstline > 1 && curwin->w_height < height)
+! 	    {
+! 		--curwin->w_firstline;
+! 		popup_adjust_position(curwin);
+! 	    }
+! 	}
+  #endif
+      }
+  # ifdef FEAT_GUI
+--- 4561,4567 ----
+  	}
+  #ifdef FEAT_TEXT_PROP
+  	if (bt_popup(curwin->w_buffer))
+! 	    popup_set_firstline(curwin);
+  #endif
+      }
+  # ifdef FEAT_GUI
+*** ../vim-8.1.1607/runtime/doc/popup.txt	2019-06-29 07:27:10.854648332 +0200
+--- runtime/doc/popup.txt	2019-06-29 06:53:01.928130508 +0200
+***************
+*** 86,94 ****
+  
+  
+  TODO:
+! - click near top of scrollbar scrolls down, clear near bottom scrolls up.
+! - Allow for setting scrollbar color: scrollbarhighlight,
+!   scrollbarthumbhighlight ?
+  - Have a way to scroll to the bottom? (#4577)
+  - Why does 'nrformats' leak from the popup window buffer???
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+--- 86,97 ----
+  
+  
+  TODO:
+! - Currently 'buftype' is set to "popup", but all the specifics are on the
+!   window.  Can we use a "normal" buffer and put the type on the window? (#4595)
+!   What if it's modified and the window closes?
+! - Add test for when popup with mask is off the left and off the right of the
+!   screen.
+! - check padding/border when popup is off the left and right of the screen.
+  - Have a way to scroll to the bottom? (#4577)
+  - Why does 'nrformats' leak from the popup window buffer???
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+***************
+*** 256,261 ****
+--- 259,266 ----
+  		zero.  When all values are one then an empty list is included.
+  
+  		"borderhighlight" is not included when all values are empty.
++ 		"scrollbarhighlight" and "thumbhighlight" are onlu included
++ 		when set.
+  
+  		"tabpage" will be -1 for a global popup, zero for a popup on
+  		the current tabpage and a positive number for a popup on
+***************
+*** 377,382 ****
+--- 382,389 ----
+  			borderhighlight
+  			borderchars
+  			scrollbar
++ 			scrollbarhighlight
++ 			thumbhighlight
+  			zindex
+  			mask
+  			time
+***************
+*** 534,539 ****
+--- 541,553 ----
+  			otherwise ASCII characters are used.
+  	scrollbar	non-zero: show a scrollbar when the text doesn't fit.
+  			zero: do not show a scrollbar.  Default is non-zero.
++ 			Also see |popup-scrollbar|.
++ 	scrollbarhighlight  Highlight group name for the scrollbar. The
++ 			background color is what matters.  When not given then
++ 			PmenuSbar is used.
++ 	thumbhighlight  Highlight group name for the scrollbar thumb. The
++ 			background color is what matters.  When not given then
++ 			PmenuThumb is used.
+  	zindex		Priority for the popup, default 50.  Minimum value is
+  			1, maximum value is 32000.
+  	mask		A list of lists with coordinates, defining parts of
+***************
+*** 639,644 ****
+--- 653,669 ----
+  pressed, the number -1 is passed to the callback.
+  
+  
++ POPUP SCROLLBAR						*popup-scrollbar*
++ 
++ If the text does not fit in the popup a scrollbar is displayed on the right of
++ the window.  This can be disabled by setting the "scrollbar" option to zero.
++ When the scrollbar is displayed mouse scroll events, while the mouse pointer
++ is on the popup, will cause the text to scroll up or down as you would expect.
++ A click in the upper halve of the scrollbar will scroll the text one line
++ down.  A click in the lower halve wil scroll the text one line up.  However,
++ this is limited so that the popup does not get smaller.
++ 
++ 
+  POPUP MASK						*popup-mask*
+  
+  To minimize the text that the popup covers, parts of it can be made
+*** ../vim-8.1.1607/src/testdir/dumps/Test_popupwin_scroll_8.dump	2019-06-29 07:27:10.854648332 +0200
+--- src/testdir/dumps/Test_popupwin_scroll_8.dump	2019-06-29 07:15:41.897843726 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @31|f+0#0000001#ffd7ff255|o|u|r| @3| +0#0000000#ff404010| +0&#ffffff0@32
++ |5| @31|f+0#0000001#ffd7ff255|i|v|e| @3| +0#0000000#4040ff13| +0&#ffffff0@32
++ |6| @31|s+0#0000001#ffd7ff255|i|x| @4| +0#0000000#4040ff13| +0&#ffffff0@32
++ |7| @31|s+0#0000001#ffd7ff255|e|v|e|n| @2| +0#0000000#ff404010| +0&#ffffff0@32
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |C|l|i|c|k|T|o|p|(|)| @40|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1607/src/testdir/dumps/Test_popupwin_scroll_9.dump	2019-06-29 07:22:21.167965265 +0200
+--- src/testdir/dumps/Test_popupwin_scroll_9.dump	2019-06-29 07:15:42.945838648 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @31|f+0#0000001#ffd7ff255|i|v|e| @3| +0#0000000#ff404010| +0&#ffffff0@32
++ |5| @31|s+0#0000001#ffd7ff255|i|x| @4| +0#0000000#ff404010| +0&#ffffff0@32
++ |6| @31|s+0#0000001#ffd7ff255|e|v|e|n| @2| +0#0000000#4040ff13| +0&#ffffff0@32
++ |7| @31|e+0#0000001#ffd7ff255|i|g|h|t| @2| +0#0000000#4040ff13| +0&#ffffff0@32
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |C|l|i|c|k|B|o|t|(|)| @40|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1607/src/version.c	2019-06-29 03:42:32.060749532 +0200
+--- src/version.c	2019-06-29 07:34:02.868807713 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1607,
+  /**/
+
+-- 
+Facepalm statement #6: "Estland is a fantasy place, just like Middle Earth and
+Madagaskar"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

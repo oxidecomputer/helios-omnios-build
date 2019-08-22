@@ -1,0 +1,550 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1718
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1718
+Problem:    Popup menu highlighting does not look good.
+Solution:   Highlight the whole window line.  Fix that sign line HL is not
+            displayed in a window with a background color.
+Files:	    src/popupwin.c, src/sign.c, src/proto/sign.pro, src/screen.c,
+            src/testdir/dumps/Test_popupwin_menu_scroll_1.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_2.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_3.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_4.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_5.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_6.dump,
+            src/testdir/dumps/Test_popupwin_menu_01.dump,
+            src/testdir/dumps/Test_popupwin_menu_02.dump,
+            src/testdir/dumps/Test_popupwin_menu_04.dump
+
+
+*** ../vim-8.1.1717/src/popupwin.c	2019-07-18 21:42:45.959840521 +0200
+--- src/popupwin.c	2019-07-20 16:46:53.960906868 +0200
+***************
+*** 451,456 ****
+--- 451,472 ----
+  	wp->w_topline = wp->w_cursor.lnum;
+      else if (wp->w_cursor.lnum >= wp->w_botline)
+  	wp->w_topline = wp->w_cursor.lnum - wp->w_height + 1;
++ 
++     // Don't use "firstline" now.
++     wp->w_firstline = 0;
++ }
++ 
++ /*
++  * Get the sign group name for window "wp".
++  * Returns a pointer to a static buffer, overwritten on the next call.
++  */
++     static char_u *
++ popup_get_sign_name(win_T *wp)
++ {
++     static char    buf[30];
++ 
++     vim_snprintf(buf, sizeof(buf), "popup-%d", wp->w_id);
++     return (char_u *)buf;
+  }
+  
+  /*
+***************
+*** 460,479 ****
+      static void
+  popup_highlight_curline(win_T *wp)
+  {
+!     int	    id;
+!     char    buf[100];
+  
+!     match_delete(wp, 1, FALSE);
+  
+      if ((wp->w_popup_flags & POPF_CURSORLINE) != 0)
+      {
+  	popup_show_curline(wp);
+  
+! 	id = syn_name2id((char_u *)"PopupSelected");
+! 	vim_snprintf(buf, sizeof(buf), "\\%%%dl.*", (int)wp->w_cursor.lnum);
+! 	match_add(wp, (char_u *)(id == 0 ? "PmenuSel" : "PopupSelected"),
+! 					     (char_u *)buf, 10, 1, NULL, NULL);
+      }
+  }
+  
+  /*
+--- 476,506 ----
+      static void
+  popup_highlight_curline(win_T *wp)
+  {
+!     int	    sign_id = 0;
+!     char_u  *sign_name = popup_get_sign_name(wp);
+  
+!     buf_delete_signs(wp->w_buffer, (char_u *)"popupmenu");
+  
+      if ((wp->w_popup_flags & POPF_CURSORLINE) != 0)
+      {
+  	popup_show_curline(wp);
+  
+! 	if (!sign_exists_by_name(sign_name))
+! 	{
+! 	    char *linehl = "PopupSelected";
+! 
+! 	    if (syn_name2id((char_u *)linehl) == 0)
+! 		linehl = "PmenuSel";
+! 	    sign_define_by_name(sign_name, NULL,
+! 						 (char_u *)linehl, NULL, NULL);
+! 	}
+! 
+! 	sign_place(&sign_id, (char_u *)"popupmenu", sign_name,
+! 			       wp->w_buffer, wp->w_cursor.lnum, SIGN_DEF_PRIO);
+! 	redraw_win_later(wp, NOT_VALID);
+      }
++     else
++ 	sign_undefine_by_name(sign_name, FALSE);
+  }
+  
+  /*
+***************
+*** 545,550 ****
+--- 572,579 ----
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+  						   str, OPT_FREE|OPT_LOCAL, 0);
+  
++     set_string_option_direct_in_win(wp, (char_u *)"signcolumn", -1,
++ 					(char_u *)"no", OPT_FREE|OPT_LOCAL, 0);
+      set_padding_border(dict, wp->w_popup_padding, "padding", 999);
+      set_padding_border(dict, wp->w_popup_border, "border", 1);
+  
+***************
+*** 1219,1225 ****
+  
+      if (argvars != NULL)
+      {
+! 	// Check arguments look OK.
+  	if (argvars[0].v_type == VAR_NUMBER)
+  	{
+  	    buf = buflist_findnr( argvars[0].vval.v_number);
+--- 1248,1254 ----
+  
+      if (argvars != NULL)
+      {
+! 	// Check that arguments look OK.
+  	if (argvars[0].v_type == VAR_NUMBER)
+  	{
+  	    buf = buflist_findnr( argvars[0].vval.v_number);
+***************
+*** 1671,1677 ****
+  	++wp->w_cursor.lnum;
+      if (old_lnum != wp->w_cursor.lnum)
+      {
+! 	popup_highlight_curline(wp);
+  	return;
+      }
+  
+--- 1700,1706 ----
+  	++wp->w_cursor.lnum;
+      if (old_lnum != wp->w_cursor.lnum)
+      {
+! 	// caller will call popup_highlight_curline()
+  	return;
+      }
+  
+***************
+*** 1849,1858 ****
+--- 1878,1889 ----
+      static void
+  popup_free(win_T *wp)
+  {
++     sign_undefine_by_name(popup_get_sign_name(wp), FALSE);
+      wp->w_buffer->b_locked = FALSE;
+      if (wp->w_winrow + wp->w_height >= cmdline_row)
+  	clear_cmdline = TRUE;
+      win_free_popup(wp);
++ 
+      redraw_all_later(NOT_VALID);
+      popup_mask_refresh = TRUE;
+  }
+***************
+*** 2161,2167 ****
+  	dict_add_string(dict, "title", wp->w_popup_title);
+  	dict_add_number(dict, "wrap", wp->w_p_wrap);
+  	dict_add_number(dict, "drag", wp->w_popup_drag);
+! 	dict_add_number(dict, "cursorline", (wp->w_popup_flags & POPF_CURSORLINE) != 0);
+  	dict_add_string(dict, "highlight", wp->w_p_wcr);
+  	if (wp->w_scrollbar_highlight != NULL)
+  	    dict_add_string(dict, "scrollbarhighlight",
+--- 2192,2199 ----
+  	dict_add_string(dict, "title", wp->w_popup_title);
+  	dict_add_number(dict, "wrap", wp->w_p_wrap);
+  	dict_add_number(dict, "drag", wp->w_popup_drag);
+! 	dict_add_number(dict, "cursorline",
+! 				   (wp->w_popup_flags & POPF_CURSORLINE) != 0);
+  	dict_add_string(dict, "highlight", wp->w_p_wcr);
+  	if (wp->w_scrollbar_highlight != NULL)
+  	    dict_add_string(dict, "scrollbarhighlight",
+***************
+*** 2321,2327 ****
+      // NOTE: The callback might close the popup, thus make "wp" invalid.
+      call_callback(&wp->w_filter_cb, -1,
+  			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+!     if (old_lnum != wp->w_cursor.lnum)
+  	popup_highlight_curline(wp);
+  
+      res = tv_get_number(&rettv);
+--- 2353,2359 ----
+      // NOTE: The callback might close the popup, thus make "wp" invalid.
+      call_callback(&wp->w_filter_cb, -1,
+  			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+!     if (win_valid_popup(wp) && old_lnum != wp->w_cursor.lnum)
+  	popup_highlight_curline(wp);
+  
+      res = tv_get_number(&rettv);
+*** ../vim-8.1.1717/src/sign.c	2019-07-13 21:18:51.468469559 +0200
+--- src/sign.c	2019-07-20 15:55:01.497044021 +0200
+***************
+*** 1025,1034 ****
+  }
+  
+  /*
+   * Free the sign specified by 'name'.
+   */
+      int
+! sign_undefine_by_name(char_u *name)
+  {
+      sign_T	*sp_prev;
+      sign_T	*sp;
+--- 1025,1043 ----
+  }
+  
+  /*
++  * Return TRUE if sign "name" exists.
++  */
++     int
++ sign_exists_by_name(char_u *name)
++ {
++     return sign_find(name, NULL) != NULL;
++ }
++ 
++ /*
+   * Free the sign specified by 'name'.
+   */
+      int
+! sign_undefine_by_name(char_u *name, int give_error)
+  {
+      sign_T	*sp_prev;
+      sign_T	*sp;
+***************
+*** 1036,1042 ****
+      sp = sign_find(name, &sp_prev);
+      if (sp == NULL)
+      {
+! 	semsg(_("E155: Unknown sign: %s"), name);
+  	return FAIL;
+      }
+      sign_undefine(sp, sp_prev);
+--- 1045,1052 ----
+      sp = sign_find(name, &sp_prev);
+      if (sp == NULL)
+      {
+! 	if (give_error)
+! 	    semsg(_("E155: Unknown sign: %s"), name);
+  	return FAIL;
+      }
+      sign_undefine(sp, sp_prev);
+***************
+*** 1076,1082 ****
+  /*
+   * Place a sign at the specified file location or update a sign.
+   */
+!     static int
+  sign_place(
+  	int		*sign_id,
+  	char_u		*sign_group,
+--- 1086,1092 ----
+  /*
+   * Place a sign at the specified file location or update a sign.
+   */
+!     int
+  sign_place(
+  	int		*sign_id,
+  	char_u		*sign_group,
+***************
+*** 1591,1597 ****
+  		sign_list_by_name(name);
+  	    else
+  		// ":sign undefine {name}"
+! 		sign_undefine_by_name(name);
+  
+  	    vim_free(name);
+  	    return;
+--- 1601,1607 ----
+  		sign_list_by_name(name);
+  	    else
+  		// ":sign undefine {name}"
+! 		sign_undefine_by_name(name, TRUE);
+  
+  	    vim_free(name);
+  	    return;
+***************
+*** 2512,2518 ****
+      {
+  	retval = -1;
+  	name = tv_get_string_chk(&li->li_tv);
+! 	if (name != NULL && (sign_undefine_by_name(name) == OK))
+  	    retval = 0;
+  	list_append_number(retlist, retval);
+      }
+--- 2522,2528 ----
+      {
+  	retval = -1;
+  	name = tv_get_string_chk(&li->li_tv);
+! 	if (name != NULL && (sign_undefine_by_name(name, TRUE) == OK))
+  	    retval = 0;
+  	list_append_number(retlist, retval);
+      }
+***************
+*** 2551,2557 ****
+  	if (name == NULL)
+  	    return;
+  
+! 	if (sign_undefine_by_name(name) == OK)
+  	    rettv->vval.v_number = 0;
+      }
+  }
+--- 2561,2567 ----
+  	if (name == NULL)
+  	    return;
+  
+! 	if (sign_undefine_by_name(name, TRUE) == OK)
+  	    rettv->vval.v_number = 0;
+      }
+  }
+*** ../vim-8.1.1717/src/proto/sign.pro	2019-07-13 21:18:51.468469559 +0200
+--- src/proto/sign.pro	2019-07-20 15:55:04.153027945 +0200
+***************
+*** 9,15 ****
+  void buf_delete_signs(buf_T *buf, char_u *group);
+  void sign_mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after);
+  int sign_define_by_name(char_u *name, char_u *icon, char_u *linehl, char_u *text, char_u *texthl);
+! int sign_undefine_by_name(char_u *name);
+  void ex_sign(exarg_T *eap);
+  void get_buffer_signs(buf_T *buf, list_T *l);
+  void sign_gui_started(void);
+--- 9,17 ----
+  void buf_delete_signs(buf_T *buf, char_u *group);
+  void sign_mark_adjust(linenr_T line1, linenr_T line2, long amount, long amount_after);
+  int sign_define_by_name(char_u *name, char_u *icon, char_u *linehl, char_u *text, char_u *texthl);
+! int sign_exists_by_name(char_u *name);
+! int sign_undefine_by_name(char_u *name, int give_error);
+! int sign_place(int *sign_id, char_u *sign_group, char_u *sign_name, buf_T *buf, linenr_T lnum, int prio);
+  void ex_sign(exarg_T *eap);
+  void get_buffer_signs(buf_T *buf, list_T *l);
+  void sign_gui_started(void);
+*** ../vim-8.1.1717/src/screen.c	2019-07-20 15:09:35.774697445 +0200
+--- src/screen.c	2019-07-20 16:08:55.152458266 +0200
+***************
+*** 5366,5371 ****
+--- 5366,5373 ----
+  			if (wp->w_p_cul && lnum == wp->w_cursor.lnum)
+  			    char_attr = hl_combine_attr(char_attr,
+  							    HL_ATTR(HLF_CUL));
++ 			else if (line_attr)
++ 			    char_attr = hl_combine_attr(char_attr, line_attr);
+  		    }
+  # endif
+  		}
+*** ../vim-8.1.1717/src/testdir/dumps/Test_popupwin_menu_scroll_1.dump	2019-07-14 16:27:47.921121297 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_1.dump	2019-07-20 16:28:09.446553689 +0200
+***************
+*** 2,8 ****
+  |2| @73
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+  |4| @29|║+0#0000001#ffd7ff255| |o|n|e| @5| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+! |5| @29|║+0#0000001#ffd7ff255| |t+0&#e0e0e08|w|o| +0&#ffd7ff255@5| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |6| @29|║+0#0000001#ffd7ff255| |t|h|r|e@1| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+  |8| @73
+--- 2,8 ----
+  |2| @73
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+  |4| @29|║+0#0000001#ffd7ff255| |o|n|e| @5| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+! |5| @29|║+0#0000001#ffd7ff255| |t+0&#e0e0e08|w|o| @4| +0&#ffd7ff255| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |6| @29|║+0#0000001#ffd7ff255| |t|h|r|e@1| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+  |8| @73
+*** ../vim-8.1.1717/src/testdir/dumps/Test_popupwin_menu_scroll_2.dump	2019-07-14 16:27:47.921121297 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_2.dump	2019-07-20 16:28:10.494548380 +0200
+***************
+*** 3,9 ****
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+  |4| @29|║+0#0000001#ffd7ff255| |t|h|r|e@1| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |f|o|u|r| @4| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+! |6| @29|║+0#0000001#ffd7ff255| |f+0&#e0e0e08|i|v|e| +0&#ffd7ff255@4| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+  |8| @73
+  |9| @73
+--- 3,9 ----
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+  |4| @29|║+0#0000001#ffd7ff255| |t|h|r|e@1| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |f|o|u|r| @4| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+! |6| @29|║+0#0000001#ffd7ff255| |f+0&#e0e0e08|i|v|e| @3| +0&#ffd7ff255| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+  |8| @73
+  |9| @73
+*** ../vim-8.1.1717/src/testdir/dumps/Test_popupwin_menu_scroll_3.dump	2019-07-14 16:27:47.921121297 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_3.dump	2019-07-20 16:28:11.542543070 +0200
+***************
+*** 3,9 ****
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+  |4| @29|║+0#0000001#ffd7ff255| |s|e|v|e|n| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |e|i|g|h|t| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+! |6| @29|║+0#0000001#ffd7ff255| |n+0&#e0e0e08|i|n|e| +0&#ffd7ff255@4| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+  |8| @73
+  |9| @73
+--- 3,9 ----
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+  |4| @29|║+0#0000001#ffd7ff255| |s|e|v|e|n| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |e|i|g|h|t| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+! |6| @29|║+0#0000001#ffd7ff255| |n+0&#e0e0e08|i|n|e| @3| +0&#ffd7ff255| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+  |8| @73
+  |9| @73
+*** ../vim-8.1.1717/src/testdir/dumps/Test_popupwin_menu_scroll_4.dump	2019-07-14 16:27:47.921121297 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_4.dump	2019-07-20 16:28:12.590537762 +0200
+***************
+*** 1,7 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+! |4| @29|║+0#0000001#ffd7ff255| |s+0&#e0e0e08|e|v|e|n| +0&#ffd7ff255@3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |e|i|g|h|t| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |6| @29|║+0#0000001#ffd7ff255| |n|i|n|e| @4| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+--- 1,7 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+! |4| @29|║+0#0000001#ffd7ff255| |s+0&#e0e0e08|e|v|e|n| @2| +0&#ffd7ff255| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |e|i|g|h|t| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |6| @29|║+0#0000001#ffd7ff255| |n|i|n|e| @4| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+*** ../vim-8.1.1717/src/testdir/dumps/Test_popupwin_menu_scroll_5.dump	2019-07-14 16:27:47.921121297 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_5.dump	2019-07-20 16:39:16.903194100 +0200
+***************
+*** 1,7 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+! |4| @29|║+0#0000001#ffd7ff255| |s+0&#e0e0e08|i|x| +0&#ffd7ff255@5| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |s|e|v|e|n| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |6| @29|║+0#0000001#ffd7ff255| |e|i|g|h|t| @3| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+--- 1,7 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+! |4| @29|║+0#0000001#ffd7ff255| |s+0&#e0e0e08|i|x| @4| +0&#ffd7ff255| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |s|e|v|e|n| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |6| @29|║+0#0000001#ffd7ff255| |e|i|g|h|t| @3| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+*** ../vim-8.1.1717/src/testdir/dumps/Test_popupwin_menu_scroll_6.dump	2019-07-14 16:27:47.921121297 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_6.dump	2019-07-20 16:39:17.959188810 +0200
+***************
+*** 1,7 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+! |4| @29|║+0#0000001#ffd7ff255| |o+0&#e0e0e08|n|e| +0&#ffd7ff255@5| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |t|w|o| @5| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |6| @29|║+0#0000001#ffd7ff255| |t|h|r|e@1| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+--- 1,7 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
+! |4| @29|║+0#0000001#ffd7ff255| |o+0&#e0e0e08|n|e| @4| +0&#ffd7ff255| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |5| @29|║+0#0000001#ffd7ff255| |t|w|o| @5| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |6| @29|║+0#0000001#ffd7ff255| |t|h|r|e@1| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
+  |7| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
+*** ../vim-8.1.1717/src/testdir/dumps/Test_popupwin_menu_01.dump	2019-07-14 16:27:47.917121312 +0200
+--- src/testdir/dumps/Test_popupwin_menu_01.dump	2019-07-20 16:27:58.866607313 +0200
+***************
+*** 1,7 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @20|╔+0#0000001#ffd7ff255| |m|a|k|e| |a| |c|h|o|i|c|e| |f|r|o|m| |t|h|e| |l|i|s|t| |╗| +0#0000000#ffffff0@21
+! |4| @20|║+0#0000001#ffd7ff255| |o+0#0000000#5fd7ff255|n|e| +0#0000001#ffd7ff255@24|║| +0#0000000#ffffff0@21
+  |5| @20|║+0#0000001#ffd7ff255| |t|w|o| @24|║| +0#0000000#ffffff0@21
+  |6| @20|║+0#0000001#ffd7ff255| |a|n|o|t|h|e|r| @20|║| +0#0000000#ffffff0@21
+  |7| @20|╚+0#0000001#ffd7ff255|═@28|╝| +0#0000000#ffffff0@21
+--- 1,7 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @20|╔+0#0000001#ffd7ff255| |m|a|k|e| |a| |c|h|o|i|c|e| |f|r|o|m| |t|h|e| |l|i|s|t| |╗| +0#0000000#ffffff0@21
+! |4| @20|║+0#0000001#ffd7ff255| |o+0#0000000#5fd7ff255|n|e| +0#0000001&@23| +0&#ffd7ff255|║| +0#0000000#ffffff0@21
+  |5| @20|║+0#0000001#ffd7ff255| |t|w|o| @24|║| +0#0000000#ffffff0@21
+  |6| @20|║+0#0000001#ffd7ff255| |a|n|o|t|h|e|r| @20|║| +0#0000000#ffffff0@21
+  |7| @20|╚+0#0000001#ffd7ff255|═@28|╝| +0#0000000#ffffff0@21
+*** ../vim-8.1.1717/src/testdir/dumps/Test_popupwin_menu_02.dump	2019-07-14 16:27:47.917121312 +0200
+--- src/testdir/dumps/Test_popupwin_menu_02.dump	2019-07-20 16:27:59.922601962 +0200
+***************
+*** 3,9 ****
+  |3| @20|╔+0#0000001#ffd7ff255| |m|a|k|e| |a| |c|h|o|i|c|e| |f|r|o|m| |t|h|e| |l|i|s|t| |╗| +0#0000000#ffffff0@21
+  |4| @20|║+0#0000001#ffd7ff255| |o|n|e| @24|║| +0#0000000#ffffff0@21
+  |5| @20|║+0#0000001#ffd7ff255| |t|w|o| @24|║| +0#0000000#ffffff0@21
+! |6| @20|║+0#0000001#ffd7ff255| |a+0#0000000#5fd7ff255|n|o|t|h|e|r| +0#0000001#ffd7ff255@20|║| +0#0000000#ffffff0@21
+  |7| @20|╚+0#0000001#ffd7ff255|═@28|╝| +0#0000000#ffffff0@21
+  |8| @73
+  |9| @73
+--- 3,9 ----
+  |3| @20|╔+0#0000001#ffd7ff255| |m|a|k|e| |a| |c|h|o|i|c|e| |f|r|o|m| |t|h|e| |l|i|s|t| |╗| +0#0000000#ffffff0@21
+  |4| @20|║+0#0000001#ffd7ff255| |o|n|e| @24|║| +0#0000000#ffffff0@21
+  |5| @20|║+0#0000001#ffd7ff255| |t|w|o| @24|║| +0#0000000#ffffff0@21
+! |6| @20|║+0#0000001#ffd7ff255| |a+0#0000000#5fd7ff255|n|o|t|h|e|r| +0#0000001&@19| +0&#ffd7ff255|║| +0#0000000#ffffff0@21
+  |7| @20|╚+0#0000001#ffd7ff255|═@28|╝| +0#0000000#ffffff0@21
+  |8| @73
+  |9| @73
+*** ../vim-8.1.1717/src/testdir/dumps/Test_popupwin_menu_04.dump	2019-07-20 15:09:35.778697427 +0200
+--- src/testdir/dumps/Test_popupwin_menu_04.dump	2019-07-20 16:27:53.586634077 +0200
+***************
+*** 1,7 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @31|╔+0#0000001#ffd7ff255|═@6|╗| +0#0000000#ffffff0@32
+! |4| @31|║+0#0000001#ffd7ff255| |o+0#0000000#40ff4011|n|e| +0#0000001#ffd7ff255@2|║| +0#0000000#ffffff0@32
+  |5| @31|║+0#0000001#ffd7ff255| |t|w|o| @2|║| +0#0000000#ffffff0@32
+  |6| @31|║+0#0000001#ffd7ff255| |t|h|r|e@1| |║| +0#0000000#ffffff0@32
+  |7| @31|╚+0#0000001#ffd7ff255|═@6|╝| +0#0000000#ffffff0@32
+--- 1,7 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @31|╔+0#0000001#ffd7ff255|═@6|╗| +0#0000000#ffffff0@32
+! |4| @31|║+0#0000001#ffd7ff255| |o+0#0000000#40ff4011|n|e| +0#0000001&@1| +0&#ffd7ff255|║| +0#0000000#ffffff0@32
+  |5| @31|║+0#0000001#ffd7ff255| |t|w|o| @2|║| +0#0000000#ffffff0@32
+  |6| @31|║+0#0000001#ffd7ff255| |t|h|r|e@1| |║| +0#0000000#ffffff0@32
+  |7| @31|╚+0#0000001#ffd7ff255|═@6|╝| +0#0000000#ffffff0@32
+*** ../vim-8.1.1717/src/version.c	2019-07-20 15:09:35.778697427 +0200
+--- src/version.c	2019-07-20 16:40:46.150747177 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1718,
+  /**/
+
+-- 
+ARTHUR: CHARGE!
+   [The mighty ARMY charges.  Thundering noise of feet.  Clatter of coconuts.
+   Shouts etc.   Suddenly there is a wail of a siren and a couple of police
+   cars roar round in front of the charging ARMY and the POLICE leap out and
+   stop them.  TWO POLICEMAN and the HISTORIAN'S WIFE.  Black Marias skid up
+   behind them.]
+HISTORIAN'S WIFE: They're the ones, I'm sure.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

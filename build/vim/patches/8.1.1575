@@ -1,0 +1,372 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1575
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1575
+Solution:   Set reference in callbacks. (Ozaki Kiichi, closes #4564)
+Files:	    src/buffer.c, src/channel.c, src/eval.c, src/ex_cmds2.c,
+            src/popupwin.c, src/proto/buffer.pro, src/proto/popupwin.pro,
+            src/terminal.c, src/testdir/test_listener.vim,
+            src/testdir/test_popupwin.vim, src/testdir/test_prompt_buffer.vim,
+            src/userfunc.c
+
+
+*** ../vim-8.1.1574/src/buffer.c	2019-06-15 19:37:11.676608528 +0200
+--- src/buffer.c	2019-06-20 03:40:42.648573500 +0200
+***************
+*** 5962,5964 ****
+--- 5962,6009 ----
+      if (!aucmd)
+  	unblock_autocmds();
+  }
++ 
++ #if defined(FEAT_EVAL) || defined(PROTO)
++ /*
++  * Mark references in functions of buffers.
++  */
++     int
++ set_ref_in_buffers(int copyID)
++ {
++     int		abort = FALSE;
++     buf_T	*bp;
++ 
++     FOR_ALL_BUFFERS(bp)
++     {
++ 	listener_T *lnr;
++ 	typval_T tv;
++ 
++ 	for (lnr = bp->b_listener; !abort && lnr != NULL; lnr = lnr->lr_next)
++ 	{
++ 	    if (lnr->lr_callback.cb_partial != NULL)
++ 	    {
++ 		tv.v_type = VAR_PARTIAL;
++ 		tv.vval.v_partial = lnr->lr_callback.cb_partial;
++ 		abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL);
++ 	    }
++ 	}
++ # ifdef FEAT_JOB_CHANNEL
++ 	if (!abort && bp->b_prompt_callback.cb_partial != NULL)
++ 	{
++ 	    tv.v_type = VAR_PARTIAL;
++ 	    tv.vval.v_partial = bp->b_prompt_callback.cb_partial;
++ 	    abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL);
++ 	}
++ 	if (!abort && bp->b_prompt_interrupt.cb_partial != NULL)
++ 	{
++ 	    tv.v_type = VAR_PARTIAL;
++ 	    tv.vval.v_partial = bp->b_prompt_interrupt.cb_partial;
++ 	    abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL);
++ 	}
++ # endif
++ 	if (abort)
++ 	    break;
++     }
++     return abort;
++ }
++ #endif
+*** ../vim-8.1.1574/src/channel.c	2019-06-09 19:51:54.468551641 +0200
+--- src/channel.c	2019-06-20 03:27:08.931237053 +0200
+***************
+*** 4479,4485 ****
+      channel_T	*channel;
+      typval_T	tv;
+  
+!     for (channel = first_channel; channel != NULL; channel = channel->ch_next)
+  	if (channel_still_useful(channel))
+  	{
+  	    tv.v_type = VAR_CHANNEL;
+--- 4479,4486 ----
+      channel_T	*channel;
+      typval_T	tv;
+  
+!     for (channel = first_channel; !abort && channel != NULL;
+! 						   channel = channel->ch_next)
+  	if (channel_still_useful(channel))
+  	{
+  	    tv.v_type = VAR_CHANNEL;
+***************
+*** 5568,5574 ****
+      job_T	*job;
+      typval_T	tv;
+  
+!     for (job = first_job; job != NULL; job = job->jv_next)
+  	if (job_still_useful(job))
+  	{
+  	    tv.v_type = VAR_JOB;
+--- 5569,5575 ----
+      job_T	*job;
+      typval_T	tv;
+  
+!     for (job = first_job; !abort && job != NULL; job = job->jv_next)
+  	if (job_still_useful(job))
+  	{
+  	    tv.v_type = VAR_JOB;
+*** ../vim-8.1.1574/src/eval.c	2019-06-15 17:12:01.569914997 +0200
+--- src/eval.c	2019-06-20 03:44:19.383796945 +0200
+***************
+*** 5678,5683 ****
+--- 5678,5686 ----
+      /* v: vars */
+      abort = abort || set_ref_in_ht(&vimvarht, copyID, NULL);
+  
++     // callbacks in buffers
++     abort = abort || set_ref_in_buffers(copyID);
++ 
+  #ifdef FEAT_LUA
+      abort = abort || set_ref_in_lua(copyID);
+  #endif
+***************
+*** 5710,5715 ****
+--- 5713,5722 ----
+      abort = abort || set_ref_in_term(copyID);
+  #endif
+  
++ #ifdef FEAT_TEXT_PROP
++     abort = abort || set_ref_in_popups(copyID);
++ #endif
++ 
+      if (!abort)
+      {
+  	/*
+*** ../vim-8.1.1574/src/ex_cmds2.c	2019-06-16 15:50:42.012557682 +0200
+--- src/ex_cmds2.c	2019-06-20 03:27:08.931237053 +0200
+***************
+*** 566,572 ****
+      timer_T	*timer;
+      typval_T	tv;
+  
+!     for (timer = first_timer; timer != NULL; timer = timer->tr_next)
+      {
+  	if (timer->tr_callback.cb_partial != NULL)
+  	{
+--- 566,572 ----
+      timer_T	*timer;
+      typval_T	tv;
+  
+!     for (timer = first_timer; !abort && timer != NULL; timer = timer->tr_next)
+      {
+  	if (timer->tr_callback.cb_partial != NULL)
+  	{
+*** ../vim-8.1.1574/src/popupwin.c	2019-06-20 02:31:43.251893859 +0200
+--- src/popupwin.c	2019-06-20 03:43:48.831907205 +0200
+***************
+*** 2140,2143 ****
+--- 2140,2189 ----
+      }
+  }
+  
++ /*
++  * Mark references in callbacks of one popup window.
++  */
++     static int
++ set_ref_in_one_popup(win_T *wp, int copyID)
++ {
++     int		abort = FALSE;
++     typval_T	tv;
++ 
++     if (wp->w_close_cb.cb_partial != NULL)
++     {
++ 	tv.v_type = VAR_PARTIAL;
++ 	tv.vval.v_partial = wp->w_close_cb.cb_partial;
++ 	abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL);
++     }
++     if (wp->w_filter_cb.cb_partial != NULL)
++     {
++ 	tv.v_type = VAR_PARTIAL;
++ 	tv.vval.v_partial = wp->w_filter_cb.cb_partial;
++ 	abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL);
++     }
++     return abort;
++ }
++ 
++ /*
++  * Set reference in callbacks of popup windows.
++  */
++     int
++ set_ref_in_popups(int copyID)
++ {
++     int		abort = FALSE;
++     win_T	*wp;
++     tabpage_T	*tp;
++ 
++     for (wp = first_popupwin; !abort && wp != NULL; wp = wp->w_next)
++ 	abort = abort || set_ref_in_one_popup(wp, copyID);
++ 
++     FOR_ALL_TABPAGES(tp)
++     {
++ 	for (wp = tp->tp_first_popupwin; !abort && wp != NULL; wp = wp->w_next)
++ 	    abort = abort || set_ref_in_one_popup(wp, copyID);
++ 	if (abort)
++ 	    break;
++     }
++     return abort;
++ }
+  #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.1574/src/proto/buffer.pro	2019-06-15 19:37:11.676608528 +0200
+--- src/proto/buffer.pro	2019-06-20 03:41:04.632495389 +0200
+***************
+*** 74,77 ****
+--- 74,78 ----
+  void set_buflisted(int on);
+  int buf_contents_changed(buf_T *buf);
+  void wipe_buffer(buf_T *buf, int aucmd);
++ int set_ref_in_buffers(int copyID);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1574/src/proto/popupwin.pro	2019-06-16 22:54:10.649908500 +0200
+--- src/proto/popupwin.pro	2019-06-20 03:43:54.675886132 +0200
+***************
+*** 31,34 ****
+--- 31,35 ----
+  void popup_check_cursor_pos(void);
+  void may_update_popup_mask(int type);
+  void update_popups(void (*win_update)(win_T *wp));
++ int set_ref_in_popups(int copyID);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1574/src/terminal.c	2019-06-17 22:40:37.959820422 +0200
+--- src/terminal.c	2019-06-20 03:27:08.935237042 +0200
+***************
+*** 4051,4057 ****
+      term_T	*term;
+      typval_T	tv;
+  
+!     for (term = first_term; term != NULL; term = term->tl_next)
+  	if (term->tl_job != NULL)
+  	{
+  	    tv.v_type = VAR_JOB;
+--- 4051,4057 ----
+      term_T	*term;
+      typval_T	tv;
+  
+!     for (term = first_term; !abort && term != NULL; term = term->tl_next)
+  	if (term->tl_job != NULL)
+  	{
+  	    tv.v_type = VAR_JOB;
+*** ../vim-8.1.1574/src/testdir/test_listener.vim	2019-06-06 22:50:31.780850393 +0200
+--- src/testdir/test_listener.vim	2019-06-20 03:27:08.935237042 +0200
+***************
+*** 225,227 ****
+--- 225,244 ----
+    exe "buf " .. bufnr
+    bwipe!
+  endfunc
++ 
++ func Test_listener_garbage_collect()
++   func MyListener(x, bufnr, start, end, added, changes)
++     " NOP
++   endfunc
++ 
++   new
++   let id = listener_add(function('MyListener', [{}]), bufnr(''))
++   call test_garbagecollect_now()
++   " must not crach caused by invalid memory access
++   normal ia
++   call assert_true(v:true)
++ 
++   call listener_remove(id)
++   delfunc MyListener
++   bwipe!
++ endfunc
+*** ../vim-8.1.1574/src/testdir/test_popupwin.vim	2019-06-20 02:31:43.251893859 +0200
+--- src/testdir/test_popupwin.vim	2019-06-20 03:27:08.935237042 +0200
+***************
+*** 1467,1469 ****
+--- 1467,1485 ----
+  
+    call popup_close(winid)
+  endfunc
++ 
++ func Test_popupwin_garbage_collect()
++   func MyPopupFilter(x, winid, c)
++     " NOP
++   endfunc
++ 
++   let winid = popup_create('something', {'filter': function('MyPopupFilter', [{}])})
++   call test_garbagecollect_now()
++   redraw
++   " Must not crach caused by invalid memory access
++   call feedkeys('j', 'xt')
++   call assert_true(v:true)
++ 
++   call popup_close(winid)
++   delfunc MyPopupFilter
++ endfunc
+*** ../vim-8.1.1574/src/testdir/test_prompt_buffer.vim	2019-06-15 17:57:43.972724036 +0200
+--- src/testdir/test_prompt_buffer.vim	2019-06-20 03:27:08.935237042 +0200
+***************
+*** 102,104 ****
+--- 102,125 ----
+    call StopVimInTerminal(buf)
+    call delete(scriptName)
+  endfunc
++ 
++ func Test_prompt_garbage_collect()
++   func MyPromptCallback(x, text)
++     " NOP
++   endfunc
++   func MyPromptInterrupt(x)
++     " NOP
++   endfunc
++ 
++   new
++   set buftype=prompt
++   call prompt_setcallback(bufnr(''), function('MyPromptCallback', [{}]))
++   call prompt_setinterrupt(bufnr(''), function('MyPromptInterrupt', [{}]))
++   call test_garbagecollect_now()
++   " Must not crash
++   call feedkeys("\<CR>\<C-C>", 'xt')
++   call assert_true(v:true)
++ 
++   delfunc MyPromptCallback
++   bwipe!
++ endfunc
+*** ../vim-8.1.1574/src/userfunc.c	2019-06-17 21:18:37.857807061 +0200
+--- src/userfunc.c	2019-06-20 03:27:08.935237042 +0200
+***************
+*** 4032,4043 ****
+      funccall_T		*fc;
+      funccal_entry_T	*entry;
+  
+!     for (fc = current_funccal; fc != NULL; fc = fc->caller)
+  	abort = abort || set_ref_in_funccal(fc, copyID);
+  
+      // Also go through the funccal_stack.
+!     for (entry = funccal_stack; entry != NULL; entry = entry->next)
+! 	for (fc = entry->top_funccal; fc != NULL; fc = fc->caller)
+  	    abort = abort || set_ref_in_funccal(fc, copyID);
+  
+      return abort;
+--- 4032,4043 ----
+      funccall_T		*fc;
+      funccal_entry_T	*entry;
+  
+!     for (fc = current_funccal; !abort && fc != NULL; fc = fc->caller)
+  	abort = abort || set_ref_in_funccal(fc, copyID);
+  
+      // Also go through the funccal_stack.
+!     for (entry = funccal_stack; !abort && entry != NULL; entry = entry->next)
+! 	for (fc = entry->top_funccal; !abort && fc != NULL; fc = fc->caller)
+  	    abort = abort || set_ref_in_funccal(fc, copyID);
+  
+      return abort;
+*** ../vim-8.1.1574/src/version.c	2019-06-20 02:31:43.251893859 +0200
+--- src/version.c	2019-06-20 03:38:58.088942308 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1575,
+  /**/
+
+-- 
+Marriage isn't a word.  It's a sentence.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

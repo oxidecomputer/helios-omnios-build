@@ -1,0 +1,201 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1678
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1678
+Problem:    When using popup_menu() does not scroll to show the selected line.
+Solution:   Scroll the text. (Naruhiko Nishino, closes #4651)
+Files:	    src/popupwin.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_menu_scroll_1.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_2.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_3.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_4.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_5.dump,
+            src/testdir/dumps/Test_popupwin_menu_scroll_6.dump
+
+
+*** ../vim-8.1.1677/src/popupwin.c	2019-07-13 14:17:34.505914114 +0200
+--- src/popupwin.c	2019-07-13 16:02:07.759035461 +0200
+***************
+*** 1512,1517 ****
+--- 1512,1523 ----
+  
+      match_delete(wp, 1, FALSE);
+  
++     // Scroll to show the line with the cursor.  This assumes lines don't wrap.
++     while (wp->w_topline + wp->w_height - 1 < wp->w_cursor.lnum)
++ 	wp->w_topline++;
++     while (wp->w_cursor.lnum < wp->w_topline)
++ 	wp->w_topline--;
++ 
+      id = syn_name2id((char_u *)"PopupSelected");
+      vim_snprintf(buf, sizeof(buf), "\\%%%dl.*", (int)wp->w_cursor.lnum);
+      match_add(wp, (char_u *)(id == 0 ? "PmenuSel" : "PopupSelected"),
+*** ../vim-8.1.1677/src/testdir/test_popupwin.vim	2019-07-13 14:17:34.505914114 +0200
+--- src/testdir/test_popupwin.vim	2019-07-13 16:23:38.096634730 +0200
+***************
+*** 1861,1864 ****
+--- 1861,1910 ----
+    call delete('XtestPopupMenuMaxWidth')
+  endfunc
+  
++ func Test_popup_menu_with_scrollbar()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let lines =<< trim END
++     call setline(1, range(1, 20))
++     hi ScrollThumb ctermbg=blue
++     hi ScrollBar ctermbg=red
++     call popup_menu(['one', 'two', 'three', 'four', 'five',
++ 	  \ 'six', 'seven', 'eight', 'nine'], {
++ 	  \ 'minwidth': 8,
++ 	  \ 'maxheight': 3,
++ 	  \ })
++   END
++   call writefile(lines, 'XtestPopupMenuScroll')
++   let buf = RunVimInTerminal('-S XtestPopupMenuScroll', {'rows': 10})
++ 
++   call term_sendkeys(buf, "j")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_scroll_1', {})
++ 
++   call term_sendkeys(buf, "jjj")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_scroll_2', {})
++ 
++   " if the cursor is the bottom line, it stays at the bottom line.
++   call term_sendkeys(buf, repeat("j", 20))
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_scroll_3', {})
++ 
++   call term_sendkeys(buf, "kk")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_scroll_4', {})
++ 
++   call term_sendkeys(buf, "k")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_scroll_5', {})
++ 
++   " if the cursor is in the top line, it stays in the top line.
++   call term_sendkeys(buf, repeat("k", 20))
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_scroll_6', {})
++ 
++   " close the menu popupwin.
++   call term_sendkeys(buf, " ")
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupMenuScroll')
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1677/src/testdir/dumps/Test_popupwin_menu_scroll_1.dump	2019-07-13 16:37:49.984511982 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_1.dump	2019-07-13 16:20:21.805637226 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
++ |3| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |4| @29|║+0#0000001#ffd7ff255| |o|n|e| @5| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |5| @29|║+0#0000001#ffd7ff255| |t+0&#e0e0e08|w|o| +0&#ffd7ff255@5| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |6| @29|║+0#0000001#ffd7ff255| |t|h|r|e@1| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |7| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |8| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1677/src/testdir/dumps/Test_popupwin_menu_scroll_2.dump	2019-07-13 16:37:49.984511982 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_2.dump	2019-07-13 16:20:22.857631757 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
++ |3| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |4| @29|║+0#0000001#ffd7ff255| |t|h|r|e@1| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |5| @29|║+0#0000001#ffd7ff255| |f|o|u|r| @4| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |6| @29|║+0#0000001#ffd7ff255| |f+0&#e0e0e08|i|v|e| +0&#ffd7ff255@4| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |7| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |8| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1677/src/testdir/dumps/Test_popupwin_menu_scroll_3.dump	2019-07-13 16:37:49.988511966 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_3.dump	2019-07-13 16:20:23.913626269 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
++ |3| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |4| @29|║+0#0000001#ffd7ff255| |s|e|v|e|n| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |5| @29|║+0#0000001#ffd7ff255| |e|i|g|h|t| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |6| @29|║+0#0000001#ffd7ff255| |n+0&#e0e0e08|i|n|e| +0&#ffd7ff255@4| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |7| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |8| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1677/src/testdir/dumps/Test_popupwin_menu_scroll_4.dump	2019-07-13 16:37:49.992511947 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_4.dump	2019-07-13 16:24:20.352422896 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
++ |3| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |4| @29|║+0#0000001#ffd7ff255| |s+0&#e0e0e08|e|v|e|n| +0&#ffd7ff255@3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |5| @29|║+0#0000001#ffd7ff255| |e|i|g|h|t| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |6| @29|║+0#0000001#ffd7ff255| |n|i|n|e| @4| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |7| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |8| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1677/src/testdir/dumps/Test_popupwin_menu_scroll_5.dump	2019-07-13 16:37:49.996511927 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_5.dump	2019-07-13 16:22:28.700985418 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
++ |3| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |4| @29|║+0#0000001#ffd7ff255| |s+0&#e0e0e08|i|x| +0&#ffd7ff255@5| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |5| @29|║+0#0000001#ffd7ff255| |s|e|v|e|n| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |6| @29|║+0#0000001#ffd7ff255| |e|i|g|h|t| @3| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |7| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |8| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1677/src/testdir/dumps/Test_popupwin_menu_scroll_6.dump	2019-07-13 16:37:50.000511908 +0200
+--- src/testdir/dumps/Test_popupwin_menu_scroll_6.dump	2019-07-13 16:24:21.408417618 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @29|╔+0#0000001#ffd7ff255|═@10|╗| +0#0000000#ffffff0@30
++ |3| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |4| @29|║+0#0000001#ffd7ff255| |o+0&#e0e0e08|n|e| +0&#ffd7ff255@5| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |5| @29|║+0#0000001#ffd7ff255| |t|w|o| @5| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |6| @29|║+0#0000001#ffd7ff255| |t|h|r|e@1| @3| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@30
++ |7| @29|║+0#0000001#ffd7ff255| @10|║| +0#0000000#ffffff0@30
++ |8| @29|╚+0#0000001#ffd7ff255|═@10|╝| +0#0000000#ffffff0@30
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1677/src/version.c	2019-07-13 14:42:32.828583684 +0200
+--- src/version.c	2019-07-13 16:04:23.970425928 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1678,
+  /**/
+
+-- 
+When I look deep into your eyes, I see JPEG artifacts.
+I can tell by the pixels that we're wrong for each other.  (xkcd)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

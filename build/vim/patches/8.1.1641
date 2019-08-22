@@ -1,0 +1,73 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1641
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1641
+Problem:    Garbage collection may run at a wrong moment. (Trygve Aaberge)
+Solution:   Postpone garbage collection while parsing messages. (closes #4620)
+Files:	    src/misc2.c
+
+
+*** ../vim-8.1.1640/src/misc2.c	2019-07-04 20:26:17.798397726 +0200
+--- src/misc2.c	2019-07-07 13:51:35.678060572 +0200
+***************
+*** 4444,4455 ****
+--- 4444,4462 ----
+  {
+      win_T   *old_curwin = curwin;
+      int	    i;
++     int	    save_may_garbage_collect = may_garbage_collect;
+  
+      // Do not handle messages while redrawing, because it may cause buffers to
+      // change or be wiped while they are being redrawn.
+      if (updating_screen)
+  	return;
+  
++     // may_garbage_collect is set in main_loop() to do garbage collection when
++     // blocking to wait on a character.  We don't want that while parsing
++     // messages, a callback may invoke vgetc() while lists and dicts are in use
++     // in the call stack.
++     may_garbage_collect = FALSE;
++ 
+      // Loop when a job ended, but don't keep looping forever.
+      for (i = 0; i < MAX_REPEAT_PARSE; ++i)
+      {
+***************
+*** 4485,4490 ****
+--- 4492,4499 ----
+  	break;
+      }
+  
++     may_garbage_collect = save_may_garbage_collect;
++ 
+      // If the current window changed we need to bail out of the waiting loop.
+      // E.g. when a job exit callback closes the terminal window.
+      if (curwin != old_curwin)
+*** ../vim-8.1.1640/src/version.c	2019-07-05 23:24:39.158501402 +0200
+--- src/version.c	2019-07-07 13:54:11.801281201 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1641,
+  /**/
+
+-- 
+DEAD PERSON:  I don't want to go in the cart!
+CUSTOMER:     Oh, don't be such a baby.
+MORTICIAN:    I can't take him...
+DEAD PERSON:  I feel fine!
+CUSTOMER:     Oh, do us a favor...
+MORTICIAN:    I can't.
+                                  The Quest for the Holy Grail (Monty Python)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

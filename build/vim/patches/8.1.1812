@@ -1,0 +1,80 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1812
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1812
+Problem:    Reading a truncted undo file hangs Vim.
+Solution:   Check for reading EOF. (closes #4769)
+Files:	    src/undo.c, src/testdir/test_undo.vim
+
+
+*** ../vim-8.1.1811/src/undo.c	2019-06-18 22:53:19.018129835 +0200
+--- src/undo.c	2019-08-04 18:54:50.701169983 +0200
+***************
+*** 1317,1322 ****
+--- 1317,1328 ----
+  	int len = undo_read_byte(bi);
+  	int what;
+  
++ 	if (len == EOF)
++ 	{
++ 	    corruption_error("truncated", file_name);
++ 	    u_free_uhp(uhp);
++ 	    return NULL;
++ 	}
+  	if (len == 0)
+  	    break;
+  	what = undo_read_byte(bi);
+*** ../vim-8.1.1811/src/testdir/test_undo.vim	2019-05-19 16:38:53.034327682 +0200
+--- src/testdir/test_undo.vim	2019-08-04 18:52:55.366054972 +0200
+***************
+*** 335,340 ****
+--- 335,358 ----
+    call delete('Xundofile')
+  endfunc
+  
++ " Check that reading a truncted undo file doesn't hang.
++ func Test_undofile_truncated()
++   new
++   call setline(1, 'hello')
++   set ul=100
++   wundo Xundofile
++   let contents = readfile('Xundofile', 'B')
++ 
++   " try several sizes
++   for size in range(20, 500, 33)
++     call writefile(contents[0:size], 'Xundofile')
++     call assert_fails('rundo Xundofile', 'E825:')
++   endfor
++ 
++   bwipe!
++ "  call delete('Xundofile')
++ endfunc
++ 
+  " Test for undo working properly when executing commands from a register.
+  " Also test this in an empty buffer.
+  func Test_cmd_in_reg_undo()
+*** ../vim-8.1.1811/src/version.c	2019-08-04 18:13:43.715225398 +0200
+--- src/version.c	2019-08-04 18:45:56.497713821 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1812,
+  /**/
+
+-- 
+For a moment, nothing happened.
+Then, after a second or so, nothing continued to happen.
+		-- Douglas Adams, "The Hitchhiker's Guide to the Galaxy"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

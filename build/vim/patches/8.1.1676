@@ -1,0 +1,129 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1676
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1676
+Problem:    "maxwidth" of popup window does not always work properly.
+Solution:   Adjust the computation. (Naruhiko Nishino, closes #4653)
+Files:	    src/popupwin.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_menu_maxwidth_1.dump
+
+
+*** ../vim-8.1.1675/src/popupwin.c	2019-07-12 21:07:49.533756948 +0200
+--- src/popupwin.c	2019-07-13 14:00:36.058561216 +0200
+***************
+*** 799,804 ****
+--- 799,806 ----
+      int
+  popup_width(win_T *wp)
+  {
++     // w_leftcol is how many columns of the core are left of the screen
++     // w_popup_rightoff is how many columns of the core are right of the screen
+      return wp->w_width + wp->w_leftcol
+  	+ wp->w_popup_padding[3] + wp->w_popup_border[3]
+  	+ wp->w_popup_padding[1] + wp->w_popup_border[1]
+***************
+*** 924,930 ****
+--- 926,936 ----
+  	    wp->w_width = maxwidth;
+  	}
+  	if (wp->w_width < len)
++ 	{
+  	    wp->w_width = len;
++ 	    if (wp->w_maxwidth > 0 && wp->w_width > wp->w_maxwidth)
++ 		wp->w_width = wp->w_maxwidth;
++ 	}
+  	// do not use the width of lines we're not going to show
+  	if (wp->w_maxheight > 0
+  		       && lnum - wp->w_topline + 1 + wrapped > wp->w_maxheight)
+*** ../vim-8.1.1675/src/testdir/test_popupwin.vim	2019-07-12 21:07:49.533756948 +0200
+--- src/testdir/test_popupwin.vim	2019-07-13 13:46:43.434431026 +0200
+***************
+*** 1819,1821 ****
+--- 1819,1864 ----
+    call assert_equal([], bufinfo.popups)
+    exe 'bwipe! ' .. buf
+  endfunc
++ 
++ func Test_popup_menu_with_maxwidth()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let lines =<< trim END
++ 	call setline(1, range(1, 10))
++ 	hi ScrollThumb ctermbg=blue
++ 	hi ScrollBar ctermbg=red
++ 	func PopupMenu(lines, line, col, scrollbar = 0)
++ 		return popup_menu(a:lines, {
++ 			\ 'maxwidth': 10,
++ 			\ 'maxheight': 3,
++ 			\ 'pos' : 'topleft',
++ 			\ 'col' : a:col,
++ 			\ 'line' : a:line,
++ 			\ 'scrollbar' : a:scrollbar,
++ 			\ })
++ 	endfunc
++ 	call PopupMenu(['x'], 1, 1)
++ 	call PopupMenu(['123456789|'], 1, 16)
++ 	call PopupMenu(['123456789|' .. ' '], 7, 1)
++ 	call PopupMenu([repeat('123456789|', 100)], 7, 16)
++ 	call PopupMenu(repeat(['123456789|' .. ' '], 5), 1, 33, 1)
++   END
++   call writefile(lines, 'XtestPopupMenuMaxWidth')
++   let buf = RunVimInTerminal('-S XtestPopupMenuMaxWidth', {'rows': 13})
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_maxwidth_1', {})
++ 
++   " close the menu popupwin.
++   call term_sendkeys(buf, " ")
++   call term_sendkeys(buf, " ")
++   call term_sendkeys(buf, " ")
++   call term_sendkeys(buf, " ")
++   call term_sendkeys(buf, " ")
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupMenuMaxWidth')
++ endfunc
++ 
++ " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1675/src/testdir/dumps/Test_popupwin_menu_maxwidth_1.dump	2019-07-13 14:17:10.450024552 +0200
+--- src/testdir/dumps/Test_popupwin_menu_maxwidth_1.dump	2019-07-13 14:01:26.338334409 +0200
+***************
+*** 0 ****
+--- 1,13 ----
++ >╔+0#0000001#ffd7ff255|═@2|╗| +0#0000000#ffffff0@9|╔+0#0000001#ffd7ff255|═@11|╗| +0#0000000#ffffff0@2|╔+0#0000001#ffd7ff255|═@12|╗| +0#0000000#ffffff0@27
++ |║+0#0000001#ffd7ff255| @2|║| +0#0000000#ffffff0@9|║+0#0000001#ffd7ff255| @11|║| +0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| @12|║| +0#0000000#ffffff0@27
++ |║+0#0000001#ffd7ff255| |x+0&#e0e0e08| +0&#ffd7ff255|║| +0#0000000#ffffff0@9|║+0#0000001#ffd7ff255| |1+0&#e0e0e08|2|3|4|5|6|7|8|9||| +0&#ffd7ff255|║| +0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| |1+0&#e0e0e08|2|3|4|5|6|7|8|9||| +0&#ffd7ff255| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@27
++ |║+0#0000001#ffd7ff255| @2|║| +0#0000000#ffffff0@9|║+0#0000001#ffd7ff255| @11|║| +0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| |1|2|3|4|5|6|7|8|9||| | +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@27
++ |╚+0#0000001#ffd7ff255|═@2|╝| +0#0000000#ffffff0@9|╚+0#0000001#ffd7ff255|═@11|╝| +0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| |1|2|3|4|5|6|7|8|9||| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@27
++ |6| @30|║+0#0000001#ffd7ff255| @12|║| +0#0000000#ffffff0@27
++ |╔+0#0000001#ffd7ff255|═@11|╗| +0#0000000#ffffff0|╔+0#0000001#ffd7ff255|═@11|╗| +0#0000000#ffffff0@2|╚+0#0000001#ffd7ff255|═@12|╝| +0#0000000#ffffff0@27
++ |║+0#0000001#ffd7ff255| @11|║| +0#0000000#ffffff0|║+0#0000001#ffd7ff255| @11|║| +0#0000000#ffffff0@45
++ |║+0#0000001#ffd7ff255| |1+0&#e0e0e08|2|3|4|5|6|7|8|9||| +0&#ffd7ff255|║| +0#0000000#ffffff0|║+0#0000001#ffd7ff255| |1+0&#e0e0e08|2|3|4|5|6|7|8|9||| +0&#ffd7ff255|║| +0#0000000#ffffff0@45
++ |║+0#0000001#ffd7ff255| @11|║| +0#0000000#ffffff0|║+0#0000001#ffd7ff255| @11|║| +0#0000000#ffffff0@45
++ |╚+0#0000001#ffd7ff255|═@11|╝| +0#4040ff13#ffffff0|╚+0#0000001#ffd7ff255|═@11|╝| +0#4040ff13#ffffff0@45
++ |~| @73
++ | +0#0000000&@56|1|,|1| @10|A|l@1| 
+*** ../vim-8.1.1675/src/version.c	2019-07-13 13:02:59.295619066 +0200
+--- src/version.c	2019-07-13 13:49:41.449580823 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1676,
+  /**/
+
+-- 
+Life is a gift, living is an art.		(Bram Moolenaar)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

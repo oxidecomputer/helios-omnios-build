@@ -1,0 +1,201 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1523
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1523
+Problem:    Cannot show range of buffer lines in popup window.
+Solution:   Add the "firstline" property. (closes #4523)
+Files:	    src/popupwin.c, src/structs.h, runtime/doc/popup.txt,
+            src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_firstline.dump
+
+
+*** ../vim-8.1.1522/src/popupwin.c	2019-06-12 22:42:05.016146053 +0200
+--- src/popupwin.c	2019-06-12 23:33:44.967397377 +0200
+***************
+*** 226,231 ****
+--- 226,235 ----
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+  						   str, OPT_FREE|OPT_LOCAL, 0);
+  
++     wp->w_firstline = dict_get_number(dict, (char_u *)"firstline");
++     if (wp->w_firstline < 1)
++ 	wp->w_firstline = 1;
++ 
+      di = dict_find(dict, (char_u *)"wrap", -1);
+      if (di != NULL)
+      {
+***************
+*** 519,528 ****
+  	maxwidth = wp->w_maxwidth;
+      }
+  
+      // Compute width based on longest text line and the 'wrap' option.
+      // TODO: more accurate wrapping
+      wp->w_width = 0;
+!     for (lnum = 1; lnum <= wp->w_buffer->b_ml.ml_line_count; ++lnum)
+      {
+  	int len = vim_strsize(ml_get_buf(wp->w_buffer, lnum, FALSE));
+  
+--- 523,537 ----
+  	maxwidth = wp->w_maxwidth;
+      }
+  
++     // start at the desired first line
++     wp->w_topline = wp->w_firstline;
++     if (wp->w_topline > wp->w_buffer->b_ml.ml_line_count)
++ 	wp->w_topline = wp->w_buffer->b_ml.ml_line_count;
++ 
+      // Compute width based on longest text line and the 'wrap' option.
+      // TODO: more accurate wrapping
+      wp->w_width = 0;
+!     for (lnum = wp->w_topline; lnum <= wp->w_buffer->b_ml.ml_line_count; ++lnum)
+      {
+  	int len = vim_strsize(ml_get_buf(wp->w_buffer, lnum, FALSE));
+  
+***************
+*** 556,561 ****
+--- 565,574 ----
+  	}
+  	if (wp->w_width < len)
+  	    wp->w_width = len;
++ 	// do not use the width of lines we're not going to show
++ 	if (wp->w_maxheight > 0 && wp->w_buffer->b_ml.ml_line_count
++ 			       - wp->w_topline + 1 + wrapped > wp->w_maxheight)
++ 	    break;
+      }
+  
+      if (wp->w_minwidth > 0 && wp->w_width < wp->w_minwidth)
+***************
+*** 573,579 ****
+  	    wp->w_wincol = wp->w_wantcol - (wp->w_width + extra_width);
+      }
+  
+!     wp->w_height = wp->w_buffer->b_ml.ml_line_count + wrapped;
+      if (wp->w_minheight > 0 && wp->w_height < wp->w_minheight)
+  	wp->w_height = wp->w_minheight;
+      if (wp->w_maxheight > 0 && wp->w_height > wp->w_maxheight)
+--- 586,593 ----
+  	    wp->w_wincol = wp->w_wantcol - (wp->w_width + extra_width);
+      }
+  
+!     wp->w_height = wp->w_buffer->b_ml.ml_line_count - wp->w_topline
+! 								 + 1 + wrapped;
+      if (wp->w_minheight > 0 && wp->w_height < wp->w_minheight)
+  	wp->w_height = wp->w_minheight;
+      if (wp->w_maxheight > 0 && wp->w_height > wp->w_maxheight)
+***************
+*** 1133,1138 ****
+--- 1147,1153 ----
+  	dict_add_number(dict, "minheight", wp->w_minheight);
+  	dict_add_number(dict, "maxheight", wp->w_maxheight);
+  	dict_add_number(dict, "maxwidth", wp->w_maxwidth);
++ 	dict_add_number(dict, "firstline", wp->w_firstline);
+  	dict_add_number(dict, "zindex", wp->w_zindex);
+  	dict_add_number(dict, "fixed", wp->w_popup_fixed);
+  
+*** ../vim-8.1.1522/src/structs.h	2019-06-12 22:42:05.020146044 +0200
+--- src/structs.h	2019-06-12 23:11:32.421709623 +0200
+***************
+*** 2895,2900 ****
+--- 2895,2901 ----
+      int		w_maxwidth;	    // "maxwidth" for popup window
+      int		w_wantline;	    // "line" for popup window
+      int		w_wantcol;	    // "col" for popup window
++     int		w_firstline;	    // "firstline" for popup window
+      int		w_popup_padding[4]; // popup padding top/right/bot/left
+      int		w_popup_border[4];  // popup border top/right/bot/left
+      char_u	*w_border_highlight[4];  // popup border highlight
+*** ../vim-8.1.1522/runtime/doc/popup.txt	2019-06-12 22:42:05.020146044 +0200
+--- runtime/doc/popup.txt	2019-06-12 23:10:05.374072123 +0200
+***************
+*** 87,93 ****
+  
+  IMPLEMENTATION:
+  - Why does 'nrformats' leak from the popup window buffer???
+- - Option to set first line to display (useful for a preview window)
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+    Use NOT_IN_POPUP_WINDOW for more commands.
+  - Add 'balloonpopup': instead of showing text, let the callback open a popup
+--- 87,92 ----
+***************
+*** 396,401 ****
+--- 395,403 ----
+  			padding.
+  	minwidth	Minimum width of the contents, excluding border and
+  			padding.
++ 	firstline	First buffer line to display.  When larger than one it
++ 			looks like the text scrolled up.  When out of range
++ 			the last buffer line will at the top of the window.
+  	hidden		When TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
+  			{not implemented yet}
+*** ../vim-8.1.1522/src/testdir/test_popupwin.vim	2019-06-12 22:42:05.020146044 +0200
+--- src/testdir/test_popupwin.vim	2019-06-12 23:24:09.978075481 +0200
+***************
+*** 269,274 ****
+--- 269,294 ----
+    call delete('XtestPopupCorners')
+  endfunc
+  
++ func Test_popup_firstline()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++   let lines =<< trim END
++ 	call setline(1, range(1, 20))
++ 	call popup_create(['1111', '222222', '33333', '44', '5', '666666', '77777', '888', '9999999999999999'], {
++ 	      \ 'maxheight': 4,
++ 	      \ 'firstline': 3,
++ 	      \ })
++   END
++   call writefile(lines, 'XtestPopupFirstline')
++   let buf = RunVimInTerminal('-S XtestPopupFirstline', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_firstline', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupFirstline')
++ endfunc
++ 
+  func Test_popup_in_tab()
+    " default popup is local to tab, not visible when in other tab
+    let winid = popup_create("text", {})
+*** ../vim-8.1.1522/src/testdir/dumps/Test_popupwin_firstline.dump	2019-06-12 23:38:40.078061863 +0200
+--- src/testdir/dumps/Test_popupwin_firstline.dump	2019-06-12 23:33:55.911347560 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @33|3+0#0000001#ffd7ff255@4| +0#0000000#ffffff0@34
++ |5| @33|4+0#0000001#ffd7ff255@1| @2| +0#0000000#ffffff0@34
++ |6| @33|5+0#0000001#ffd7ff255| @3| +0#0000000#ffffff0@34
++ |7| @33|6+0#0000001#ffd7ff255@4| +0#0000000#ffffff0@34
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1522/src/version.c	2019-06-12 22:42:05.020146044 +0200
+--- src/version.c	2019-06-12 23:35:22.374954782 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1523,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+165. You have a web page burned into your glasses
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,810 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1558
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1558
+Problem:    Popup_menu() and popup_filter_menu() are not implemented yet.
+Solution:   Implement the functions. Fix that centering didn't take the border
+            and padding into account.
+Files:	    runtime/doc/popup.txt, src/popupwin.c, src/proto/popupwin.pro,
+            src/evalfunc.c, src/screen.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_menu_01.dump,
+            src/testdir/dumps/Test_popupwin_menu_02.dump,
+            src/testdir/dumps/Test_popupwin_menu_03.dump,
+            src/testdir/dumps/Test_popupwin_drag_01.dump,
+            src/testdir/dumps/Test_popupwin_drag_02.dump
+
+
+*** ../vim-8.1.1557/runtime/doc/popup.txt	2019-06-16 15:31:38.733109988 +0200
+--- runtime/doc/popup.txt	2019-06-16 17:15:23.191820494 +0200
+***************
+*** 89,95 ****
+  TODO:
+  - Why does 'nrformats' leak from the popup window buffer???
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+!   Use NOT_IN_POPUP_WINDOW for more commands.
+  - Add 'balloonpopup': instead of showing text, let the callback open a popup
+    window and return the window ID.   The popup will then be closed when the
+    mouse moves, except when it moves inside the popup.
+--- 89,95 ----
+  TODO:
+  - Why does 'nrformats' leak from the popup window buffer???
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+!   Use ERROR_IF_POPUP_WINDOW for more commands.
+  - Add 'balloonpopup': instead of showing text, let the callback open a popup
+    window and return the window ID.   The popup will then be closed when the
+    mouse moves, except when it moves inside the popup.
+***************
+*** 109,116 ****
+  - When the lines do not fit show a scrollbar (like in the popup menu).
+    Use the mouse wheel for scrolling.
+  - Implement:
+- 	popup_filter_menu({id}, {key})
+- 	popup_menu({text}, {options})
+  	popup_setoptions({id}, {options})
+  	hidden option
+  	tabpage option with number
+--- 109,114 ----
+***************
+*** 220,231 ****
+  
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
+! 		{not implemented yet}
+! 		Filter that can be used for a popup. It handles the cursor
+! 		keys to move the selected index in the popup. Space and Enter
+! 		can be used to select an item.  Invokes the "callback" of the
+! 		popup menu with the index of the selected line as the second
+! 		argument.
+  
+  
+  popup_filter_yesno({id}, {key})				*popup_filter_yesno()*
+--- 218,237 ----
+  
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
+! 		Filter that can be used for a popup. These keys can be used:
+! 		    j <Down>	select item below
+! 		    k <Up>		select item above
+! 		    <Space> <Enter>	accept current selection
+! 		    x Esc CTRL-C	cancel the menu
+! 		Other keys are ignored.
+! 
+! 		A match is set on that line to highlight it, see
+! 		|popup_menu()|.
+! 
+! 		When the current selection is accepted the "callback" of the
+! 		popup menu is invoked with the index of the selected line as
+! 		the second argument.  The first entry has index one.
+! 		Cancelling the menu invokes the callback with -1.
+  
+  
+  popup_filter_yesno({id}, {key})				*popup_filter_yesno()*
+***************
+*** 279,285 ****
+  
+  
+  popup_menu({text}, {options})				 *popup_menu()*
+- 		{not implemented yet}
+  		Show the {text} near the cursor, handle selecting one of the
+  		items with cursorkeys, and close it an item is selected with
+  		Space or Enter. {text} should have multiple lines to make this
+--- 285,290 ----
+***************
+*** 287,297 ****
+  			call popup_create({text}, {
+  				\ 'pos': 'center',
+  				\ 'zindex': 200,
+  				\ 'wrap': 0,
+  				\ 'border': [],
+  				\ 'filter': 'popup_filter_menu',
+  				\ })
+! <		Use {options} to change the properties.  Should at least set
+  		"callback" to a function that handles the selected item.
+  
+  
+--- 292,307 ----
+  			call popup_create({text}, {
+  				\ 'pos': 'center',
+  				\ 'zindex': 200,
++ 				\ 'drag': 1,
+  				\ 'wrap': 0,
+  				\ 'border': [],
++ 				\ 'padding': [],
+  				\ 'filter': 'popup_filter_menu',
+  				\ })
+! <		The current line is highlighted with a match using
+! 		PopupSelected, or |PmenuSel| if that is not defined.
+! 
+! 		Use {options} to change the properties.  Should at least set
+  		"callback" to a function that handles the selected item.
+  
+  
+***************
+*** 320,326 ****
+  				\ })
+  <		The PopupNotification highlight group is used instead of
+  		WarningMsg if it is defined.
+! <		The position will be adjusted to avoid overlap with other
+  		notifications.
+  		Use {options} to change the properties.
+  
+--- 330,337 ----
+  				\ })
+  <		The PopupNotification highlight group is used instead of
+  		WarningMsg if it is defined.
+! 
+! 		The position will be adjusted to avoid overlap with other
+  		notifications.
+  		Use {options} to change the properties.
+  
+*** ../vim-8.1.1557/src/popupwin.c	2019-06-16 15:50:42.012557682 +0200
+--- src/popupwin.c	2019-06-16 18:51:33.629377131 +0200
+***************
+*** 651,657 ****
+      if (wp->w_width > maxwidth)
+  	wp->w_width = maxwidth;
+      if (center_hor)
+! 	wp->w_wincol = (Columns - wp->w_width) / 2;
+      else if (wp->w_popup_pos == POPPOS_BOTRIGHT
+  	    || wp->w_popup_pos == POPPOS_TOPRIGHT)
+      {
+--- 651,661 ----
+      if (wp->w_width > maxwidth)
+  	wp->w_width = maxwidth;
+      if (center_hor)
+!     {
+! 	wp->w_wincol = (Columns - wp->w_width - extra_width) / 2;
+! 	if (wp->w_wincol < 0)
+! 	    wp->w_wincol = 0;
+!     }
+      else if (wp->w_popup_pos == POPPOS_BOTRIGHT
+  	    || wp->w_popup_pos == POPPOS_TOPRIGHT)
+      {
+***************
+*** 671,677 ****
+  	wp->w_height = Rows - wp->w_winrow;
+  
+      if (center_vert)
+! 	wp->w_winrow = (Rows - wp->w_height) / 2;
+      else if (wp->w_popup_pos == POPPOS_BOTRIGHT
+  	    || wp->w_popup_pos == POPPOS_BOTLEFT)
+      {
+--- 675,685 ----
+  	wp->w_height = Rows - wp->w_winrow;
+  
+      if (center_vert)
+!     {
+! 	wp->w_winrow = (Rows - wp->w_height - extra_height) / 2;
+! 	if (wp->w_winrow < 0)
+! 	    wp->w_winrow = 0;
+!     }
+      else if (wp->w_popup_pos == POPPOS_BOTRIGHT
+  	    || wp->w_popup_pos == POPPOS_BOTLEFT)
+      {
+***************
+*** 702,708 ****
+      TYPE_NORMAL,
+      TYPE_ATCURSOR,
+      TYPE_NOTIFICATION,
+!     TYPE_DIALOG
+  } create_type_T;
+  
+  /*
+--- 710,717 ----
+      TYPE_NORMAL,
+      TYPE_ATCURSOR,
+      TYPE_NOTIFICATION,
+!     TYPE_DIALOG,
+!     TYPE_MENU
+  } create_type_T;
+  
+  /*
+***************
+*** 751,757 ****
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+   */
+!     static void
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+  {
+      win_T   *wp;
+--- 760,766 ----
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+   */
+!     static win_T *
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+  {
+      win_T   *wp;
+***************
+*** 764,788 ****
+  	&& !(argvars[0].v_type == VAR_LIST && argvars[0].vval.v_list != NULL))
+      {
+  	emsg(_(e_listreq));
+! 	return;
+      }
+      if (argvars[1].v_type != VAR_DICT || argvars[1].vval.v_dict == NULL)
+      {
+  	emsg(_(e_dictreq));
+! 	return;
+      }
+      d = argvars[1].vval.v_dict;
+  
+      // Create the window and buffer.
+      wp = win_alloc_popup_win();
+      if (wp == NULL)
+! 	return;
+      rettv->vval.v_number = wp->w_id;
+      wp->w_popup_pos = POPPOS_TOPLEFT;
+  
+      buf = buflist_new(NULL, NULL, (linenr_T)0, BLN_NEW|BLN_LISTED|BLN_DUMMY);
+      if (buf == NULL)
+! 	return;
+      ml_open(buf);
+  
+      win_init_popup_win(wp, buf);
+--- 773,797 ----
+  	&& !(argvars[0].v_type == VAR_LIST && argvars[0].vval.v_list != NULL))
+      {
+  	emsg(_(e_listreq));
+! 	return NULL;
+      }
+      if (argvars[1].v_type != VAR_DICT || argvars[1].vval.v_dict == NULL)
+      {
+  	emsg(_(e_dictreq));
+! 	return NULL;
+      }
+      d = argvars[1].vval.v_dict;
+  
+      // Create the window and buffer.
+      wp = win_alloc_popup_win();
+      if (wp == NULL)
+! 	return NULL;
+      rettv->vval.v_number = wp->w_id;
+      wp->w_popup_pos = POPPOS_TOPLEFT;
+  
+      buf = buflist_new(NULL, NULL, (linenr_T)0, BLN_NEW|BLN_LISTED|BLN_DUMMY);
+      if (buf == NULL)
+! 	return NULL;
+      ml_open(buf);
+  
+      win_init_popup_win(wp, buf);
+***************
+*** 898,904 ****
+  		OPT_FREE|OPT_LOCAL, 0);
+      }
+  
+!     if (type == TYPE_DIALOG)
+      {
+  	int i;
+  
+--- 907,913 ----
+  		OPT_FREE|OPT_LOCAL, 0);
+      }
+  
+!     if (type == TYPE_DIALOG || type == TYPE_MENU)
+      {
+  	int i;
+  
+***************
+*** 912,917 ****
+--- 921,940 ----
+  	}
+      }
+  
++     if (type == TYPE_MENU)
++     {
++ 	typval_T	tv;
++ 	callback_T	callback;
++ 
++ 	tv.v_type = VAR_STRING;
++ 	tv.vval.v_string = (char_u *)"popup_filter_menu";
++ 	callback = get_callback(&tv);
++ 	if (callback.cb_name != NULL)
++ 	    set_callback(&wp->w_filter_cb, &callback);
++ 
++ 	wp->w_p_wrap = 0;
++     }
++ 
+      // Deal with options.
+      apply_options(wp, buf, argvars[1].vval.v_dict);
+  
+***************
+*** 924,929 ****
+--- 947,954 ----
+  
+      redraw_all_later(NOT_VALID);
+      popup_mask_refresh = TRUE;
++ 
++     return wp;
+  }
+  
+  /*
+***************
+*** 1000,1005 ****
+--- 1025,1117 ----
+  }
+  
+  /*
++  * In a filter: check if the typed key is a mouse event that is used for
++  * dragging the popup.
++  */
++     static void
++ filter_handle_drag(win_T *wp, int c, typval_T *rettv)
++ {
++     int	row = mouse_row;
++     int	col = mouse_col;
++ 
++     if (wp->w_popup_drag
++ 	    && is_mouse_key(c)
++ 	    && (wp == popup_dragwin
++ 			  || wp == mouse_find_win(&row, &col, FIND_POPUP)))
++ 	// do not consume the key, allow for dragging the popup
++ 	rettv->vval.v_number = 0;
++ }
++ 
++     static void
++ popup_highlight_curline(win_T *wp)
++ {
++     int	    id;
++     char    buf[100];
++ 
++     match_delete(wp, 1, FALSE);
++ 
++     id = syn_name2id((char_u *)"PopupSelected");
++     vim_snprintf(buf, sizeof(buf), "\\%%%dl.*", (int)wp->w_cursor.lnum);
++     match_add(wp, (char_u *)(id == 0 ? "PmenuSel" : "PopupSelected"),
++ 					     (char_u *)buf, 10, 1, NULL, NULL);
++ }
++ 
++ /*
++  * popup_filter_menu({text}, {options})
++  */
++     void
++ f_popup_filter_menu(typval_T *argvars, typval_T *rettv)
++ {
++     int		id = tv_get_number(&argvars[0]);
++     win_T	*wp = win_id2wp(id);
++     char_u	*key = tv_get_string(&argvars[1]);
++     typval_T	res;
++     int		c;
++     linenr_T	old_lnum;
++ 
++     // If the popup has been closed do not consume the key.
++     if (wp == NULL)
++ 	return;
++ 
++     c = *key;
++     if (c == K_SPECIAL && key[1] != NUL)
++ 	c = TO_SPECIAL(key[1], key[2]);
++ 
++     // consume all keys until done
++     rettv->vval.v_number = 1;
++     res.v_type = VAR_NUMBER;
++ 
++     old_lnum = wp->w_cursor.lnum;
++     if ((c == 'k' || c == 'K' || c == K_UP) && wp->w_cursor.lnum > 1)
++ 	--wp->w_cursor.lnum;
++     if ((c == 'j' || c == 'J' || c == K_DOWN)
++ 		       && wp->w_cursor.lnum < wp->w_buffer->b_ml.ml_line_count)
++ 	++wp->w_cursor.lnum;
++     if (old_lnum != wp->w_cursor.lnum)
++     {
++ 	popup_highlight_curline(wp);
++ 	return;
++     }
++ 
++     if (c == 'x' || c == 'X' || c == ESC || c == Ctrl_C)
++     {
++ 	// Cancelled, invoke callback with -1
++ 	res.vval.v_number = -1;
++ 	popup_close_and_callback(wp, &res);
++ 	return;
++     }
++     if (c == ' ' || c == K_KENTER || c == CAR || c == NL)
++     {
++ 	// Invoke callback with current index.
++ 	res.vval.v_number = wp->w_cursor.lnum;
++ 	popup_close_and_callback(wp, &res);
++ 	return;
++     }
++ 
++     filter_handle_drag(wp, c, rettv);
++ }
++ 
++ /*
+   * popup_filter_yesno({text}, {options})
+   */
+      void
+***************
+*** 1009,1044 ****
+      win_T	*wp = win_id2wp(id);
+      char_u	*key = tv_get_string(&argvars[1]);
+      typval_T	res;
+  
+      // If the popup has been closed don't consume the key.
+      if (wp == NULL)
+  	return;
+  
+      // consume all keys until done
+      rettv->vval.v_number = 1;
+  
+!     if (STRCMP(key, "y") == 0 || STRCMP(key, "Y") == 0)
+  	res.vval.v_number = 1;
+!     else if (STRCMP(key, "n") == 0 || STRCMP(key, "N") == 0
+! 	    || STRCMP(key, "x") == 0 || STRCMP(key, "X") == 0
+! 	    || STRCMP(key, "\x1b") == 0)
+  	res.vval.v_number = 0;
+      else
+      {
+! 	int	c = *key;
+! 	int	row = mouse_row;
+! 	int	col = mouse_col;
+! 
+! 	if (c == K_SPECIAL && key[1] != NUL)
+! 	    c = TO_SPECIAL(key[1], key[2]);
+! 	if (wp->w_popup_drag
+! 		&& is_mouse_key(c)
+! 		&& (wp == popup_dragwin
+! 			      || wp == mouse_find_win(&row, &col, FIND_POPUP)))
+! 	    // allow for dragging the popup
+! 	    rettv->vval.v_number = 0;
+! 
+! 	// ignore this key
+  	return;
+      }
+  
+--- 1121,1146 ----
+      win_T	*wp = win_id2wp(id);
+      char_u	*key = tv_get_string(&argvars[1]);
+      typval_T	res;
++     int		c;
+  
+      // If the popup has been closed don't consume the key.
+      if (wp == NULL)
+  	return;
+  
++     c = *key;
++     if (c == K_SPECIAL && key[1] != NUL)
++ 	c = TO_SPECIAL(key[1], key[2]);
++ 
+      // consume all keys until done
+      rettv->vval.v_number = 1;
+  
+!     if (c == 'y' || c == 'Y')
+  	res.vval.v_number = 1;
+!     else if (c == 'n' || c == 'N' || c == 'x' || c == 'X' || c == ESC)
+  	res.vval.v_number = 0;
+      else
+      {
+! 	filter_handle_drag(wp, c, rettv);
+  	return;
+      }
+  
+***************
+*** 1057,1062 ****
+--- 1159,1176 ----
+  }
+  
+  /*
++  * popup_menu({text}, {options})
++  */
++     void
++ f_popup_menu(typval_T *argvars, typval_T *rettv)
++ {
++     win_T *wp = popup_create(argvars, rettv, TYPE_MENU);
++ 
++     if (wp != NULL)
++ 	popup_highlight_curline(wp);
++ }
++ 
++ /*
+   * popup_notification({text}, {options})
+   */
+      void
+*** ../vim-8.1.1557/src/proto/popupwin.pro	2019-06-16 15:50:42.012557682 +0200
+--- src/proto/popupwin.pro	2019-06-16 17:42:47.272763726 +0200
+***************
+*** 8,15 ****
+--- 8,17 ----
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
++ void f_popup_filter_menu(typval_T *argvars, typval_T *rettv);
+  void f_popup_filter_yesno(typval_T *argvars, typval_T *rettv);
+  void f_popup_dialog(typval_T *argvars, typval_T *rettv);
++ void f_popup_menu(typval_T *argvars, typval_T *rettv);
+  void f_popup_notification(typval_T *argvars, typval_T *rettv);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+  void f_popup_hide(typval_T *argvars, typval_T *rettv);
+*** ../vim-8.1.1557/src/evalfunc.c	2019-06-16 15:31:38.733109988 +0200
+--- src/evalfunc.c	2019-06-16 17:10:50.157390974 +0200
+***************
+*** 816,825 ****
+--- 816,827 ----
+      {"popup_close",	1, 2, f_popup_close},
+      {"popup_create",	2, 2, f_popup_create},
+      {"popup_dialog",	2, 2, f_popup_dialog},
++     {"popup_filter_menu", 2, 2, f_popup_filter_menu},
+      {"popup_filter_yesno", 2, 2, f_popup_filter_yesno},
+      {"popup_getoptions", 1, 1, f_popup_getoptions},
+      {"popup_getpos",	1, 1, f_popup_getpos},
+      {"popup_hide",	1, 1, f_popup_hide},
++     {"popup_menu",	2, 2, f_popup_menu},
+      {"popup_move",	2, 2, f_popup_move},
+      {"popup_notification", 2, 2, f_popup_notification},
+      {"popup_settext",	2, 2, f_popup_settext},
+*** ../vim-8.1.1557/src/screen.c	2019-06-14 19:23:35.502289836 +0200
+--- src/screen.c	2019-06-16 18:34:50.076991627 +0200
+***************
+*** 4183,4189 ****
+  		 */
+  		v = (long)(ptr - line);
+  		cur = wp->w_match_head;
+! 		shl_flag = (screen_line_flags & SLF_POPUP);
+  		while (cur != NULL || shl_flag == FALSE)
+  		{
+  		    if (shl_flag == FALSE
+--- 4183,4189 ----
+  		 */
+  		v = (long)(ptr - line);
+  		cur = wp->w_match_head;
+! 		shl_flag = FALSE;
+  		while (cur != NULL || shl_flag == FALSE)
+  		{
+  		    if (shl_flag == FALSE
+***************
+*** 4193,4198 ****
+--- 4193,4200 ----
+  		    {
+  			shl = &search_hl;
+  			shl_flag = TRUE;
++ 			if (screen_line_flags & SLF_POPUP)
++ 			    continue;  // do not use search_hl
+  		    }
+  		    else
+  			shl = &cur->hl;
+***************
+*** 4272,4280 ****
+  
+  		/* Use attributes from match with highest priority among
+  		 * 'search_hl' and the match list. */
+- 		search_attr = search_hl.attr_cur;
+  		cur = wp->w_match_head;
+  		shl_flag = FALSE;
+  		while (cur != NULL || shl_flag == FALSE)
+  		{
+  		    if (shl_flag == FALSE
+--- 4274,4282 ----
+  
+  		/* Use attributes from match with highest priority among
+  		 * 'search_hl' and the match list. */
+  		cur = wp->w_match_head;
+  		shl_flag = FALSE;
++ 		search_attr = 0;
+  		while (cur != NULL || shl_flag == FALSE)
+  		{
+  		    if (shl_flag == FALSE
+***************
+*** 4284,4289 ****
+--- 4286,4293 ----
+  		    {
+  			shl = &search_hl;
+  			shl_flag = TRUE;
++ 			if (screen_line_flags & SLF_POPUP)
++ 			    continue;  // do not use search_hl
+  		    }
+  		    else
+  			shl = &cur->hl;
+***************
+*** 5564,5570 ****
+  		{
+  		    /* Use attributes from match with highest priority among
+  		     * 'search_hl' and the match list. */
+- 		    char_attr = search_hl.attr;
+  		    cur = wp->w_match_head;
+  		    shl_flag = FALSE;
+  		    while (cur != NULL || shl_flag == FALSE)
+--- 5568,5573 ----
+***************
+*** 5576,5581 ****
+--- 5579,5586 ----
+  			{
+  			    shl = &search_hl;
+  			    shl_flag = TRUE;
++ 			    if (screen_line_flags & SLF_POPUP)
++ 				continue;  // do not use search_hl
+  			}
+  			else
+  			    shl = &cur->hl;
+*** ../vim-8.1.1557/src/testdir/test_popupwin.vim	2019-06-16 15:31:38.737109971 +0200
+--- src/testdir/test_popupwin.vim	2019-06-16 18:53:56.872984573 +0200
+***************
+*** 902,907 ****
+--- 902,965 ----
+    delfunc QuitCallback
+  endfunc
+  
++ func ShowMenu(key, result)
++   let s:cb_res = 999
++   let winid = popup_menu(['one', 'two', 'something else'], {
++ 	  \ 'callback': 'QuitCallback',
++ 	  \ })
++   redraw
++   call feedkeys(a:key, "xt")
++   call assert_equal(winid, s:cb_winid)
++   call assert_equal(a:result, s:cb_res)
++ endfunc
++ 
++ func Test_popup_menu()
++   func QuitCallback(id, res)
++     let s:cb_winid = a:id
++     let s:cb_res = a:res
++   endfunc
++ 
++   let winid = ShowMenu(" ", 1)
++   let winid = ShowMenu("j \<CR>", 2)
++   let winid = ShowMenu("JjK \<CR>", 2)
++   let winid = ShowMenu("jjjjjj ", 3)
++   let winid = ShowMenu("kkk ", 1)
++   let winid = ShowMenu("x", -1)
++   let winid = ShowMenu("X", -1)
++   let winid = ShowMenu("\<Esc>", -1)
++   let winid = ShowMenu("\<C-C>", -1)
++ 
++   delfunc QuitCallback
++ endfunc
++ 
++ func Test_popup_menu_screenshot()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let lines =<< trim END
++ 	call setline(1, range(1, 20))
++ 	hi PopupSelected ctermbg=lightblue
++ 	call popup_menu(['one', 'two', 'another'], {'callback': 'MenuDone'})
++ 	func MenuDone(id, res)
++ 	  echomsg "selected " .. a:res
++ 	endfunc
++   END
++   call writefile(lines, 'XtestPopupMenu')
++   let buf = RunVimInTerminal('-S XtestPopupMenu', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_01', {})
++ 
++   call term_sendkeys(buf, "jj")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_02', {})
++ 
++   call term_sendkeys(buf, " ")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_03', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupMenu')
++ endfunc
++ 
+  func Test_popup_close_callback()
+    func PopupDone(id, result)
+      let g:result = a:result
+*** ../vim-8.1.1557/src/testdir/dumps/Test_popupwin_menu_01.dump	2019-06-16 19:01:10.095555869 +0200
+--- src/testdir/dumps/Test_popupwin_menu_01.dump	2019-06-16 18:51:43.449352010 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @30|╔+0#0000001#ffd7ff255|═@8|╗| +0#0000000#ffffff0@31
++ |3| @30|║+0#0000001#ffd7ff255| @8|║| +0#0000000#ffffff0@31
++ |4| @30|║+0#0000001#ffd7ff255| |o+0#0000000#5fd7ff255|n|e| +0#0000001#ffd7ff255@4|║| +0#0000000#ffffff0@31
++ |5| @30|║+0#0000001#ffd7ff255| |t|w|o| @4|║| +0#0000000#ffffff0@31
++ |6| @30|║+0#0000001#ffd7ff255| |a|n|o|t|h|e|r| |║| +0#0000000#ffffff0@31
++ |7| @30|║+0#0000001#ffd7ff255| @8|║| +0#0000000#ffffff0@31
++ |8| @30|╚+0#0000001#ffd7ff255|═@8|╝| +0#0000000#ffffff0@31
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1557/src/testdir/dumps/Test_popupwin_menu_02.dump	2019-06-16 19:01:10.099555855 +0200
+--- src/testdir/dumps/Test_popupwin_menu_02.dump	2019-06-16 18:52:47.257182079 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @30|╔+0#0000001#ffd7ff255|═@8|╗| +0#0000000#ffffff0@31
++ |3| @30|║+0#0000001#ffd7ff255| @8|║| +0#0000000#ffffff0@31
++ |4| @30|║+0#0000001#ffd7ff255| |o|n|e| @4|║| +0#0000000#ffffff0@31
++ |5| @30|║+0#0000001#ffd7ff255| |t|w|o| @4|║| +0#0000000#ffffff0@31
++ |6| @30|║+0#0000001#ffd7ff255| |a+0#0000000#5fd7ff255|n|o|t|h|e|r| +0#0000001#ffd7ff255|║| +0#0000000#ffffff0@31
++ |7| @30|║+0#0000001#ffd7ff255| @8|║| +0#0000000#ffffff0@31
++ |8| @30|╚+0#0000001#ffd7ff255|═@8|╝| +0#0000000#ffffff0@31
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1557/src/testdir/dumps/Test_popupwin_menu_03.dump	2019-06-16 19:01:10.103555841 +0200
+--- src/testdir/dumps/Test_popupwin_menu_03.dump	2019-06-16 18:52:48.305179198 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @73
++ |5| @73
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ |s|e|l|e|c|t|e|d| |3| @46|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1557/src/testdir/dumps/Test_popupwin_drag_01.dump	2019-06-14 19:23:35.502289836 +0200
+--- src/testdir/dumps/Test_popupwin_drag_01.dump	2019-06-16 18:54:04.728961557 +0200
+***************
+*** 3,10 ****
+  |3| @73
+  |4| @73
+  |5| @73
+! |6| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#0000000#ffffff0@32
+! |7| @32|║+0#0000001#ffd7ff255|1@3| @1|║| +0#0000000#ffffff0@32
+! |8| @32|║+0#0000001#ffd7ff255|2@5|║| +0#0000000#ffffff0@32
+! |9| @32|║+0#0000001#ffd7ff255|3@4| |║| +0#0000000#ffffff0@32
+! @34|╚+0#0000001#ffd7ff255|═@5|╝| +0#0000000#ffffff0@14|1|,|1| @10|T|o|p| 
+--- 3,10 ----
+  |3| @73
+  |4| @73
+  |5| @73
+! |6| @31|╔+0#0000001#ffd7ff255|═@5|╗| +0#0000000#ffffff0@33
+! |7| @31|║+0#0000001#ffd7ff255|1@3| @1|║| +0#0000000#ffffff0@33
+! |8| @31|║+0#0000001#ffd7ff255|2@5|║| +0#0000000#ffffff0@33
+! |9| @31|║+0#0000001#ffd7ff255|3@4| |║| +0#0000000#ffffff0@33
+! @33|╚+0#0000001#ffd7ff255|═@5|╝| +0#0000000#ffffff0@15|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1557/src/testdir/dumps/Test_popupwin_drag_02.dump	2019-06-14 19:23:35.502289836 +0200
+--- src/testdir/dumps/Test_popupwin_drag_02.dump	2019-06-16 18:54:05.780958466 +0200
+***************
+*** 1,9 ****
+  >1+0&#ffffff0| @73
+! |2| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#0000000#ffffff0@32
+! |3| @32|║+0#0000001#ffd7ff255|1@3| @1|║| +0#0000000#ffffff0@32
+! |4| @32|║+0#0000001#ffd7ff255|2@5|║| +0#0000000#ffffff0@32
+! |5| @32|║+0#0000001#ffd7ff255|3@4| |║| +0#0000000#ffffff0@32
+! |6| @32|╚+0#0000001#ffd7ff255|═@5|╝| +0#0000000#ffffff0@32
+  |7| @73
+  |8| @73
+  |9| @73
+--- 1,9 ----
+  >1+0&#ffffff0| @73
+! |2| @31|╔+0#0000001#ffd7ff255|═@5|╗| +0#0000000#ffffff0@33
+! |3| @31|║+0#0000001#ffd7ff255|1@3| @1|║| +0#0000000#ffffff0@33
+! |4| @31|║+0#0000001#ffd7ff255|2@5|║| +0#0000000#ffffff0@33
+! |5| @31|║+0#0000001#ffd7ff255|3@4| |║| +0#0000000#ffffff0@33
+! |6| @31|╚+0#0000001#ffd7ff255|═@5|╝| +0#0000000#ffffff0@33
+  |7| @73
+  |8| @73
+  |9| @73
+*** ../vim-8.1.1557/src/version.c	2019-06-16 16:41:36.460010888 +0200
+--- src/version.c	2019-06-16 18:59:18.267950080 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1558,
+  /**/
+
+-- 
+    "You mean there really is an answer?"
+    "Yes! But you're not going to like it!"
+    "Oh do please tell us!"
+    "You're really not going to like it!"
+    "but we MUST know - tell us"
+    "Alright, the answer is...."
+    "yes..."
+    "... is ..."
+    "yes... come on!"
+    "is 42!"
+		(Douglas Adams - The Hitchhiker's Guide to the Galaxy)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

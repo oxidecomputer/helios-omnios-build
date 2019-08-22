@@ -1,0 +1,605 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1742
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1742
+Problem:    Still some match functions in evalfunc.c.
+Solution:   Move them to highlight.c.
+Files:	    src/evalfunc.c, src/highlight.c, src/proto/highlight.pro,
+            src/ex_docmd.c
+
+
+*** ../vim-8.1.1741/src/evalfunc.c	2019-07-24 14:59:42.267465100 +0200
+--- src/evalfunc.c	2019-07-24 15:54:16.194531096 +0200
+***************
+*** 74,80 ****
+  static void f_char2nr(typval_T *argvars, typval_T *rettv);
+  static void f_chdir(typval_T *argvars, typval_T *rettv);
+  static void f_cindent(typval_T *argvars, typval_T *rettv);
+- static void f_clearmatches(typval_T *argvars, typval_T *rettv);
+  static void f_col(typval_T *argvars, typval_T *rettv);
+  #if defined(FEAT_INS_EXPAND)
+  static void f_complete(typval_T *argvars, typval_T *rettv);
+--- 74,79 ----
+***************
+*** 314,320 ****
+  static void f_setfperm(typval_T *argvars, typval_T *rettv);
+  static void f_setline(typval_T *argvars, typval_T *rettv);
+  static void f_setloclist(typval_T *argvars, typval_T *rettv);
+- static void f_setmatches(typval_T *argvars, typval_T *rettv);
+  static void f_setpos(typval_T *argvars, typval_T *rettv);
+  static void f_setqflist(typval_T *argvars, typval_T *rettv);
+  static void f_setreg(typval_T *argvars, typval_T *rettv);
+--- 313,318 ----
+***************
+*** 2209,2228 ****
+  }
+  
+  /*
+-  * "clearmatches()" function
+-  */
+-     static void
+- f_clearmatches(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
+- {
+- #ifdef FEAT_SEARCH_EXTRA
+-     win_T   *win = get_optional_window(argvars, 0);
+- 
+-     if (win != NULL)
+- 	clear_matches(win);
+- #endif
+- }
+- 
+- /*
+   * "col(string)" function
+   */
+      static void
+--- 2207,2212 ----
+***************
+*** 10741,10860 ****
+  }
+  
+  /*
+-  * "setmatches()" function
+-  */
+-     static void
+- f_setmatches(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
+- {
+- #ifdef FEAT_SEARCH_EXTRA
+-     list_T	*l;
+-     listitem_T	*li;
+-     dict_T	*d;
+-     list_T	*s = NULL;
+-     win_T	*win = get_optional_window(argvars, 1);
+- 
+-     rettv->vval.v_number = -1;
+-     if (argvars[0].v_type != VAR_LIST)
+-     {
+- 	emsg(_(e_listreq));
+- 	return;
+-     }
+-     if (win == NULL)
+- 	return;
+- 
+-     if ((l = argvars[0].vval.v_list) != NULL)
+-     {
+- 	/* To some extent make sure that we are dealing with a list from
+- 	 * "getmatches()". */
+- 	li = l->lv_first;
+- 	while (li != NULL)
+- 	{
+- 	    if (li->li_tv.v_type != VAR_DICT
+- 		    || (d = li->li_tv.vval.v_dict) == NULL)
+- 	    {
+- 		emsg(_(e_invarg));
+- 		return;
+- 	    }
+- 	    if (!(dict_find(d, (char_u *)"group", -1) != NULL
+- 			&& (dict_find(d, (char_u *)"pattern", -1) != NULL
+- 			    || dict_find(d, (char_u *)"pos1", -1) != NULL)
+- 			&& dict_find(d, (char_u *)"priority", -1) != NULL
+- 			&& dict_find(d, (char_u *)"id", -1) != NULL))
+- 	    {
+- 		emsg(_(e_invarg));
+- 		return;
+- 	    }
+- 	    li = li->li_next;
+- 	}
+- 
+- 	clear_matches(win);
+- 	li = l->lv_first;
+- 	while (li != NULL)
+- 	{
+- 	    int		i = 0;
+- 	    char	buf[30];  // use 30 to avoid compiler warning
+- 	    dictitem_T  *di;
+- 	    char_u	*group;
+- 	    int		priority;
+- 	    int		id;
+- 	    char_u	*conceal;
+- 
+- 	    d = li->li_tv.vval.v_dict;
+- 	    if (dict_find(d, (char_u *)"pattern", -1) == NULL)
+- 	    {
+- 		if (s == NULL)
+- 		{
+- 		    s = list_alloc();
+- 		    if (s == NULL)
+- 			return;
+- 		}
+- 
+- 		/* match from matchaddpos() */
+- 		for (i = 1; i < 9; i++)
+- 		{
+- 		    sprintf((char *)buf, (char *)"pos%d", i);
+- 		    if ((di = dict_find(d, (char_u *)buf, -1)) != NULL)
+- 		    {
+- 			if (di->di_tv.v_type != VAR_LIST)
+- 			    return;
+- 
+- 			list_append_tv(s, &di->di_tv);
+- 			s->lv_refcount++;
+- 		    }
+- 		    else
+- 			break;
+- 		}
+- 	    }
+- 
+- 	    group = dict_get_string(d, (char_u *)"group", TRUE);
+- 	    priority = (int)dict_get_number(d, (char_u *)"priority");
+- 	    id = (int)dict_get_number(d, (char_u *)"id");
+- 	    conceal = dict_find(d, (char_u *)"conceal", -1) != NULL
+- 			      ? dict_get_string(d, (char_u *)"conceal", TRUE)
+- 			      : NULL;
+- 	    if (i == 0)
+- 	    {
+- 		match_add(win, group,
+- 		    dict_get_string(d, (char_u *)"pattern", FALSE),
+- 		    priority, id, NULL, conceal);
+- 	    }
+- 	    else
+- 	    {
+- 		match_add(win, group, NULL, priority, id, s, conceal);
+- 		list_unref(s);
+- 		s = NULL;
+- 	    }
+- 	    vim_free(group);
+- 	    vim_free(conceal);
+- 
+- 	    li = li->li_next;
+- 	}
+- 	rettv->vval.v_number = 0;
+-     }
+- #endif
+- }
+- 
+- /*
+   * "setpos()" function
+   */
+      static void
+--- 10725,10730 ----
+*** ../vim-8.1.1741/src/highlight.c	2019-07-24 15:28:02.428878172 +0200
+--- src/highlight.c	2019-07-24 15:59:30.638324304 +0200
+***************
+*** 3664,3670 ****
+   * If no particular ID is desired, -1 must be specified for 'id'.
+   * Return ID of added match, -1 on failure.
+   */
+!     int
+  match_add(
+      win_T	*wp,
+      char_u	*grp,
+--- 3664,3670 ----
+   * If no particular ID is desired, -1 must be specified for 'id'.
+   * Return ID of added match, -1 on failure.
+   */
+!     static int
+  match_add(
+      win_T	*wp,
+      char_u	*grp,
+***************
+*** 3862,3868 ****
+   * Delete match with ID 'id' in the match list of window 'wp'.
+   * Print error messages if 'perr' is TRUE.
+   */
+!     int
+  match_delete(win_T *wp, int id, int perr)
+  {
+      matchitem_T	*cur = wp->w_match_head;
+--- 3862,3868 ----
+   * Delete match with ID 'id' in the match list of window 'wp'.
+   * Print error messages if 'perr' is TRUE.
+   */
+!     static int
+  match_delete(win_T *wp, int id, int perr)
+  {
+      matchitem_T	*cur = wp->w_match_head;
+***************
+*** 3939,3945 ****
+   * Get match from ID 'id' in window 'wp'.
+   * Return NULL if match not found.
+   */
+!     matchitem_T *
+  get_match(win_T *wp, int id)
+  {
+      matchitem_T *cur = wp->w_match_head;
+--- 3939,3945 ----
+   * Get match from ID 'id' in window 'wp'.
+   * Return NULL if match not found.
+   */
+!     static matchitem_T *
+  get_match(win_T *wp, int id)
+  {
+      matchitem_T *cur = wp->w_match_head;
+***************
+*** 3982,3987 ****
+--- 3982,4001 ----
+  #endif
+  
+  /*
++  * "clearmatches()" function
++  */
++     void
++ f_clearmatches(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
++ {
++ #ifdef FEAT_SEARCH_EXTRA
++     win_T   *win = get_optional_window(argvars, 0);
++ 
++     if (win != NULL)
++ 	clear_matches(win);
++ #endif
++ }
++ 
++ /*
+   * "getmatches()" function
+   */
+      void
+***************
+*** 4050,4055 ****
+--- 4064,4183 ----
+  }
+  
+  /*
++  * "setmatches()" function
++  */
++     void
++ f_setmatches(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
++ {
++ #ifdef FEAT_SEARCH_EXTRA
++     list_T	*l;
++     listitem_T	*li;
++     dict_T	*d;
++     list_T	*s = NULL;
++     win_T	*win = get_optional_window(argvars, 1);
++ 
++     rettv->vval.v_number = -1;
++     if (argvars[0].v_type != VAR_LIST)
++     {
++ 	emsg(_(e_listreq));
++ 	return;
++     }
++     if (win == NULL)
++ 	return;
++ 
++     if ((l = argvars[0].vval.v_list) != NULL)
++     {
++ 	/* To some extent make sure that we are dealing with a list from
++ 	 * "getmatches()". */
++ 	li = l->lv_first;
++ 	while (li != NULL)
++ 	{
++ 	    if (li->li_tv.v_type != VAR_DICT
++ 		    || (d = li->li_tv.vval.v_dict) == NULL)
++ 	    {
++ 		emsg(_(e_invarg));
++ 		return;
++ 	    }
++ 	    if (!(dict_find(d, (char_u *)"group", -1) != NULL
++ 			&& (dict_find(d, (char_u *)"pattern", -1) != NULL
++ 			    || dict_find(d, (char_u *)"pos1", -1) != NULL)
++ 			&& dict_find(d, (char_u *)"priority", -1) != NULL
++ 			&& dict_find(d, (char_u *)"id", -1) != NULL))
++ 	    {
++ 		emsg(_(e_invarg));
++ 		return;
++ 	    }
++ 	    li = li->li_next;
++ 	}
++ 
++ 	clear_matches(win);
++ 	li = l->lv_first;
++ 	while (li != NULL)
++ 	{
++ 	    int		i = 0;
++ 	    char	buf[30];  // use 30 to avoid compiler warning
++ 	    dictitem_T  *di;
++ 	    char_u	*group;
++ 	    int		priority;
++ 	    int		id;
++ 	    char_u	*conceal;
++ 
++ 	    d = li->li_tv.vval.v_dict;
++ 	    if (dict_find(d, (char_u *)"pattern", -1) == NULL)
++ 	    {
++ 		if (s == NULL)
++ 		{
++ 		    s = list_alloc();
++ 		    if (s == NULL)
++ 			return;
++ 		}
++ 
++ 		/* match from matchaddpos() */
++ 		for (i = 1; i < 9; i++)
++ 		{
++ 		    sprintf((char *)buf, (char *)"pos%d", i);
++ 		    if ((di = dict_find(d, (char_u *)buf, -1)) != NULL)
++ 		    {
++ 			if (di->di_tv.v_type != VAR_LIST)
++ 			    return;
++ 
++ 			list_append_tv(s, &di->di_tv);
++ 			s->lv_refcount++;
++ 		    }
++ 		    else
++ 			break;
++ 		}
++ 	    }
++ 
++ 	    group = dict_get_string(d, (char_u *)"group", TRUE);
++ 	    priority = (int)dict_get_number(d, (char_u *)"priority");
++ 	    id = (int)dict_get_number(d, (char_u *)"id");
++ 	    conceal = dict_find(d, (char_u *)"conceal", -1) != NULL
++ 			      ? dict_get_string(d, (char_u *)"conceal", TRUE)
++ 			      : NULL;
++ 	    if (i == 0)
++ 	    {
++ 		match_add(win, group,
++ 		    dict_get_string(d, (char_u *)"pattern", FALSE),
++ 		    priority, id, NULL, conceal);
++ 	    }
++ 	    else
++ 	    {
++ 		match_add(win, group, NULL, priority, id, s, conceal);
++ 		list_unref(s);
++ 		s = NULL;
++ 	    }
++ 	    vim_free(group);
++ 	    vim_free(conceal);
++ 
++ 	    li = li->li_next;
++ 	}
++ 	rettv->vval.v_number = 0;
++     }
++ #endif
++ }
++ 
++ /*
+   * "matchadd()" function
+   */
+      void
+***************
+*** 4198,4200 ****
+--- 4326,4400 ----
+  # endif
+  }
+  #endif
++ 
++ #if defined(FEAT_SEARCH_EXTRA) || defined(PROTO)
++ /*
++  * ":[N]match {group} {pattern}"
++  * Sets nextcmd to the start of the next command, if any.  Also called when
++  * skipping commands to find the next command.
++  */
++     void
++ ex_match(exarg_T *eap)
++ {
++     char_u	*p;
++     char_u	*g = NULL;
++     char_u	*end;
++     int		c;
++     int		id;
++ 
++     if (eap->line2 <= 3)
++ 	id = eap->line2;
++     else
++     {
++ 	emsg(_(e_invcmd));
++ 	return;
++     }
++ 
++     /* First clear any old pattern. */
++     if (!eap->skip)
++ 	match_delete(curwin, id, FALSE);
++ 
++     if (ends_excmd(*eap->arg))
++ 	end = eap->arg;
++     else if ((STRNICMP(eap->arg, "none", 4) == 0
++ 		&& (VIM_ISWHITE(eap->arg[4]) || ends_excmd(eap->arg[4]))))
++ 	end = eap->arg + 4;
++     else
++     {
++ 	p = skiptowhite(eap->arg);
++ 	if (!eap->skip)
++ 	    g = vim_strnsave(eap->arg, (int)(p - eap->arg));
++ 	p = skipwhite(p);
++ 	if (*p == NUL)
++ 	{
++ 	    /* There must be two arguments. */
++ 	    vim_free(g);
++ 	    semsg(_(e_invarg2), eap->arg);
++ 	    return;
++ 	}
++ 	end = skip_regexp(p + 1, *p, TRUE, NULL);
++ 	if (!eap->skip)
++ 	{
++ 	    if (*end != NUL && !ends_excmd(*skipwhite(end + 1)))
++ 	    {
++ 		vim_free(g);
++ 		eap->errmsg = e_trailing;
++ 		return;
++ 	    }
++ 	    if (*end != *p)
++ 	    {
++ 		vim_free(g);
++ 		semsg(_(e_invarg2), p);
++ 		return;
++ 	    }
++ 
++ 	    c = *end;
++ 	    *end = NUL;
++ 	    match_add(curwin, g, p + 1, 10, id, NULL, NULL);
++ 	    vim_free(g);
++ 	    *end = c;
++ 	}
++     }
++     eap->nextcmd = find_nextcmd(end);
++ }
++ #endif
+*** ../vim-8.1.1741/src/proto/highlight.pro	2019-07-22 23:03:53.322360395 +0200
+--- src/proto/highlight.pro	2019-07-24 15:59:43.238299118 +0200
+***************
+*** 43,55 ****
+  char_u *get_highlight_name(expand_T *xp, int idx);
+  char_u *get_highlight_name_ext(expand_T *xp, int idx, int skip_cleared);
+  void free_highlight_fonts(void);
+- int match_add(win_T *wp, char_u *grp, char_u *pat, int prio, int id, list_T *pos_list, char_u *conceal_char);
+- int match_delete(win_T *wp, int id, int perr);
+  void clear_matches(win_T *wp);
+! matchitem_T *get_match(win_T *wp, int id);
+  void f_getmatches(typval_T *argvars, typval_T *rettv);
+  void f_matchadd(typval_T *argvars, typval_T *rettv);
+  void f_matchaddpos(typval_T *argvars, typval_T *rettv);
+  void f_matcharg(typval_T *argvars, typval_T *rettv);
+  void f_matchdelete(typval_T *argvars, typval_T *rettv);
+  /* vim: set ft=c : */
+--- 43,55 ----
+  char_u *get_highlight_name(expand_T *xp, int idx);
+  char_u *get_highlight_name_ext(expand_T *xp, int idx, int skip_cleared);
+  void free_highlight_fonts(void);
+  void clear_matches(win_T *wp);
+! void f_clearmatches(typval_T *argvars, typval_T *rettv);
+  void f_getmatches(typval_T *argvars, typval_T *rettv);
++ void f_setmatches(typval_T *argvars, typval_T *rettv);
+  void f_matchadd(typval_T *argvars, typval_T *rettv);
+  void f_matchaddpos(typval_T *argvars, typval_T *rettv);
+  void f_matcharg(typval_T *argvars, typval_T *rettv);
+  void f_matchdelete(typval_T *argvars, typval_T *rettv);
++ void ex_match(exarg_T *eap);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1741/src/ex_docmd.c	2019-07-21 19:25:16.654609424 +0200
+--- src/ex_docmd.c	2019-07-24 15:57:57.482460115 +0200
+***************
+*** 339,345 ****
+  #endif
+  #ifdef FEAT_SEARCH_EXTRA
+  static void	ex_nohlsearch(exarg_T *eap);
+- static void	ex_match(exarg_T *eap);
+  #else
+  # define ex_nohlsearch		ex_ni
+  # define ex_match		ex_ni
+--- 339,344 ----
+***************
+*** 10951,11026 ****
+      set_no_hlsearch(TRUE);
+      redraw_all_later(SOME_VALID);
+  }
+- 
+- /*
+-  * ":[N]match {group} {pattern}"
+-  * Sets nextcmd to the start of the next command, if any.  Also called when
+-  * skipping commands to find the next command.
+-  */
+-     static void
+- ex_match(exarg_T *eap)
+- {
+-     char_u	*p;
+-     char_u	*g = NULL;
+-     char_u	*end;
+-     int		c;
+-     int		id;
+- 
+-     if (eap->line2 <= 3)
+- 	id = eap->line2;
+-     else
+-     {
+- 	emsg(_(e_invcmd));
+- 	return;
+-     }
+- 
+-     /* First clear any old pattern. */
+-     if (!eap->skip)
+- 	match_delete(curwin, id, FALSE);
+- 
+-     if (ends_excmd(*eap->arg))
+- 	end = eap->arg;
+-     else if ((STRNICMP(eap->arg, "none", 4) == 0
+- 		&& (VIM_ISWHITE(eap->arg[4]) || ends_excmd(eap->arg[4]))))
+- 	end = eap->arg + 4;
+-     else
+-     {
+- 	p = skiptowhite(eap->arg);
+- 	if (!eap->skip)
+- 	    g = vim_strnsave(eap->arg, (int)(p - eap->arg));
+- 	p = skipwhite(p);
+- 	if (*p == NUL)
+- 	{
+- 	    /* There must be two arguments. */
+- 	    vim_free(g);
+- 	    semsg(_(e_invarg2), eap->arg);
+- 	    return;
+- 	}
+- 	end = skip_regexp(p + 1, *p, TRUE, NULL);
+- 	if (!eap->skip)
+- 	{
+- 	    if (*end != NUL && !ends_excmd(*skipwhite(end + 1)))
+- 	    {
+- 		vim_free(g);
+- 		eap->errmsg = e_trailing;
+- 		return;
+- 	    }
+- 	    if (*end != *p)
+- 	    {
+- 		vim_free(g);
+- 		semsg(_(e_invarg2), p);
+- 		return;
+- 	    }
+- 
+- 	    c = *end;
+- 	    *end = NUL;
+- 	    match_add(curwin, g, p + 1, 10, id, NULL, NULL);
+- 	    vim_free(g);
+- 	    *end = c;
+- 	}
+-     }
+-     eap->nextcmd = find_nextcmd(end);
+- }
+  #endif
+  
+  #ifdef FEAT_CRYPT
+--- 10950,10955 ----
+*** ../vim-8.1.1741/src/version.c	2019-07-24 15:28:02.428878172 +0200
+--- src/version.c	2019-07-24 15:52:48.419250486 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1742,
+  /**/
+
+-- 
+CART DRIVER: Bring out your dead!
+   There are legs stick out of windows and doors.  Two MEN are fighting in the
+   mud - covered from head to foot in it.  Another MAN is on his hands in
+   knees shovelling mud into his mouth.  We just catch sight of a MAN falling
+   into a well.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

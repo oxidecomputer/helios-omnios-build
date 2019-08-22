@@ -1,0 +1,91 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1571
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1571
+Problem:    textprop highlight starts too early if just after a tab.
+Solution:   Check if still drawing a previous character. (closes #4558)
+Files:	    src/screen.c, src/testdir/test_textprop.vim,
+            src/testdir/dumps/Test_textprop_tab.dump
+
+
+*** ../vim-8.1.1570/src/screen.c	2019-06-19 16:31:18.034746591 +0200
+--- src/screen.c	2019-06-19 17:29:45.202428374 +0200
+***************
+*** 4391,4396 ****
+--- 4391,4399 ----
+  		int pi;
+  		int bcol = (int)(ptr - line);
+  
++ 		if (n_extra > 0)
++ 		    --bcol;  // still working on the previous char, e.g. Tab
++ 
+  		// Check if any active property ends.
+  		for (pi = 0; pi < text_props_active; ++pi)
+  		{
+*** ../vim-8.1.1570/src/testdir/test_textprop.vim	2019-06-15 17:57:43.976724009 +0200
+--- src/testdir/test_textprop.vim	2019-06-19 17:25:45.327453165 +0200
+***************
+*** 759,764 ****
+--- 759,784 ----
+    call RunTestVisualBlock(4, '02')
+  endfunc
+  
++ func Test_textprop_after_tab()
++   let lines =<< trim END
++        call setline(1, [
++              \ "\txxx",
++              \ "x\txxx",
++              \ ])
++        hi SearchProp ctermbg=yellow
++        call prop_type_add('search', {'highlight': 'SearchProp'})
++        call prop_add(1, 2, {'length': 3, 'type': 'search'})
++        call prop_add(2, 3, {'length': 3, 'type': 'search'})
++   END
++   call writefile(lines, 'XtestPropTab')
++   let buf = RunVimInTerminal('-S XtestPropTab', {'rows': 6})
++   call VerifyScreenDump(buf, 'Test_textprop_tab', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPropTab')
++ endfunc
++ 
+  " Adding a text property to a new buffer should not fail
+  func Test_textprop_empty_buffer()
+    call prop_type_add('comment', {'highlight': 'Search'})
+*** ../vim-8.1.1570/src/testdir/dumps/Test_textprop_tab.dump	2019-06-19 17:33:15.077552516 +0200
+--- src/testdir/dumps/Test_textprop_tab.dump	2019-06-19 17:30:20.082281703 +0200
+***************
+*** 0 ****
+--- 1,6 ----
++ | +0&#ffffff0@6> |x+0&#ffff4012@2| +0&#ffffff0@63
++ |x| @6|x+0&#ffff4012@2| +0&#ffffff0@63
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|1|,|1|-|8| @8|A|l@1| 
+*** ../vim-8.1.1570/src/version.c	2019-06-19 16:31:18.034746591 +0200
+--- src/version.c	2019-06-19 17:18:32.057420537 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1571,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+242. You turn down a better-paying job because it doesn't come with
+     a free e-mail account.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

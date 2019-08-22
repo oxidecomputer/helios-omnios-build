@@ -1,0 +1,100 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1740
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1740
+Problem:    Exepath() doesn't work for "bin/cat".
+Solution:   Check for any path separator. (Daniel Hahler, closes #4724,
+            closes #4710)
+Files:	    src/evalfunc.c, src/os_unix.c, src/testdir/test_functions.vim
+
+
+*** ../vim-8.1.1739/src/evalfunc.c	2019-07-22 23:03:53.322360395 +0200
+--- src/evalfunc.c	2019-07-24 14:58:14.992053041 +0200
+***************
+*** 3058,3065 ****
+      char_u *name = tv_get_string(&argvars[0]);
+  
+      /* Check in $PATH and also check directly if there is a directory name. */
+!     rettv->vval.v_number = mch_can_exe(name, NULL, TRUE)
+! 		 || (gettail(name) != name && mch_can_exe(name, NULL, FALSE));
+  }
+  
+  static garray_T	redir_execute_ga;
+--- 3058,3064 ----
+      char_u *name = tv_get_string(&argvars[0]);
+  
+      /* Check in $PATH and also check directly if there is a directory name. */
+!     rettv->vval.v_number = mch_can_exe(name, NULL, TRUE);
+  }
+  
+  static garray_T	redir_execute_ga;
+*** ../vim-8.1.1739/src/os_unix.c	2019-06-14 21:36:51.014437500 +0200
+--- src/os_unix.c	2019-07-24 14:58:14.992053041 +0200
+***************
+*** 3103,3114 ****
+  
+      /* When "use_path" is false and if it's an absolute or relative path don't
+       * need to use $PATH. */
+!     if (!use_path || mch_isFullName(name) || (name[0] == '.'
+! 		   && (name[1] == '/' || (name[1] == '.' && name[2] == '/'))))
+      {
+  	/* There must be a path separator, files in the current directory
+  	 * can't be executed. */
+! 	if (gettail(name) != name && executable_file(name))
+  	{
+  	    if (path != NULL)
+  	    {
+--- 3103,3113 ----
+  
+      /* When "use_path" is false and if it's an absolute or relative path don't
+       * need to use $PATH. */
+!     if (!use_path || gettail(name) != name)
+      {
+  	/* There must be a path separator, files in the current directory
+  	 * can't be executed. */
+! 	if ((use_path || gettail(name) != name) && executable_file(name))
+  	{
+  	    if (path != NULL)
+  	    {
+*** ../vim-8.1.1739/src/testdir/test_functions.vim	2019-07-05 21:53:14.939268472 +0200
+--- src/testdir/test_functions.vim	2019-07-24 14:54:16.045668675 +0200
+***************
+*** 990,995 ****
+--- 990,1003 ----
+    elseif has('unix')
+      call assert_equal(1, executable('cat'))
+      call assert_equal(0, executable('nodogshere'))
++ 
++     " get "cat" path and remove the leading /
++     let catcmd = exepath('cat')[1:]
++     new
++     lcd /
++     call assert_equal(1, executable(catcmd))
++     call assert_equal('/' .. catcmd, exepath(catcmd))
++     bwipe
+    endif
+  endfunc
+  
+*** ../vim-8.1.1739/src/version.c	2019-07-24 14:25:07.171074151 +0200
+--- src/version.c	2019-07-24 14:57:34.208328113 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1740,
+  /**/
+
+-- 
+Kiss me twice.  I'm schizophrenic.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

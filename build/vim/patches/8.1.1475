@@ -1,0 +1,101 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1475
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1475
+Problem:    Search string not displayed when 'rightleft' is set.
+Solution:   Clear the right part of the old text. (closes #4488, closes #4489)
+Files:	    src/search.c, src/testdir/test_search.vim
+
+
+*** ../vim-8.1.1474/src/search.c	2019-05-28 23:08:12.076648654 +0200
+--- src/search.c	2019-06-06 12:46:44.412241408 +0200
+***************
+*** 1462,1467 ****
+--- 1462,1468 ----
+  		if (curwin->w_p_rl && *curwin->w_p_rlc == 's')
+  		{
+  		    char_u *r;
++ 		    size_t pat_len;
+  
+  		    r = reverse_text(msgbuf);
+  		    if (r != NULL)
+***************
+*** 1471,1479 ****
+  			// move reversed text to beginning of buffer
+  			while (*r != NUL && *r == ' ')
+  			    r++;
+! 			mch_memmove(msgbuf, r, msgbuf + STRLEN(msgbuf) - r);
+  			// overwrite old text
+! 			vim_memset(r, ' ', msgbuf + STRLEN(msgbuf) - r);
+  		    }
+  		}
+  #endif
+--- 1472,1484 ----
+  			// move reversed text to beginning of buffer
+  			while (*r != NUL && *r == ' ')
+  			    r++;
+! 			pat_len = msgbuf + STRLEN(msgbuf) - r;
+! 			mch_memmove(msgbuf, r, pat_len);
+  			// overwrite old text
+! 			if ((size_t)(r - msgbuf) >= pat_len)
+! 			    vim_memset(r, ' ', pat_len);
+! 			else
+! 			    vim_memset(msgbuf + pat_len, ' ', r - msgbuf);
+  		    }
+  		}
+  #endif
+*** ../vim-8.1.1474/src/testdir/test_search.vim	2019-04-27 18:00:29.851064563 +0200
+--- src/testdir/test_search.vim	2019-06-06 12:44:41.479197393 +0200
+***************
+*** 1289,1291 ****
+--- 1289,1313 ----
+  
+    close!
+  endfunc
++ 
++ func Test_search_display_pattern()
++   new
++   call setline(1, ['foo', 'bar', 'foobar'])
++ 
++   call cursor(1, 1)
++   let @/ = 'foo'
++   let pat = escape(@/, '()*?'. '\s\+')
++   let g:a = execute(':unsilent :norm! n')
++   call assert_match(pat, g:a)
++ 
++   " right-left
++   if exists("+rightleft")
++     set rl
++     call cursor(1, 1)
++     let @/ = 'foo'
++     let pat = 'oof/\s\+'
++     let g:a = execute(':unsilent :norm! n')
++     call assert_match(pat, g:a)
++     set norl
++   endif
++ endfunc
+*** ../vim-8.1.1474/src/version.c	2019-06-06 12:36:11.887259331 +0200
+--- src/version.c	2019-06-06 12:47:48.562880329 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1475,
+  /**/
+
+-- 
+From "know your smileys":
+ <|-) Chinese
+ <|-( Chinese and doesn't like these kind of jokes
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

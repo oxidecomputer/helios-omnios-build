@@ -1,0 +1,544 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1517
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1517
+Problem:    When a popup changes all windows are redrawn.
+Solution:   Only update the lines that were affected.  Add a file for
+            profiling popup windows efficiency.
+Files:	    src/screen.c, src/proto/screen.pro, src/ui.c, src/popupwin.c,
+            src/globals.h, src/testdir/popupbounce.vim, Filelist
+
+
+*** ../vim-8.1.1516/src/screen.c	2019-06-09 18:04:09.839426999 +0200
+--- src/screen.c	2019-06-10 21:21:09.932434241 +0200
+***************
+*** 122,127 ****
+--- 122,128 ----
+  static schar_T	*current_ScreenLine;
+  
+  #ifdef FEAT_TEXT_PROP
++ static void may_update_popup_mask(int type);
+  static void update_popups(void);
+  #endif
+  static void win_update(win_T *wp);
+***************
+*** 612,619 ****
+      }
+  
+  #ifdef FEAT_TEXT_PROP
+!     // Update popup_mask if needed.
+!     type = may_update_popup_mask(type);
+  #endif
+  
+      updating_screen = TRUE;
+--- 613,621 ----
+      }
+  
+  #ifdef FEAT_TEXT_PROP
+!     // Update popup_mask if needed.  This may set w_redraw_top and w_redraw_bot
+!     // in some windows.
+!     may_update_popup_mask(type);
+  #endif
+  
+      updating_screen = TRUE;
+***************
+*** 1014,1030 ****
+  }
+  
+  #ifdef FEAT_TEXT_PROP
+  /*
+   * Update "popup_mask" if needed.
+   * Also recomputes the popup size and positions.
+   * Also updates "popup_visible".
+!  * If more redrawing is needed than "type_arg" a higher value is returned.
+   */
+!     int
+! may_update_popup_mask(int type_arg)
+  {
+-     int		type = type_arg;
+      win_T	*wp;
+  
+      if (popup_mask_tab != curtab)
+  	popup_mask_refresh = TRUE;
+--- 1016,1034 ----
+  }
+  
+  #ifdef FEAT_TEXT_PROP
++ 
+  /*
+   * Update "popup_mask" if needed.
+   * Also recomputes the popup size and positions.
+   * Also updates "popup_visible".
+!  * Also marks window lines for redrawing.
+   */
+!     static void
+! may_update_popup_mask(int type)
+  {
+      win_T	*wp;
++     short	*mask;
++     int		line, col;
+  
+      if (popup_mask_tab != curtab)
+  	popup_mask_refresh = TRUE;
+***************
+*** 1038,1051 ****
+  	    if (wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  		popup_mask_refresh = TRUE;
+  	if (!popup_mask_refresh)
+! 	    return type;
+      }
+  
+      popup_mask_refresh = FALSE;
+      popup_mask_tab = curtab;
+- 
+      popup_visible = FALSE;
+!     vim_memset(popup_mask, 0, screen_Rows * screen_Columns * sizeof(short));
+  
+      // Find the window with the lowest zindex that hasn't been handled yet,
+      // so that the window with a higher zindex overwrites the value in
+--- 1042,1063 ----
+  	    if (wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  		popup_mask_refresh = TRUE;
+  	if (!popup_mask_refresh)
+! 	    return;
+      }
+  
++     // Need to update the mask, something has changed.
+      popup_mask_refresh = FALSE;
+      popup_mask_tab = curtab;
+      popup_visible = FALSE;
+! 
+!     // If redrawing everything, just update "popup_mask".
+!     // If redrawing only what is needed, update "popup_mask_next" and then
+!     // compare with "popup_mask" to see what changed.
+!     if (type >= SOME_VALID)
+! 	mask = popup_mask;
+!     else
+! 	mask = popup_mask_next;
+!     vim_memset(mask, 0, screen_Rows * screen_Columns * sizeof(short));
+  
+      // Find the window with the lowest zindex that hasn't been handled yet,
+      // so that the window with a higher zindex overwrites the value in
+***************
+*** 1053,1062 ****
+      popup_reset_handled();
+      while ((wp = find_next_popup(TRUE)) != NULL)
+      {
+! 	int	    top_off, bot_off;
+! 	int	    left_off, right_off;
+! 	short	    *p;
+! 	int	    line, col;
+  
+  	popup_visible = TRUE;
+  
+--- 1065,1071 ----
+      popup_reset_handled();
+      while ((wp = find_next_popup(TRUE)) != NULL)
+      {
+! 	int	    height_extra, width_extra;
+  
+  	popup_visible = TRUE;
+  
+***************
+*** 1064,1093 ****
+  	if (wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
+! 	// the position and size are for the inside, add the padding and
+  	// border
+! 	top_off = wp->w_popup_padding[0] + wp->w_popup_border[0];
+! 	bot_off = wp->w_popup_padding[2] + wp->w_popup_border[2];
+! 	left_off = wp->w_popup_padding[3] + wp->w_popup_border[3];
+! 	right_off = wp->w_popup_padding[1] + wp->w_popup_border[1];
+  
+! 	for (line = wp->w_winrow + top_off;
+! 		line < wp->w_winrow + wp->w_height + bot_off
+  						 && line < screen_Rows; ++line)
+! 	    for (col = wp->w_wincol + left_off;
+! 		 col < wp->w_wincol + wp->w_width + right_off
+  						&& col < screen_Columns; ++col)
+  	    {
+! 		p = popup_mask + line * screen_Columns + col;
+! 		if (*p != wp->w_zindex)
+  		{
+! 		    *p = wp->w_zindex;
+! 		    type = NOT_VALID;
+  		}
+  	    }
+!     }
+! 
+!     return type;
+  }
+  
+  /*
+--- 1073,1143 ----
+  	if (wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
+! 	// the width and height are for the inside, add the padding and
+  	// border
+! 	height_extra = wp->w_popup_padding[0] + wp->w_popup_border[0]
+! 			      + wp->w_popup_padding[2] + wp->w_popup_border[2];
+! 	width_extra = wp->w_popup_padding[3] + wp->w_popup_border[3]
+! 			      + wp->w_popup_padding[1] + wp->w_popup_border[1];
+  
+! 	for (line = wp->w_winrow;
+! 		line < wp->w_winrow + wp->w_height + height_extra
+  						 && line < screen_Rows; ++line)
+! 	    for (col = wp->w_wincol;
+! 		 col < wp->w_wincol + wp->w_width + width_extra
+  						&& col < screen_Columns; ++col)
++ 		mask[line * screen_Columns + col] = wp->w_zindex;
++     }
++ 
++     // Only check which lines are to be updated if not already
++     // updating all lines.
++     if (mask == popup_mask_next)
++ 	for (line = 0; line < screen_Rows; ++line)
++ 	{
++ 	    int	    col_done = 0;
++ 
++ 	    for (col = 0; col < screen_Columns; ++col)
+  	    {
+! 		int off = line * screen_Columns + col;
+! 
+! 		if (popup_mask[off] != popup_mask_next[off])
+  		{
+! 		    popup_mask[off] = popup_mask_next[off];
+! 
+! 		    // The screen position "line" / "col" needs to be redrawn.
+! 		    // Figure out what window that is and update w_redraw_top
+! 		    // and w_redr_bot.  Only needs to be done for each window
+! 		    // line.
+! 		    if (col >= col_done)
+! 		    {
+! 			linenr_T	lnum;
+! 			int		line_cp = line;
+! 			int		col_cp = col;
+! 
+! 			// find the window where the row is in
+! 			wp = mouse_find_win(&line_cp, &col_cp);
+! 			if (wp != NULL)
+! 			{
+! 			    if (line_cp >= wp->w_height)
+! 				// In (or below) status line
+! 				wp->w_redr_status = TRUE;
+! 			    // compute the position in the buffer line from the
+! 			    // position on the screen
+! 			    else if (mouse_comp_pos(wp, &line_cp, &col_cp,
+! 									&lnum))
+! 				// past bottom
+! 				wp->w_redr_status = TRUE;
+! 			    else
+! 				redrawWinline(wp, lnum);
+! 
+! 			    // This line is going to be redrawn, no need to
+! 			    // check until the right side of the window.
+! 			    col_done = wp->w_wincol + wp->w_width - 1;
+! 			}
+! 		    }
+  		}
+  	    }
+! 	}
+  }
+  
+  /*
+***************
+*** 9112,9117 ****
+--- 9162,9168 ----
+      short	    *new_TabPageIdxs;
+  #ifdef FEAT_TEXT_PROP
+      short	    *new_popup_mask;
++     short	    *new_popup_mask_next;
+  #endif
+      tabpage_T	    *tp;
+      static int	    entered = FALSE;		/* avoid recursiveness */
+***************
+*** 9196,9201 ****
+--- 9247,9253 ----
+      new_TabPageIdxs = LALLOC_MULT(short, Columns);
+  #ifdef FEAT_TEXT_PROP
+      new_popup_mask = LALLOC_MULT(short, Rows * Columns);
++     new_popup_mask_next = LALLOC_MULT(short, Rows * Columns);
+  #endif
+  
+      FOR_ALL_TAB_WINDOWS(tp, wp)
+***************
+*** 9241,9246 ****
+--- 9293,9299 ----
+  	    || new_TabPageIdxs == NULL
+  #ifdef FEAT_TEXT_PROP
+  	    || new_popup_mask == NULL
++ 	    || new_popup_mask_next == NULL
+  #endif
+  	    || outofmem)
+      {
+***************
+*** 9264,9269 ****
+--- 9317,9323 ----
+  	VIM_CLEAR(new_TabPageIdxs);
+  #ifdef FEAT_TEXT_PROP
+  	VIM_CLEAR(new_popup_mask);
++ 	VIM_CLEAR(new_popup_mask_next);
+  #endif
+      }
+      else
+***************
+*** 9353,9358 ****
+--- 9407,9413 ----
+      TabPageIdxs = new_TabPageIdxs;
+  #ifdef FEAT_TEXT_PROP
+      popup_mask = new_popup_mask;
++     popup_mask_next = new_popup_mask_next;
+      vim_memset(popup_mask, 0, Rows * Columns * sizeof(short));
+      popup_mask_refresh = TRUE;
+  #endif
+***************
+*** 9421,9426 ****
+--- 9476,9482 ----
+      VIM_CLEAR(TabPageIdxs);
+  #ifdef FEAT_TEXT_PROP
+      VIM_CLEAR(popup_mask);
++     VIM_CLEAR(popup_mask_next);
+  #endif
+  }
+  
+***************
+*** 10027,10033 ****
+      }
+  
+  #ifdef FEAT_TEXT_PROP
+!     // this doesn't work when tere are popups visible
+      if (popup_visible)
+  	return FAIL;
+  #endif
+--- 10083,10089 ----
+      }
+  
+  #ifdef FEAT_TEXT_PROP
+!     // this doesn't work when there are popups visible
+      if (popup_visible)
+  	return FAIL;
+  #endif
+*** ../vim-8.1.1516/src/proto/screen.pro	2019-06-08 16:01:10.643493653 +0200
+--- src/proto/screen.pro	2019-06-10 18:54:20.638071804 +0200
+***************
+*** 16,22 ****
+  int conceal_cursor_line(win_T *wp);
+  void conceal_check_cursor_line(void);
+  void update_debug_sign(buf_T *buf, linenr_T lnum);
+- int may_update_popup_mask(int type_arg);
+  void updateWindow(win_T *wp);
+  int screen_get_current_line_off(void);
+  void screen_line(int row, int coloff, int endcol, int clear_width, int flags);
+--- 16,21 ----
+*** ../vim-8.1.1516/src/ui.c	2019-05-29 22:28:25.763184805 +0200
+--- src/ui.c	2019-06-10 18:47:41.463937832 +0200
+***************
+*** 3242,3256 ****
+  	    || curwin->w_cursor.col != old_cursor.col)
+  	count |= CURSOR_MOVED;		/* Cursor has moved */
+  
+! #ifdef FEAT_FOLDING
+      if (mouse_char == '+')
+  	count |= MOUSE_FOLD_OPEN;
+      else if (mouse_char != ' ')
+  	count |= MOUSE_FOLD_CLOSE;
+! #endif
+  
+      return count;
+  }
+  
+  /*
+   * Compute the position in the buffer line from the posn on the screen in
+--- 3242,3260 ----
+  	    || curwin->w_cursor.col != old_cursor.col)
+  	count |= CURSOR_MOVED;		/* Cursor has moved */
+  
+! # ifdef FEAT_FOLDING
+      if (mouse_char == '+')
+  	count |= MOUSE_FOLD_OPEN;
+      else if (mouse_char != ' ')
+  	count |= MOUSE_FOLD_CLOSE;
+! # endif
+  
+      return count;
+  }
++ #endif
++ 
++ // Functions also used for popup windows.
++ #if defined(FEAT_MOUSE) || defined(FEAT_TEXT_PROP) || defined(PROTO)
+  
+  /*
+   * Compute the position in the buffer line from the posn on the screen in
+***************
+*** 3347,3353 ****
+   * Returns NULL when something is wrong.
+   */
+      win_T *
+! mouse_find_win(int *rowp, int *colp UNUSED)
+  {
+      frame_T	*fp;
+      win_T	*wp;
+--- 3351,3357 ----
+   * Returns NULL when something is wrong.
+   */
+      win_T *
+! mouse_find_win(int *rowp, int *colp)
+  {
+      frame_T	*fp;
+      win_T	*wp;
+*** ../vim-8.1.1516/src/popupwin.c	2019-06-10 13:10:45.370588270 +0200
+--- src/popupwin.c	2019-06-10 21:11:25.503031889 +0200
+***************
+*** 571,578 ****
+  	    || org_width != wp->w_width
+  	    || org_height != wp->w_height)
+      {
+! 	// TODO: redraw only windows that were below the popup.
+! 	redraw_all_later(NOT_VALID);
+  	popup_mask_refresh = TRUE;
+      }
+  }
+--- 571,577 ----
+  	    || org_width != wp->w_width
+  	    || org_height != wp->w_height)
+      {
+! 	redraw_all_later(VALID);
+  	popup_mask_refresh = TRUE;
+      }
+  }
+*** ../vim-8.1.1516/src/globals.h	2019-06-08 16:01:10.639493666 +0200
+--- src/globals.h	2019-06-10 20:09:08.205952450 +0200
+***************
+*** 73,78 ****
+--- 73,79 ----
+  #ifdef FEAT_TEXT_PROP
+  // Array with size Rows x Columns containing zindex of popups.
+  EXTERN short	*popup_mask INIT(= NULL);
++ EXTERN short	*popup_mask_next INIT(= NULL);
+  
+  // Flag set to TRUE when popup_mask needs to be updated.
+  EXTERN int	popup_mask_refresh INIT(= TRUE);
+*** ../vim-8.1.1516/src/testdir/popupbounce.vim	2019-06-10 21:20:02.572729769 +0200
+--- src/testdir/popupbounce.vim	2019-06-10 20:23:57.374515240 +0200
+***************
+*** 0 ****
+--- 1,80 ----
++ " Use this script to measure the redrawing performance when a popup is being
++ " displayed.  Usage with gcc:
++ "    cd src
++ "    # Edit Makefile to uncomment PROFILE_CFLAGS and PROFILE_LIBS
++ "    make reconfig
++ "    ./vim --clean -S testdir/popupbounce.vim main.c
++ "    gprof vim gmon.out | vim -
++ 
++ " using line contination
++ set nocp
++ 
++ " don't switch screens when quitting, so we can read the frames/sec
++ set t_te=
++ 
++ let winid = popup_create(['line1', 'line2', 'line3', 'line4'], {
++ 	      \   'line' : 1,
++ 	      \   'col' : 1,
++ 	      \   'zindex' : 101,
++ 	      \ })
++ redraw
++ 
++ let start = reltime()
++ let framecount = 0
++ 
++ let line = 1.0
++ let col = 1
++ let downwards = 1
++ let col_inc = 1
++ let initial_speed = 0.2
++ let speed = initial_speed
++ let accel = 1.1
++ let time = 0.1
++ 
++ let countdown = 0
++ 
++ while 1
++   if downwards
++     let speed += time * accel
++     let line += speed
++   else
++     let speed -= time * accel
++     let line -= speed
++   endif
++ 
++   if line + 3 >= &lines
++     let downwards = 0
++     let speed = speed * 0.8
++     let line = &lines - 3
++   endif
++   if !downwards && speed < 1.0
++     let downwards = 1
++     let speed = initial_speed
++     if line + 4 > &lines && countdown == 0
++       let countdown = 50
++     endif
++   endif
++ 
++   let col += col_inc
++   if col + 4 >= &columns
++     let col_inc = -1
++   elseif col <= 1
++     let col_inc = 1
++   endif
++ 
++   call popup_move(winid, {'line': float2nr(line), 'col': col})
++   redraw
++   let framecount += 1
++   if countdown > 0
++     let countdown -= 1
++     if countdown == 0
++       break
++     endif
++   endif
++ 
++ endwhile
++ 
++ let elapsed = reltimefloat(reltime(start))
++ echomsg framecount .. ' frames in ' .. string(elapsed) .. ' seconds, ' .. string(framecount / elapsed) .. ' frames/sec'
++ 
++ qa
+*** ../vim-8.1.1516/Filelist	2019-06-09 13:42:36.428522167 +0200
+--- Filelist	2019-06-10 21:12:55.398625778 +0200
+***************
+*** 152,157 ****
+--- 152,158 ----
+  		src/testdir/if_ver*.vim \
+  		src/testdir/color_ramp.vim \
+  		src/testdir/silent.wav \
++ 		src/testdir/popupbounce.vim \
+  		src/proto.h \
+  		src/protodef.h \
+  		src/proto/arabic.pro \
+*** ../vim-8.1.1516/src/version.c	2019-06-10 17:43:42.706045520 +0200
+--- src/version.c	2019-06-10 21:20:13.196683104 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1517,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+148. You find it easier to dial-up the National Weather Service
+     Weather/your_town/now.html than to simply look out the window.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

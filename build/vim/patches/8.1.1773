@@ -1,0 +1,823 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1773
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1773
+Problem:    The preview popup window may be too far to the right.
+Solution:   Keep it inside the screen.  Also keep the close button and
+            scrollbar visible if possible.
+Files:	    src/popupwin.c, src/proto/popupwin.pro, src/ex_cmds.c,
+            src/screen.c, src/vim.h, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_previewpopup_1.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_2.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_3.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_4.dump
+
+
+*** ../vim-8.1.1772/src/popupwin.c	2019-07-28 17:57:04.845046867 +0200
+--- src/popupwin.c	2019-07-28 21:27:52.823180126 +0200
+***************
+*** 1026,1031 ****
+--- 1026,1033 ----
+  
+      wp->w_has_scrollbar = wp->w_want_scrollbar
+  	   && (wp->w_topline > 1 || lnum <= wp->w_buffer->b_ml.ml_line_count);
++     if (wp->w_has_scrollbar)
++ 	++right_extra;
+  
+      minwidth = wp->w_minwidth;
+      if (wp->w_popup_title != NULL && *wp->w_popup_title != NUL)
+***************
+*** 1040,1046 ****
+  	wp->w_width = minwidth;
+      if (wp->w_width > maxwidth)
+      {
+! 	if (wp->w_width > maxspace)
+  	    // some columns cut off on the right
+  	    wp->w_popup_rightoff = wp->w_width - maxspace;
+  	wp->w_width = maxwidth;
+--- 1042,1048 ----
+  	wp->w_width = minwidth;
+      if (wp->w_width > maxwidth)
+      {
+! 	if (wp->w_width > maxspace && !wp->w_p_wrap)
+  	    // some columns cut off on the right
+  	    wp->w_popup_rightoff = wp->w_width - maxspace;
+  	wp->w_width = maxwidth;
+***************
+*** 1074,1079 ****
+--- 1076,1101 ----
+  	}
+      }
+  
++     if (wp->w_p_wrap)
++     {
++ 	int want_col = 0;
++ 
++ 	if (wp->w_popup_close == POPCLOSE_BUTTON)
++ 	    // try to show the close button
++ 	    want_col = left_extra + wp->w_width + right_extra;
++ 	else if (wp->w_has_scrollbar)
++ 	    // try to show the scrollbar
++ 	    want_col = left_extra + wp->w_width
++ 					 + right_extra - wp->w_popup_border[1];
++ 	if (want_col > 0 && wp->w_wincol > 0
++ 					 && wp->w_wincol + want_col >= Columns)
++ 	{
++ 	    wp->w_wincol = Columns - want_col;
++ 	    if (wp->w_wincol < 0)
++ 		wp->w_wincol = 0;
++ 	}
++     }
++ 
+      wp->w_height = wp->w_buffer->b_ml.ml_line_count - wp->w_topline
+  								 + 1 + wrapped;
+      if (wp->w_minheight > 0 && wp->w_height < wp->w_minheight)
+***************
+*** 1112,1117 ****
+--- 1134,1142 ----
+  	    || org_height != wp->w_height)
+      {
+  	redraw_all_later(VALID);
++ 	redraw_win_later(wp, NOT_VALID);
++ 	if (wp->w_popup_flags & POPF_ON_CMDLINE)
++ 	    clear_cmdline = TRUE;
+  	popup_mask_refresh = TRUE;
+      }
+  }
+***************
+*** 1221,1229 ****
+  
+  /*
+   * Set w_wantline and w_wantcol for the cursor position in the current window.
+   */
+      void
+! popup_set_wantpos(win_T *wp)
+  {
+      setcursor_mayforce(TRUE);
+      wp->w_wantline = curwin->w_winrow + curwin->w_wrow;
+--- 1246,1255 ----
+  
+  /*
+   * Set w_wantline and w_wantcol for the cursor position in the current window.
++  * Keep at least "width" columns from the right of the screen.
+   */
+      void
+! popup_set_wantpos(win_T *wp, int width)
+  {
+      setcursor_mayforce(TRUE);
+      wp->w_wantline = curwin->w_winrow + curwin->w_wrow;
+***************
+*** 1232,1238 ****
+--- 1258,1271 ----
+  	wp->w_wantline = 2;
+  	wp->w_popup_pos = POPPOS_TOPLEFT;
+      }
++ 
+      wp->w_wantcol = curwin->w_wincol + curwin->w_wcol + 1;
++     if (wp->w_wantcol > Columns - width)
++     {
++ 	wp->w_wantcol = Columns - width;
++ 	if (wp->w_wantcol < 1)
++ 	    wp->w_wantcol = 1;
++     }
+      popup_adjust_position(wp);
+  }
+  
+***************
+*** 1378,1387 ****
+      if (type == TYPE_ATCURSOR || type == TYPE_PREVIEW)
+      {
+  	wp->w_popup_pos = POPPOS_BOTLEFT;
+- 	popup_set_wantpos(wp);
+      }
+      if (type == TYPE_ATCURSOR)
+      {
+  	set_moved_values(wp);
+  	set_moved_columns(wp, FIND_STRING);
+      }
+--- 1411,1420 ----
+      if (type == TYPE_ATCURSOR || type == TYPE_PREVIEW)
+      {
+  	wp->w_popup_pos = POPPOS_BOTLEFT;
+      }
+      if (type == TYPE_ATCURSOR)
+      {
++ 	popup_set_wantpos(wp, 0);
+  	set_moved_values(wp);
+  	set_moved_columns(wp, FIND_STRING);
+      }
+***************
+*** 1485,1490 ****
+--- 1518,1524 ----
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+  	parse_previewpopup(wp);
++ 	popup_set_wantpos(wp, wp->w_minwidth);
+      }
+  
+      for (i = 0; i < 4; ++i)
+***************
+*** 1878,1883 ****
+--- 1912,1918 ----
+  	else
+  	{
+  	    popup_set_buffer_text(wp->w_buffer, argvars[1]);
++ 	    redraw_win_later(wp, NOT_VALID);
+  	    popup_adjust_position(wp);
+  	}
+      }
+***************
+*** 1888,1894 ****
+  {
+      sign_undefine_by_name(popup_get_sign_name(wp), FALSE);
+      wp->w_buffer->b_locked = FALSE;
+!     if (wp->w_winrow + wp->w_height >= cmdline_row)
+  	clear_cmdline = TRUE;
+      win_free_popup(wp);
+  
+--- 1923,1929 ----
+  {
+      sign_undefine_by_name(popup_get_sign_name(wp), FALSE);
+      wp->w_buffer->b_locked = FALSE;
+!     if (wp->w_winrow + popup_height(wp) >= cmdline_row)
+  	clear_cmdline = TRUE;
+      win_free_popup(wp);
+  
+***************
+*** 2756,2761 ****
+--- 2791,2802 ----
+  	total_height = popup_height(wp);
+  	popup_attr = get_wcr_attr(wp);
+  
++ 	if (wp->w_winrow + total_height > cmdline_row)
++ 	    wp->w_popup_flags |= POPF_ON_CMDLINE;
++ 	else
++ 	    wp->w_popup_flags &= ~POPF_ON_CMDLINE;
++ 
++ 
+  	// We can only use these line drawing characters when 'encoding' is
+  	// "utf-8" and 'ambiwidth' is "single".
+  	if (enc_utf8 && *p_ambw == 's')
+*** ../vim-8.1.1772/src/proto/popupwin.pro	2019-07-28 17:57:04.845046867 +0200
+--- src/proto/popupwin.pro	2019-07-28 18:08:58.415703174 +0200
+***************
+*** 9,15 ****
+  int popup_width(win_T *wp);
+  void popup_adjust_position(win_T *wp);
+  int parse_previewpopup(win_T *wp);
+! void popup_set_wantpos(win_T *wp);
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
+--- 9,15 ----
+  int popup_width(win_T *wp);
+  void popup_adjust_position(win_T *wp);
+  int parse_previewpopup(win_T *wp);
+! void popup_set_wantpos(win_T *wp, int width);
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
+*** ../vim-8.1.1772/src/ex_cmds.c	2019-07-23 22:15:21.311518857 +0200
+--- src/ex_cmds.c	2019-07-28 18:10:25.271116365 +0200
+***************
+*** 5138,5144 ****
+  	{
+  	    wp = popup_find_preview_window();
+  	    if (wp != NULL)
+! 		popup_set_wantpos(wp);
+  	}
+  	else
+  # endif
+--- 5138,5144 ----
+  	{
+  	    wp = popup_find_preview_window();
+  	    if (wp != NULL)
+! 		popup_set_wantpos(wp, wp->w_minwidth);
+  	}
+  	else
+  # endif
+*** ../vim-8.1.1772/src/screen.c	2019-07-25 20:52:59.780237300 +0200
+--- src/screen.c	2019-07-28 20:22:07.145132180 +0200
+***************
+*** 795,800 ****
+--- 795,805 ----
+      FOR_ALL_WINDOWS(wp)
+  	wp->w_buffer->b_mod_set = FALSE;
+  
++ #ifdef FEAT_TEXT_PROP
++     // Display popup windows on top of the windows and command line.
++     update_popups(win_update);
++ #endif
++ 
+      after_updating_screen(TRUE);
+  
+      /* Clear or redraw the command line.  Done last, because scrolling may
+***************
+*** 810,820 ****
+  	maybe_intro_message();
+      did_intro = TRUE;
+  
+- #ifdef FEAT_TEXT_PROP
+-     // Display popup windows on top of the windows.
+-     update_popups(win_update);
+- #endif
+- 
+  #ifdef FEAT_GUI
+      /* Redraw the cursor and update the scrollbars when all screen updating is
+       * done. */
+--- 815,820 ----
+*** ../vim-8.1.1772/src/vim.h	2019-07-18 13:45:54.350319282 +0200
+--- src/vim.h	2019-07-28 20:53:44.876785941 +0200
+***************
+*** 618,623 ****
+--- 618,625 ----
+  #define POPF_HIDDEN	2	// popup is not displayed
+  #define POPF_HANDLED	4	// popup was just redrawn or filtered
+  #define POPF_CURSORLINE	8	// popup is highlighting at the cursorline
++ #define POPF_ON_CMDLINE	16	// popup overlaps command line
++ 
+  #ifdef FEAT_TEXT_PROP
+  # define WIN_IS_POPUP(wp) ((wp)->w_popup_flags != 0)
+  #else
+*** ../vim-8.1.1772/src/testdir/test_popupwin.vim	2019-07-20 17:45:45.552285965 +0200
+--- src/testdir/test_popupwin.vim	2019-07-28 21:41:51.673613747 +0200
+***************
+*** 1009,1017 ****
+    call cursor(1, 1)
+    redraw
+    let winid = popup_create('vim', #{
+!         \ line: 'cursor+2',
+!         \ col: 'cursor+1',
+!         \})
+    redraw
+    let line = join(map(range(1, 17), 'screenstring(3, v:val)'), '')
+    call assert_equal('xvimxxxxxxxxxxxxx', line)
+--- 1009,1017 ----
+    call cursor(1, 1)
+    redraw
+    let winid = popup_create('vim', #{
+! 	\ line: 'cursor+2',
+! 	\ col: 'cursor+1',
+! 	\})
+    redraw
+    let line = join(map(range(1, 17), 'screenstring(3, v:val)'), '')
+    call assert_equal('xvimxxxxxxxxxxxxx', line)
+***************
+*** 1020,1028 ****
+    call cursor(3, 3)
+    redraw
+    let winid = popup_create('vim', #{
+!         \ line: 'cursor-2',
+!         \ col: 'cursor-1',
+!         \})
+    redraw
+    let line = join(map(range(1, 17), 'screenstring(1, v:val)'), '')
+    call assert_equal('xvimxxxxxxxxxxxxx', line)
+--- 1020,1028 ----
+    call cursor(3, 3)
+    redraw
+    let winid = popup_create('vim', #{
+! 	\ line: 'cursor-2',
+! 	\ col: 'cursor-1',
+! 	\})
+    redraw
+    let line = join(map(range(1, 17), 'screenstring(1, v:val)'), '')
+    call assert_equal('xvimxxxxxxxxxxxxx', line)
+***************
+*** 1347,1357 ****
+    call delete('XtestPopupBehind')
+  endfunc
+  
+! func s:VerifyPosition( p, msg, line, col, width, height )
+!   call assert_equal( a:line,   popup_getpos( a:p ).line,   a:msg . ' (l)' )
+!   call assert_equal( a:col,    popup_getpos( a:p ).col,    a:msg . ' (c)' )
+!   call assert_equal( a:width,  popup_getpos( a:p ).width,  a:msg . ' (w)' )
+!   call assert_equal( a:height, popup_getpos( a:p ).height, a:msg . ' (h)' )
+  endfunc
+  
+  func Test_popup_position_adjust()
+--- 1347,1357 ----
+    call delete('XtestPopupBehind')
+  endfunc
+  
+! func s:VerifyPosition(p, msg, line, col, width, height)
+!   call assert_equal(a:line,   popup_getpos(a:p).line,   a:msg . ' (l)')
+!   call assert_equal(a:col,    popup_getpos(a:p).col,    a:msg . ' (c)')
+!   call assert_equal(a:width,  popup_getpos(a:p).width,  a:msg . ' (w)')
+!   call assert_equal(a:height, popup_getpos(a:p).height, a:msg . ' (h)')
+  endfunc
+  
+  func Test_popup_position_adjust()
+***************
+*** 1364,1387 ****
+    " Entries for cases which don't vary based on wrapping.
+    " Format is per tests described below
+    let both_wrap_tests = [
+!         \       [ 'a', 5, &columns,        5, &columns - 2, 1, 1 ],
+!         \       [ 'b', 5, &columns + 1,    5, &columns - 2, 1, 1 ],
+!         \       [ 'c', 5, &columns - 1,    5, &columns - 2, 1, 1 ],
+!         \       [ 'd', 5, &columns - 2,    5, &columns - 2, 1, 1 ],
+!         \       [ 'e', 5, &columns - 3,    5, &columns - 3, 1, 1 ],
+!         \
+!         \       [ 'aa', 5, &columns,        5, &columns - 2, 2, 1 ],
+!         \       [ 'bb', 5, &columns + 1,    5, &columns - 2, 2, 1 ],
+!         \       [ 'cc', 5, &columns - 1,    5, &columns - 2, 2, 1 ],
+!         \       [ 'dd', 5, &columns - 2,    5, &columns - 2, 2, 1 ],
+!         \       [ 'ee', 5, &columns - 3,    5, &columns - 3, 2, 1 ],
+!         \
+!         \       [ 'aaa', 5, &columns,        5, &columns - 2, 3, 1 ],
+!         \       [ 'bbb', 5, &columns + 1,    5, &columns - 2, 3, 1 ],
+!         \       [ 'ccc', 5, &columns - 1,    5, &columns - 2, 3, 1 ],
+!         \       [ 'ddd', 5, &columns - 2,    5, &columns - 2, 3, 1 ],
+!         \       [ 'eee', 5, &columns - 3,    5, &columns - 3, 3, 1 ],
+!         \ ]
+  
+    " these test groups are dicts with:
+    "  - comment: something to identify the group of tests by
+--- 1364,1387 ----
+    " Entries for cases which don't vary based on wrapping.
+    " Format is per tests described below
+    let both_wrap_tests = [
+! 	\       ['a', 5, &columns,        5, &columns - 2, 1, 1],
+! 	\       ['b', 5, &columns + 1,    5, &columns - 2, 1, 1],
+! 	\       ['c', 5, &columns - 1,    5, &columns - 2, 1, 1],
+! 	\       ['d', 5, &columns - 2,    5, &columns - 2, 1, 1],
+! 	\       ['e', 5, &columns - 3,    5, &columns - 3, 1, 1],
+! 	\
+! 	\       ['aa', 5, &columns,        5, &columns - 2, 2, 1],
+! 	\       ['bb', 5, &columns + 1,    5, &columns - 2, 2, 1],
+! 	\       ['cc', 5, &columns - 1,    5, &columns - 2, 2, 1],
+! 	\       ['dd', 5, &columns - 2,    5, &columns - 2, 2, 1],
+! 	\       ['ee', 5, &columns - 3,    5, &columns - 3, 2, 1],
+! 	\
+! 	\       ['aaa', 5, &columns,        5, &columns - 2, 3, 1],
+! 	\       ['bbb', 5, &columns + 1,    5, &columns - 2, 3, 1],
+! 	\       ['ccc', 5, &columns - 1,    5, &columns - 2, 3, 1],
+! 	\       ['ddd', 5, &columns - 2,    5, &columns - 2, 3, 1],
+! 	\       ['eee', 5, &columns - 3,    5, &columns - 3, 3, 1],
+! 	\ ]
+  
+    " these test groups are dicts with:
+    "  - comment: something to identify the group of tests by
+***************
+*** 1395,1455 ****
+    "     - expected width
+    "     - expected height
+    let tests = [
+!         \ #{
+!         \   comment: 'left-aligned with wrapping',
+!         \   options: #{
+!         \     wrap: 1,
+!         \     pos: 'botleft',
+!         \   },
+!         \   tests: both_wrap_tests + [
+!         \       [ 'aaaa', 5, &columns,        4, &columns - 2, 3, 2 ],
+!         \       [ 'bbbb', 5, &columns + 1,    4, &columns - 2, 3, 2 ],
+!         \       [ 'cccc', 5, &columns - 1,    4, &columns - 2, 3, 2 ],
+!         \       [ 'dddd', 5, &columns - 2,    4, &columns - 2, 3, 2 ],
+!         \       [ 'eeee', 5, &columns - 3,    5, &columns - 3, 4, 1 ],
+!         \   ],
+!         \ },
+!         \ #{
+!         \   comment: 'left aligned without wrapping',
+!         \   options: #{
+!         \     wrap: 0,
+!         \     pos: 'botleft',
+!         \   },
+!         \   tests: both_wrap_tests + [
+!         \       [ 'aaaa', 5, &columns,        5, &columns - 3, 4, 1 ],
+!         \       [ 'bbbb', 5, &columns + 1,    5, &columns - 3, 4, 1 ],
+!         \       [ 'cccc', 5, &columns - 1,    5, &columns - 3, 4, 1 ],
+!         \       [ 'dddd', 5, &columns - 2,    5, &columns - 3, 4, 1 ],
+!         \       [ 'eeee', 5, &columns - 3,    5, &columns - 3, 4, 1 ],
+!         \   ],
+!         \ },
+!         \ #{
+!         \   comment: 'left aligned with fixed position',
+!         \   options: #{
+!         \     wrap: 0,
+!         \     fixed: 1,
+!         \     pos: 'botleft',
+!         \   },
+!         \   tests: both_wrap_tests + [
+!         \       [ 'aaaa', 5, &columns,        5, &columns - 2, 3, 1 ],
+!         \       [ 'bbbb', 5, &columns + 1,    5, &columns - 2, 3, 1 ],
+!         \       [ 'cccc', 5, &columns - 1,    5, &columns - 2, 3, 1 ],
+!         \       [ 'dddd', 5, &columns - 2,    5, &columns - 2, 3, 1 ],
+!         \       [ 'eeee', 5, &columns - 3,    5, &columns - 3, 4, 1 ],
+!         \   ],
+!         \ },
+!       \ ]
+  
+    for test_group in tests
+      for test in test_group.tests
+        let [ text, line, col, e_line, e_col, e_width, e_height ] = test
+        let options = #{
+!             \ line: line,
+!             \ col: col,
+!             \ }
+!       call extend( options, test_group.options )
+  
+!       let p = popup_create( text, options )
+  
+        let msg = string(extend(options, #{text: text}))
+        call s:VerifyPosition(p, msg, e_line, e_col, e_width, e_height)
+--- 1395,1455 ----
+    "     - expected width
+    "     - expected height
+    let tests = [
+! 	\ #{
+! 	\   comment: 'left-aligned with wrapping',
+! 	\   options: #{
+! 	\     wrap: 1,
+! 	\     pos: 'botleft',
+! 	\   },
+! 	\   tests: both_wrap_tests + [
+! 	\       ['aaaa', 5, &columns,        4, &columns - 2, 3, 2],
+! 	\       ['bbbb', 5, &columns + 1,    4, &columns - 2, 3, 2],
+! 	\       ['cccc', 5, &columns - 1,    4, &columns - 2, 3, 2],
+! 	\       ['dddd', 5, &columns - 2,    4, &columns - 2, 3, 2],
+! 	\       ['eeee', 5, &columns - 3,    5, &columns - 3, 4, 1],
+! 	\   ],
+! 	\ },
+! 	\ #{
+! 	\   comment: 'left aligned without wrapping',
+! 	\   options: #{
+! 	\     wrap: 0,
+! 	\     pos: 'botleft',
+! 	\   },
+! 	\   tests: both_wrap_tests + [
+! 	\       ['aaaa', 5, &columns,        5, &columns - 3, 4, 1],
+! 	\       ['bbbb', 5, &columns + 1,    5, &columns - 3, 4, 1],
+! 	\       ['cccc', 5, &columns - 1,    5, &columns - 3, 4, 1],
+! 	\       ['dddd', 5, &columns - 2,    5, &columns - 3, 4, 1],
+! 	\       ['eeee', 5, &columns - 3,    5, &columns - 3, 4, 1],
+! 	\   ],
+! 	\ },
+! 	\ #{
+! 	\   comment: 'left aligned with fixed position',
+! 	\   options: #{
+! 	\     wrap: 0,
+! 	\     fixed: 1,
+! 	\     pos: 'botleft',
+! 	\   },
+! 	\   tests: both_wrap_tests + [
+! 	\       ['aaaa', 5, &columns,        5, &columns - 2, 3, 1],
+! 	\       ['bbbb', 5, &columns + 1,    5, &columns - 2, 3, 1],
+! 	\       ['cccc', 5, &columns - 1,    5, &columns - 2, 3, 1],
+! 	\       ['dddd', 5, &columns - 2,    5, &columns - 2, 3, 1],
+! 	\       ['eeee', 5, &columns - 3,    5, &columns - 3, 4, 1],
+! 	\   ],
+! 	\ },
+! 	\ ]
+  
+    for test_group in tests
+      for test in test_group.tests
+        let [ text, line, col, e_line, e_col, e_width, e_height ] = test
+        let options = #{
+! 	    \ line: line,
+! 	    \ col: col,
+! 	    \ }
+!       call extend(options, test_group.options)
+  
+!       let p = popup_create(text, options)
+  
+        let msg = string(extend(options, #{text: text}))
+        call s:VerifyPosition(p, msg, e_line, e_col, e_width, e_height)
+***************
+*** 1465,1526 ****
+    " width of screen
+    let X = join(map(range(&columns), {->'X'}), '')
+  
+!   let p = popup_create( X, #{line: 1, col: 1, wrap: 0})
+!   call s:VerifyPosition( p, 'full width topleft', 1, 1, &columns, 1 )
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    call assert_equal(X, line)
+  
+!   call popup_close( p )
+    redraw
+  
+    " Same if placed on the right hand side
+!   let p = popup_create( X, #{line: 1, col: &columns, wrap: 0})
+!   call s:VerifyPosition( p, 'full width topright', 1, 1, &columns, 1 )
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    call assert_equal(X, line)
+  
+!   call popup_close( p )
+    redraw
+  
+    " Extend so > window width
+    let X .= 'x'
+  
+!   let p = popup_create( X, #{line: 1, col: 1, wrap: 0})
+!   call s:VerifyPosition( p, 'full width +  1 topleft', 1, 1, &columns, 1 )
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    call assert_equal(X[ : -2 ], line)
+  
+!   call popup_close( p )
+    redraw
+  
+    " Shifted then truncated (the x is not visible)
+!   let p = popup_create( X, #{line: 1, col: &columns - 3, wrap: 0})
+!   call s:VerifyPosition( p, 'full width + 1 topright', 1, 1, &columns, 1 )
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    call assert_equal(X[ : -2 ], line)
+  
+!   call popup_close( p )
+    redraw
+  
+    " Not shifted, just truncated
+!   let p = popup_create( X,
+!         \ #{line: 1, col: 2, wrap: 0, fixed: 1})
+!   call s:VerifyPosition( p, 'full width + 1 fixed', 1, 2, &columns - 1, 1)
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    let e_line = ' ' . X[ 1 : -2 ]
+    call assert_equal(e_line, line)
+  
+!   call popup_close( p )
+    redraw
+  
+    call popup_clear()
+--- 1465,1526 ----
+    " width of screen
+    let X = join(map(range(&columns), {->'X'}), '')
+  
+!   let p = popup_create(X, #{line: 1, col: 1, wrap: 0})
+!   call s:VerifyPosition(p, 'full width topleft', 1, 1, &columns, 1)
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    call assert_equal(X, line)
+  
+!   call popup_close(p)
+    redraw
+  
+    " Same if placed on the right hand side
+!   let p = popup_create(X, #{line: 1, col: &columns, wrap: 0})
+!   call s:VerifyPosition(p, 'full width topright', 1, 1, &columns, 1)
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    call assert_equal(X, line)
+  
+!   call popup_close(p)
+    redraw
+  
+    " Extend so > window width
+    let X .= 'x'
+  
+!   let p = popup_create(X, #{line: 1, col: 1, wrap: 0})
+!   call s:VerifyPosition(p, 'full width +  1 topleft', 1, 1, &columns, 1)
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    call assert_equal(X[ : -2 ], line)
+  
+!   call popup_close(p)
+    redraw
+  
+    " Shifted then truncated (the x is not visible)
+!   let p = popup_create(X, #{line: 1, col: &columns - 3, wrap: 0})
+!   call s:VerifyPosition(p, 'full width + 1 topright', 1, 1, &columns, 1)
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    call assert_equal(X[ : -2 ], line)
+  
+!   call popup_close(p)
+    redraw
+  
+    " Not shifted, just truncated
+!   let p = popup_create(X,
+! 	\ #{line: 1, col: 2, wrap: 0, fixed: 1})
+!   call s:VerifyPosition(p, 'full width + 1 fixed', 1, 2, &columns - 1, 1)
+  
+    redraw
+    let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
+    let e_line = ' ' . X[ 1 : -2 ]
+    call assert_equal(e_line, line)
+  
+!   call popup_close(p)
+    redraw
+  
+    call popup_clear()
+***************
+*** 1715,1721 ****
+      call popup_settext(p, 'this is a text')
+    END
+  
+!   call writefile( lines, 'XtestPopupSetText' )
+    let buf = RunVimInTerminal('-S XtestPopupSetText', #{rows: 10})
+    call VerifyScreenDump(buf, 'Test_popup_settext_01', {})
+  
+--- 1715,1721 ----
+      call popup_settext(p, 'this is a text')
+    END
+  
+!   call writefile(lines, 'XtestPopupSetText')
+    let buf = RunVimInTerminal('-S XtestPopupSetText', #{rows: 10})
+    call VerifyScreenDump(buf, 'Test_popup_settext_01', {})
+  
+***************
+*** 2155,2170 ****
+    let lines =<< trim END
+          set tags=Xtags
+  	call setline(1, [
+!               \ 'one',
+!               \ 'two',
+!               \ 'three',
+!               \ 'four',
+!               \ 'five',
+!               \ 'six',
+!               \ 'seven',
+!               \ 'find theword somewhere',
+!               \ 'nine',
+!               \ 'this is another word'])
+          set previewpopup=height:4,width:40
+    END
+    call writefile(lines, 'XtestPreviewPopup')
+--- 2155,2171 ----
+    let lines =<< trim END
+          set tags=Xtags
+  	call setline(1, [
+! 	      \ 'one',
+! 	      \ 'two',
+! 	      \ 'three',
+! 	      \ 'four',
+! 	      \ 'five',
+! 	      \ 'six',
+! 	      \ 'seven',
+! 	      \ 'find theword somewhere',
+! 	      \ 'nine',
+! 	      \ 'this is another word',
+! 	      \ 'very long line where the word is also another'])
+          set previewpopup=height:4,width:40
+    END
+    call writefile(lines, 'XtestPreviewPopup')
+***************
+*** 2177,2182 ****
+--- 2178,2190 ----
+    call term_sendkeys(buf, "/another\<CR>\<C-W>}")
+    call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_2', {})
+  
++   call term_sendkeys(buf, ":call popup_move(popup_getpreview(), #{col: 15})\<CR>")
++   call term_sendkeys(buf, ":\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_3', {})
++ 
++   call term_sendkeys(buf, "/another\<CR>\<C-W>}")
++   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_4', {})
++ 
+    call StopVimInTerminal(buf)
+    call delete('Xtags')
+    call delete('Xtagfile')
+*** ../vim-8.1.1772/src/testdir/dumps/Test_popupwin_previewpopup_1.dump	2019-07-18 21:42:45.963840541 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_1.dump	2019-07-28 21:30:15.066225524 +0200
+***************
+*** 8,14 ****
+  |f|i|n|d| >t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @52
+  |n|i|n|e| @70
+  |t|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @54
+  |~+0#4040ff13&| @73
+  |~| @73
+- |~| @73
+  |:+0#0000000&| @55|8|,|6| @10|A|l@1| 
+--- 8,14 ----
+  |f|i|n|d| >t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @52
+  |n|i|n|e| @70
+  |t|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @54
++ |v|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| |a|n|o|t|h|e|r| @29
+  |~+0#4040ff13&| @73
+  |~| @73
+  |:+0#0000000&| @55|8|,|6| @10|A|l@1| 
+*** ../vim-8.1.1772/src/testdir/dumps/Test_popupwin_previewpopup_2.dump	2019-07-18 21:42:45.963840541 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_2.dump	2019-07-28 21:30:16.126218437 +0200
+***************
+*** 8,14 ****
+  |f|i|n|d| |t|h|e|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |n|i|n|e| @3|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@23
+  |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
+  |~+0#4040ff13&| @73
+  |~| @73
+- |~| @73
+  |/+0#0000000&|a|n|o|t|h|e|r| @48|1|0|,|9| @9|A|l@1| 
+--- 8,14 ----
+  |f|i|n|d| |t|h|e|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |n|i|n|e| @3|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@23
+  |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
++ |v|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| |a|n|o|t|h|e|r| @29
+  |~+0#4040ff13&| @73
+  |~| @73
+  |/+0#0000000&|a|n|o|t|h|e|r| @48|1|0|,|9| @9|A|l@1| 
+*** ../vim-8.1.1772/src/testdir/dumps/Test_popupwin_previewpopup_3.dump	2019-07-28 17:57:04.845046867 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_3.dump	2019-07-28 21:30:17.182211372 +0200
+***************
+*** 8,14 ****
+  |f|i|n|d| |t|h|e|w|o|r|d| |s|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |n|i|n|e| @9|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@17
+  |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
+  |~+0#4040ff13&| @73
+  |~| @73
+- |~| @73
+  |:+0#0000000&| @55|1|0|,|9| @9|A|l@1| 
+--- 8,14 ----
+  |f|i|n|d| |t|h|e|w|o|r|d| |s|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |n|i|n|e| @9|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@17
+  |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
++ |v|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| |a|n|o|t|h|e|r| @29
+  |~+0#4040ff13&| @73
+  |~| @73
+  |:+0#0000000&| @55|1|0|,|9| @9|A|l@1| 
+*** ../vim-8.1.1772/src/testdir/dumps/Test_popupwin_previewpopup_4.dump	2019-07-28 21:35:00.976323327 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_4.dump	2019-07-28 21:30:18.242204283 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |o+0&#ffffff0|n|e| @71
++ |t|w|o| @71
++ |t|h|r|e@1| @69
++ |f|o|u|r| @70
++ |f|i|v|e| @27|╔+0#0000001#ffd7ff255|═@40|X
++ |s+0#0000000#ffffff0|i|x| @28|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |s+0#0000000#ffffff0|e|v|e|n| @26|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |f+0#0000000#ffffff0|i|n|d| |t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @9|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255
++ |n+0#0000000#ffffff0|i|n|e| @27|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |t+0#0000000#ffffff0|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @11|╚+0#0000001#ffd7ff255|═@40|╝
++ |v+0#0000000#ffffff0|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| >a|n|o|t|h|e|r| @29
++ |~+0#4040ff13&| @73
++ |~| @73
++ |/+0#0000000&|a|n|o|t|h|e|r| @48|1@1|,|3|9| @8|A|l@1| 
+*** ../vim-8.1.1772/src/version.c	2019-07-28 19:24:09.063573879 +0200
+--- src/version.c	2019-07-28 21:34:43.036442193 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1773,
+  /**/
+
+-- 
+Managers are like cats in a litter box.  They instinctively shuffle things
+around to conceal what they've done.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

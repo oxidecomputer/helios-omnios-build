@@ -1,0 +1,84 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1636
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1636
+Problem:    Crash when popup has fitting scrollbar. (Trygve Aaberge)
+Solution:   Don't divide by zero if the scrollbar just fits. (closes #4615)
+Files:	    src/popupwin.c, src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1635/src/popupwin.c	2019-07-03 23:20:14.821113721 +0200
+--- src/popupwin.c	2019-07-05 20:16:31.284812377 +0200
+***************
+*** 2463,2469 ****
+  								   / linecount;
+  	    if (sb_thumb_height == 0)
+  		sb_thumb_height = 1;
+! 	    sb_thumb_top = (wp->w_topline - 1 + (linecount / wp->w_height) / 2)
+  				* (wp->w_height - sb_thumb_height)
+  						  / (linecount - wp->w_height);
+  	    if (wp->w_scrollbar_highlight != NULL)
+--- 2463,2474 ----
+  								   / linecount;
+  	    if (sb_thumb_height == 0)
+  		sb_thumb_height = 1;
+! 	    if (linecount <= wp->w_height)
+! 		// it just fits, avoid divide by zero
+! 		sb_thumb_top = 0;
+! 	    else
+! 		sb_thumb_top = (wp->w_topline - 1
+! 				+ (linecount / wp->w_height) / 2)
+  				* (wp->w_height - sb_thumb_height)
+  						  / (linecount - wp->w_height);
+  	    if (wp->w_scrollbar_highlight != NULL)
+*** ../vim-8.1.1635/src/testdir/test_popupwin.vim	2019-07-04 15:39:23.823385977 +0200
+--- src/testdir/test_popupwin.vim	2019-07-05 20:14:38.685526565 +0200
+***************
+*** 1565,1570 ****
+--- 1565,1582 ----
+    call delete('XtestPopupScroll')
+  endfunc
+  
++ func Test_popup_fitting_scrollbar()
++   " this was causing a crash, divide by zero
++   let winid = popup_create([
++ 	\ 'one', 'two', 'longer line that wraps', 'four', 'five'], {
++ 	\ 'scrollbar': 1,
++ 	\ 'maxwidth': 10,
++ 	\ 'maxheight': 5,
++ 	\ 'firstline': 2})
++   redraw
++   call popup_clear()
++ endfunc
++ 
+  func Test_popup_settext()
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+*** ../vim-8.1.1635/src/version.c	2019-07-04 22:59:03.042796075 +0200
+--- src/version.c	2019-07-05 20:10:01.055287483 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1636,
+  /**/
+
+-- 
+GUARD #1:  Where'd you get the coconut?
+ARTHUR:    We found them.
+GUARD #1:  Found them?  In Mercea?  The coconut's tropical!
+ARTHUR:    What do you mean?
+GUARD #1:  Well, this is a temperate zone.
+                                  The Quest for the Holy Grail (Monty Python)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

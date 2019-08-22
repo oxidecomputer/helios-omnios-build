@@ -1,0 +1,178 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1431
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1431
+Problem:    Popup window listed as "Scratch".
+Solution:   List them as "Popup".
+Files:      src/buffer.c, src/popupwin.c, src/testdir/test_popupwin.vim,
+            runtime/doc/popup.txt, runtime/doc/windows.txt
+
+*** ../vim-8.1.1430/src/buffer.c	2019-05-28 23:08:12.052648779 +0200
+--- src/buffer.c	2019-05-30 22:27:37.621612222 +0200
+***************
+*** 5782,5787 ****
+--- 5782,5791 ----
+  	if (bt_prompt(buf))
+  	    return (char_u *)_("[Prompt]");
+  #endif
++ #ifdef FEAT_TEXT_PROP
++ 	if (bt_popup(buf))
++ 	    return (char_u *)_("[Popup]");
++ #endif
+  	return (char_u *)_("[Scratch]");
+      }
+  
+*** ../vim-8.1.1430/src/popupwin.c	2019-05-30 22:07:13.548111883 +0200
+--- src/popupwin.c	2019-05-30 22:28:16.449411122 +0200
+***************
+*** 550,555 ****
+--- 550,556 ----
+      if (wp != NULL && (wp->w_popup_flags & POPF_HIDDEN) == 0)
+      {
+  	wp->w_popup_flags |= POPF_HIDDEN;
++ 	--wp->w_buffer->b_nwindows;
+  	redraw_all_later(NOT_VALID);
+      }
+  }
+***************
+*** 566,571 ****
+--- 567,573 ----
+      if (wp != NULL && (wp->w_popup_flags & POPF_HIDDEN) != 0)
+      {
+  	wp->w_popup_flags &= ~POPF_HIDDEN;
++ 	++wp->w_buffer->b_nwindows;
+  	redraw_all_later(NOT_VALID);
+      }
+  }
+*** ../vim-8.1.1430/src/testdir/test_popupwin.vim	2019-05-30 22:07:13.548111883 +0200
+--- src/testdir/test_popupwin.vim	2019-05-30 22:28:52.253224789 +0200
+***************
+*** 196,207 ****
+--- 196,211 ----
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('world', line)
+    call assert_equal(1, popup_getpos(winid).visible)
++   " buffer is still listed and active
++   call assert_match(winbufnr(winid) .. 'u a.*\[Popup\]', execute('ls u'))
+  
+    call popup_hide(winid)
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('hello', line)
+    call assert_equal(0, popup_getpos(winid).visible)
++   " buffer is still listed but hidden
++   call assert_match(winbufnr(winid) .. 'u h.*\[Popup\]', execute('ls u'))
+  
+    call popup_show(winid)
+    redraw
+*** ../vim-8.1.1430/runtime/doc/popup.txt	2019-05-30 21:24:22.177201251 +0200
+--- runtime/doc/popup.txt	2019-05-30 22:12:58.106332448 +0200
+***************
+*** 85,95 ****
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+- - Implement the "pos" option.
+  - Implement filter.
+    Check that popup_close() works in the filter.
+  - Handle screen resize in screenalloc().
+- - show [Popup] instead of [Scratch] in ":ls!"
+  - Make redrawing more efficient and avoid flicker.
+      Store popup info in a mask, use the mask in screen_line()
+      Fix redrawing problem with completion.
+--- 85,95 ----
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+  - Implement filter.
+    Check that popup_close() works in the filter.
++ - Implement padding
++ - Implement border
+  - Handle screen resize in screenalloc().
+  - Make redrawing more efficient and avoid flicker.
+      Store popup info in a mask, use the mask in screen_line()
+      Fix redrawing problem with completion.
+***************
+*** 287,292 ****
+--- 287,294 ----
+  	call setwinvar(winid, '&wrap', 0)
+  And options can be set on the buffer with `setbufvar()`, e.g.: >
+  	call setbufvar(winbufnr(winid), '&filetype', 'java')
++ Note that this does not trigger autocommands.  Use `win_execute()` if you do
++ need them.
+  
+  
+  POPUP_CREATE() ARGUMENTS				*popup_create-usage*
+***************
+*** 320,326 ****
+  			Alternatively "center" can be used to position the
+  			popup in the center of the Vim window, in which case
+  			"line" and "col" are ignored.
+- 			{not implemented yet}
+  	flip		when TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+  			avoid overlap with the |popupmenu-completion| or
+--- 322,327 ----
+***************
+*** 342,348 ****
+  			popup, on top of any border
+  			{not implemented yet}
+  	wrap		TRUE to make the lines wrap (default TRUE)
+- 			{not implemented yet}
+  	highlight	highlight group name to use for the text, stored in
+  			the 'wincolor' option
+  	padding		list with numbers, defining the padding
+--- 343,348 ----
+*** ../vim-8.1.1430/runtime/doc/windows.txt	2019-05-05 18:11:46.332590572 +0200
+--- runtime/doc/windows.txt	2019-05-30 22:17:52.648751769 +0200
+***************
+*** 1030,1035 ****
+--- 1030,1042 ----
+  		thus you can always go to a specific buffer with ":buffer N"
+  		or "N CTRL-^", where N is the buffer number.
+  
++ 		For the file name these special values are used:
++ 			[Prompt]	|prompt-buffer|
++ 			[Popup]		buffer of a |popup-window|
++ 			[Scratch]	'buftype' is "nofile"
++ 			[No Name]	no file name specified
++ 		For a |terminal-window| buffer the status is used.
++ 
+  		Indicators (chars in the same column are mutually exclusive):
+  		u	an unlisted buffer (only displayed when [!] is used)
+  			   |unlisted-buffer|
+***************
+*** 1192,1198 ****
+  		the way when you're browsing code/text buffers.  The next three
+  		commands also work like this.
+  
+- 
+  							*:sbn* *:sbnext*
+  :[N]sbn[ext] [+cmd] [N]
+  		Split window and go to [N]th next buffer in buffer list.
+--- 1199,1204 ----
+*** ../vim-8.1.1430/src/version.c	2019-05-30 22:07:13.548111883 +0200
+--- src/version.c	2019-05-30 22:29:58.956875641 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1431,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+57. You begin to wonder how on earth your service provider is allowed to call
+    200 hours per month "unlimited."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

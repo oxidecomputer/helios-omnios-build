@@ -1,0 +1,79 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1848
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1848
+Problem:    'langmap' is not used for CTRL-W command in terminal.
+Solution:   Push the command in the typeahead buffer instead of the stuff
+            buffer. (closes #4814)
+Files:	    src/terminal.c, src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.1847/src/terminal.c	2019-08-03 18:17:07.684638594 +0200
+--- src/terminal.c	2019-08-15 20:53:43.179480690 +0200
+***************
+*** 2372,2379 ****
+  	    }
+  	    else if (termwinkey == 0 || c != termwinkey)
+  	    {
+! 		stuffcharReadbuff(Ctrl_W);
+! 		stuffcharReadbuff(c);
+  		ret = OK;
+  		goto theend;
+  	    }
+--- 2372,2384 ----
+  	    }
+  	    else if (termwinkey == 0 || c != termwinkey)
+  	    {
+! 		char_u buf[MB_MAXBYTES + 2];
+! 
+! 		// Put the command into the typeahead buffer, when using the
+! 		// stuff buffer KeyStuffed is set and 'langmap' won't be used.
+! 		buf[0] = Ctrl_W;
+! 		buf[(*mb_char2bytes)(c, buf + 1) + 1] = NUL;
+! 		ins_typebuf(buf, REMAP_NONE, 0, TRUE, FALSE);
+  		ret = OK;
+  		goto theend;
+  	    }
+*** ../vim-8.1.1847/src/testdir/test_terminal.vim	2019-08-07 23:07:03.960858821 +0200
+--- src/testdir/test_terminal.vim	2019-08-15 20:53:58.663410004 +0200
+***************
+*** 1686,1691 ****
+--- 1686,1698 ----
+    call feedkeys("\<C-W>w", 'tx')
+    call assert_equal(termwin, win_getid())
+  
++   set langmap=xjyk
++   call feedkeys("\<C-L>x", 'tx')
++   call assert_equal(thiswin, win_getid())
++   call feedkeys("\<C-W>y", 'tx')
++   call assert_equal(termwin, win_getid())
++   set langmap=
++ 
+    call feedkeys("\<C-L>gt", "xt")
+    call assert_equal(3, tabpagenr())
+    tabprev
+*** ../vim-8.1.1847/src/version.c	2019-08-15 11:21:10.588851117 +0200
+--- src/version.c	2019-08-15 20:58:38.390133403 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1848,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+57. You begin to wonder how on earth your service provider is allowed to call
+    200 hours per month "unlimited."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

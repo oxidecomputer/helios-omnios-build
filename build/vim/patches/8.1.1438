@@ -1,0 +1,276 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1438
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1438
+Problem:    Some commands cause trouble in a popup window.
+Solution:   Add NOT_IN_POPUP_WINDOW.
+Files:	    src/macros.h, src/popupwin.c, src/proto/popupwin.pro,
+            src/ex_docmd.c, src/ex_cmds2.c, src/window.c,
+            src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1437/src/macros.h	2019-04-27 13:03:20.008715938 +0200
+--- src/macros.h	2019-06-01 13:53:42.718288890 +0200
+***************
+*** 339,341 ****
+--- 339,347 ----
+  
+  /* Wether a command index indicates a user command. */
+  #define IS_USER_CMDIDX(idx) ((int)(idx) < 0)
++ 
++ #ifdef FEAT_TEXT_PROP
++ # define NOT_IN_POPUP_WINDOW not_in_popup_window()
++ #else
++ # define NOT_IN_POPUP_WINDOW 0
++ #endif
+*** ../vim-8.1.1437/src/popupwin.c	2019-06-01 13:28:30.273829492 +0200
+--- src/popupwin.c	2019-06-01 13:50:58.931115084 +0200
+***************
+*** 747,750 ****
+--- 747,762 ----
+  # endif
+      }
+  }
++ 
++     int
++ not_in_popup_window()
++ {
++     if (bt_popup(curwin->w_buffer))
++     {
++ 	emsg(_("E994: Not allowed in a popup window"));
++ 	return TRUE;
++     }
++     return FALSE;
++ }
++ 
+  #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.1437/src/proto/popupwin.pro	2019-05-30 21:24:22.177201251 +0200
+--- src/proto/popupwin.pro	2019-06-01 13:52:58.006515140 +0200
+***************
+*** 13,16 ****
+--- 13,17 ----
+  void f_popup_move(typval_T *argvars, typval_T *rettv);
+  void f_popup_getpos(typval_T *argvars, typval_T *rettv);
+  void f_popup_getoptions(typval_T *argvars, typval_T *rettv);
++ int not_in_popup_window(void);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1437/src/ex_docmd.c	2019-05-28 23:08:12.060648736 +0200
+--- src/ex_docmd.c	2019-06-01 14:11:47.076719587 +0200
+***************
+*** 5452,5457 ****
+--- 5452,5459 ----
+      static void
+  ex_bunload(exarg_T *eap)
+  {
++     if (NOT_IN_POPUP_WINDOW)
++ 	return;
+      eap->errmsg = do_bufdel(
+  	    eap->cmdidx == CMD_bdelete ? DOBUF_DEL
+  		: eap->cmdidx == CMD_bwipeout ? DOBUF_WIPE
+***************
+*** 5466,5471 ****
+--- 5468,5475 ----
+      static void
+  ex_buffer(exarg_T *eap)
+  {
++     if (NOT_IN_POPUP_WINDOW)
++ 	return;
+      if (*eap->arg)
+  	eap->errmsg = e_trailing;
+      else
+***************
+*** 6768,6773 ****
+--- 6772,6780 ----
+  		       || eap->cmdidx == CMD_tabfind
+  		       || eap->cmdidx == CMD_tabnew;
+  
++     if (NOT_IN_POPUP_WINDOW)
++ 	return;
++ 
+  #ifdef FEAT_GUI
+      need_mouse_correct = TRUE;
+  #endif
+***************
+*** 6895,6900 ****
+--- 6902,6909 ----
+  {
+      int tab_number;
+  
++     if (NOT_IN_POPUP_WINDOW)
++ 	return;
+      switch (eap->cmdidx)
+      {
+  	case CMD_tabfirst:
+***************
+*** 7146,7151 ****
+--- 7155,7162 ----
+      int		need_hide;
+      int		exmode_was = exmode_active;
+  
++     if (NOT_IN_POPUP_WINDOW)
++ 	return;
+      /*
+       * ":vi" command ends Ex mode.
+       */
+*** ../vim-8.1.1437/src/ex_cmds2.c	2019-06-01 13:28:30.273829492 +0200
+--- src/ex_cmds2.c	2019-06-01 14:12:18.060559339 +0200
+***************
+*** 1864,1869 ****
+--- 1864,1871 ----
+      char_u	*p;
+      int		old_arg_idx = curwin->w_arg_idx;
+  
++     if (NOT_IN_POPUP_WINDOW)
++ 	return;
+      if (argn < 0 || argn >= ARGCOUNT)
+      {
+  	if (ARGCOUNT <= 1)
+*** ../vim-8.1.1437/src/window.c	2019-05-31 17:34:44.195465656 +0200
+--- src/window.c	2019-06-01 14:06:57.822214087 +0200
+***************
+*** 87,93 ****
+  #endif
+      char_u	cbuf[40];
+  
+!     Prenum1 = Prenum == 0 ? 1 : Prenum;
+  
+  #ifdef FEAT_CMDWIN
+  # define CHECK_CMDWIN \
+--- 87,94 ----
+  #endif
+      char_u	cbuf[40];
+  
+!     if (NOT_IN_POPUP_WINDOW)
+! 	return;
+  
+  #ifdef FEAT_CMDWIN
+  # define CHECK_CMDWIN \
+***************
+*** 102,107 ****
+--- 103,110 ----
+  # define CHECK_CMDWIN do { /**/ } while (0)
+  #endif
+  
++     Prenum1 = Prenum == 0 ? 1 : Prenum;
++ 
+      switch (nchar)
+      {
+  /* split current window in two parts, horizontally */
+***************
+*** 732,737 ****
+--- 735,743 ----
+      int
+  win_split(int size, int flags)
+  {
++     if (NOT_IN_POPUP_WINDOW)
++ 	return FAIL;
++ 
+      /* When the ":tab" modifier was used open a new tab page instead. */
+      if (may_open_tabpage() == OK)
+  	return OK;
+***************
+*** 1509,1515 ****
+      win_T	*wp2;
+      int		temp;
+  
+!     if (ONE_WINDOW)	    /* just one window */
+      {
+  	beep_flush();
+  	return;
+--- 1515,1523 ----
+      win_T	*wp2;
+      int		temp;
+  
+!     if (NOT_IN_POPUP_WINDOW)
+! 	return;
+!     if (ONE_WINDOW)	    // just one window
+      {
+  	beep_flush();
+  	return;
+***************
+*** 2363,2368 ****
+--- 2371,2379 ----
+      tabpage_T   *prev_curtab = curtab;
+      frame_T	*win_frame = win->w_frame->fr_parent;
+  
++     if (NOT_IN_POPUP_WINDOW)
++ 	return FAIL;
++ 
+      if (last_window())
+      {
+  	emsg(_("E444: Cannot close last window"));
+***************
+*** 4221,4226 ****
+--- 4232,4239 ----
+      win_T	*owp = curwin;
+  #endif
+  
++     if (NOT_IN_POPUP_WINDOW)
++ 	return;
+      if (text_locked())
+      {
+  	beep_flush();
+*** ../vim-8.1.1437/src/testdir/test_popupwin.vim	2019-05-31 17:34:44.195465656 +0200
+--- src/testdir/test_popupwin.vim	2019-06-01 14:12:32.116486630 +0200
+***************
+*** 108,115 ****
+  func Test_win_execute_closing_curwin()
+    split
+    let winid = popup_create('some text', {})
+!   call win_execute(winid, winnr() .. "close")
+!   call assert_equal(1, winnr())
+    popupclear
+  endfunc
+  
+--- 108,134 ----
+  func Test_win_execute_closing_curwin()
+    split
+    let winid = popup_create('some text', {})
+!   call assert_fails('call win_execute(winid, winnr() .. "close")', 'E994')
+!   popupclear
+! endfunc
+! 
+! func Test_win_execute_not_allowed()
+!   let winid = popup_create('some text', {})
+!   call assert_fails('call win_execute(winid, "split")', 'E994:')
+!   call assert_fails('call win_execute(winid, "vsplit")', 'E994:')
+!   call assert_fails('call win_execute(winid, "close")', 'E994:')
+!   call assert_fails('call win_execute(winid, "bdelete")', 'E994:')
+!   call assert_fails('call win_execute(winid, "tabnew")', 'E994:')
+!   call assert_fails('call win_execute(winid, "tabnext")', 'E994:')
+!   call assert_fails('call win_execute(winid, "next")', 'E994:')
+!   call assert_fails('call win_execute(winid, "rewind")', 'E994:')
+!   call assert_fails('call win_execute(winid, "buf")', 'E994:')
+!   call assert_fails('call win_execute(winid, "edit")', 'E994:')
+!   call assert_fails('call win_execute(winid, "enew")', 'E994:')
+!   call assert_fails('call win_execute(winid, "wincmd x")', 'E994:')
+!   call assert_fails('call win_execute(winid, "wincmd w")', 'E994:')
+!   call assert_fails('call win_execute(winid, "wincmd t")', 'E994:')
+!   call assert_fails('call win_execute(winid, "wincmd b")', 'E994:')
+    popupclear
+  endfunc
+  
+*** ../vim-8.1.1437/src/version.c	2019-06-01 13:28:30.273829492 +0200
+--- src/version.c	2019-06-01 13:54:09.342153943 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1438,
+  /**/
+
+-- 
+"Thou shalt not follow the Null Pointer, for at its end Chaos and
+Madness lie."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,200 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1591
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1591
+Problem:    On error garbage collection may free memory in use.
+Solution:   Reset may_garbage_collect when evaluating expression mapping.
+            Add tests. (Ozaki Kiichi, closes #4579)
+Files:	    src/ex_cmds2.c, src/getchar.c, src/testdir/test_mapping.vim,
+            src/testdir/test_timers.vim, src/testdir/test_vimscript.vim
+
+
+*** ../vim-8.1.1590/src/ex_cmds2.c	2019-06-25 04:12:12.308665266 +0200
+--- src/ex_cmds2.c	2019-06-25 06:26:44.993648098 +0200
+***************
+*** 367,374 ****
+  	    int save_vgetc_busy = vgetc_busy;
+  	    int save_did_emsg = did_emsg;
+  	    int save_called_emsg = called_emsg;
+! 	    int	save_must_redraw = must_redraw;
+! 	    int	save_trylevel = trylevel;
+  	    int save_did_throw = did_throw;
+  	    int save_ex_pressedreturn = get_pressedreturn();
+  	    int save_may_garbage_collect = may_garbage_collect;
+--- 367,374 ----
+  	    int save_vgetc_busy = vgetc_busy;
+  	    int save_did_emsg = did_emsg;
+  	    int save_called_emsg = called_emsg;
+! 	    int save_must_redraw = must_redraw;
+! 	    int save_trylevel = trylevel;
+  	    int save_did_throw = did_throw;
+  	    int save_ex_pressedreturn = get_pressedreturn();
+  	    int save_may_garbage_collect = may_garbage_collect;
+*** ../vim-8.1.1590/src/getchar.c	2019-06-01 17:13:15.884517713 +0200
+--- src/getchar.c	2019-06-25 06:13:26.940569764 +0200
+***************
+*** 2540,2552 ****
+  			 */
+  			if (mp->m_expr)
+  			{
+! 			    int		save_vgetc_busy = vgetc_busy;
+  
+  			    vgetc_busy = 0;
+  			    save_m_keys = vim_strsave(mp->m_keys);
+  			    save_m_str = vim_strsave(mp->m_str);
+  			    s = eval_map_expr(save_m_str, NUL);
+  			    vgetc_busy = save_vgetc_busy;
+  			}
+  			else
+  #endif
+--- 2540,2557 ----
+  			 */
+  			if (mp->m_expr)
+  			{
+! 			    int save_vgetc_busy = vgetc_busy;
+! 			    int save_may_garbage_collect = may_garbage_collect;
+  
+  			    vgetc_busy = 0;
++ 			    may_garbage_collect = FALSE;
++ 
+  			    save_m_keys = vim_strsave(mp->m_keys);
+  			    save_m_str = vim_strsave(mp->m_str);
+  			    s = eval_map_expr(save_m_str, NUL);
++ 
+  			    vgetc_busy = save_vgetc_busy;
++ 			    may_garbage_collect = save_may_garbage_collect;
+  			}
+  			else
+  #endif
+*** ../vim-8.1.1590/src/testdir/test_mapping.vim	2019-04-23 16:35:59.272261198 +0200
+--- src/testdir/test_mapping.vim	2019-06-25 06:13:26.940569764 +0200
+***************
+*** 397,399 ****
+--- 397,435 ----
+    delfunc Select
+    delfunc GetCommand
+  endfunc
++ 
++ func Test_error_in_map_expr()
++   if !has('terminal') || (has('win32') && has('gui_running'))
++     throw 'Skipped: cannot run Vim in a terminal window'
++   endif
++ 
++   let lines =<< trim [CODE]
++   func Func()
++     " fail to create list
++     let x = [
++   endfunc
++   nmap <expr> ! Func()
++   set updatetime=50
++   [CODE]
++   call writefile(lines, 'Xtest.vim')
++ 
++   let buf = term_start(GetVimCommandClean() .. ' -S Xtest.vim', {'term_rows': 8})
++   let job = term_getjob(buf)
++   call WaitForAssert({-> assert_notequal('', term_getline(buf, 8))})
++ 
++   " GC must not run during map-expr processing, which can make Vim crash.
++   call term_sendkeys(buf, '!')
++   call term_wait(buf, 100)
++   call term_sendkeys(buf, "\<CR>")
++   call term_wait(buf, 100)
++   call assert_equal('run', job_status(job))
++ 
++   call term_sendkeys(buf, ":qall!\<CR>")
++   call WaitFor({-> job_status(job) ==# 'dead'})
++   if has('unix')
++     call assert_equal('', job_info(job).termsig)
++   endif
++ 
++   call delete('Xtest.vim')
++   exe buf .. 'bwipe!'
++ endfunc
+*** ../vim-8.1.1590/src/testdir/test_timers.vim	2019-06-23 00:49:50.985715087 +0200
+--- src/testdir/test_timers.vim	2019-06-25 06:13:26.940569764 +0200
+***************
+*** 333,336 ****
+--- 333,371 ----
+    delfunc FeedChar
+  endfunc
+  
++ func Test_error_in_timer_callback()
++   if !has('terminal') || (has('win32') && has('gui_running'))
++     throw 'Skipped: cannot run Vim in a terminal window'
++   endif
++ 
++   let lines =<< trim [CODE]
++   func Func(timer)
++     " fail to create list
++     let x = [
++   endfunc
++   set updatetime=50
++   call timer_start(1, 'Func')
++   [CODE]
++   call writefile(lines, 'Xtest.vim')
++ 
++   let buf = term_start(GetVimCommandClean() .. ' -S Xtest.vim', {'term_rows': 8})
++   let job = term_getjob(buf)
++   call WaitForAssert({-> assert_notequal('', term_getline(buf, 8))})
++ 
++   " GC must not run during timer callback, which can make Vim crash.
++   call term_wait(buf, 100)
++   call term_sendkeys(buf, "\<CR>")
++   call term_wait(buf, 100)
++   call assert_equal('run', job_status(job))
++ 
++   call term_sendkeys(buf, ":qall!\<CR>")
++   call WaitFor({-> job_status(job) ==# 'dead'})
++   if has('unix')
++     call assert_equal('', job_info(job).termsig)
++   endif
++ 
++   call delete('Xtest.vim')
++   exe buf .. 'bwipe!'
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1590/src/testdir/test_vimscript.vim	2019-06-17 21:18:37.853807079 +0200
+--- src/testdir/test_vimscript.vim	2019-06-25 06:13:26.940569764 +0200
+***************
+*** 1665,1671 ****
+      delfunc DictFunc
+  endfunc
+  
+! func! Test_funccall_garbage_collect()
+      func Func(x, ...)
+          call add(a:x, a:000)
+      endfunc
+--- 1665,1671 ----
+      delfunc DictFunc
+  endfunc
+  
+! func Test_funccall_garbage_collect()
+      func Func(x, ...)
+          call add(a:x, a:000)
+      endfunc
+*** ../vim-8.1.1590/src/version.c	2019-06-25 05:33:32.585272857 +0200
+--- src/version.c	2019-06-25 06:21:31.618769152 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1591,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+270. You are subscribed to a mailing list for every piece of software
+     you use.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

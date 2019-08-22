@@ -1,0 +1,540 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1520
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1520
+Problem:    Popup windows are ignored when dealing with mouse position.
+Solution:   Find the mouse position inside a popup window.  Allow for modeless
+            selection.
+Files:	    src/ui.c, src/proto/ui.pro, src/popupwin.c,
+            src/proto/popupwin.pro, src/screen.c, src/beval.c, src/edit.c,
+            src/evalfunc.c, src/gui.c, src/normal.c, src/structs.h
+
+
+*** ../vim-8.1.1519/src/ui.c	2019-06-10 21:23:52.363724122 +0200
+--- src/ui.c	2019-06-12 20:12:02.012662311 +0200
+***************
+*** 1455,1466 ****
+--- 1455,1473 ----
+      int		width,
+      int		invert)
+  {
++ #ifdef FEAT_TEXT_PROP
++     // this goes on top of all popup windows
++     screen_zindex = 32000;
++ #endif
+  #ifdef FEAT_GUI
+      if (gui.in_use)
+  	gui_mch_invert_rectangle(row, col, height, width);
+      else
+  #endif
+  	screen_draw_rectangle(row, col, height, width, invert);
++ #ifdef FEAT_TEXT_PROP
++     screen_zindex = 0;
++ #endif
+  }
+  
+  /*
+***************
+*** 2833,2838 ****
+--- 2840,2848 ----
+  #ifdef FEAT_MENU
+      static int  in_winbar = FALSE;
+  #endif
++ #ifdef FEAT_TEXT_PROP
++     static int  in_popup_win = FALSE;
++ #endif
+      static int	prev_row = -1;
+      static int	prev_col = -1;
+      static win_T *dragwin = NULL;	/* window being dragged */
+***************
+*** 2879,2885 ****
+  	     * as a second click in the WinBar. */
+  	    if ((mod_mask & MOD_MASK_MULTI_CLICK) && !(flags & MOUSE_RELEASED))
+  	    {
+! 		wp = mouse_find_win(&row, &col);
+  		if (wp == NULL)
+  		    return IN_UNKNOWN;
+  		winbar_click(wp, col);
+--- 2889,2895 ----
+  	     * as a second click in the WinBar. */
+  	    if ((mod_mask & MOD_MASK_MULTI_CLICK) && !(flags & MOUSE_RELEASED))
+  	    {
+! 		wp = mouse_find_win(&row, &col, FAIL_POPUP);
+  		if (wp == NULL)
+  		    return IN_UNKNOWN;
+  		winbar_click(wp, col);
+***************
+*** 2893,2902 ****
+  	    redraw_curbuf_later(INVERTED);	/* delete the inversion */
+  	}
+  #if defined(FEAT_CMDWIN) && defined(FEAT_CLIPBOARD)
+! 	/* Continue a modeless selection in another window. */
+  	if (cmdwin_type != 0 && row < curwin->w_winrow)
+  	    return IN_OTHER_WIN;
+  #endif
+  	return IN_BUFFER;
+      }
+  
+--- 2903,2917 ----
+  	    redraw_curbuf_later(INVERTED);	/* delete the inversion */
+  	}
+  #if defined(FEAT_CMDWIN) && defined(FEAT_CLIPBOARD)
+! 	// Continue a modeless selection in another window.
+  	if (cmdwin_type != 0 && row < curwin->w_winrow)
+  	    return IN_OTHER_WIN;
+  #endif
++ #ifdef FEAT_TEXT_PROP
++ 	// Continue a modeless selection in a popup window.
++ 	if (in_popup_win)
++ 	    return IN_OTHER_WIN;
++ #endif
+  	return IN_BUFFER;
+      }
+  
+***************
+*** 2925,2935 ****
+  	    return IN_UNKNOWN;
+  
+  	/* find the window where the row is in */
+! 	wp = mouse_find_win(&row, &col);
+  	if (wp == NULL)
+  	    return IN_UNKNOWN;
+  	dragwin = NULL;
+  
+  #ifdef FEAT_MENU
+  	if (row == -1)
+  	{
+--- 2940,2965 ----
+  	    return IN_UNKNOWN;
+  
+  	/* find the window where the row is in */
+! 	wp = mouse_find_win(&row, &col, FIND_POPUP);
+  	if (wp == NULL)
+  	    return IN_UNKNOWN;
+  	dragwin = NULL;
+  
++ #ifdef FEAT_TEXT_PROP
++ 	// Click in a popup window may start modeless selection, but not much
++ 	// else.
++ 	if (bt_popup(wp->w_buffer))
++ 	{
++ 	    on_sep_line = 0;
++ 	    in_popup_win = TRUE;
++ # ifdef FEAT_CLIPBOARD
++ 	    return IN_OTHER_WIN;
++ # else
++ 	    return IN_UNKNOWN;
++ # endif
++ 	}
++ 	    in_popup_win = FALSE;
++ #endif
+  #ifdef FEAT_MENU
+  	if (row == -1)
+  	{
+***************
+*** 3096,3101 ****
+--- 3126,3136 ----
+  	if (cmdwin_type != 0 && row < curwin->w_winrow)
+  	    return IN_OTHER_WIN;
+  #endif
++ #ifdef FEAT_TEXT_PROP
++ 	// Continue a modeless selection in a popup window.
++ 	if (in_popup_win)
++ 	    return IN_OTHER_WIN;
++ #endif
+  
+  	row -= W_WINROW(curwin);
+  	col -= curwin->w_wincol;
+***************
+*** 3348,3361 ****
+  /*
+   * Find the window at screen position "*rowp" and "*colp".  The positions are
+   * updated to become relative to the top-left of the window.
+   * Returns NULL when something is wrong.
+   */
+      win_T *
+! mouse_find_win(int *rowp, int *colp)
+  {
+      frame_T	*fp;
+      win_T	*wp;
+  
+      fp = topframe;
+      *rowp -= firstwin->w_winrow;
+      for (;;)
+--- 3383,3423 ----
+  /*
+   * Find the window at screen position "*rowp" and "*colp".  The positions are
+   * updated to become relative to the top-left of the window.
++  * When "popup" is FAIL_POPUP and the position is in a popup window then NULL
++  * is returned.  When "popup" is IGNORE_POPUP then do not even check popup
++  * windows.
+   * Returns NULL when something is wrong.
+   */
+      win_T *
+! mouse_find_win(int *rowp, int *colp, mouse_find_T popup UNUSED)
+  {
+      frame_T	*fp;
+      win_T	*wp;
+  
++ #ifdef FEAT_TEXT_PROP
++     win_T	*pwp = NULL;
++ 
++     if (popup != IGNORE_POPUP)
++     {
++ 	popup_reset_handled();
++ 	while ((wp = find_next_popup(TRUE)) != NULL)
++ 	{
++ 	    if (*rowp >= wp->w_winrow && *rowp < wp->w_winrow + popup_height(wp)
++ 		    && *colp >= wp->w_wincol
++ 					 && *colp < wp->w_wincol + popup_width(wp))
++ 		pwp = wp;
++ 	}
++ 	if (pwp != NULL)
++ 	{
++ 	    if (popup == FAIL_POPUP)
++ 		return NULL;
++ 	    *rowp -= pwp->w_winrow;
++ 	    *colp -= pwp->w_wincol;
++ 	    return pwp;
++ 	}
++     }
++ #endif
++ 
+      fp = topframe;
+      *rowp -= firstwin->w_winrow;
+      for (;;)
+***************
+*** 3412,3418 ****
+  	return IN_UNKNOWN;
+  
+      /* find the window where the row is in */
+!     wp = mouse_find_win(&row, &col);
+      if (wp == NULL)
+  	return IN_UNKNOWN;
+      /*
+--- 3474,3480 ----
+  	return IN_UNKNOWN;
+  
+      /* find the window where the row is in */
+!     wp = mouse_find_win(&row, &col, FAIL_POPUP);
+      if (wp == NULL)
+  	return IN_UNKNOWN;
+      /*
+*** ../vim-8.1.1519/src/proto/ui.pro	2019-04-06 17:33:20.651486473 +0200
+--- src/proto/ui.pro	2019-06-11 23:04:54.472786057 +0200
+***************
+*** 65,71 ****
+  void yank_cut_buffer0(Display *dpy, VimClipboard *cbd);
+  int jump_to_mouse(int flags, int *inclusive, int which_button);
+  int mouse_comp_pos(win_T *win, int *rowp, int *colp, linenr_T *lnump);
+! win_T *mouse_find_win(int *rowp, int *colp);
+  int get_fpos_of_mouse(pos_T *mpos);
+  int vcol2col(win_T *wp, linenr_T lnum, int vcol);
+  void ui_focus_change(int in_focus);
+--- 65,71 ----
+  void yank_cut_buffer0(Display *dpy, VimClipboard *cbd);
+  int jump_to_mouse(int flags, int *inclusive, int which_button);
+  int mouse_comp_pos(win_T *win, int *rowp, int *colp, linenr_T *lnump);
+! win_T *mouse_find_win(int *rowp, int *colp, mouse_find_T popup);
+  int get_fpos_of_mouse(pos_T *mpos);
+  int vcol2col(win_T *wp, linenr_T lnum, int vcol);
+  void ui_focus_change(int in_focus);
+*** ../vim-8.1.1519/src/popupwin.c	2019-06-10 21:23:52.363724122 +0200
+--- src/popupwin.c	2019-06-11 22:43:53.684350966 +0200
+***************
+*** 424,429 ****
+--- 424,451 ----
+  }
+  
+  /*
++  * Return the height of popup window "wp", including border and padding.
++  */
++     int
++ popup_height(win_T *wp)
++ {
++     return wp->w_height
++ 	+ wp->w_popup_padding[0] + wp->w_popup_border[0]
++ 	+ wp->w_popup_padding[2] + wp->w_popup_border[2];
++ }
++ 
++ /*
++  * Return the width of popup window "wp", including border and padding.
++  */
++     int
++ popup_width(win_T *wp)
++ {
++     return wp->w_width
++ 	+ wp->w_popup_padding[3] + wp->w_popup_border[3]
++ 	+ wp->w_popup_padding[1] + wp->w_popup_border[1];
++ }
++ 
++ /*
+   * Adjust the position and size of the popup to fit on the screen.
+   */
+      void
+*** ../vim-8.1.1519/src/proto/popupwin.pro	2019-06-10 13:10:45.370588270 +0200
+--- src/proto/popupwin.pro	2019-06-11 22:43:58.480344057 +0200
+***************
+*** 1,4 ****
+--- 1,6 ----
+  /* popupwin.c */
++ int popup_height(win_T *wp);
++ int popup_width(win_T *wp);
+  void popup_adjust_position(win_T *wp);
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+*** ../vim-8.1.1519/src/screen.c	2019-06-11 21:56:15.518267135 +0200
+--- src/screen.c	2019-06-11 22:58:35.578063821 +0200
+***************
+*** 1072,1079 ****
+      popup_reset_handled();
+      while ((wp = find_next_popup(TRUE)) != NULL)
+      {
+- 	int	    height_extra, width_extra;
+- 
+  	popup_visible = TRUE;
+  
+  	// Recompute the position if the text changed.
+--- 1072,1077 ----
+***************
+*** 1081,1098 ****
+  		|| wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
+- 	// the width and height are for the inside, add the padding and
+- 	// border
+- 	height_extra = wp->w_popup_padding[0] + wp->w_popup_border[0]
+- 			      + wp->w_popup_padding[2] + wp->w_popup_border[2];
+- 	width_extra = wp->w_popup_padding[3] + wp->w_popup_border[3]
+- 			      + wp->w_popup_padding[1] + wp->w_popup_border[1];
+- 
+  	for (line = wp->w_winrow;
+! 		line < wp->w_winrow + wp->w_height + height_extra
+  						 && line < screen_Rows; ++line)
+  	    for (col = wp->w_wincol;
+! 		 col < wp->w_wincol + wp->w_width + width_extra
+  						&& col < screen_Columns; ++col)
+  		mask[line * screen_Columns + col] = wp->w_zindex;
+      }
+--- 1079,1089 ----
+  		|| wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
+  	for (line = wp->w_winrow;
+! 		line < wp->w_winrow + popup_height(wp)
+  						 && line < screen_Rows; ++line)
+  	    for (col = wp->w_wincol;
+! 		 col < wp->w_wincol + popup_width(wp)
+  						&& col < screen_Columns; ++col)
+  		mask[line * screen_Columns + col] = wp->w_zindex;
+      }
+***************
+*** 1123,1129 ****
+  			int		col_cp = col;
+  
+  			// find the window where the row is in
+! 			wp = mouse_find_win(&line_cp, &col_cp);
+  			if (wp != NULL)
+  			{
+  			    if (line_cp >= wp->w_height)
+--- 1114,1120 ----
+  			int		col_cp = col;
+  
+  			// find the window where the row is in
+! 			wp = mouse_find_win(&line_cp, &col_cp, IGNORE_POPUP);
+  			if (wp != NULL)
+  			{
+  			    if (line_cp >= wp->w_height)
+*** ../vim-8.1.1519/src/beval.c	2019-04-27 22:06:33.348200718 +0200
+--- src/beval.c	2019-06-11 23:01:34.621469784 +0200
+***************
+*** 49,55 ****
+  	col = X_2_COL(beval->x);
+      }
+  #endif
+!     wp = mouse_find_win(&row, &col);
+      if (wp != NULL && row >= 0 && row < wp->w_height && col < wp->w_width)
+      {
+  	/* Found a window and the cursor is in the text.  Now find the line
+--- 49,55 ----
+  	col = X_2_COL(beval->x);
+      }
+  #endif
+!     wp = mouse_find_win(&row, &col, FAIL_POPUP);
+      if (wp != NULL && row >= 0 && row < wp->w_height && col < wp->w_width)
+      {
+  	/* Found a window and the cursor is in the text.  Now find the line
+***************
+*** 141,146 ****
+--- 141,147 ----
+  
+  /*
+   * Show a balloon with "mesg" or "list".
++  * Hide the balloon when both are NULL.
+   */
+      void
+  post_balloon(BalloonEval *beval UNUSED, char_u *mesg, list_T *list UNUSED)
+***************
+*** 153,159 ****
+  # endif
+  # ifdef FEAT_BEVAL_GUI
+      if (gui.in_use)
+! 	/* GUI can't handle a list */
+  	gui_mch_post_balloon(beval, mesg);
+  # endif
+  }
+--- 154,160 ----
+  # endif
+  # ifdef FEAT_BEVAL_GUI
+      if (gui.in_use)
+! 	// GUI can't handle a list
+  	gui_mch_post_balloon(beval, mesg);
+  # endif
+  }
+*** ../vim-8.1.1519/src/edit.c	2019-06-02 18:40:02.637508840 +0200
+--- src/edit.c	2019-06-11 23:01:39.569453098 +0200
+***************
+*** 5267,5273 ****
+  	col = mouse_col;
+  
+  	/* find the window at the pointer coordinates */
+! 	wp = mouse_find_win(&row, &col);
+  	if (wp == NULL)
+  	    return;
+  	curwin = wp;
+--- 5267,5273 ----
+  	col = mouse_col;
+  
+  	/* find the window at the pointer coordinates */
+! 	wp = mouse_find_win(&row, &col, FAIL_POPUP);
+  	if (wp == NULL)
+  	    return;
+  	curwin = wp;
+*** ../vim-8.1.1519/src/evalfunc.c	2019-06-10 13:10:45.370588270 +0200
+--- src/evalfunc.c	2019-06-11 23:01:56.433396079 +0200
+***************
+*** 5154,5165 ****
+  	    {
+  		/* Find the window at the mouse coordinates and compute the
+  		 * text position. */
+! 		win = mouse_find_win(&row, &col);
+  		if (win == NULL)
+  		    return;
+  		(void)mouse_comp_pos(win, &row, &col, &lnum);
+! 		for (wp = firstwin; wp != win; wp = wp->w_next)
+! 		    ++winnr;
+  		set_vim_var_nr(VV_MOUSE_WIN, winnr);
+  		set_vim_var_nr(VV_MOUSE_WINID, win->w_id);
+  		set_vim_var_nr(VV_MOUSE_LNUM, lnum);
+--- 5154,5171 ----
+  	    {
+  		/* Find the window at the mouse coordinates and compute the
+  		 * text position. */
+! 		win = mouse_find_win(&row, &col, FIND_POPUP);
+  		if (win == NULL)
+  		    return;
+  		(void)mouse_comp_pos(win, &row, &col, &lnum);
+! # ifdef FEAT_TEXT_PROP
+! 		if (bt_popup(win->w_buffer))
+! 		    winnr = 0;
+! 		else
+! # endif
+! 		    for (wp = firstwin; wp != win && wp != NULL;
+! 							       wp = wp->w_next)
+! 			++winnr;
+  		set_vim_var_nr(VV_MOUSE_WIN, winnr);
+  		set_vim_var_nr(VV_MOUSE_WINID, win->w_id);
+  		set_vim_var_nr(VV_MOUSE_LNUM, lnum);
+*** ../vim-8.1.1519/src/gui.c	2019-06-02 18:40:02.637508840 +0200
+--- src/gui.c	2019-06-11 23:02:03.649371628 +0200
+***************
+*** 4926,4932 ****
+      col = X_2_COL(x);
+      if (row < 0 || col < 0)		/* before first window */
+  	return NULL;
+!     wp = mouse_find_win(&row, &col);
+      if (wp == NULL)
+  	return NULL;
+  #ifdef FEAT_MOUSESHAPE
+--- 4926,4932 ----
+      col = X_2_COL(x);
+      if (row < 0 || col < 0)		/* before first window */
+  	return NULL;
+!     wp = mouse_find_win(&row, &col, FALSE);
+      if (wp == NULL)
+  	return NULL;
+  #ifdef FEAT_MOUSESHAPE
+***************
+*** 5382,5388 ****
+  
+      if (row >= 0 && col >= 0)
+      {
+! 	wp = mouse_find_win(&row, &col);
+  	if (wp != NULL && wp != curwin)
+  	    win_goto(wp);
+      }
+--- 5382,5388 ----
+  
+      if (row >= 0 && col >= 0)
+      {
+! 	wp = mouse_find_win(&row, &col, FAIL_POPUP);
+  	if (wp != NULL && wp != curwin)
+  	    win_goto(wp);
+      }
+*** ../vim-8.1.1519/src/normal.c	2019-06-02 19:53:40.998714309 +0200
+--- src/normal.c	2019-06-11 23:02:07.993356902 +0200
+***************
+*** 4521,4527 ****
+  	col = mouse_col;
+  
+  	/* find the window at the pointer coordinates */
+! 	wp = mouse_find_win(&row, &col);
+  	if (wp == NULL)
+  	    return;
+  	curwin = wp;
+--- 4521,4527 ----
+  	col = mouse_col;
+  
+  	/* find the window at the pointer coordinates */
+! 	wp = mouse_find_win(&row, &col, FAIL_POPUP);
+  	if (wp == NULL)
+  	    return;
+  	curwin = wp;
+*** ../vim-8.1.1519/src/structs.h	2019-06-09 19:51:54.472551622 +0200
+--- src/structs.h	2019-06-11 22:58:00.202178532 +0200
+***************
+*** 3626,3628 ****
+--- 3626,3635 ----
+      CDSCOPE_TABPAGE,	// :tcd
+      CDSCOPE_WINDOW	// :lcd
+  } cdscope_T;
++ 
++ // argument for mouse_find_win()
++ typedef enum {
++     IGNORE_POPUP,	// only check non-popup windows
++     FIND_POPUP,		// also find popup windows
++     FAIL_POPUP		// return NULL if mouse on popup window
++ } mouse_find_T;
+*** ../vim-8.1.1519/src/version.c	2019-06-12 19:05:44.925966622 +0200
+--- src/version.c	2019-06-12 20:19:08.214619067 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1520,
+  /**/
+
+-- 
+Two sheep in a meadow.  One says "baaah".  The other says "exactly!".
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

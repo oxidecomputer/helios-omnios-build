@@ -1,0 +1,229 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1469
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1469
+Problem:    No test for checking the cursor style response.
+Solution:   Add a simple test.
+Files:	    src/term.c, src/testdir/test_termcodes.vim
+
+
+*** ../vim-8.1.1468/src/term.c	2019-06-04 21:41:24.465087519 +0200
+--- src/term.c	2019-06-05 22:01:10.635280005 +0200
+***************
+*** 4015,4021 ****
+  blink_state_is_inverted()
+  {
+  #ifdef FEAT_TERMRESPONSE
+!     return rbm_status.tr_progress == STATUS_GOT && rcs_status.tr_progress == STATUS_GOT
+  		&& initial_cursor_blink != initial_cursor_shape_blink;
+  #else
+      return FALSE;
+--- 4015,4022 ----
+  blink_state_is_inverted()
+  {
+  #ifdef FEAT_TERMRESPONSE
+!     return rbm_status.tr_progress == STATUS_GOT
+! 	&& rcs_status.tr_progress == STATUS_GOT
+  		&& initial_cursor_blink != initial_cursor_shape_blink;
+  #else
+      return FALSE;
+***************
+*** 5062,5068 ****
+  	     * {lead}1$r<digit> q{tail}
+  	     *
+  	     * {lead} can be <Esc>P or DCS
+! 	     * {tail} can be Esc>\ or STERM
+  	     *
+  	     * Consume any code that starts with "{lead}.+r" or "{lead}.$r".
+  	     */
+--- 5063,5069 ----
+  	     * {lead}1$r<digit> q{tail}
+  	     *
+  	     * {lead} can be <Esc>P or DCS
+! 	     * {tail} can be <Esc>\ or STERM
+  	     *
+  	     * Consume any code that starts with "{lead}.+r" or "{lead}.$r".
+  	     */
+***************
+*** 5072,5100 ****
+  	    {
+  		j = 1 + (tp[0] == ESC);
+  		if (len < j + 3)
+! 		    i = len; /* need more chars */
+  		else if ((argp[1] != '+' && argp[1] != '$') || argp[2] != 'r')
+! 		  i = 0; /* no match */
+  		else if (argp[1] == '+')
+! 		  /* key code response */
+! 		  for (i = j; i < len; ++i)
+! 		  {
+! 		    if ((tp[i] == ESC && i + 1 < len && tp[i + 1] == '\\')
+! 			    || tp[i] == STERM)
+  		    {
+! 			if (i - j >= 3)
+! 			    got_code_from_term(tp + j, i);
+! 			key_name[0] = (int)KS_EXTRA;
+! 			key_name[1] = (int)KE_IGNORE;
+! 			slen = i + 1 + (tp[i] == ESC);
+! 			break;
+  		    }
+- 		  }
+  		else
+  		{
+! 		    /* Probably the cursor shape response.  Make sure that "i"
+! 		     * is equal to "len" when there are not sufficient
+! 		     * characters. */
+  		    for (i = j + 3; i < len; ++i)
+  		    {
+  			if (i - j == 3 && !isdigit(tp[i]))
+--- 5073,5101 ----
+  	    {
+  		j = 1 + (tp[0] == ESC);
+  		if (len < j + 3)
+! 		    i = len; // need more chars
+  		else if ((argp[1] != '+' && argp[1] != '$') || argp[2] != 'r')
+! 		    i = 0; // no match
+  		else if (argp[1] == '+')
+! 		    // key code response
+! 		    for (i = j; i < len; ++i)
+  		    {
+! 			if ((tp[i] == ESC && i + 1 < len && tp[i + 1] == '\\')
+! 				|| tp[i] == STERM)
+! 			{
+! 			    if (i - j >= 3)
+! 				got_code_from_term(tp + j, i);
+! 			    key_name[0] = (int)KS_EXTRA;
+! 			    key_name[1] = (int)KE_IGNORE;
+! 			    slen = i + 1 + (tp[i] == ESC);
+! 			    break;
+! 			}
+  		    }
+  		else
+  		{
+! 		    // Probably the cursor shape response.  Make sure that "i"
+! 		    // is equal to "len" when there are not sufficient
+! 		    // characters.
+  		    for (i = j + 3; i < len; ++i)
+  		    {
+  			if (i - j == 3 && !isdigit(tp[i]))
+***************
+*** 5110,5122 ****
+  			{
+  			    int number = argp[3] - '0';
+  
+! 			    /* 0, 1 = block blink, 2 = block
+! 			     * 3 = underline blink, 4 = underline
+! 			     * 5 = vertical bar blink, 6 = vertical bar */
+  			    number = number == 0 ? 1 : number;
+  			    initial_cursor_shape = (number + 1) / 2;
+! 			    /* The blink flag is actually inverted, compared to
+! 			     * the value set with T_SH. */
+  			    initial_cursor_shape_blink =
+  						   (number & 1) ? FALSE : TRUE;
+  			    rcs_status.tr_progress = STATUS_GOT;
+--- 5111,5123 ----
+  			{
+  			    int number = argp[3] - '0';
+  
+! 			    // 0, 1 = block blink, 2 = block
+! 			    // 3 = underline blink, 4 = underline
+! 			    // 5 = vertical bar blink, 6 = vertical bar
+  			    number = number == 0 ? 1 : number;
+  			    initial_cursor_shape = (number + 1) / 2;
+! 			    // The blink flag is actually inverted, compared to
+! 			    // the value set with T_SH.
+  			    initial_cursor_shape_blink =
+  						   (number & 1) ? FALSE : TRUE;
+  			    rcs_status.tr_progress = STATUS_GOT;
+*** ../vim-8.1.1468/src/testdir/test_termcodes.vim	2019-05-03 13:44:06.560890132 +0200
+--- src/testdir/test_termcodes.vim	2019-06-05 22:06:18.865258613 +0200
+***************
+*** 624,626 ****
+--- 624,686 ----
+    let &mouse = save_mouse
+    bwipe!
+  endfunc
++ 
++ " This only checks if the sequence is recognized.
++ " TODO: check that the values were parsed properly
++ func Test_term_rgb_response()
++   set t_RF=x
++   set t_RB=y
++ 
++   " response to t_RF, 4 digits
++   let red = 0x12
++   let green = 0x34
++   let blue = 0x56
++   let seq = printf("\<Esc>]10;rgb:%02x00/%02x00/%02x00\x07", red, green, blue)
++   call feedkeys(seq, 'Lx!')
++   call assert_equal(seq, v:termrfgresp)
++ 
++   " response to t_RF, 2 digits
++   let red = 0x78
++   let green = 0x9a
++   let blue = 0xbc
++   let seq = printf("\<Esc>]10;rgb:%02x/%02x/%02x\x07", red, green, blue)
++   call feedkeys(seq, 'Lx!')
++   call assert_equal(seq, v:termrfgresp)
++ 
++   " response to t_RB, 4 digits
++   let red = 0x21
++   let green = 0x43
++   let blue = 0x65
++   let seq = printf("\<Esc>]11;rgb:%02x00/%02x00/%02x00\x07", red, green, blue)
++   call feedkeys(seq, 'Lx!')
++   call assert_equal(seq, v:termrbgresp)
++ 
++   " response to t_RB, 2 digits
++   let red = 0x87
++   let green = 0xa9
++   let blue = 0xcb
++   let seq = printf("\<Esc>]11;rgb:%02x/%02x/%02x\x07", red, green, blue)
++   call feedkeys(seq, 'Lx!')
++   call assert_equal(seq, v:termrbgresp)
++   
++   set t_RF= t_RB=
++ endfunc
++ 
++ " This only checks if the sequence is recognized.
++ " This must be last, because it has side effects to xterm properties.
++ " TODO: check that the values were parsed properly
++ func Test_xx_term_style_response()
++   " Termresponse is only parsed when t_RV is not empty.
++   set t_RV=x
++ 
++   " send the termresponse to trigger requesting the XT codes
++   let seq = "\<Esc>[>41;337;0c"
++   call feedkeys(seq, 'Lx!')
++   call assert_equal(seq, v:termresponse)
++ 
++   let seq = "\<Esc>P1$r2 q\<Esc>\\"
++   call feedkeys(seq, 'Lx!')
++   call assert_equal(seq, v:termstyleresp)
++ 
++   set t_RV=
++ endfunc
+*** ../vim-8.1.1468/src/version.c	2019-06-05 21:25:30.770629173 +0200
+--- src/version.c	2019-06-05 22:02:14.018853267 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1469,
+  /**/
+
+-- 
+I AM THANKFUL...
+...for the clothes that fit a little too snug because it
+means I have more than enough to eat.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,189 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1425
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1425
+Problem:    Win_execute() does not set window pointers properly.
+Solution:   Use switch_win_noblock().  Also execute autocommands in a popup
+            window.
+Files:	    src/window.c, src/proto/window.pro, src/evalfunc.c, src/autocmd.c
+
+
+*** ../vim-8.1.1424/src/window.c	2019-05-28 23:08:12.080648632 +0200
+--- src/window.c	2019-05-30 17:28:15.916167785 +0200
+***************
+*** 6495,6500 ****
+--- 6495,6514 ----
+      int		no_display)
+  {
+      block_autocmds();
++     return switch_win_noblock(save_curwin, save_curtab, win, tp, no_display);
++ }
++ 
++ /*
++  * As switch_win() but without blocking autocommands.
++  */
++     int
++ switch_win_noblock(
++     win_T	**save_curwin,
++     tabpage_T	**save_curtab,
++     win_T	*win,
++     tabpage_T	*tp,
++     int		no_display)
++ {
+      *save_curwin = curwin;
+      if (tp != NULL)
+      {
+***************
+*** 6524,6532 ****
+   */
+      void
+  restore_win(
+!     win_T	*save_curwin UNUSED,
+!     tabpage_T	*save_curtab UNUSED,
+!     int		no_display UNUSED)
+  {
+      if (save_curtab != NULL && valid_tabpage(save_curtab))
+      {
+--- 6538,6559 ----
+   */
+      void
+  restore_win(
+!     win_T	*save_curwin,
+!     tabpage_T	*save_curtab,
+!     int		no_display)
+! {
+!     restore_win_noblock(save_curwin, save_curtab, no_display);
+!     unblock_autocmds();
+! }
+! 
+! /*
+!  * As restore_win() but without unblocking autocommands.
+!  */
+!     void
+! restore_win_noblock(
+!     win_T	*save_curwin,
+!     tabpage_T	*save_curtab,
+!     int		no_display)
+  {
+      if (save_curtab != NULL && valid_tabpage(save_curtab))
+      {
+***************
+*** 6546,6552 ****
+  	curwin = save_curwin;
+  	curbuf = curwin->w_buffer;
+      }
+-     unblock_autocmds();
+  }
+  
+  /*
+--- 6573,6578 ----
+*** ../vim-8.1.1424/src/proto/window.pro	2019-05-25 19:51:03.776408456 +0200
+--- src/proto/window.pro	2019-05-30 16:29:54.863661874 +0200
+***************
+*** 77,83 ****
+--- 77,85 ----
+  void make_snapshot(int idx);
+  void restore_snapshot(int idx, int close_curwin);
+  int switch_win(win_T **save_curwin, tabpage_T **save_curtab, win_T *win, tabpage_T *tp, int no_display);
++ int switch_win_noblock(win_T **save_curwin, tabpage_T **save_curtab, win_T *win, tabpage_T *tp, int no_display);
+  void restore_win(win_T *save_curwin, tabpage_T *save_curtab, int no_display);
++ void restore_win_noblock(win_T *save_curwin, tabpage_T *save_curtab, int no_display);
+  void switch_buffer(bufref_T *save_curbuf, buf_T *buf);
+  void restore_buffer(bufref_T *save_curbuf);
+  int win_hasvertsplit(void);
+*** ../vim-8.1.1424/src/evalfunc.c	2019-05-30 14:29:42.597507636 +0200
+--- src/evalfunc.c	2019-05-30 16:35:07.094047567 +0200
+***************
+*** 6116,6134 ****
+  {
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = win_id2wp(id);
+!     win_T	*save_curwin = curwin;
+  
+      if (wp != NULL)
+      {
+! 	curwin = wp;
+! 	curbuf = curwin->w_buffer;
+! 	check_cursor();
+! 	execute_common(argvars, rettv, 1);
+! 	if (win_valid(save_curwin))
+  	{
+! 	    curwin = save_curwin;
+! 	    curbuf = curwin->w_buffer;
+  	}
+      }
+  }
+  
+--- 6116,6133 ----
+  {
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = win_id2wp(id);
+!     win_T	*save_curwin;
+!     tabpage_T	*save_curtab;
+  
+      if (wp != NULL)
+      {
+! 	if (switch_win_noblock(&save_curwin, &save_curtab, wp, curtab, TRUE)
+! 									 == OK)
+  	{
+! 	    check_cursor();
+! 	    execute_common(argvars, rettv, 1);
+  	}
++ 	restore_win_noblock(save_curwin, save_curtab, TRUE);
+      }
+  }
+  
+*** ../vim-8.1.1424/src/autocmd.c	2019-05-28 23:08:12.052648779 +0200
+--- src/autocmd.c	2019-05-30 16:56:53.315286006 +0200
+***************
+*** 1349,1355 ****
+       */
+      FOR_ALL_BUFFERS(buf)
+      {
+! 	if (buf->b_ml.ml_mfp != NULL && !bt_popup(buf))
+  	{
+  	    // find a window for this buffer and save some values
+  	    aucmd_prepbuf(&aco, buf);
+--- 1349,1355 ----
+       */
+      FOR_ALL_BUFFERS(buf)
+      {
+! 	if (buf->b_ml.ml_mfp != NULL)
+  	{
+  	    // find a window for this buffer and save some values
+  	    aucmd_prepbuf(&aco, buf);
+***************
+*** 1612,1619 ****
+      int		force,	    // when TRUE, ignore autocmd_busy
+      buf_T	*buf)	    // buffer for <abuf>
+  {
+-     if (bt_popup(buf))
+- 	return FALSE;
+      return apply_autocmds_group(event, fname, fname_io, force,
+  						      AUGROUP_ALL, buf, NULL);
+  }
+--- 1612,1617 ----
+*** ../vim-8.1.1424/src/version.c	2019-05-30 15:53:26.210807270 +0200
+--- src/version.c	2019-05-30 17:00:28.426169104 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1425,
+  /**/
+
+-- 
+Q: What is a patch 22?
+A: A patch you need to include to make it possible to include patches.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

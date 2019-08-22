@@ -1,0 +1,197 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1791
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1791
+Problem:    'completeslash' also applies to globpath().
+Solution:   Add the WILD_IGNORE_COMPLETESLASH flag. (test by Yasuhiro
+            Matsumoto, closes #4760)
+Files:	    src/testdir/test_ins_complete.vim, src/ex_getln.c, src/evalfunc.c,
+            src/vim.h
+
+
+*** ../vim-8.1.1790/src/testdir/test_ins_complete.vim	2019-07-29 21:03:41.882446185 +0200
+--- src/testdir/test_ins_complete.vim	2019-08-02 19:51:05.117922044 +0200
+***************
+*** 1,3 ****
+--- 1,4 ----
++ source check.vim
+  
+  " Test for insert expansion
+  func Test_ins_complete()
+***************
+*** 334,348 ****
+  
+  " Test for insert path completion with completeslash option
+  func Test_ins_completeslash()
+!   if !has('win32')
+!     throw 'Skipped: only works on MS-Windows'
+!   endif
+    
+    call mkdir('Xdir')
+- 
+    let orig_shellslash = &shellslash
+    set cpt&
+- 
+    new
+    
+    set noshellslash
+--- 335,345 ----
+  
+  " Test for insert path completion with completeslash option
+  func Test_ins_completeslash()
+!   CheckMSWindows
+    
+    call mkdir('Xdir')
+    let orig_shellslash = &shellslash
+    set cpt&
+    new
+    
+    set noshellslash
+***************
+*** 375,380 ****
+--- 372,382 ----
+    %bw!
+    call delete('Xdir', 'rf')
+  
++   set noshellslash
++   set completeslash=slash
++   call assert_true(stridx(globpath(&rtp, 'syntax/*.vim', 1, 1)[0], '\') != -1)
++ 
+    let &shellslash = orig_shellslash
++   set completeslash=
+  endfunc
+  
+*** ../vim-8.1.1790/src/ex_getln.c	2019-07-28 16:36:31.673949528 +0200
+--- src/ex_getln.c	2019-08-02 19:47:47.750602369 +0200
+***************
+*** 5032,5038 ****
+      char_u	*pat,
+      int		*num_file,
+      char_u	***file,
+!     int		options)  /* EW_ flags */
+  {
+  #ifdef FEAT_CMDL_COMPL
+      regmatch_T	regmatch;
+--- 5032,5038 ----
+      char_u	*pat,
+      int		*num_file,
+      char_u	***file,
+!     int		options)  // WILD_ flags
+  {
+  #ifdef FEAT_CMDL_COMPL
+      regmatch_T	regmatch;
+***************
+*** 5096,5102 ****
+  	if (free_pat)
+  	    vim_free(pat);
+  #ifdef BACKSLASH_IN_FILENAME
+! 	if (p_csl[0] != NUL)
+  	{
+  	    int	    i;
+  
+--- 5096,5102 ----
+  	if (free_pat)
+  	    vim_free(pat);
+  #ifdef BACKSLASH_IN_FILENAME
+! 	if (p_csl[0] != NUL && (options & WILD_IGNORE_COMPLETESLASH) == 0)
+  	{
+  	    int	    i;
+  
+*** ../vim-8.1.1790/src/evalfunc.c	2019-08-01 14:26:53.196455837 +0200
+--- src/evalfunc.c	2019-08-02 19:48:08.954513903 +0200
+***************
+*** 5878,5892 ****
+      static void
+  f_globpath(typval_T *argvars, typval_T *rettv)
+  {
+!     int		flags = 0;
+      char_u	buf1[NUMBUFLEN];
+      char_u	*file = tv_get_string_buf_chk(&argvars[1], buf1);
+      int		error = FALSE;
+      garray_T	ga;
+      int		i;
+  
+!     /* When the optional second argument is non-zero, don't remove matches
+!     * for 'wildignore' and don't put matches for 'suffixes' at the end. */
+      rettv->v_type = VAR_STRING;
+      if (argvars[2].v_type != VAR_UNKNOWN)
+      {
+--- 5878,5892 ----
+      static void
+  f_globpath(typval_T *argvars, typval_T *rettv)
+  {
+!     int		flags = WILD_IGNORE_COMPLETESLASH;
+      char_u	buf1[NUMBUFLEN];
+      char_u	*file = tv_get_string_buf_chk(&argvars[1], buf1);
+      int		error = FALSE;
+      garray_T	ga;
+      int		i;
+  
+!     // When the optional second argument is non-zero, don't remove matches
+!     // for 'wildignore' and don't put matches for 'suffixes' at the end.
+      rettv->v_type = VAR_STRING;
+      if (argvars[2].v_type != VAR_UNKNOWN)
+      {
+*** ../vim-8.1.1790/src/vim.h	2019-08-01 21:09:49.923160274 +0200
+--- src/vim.h	2019-08-02 19:46:35.218938244 +0200
+***************
+*** 785,800 ****
+  #define WILD_LONGEST		7
+  #define WILD_ALL_KEEP		8
+  
+! #define WILD_LIST_NOTFOUND	0x01
+! #define WILD_HOME_REPLACE	0x02
+! #define WILD_USE_NL		0x04
+! #define WILD_NO_BEEP		0x08
+! #define WILD_ADD_SLASH		0x10
+! #define WILD_KEEP_ALL		0x20
+! #define WILD_SILENT		0x40
+! #define WILD_ESCAPE		0x80
+! #define WILD_ICASE		0x100
+! #define WILD_ALLLINKS		0x200
+  
+  // Flags for expand_wildcards()
+  #define EW_DIR		0x01	// include directory names
+--- 785,801 ----
+  #define WILD_LONGEST		7
+  #define WILD_ALL_KEEP		8
+  
+! #define WILD_LIST_NOTFOUND	    0x01
+! #define WILD_HOME_REPLACE	    0x02
+! #define WILD_USE_NL		    0x04
+! #define WILD_NO_BEEP		    0x08
+! #define WILD_ADD_SLASH		    0x10
+! #define WILD_KEEP_ALL		    0x20
+! #define WILD_SILENT		    0x40
+! #define WILD_ESCAPE		    0x80
+! #define WILD_ICASE		    0x100
+! #define WILD_ALLLINKS		    0x200
+! #define WILD_IGNORE_COMPLETESLASH   0x400
+  
+  // Flags for expand_wildcards()
+  #define EW_DIR		0x01	// include directory names
+*** ../vim-8.1.1790/src/version.c	2019-08-01 23:05:45.914059813 +0200
+--- src/version.c	2019-08-02 19:49:42.642169669 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1791,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+7. You finally do take that vacation, but only after buying a USB modem
+   and a laptop.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

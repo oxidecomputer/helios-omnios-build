@@ -1,0 +1,910 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1502
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1502
+Problem:    Cannot play any sound.
+Solution:   Use libcanberra if available.  Add sound functions.
+Files:	    src/configure.ac, src/auto/configure, src/config.h.in,
+            src/Makefile, src/sound.c, src/proto/sound.pro, src/proto.h,
+            src/evalfunc.c, src/feature.h, runtime/doc/eval.txt, Filelist,
+            src/version.c, src/testdir/test_sound.vim, src/testdir/silent.wav,
+            src/testdir/Make_all.mak, .travis.yml
+
+
+*** ../vim-8.1.1501/src/configure.ac	2019-06-07 20:44:36.895349448 +0200
+--- src/configure.ac	2019-06-08 21:16:23.392495899 +0200
+***************
+*** 2702,2707 ****
+--- 2702,2711 ----
+  	GNOME_INIT_HOOK([],fail)
+  ])
+  
++ if test "X$PKG_CONFIG" = "X"; then
++   AC_PATH_TOOL(PKG_CONFIG, pkg-config, no)
++ fi
++ 
+  
+  dnl ---------------------------------------------------------------------------
+  dnl Check for GTK2.  If it fails, then continue on for Motif as before...
+***************
+*** 2717,2726 ****
+      AC_MSG_RESULT(gtk test disabled)
+    fi
+  
+-   if test "X$PKG_CONFIG" = "X"; then
+-     AC_PATH_TOOL(PKG_CONFIG, pkg-config, no)
+-   fi
+- 
+    if test "x$PKG_CONFIG" != "xno"; then
+      dnl First try finding version 2.2.0 or later.  The 2.0.x series has
+      dnl problems (bold fonts, --remote doesn't work).
+--- 2721,2726 ----
+***************
+*** 2769,2778 ****
+      AC_MSG_RESULT(gtk test disabled)
+    fi
+  
+-   if test "X$PKG_CONFIG" = "X"; then
+-     AC_PATH_TOOL(PKG_CONFIG, pkg-config, no)
+-   fi
+- 
+    if test "x$PKG_CONFIG" != "xno"; then
+      AM_PATH_GTK(3.0.0,
+  		[GUI_LIB_LOC="$GTK_LIBDIR"
+--- 2769,2774 ----
+***************
+*** 3755,3760 ****
+--- 3751,3779 ----
+  dnl appropriate, so that off_t is 64 bits when needed.
+  AC_SYS_LARGEFILE
+  
++ 
++ if test "x$PKG_CONFIG" != "xno"; then
++   canberra_lib=`$PKG_CONFIG --libs libcanberra 2>/dev/null`
++   canberra_cflags=`$PKG_CONFIG --cflags libcanberra 2>/dev/null`
++ fi
++ if test "x$canberra_lib" = "x"; then
++   canberra_lib=-lcanberra
++   canberra_cflags=-D_REENTRANT
++ fi
++ AC_MSG_CHECKING(for libcanberra)
++ ac_save_CFLAGS="$CFLAGS"
++ ac_save_LIBS="$LIBS"
++ CFLAGS="$CFLAGS $canberra_cflags"
++ LIBS="$LIBS $canberra_lib"
++ AC_TRY_LINK([
++ # include <canberra.h>
++     ], [
++    ca_context *hello;
++    ca_context_create(&hello);],
++      AC_MSG_RESULT(yes); AC_DEFINE(HAVE_CANBERRA),
++      AC_MSG_RESULT(no); CFLAGS="$ac_save_CFLAGS"; LIBS="$ac_save_LIBS")
++ 
++ 
+  dnl fstatfs() can take 2 to 4 arguments, try to use st_blksize if possible
+  AC_MSG_CHECKING(for st_blksize)
+  AC_TRY_COMPILE(
+*** ../vim-8.1.1501/src/auto/configure	2019-06-07 20:44:36.899349432 +0200
+--- src/auto/configure	2019-06-08 21:15:26.692659107 +0200
+***************
+*** 9303,9330 ****
+  
+  
+  
+! 
+! if test -z "$SKIP_GTK2"; then
+! 
+!   { $as_echo "$as_me:${as_lineno-$LINENO}: checking --disable-gtktest argument" >&5
+! $as_echo_n "checking --disable-gtktest argument... " >&6; }
+!   # Check whether --enable-gtktest was given.
+! if test "${enable_gtktest+set}" = set; then :
+!   enableval=$enable_gtktest;
+! else
+!   enable_gtktest=yes
+! fi
+! 
+!   if test "x$enable_gtktest" = "xyes" ; then
+!     { $as_echo "$as_me:${as_lineno-$LINENO}: result: gtk test enabled" >&5
+! $as_echo "gtk test enabled" >&6; }
+!   else
+!     { $as_echo "$as_me:${as_lineno-$LINENO}: result: gtk test disabled" >&5
+! $as_echo "gtk test disabled" >&6; }
+!   fi
+! 
+!   if test "X$PKG_CONFIG" = "X"; then
+!     if test -n "$ac_tool_prefix"; then
+    # Extract the first word of "${ac_tool_prefix}pkg-config", so it can be a program name with args.
+  set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+--- 9303,9310 ----
+  
+  
+  
+! if test "X$PKG_CONFIG" = "X"; then
+!   if test -n "$ac_tool_prefix"; then
+    # Extract the first word of "${ac_tool_prefix}pkg-config", so it can be a program name with args.
+  set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+***************
+*** 9422,9427 ****
+--- 9402,9427 ----
+    PKG_CONFIG="$ac_cv_path_PKG_CONFIG"
+  fi
+  
++ fi
++ 
++ 
++ if test -z "$SKIP_GTK2"; then
++ 
++   { $as_echo "$as_me:${as_lineno-$LINENO}: checking --disable-gtktest argument" >&5
++ $as_echo_n "checking --disable-gtktest argument... " >&6; }
++   # Check whether --enable-gtktest was given.
++ if test "${enable_gtktest+set}" = set; then :
++   enableval=$enable_gtktest;
++ else
++   enable_gtktest=yes
++ fi
++ 
++   if test "x$enable_gtktest" = "xyes" ; then
++     { $as_echo "$as_me:${as_lineno-$LINENO}: result: gtk test enabled" >&5
++ $as_echo "gtk test enabled" >&6; }
++   else
++     { $as_echo "$as_me:${as_lineno-$LINENO}: result: gtk test disabled" >&5
++ $as_echo "gtk test disabled" >&6; }
+    fi
+  
+    if test "x$PKG_CONFIG" != "xno"; then
+***************
+*** 9677,9783 ****
+  $as_echo "gtk test disabled" >&6; }
+    fi
+  
+-   if test "X$PKG_CONFIG" = "X"; then
+-     if test -n "$ac_tool_prefix"; then
+-   # Extract the first word of "${ac_tool_prefix}pkg-config", so it can be a program name with args.
+- set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
+- { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+- $as_echo_n "checking for $ac_word... " >&6; }
+- if ${ac_cv_path_PKG_CONFIG+:} false; then :
+-   $as_echo_n "(cached) " >&6
+- else
+-   case $PKG_CONFIG in
+-   [\\/]* | ?:[\\/]*)
+-   ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+-   ;;
+-   *)
+-   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+- for as_dir in $PATH
+- do
+-   IFS=$as_save_IFS
+-   test -z "$as_dir" && as_dir=.
+-     for ac_exec_ext in '' $ac_executable_extensions; do
+-   if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+-     ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+-     $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+-     break 2
+-   fi
+- done
+-   done
+- IFS=$as_save_IFS
+- 
+-   ;;
+- esac
+- fi
+- PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+- if test -n "$PKG_CONFIG"; then
+-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+- $as_echo "$PKG_CONFIG" >&6; }
+- else
+-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+- $as_echo "no" >&6; }
+- fi
+- 
+- 
+- fi
+- if test -z "$ac_cv_path_PKG_CONFIG"; then
+-   ac_pt_PKG_CONFIG=$PKG_CONFIG
+-   # Extract the first word of "pkg-config", so it can be a program name with args.
+- set dummy pkg-config; ac_word=$2
+- { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+- $as_echo_n "checking for $ac_word... " >&6; }
+- if ${ac_cv_path_ac_pt_PKG_CONFIG+:} false; then :
+-   $as_echo_n "(cached) " >&6
+- else
+-   case $ac_pt_PKG_CONFIG in
+-   [\\/]* | ?:[\\/]*)
+-   ac_cv_path_ac_pt_PKG_CONFIG="$ac_pt_PKG_CONFIG" # Let the user override the test with a path.
+-   ;;
+-   *)
+-   as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+- for as_dir in $PATH
+- do
+-   IFS=$as_save_IFS
+-   test -z "$as_dir" && as_dir=.
+-     for ac_exec_ext in '' $ac_executable_extensions; do
+-   if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+-     ac_cv_path_ac_pt_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+-     $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+-     break 2
+-   fi
+- done
+-   done
+- IFS=$as_save_IFS
+- 
+-   ;;
+- esac
+- fi
+- ac_pt_PKG_CONFIG=$ac_cv_path_ac_pt_PKG_CONFIG
+- if test -n "$ac_pt_PKG_CONFIG"; then
+-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_pt_PKG_CONFIG" >&5
+- $as_echo "$ac_pt_PKG_CONFIG" >&6; }
+- else
+-   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+- $as_echo "no" >&6; }
+- fi
+- 
+-   if test "x$ac_pt_PKG_CONFIG" = x; then
+-     PKG_CONFIG="no"
+-   else
+-     case $cross_compiling:$ac_tool_warned in
+- yes:)
+- { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+- $as_echo "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+- ac_tool_warned=yes ;;
+- esac
+-     PKG_CONFIG=$ac_pt_PKG_CONFIG
+-   fi
+- else
+-   PKG_CONFIG="$ac_cv_path_PKG_CONFIG"
+- fi
+- 
+-   fi
+- 
+    if test "x$PKG_CONFIG" != "xno"; then
+  
+    if test "X$GTK_CONFIG" != "Xno" -o "X$PKG_CONFIG" != "Xno"; then
+--- 9677,9682 ----
+***************
+*** 13026,13031 ****
+--- 12925,12980 ----
+  fi
+  
+  
++ 
++ if test "x$PKG_CONFIG" != "xno"; then
++   canberra_lib=`$PKG_CONFIG --libs libcanberrax 2>/dev/null`
++   canberra_cflags=`$PKG_CONFIG --cflags libcanberrax 2>/dev/null`
++      { $as_echo "$as_me:${as_lineno-$LINENO}: result: canberra_lib: $canberra_lib" >&5
++ $as_echo "canberra_lib: $canberra_lib" >&6; }
++      { $as_echo "$as_me:${as_lineno-$LINENO}: result: canberra_cflags: $canberra_cflags" >&5
++ $as_echo "canberra_cflags: $canberra_cflags" >&6; }
++ fi
++ if test "x$canberra_lib" = "x"; then
++   canberra_lib=-lcanberra
++   canberra_cflags=-D_REENTRANT
++ fi
++      { $as_echo "$as_me:${as_lineno-$LINENO}: result: canberra_lib: $canberra_lib" >&5
++ $as_echo "canberra_lib: $canberra_lib" >&6; }
++      { $as_echo "$as_me:${as_lineno-$LINENO}: result: canberra_cflags: $canberra_cflags" >&5
++ $as_echo "canberra_cflags: $canberra_cflags" >&6; }
++ { $as_echo "$as_me:${as_lineno-$LINENO}: checking for libcanberra" >&5
++ $as_echo_n "checking for libcanberra... " >&6; }
++ ac_save_CFLAGS="$CFLAGS"
++ ac_save_LIBS="$LIBS"
++ CFLAGS="$CFLAGS $canberra_cflags"
++ LIBS="$LIBS $canberra_lib"
++ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++ /* end confdefs.h.  */
++ 
++ # include <canberra.h>
++ 
++ int
++ main ()
++ {
++ 
++    ca_context *hello;
++    ca_context_create(&hello);
++   ;
++   return 0;
++ }
++ _ACEOF
++ if ac_fn_c_try_link "$LINENO"; then :
++   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
++ $as_echo "yes" >&6; }; $as_echo "#define HAVE_CANBERRA 1" >>confdefs.h
++ 
++ else
++   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
++ $as_echo "no" >&6; }; CFLAGS="$ac_save_CFLAGS"; LIBS="$ac_save_LIBS"
++ fi
++ rm -f core conftest.err conftest.$ac_objext \
++     conftest$ac_exeext conftest.$ac_ext
++ 
++ 
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for st_blksize" >&5
+  $as_echo_n "checking for st_blksize... " >&6; }
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+*** ../vim-8.1.1501/src/config.h.in	2019-05-10 21:28:35.180612997 +0200
+--- src/config.h.in	2019-06-08 21:16:56.672395562 +0200
+***************
+*** 207,212 ****
+--- 207,213 ----
+  #undef HAVE_STRNICMP
+  #undef HAVE_STRPBRK
+  #undef HAVE_STRTOL
++ #undef HAVE_CANBERRA
+  #undef HAVE_ST_BLKSIZE
+  #undef HAVE_SYSCONF
+  #undef HAVE_SYSCTL
+*** ../vim-8.1.1501/src/Makefile	2019-06-06 13:37:56.967789508 +0200
+--- src/Makefile	2019-06-08 21:43:15.994211439 +0200
+***************
+*** 1628,1633 ****
+--- 1629,1635 ----
+  	search.c \
+  	sha256.c \
+  	sign.c \
++ 	sound.c \
+  	spell.c \
+  	spellfile.c \
+  	syntax.c \
+***************
+*** 1743,1748 ****
+--- 1745,1751 ----
+  	objects/search.o \
+  	objects/sha256.o \
+  	objects/sign.o \
++ 	objects/sound.o \
+  	objects/spell.o \
+  	objects/spellfile.o \
+  	objects/syntax.o \
+***************
+*** 1883,1888 ****
+--- 1886,1892 ----
+  	search.pro \
+  	sha256.pro \
+  	sign.pro \
++ 	sound.pro \
+  	spell.pro \
+  	spellfile.pro \
+  	syntax.pro \
+***************
+*** 3235,3240 ****
+--- 3239,3247 ----
+  objects/sign.o: sign.c
+  	$(CCC) -o $@ sign.c
+  
++ objects/sound.o: sound.c
++ 	$(CCC) -o $@ sound.c
++ 
+  objects/spell.o: spell.c
+  	$(CCC) -o $@ spell.c
+  
+***************
+*** 3650,3655 ****
+--- 3657,3666 ----
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+   proto.h globals.h
++ objects/sound.o: spell.c vim.h protodef.h auto/config.h feature.h os_unix.h \
++  auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
++  proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
++  proto.h globals.h
+  objects/spell.o: spell.c vim.h protodef.h auto/config.h feature.h os_unix.h \
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+*** ../vim-8.1.1501/src/sound.c	2019-06-09 13:40:10.253422950 +0200
+--- src/sound.c	2019-06-08 23:02:25.037286786 +0200
+***************
+*** 0 ****
+--- 1,193 ----
++ /* vi:set ts=8 sts=4 sw=4 noet:
++  *
++  * VIM - Vi IMproved	by Bram Moolenaar
++  *
++  * Do ":help uganda"  in Vim to read copying and usage conditions.
++  * Do ":help credits" in Vim to see a list of people who contributed.
++  * See README.txt for an overview of the Vim source code.
++  */
++ 
++ /*
++  * sound.c: functions related making noise
++  */
++ 
++ #include "vim.h"
++ 
++ #if (defined(FEAT_SOUND) && defined(HAVE_CANBERRA)) || defined(PROTO)
++ 
++ #include <canberra.h>
++ 
++ static long	    sound_id = 0;
++ static ca_context   *context = NULL;
++ 
++ typedef struct soundcb_S soundcb_T;
++ 
++ struct soundcb_S {
++     callback_T	snd_callback;
++     soundcb_T	*snd_next;
++ };
++ 
++ static soundcb_T    *first_callback = NULL;
++ 
++     static soundcb_T *
++ get_sound_callback(typval_T *arg)
++ {
++     callback_T	callback;
++     soundcb_T	*soundcb;
++ 
++     if (arg->v_type == VAR_UNKNOWN)
++ 	return NULL;
++     callback = get_callback(arg);
++     if (callback.cb_name == NULL)
++ 	return NULL;
++ 
++     soundcb = ALLOC_ONE(soundcb_T);
++     if (soundcb == NULL)
++ 	free_callback(&callback);
++     else
++     {
++ 	soundcb->snd_next = first_callback;
++ 	first_callback = soundcb;
++ 	set_callback(&soundcb->snd_callback, &callback);
++     }
++     return soundcb;
++ }
++ 
++ /*
++  * Delete "soundcb" from the list of pending callbacks.
++  */
++     static void
++ delete_sound_callback(soundcb_T *soundcb)
++ {
++     soundcb_T	*p;
++     soundcb_T	*prev = NULL;
++ 
++     for (p = first_callback; p != NULL; prev = p, p = p->snd_next)
++ 	if (p == soundcb)
++ 	{
++ 	    if (prev == NULL)
++ 		first_callback = p->snd_next;
++ 	    else
++ 		prev->snd_next = p->snd_next;
++ 	    free_callback(&p->snd_callback);
++ 	    vim_free(p);
++ 	    break;
++ 	}
++ }
++ 
++     static void
++ sound_callback(
++ 	ca_context  *c UNUSED,
++ 	uint32_t    id,
++ 	int	    error_code,
++ 	void	    *userdata)
++ {
++     soundcb_T	*soundcb = (soundcb_T *)userdata;
++     typval_T	argv[3];
++     typval_T	rettv;
++     int		dummy;
++ 
++     argv[0].v_type = VAR_NUMBER;
++     argv[0].vval.v_number = id;
++     argv[1].v_type = VAR_NUMBER;
++     argv[1].vval.v_number = error_code == CA_SUCCESS ? 0
++ 			  : error_code == CA_ERROR_CANCELED
++ 					    || error_code == CA_ERROR_DESTROYED
++ 			  ? 1 : 2;
++     argv[2].v_type = VAR_UNKNOWN;
++ 
++     call_callback(&soundcb->snd_callback, -1,
++ 			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
++     clear_tv(&rettv);
++ 
++     delete_sound_callback(soundcb);
++     redraw_after_callback(TRUE);
++ }
++ 
++     static void
++ sound_play_common(typval_T *argvars, typval_T *rettv, int playfile)
++ {
++     if (context == NULL)
++ 	ca_context_create(&context);
++     if (context != NULL)
++     {
++ 	soundcb_T	*soundcb = get_sound_callback(&argvars[1]);
++ 	int		res = CA_ERROR_INVALID;
++ 
++ 	++sound_id;
++ 	if (soundcb == NULL)
++ 	{
++ 	    res = ca_context_play(context, sound_id,
++ 		    playfile ? CA_PROP_MEDIA_FILENAME : CA_PROP_EVENT_ID,
++ 						    tv_get_string(&argvars[0]),
++ 		    CA_PROP_CANBERRA_CACHE_CONTROL, "volatile",
++ 		    NULL);
++ 	}
++ 	else
++ 	{
++ 	    static ca_proplist *proplist = NULL;
++ 
++ 	    ca_proplist_create(&proplist);
++ 	    if (proplist != NULL)
++ 	    {
++ 		if (playfile)
++ 		    ca_proplist_sets(proplist, CA_PROP_MEDIA_FILENAME,
++ 					   (char *)tv_get_string(&argvars[0]));
++ 		else
++ 		    ca_proplist_sets(proplist, CA_PROP_EVENT_ID,
++ 					   (char *)tv_get_string(&argvars[0]));
++ 		ca_proplist_sets(proplist, CA_PROP_CANBERRA_CACHE_CONTROL,
++ 			"volatile");
++ 		res = ca_context_play_full(context, sound_id, proplist,
++ 						      sound_callback, soundcb);
++ 		if (res != CA_SUCCESS)
++ 		    delete_sound_callback(soundcb);
++ 
++ 		ca_proplist_destroy(proplist);
++ 	    }
++ 	}
++ 	rettv->vval.v_number = res == CA_SUCCESS ? sound_id : 0;
++     }
++ }
++ 
++     void
++ f_sound_playevent(typval_T *argvars, typval_T *rettv)
++ {
++     sound_play_common(argvars, rettv, FALSE);
++ }
++ 
++     void
++ f_sound_playfile(typval_T *argvars, typval_T *rettv)
++ {
++     sound_play_common(argvars, rettv, TRUE);
++ }
++ 
++     void
++ f_sound_stop(typval_T *argvars, typval_T *rettv UNUSED)
++ {
++     if (context != NULL)
++ 	ca_context_cancel(context, tv_get_number(&argvars[0]));
++ }
++ 
++     void
++ f_sound_stopall(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
++ {
++     if (context != NULL)
++     {
++ 	ca_context_destroy(context);
++ 	context = NULL;
++     }
++ }
++ 
++ #if defined(EXITFREE) || defined(PROTO)
++     void
++ sound_free(void)
++ {
++     if (context != NULL)
++ 	ca_context_destroy(context);
++     while (first_callback != NULL)
++ 	delete_sound_callback(first_callback);
++ }
++ #endif
++ 
++ #endif  // FEAT_SOUND && HAVE_CANBERRA
+*** ../vim-8.1.1501/src/proto/sound.pro	2019-06-09 13:40:10.257422924 +0200
+--- src/proto/sound.pro	2019-06-08 22:03:49.026199189 +0200
+***************
+*** 0 ****
+--- 1,7 ----
++ /* sound.c */
++ void f_sound_playevent(typval_T *argvars, typval_T *rettv);
++ void f_sound_playfile(typval_T *argvars, typval_T *rettv);
++ void f_sound_stop(typval_T *argvars, typval_T *rettv);
++ void f_sound_stopall(typval_T *argvars, typval_T *rettv);
++ void sound_free(void);
++ /* vim: set ft=c : */
+*** ../vim-8.1.1501/src/proto.h	2019-05-25 19:51:03.776408456 +0200
+--- src/proto.h	2019-06-08 21:41:37.190439291 +0200
+***************
+*** 183,188 ****
+--- 183,189 ----
+  # ifdef FEAT_SIGNS
+  #  include "sign.pro"
+  # endif
++ # include "sound.pro"
+  # include "spell.pro"
+  # include "spellfile.pro"
+  # include "syntax.pro"
+*** ../vim-8.1.1501/src/evalfunc.c	2019-06-01 22:49:23.697685695 +0200
+--- src/evalfunc.c	2019-06-08 22:02:52.922419256 +0200
+***************
+*** 925,930 ****
+--- 925,936 ----
+      {"sinh",		1, 1, f_sinh},
+  #endif
+      {"sort",		1, 3, f_sort},
++ #ifdef FEAT_SOUND
++     {"sound_playevent",	1, 2, f_sound_playevent},
++     {"sound_playfile",	1, 2, f_sound_playfile},
++     {"sound_stop",	1, 1, f_sound_stop},
++     {"sound_stopall",	0, 0, f_sound_stopall},
++ #endif
+      {"soundfold",	1, 1, f_soundfold},
+      {"spellbadword",	0, 1, f_spellbadword},
+      {"spellsuggest",	1, 3, f_spellsuggest},
+***************
+*** 6782,6787 ****
+--- 6788,6796 ----
+  #ifdef FEAT_NETBEANS_INTG
+  	"netbeans_intg",
+  #endif
++ #ifdef FEAT_SOUND
++ 	"sound",
++ #endif
+  #ifdef FEAT_SPELL
+  	"spell",
+  #endif
+*** ../vim-8.1.1501/src/feature.h	2019-05-25 19:51:03.776408456 +0200
+--- src/feature.h	2019-06-08 21:21:08.795547892 +0200
+***************
+*** 660,665 ****
+--- 660,672 ----
+  # define FEAT_TERM_POPUP_MENU
+  #endif
+  
++ /*
++  * sound - currently only with libcanberra
++  */
++ #if !defined(FEAT_SOUND) && defined(FEAT_BIG) && defined(HAVE_CANBERRA)
++ # define FEAT_SOUND
++ #endif
++ 
+  /* There are two ways to use XPM. */
+  #if (defined(HAVE_XM_XPMP_H) && defined(FEAT_GUI_MOTIF)) \
+  		|| defined(HAVE_X11_XPM_H)
+*** ../vim-8.1.1501/runtime/doc/eval.txt	2019-06-08 18:07:17.744161734 +0200
+--- runtime/doc/eval.txt	2019-06-09 13:32:48.819457195 +0200
+***************
+*** 2621,2626 ****
+--- 2622,2633 ----
+  sinh({expr})			Float	hyperbolic sine of {expr}
+  sort({list} [, {func} [, {dict}]])
+  				List	sort {list}, using {func} to compare
++ sound_playevent({name} [, {callback}])
++ 				Number	play an event sound
++ sound_playfile({name} [, {callback}])
++ 				Number	play a sound file
++ sound_stop({id})		none	stop playing sound {id}
++ sound_stopall()			none	stop playing all sounds
+  soundfold({word})		String	sound-fold {word}
+  spellbadword()			String	badly spelled word at cursor
+  spellsuggest({word} [, {max} [, {capital}]])
+***************
+*** 8836,8841 ****
+--- 8843,8891 ----
+  			   return a:i1 - a:i2
+  			endfunc
+  <
++ 							*sound_playevent()*
++ sound_playevent({name} [, {callback}])
++ 		Play a sound identified by {name}.  Which event names are
++ 		supported depends on the system.  Often the XDG sound names
++ 		are used.  On Ubuntu they may be found in
++ 		/usr/share/sounds/freedesktop/stereo.  Example: >
++ 			call sound_playevent('bell')
++ 
++ <		When {callback} is specified it is invoked when the sound is
++ 		finished.  The first argument is the sound ID, the second
++ 		argument is the status:
++ 			0	sound was played to the end
++ 			1	sound was interruped
++ 			2	error occured after sound started
++ 		Example: >
++ 		   func Callback(id, status)
++ 		     echomsg "sound " .. a:id .. " finished with " .. a:status
++ 		   endfunc
++ 		   call sound_playevent('bell', 'Callback')
++ 
++ <		Returns the sound ID, which can be passed to `sound_stop()`.
++ 		Returns zero if the sound could not be played.
++ 		{only available when compiled with the +sound feature}
++ 
++ 							*sound_playfile()*
++ sound_playfile({name} [, {callback}])
++ 		Like `sound_playevent()` but play sound file {name}.  {name}
++ 		must be a full path.  On Ubuntu you may find files to play
++ 		with this command: >
++ 		    :!find /usr/share/sounds -type f | grep -v index.theme
++ 
++ <		{only available when compiled with the +sound feature}
++ 
++ 
++ sound_stop({id})					*sound_stop()*
++ 		Stop playing sound {id}.  {id} must be previously returned by
++ 		`sound_playevent()` or `sound_playfile()`.
++ 		{only available when compiled with the +sound feature}
++ 
++ sound_stopall()						*sound_stopall()*
++ 		Stop playing all sounds.
++ 		{only available when compiled with the +sound feature}
++ 
+  							*soundfold()*
+  soundfold({word})
+  		Return the sound-folded equivalent of {word}.  Uses the first
+***************
+*** 10752,10757 ****
+--- 10805,10811 ----
+  showcmd			Compiled with 'showcmd' support.
+  signs			Compiled with |:sign| support.
+  smartindent		Compiled with 'smartindent' support.
++ sound			Compiled with sound support, e.g. `sound_playevent()`
+  spell			Compiled with spell checking support |spell|.
+  startuptime		Compiled with |--startuptime| support.
+  statusline		Compiled with support for 'statusline', 'rulerformat'
+*** ../vim-8.1.1501/Filelist	2019-06-06 14:08:47.486391198 +0200
+--- Filelist	2019-06-09 13:12:10.615540194 +0200
+***************
+*** 88,93 ****
+--- 88,94 ----
+  		src/search.c \
+  		src/sha256.c \
+  		src/sign.c \
++ 		src/sound.c \
+  		src/spell.c \
+  		src/spell.h \
+  		src/spellfile.c \
+***************
+*** 150,155 ****
+--- 151,157 ----
+  		src/testdir/samples/test000 \
+  		src/testdir/if_ver*.vim \
+  		src/testdir/color_ramp.vim \
++ 		src/testdir/silent.wav \
+  		src/proto.h \
+  		src/protodef.h \
+  		src/proto/arabic.pro \
+***************
+*** 209,214 ****
+--- 211,217 ----
+  		src/proto/search.pro \
+  		src/proto/sha256.pro \
+  		src/proto/sign.pro \
++ 		src/proto/sound.pro \
+  		src/proto/spell.pro \
+  		src/proto/spellfile.pro \
+  		src/proto/syntax.pro \
+*** ../vim-8.1.1501/src/version.c	2019-06-08 20:48:26.243470232 +0200
+--- src/version.c	2019-06-08 21:50:42.149065116 +0200
+***************
+*** 580,585 ****
+--- 580,595 ----
+  #else
+  	"-smartindent",
+  #endif
++ #ifdef FEAT_SOUND
++ 	"+sound",
++ #else
++ 	"-sound",
++ #endif
++ #ifdef FEAT_SPELL
++ 	"+spell",
++ #else
++ 	"-spell",
++ #endif
+  #ifdef STARTUPTIME
+  	"+startuptime",
+  #else
+*** ../vim-8.1.1501/src/testdir/test_sound.vim	2019-06-09 13:40:10.297422665 +0200
+--- src/testdir/test_sound.vim	2019-06-09 13:20:05.326104194 +0200
+***************
+*** 0 ****
+--- 1,45 ----
++ " Tests for the sound feature
++ 
++ if !has('sound')
++   throw 'Skipped: sound feature not available'
++ endif
++ 
++ func PlayCallback(id, result)
++   let g:id = a:id
++   let g:result = a:result
++ endfunc
++ 
++ func Test_play_event()
++   let id = sound_playevent('bell', 'PlayCallback')
++   if id == 0
++     throw 'Skipped: bell event not available'
++   endif
++   " Stop it quickly, avoid annoying the user.
++   sleep 20m
++   call sound_stop(id)
++   sleep 20m
++   call assert_equal(id, g:id)
++   call assert_equal(1, g:result)  " sound was aborted
++ endfunc
++ 
++ func Test_play_silent()
++   let fname = fnamemodify('silent.wav', '%p')
++ 
++   " play without callback
++   let id1 = sound_playfile(fname)
++   call assert_true(id1 > 0)
++ 
++   " play until the end
++   let id2 = sound_playfile(fname, 'PlayCallback')
++   call assert_true(id2 > 0)
++   sleep 500m
++   call assert_equal(id2, g:id)
++   call assert_equal(0, g:result)
++ 
++   let id2 = sound_playfile(fname, 'PlayCallback')
++   call assert_true(id2 > 0)
++   sleep 20m
++   call sound_stopall()
++   call assert_equal(id2, g:id)
++   call assert_equal(1, g:result)
++ endfunc
+*** ../vim-8.1.1501/src/testdir/silent.wav	2019-06-09 13:40:10.301422639 +0200
+--- src/testdir/silent.wav	2019-06-09 13:07:15.740227441 +0200
+***************
+*** 0 ****
+--- 1 ----
++ RIFF$  WAVEfmt      D¬  ±   data      ÿÿþÿ  üÿüÿ  þÿýÿ    ÿÿ   üÿ     ûÿ     ýÿ         þÿÿÿ  ýÿÿÿ   ýÿ         ÿÿ  þÿ   þÿüÿ  üÿûÿ  þÿýÿ    ÿÿÿÿ  þÿþÿ  þÿÿÿ  ÿÿþÿ     þÿ      þÿ  þÿüÿ  ÿÿþÿ        þÿþÿ    ÿÿ       ýÿ  þÿüÿ  þÿýÿ  üÿ    ýÿþÿ   ÿÿþÿ    þÿÿÿ   þÿ  ýÿÿÿ   þÿ         ÿÿ  þÿ   ÿÿüÿ  ÿÿþÿ  ÿÿþÿ  þÿþÿ  ýÿ     ýÿÿÿ  þÿþÿ  ÿÿ  ýÿÿÿ  üÿþÿ   þÿ  ÿÿþÿ  þÿþÿ  ÿÿÿÿ       ÿÿ  þÿ     ýÿþÿ    ýÿýÿ  þÿûÿ    þÿÿÿ        þÿþÿ  ýÿþÿ   ÿÿÿÿ   ýÿ    ýÿþÿ    üÿ   ÿÿýÿ  ýÿüÿ  þÿûÿ  ÿÿþÿ   ÿÿ   ýÿ  üÿýÿ  ýÿ   ÿÿ    þÿ  üÿÿÿ  üÿÿÿ       ÿÿ  ÿÿÿÿ  ÿÿ    ÿÿ  ÿÿýÿ  ÿÿþÿ      ÿÿÿÿ  þÿýÿ  þÿ   þÿýÿ  ûÿÿÿ   ýÿ    ÿÿþÿ  ÿÿýÿ  ÿÿÿÿ       þÿ  ÿÿýÿ    ÿÿþÿ     ýÿ     ýÿ  þÿÿÿ   þÿ  þÿÿÿÿÿ    ýÿþÿ  üÿþÿ  ýÿýÿ  üÿÿÿ   ýÿ  þÿþÿ  ÿÿÿÿ   þÿ  ÿÿþÿ  ÿÿ  þÿÿÿ    ÿÿ   ÿÿ   ÿÿþÿ     ÿÿþÿ  ýÿÿÿ ÿÿþÿ  üÿ   ÿÿûÿ    ýÿÿÿ  ÿÿþÿ   ÿÿ   üÿ  ÿÿüÿ  ýÿþÿ  ÿÿþÿ  ÿÿþÿ  ÿÿÿÿ  ÿÿþÿ  ÿÿþÿ  ÿÿ   ÿÿýÿ  þÿûÿ  þÿÿÿ  ÿÿ  ýÿüÿ  ûÿþÿ  ýÿÿÿ  þÿÿÿ   þÿ  ÿÿ    þÿ  ÿÿüÿ    þÿþÿÿÿ   þÿþÿ  ÿÿýÿ            ÿÿ     þÿ     ÿÿ         þÿÿÿ  þÿ   ÿÿ   þÿ     üÿ  ÿÿýÿ  þÿýÿ  ýÿþÿ   ÿÿ  þÿÿÿ   ýÿ  ÿÿÿÿ      þÿþÿ  üÿÿÿ  üÿþÿ  ýÿÿÿ      ÿÿýÿ   þÿýÿ  ÿÿüÿÿÿ   ýÿþÿ  üÿ  ýÿüÿ  ýÿÿÿ ÿÿ     þÿÿÿ  ÿÿýÿ   ÿÿûÿ  ÿÿúÿ  þÿýÿ         ÿÿÿÿ   ÿÿþÿ  þÿ   ÿÿÿÿ           ÿÿ    ýÿþÿ  ýÿþÿ        þÿ     þÿ     ÿÿ     þÿÿÿ  ýÿÿÿ   ýÿ     ÿÿ      ÿÿþÿ    þÿþÿ      üÿýÿ  þÿüÿ    ýÿÿÿ   þÿ  þÿ  þÿ   ÿÿÿÿ ÿÿþÿ  þÿ   ÿÿ  ýÿÿÿ  ûÿÿÿ  üÿÿÿ  ýÿÿÿ  þÿÿÿ      ÿÿýÿ    ÿÿþÿ    þÿÿÿ   þÿ      ÿÿ       þÿ    ÿÿþÿ    ûÿþÿ  ûÿÿÿ   þÿ     þÿ     üÿ  þÿþÿ  þÿüÿ  ÿÿúÿ  ÿÿþÿ ÿÿþÿ  þÿýÿ   þÿþÿ        ÿÿÿÿ  þÿþÿ    þÿ   ÿÿüÿ  þÿüÿ   ýÿþÿ  ÿÿ   ÿÿÿÿ   þÿ  ÿÿ       ÿÿÿÿ  ÿÿÿÿ   þÿþÿ  ýÿ   ÿÿýÿ  þÿÿÿ ÿÿÿÿ  ýÿýÿ    ûÿþÿ  þÿýÿ    þÿÿÿ  ÿÿÿÿ  ÿÿÿÿ   ÿÿ  þÿÿÿ  ýÿÿÿ  ýÿÿÿ  ÿÿÿÿ        ÿÿüÿ    ûÿÿÿ  þÿ   ÿÿÿÿ      þÿÿÿ  þÿüÿ    ÿÿÿÿ         ýÿ    þÿÿÿ       þÿ    ÿÿþÿ    þÿÿÿ  ÿÿÿÿÿÿ    ýÿÿÿ  üÿÿÿ  þÿþÿ    þÿýÿ    ýÿÿÿ    ÿÿÿÿ  ýÿþÿ  ýÿÿÿ    ÿÿÿÿ     þÿ  ÿÿýÿ  ÿÿþÿ      ÿÿÿÿ      ÿÿ     þÿÿÿ  ÿÿÿÿ  ÿÿ    þÿ    ýÿÿÿ  ÿÿÿÿ   þÿ  þÿüÿ    þÿþÿ    üÿýÿ  ýÿýÿ  ÿÿÿÿ       ÿÿ   ÿÿ       þÿ  ÿÿüÿ  ÿÿÿÿ             ÿÿþÿ  þÿüÿ  þÿ   þÿþÿ  ýÿþÿ    þÿÿÿ  þÿüÿ  þÿûÿ  þÿýÿ    þÿ    üÿþÿ  ýÿ     ÿÿ ÿÿþÿ  ýÿþÿ  ýÿýÿ  ÿÿþÿ      ÿÿþÿ  þÿ  ýÿüÿ  ûÿýÿ  üÿ  þÿüÿ  þÿýÿ  ÿÿþÿÿÿ    ûÿÿÿ  ûÿ   ÿÿÿÿ ÿÿ   ÿÿÿÿ   ýÿ     þÿ     ÿÿ     ÿÿ       ÿÿÿÿ  þÿÿÿ  þÿþÿ    þÿ         þÿ   ÿÿýÿ  ýÿþÿ   üÿ  ÿÿþÿ      ýÿ   ÿÿÿÿ  þÿ   ÿÿ   ÿÿþÿ  ÿÿþÿ  þÿÿÿ  ýÿ   ÿÿÿÿ   ýÿ      ÿÿÿÿ  ÿÿýÿ  ýÿþÿ  ýÿÿÿ  þÿÿÿ  þÿýÿ  ÿÿûÿ  ÿÿýÿ        ÿÿþÿ     ÿÿ  ÿÿþÿ  ÿÿýÿ    ýÿÿÿ    ÿÿ         þÿ     ýÿ  þÿþÿ  ýÿÿÿ  ýÿÿÿ   ýÿ     ýÿ  ÿÿýÿ     ýÿ  ÿÿÿÿ  ÿÿÿÿ    ÿÿþÿ    ýÿýÿ  þÿýÿ      ÿÿÿÿ    ÿÿ    ÿÿ    ÿÿÿÿ  þÿÿÿ   ÿÿ    þÿþÿ    ýÿÿÿ  ÿÿþÿÿÿ   ÿÿþÿ    þÿþÿ  ÿÿþÿÿÿ  ÿÿýÿ    ÿÿþÿÿÿ  ÿÿþÿ     ÿÿ ÿÿÿÿ  þÿþÿ   ÿÿþÿ    ÿÿþÿÿÿ  ýÿýÿ   ÿÿþÿÿÿ  ÿÿüÿ    ÿÿþÿÿÿ    üÿ     ÿÿ                        þÿþÿ  þÿüÿ    ûÿ     ýÿ     ÿÿ     ÿÿ     ÿÿ     ÿÿ             ÿÿÿÿ    þÿÿÿ  þÿþÿ        ÿÿ         ÿÿ         ÿÿ     ÿÿ         þÿ   ÿÿÿÿ   þÿ  ÿÿþÿ  ÿÿýÿ    ýÿÿÿ     ýÿþÿ  þÿþÿ       ÿÿ     ÿÿ  ÿÿÿÿÿÿ  ÿÿþÿ  ÿÿ  þÿÿÿ    þÿÿÿ  ýÿüÿ  ýÿüÿ  ÿÿýÿ    ÿÿþÿ    ÿÿýÿ     ýÿ  þÿýÿ  ýÿþÿ   ÿÿ  ýÿÿÿ  ÿÿ   ÿÿÿÿ  ÿÿ   þÿÿÿ  ýÿþÿ  þÿ   þÿÿÿ  þÿþÿ  þÿ   ÿÿÿÿ  þÿþÿ    þÿ   ÿÿ    ýÿþÿ  þÿþÿ  ýÿþÿ  þÿþÿ    ÿÿÿÿ   ÿÿÿÿ  þÿþÿ  þÿ   ÿÿ   ÿÿþÿ  þÿþÿ      ÿÿ     þÿ   ÿÿþÿ       ýÿÿÿ  úÿ   ÿÿýÿ  ýÿ     üÿÿÿ  þÿþÿ    þÿ   ÿÿ             ÿÿ     ÿÿ   ÿÿ  ýÿÿÿ ÿÿýÿ  ýÿüÿ  þÿþÿ  ÿÿ   ÿÿÿÿ        ýÿ   ÿÿþÿ   ýÿ  þÿÿÿ ÿÿ   ÿÿûÿ    üÿ   ÿÿÿÿ ÿÿÿÿ  þÿ   ÿÿþÿ  ÿÿþÿ  ÿÿÿÿ   ÿÿ    ýÿýÿ  ýÿýÿ  þÿþÿ    þÿÿÿ  ÿÿÿÿ     ÿÿ  þÿýÿ  üÿýÿ  ûÿþÿ  ýÿþÿ  ÿÿ         þÿ  þÿþÿ  þÿþÿ   þÿþÿ  þÿýÿ   þÿþÿ  ÿÿþÿ     ÿÿþÿ  ÿÿýÿ    þÿÿÿ    ýÿÿÿ  ýÿþÿ  þÿÿÿ    þÿÿÿ  þÿýÿ      ÿÿÿÿ  ýÿüÿ  ýÿþÿ      ÿÿ     ÿÿÿÿ  ÿÿÿÿ  ÿÿþÿ  ýÿÿÿ  úÿ   ÿÿüÿ  ýÿ   þÿþÿ      þÿýÿ  ýÿýÿ  ÿÿþÿ  þÿ   ÿÿüÿ  ýÿûÿ  üÿþÿ  ÿÿ  þÿ     üÿ    þÿþÿ    ýÿÿÿ  üÿýÿ  ûÿüÿ  þÿýÿ    þÿþÿ    ÿÿýÿ    ýÿþÿ  ÿÿýÿ  ÿÿÿÿ  ÿÿ   ÿÿÿÿ      ÿÿÿÿ  ýÿþÿ    ÿÿÿÿ  þÿýÿ  ýÿþÿ  þÿþÿ     ýÿþÿ  ÿÿýÿ  þÿÿÿ  þÿÿÿ    ýÿ     ýÿ   ÿÿþÿ      þÿÿÿ  þÿÿÿ          ÿÿþÿ  þÿ   ÿÿ   ÿÿüÿ    ûÿÿÿ  ûÿÿÿ   þÿ   ÿÿ     ÿÿ   þÿ  ÿÿþÿ  ÿÿþÿ  ÿÿþÿ  ÿÿþÿ    þÿÿÿ  ÿÿýÿÿÿ  ýÿþÿ  ÿÿÿÿ               þÿ  þÿÿÿ ÿÿþÿ  üÿÿÿ ÿÿýÿ  þÿÿÿ   þÿ     þÿ  ÿÿ   ýÿ     üÿ  ÿÿÿÿ   þÿ     ýÿÿÿ  ýÿýÿ  ýÿýÿ  ýÿÿÿ   ýÿ  ýÿþÿ   þÿ   ýÿ  ÿÿþÿ   ÿÿ   þÿ  ÿÿ        ÿÿ     þÿ        þÿ         ÿÿ     ÿÿ    ÿÿÿÿ  ýÿÿÿ              ÿÿ   þÿ         ÿÿþÿ  ÿÿ   ÿÿþÿ  þÿýÿ  ÿÿüÿ  ÿÿÿÿ ÿÿÿÿ  þÿÿÿ        ÿÿ     þÿ     ýÿ     üÿÿÿ  ýÿ   ÿÿþÿ  ÿÿ     ÿÿ     ÿÿÿÿ    þÿÿÿ    þÿÿÿ  þÿ   ÿÿÿÿ   þÿ         ÿÿ  þÿþÿ  þÿÿÿ   þÿýÿ  ýÿüÿ    ÿÿ  ÿÿ     þÿ     þÿ   ÿÿýÿ  ýÿýÿ  þÿ  ýÿ  ÿÿüÿ    ÿÿýÿÿÿ  üÿýÿ  ÿÿþÿ     ÿÿ    þÿþÿ    üÿÿÿ  þÿþÿ  ÿÿ  ÿÿÿÿ  þÿþÿ  þÿ  ýÿ     üÿ  þÿþÿ ÿÿþÿ  þÿÿÿ    ÿÿþÿ    þÿþÿ  ÿÿþÿ   ÿÿ      ÿÿÿÿ  þÿÿÿ  þÿÿÿ  ûÿýÿ  ýÿüÿ  ÿÿþÿ  ÿÿ     ÿÿÿÿ  ÿÿýÿ  ÿÿþÿ  ÿÿ   ÿÿÿÿ    ÿÿÿÿ  ÿÿýÿ  ÿÿüÿ    ýÿýÿ  þÿýÿ    ýÿÿÿ  þÿÿÿ    ÿÿÿÿ  ÿÿ     ýÿÿÿ  ýÿýÿ    üÿþÿ  þÿþÿ  þÿÿÿ   þÿ  ÿÿþÿ  ÿÿüÿ  ÿÿüÿ  ÿÿÿÿ ÿÿÿÿ  ýÿÿÿ  þÿ   ÿÿÿÿ    ýÿÿÿ  þÿýÿ    þÿ   ÿÿ   ÿÿþÿ  ýÿ   ÿÿüÿ  þÿýÿ      ÿÿ     þÿ  þÿÿÿ  þÿýÿ  þÿüÿ  üÿþÿ  ûÿÿÿ  ýÿ   ÿÿýÿ  ýÿÿÿ  ýÿ   ÿÿþÿ        þÿýÿ  ýÿýÿ  ýÿþÿ  ýÿÿÿ  ýÿÿÿ  ÿÿýÿ    ûÿþÿ  þÿýÿ  ÿÿ   þÿÿÿ  ýÿÿÿ   ÿÿ   ÿÿ    ýÿþÿ    þÿÿÿ  ÿÿþÿ  ÿÿ             ÿÿÿÿ  üÿþÿ  ýÿÿÿ ÿÿÿÿ  þÿþÿ  þÿÿÿ   þÿ  ÿÿþÿ    ýÿÿÿ  üÿÿÿ   þÿ      ÿÿ   ÿÿþÿ  ýÿþÿ  ÿÿÿÿ    ÿÿ    ýÿþÿ  ýÿÿÿ      ÿÿÿÿ   þÿ  ÿÿ   ÿÿÿÿ   þÿ   ÿÿ   ýÿ  þÿüÿ  ýÿýÿ  þÿþÿ  ÿÿ    ÿÿ      þÿÿÿ  ÿÿþÿÿÿ    ýÿÿÿ   þÿþÿ  ÿÿ   þÿýÿ  ÿÿüÿ    þÿÿÿ            ÿÿ     ÿÿÿÿ    þÿþÿ      ÿÿýÿ  þÿ   þÿÿÿ  ýÿþÿ  ÿÿþÿ      þÿ    ýÿýÿ  ÿÿþÿ    ÿÿÿÿÿÿ  þÿ     ÿÿ    ÿÿ  ÿÿþÿÿÿ  üÿýÿ  üÿýÿ  ýÿ  ÿÿ   ýÿ     üÿ    ýÿþÿ  üÿþÿ  þÿÿÿ    þÿþÿ  þÿÿÿ   ÿÿ   ýÿ   ÿÿýÿ  þÿ   þÿ     þÿ         þÿÿÿ    þÿþÿ    þÿÿÿ  þÿýÿ  þÿýÿ  ÿÿþÿ    ÿÿþÿ    ýÿ   ÿÿþÿ  ÿÿÿÿ  þÿýÿ    þÿÿÿ    þÿýÿ  þÿ   ÿÿ  þÿÿÿ   üÿ  ÿÿ   þÿÿÿ  þÿÿÿ  ÿÿÿÿ  ýÿÿÿ  ýÿÿÿ   ÿÿýÿ     þÿ  þÿÿÿ  ýÿÿÿ   ÿÿþÿ     ýÿ  þÿüÿ  üÿûÿ  ýÿþÿ   ÿÿ ÿÿþÿ  ýÿÿÿ  ýÿþÿ  þÿÿÿ  þÿþÿ  ýÿýÿ  þÿÿÿ     ÿÿÿÿ  ÿÿÿÿ    ÿÿÿÿ  ÿÿþÿ  ýÿÿÿ  ýÿ     þÿ    ÿÿ  ÿÿÿÿ    þÿÿÿ      ÿÿþÿ  þÿüÿ  þÿÿÿ ÿÿ     þÿ       ÿÿ         ÿÿ     ýÿ     ýÿ     þÿ  þÿ   ÿÿþÿ  ýÿÿÿ   ýÿ  þÿüÿ  ÿÿþÿ      ÿÿÿÿ    ýÿþÿ  üÿÿÿ   þÿ  þÿ     þÿÿÿ  ýÿþÿ  üÿ   ÿÿýÿ      ÿÿþÿ    ÿÿþÿ    þÿþÿ    ÿÿþÿ     ýÿ     ÿÿ   þÿ      þÿ     ýÿ   ÿÿÿÿ  þÿÿÿ  ÿÿÿÿÿÿ  ÿÿÿÿ ÿÿÿÿ  üÿÿÿ  þÿÿÿ    ÿÿþÿ  ÿÿ   ÿÿÿÿ  ÿÿÿÿ  ÿÿÿÿ  ÿÿÿÿ   ÿÿ  þÿýÿ  ýÿ   þÿþÿ  ýÿþÿ  ÿÿüÿ  þÿüÿ  ýÿýÿ  þÿ         ÿÿ       ÿÿÿÿ   ûÿ  ÿÿúÿ    ûÿÿÿ   þÿ    ÿÿÿÿ  þÿÿÿ ÿÿýÿ  ýÿÿÿ   ýÿ    ýÿÿÿ  ÿÿþÿ    ýÿþÿ  þÿÿÿ   ÿÿ       ÿÿÿÿ  ýÿýÿ  þÿ   þÿÿÿ  ûÿÿÿ ÿÿüÿ  ÿÿ    ÿÿ  þÿ   ÿÿ        þÿÿÿ   þÿÿÿ    ýÿüÿ  þÿüÿ    ÿÿ   ÿÿÿÿ    ÿÿÿÿ  ÿÿýÿ      ÿÿÿÿ  ÿÿÿÿ      ÿÿÿÿ    ÿÿþÿ    ÿÿýÿ  ÿÿþÿ   þÿ  üÿýÿ  ÿÿþÿÿÿ  ÿÿýÿ  ÿÿ  þÿÿÿ  üÿÿÿ  ýÿÿÿ  ÿÿÿÿ    ÿÿ  ÿÿûÿ  ÿÿýÿ        ÿÿ   þÿ     þÿ     ýÿýÿ  üÿþÿ   üÿ  ûÿþÿ  þÿ  þÿÿÿ    ÿÿ     þÿ  ÿÿýÿÿÿ  üÿüÿ  ÿÿþÿÿÿ    þÿþÿ    ýÿÿÿ  ýÿþÿ    ÿÿÿÿ  ÿÿýÿ  ÿÿ        ÿÿ     ýÿ   ÿÿþÿ  þÿÿÿ  ýÿ   þÿþÿ  ýÿÿÿ ÿÿ   þÿÿÿ   ýÿ        ÿÿÿÿ  ÿÿþÿ    ÿÿÿÿ  ÿÿÿÿ        þÿÿÿ  þÿþÿ    ÿÿÿÿ      üÿüÿ  þÿþÿ      ýÿüÿ  þÿþÿ  ÿÿÿÿ  ÿÿþÿ  ÿÿýÿ  þÿÿÿ   ÿÿ       þÿ   ÿÿþÿ  ýÿÿÿ               þÿÿÿ   þÿ  þÿÿÿ   ýÿ     ýÿ     ÿÿ     ÿÿ     ÿÿ    ÿÿ  ÿÿþÿ      þÿÿÿ  ÿÿþÿ    ýÿÿÿ   þÿ      ÿÿÿÿ  ÿÿ  ÿÿÿÿ  ýÿ     ýÿ     þÿÿÿ  þÿÿÿ       üÿ   ÿÿûÿ  ÿÿüÿÿÿ  þÿþÿ  ÿÿ  ýÿÿÿ  üÿýÿ  ÿÿýÿ     ýÿ   ÿÿþÿ  ÿÿ    þÿ   ÿÿþÿ   ýÿ  ýÿúÿ    úÿþÿ  ÿÿ    ÿÿ     ÿÿÿÿ    þÿÿÿ  þÿþÿ  þÿÿÿ   ÿÿ   ÿÿ      ÿÿÿÿ   ÿÿ  ÿÿÿÿ    ýÿþÿ  þÿÿÿ      ýÿþÿ  þÿüÿ    ýÿ   ÿÿþÿ   ÿÿ        ÿÿ   ÿÿÿÿ    ýÿÿÿ  üÿÿÿ      ÿÿ   ÿÿþÿ  þÿÿÿ  ýÿ   þÿýÿ  ýÿÿÿ   þÿ   þÿ  ÿÿüÿ    üÿÿÿ   ýÿ      ÿÿÿÿ  ýÿþÿ  þÿ   ÿÿ     ÿÿ    ÿÿ  ýÿ   ÿÿýÿ  ýÿ  ÿÿÿÿ  ÿÿÿÿ     þÿ     ýÿ  þÿþÿ  þÿ   ÿÿ  ýÿýÿ  úÿùÿ  ûÿûÿ      þÿ   ÿÿþÿ  þÿ   þÿ     ÿÿÿÿ    ýÿÿÿ   ýÿ  ÿÿÿÿ    ÿÿÿÿ    ÿÿþÿ  þÿýÿ      þÿÿÿ  ýÿÿÿ     þÿÿÿ  ÿÿÿÿ  ÿÿÿÿ   ÿÿ  üÿ   ÿÿüÿ  ÿÿþÿ    þÿÿÿ  þÿÿÿ   þÿ  þÿÿÿ  üÿ   ÿÿÿÿ   ýÿ    üÿÿÿ  ÿÿ   ÿÿ     þÿÿÿ                                      þÿþÿ  þÿþÿ  þÿÿÿ   üÿ   ÿÿüÿ  þÿÿÿ ÿÿ   ÿÿýÿ  ÿÿýÿ  ÿÿþÿ   ýÿ  üÿýÿ  ûÿþÿ  ýÿþÿ  ýÿ   ÿÿÿÿ   üÿ  üÿþÿ  ýÿ     ÿÿÿÿ         ÿÿ     ÿÿ         ÿÿ   ÿÿÿÿ  þÿ   ÿÿþÿ  ÿÿ     ÿÿ     ÿÿ  ýÿÿÿ  úÿÿÿ  ûÿ   ÿÿÿÿ   ýÿ     üÿ   ÿÿýÿ  üÿ  þÿýÿ  ÿÿ  ÿÿ  þÿýÿ  üÿþÿ  ÿÿþÿÿÿ  þÿþÿ  ÿÿ    ÿÿ         ÿÿ  þÿþÿ  þÿ  ýÿþÿ  ýÿüÿ  þÿþÿ  þÿ  þÿÿÿ        ÿÿ    ÿÿ          ÿÿ    ÿÿ              þÿÿÿ  þÿ     þÿ   ÿÿÿÿ        ýÿÿÿ  üÿþÿ  þÿþÿÿÿ   þÿÿÿ       þÿ    ÿÿÿÿ       ÿÿ  ÿÿÿÿ  þÿ   ÿÿÿÿ      ÿÿÿÿ   ÿÿ      þÿÿÿ  ýÿÿÿ   ýÿþÿ    ÿÿÿÿÿÿ  ÿÿþÿ      ÿÿÿÿ      þÿÿÿ  ýÿþÿ  ÿÿ    ÿÿ    ÿÿþÿÿÿ  üÿþÿ  ýÿþÿ    ýÿýÿ  üÿûÿ  ÿÿþÿÿÿÿÿ  üÿüÿ  ÿÿýÿ    ÿÿþÿ     þÿ  þÿüÿ    üÿþÿ  üÿüÿ  üÿýÿ  üÿÿÿ  þÿÿÿ    ÿÿ       ÿÿÿÿ   þÿ  ÿÿþÿ     ÿÿ ÿÿþÿ  þÿÿÿ   ýÿ  üÿþÿ  ûÿ   þÿûÿ  ýÿþÿ  þÿÿÿ    ÿÿÿÿ  ÿÿ    ÿÿ  þÿÿÿ ÿÿüÿ  ýÿýÿ  þÿ     þÿ     ÿÿ  ýÿÿÿ  ÿÿÿÿÿÿ    üÿÿÿ   þÿ  ÿÿþÿ  þÿþÿ      ÿÿ   ÿÿýÿ  þÿýÿ  þÿ   ÿÿ     ÿÿ  ÿÿÿÿ     ÿÿ     ÿÿ  ÿÿýÿ     þÿ  þÿ   ÿÿÿÿ  þÿÿÿ  þÿÿÿ        ÿÿ     ÿÿÿÿ  ýÿþÿ  üÿ     þÿ       ÿÿ      ÿÿþÿ  þÿþÿ  þÿÿÿ            þÿ   ÿÿÿÿ ÿÿþÿ  üÿ   þÿþÿ  ýÿþÿ  ÿÿ       ÿÿþÿ  ûÿþÿ  ûÿýÿ  ÿÿÿÿ  ÿÿ     üÿ     ýÿ       ÿÿ     þÿ     ýÿ     þÿ     þÿ     ýÿ     üÿ     ÿÿÿÿÿÿ  ýÿýÿ  þÿÿÿ   ÿÿ   ÿÿÿÿ  þÿýÿ  üÿýÿ  ýÿþÿ     ÿÿÿÿ      þÿÿÿ      ÿÿÿÿ      ÿÿÿÿ    þÿÿÿ    þÿ   ÿÿ     þÿ     þÿ        ÿÿþÿ  þÿ     ÿÿ     ÿÿÿÿ      þÿÿÿ  ûÿýÿ  þÿþÿ     þÿ   ÿÿÿÿ  ÿÿ       ÿÿÿÿ  ýÿþÿ  ýÿÿÿ  þÿÿÿ   ÿÿ        ÿÿÿÿ   þÿ  þÿþÿ  ýÿþÿ  ýÿþÿ  ÿÿÿÿ      ÿÿ        þÿ     ýÿ    üÿýÿ  ýÿüÿ  ýÿ   ýÿýÿ  üÿýÿ  ÿÿýÿ     þÿ         ÿÿ                               ÿÿ     þÿ  þÿþÿ  ÿÿÿÿ      þÿ     þÿÿÿ  þÿ     þÿ   ÿÿÿÿ    þÿ   ÿÿÿÿ      ÿÿþÿ  ýÿ   þÿþÿ  þÿýÿ    þÿýÿ    ÿÿþÿ  ÿÿ   ÿÿüÿ  þÿýÿ  ÿÿþÿ   ÿÿ        ÿÿ   þÿÿÿ   þÿ    ÿÿþÿ     úÿ     ùÿ   ÿÿüÿ  þÿþÿ   þÿ  ÿÿ     ÿÿ         ÿÿ   þÿ     ÿÿ    ÿÿþÿ  ÿÿþÿ  ÿÿþÿ    þÿýÿ  þÿüÿ      ÿÿÿÿ   þÿ   ÿÿ   ÿÿüÿ    ýÿÿÿ  þÿþÿ  þÿÿÿ  üÿþÿ  þÿþÿ  þÿÿÿ  ÿÿüÿ  þÿþÿ    ÿÿÿÿ   ÿÿüÿ  ÿÿþÿ    ÿÿýÿ   ÿÿýÿ  þÿþÿ  þÿþÿ  ÿÿÿÿÿÿ    þÿÿÿ   ÿÿ   ÿÿ     ÿÿ     ÿÿ  þÿÿÿ  þÿþÿ    ýÿ         þÿ   ÿÿÿÿ        þÿ       ÿÿ       ÿÿ    ÿÿ  ÿÿþÿ  ÿÿ  ÿÿþÿ  ýÿþÿ  þÿ   þÿÿÿ  þÿþÿ  ÿÿÿÿ   ÿÿ  þÿþÿ  þÿÿÿ  ÿÿýÿ  þÿüÿ  þÿþÿ  ÿÿ   ÿÿþÿ  ýÿýÿ  þÿÿÿ    þÿþÿ  ýÿ   ÿÿÿÿ  ÿÿÿÿÿÿ  þÿ         ÿÿ   ÿÿþÿ      ÿÿÿÿ  ýÿüÿ  ûÿûÿ  ýÿüÿ      úÿþÿ  ûÿýÿ  þÿÿÿ  ÿÿÿÿ  þÿÿÿ    ÿÿÿÿ  ÿÿþÿ  ÿÿþÿ     þÿ  ÿÿÿÿ      ýÿþÿ  ýÿýÿ  ÿÿýÿ         þÿ    ûÿÿÿ  þÿÿÿ       ýÿ  ÿÿÿÿ  þÿÿÿ  ýÿþÿ  üÿýÿ  þÿýÿ    ÿÿÿÿ   ÿÿ  ÿÿÿÿ      ÿÿÿÿ      þÿþÿ  ýÿýÿ  þÿþÿ   þÿ  ÿÿÿÿ ÿÿÿÿ  üÿÿÿ  ýÿÿÿ  ÿÿÿÿ         ÿÿ    þÿþÿ   þÿýÿ  þÿýÿ  þÿ  þÿÿÿ ÿÿ  þÿþÿ  þÿ     þÿÿÿ  þÿüÿ  ÿÿÿÿ  ÿÿ     ÿÿ            ÿÿ     þÿ  ýÿ   þÿþÿ  üÿ  þÿýÿ      ÿÿÿÿ  þÿþÿ    ÿÿ        ÿÿ    ÿÿþÿ  þÿþÿ  ÿÿ   þÿ  ÿÿþÿ  ÿÿ      þÿþÿ    ÿÿ  ÿÿÿÿ   ÿÿþÿ  ÿÿ   ÿÿÿÿ   þÿ  ÿÿÿÿ  ÿÿÿÿ  ÿÿþÿ  ÿÿýÿ    þÿÿÿ  ÿÿÿÿ    þÿÿÿ  üÿýÿ  üÿþÿ   ýÿ  ÿÿÿÿ  ÿÿýÿ  þÿþÿ  ýÿ   ÿÿüÿ  ÿÿûÿ  þÿûÿ  ÿÿÿÿ      ÿÿÿÿ   ýÿ  ÿÿÿÿ   ýÿ    ÿÿþÿ    ýÿÿÿ      ÿÿÿÿ    þÿýÿ  ÿÿ   þÿýÿ  üÿýÿ  ýÿÿÿ þÿþÿ  ýÿýÿ  þÿþÿ     þÿ  ÿÿÿÿ  ÿÿÿÿÿÿ     þÿ     þÿ    þÿÿÿ ÿÿþÿ  þÿþÿ  ÿÿÿÿÿÿÿÿ  ÿÿýÿ    ÿÿþÿ     ýÿ  ÿÿþÿ    üÿþÿ  ýÿýÿ   ÿÿýÿ  ÿÿýÿ  þÿþÿ  ýÿþÿ  üÿþÿ  üÿ     ÿÿÿÿ         ÿÿÿÿ  ýÿþÿ  þÿüÿ  þÿüÿ    üÿÿÿ  üÿþÿ  þÿþÿ    ÿÿÿÿ  þÿÿÿ    ÿÿÿÿ    ýÿÿÿ  þÿýÿ  þÿþÿ  ÿÿÿÿ    ûÿÿÿ  üÿ   ÿÿ   ÿÿýÿ    ýÿÿÿ  üÿÿÿ  üÿ     þÿ   ÿÿþÿ    þÿ     þÿÿÿ  þÿþÿ     þÿÿÿ  þÿþÿ     ÿÿ    ÿÿ   ÿÿýÿ  üÿüÿ  üÿ   ÿÿ       ÿÿþÿ  ýÿýÿ  þÿþÿ  þÿ   ÿÿþÿ  ÿÿþÿ    ýÿÿÿ  ýÿþÿ  üÿýÿ  üÿýÿ  ÿÿ ÿÿþÿ  ÿÿÿÿ      þÿ  ýÿÿÿ   üÿ  þÿýÿ    þÿÿÿ  ÿÿ       ÿÿÿÿ   ûÿ  ÿÿúÿ  ÿÿýÿ      þÿ   ÿÿýÿ  þÿ  þÿ  þÿÿÿ ÿÿ     ÿÿ         þÿ   ÿÿÿÿ  ýÿÿÿ  üÿÿÿ   üÿ  ÿÿþÿ  ÿÿ    ÿÿ  ÿÿþÿ  þÿ   ÿÿüÿ    ûÿ     ýÿÿÿ  ÿÿÿÿ      ÿÿÿÿ  þÿ   þÿÿÿ  ýÿ   þÿüÿ  ÿÿýÿ  ÿÿ        ÿÿ  ÿÿ    ÿÿ     þÿ  ÿÿ    ÿÿ     þÿ  þÿþÿ   üÿ    ÿÿÿÿÿÿ  ýÿüÿ  ýÿÿÿ ÿÿýÿ  þÿýÿ    þÿÿÿ  ÿÿþÿ      ÿÿÿÿ  ûÿ   ÿÿýÿ  ýÿ  ýÿýÿ  üÿýÿ  üÿÿÿ  þÿÿÿ  ýÿÿÿ   ýÿ  ÿÿýÿ  ÿÿüÿ  ÿÿýÿ    ÿÿÿÿ   ÿÿÿÿ  üÿÿÿ  üÿýÿ  ÿÿ  ÿÿ     þÿÿÿ      ÿÿ         ÿÿÿÿ  ÿÿüÿ    üÿÿÿ   üÿ  þÿüÿ  þÿüÿ  þÿþÿ  üÿþÿ  üÿþÿ  ýÿÿÿ  ýÿÿÿ    ÿÿþÿ     üÿ      þÿÿÿ  üÿ     þÿÿÿ    ýÿþÿ  ÿÿÿÿÿÿ  þÿýÿ  ÿÿþÿ  ÿÿ   ÿÿþÿ  ýÿýÿ  þÿþÿ        ÿÿÿÿ  ÿÿÿÿ  ÿÿ     ÿÿÿÿ  ÿÿÿÿ     þÿýÿ  ýÿûÿ   úÿþÿ  ýÿÿÿ     þÿÿÿ  þÿÿÿ  þÿÿÿ  ÿÿþÿ     ÿÿÿÿ  ÿÿþÿ  ÿÿÿÿ  ÿÿ    üÿþÿ  ýÿÿÿ ÿÿÿÿ   þÿ      ÿÿ            ÿÿ    þÿÿÿ ÿÿýÿ  üÿ  þÿýÿ  ÿÿÿÿÿÿ    þÿþÿ      ÿÿÿÿ  ýÿÿÿ   ýÿ    ýÿÿÿ  ûÿþÿ  üÿ   ÿÿÿÿ  þÿþÿ        ÿÿÿÿ  ýÿÿÿ  þÿ       ÿÿÿÿ  þÿ   þÿ  þÿþÿ  ÿÿ    ÿÿ  þÿ   ÿÿÿÿ        þÿÿÿ  þÿÿÿ  ýÿýÿ  üÿýÿ  ÿÿþÿÿÿ    þÿÿÿ        þÿ     ýÿ   ÿÿþÿ    ÿÿ     ÿÿÿÿ  ÿÿ     ÿÿ   ÿÿÿÿ   þÿ  ÿÿþÿ    þÿÿÿ   üÿ  ÿÿüÿ  ÿÿýÿ    üÿÿÿ  üÿÿÿ  þÿÿÿ     üÿ     ùÿ  ÿÿûÿ     ÿÿÿÿÿÿ  ÿÿ          ÿÿ   ÿÿÿÿ   þÿ     þÿ        þÿÿÿ  üÿûÿ  ÿÿüÿ     þÿ     ÿÿ   ÿÿ  ýÿþÿ  ýÿþÿ  ÿÿ  ÿÿ         ÿÿÿÿ  þÿýÿ    üÿ     þÿ   ÿÿþÿ  ýÿýÿ  úÿüÿ  üÿüÿ    ýÿÿÿ  þÿÿÿ    ÿÿüÿ  ÿÿþÿ        ÿÿ       ÿÿÿÿ  ÿÿÿÿ  ÿÿÿÿÿÿ  þÿÿÿ    üÿÿÿ  ûÿýÿ  üÿþÿ   þÿÿÿ  ÿÿÿÿ  ÿÿ     þÿ     þÿ   ÿÿÿÿ  üÿÿÿ  üÿþÿ  ÿÿ    ÿÿ     þÿ     ÿÿ    ÿÿ  ýÿÿÿ   ýÿ   ÿÿþÿ  þÿ    ÿÿþÿ               þÿÿÿ         þÿþÿ  þÿýÿ        þÿ    ýÿþÿ  þÿ   ÿÿÿÿ  þÿÿÿ  þÿýÿ  ýÿþÿ   ÿÿ ÿÿÿÿ  ýÿ   ÿÿþÿ  ÿÿýÿ  ÿÿýÿ  þÿ    ÿÿ  ÿÿÿÿ  þÿþÿ    ûÿ   ÿÿýÿ   ýÿ  ýÿýÿ  üÿ     üÿ    þÿþÿ  þÿ   ÿÿþÿ  ÿÿ  ÿÿ     ýÿ     üÿÿÿ  ûÿþÿ  ûÿþÿ  ÿÿ  ÿÿ     ÿÿ    ÿÿ  ÿÿ   þÿ  ÿÿþÿ      þÿ   ÿÿûÿ  ýÿýÿ  ûÿ   ÿÿüÿ  ýÿ   ÿÿúÿ  ÿÿüÿ  ýÿþÿ  ýÿÿÿ    ÿÿÿÿ     þÿÿÿ  ÿÿþÿ  ÿÿÿÿ   þÿ    ÿÿþÿ    ÿÿþÿ    ÿÿÿÿ   ÿÿ     þÿ  ÿÿýÿ     þÿ        ýÿÿÿ   þÿ   þÿ  ýÿüÿ  ýÿúÿ    üÿÿÿ   þÿ     þÿ    ýÿþÿ  þÿ  ýÿýÿ  þÿ   þÿ   ÿÿþÿ   þÿ  þÿýÿ    ÿÿÿÿ  ÿÿ       ÿÿþÿ  þÿüÿ    ÿÿÿÿ  ÿÿ  þÿüÿ  þÿýÿ  þÿýÿ  üÿýÿ  üÿÿÿ  ÿÿ        ÿÿ   ÿÿÿÿ  þÿþÿ  þÿýÿ    þÿÿÿ  þÿþÿ    ýÿÿÿ  þÿþÿ  þÿþÿ  þÿýÿ    üÿ     ÿÿ  ÿÿÿÿ  ýÿ   ÿÿ   ÿÿýÿ  ýÿþÿ      ÿÿÿÿ  ýÿþÿ    þÿ   ÿÿ     þÿ     ýÿ     üÿ     ýÿ    ÿÿþÿ     ÿÿ         üÿ     ýÿ     ÿÿ            þÿþÿ  þÿþÿ   ÿÿÿÿ       ÿÿþÿ  þÿÿÿ  ÿÿÿÿÿÿ  ÿÿýÿ  ÿÿüÿ  ÿÿþÿ    ÿÿþÿ  ÿÿýÿ    ÿÿýÿ         ÿÿ   ÿÿÿÿ  þÿ     þÿ   ÿÿ     þÿ  þÿþÿ  þÿþÿ  ÿÿþÿ     þÿ  þÿýÿ  þÿÿÿ ÿÿ  þÿýÿ  ûÿþÿ  úÿþÿ  ûÿþÿ  þÿ     þÿ  ÿÿþÿ    þÿýÿ    üÿÿÿ  ÿÿüÿ    þÿ   þÿÿÿ ÿÿýÿ  ýÿ   ÿÿýÿ      üÿ     ûÿ     ýÿÿÿ  ÿÿÿÿ  ÿÿ    þÿþÿ   þÿýÿ  ÿÿþÿ              þÿÿÿ  ýÿýÿ  ýÿÿÿ ÿÿÿÿ  ýÿÿÿ  ýÿÿÿ  þÿÿÿ  ÿÿ   ÿÿÿÿ  ÿÿýÿ    ýÿÿÿ    ÿÿ   ÿÿÿÿ  ÿÿÿÿ        þÿÿÿ  üÿþÿ  ýÿþÿ  ÿÿ        ÿÿÿÿ  ÿÿ  þÿüÿ  ýÿüÿ  ÿÿÿÿ    ÿÿþÿ  ýÿ   ÿÿÿÿ  þÿ   ÿÿýÿ  ÿÿûÿ    üÿÿÿ    þÿÿÿ  ÿÿþÿ  ÿÿÿÿ  þÿþÿ  ÿÿþÿ  ÿÿ         ÿÿ   ÿÿýÿ  þÿþÿ    ÿÿÿÿÿÿ  ÿÿþÿ    ýÿÿÿ  ÿÿÿÿ      þÿÿÿ  ýÿÿÿ  ýÿ   ÿÿÿÿ   ÿÿ   ÿÿ   ýÿ  þÿÿÿ  ýÿÿÿ  þÿþÿ  ÿÿ   ÿÿ    ÿÿýÿ  ÿÿýÿ  ÿÿþÿ  ýÿ   ÿÿüÿ  ÿÿûÿ    ýÿ   ÿÿÿÿ   ÿÿ    ÿÿþÿ  ýÿüÿ  ÿÿûÿ    ýÿ   ÿÿÿÿ    ÿÿ    ÿÿ     þÿ  ÿÿ    ÿÿ        ÿÿÿÿ  ýÿÿÿ   þÿ  ýÿ   ÿÿþÿ      ÿÿÿÿ  ÿÿÿÿ  ÿÿ   ÿÿüÿ  þÿûÿ    þÿ    ÿÿ  ÿÿþÿ  þÿþÿ  üÿÿÿ  þÿýÿ    üÿÿÿ   þÿ  ÿÿ     ýÿÿÿ  ýÿÿÿ  þÿýÿ    ýÿÿÿ  ýÿÿÿ   ýÿ    þÿþÿ  ÿÿþÿ  ÿÿÿÿ   ÿÿ    ÿÿþÿ  ÿÿýÿ  ÿÿÿÿ    ÿÿÿÿ  þÿýÿ  ÿÿþÿ  ÿÿ    ÿÿ     ýÿ  ÿÿþÿ      ÿÿÿÿ      þÿÿÿ  þÿÿÿ      þÿ   ÿÿýÿ  ÿÿÿÿ  þÿþÿ  þÿþÿ    ÿÿ         ÿÿþÿ  üÿÿÿ   üÿ  üÿþÿ  üÿýÿ    üÿþÿ  þÿ   ÿÿÿÿ  ÿÿ    ÿÿ    ýÿÿÿ  þÿýÿ    þÿÿÿ    ýÿÿÿ  ûÿÿÿ  üÿ   ÿÿ   ÿÿÿÿ    ÿÿþÿ    üÿÿÿ  þÿüÿ  ÿÿüÿ  ýÿþÿ    ÿÿÿÿ      þÿþÿ  ûÿýÿ  ýÿÿÿ ÿÿþÿ  ÿÿÿÿ     þÿÿÿ  ýÿýÿ  üÿþÿ  üÿ   ÿÿüÿ  ýÿþÿ  þÿ       ÿÿÿÿ  ÿÿýÿ  þÿýÿ  ýÿþÿ  þÿ   þÿþÿ  þÿ         ÿÿ   ÿÿÿÿ  þÿÿÿ    ÿÿ     þÿÿÿ  ýÿýÿ    úÿþÿ  üÿýÿ  ÿÿþÿ     ÿÿ          ÿÿ    ÿÿ    þÿÿÿ  þÿÿÿ   ÿÿþÿ  þÿþÿ  þÿþÿ  ÿÿþÿ     ÿÿþÿ  þÿþÿ  ýÿþÿ  ýÿþÿ  þÿÿÿ   ÿÿ               þÿ     üÿÿÿ  üÿþÿ  üÿþÿ  üÿ     þÿÿÿ    ÿÿÿÿ      ÿÿÿÿ    þÿþÿ  þÿþÿ        ÿÿ  þÿÿÿ  þÿ   ÿÿþÿ  ýÿþÿ  ÿÿþÿ    þÿÿÿ  þÿÿÿ        þÿÿÿ  ûÿþÿ  ûÿ     þÿ    ÿÿþÿ    ÿÿÿÿ  ÿÿÿÿ      ÿÿÿÿ     ÿÿ        ÿÿþÿ  ÿÿ  ýÿþÿ  ûÿýÿ  ÿÿÿÿÿÿ     ÿÿ         ÿÿÿÿ   þÿ     üÿ  ÿÿþÿ  ÿÿÿÿ ÿÿÿÿ  ýÿÿÿ  üÿ   ÿÿþÿ  ÿÿÿÿ      ÿÿÿÿ  ÿÿýÿ  ÿÿÿÿ ÿÿþÿ  þÿýÿ  þÿÿÿ   þÿ  ÿÿþÿ    þÿþÿ  þÿþÿ   þÿ     þÿ  ÿÿþÿ  þÿþÿ    þÿþÿ  ýÿýÿ  üÿ   þÿþÿ  ýÿÿÿ  ýÿÿÿ  ÿÿ   ÿÿÿÿ    ÿÿüÿ    ùÿþÿ  úÿÿÿ   þÿ    ÿÿ  ýÿþÿ  þÿýÿ    þÿÿÿ  ÿÿ  þÿ   ÿÿþÿ  ýÿÿÿ ÿÿþÿ    ÿÿ    üÿþÿ  ûÿþÿ  ýÿýÿ  ÿÿÿÿ      ýÿÿÿ   ýÿ  þÿÿÿ   üÿ     ûÿ     þÿ  ÿÿ  þÿûÿ  þÿþÿ   ÿÿ   ÿÿ     ÿÿ    ÿÿþÿ  ÿÿ     ÿÿ     ýÿÿÿ  þÿ       ÿÿÿÿ  ýÿÿÿ  üÿýÿ  þÿþÿ        ÿÿÿÿ  ÿÿþÿ  ÿÿÿÿ  ÿÿþÿ  ÿÿþÿ   ÿÿ  þÿÿÿ  þÿýÿ  ÿÿýÿ  ýÿýÿ  þÿýÿ    þÿÿÿ    ÿÿþÿ  þÿþÿ   ÿÿ ÿÿþÿ  ÿÿÿÿ   ÿÿ  þÿÿÿ  þÿ   þÿþÿ  ýÿþÿ  ýÿþÿ  ýÿ     ÿÿ   ÿÿÿÿ    þÿÿÿ  ýÿþÿ  ýÿÿÿ  ÿÿÿÿ    ûÿÿÿ   üÿ  ýÿþÿ  ýÿ     ÿÿ    ÿÿ          þÿÿÿ  þÿüÿ  ÿÿüÿ     ÿÿ    ÿÿ    þÿþÿ  þÿþÿ    þÿÿÿ  þÿüÿ  þÿÿÿ ÿÿþÿ  üÿ  ýÿÿÿ ÿÿüÿ  þÿþÿ      ÿÿ         ÿÿÿÿ    þÿÿÿ  ÿÿþÿ                  ÿÿ       ÿÿþÿ  üÿÿÿ ÿÿþÿ  üÿ     üÿ   ÿÿþÿ  ýÿÿÿ ÿÿþÿ  þÿ      ÿÿýÿ  ýÿüÿ  ÿÿþÿÿÿ    ýÿ   ÿÿþÿ  ýÿ     üÿ     ýÿÿÿ  ýÿÿÿ   ýÿ  þÿþÿ   þÿ    þÿÿÿ  þÿýÿ    ÿÿÿÿ    þÿÿÿ      ÿÿÿÿ   ýÿ  ÿÿüÿ    þÿþÿ    þÿþÿ  ÿÿþÿ  ÿÿÿÿ  ýÿþÿ  ýÿ   ÿÿþÿ      þÿÿÿ  þÿÿÿ    ÿÿÿÿ  ÿÿÿÿ  ÿÿ     ÿÿ   ÿÿ    ÿÿ  þÿÿÿ  þÿþÿ  ýÿÿÿ  üÿÿÿ  ýÿÿÿ    ÿÿÿÿ  ÿÿþÿ      þÿÿÿ  ûÿ  ýÿýÿ  üÿÿÿ  ÿÿþÿ     ÿÿ ÿÿýÿ  üÿüÿ  üÿýÿ  üÿþÿ  ýÿüÿ  þÿýÿ    ÿÿ    þÿþÿ  üÿýÿ  ûÿüÿ  ûÿüÿ  ýÿüÿ  ýÿüÿ  ýÿþÿ  ÿÿ   þÿ  þÿþÿ  ÿÿ        ýÿþÿ  ÿÿþÿ      þÿþÿ   þÿþÿ  ÿÿýÿ     þÿ     üÿ     ýÿ    ÿÿþÿ     ÿÿ           ÿÿ    ÿÿþÿ    ýÿÿÿ  ýÿÿÿ  þÿÿÿ    þÿ     ýÿ     ýÿ     þÿ         ÿÿ  ÿÿþÿ      ýÿÿÿ  ûÿýÿ  ýÿ  þÿ  þÿýÿ  ÿÿÿÿÿÿ  þÿýÿ  ÿÿÿÿ        ÿÿÿÿ  ÿÿýÿ    þÿþÿ      ÿÿýÿ  ÿÿüÿ  ÿÿÿÿ     ÿÿÿÿ   ýÿ     üÿ  ÿÿþÿ          ÿÿÿÿ  þÿ   ÿÿýÿ  þÿýÿ  ÿÿÿÿ   ÿÿ  þÿ   ÿÿýÿ    ÿÿÿÿÿÿ  ÿÿýÿ    ÿÿ       ÿÿþÿ  ÿÿþÿ  þÿýÿ    ýÿÿÿ    þÿþÿ  þÿýÿ  ýÿýÿ  úÿýÿ  üÿÿÿ  ÿÿÿÿÿÿ  ÿÿÿÿ  ÿÿ   ÿÿýÿ    þÿÿÿ    ÿÿÿÿ  ÿÿþÿ  þÿþÿ  ÿÿ            ýÿ   ÿÿþÿ  þÿ   ÿÿþÿ    þÿÿÿ  þÿÿÿ  ÿÿ           ÿÿþÿ    þÿ  þÿ     ýÿÿÿ  üÿýÿ  ýÿüÿ    þÿÿÿ    ÿÿÿÿÿÿ    ÿÿ       ÿÿÿÿ    ÿÿ     þÿ     ýÿ     ýÿ     ÿÿÿÿ    þÿÿÿ      ÿÿÿÿ   þÿ  þÿÿÿ  ýÿ  þÿýÿ  ÿÿýÿ    ýÿ     ýÿÿÿ  ýÿþÿ  ýÿþÿ  ÿÿþÿ     þÿ    þÿþÿ  þÿýÿ    þÿ       ÿÿÿÿ    ýÿ   ÿÿ     ÿÿ   ÿÿÿÿ  ÿÿÿÿ  üÿ   þÿýÿ  ûÿ     üÿ  þÿ   ÿÿþÿ    ÿÿÿÿÿÿ    þÿýÿ  ýÿüÿ  þÿýÿ  ÿÿüÿ  ÿÿüÿ     þÿ  ÿÿþÿ  þÿþÿ  ÿÿ   ÿÿÿÿ  ÿÿÿÿ      ÿÿÿÿ  þÿÿÿ  þÿþÿ    ÿÿýÿ  ÿÿþÿ  ýÿÿÿ  ýÿ     ýÿ   ÿÿýÿ  ÿÿýÿ    ýÿÿÿ  ýÿÿÿ      þÿýÿ  ûÿþÿ  ýÿÿÿ  ýÿýÿ  ûÿüÿ  üÿýÿ  þÿýÿ    þÿÿÿ    ýÿÿÿ  ýÿÿÿ   ýÿ  ÿÿýÿ  ÿÿýÿ    ÿÿÿÿ  ÿÿÿÿ  þÿÿÿ  ÿÿ    þÿ    ýÿþÿ  þÿýÿ      ÿÿÿÿ  ÿÿ   ÿÿÿÿ  þÿ   ÿÿ   ÿÿýÿ    þÿ   ÿÿþÿ  þÿ     üÿ   ÿÿþÿ  þÿ        ýÿÿÿ  üÿûÿ  þÿýÿ  þÿ   ÿÿþÿ  þÿþÿ  þÿÿÿ   þÿ     ÿÿ       ýÿ   ÿÿýÿ  þÿÿÿ   þÿ     ÿÿ  ÿÿþÿ    þÿþÿ    ýÿ     ÿÿ         ÿÿ  ýÿÿÿ  ûÿýÿ    üÿþÿ  þÿÿÿ        ÿÿÿÿ    þÿÿÿ  þÿÿÿ        þÿ  þÿþÿ   þÿ     ÿÿ   ÿÿ     þÿ     ýÿ     ÿÿ    ÿÿ  ÿÿ     ÿÿ   ÿÿÿÿ      ÿÿ     ýÿÿÿ  üÿþÿ  ûÿþÿ  üÿ  þÿþÿ  þÿÿÿ  ÿÿþÿ     ýÿ  ÿÿýÿ  þÿ   ÿÿÿÿ      ÿÿþÿ  ÿÿüÿ    ûÿÿÿ  þÿÿÿ      ÿÿÿÿ      ÿÿþÿ    ýÿþÿ  ÿÿýÿ  þÿþÿ  üÿþÿ  þÿýÿ    þÿþÿ  ÿÿÿÿ   þÿ  þÿÿÿ   þÿ  ÿÿÿÿ  ÿÿ  þÿþÿ  ýÿ  ýÿýÿ  ýÿÿÿ  þÿÿÿ   ýÿ    ýÿþÿ  ÿÿüÿ  þÿýÿ  ÿÿ         ýÿ     üÿÿÿ  úÿþÿ  ûÿÿÿ   ýÿ    ÿÿþÿ  ÿÿüÿ     ýÿ  ÿÿÿÿ   þÿ     ÿÿ      þÿÿÿ   þÿ  ÿÿ         ÿÿ             ÿÿ  þÿýÿ  ÿÿüÿ    ýÿþÿ  þÿÿÿ       ÿÿ  ÿÿþÿ  ÿÿ        ÿÿþÿ  ÿÿþÿ     ÿÿ  ÿÿ  ÿÿÿÿ    ÿÿ  ýÿþÿ  þÿüÿ  ÿÿþÿÿÿ  þÿÿÿ  ýÿ   ÿÿüÿ  ÿÿþÿ      ÿÿ    ÿÿ  þÿþÿ  þÿ   ÿÿÿÿ   þÿ         ÿÿ    þÿÿÿ       ÿÿ     þÿ  ÿÿ    ÿÿ    ÿÿýÿ  ÿÿýÿ  ýÿ     ýÿþÿ  þÿüÿ  ÿÿ   ÿÿýÿ  ÿÿþÿ      ÿÿýÿ  ÿÿýÿ    ýÿÿÿ   þÿ  ýÿ   ÿÿýÿ  ÿÿÿÿ    þÿþÿ  ýÿüÿ  þÿýÿ  þÿ     þÿ  ÿÿþÿ   ÿÿ     þÿ     ýÿÿÿ    ÿÿÿÿÿÿ  ÿÿýÿÿÿ  þÿýÿ  ÿÿýÿ      ÿÿ     ÿÿ  þÿ     þÿÿÿ   ýÿýÿ  ýÿÿÿ  ÿÿ  ýÿýÿ  üÿÿÿ   ýÿÿÿ  ýÿþÿ  þÿþÿ  ýÿÿÿ ÿÿýÿ    þÿ       ÿÿÿÿ    ÿÿ   ÿÿ    ÿÿ  þÿÿÿ   þÿ   ÿÿ  þÿÿÿ  ÿÿÿÿÿÿ  ÿÿ  þÿ   ÿÿþÿ  ÿÿ     ÿÿ   ÿÿýÿ  ÿÿÿÿ    ÿÿÿÿ  ýÿÿÿ      ÿÿÿÿ    ýÿÿÿ  ýÿ   ÿÿþÿ    þÿÿÿ    ýÿ     þÿ   ÿÿþÿ  þÿ   ÿÿ   ÿÿüÿ  þÿýÿ     ÿÿþÿ    ÿÿÿÿÿÿ  ýÿûÿ  þÿúÿ    ýÿÿÿ        ÿÿÿÿ  ÿÿ   ÿÿÿÿ  ýÿÿÿ   ýÿ    ýÿýÿ  þÿÿÿ ÿÿÿÿ  ýÿÿÿ  ÿÿýÿ     ýÿ     ýÿ     ÿÿ    ÿÿ  ÿÿþÿ        ýÿ  ÿÿüÿ     ÿÿ     ÿÿÿÿ   ýÿ     þÿ      þÿýÿ  ÿÿýÿ     ýÿ      ÿÿÿÿ  ÿÿýÿ      þÿÿÿ  ýÿýÿ  þÿþÿ  þÿ   ÿÿýÿ  þÿüÿ    ýÿ     þÿ   ÿÿþÿ    ÿÿ                ÿÿ     üÿ     þÿ       ÿÿÿÿ   ýÿ  üÿüÿ  ûÿþÿ  þÿ    ÿÿ  ÿÿÿÿ    ýÿÿÿ  ýÿÿÿ      ÿÿ   ÿÿ   þÿÿÿ  ûÿ     üÿÿÿ  ýÿþÿ  ÿÿ         þÿ   ÿÿÿÿ   þÿ  ÿÿþÿ    þÿþÿ  üÿÿÿ   úÿ    ùÿÿÿ   üÿ     ÿÿ    ÿÿþÿ  ÿÿþÿ  ÿÿþÿ  ÿÿþÿ  ÿÿÿÿ   ÿÿ         ÿÿ     ÿÿ     ÿÿ   ÿÿÿÿ  ýÿþÿ  üÿÿÿ  þÿ   þÿÿÿ  ÿÿÿÿ      ÿÿÿÿ    ÿÿÿÿ    ýÿÿÿ  þÿÿÿ  þÿþÿ  ÿÿÿÿ  ÿÿÿÿ   ÿÿ   ÿÿ  þÿÿÿ  ýÿÿÿ  þÿÿÿ  ÿÿ   ÿÿþÿ    ÿÿÿÿ    ýÿþÿ  ÿÿÿÿ  ÿÿþÿ    ÿÿþÿ     üÿ  þÿýÿ  þÿ  þÿÿÿ   þÿ     ÿÿ    ÿÿþÿ     üÿ  ÿÿýÿ  ÿÿÿÿ           ÿÿ         þÿ     ýÿÿÿ  ýÿýÿ  ÿÿüÿ  ÿÿþÿ   ÿÿ   ýÿ  þÿýÿ  ýÿ   ÿÿÿÿ   þÿ  þÿýÿ  þÿþÿ      þÿýÿ  þÿþÿ      þÿýÿ  ýÿþÿ   þÿ  ÿÿÿÿ    ÿÿÿÿ  ÿÿ   þÿÿÿ  ýÿÿÿ  þÿÿÿ    ÿÿÿÿ  ÿÿÿÿ  üÿþÿ  ûÿýÿ  ÿÿýÿþÿ  ýÿýÿ  þÿþÿ    ýÿ     þÿÿÿ  þÿÿÿ              þÿ  þÿ  þÿÿÿ   üÿ    ýÿþÿ  þÿÿÿ ÿÿÿÿ   ýÿ          ÿÿ    þÿþÿ    þÿþÿ  þÿüÿ  ýÿýÿ  ÿÿÿÿ           üÿ    ýÿÿÿ   ÿÿþÿ    ÿÿÿÿ     ÿÿ     þÿ    þÿþÿ    þÿþÿ  þÿýÿ  üÿþÿ   ýÿ  üÿ   þÿúÿ  ÿÿüÿ    þÿþÿ  þÿÿÿ   ÿÿ  ÿÿÿÿ  üÿþÿ  ýÿþÿ  ÿÿ         þÿÿÿ  ÿÿþÿ     ÿÿ ÿÿþÿ  þÿýÿ  ÿÿþÿ    ýÿýÿ  þÿüÿ    ÿÿÿÿÿÿ    üÿÿÿ   þÿ  þÿþÿ  ÿÿþÿ      ÿÿ    ÿÿ  ýÿýÿ  ûÿÿÿ ÿÿûÿ  þÿüÿ    ýÿ   ÿÿÿÿ   ûÿ  üÿûÿ  ýÿÿÿ      þÿ  þÿþÿ  ÿÿþÿ     þÿ  þÿþÿ  ýÿþÿ  þÿ   ÿÿÿÿ  þÿþÿ  ýÿýÿ  üÿúÿ  þÿüÿ    ÿÿ    ÿÿ     ÿÿ     ýÿ  ÿÿþÿ         ÿÿ  þÿÿÿ  ýÿýÿ  ÿÿýÿ   ÿÿýÿ  ýÿýÿ  ÿÿýÿÿÿ  ÿÿÿÿ      ýÿÿÿ  ÿÿÿÿ  ÿÿ   ÿÿÿÿ    ÿÿ   ÿÿüÿ  ýÿüÿ  üÿ   þÿþÿ  þÿýÿ  ÿÿþÿ      ÿÿÿÿ  ÿÿÿÿ    þÿÿÿ   ýÿ    ÿÿÿÿÿÿ  þÿüÿ  þÿýÿ  ûÿÿÿ  ýÿÿÿ  ýÿÿÿ  ýÿÿÿ  þÿÿÿ    þÿÿÿ  ýÿÿÿ    þÿþÿ  ÿÿýÿ     þÿ         ÿÿ  þÿ        þÿÿÿ  ÿÿ  ÿÿÿÿ  ÿÿþÿ      ýÿÿÿ  ýÿ       ÿÿþÿ  þÿýÿ  ýÿÿÿ   üÿ  ÿÿýÿ      ÿÿÿÿ  ÿÿýÿ  ÿÿüÿ  þÿþÿ  ÿÿ         ÿÿ   ÿÿýÿ    ýÿ   ÿÿûÿ  þÿûÿ  þÿýÿ  þÿ   þÿýÿ  üÿ  üÿþÿ  üÿþÿ  ÿÿ   ÿÿÿÿ  ûÿÿÿ   ûÿ  ÿÿýÿ    ÿÿÿÿ    ÿÿþÿ  þÿýÿ  ýÿýÿ  þÿÿÿ      ÿÿ   þÿÿÿ  þÿÿÿ  ÿÿÿÿ   ÿÿ     ÿÿ   ÿÿ   ÿÿ    ÿÿ  üÿýÿ  üÿþÿ  þÿÿÿ   ÿÿ   ÿÿþÿ  ÿÿÿÿ     ÿÿÿÿ  ÿÿ   ÿÿ   ÿÿÿÿ    þÿþÿ  ýÿþÿ   þÿýÿ    ûÿ    ÿÿþÿ       þÿÿÿ   þÿ  þÿ     ýÿ   ÿÿÿÿ ÿÿýÿ  üÿÿÿ ÿÿýÿ  ýÿÿÿ   þÿ  ÿÿÿÿ  ýÿÿÿ  ýÿÿÿ    ÿÿÿÿ    ÿÿÿÿ  ÿÿüÿ  ýÿüÿ  ÿÿþÿÿÿ    þÿ   ÿÿ   ÿÿþÿ      ÿÿÿÿ  þÿþÿ  ýÿ   ÿÿþÿ   ýÿ  þÿþÿ  þÿÿÿ  ÿÿÿÿ    ÿÿÿÿ  ÿÿýÿ    ýÿþÿ  ýÿýÿ  ýÿ   þÿüÿ  ýÿ   ÿÿÿÿ   þÿ  ÿÿÿÿ  þÿýÿ  ýÿýÿ  ýÿÿÿ    ÿÿþÿ     ýÿ      ÿÿÿÿ  ÿÿÿÿ  ÿÿÿÿ    ýÿ     þÿ   ÿÿ     ÿÿÿÿÿÿ  ÿÿþÿ          ÿÿÿÿ  ÿÿþÿ    þÿÿÿ  þÿ   ÿÿ  þÿýÿ   þÿýÿ    üÿÿÿ  þÿþÿ    ÿÿ   ÿÿþÿ  þÿþÿ   ÿÿýÿ  þÿÿÿ   ýÿ    þÿýÿ    üÿþÿ  ýÿþÿ    ÿÿ    ÿÿÿÿ ÿÿÿÿ  ÿÿÿÿ  ÿÿÿÿ         ýÿ  þÿ   þÿÿÿ ÿÿûÿ  üÿþÿ   ýÿ  ýÿÿÿ   ýÿ        ÿÿþÿ  ÿÿþÿ     þÿýÿ  ýÿüÿ  þÿ  ýÿþÿ  þÿýÿ    ÿÿþÿ        ýÿþÿ  þÿýÿ       þÿ     þÿÿÿ  þÿþÿ  þÿýÿ      ÿÿ     þÿ  þÿýÿ   þÿýÿ  þÿüÿ  ÿÿ   ÿÿýÿ    ýÿþÿ  ýÿýÿ    þÿÿÿ    þÿüÿ  ýÿûÿ  ûÿýÿ  þÿþÿ  ÿÿ  þÿÿÿ  üÿþÿ  þÿ   ÿÿÿÿ   þÿ                         ÿÿ   ÿÿþÿ  ÿÿÿÿ ÿÿýÿ  ýÿýÿ  ýÿÿÿ       þÿ  þÿ  ýÿÿÿ   ÿÿ  ÿÿ     þÿ      þÿÿÿ  þÿþÿ  ÿÿýÿ     þÿ  ÿÿþÿ   þÿ            ÿÿÿÿ  ÿÿ   ÿÿþÿ  þÿ   ÿÿ  ýÿýÿ  üÿþÿ  üÿ   ÿÿüÿ  þÿþÿ  þÿþÿ  ÿÿ    ÿÿ  þÿþÿ  ÿÿ    ÿÿ  þÿýÿ  ýÿþÿ  ÿÿ    ÿÿ  ÿÿÿÿ  ÿÿ    ÿÿ  ÿÿþÿ  ÿÿýÿ    ýÿÿÿ  ÿÿþÿ  ÿÿÿÿ   ýÿ  þÿ   þÿ     þÿ         ýÿÿÿ  ÿÿ     ÿÿÿÿ  ÿÿÿÿ     ÿÿüÿ  þÿüÿ  þÿþÿ   ÿÿ   þÿ  þÿþÿ  þÿ     ÿÿÿÿ    ûÿþÿ  ýÿþÿ    ÿÿÿÿ     ÿÿ  ÿÿýÿ  þÿþÿ   ýÿ  ÿÿüÿ    þÿÿÿ    ÿÿÿÿ    üÿÿÿ  üÿÿÿ  þÿ   þÿþÿ  üÿþÿ  úÿ     ýÿ                 ÿÿ  ýÿ     ýÿ     ÿÿÿÿÿÿ  þÿþÿ  þÿþÿ  þÿþÿ  þÿþÿ  þÿ   ÿÿþÿ  ýÿþÿ  ûÿ     ûÿÿÿ  üÿÿÿ      ÿÿÿÿ  ýÿÿÿ  þÿÿÿ   ÿÿ ÿÿÿÿ   þÿÿÿ   ÿÿ   ýÿ  þÿûÿ  ÿÿÿÿ      ÿÿþÿ      þÿ  ÿÿýÿ     ÿÿ      þÿþÿ  ÿÿÿÿ ÿÿþÿ  þÿ     þÿ  ÿÿ           ýÿ     üÿ  üÿûÿ  üÿþÿ  üÿÿÿ   üÿ   ÿÿþÿ  þÿ   ÿÿ   ÿÿýÿ  ÿÿ   þÿÿÿ  ûÿýÿ  ýÿýÿ  ÿÿþÿ  ÿÿ    ÿÿ  ÿÿÿÿ  ÿÿ    ÿÿ  ÿÿÿÿ  ÿÿ   ÿÿþÿ  ÿÿÿÿ      ÿÿüÿ    üÿÿÿ  ûÿýÿ  ýÿ       ÿÿþÿ  þÿýÿ  þÿýÿ  ÿÿ   ÿÿÿÿ    ýÿþÿ  ýÿûÿ  þÿýÿ   ÿÿ  ýÿÿÿ  þÿÿÿ      ýÿýÿ  ýÿýÿ    ýÿþÿ    ûÿÿÿ  þÿýÿ       ýÿÿÿ  ýÿ     ÿÿÿÿ  ÿÿýÿ    þÿþÿ    ÿÿÿÿ    ÿÿþÿ  ÿÿÿÿ   ÿÿ  ÿÿ     ÿÿ       ÿÿÿÿ  þÿüÿ  ÿÿûÿÿÿ  þÿÿÿ      ýÿþÿ    ÿÿþÿ  ÿÿûÿ  ÿÿüÿ      þÿÿÿ  ÿÿþÿ    ÿÿþÿ  þÿ         ÿÿ     þÿ     ÿÿ     þÿ   ÿÿ   ÿÿýÿ    úÿÿÿ  þÿÿÿ    ÿÿ   ÿÿýÿ  ÿÿ  ÿÿ   ÿÿþÿ  ÿÿþÿ    ÿÿÿÿ   ýÿ  üÿýÿ  ýÿ   þÿþÿ   ýÿ  þÿ   ÿÿüÿ    þÿþÿ  ÿÿþÿ   þÿ  þÿþÿ   ÿÿ  ýÿþÿ  üÿüÿ  þÿýÿ    þÿÿÿ  ÿÿþÿ    ÿÿýÿ  ýÿüÿ  ûÿÿÿ ÿÿþÿ  þÿÿÿ    ÿÿ         ýÿ   ÿÿÿÿ   þÿ    þÿþÿ  þÿýÿ  þÿþÿ     ÿÿ   ÿÿþÿ    þÿÿÿ  ÿÿýÿ    þÿþÿ  ÿÿþÿ    þÿ     þÿÿÿ  þÿ     ýÿ     üÿÿÿ  ýÿþÿ    ýÿÿÿ  þÿÿÿ      ýÿ   ÿÿþÿ  þÿ   ÿÿþÿ  þÿÿÿ    þÿþÿ  ýÿþÿ    ÿÿÿÿ    þÿþÿ   ÿÿ  þÿ     þÿ    ÿÿ     þÿ     þÿ   ÿÿ     ýÿ     þÿ              þÿÿÿ  þÿÿÿ  ÿÿÿÿ       ýÿ    üÿþÿ  ýÿüÿ    ûÿ     ûÿ  þÿþÿ   þÿ  ÿÿ    ÿÿþÿ  ÿÿýÿ    ÿÿÿÿ     ÿÿ     ÿÿ     ÿÿ      ÿÿþÿ  þÿÿÿ   ÿÿ  þÿÿÿ   þÿÿÿ   ýÿ   ÿÿýÿ  üÿýÿ  ûÿýÿ  ýÿþÿ  ýÿÿÿ  ýÿÿÿ  ÿÿýÿÿÿ  ÿÿÿÿ      ÿÿ    þÿ  ÿÿûÿ     úÿ    üÿÿÿ  þÿþÿ  þÿÿÿ                ÿÿ               ÿÿ  þÿþÿ  þÿüÿ  ÿÿüÿ     ÿÿ    þÿÿÿ  ýÿÿÿ  ÿÿ   ÿÿÿÿ   þÿ     þÿ  ÿÿ     þÿ     ÿÿÿÿ  þÿþÿ  ýÿþÿ  ÿÿ ÿÿþÿ  þÿÿÿ   þÿ  ÿÿÿÿÿÿ  þÿýÿ  þÿÿÿ ÿÿþÿ  üÿÿÿ   ûÿ     þÿ      þÿýÿ  ýÿûÿ  üÿùÿ  þÿüÿ    ýÿýÿ  ýÿþÿ  ÿÿÿÿ     ÿÿ  üÿÿÿ ÿÿúÿ  ÿÿüÿ  ÿÿÿÿ    ÿÿ  ÿÿ  þÿþÿ  þÿÿÿ   ÿÿþÿ    þÿþÿ    ýÿÿÿ  ÿÿþÿ     ÿÿ  þÿ   ÿÿþÿ  ýÿ  ýÿþÿ  úÿ   ÿÿüÿ  ÿÿþÿ  ýÿ   ÿÿûÿ    üÿÿÿ  þÿÿÿ  ÿÿþÿ  ÿÿþÿ  ÿÿ     ÿÿÿÿ    üÿÿÿ   þÿ  þÿÿÿ  ÿÿÿÿ      ÿÿÿÿ     ýÿ    ýÿÿÿ  ýÿþÿ  ýÿÿÿ  ýÿÿÿ  ýÿÿÿ  ýÿ   ÿÿýÿ    ýÿÿÿ  þÿýÿ  ÿÿþÿ        ÿÿÿÿ    þÿ     ÿÿ   ÿÿÿÿ  þÿþÿ  ÿÿÿÿ     ÿÿ              þÿÿÿ   þÿ     þÿ  þÿþÿ  þÿþÿ  þÿ     þÿÿÿ  þÿýÿ  þÿþÿ   þÿ     ÿÿÿÿ     ÿÿþÿ  ÿÿüÿ  ÿÿþÿÿÿ    ÿÿ   ÿÿÿÿ   ýÿ     üÿ  ÿÿþÿ    þÿþÿ    üÿÿÿ  þÿÿÿ  ÿÿ  þÿ   ÿÿÿÿ   üÿ  þÿÿÿ ÿÿýÿ  þÿÿÿ  þÿþÿ    þÿÿÿ    ÿÿþÿ  ÿÿþÿ  ýÿÿÿ  ÿÿÿÿ  ÿÿýÿ  ÿÿ    þÿ  ÿÿûÿÿÿ  üÿýÿ      ÿÿýÿ  ÿÿýÿ  ÿÿÿÿ ÿÿÿÿ  üÿÿÿ   ýÿ     þÿþÿ  üÿÿÿ   üÿ     ýÿÿÿ   þÿûÿ    ûÿÿÿ      þÿÿÿ  üÿþÿ  ýÿ       ÿÿÿÿ  ûÿÿÿ  úÿþÿ  üÿþÿ  þÿÿÿ   þÿ      ÿÿ    þÿýÿ  ýÿúÿ  ÿÿüÿ       þÿþÿ  þÿýÿ  ÿÿÿÿ     þÿ     ýÿ  ÿÿ   ÿÿ  þÿþÿ  ýÿþÿ  ýÿþÿ   ýÿ  þÿþÿ  ÿÿÿÿ    þÿþÿ  ýÿþÿ             ÿÿýÿ    üÿ   ÿÿýÿ  ÿÿþÿ    þÿÿÿ  ÿÿ  ÿÿ   ÿÿþÿ  þÿ   ÿÿüÿ    üÿÿÿ  ýÿ   ÿÿ  þÿþÿ  þÿ   ÿÿ         ÿÿÿÿ  ýÿþÿ  ýÿþÿ  þÿ     ÿÿ     ýÿ    ýÿÿÿ   þÿ    ÿÿÿÿ    ÿÿ    þÿ  ÿÿûÿ  þÿúÿ  üÿüÿ  ýÿýÿ   üÿþÿ  üÿ  ýÿþÿ  ýÿ     ÿÿ    ÿÿ     üÿ  ÿÿúÿ  ÿÿüÿ      ÿÿÿÿ  ÿÿþÿ  ÿÿ   ÿÿþÿ  þÿÿÿ    ÿÿÿÿÿÿ  ÿÿÿÿ  ÿÿÿÿ   þÿ     þÿ  ÿÿýÿ  ÿÿþÿ    ÿÿÿÿ  ÿÿÿÿ      ÿÿ   þÿÿÿ   ýÿ  þÿÿÿ   ýÿ  þÿÿÿ   üÿ    ýÿþÿ  ÿÿýÿ    ÿÿþÿ  þÿýÿ  ýÿÿÿ  ÿÿþÿ    üÿÿÿ  þÿþÿ    ýÿþÿ  ýÿÿÿ      ÿÿÿÿ   ÿÿ   þÿ  ýÿýÿ  ýÿþÿ      ÿÿÿÿ  ÿÿþÿ  ÿÿ     ýÿÿÿ  ýÿþÿ  ûÿ     úÿÿÿ  þÿûÿ  ýÿúÿ  ûÿûÿ  þÿþÿ  ÿÿ     ÿÿÿÿ  ÿÿÿÿ  ÿÿýÿ  þÿýÿ    ýÿÿÿ  ýÿþÿ  ÿÿþÿ  ÿÿ               ÿÿþÿ  þÿÿÿ   ýÿ     þÿ    þÿþÿ  þÿþÿ  þÿÿÿ   ÿÿ         þÿ     þÿ     üÿ     üÿÿÿ  ÿÿþÿ    þÿþÿ       þÿÿÿ  ýÿûÿ  þÿúÿ  ýÿüÿ  ÿÿþÿÿÿ    ÿÿ  ÿÿ   ÿÿýÿ    üÿ    þÿþÿ          ÿÿ  þÿþÿ  ÿÿ  ÿÿ     üÿ   ÿÿýÿ   þÿþÿ  ÿÿþÿ     üÿýÿ  ûÿúÿ  þÿûÿ    ÿÿþÿ    ýÿþÿ  þÿþÿ  ÿÿÿÿ   þÿ     þÿ    ýÿÿÿ ÿÿüÿ  ÿÿýÿ    þÿþÿ  þÿÿÿ  üÿÿÿ   þÿ      ÿÿ   ÿÿÿÿ   ÿÿ   þÿ  ÿÿÿÿ   ÿÿ   þÿ  ÿÿüÿ    úÿþÿ  üÿÿÿ ÿÿÿÿ   ýÿ  ÿÿþÿ  ÿÿ      ÿÿÿÿ  ýÿÿÿ  üÿÿÿ  üÿþÿ  þÿýÿ  ýÿýÿ  ýÿÿÿ    ÿÿÿÿ  ÿÿ   ÿÿÿÿ  ýÿÿÿ  üÿÿÿ   üÿ  ÿÿþÿ  þÿ   ÿÿÿÿ    ÿÿÿÿ     ýÿ  þÿþÿ  ýÿ     ýÿ     ÿÿÿÿ  ÿÿÿÿ   ÿÿ   ÿÿÿÿ  üÿþÿ  üÿýÿ  ÿÿÿÿÿÿ  þÿýÿ  üÿüÿ  ýÿþÿ  ÿÿ        ÿÿ     þÿ     þÿ     þÿ     ÿÿÿÿ    ÿÿþÿ     ÿÿ    ÿÿ  þÿÿÿ   ÿÿ       ÿÿÿÿ   þÿ  þÿþÿ  ýÿÿÿ  ýÿ     þÿÿÿ  ýÿÿÿ  üÿ   ÿÿýÿ  ÿÿýÿ     ÿÿÿÿ  ÿÿþÿ  þÿÿÿ        þÿ   ÿÿÿÿ ÿÿÿÿ  þÿýÿ  ÿÿýÿ     ýÿ   ÿÿÿÿ  üÿÿÿ  ûÿÿÿ  þÿÿÿ  þÿÿÿ  üÿÿÿ  þÿ   ÿÿþÿ  ÿÿýÿ  þÿþÿ  ÿÿÿÿ  þÿÿÿ  ýÿýÿ  ÿÿýÿ      ÿÿýÿ  þÿþÿ  þÿ  ýÿ   ÿÿýÿ    üÿÿÿ  üÿ   ÿÿþÿ   þÿ  ûÿþÿ  úÿýÿ  üÿ  üÿýÿ  ûÿÿÿ ÿÿûÿ  ýÿüÿ  ÿÿþÿÿÿ  ÿÿýÿÿÿ  ÿÿýÿÿÿ  üÿýÿ  ýÿþÿ  þÿ     ÿÿ  ÿÿ   ÿÿþÿ  þÿ  ýÿþÿ  þÿÿÿ    ÿÿýÿ  ýÿþÿ  ýÿÿÿ  ÿÿ     ÿÿ   ÿÿÿÿ   þÿ  ÿÿÿÿ  ÿÿ  ÿÿüÿ  ÿÿýÿ  ÿÿÿÿ  ÿÿýÿ    úÿÿÿ  ûÿþÿ  ÿÿ    þÿ  þÿýÿ  þÿ  ýÿÿÿ  ûÿÿÿ   ýÿ     þÿ  ÿÿÿÿ   ÿÿ   üÿ  þÿýÿ     ÿÿþÿ  ÿÿþÿ        ÿÿÿÿ  ýÿýÿ  þÿ     þÿ   ÿÿýÿ    üÿ     ýÿÿÿ    þÿÿÿ  üÿüÿ  üÿþÿ  üÿ   ÿÿýÿ  ÿÿÿÿ ÿÿ   þÿ  þÿüÿ  üÿþÿ  ÿÿÿÿ         ÿÿÿÿ  ýÿþÿ  þÿþÿ              ÿÿ    þÿýÿ  þÿúÿ  þÿûÿ  þÿÿÿ ÿÿþÿ  þÿÿÿ     ýÿÿÿ   þÿ      ÿÿÿÿ    þÿüÿ    ýÿ     ýÿ     ýÿ    þÿþÿ  ÿÿüÿ  ÿÿýÿ  ýÿ   þÿýÿ  ÿÿ   þÿÿÿ  ýÿþÿ  ÿÿþÿ  ÿÿ    þÿ  þÿýÿ  þÿüÿÿÿ  ýÿýÿ  þÿÿÿ  þÿÿÿ    ÿÿþÿ    þÿýÿ    ýÿ    þÿþÿ      üÿ    üÿþÿ    ýÿÿÿ  ýÿÿÿ   ÿÿ   ÿÿ    ÿÿþÿ    ýÿÿÿ  ÿÿÿÿ     ÿÿ   þÿ  ýÿþÿ  üÿþÿ  þÿÿÿ ÿÿ     þÿ     ÿÿÿÿÿÿ  þÿþÿ    þÿÿÿ    þÿÿÿ  ýÿþÿ  þÿ       ÿÿÿÿ  üÿ   ÿÿÿÿ   ÿÿ      þÿÿÿ  ýÿÿÿ   ÿÿþÿ    ýÿÿÿ     þÿþÿ  ÿÿýÿ     þÿ   þÿ     þÿ   þÿ  ÿÿþÿ    þÿþÿ  ýÿÿÿ  þÿÿÿ    þÿÿÿ    ÿÿþÿ    þÿþÿ    ûÿ    þÿþÿ      ÿÿ   þÿ  ÿÿþÿ     þÿþÿ  ýÿÿÿ  þÿ   ÿÿ   ÿÿüÿ    üÿÿÿ  þÿÿÿ    ÿÿÿÿ  ýÿþÿ    þÿÿÿ  ýÿ   ÿÿþÿ  þÿ   ÿÿýÿ  ÿÿûÿ  ÿÿüÿ  ÿÿþÿ     ÿÿ    ÿÿþÿ      ÿÿÿÿ  þÿüÿ    þÿÿÿ  ÿÿþÿ  þÿýÿ  þÿüÿ  ÿÿþÿ          ÿÿýÿ    ûÿÿÿ  ûÿ   ÿÿüÿ  ÿÿþÿ    ÿÿ    ÿÿÿÿ    þÿýÿ  þÿþÿ        ÿÿ     ÿÿ   ÿÿþÿ  þÿþÿ     þÿÿÿ  ÿÿÿÿ  ýÿþÿ  üÿýÿ  ÿÿþÿ     ÿÿ           ÿÿ     þÿ     ÿÿ      þÿÿÿ   þÿ  ÿÿÿÿ      þÿÿÿ   þÿ   ÿÿ  þÿ   ÿÿþÿ   ÿÿ  ÿÿþÿ  ÿÿýÿ  þÿüÿ  ýÿþÿ      ÿÿ  ýÿÿÿ   þÿ  þÿ  ýÿ   þÿüÿ  ûÿÿÿ ÿÿûÿ  þÿþÿ     ýÿþÿ  ûÿ   þÿúÿ  ÿÿüÿ    ÿÿÿÿ        ÿÿýÿ  ÿÿûÿ    þÿÿÿ     üÿ  þÿûÿ  ýÿþÿ   ÿÿ   ÿÿ   þÿ  ÿÿýÿ  ÿÿÿÿ  ÿÿÿÿ    ÿÿÿÿ      ýÿÿÿ  ýÿþÿ  þÿÿÿ  ÿÿýÿ    üÿ   þÿýÿ  ýÿþÿ     ýÿþÿ  ýÿýÿ    þÿ    ÿÿ  ýÿþÿ  ÿÿÿÿÿÿ    þÿþÿ  ÿÿþÿ    ýÿþÿ  þÿýÿ  þÿ   ÿÿýÿ  þÿýÿ  ÿÿþÿ    þÿ     ÿÿ       ÿÿþÿ  þÿ  ýÿþÿ   üÿ     þÿ  ÿÿþÿ  ýÿ     ÿÿ      ýÿþÿ  ýÿÿÿ   þÿ  ýÿüÿ  ûÿûÿ  üÿýÿ    ÿÿÿÿ  ÿÿþÿ         ÿÿ      þÿ   ÿÿÿÿ   ÿÿ     þÿ      ÿÿýÿÿÿ  þÿþÿ    ÿÿþÿÿÿ    þÿÿÿ  ÿÿÿÿ     ýÿ     ýÿ  ÿÿ    ÿÿ  þÿýÿ  ýÿýÿ  üÿþÿ  ýÿÿÿ  ýÿüÿ  þÿùÿ   úÿþÿ  ýÿÿÿ   ýÿ     ýÿ    þÿþÿ  ÿÿüÿ    ûÿÿÿ  ýÿýÿ    þÿÿÿ  ÿÿÿÿ      ÿÿÿÿ  ÿÿ         ÿÿ    þÿ  ÿÿûÿ    ýÿþÿ  ÿÿýÿ    ýÿÿÿ  ýÿýÿ  ýÿýÿ    ÿÿþÿ  ÿÿýÿ  ÿÿ    þÿ  ýÿÿÿ      þÿýÿ  üÿÿÿ   þÿ  ýÿ   ÿÿ   þÿ     ýÿ   ÿÿ   ÿÿ   ÿÿÿÿ  ýÿ     þÿ   ÿÿ   ÿÿ   ÿÿýÿ  ýÿüÿ  ýÿþÿ  ýÿýÿ  ýÿüÿ  þÿüÿ  ÿÿüÿ  ÿÿýÿ    ÿÿÿÿ    ÿÿþÿ    þÿýÿ  üÿýÿ  üÿ   ÿÿüÿ  ÿÿüÿ    ýÿÿÿ     þÿþÿ  þÿþÿ    ýÿ  þÿüÿ  ýÿþÿ  ýÿ     þÿ        þÿ  þÿþÿ  ýÿ   ÿÿ   þÿþÿ  ýÿýÿ  ýÿüÿ  ÿÿÿÿ ÿÿ   þÿþÿ  ýÿ   ÿÿ   þÿÿÿ  ûÿÿÿ  ýÿþÿ  ÿÿüÿ  ÿÿûÿ     ýÿ  þÿÿÿ   ýÿ  ÿÿ  ÿÿÿÿ      þÿþÿ  þÿüÿ  ÿÿüÿ    ÿÿþÿ     ÿÿ   ýÿ  ÿÿýÿ  ÿÿýÿ  ÿÿýÿ    þÿÿÿ    ÿÿÿÿ    þÿÿÿ  þÿÿÿ   ÿÿþÿ    þÿþÿ    ÿÿ    ÿÿ  þÿÿÿ  þÿÿÿ  þÿ   ÿÿÿÿ   üÿ  ÿÿýÿ  þÿ  ýÿýÿ  þÿýÿ    ÿÿ    ÿÿ  ÿÿýÿ      þÿÿÿ  þÿ  ÿÿþÿ  ýÿýÿ  þÿÿÿ  ÿÿÿÿ   þÿ  þÿ   ÿÿÿÿ   þÿ  þÿýÿ  ÿÿýÿ  þÿþÿ  þÿþÿ  ýÿþÿ  þÿ  þÿ           ÿÿ      þÿÿÿ    ýÿþÿ  þÿýÿ     ýÿÿÿ  üÿÿÿ  þÿÿÿ    ÿÿ     ÿÿÿÿ    ÿÿþÿ    üÿÿÿ  ÿÿþÿ    ýÿýÿ  ýÿüÿ  ÿÿÿÿ ÿÿÿÿ   üÿ  ÿÿþÿ    ÿÿýÿ  þÿûÿ  ÿÿüÿ      ÿÿÿÿ     þÿ  þÿ  þÿþÿ  þÿ  þÿþÿ  þÿüÿ  þÿýÿ  þÿ   þÿ     ýÿ     ýÿÿÿ  ýÿ   ÿÿ   þÿüÿ  ÿÿüÿ  ÿÿÿÿ   ýÿ   ÿÿþÿ    ÿÿ    ÿÿ    üÿÿÿ  ýÿþÿ    ýÿÿÿ  ýÿýÿ   üÿÿÿ   þÿ  þÿÿÿ  ÿÿýÿ    þÿÿÿ      ÿÿþÿ    ÿÿÿÿ    þÿÿÿ ÿÿþÿ  þÿþÿ  ÿÿÿÿÿÿ         ÿÿ     þÿ     ÿÿÿÿ  þÿüÿ  þÿüÿ    ÿÿ    ýÿþÿ  úÿþÿ  þÿ  ÿÿ     üÿ   ÿÿÿÿ   þÿ     þÿ     ÿÿþÿ    þÿÿÿ    ÿÿ     þÿ       ÿÿÿÿ    ÿÿÿÿÿÿ  þÿ  ýÿ   ÿÿúÿ    üÿ     ýÿ   ÿÿÿÿ   þÿ    þÿÿÿ   ÿÿýÿ     ûÿ  ÿÿýÿ  þÿ   ÿÿþÿ  ýÿÿÿ   üÿ     üÿ  ýÿûÿ  ýÿýÿ  ÿÿ   þÿ      ÿÿ   ÿÿÿÿ   ÿÿ ÿÿþÿ  þÿ   ÿÿ  þÿþÿ        ÿÿ    ýÿþÿ  ýÿ  þÿýÿ  üÿÿÿ   üÿ  ÿÿýÿ     ÿÿ       þÿ     þÿ     ÿÿ   þÿ      ÿÿÿÿ    üÿþÿ  ÿÿ  ÿÿþÿ  þÿüÿ   þÿþÿ  þÿ   ÿÿþÿ  þÿþÿ  ýÿ  ýÿûÿ  ûÿûÿ  ÿÿÿÿÿÿÿÿ  þÿÿÿ ÿÿþÿ  üÿÿÿ  ÿÿ  ÿÿ   ÿÿÿÿ ÿÿ   ÿÿþÿ  þÿÿÿ  ÿÿþÿÿÿ  þÿþÿ  üÿýÿ  üÿÿÿ   ýÿ  ÿÿ  þÿ   ÿÿýÿ    ÿÿÿÿ  ÿÿÿÿ   þÿ  ýÿ   þÿýÿ  ýÿÿÿ  ÿÿÿÿ  ÿÿÿÿ      þÿÿÿ   ýÿ  ÿÿÿÿ   ÿÿ  þÿþÿ  üÿýÿ  ýÿÿÿ   ÿÿ        þÿþÿ  þÿþÿ  ÿÿÿÿ       þÿ     ÿÿ   ÿÿ   ýÿ  þÿýÿ  ýÿ   ÿÿÿÿ  ýÿþÿ  ÿÿüÿ    þÿÿÿ      þÿþÿ    ýÿÿÿ    ÿÿþÿ    ýÿÿÿ    ÿÿÿÿ  ÿÿÿÿ    ÿÿÿÿ  ÿÿÿÿ      ÿÿÿÿ  ÿÿÿÿ        ÿÿÿÿ  ÿÿýÿ  ÿÿýÿ    þÿÿÿ  ÿÿ    ÿÿ  ÿÿ   ÿÿýÿ  ÿÿýÿ    þÿýÿ  ÿÿÿÿ   ÿÿ  ÿÿÿÿ      ÿÿÿÿ      þÿÿÿ  ÿÿÿÿ       ÿÿ        þÿÿÿ   þÿ   ÿÿ   ÿÿ  þÿ   ÿÿýÿ  ÿÿ   þÿ     ÿÿÿÿ    ÿÿÿÿ   þÿ      þÿÿÿ  ÿÿÿÿ              ÿÿ    ýÿýÿ    ûÿÿÿ  úÿ   ÿÿýÿ   ýÿ  üÿûÿ  ÿÿüÿ   ÿÿþÿ  þÿÿÿ  ÿÿÿÿ     ÿÿ  þÿ   ÿÿþÿ    ÿÿ        ÿÿ   ÿÿ     ýÿ     þÿÿÿ  ÿÿ     ÿÿ  þÿÿÿ    ÿÿ   þÿ  ÿÿþÿ  ÿÿÿÿ   ÿÿ    ÿÿþÿ  ÿÿýÿ  ÿÿ  þÿÿÿ  ÿÿÿÿÿÿ      ÿÿÿÿ    þÿüÿ  ÿÿþÿ        ÿÿÿÿ    ÿÿþÿ  þÿÿÿ  ÿÿþÿ    þÿÿÿ      þÿÿÿ  ÿÿýÿ  þÿþÿ  üÿ  þÿûÿ    ÿÿÿÿ    þÿÿÿ   ÿÿ   þÿ  ýÿþÿ  þÿ  ÿÿÿÿ   þÿ     ÿÿýÿ  ýÿýÿ  þÿüÿ  ÿÿþÿ  ÿÿ   ÿÿ   ÿÿÿÿ  ÿÿýÿ    ûÿÿÿ  üÿ   ÿÿýÿ  ÿÿ         ÿÿ  þÿÿÿ  þÿþÿ  þÿ   þÿüÿ  ÿÿüÿ    ýÿÿÿ ÿÿþÿ  ÿÿýÿ  ÿÿÿÿÿÿ     ÿÿÿÿ  ÿÿþÿ  ÿÿ      þÿÿÿ  üÿÿÿ   ýÿ  þÿÿÿ   üÿ  þÿýÿ  üÿÿÿ   ýÿ     ÿÿ   þÿ    þÿþÿ   üÿþÿ  üÿÿÿ  ÿÿþÿ        ÿÿþÿ  üÿýÿ  þÿÿÿ   ÿÿ      þÿþÿ  þÿþÿ  þÿÿÿ   ÿÿ       þÿ     ÿÿ   ÿÿ   ýÿ    ÿÿþÿ    ýÿÿÿ  ýÿÿÿ  ÿÿþÿ      ÿÿÿÿ  ÿÿþÿ      ÿÿ   ÿÿÿÿ  ÿÿþÿ    þÿÿÿ   þÿþÿ  ÿÿþÿ  ýÿÿÿ ÿÿþÿ  ýÿÿÿ   ýÿ        ÿÿþÿ  ÿÿþÿ   ÿÿÿÿ  þÿþÿ  üÿýÿ  ýÿÿÿ   üÿ  þÿüÿ  ýÿþÿ   þÿ  ÿÿÿÿ    þÿþÿ  üÿÿÿ   ûÿ  ýÿýÿ  ÿÿþÿ  ÿÿýÿ  ýÿþÿ  ýÿÿÿ  ýÿþÿ  ýÿÿÿ  ýÿþÿ  ÿÿÿÿ      ÿÿýÿ  ÿÿþÿ    þÿÿÿ  ÿÿ   ÿÿ         ÿÿÿÿ  ÿÿþÿ    þÿÿÿ  þÿþÿ  þÿýÿ  þÿüÿ  üÿþÿ  ýÿ       ÿÿþÿ  ýÿýÿ  þÿþÿ  ÿÿÿÿ  ÿÿþÿ      ÿÿÿÿ  ÿÿþÿ  ÿÿþÿ  þÿ    ÿÿ  ÿÿýÿ  ÿÿþÿ  þÿÿÿ  ýÿÿÿ  ÿÿÿÿ  þÿýÿ  ýÿûÿ    þÿþÿ    þÿ    ÿÿ   ÿÿ  üÿÿÿ  úÿÿÿ  þÿÿÿ  ÿÿþÿ  ÿÿýÿ  ÿÿ   ÿÿÿÿ      ÿÿÿÿ    ÿÿþÿ     þÿ    ÿÿþÿ  ÿÿýÿ  þÿýÿ  ÿÿýÿ    þÿÿÿ    þÿÿÿ    ÿÿ    ÿÿ    üÿÿÿ  üÿþÿ  üÿýÿ  ýÿýÿ  þÿÿÿ  þÿÿÿ   ýÿ     þÿ     ÿÿ    ÿÿ  ýÿýÿ  ûÿþÿ  ýÿÿÿ  ÿÿýÿ  ÿÿþÿ  ÿÿ       ÿÿÿÿ  þÿÿÿ      ÿÿ     þÿÿÿ  þÿþÿ    ÿÿ           þÿ     ÿÿ       ÿÿþÿ  ýÿÿÿ   üÿ  üÿþÿ  üÿÿÿ ÿÿÿÿ   þÿ     ÿÿÿÿ     ÿÿ  þÿÿÿ  ÿÿÿÿ    ÿÿÿÿ   ÿÿ  ÿÿ    ÿÿ  ÿÿ    ÿÿ  ÿÿþÿ  ÿÿÿÿ  þÿ   ÿÿþÿ    ÿÿþÿ    ûÿýÿ  þÿüÿ  ÿÿþÿ  ÿÿþÿ  ÿÿÿÿ      ÿÿþÿ  ýÿÿÿ  ÿÿÿÿÿÿ  þÿýÿ  þÿüÿ    ýÿýÿ  ýÿýÿ  þÿýÿ    ûÿÿÿ  þÿÿÿ    þÿÿÿ   ûÿ  ÿÿûÿ  ÿÿþÿ      ÿÿÿÿ     ÿÿ     þÿþÿ  þÿþÿ    ýÿÿÿ   þÿ  þÿÿÿ   ÿÿÿÿ    þÿÿÿ   ýÿ     þÿ  ÿÿÿÿ         þÿ    ÿÿýÿ     üÿ  þÿþÿ  ÿÿ    ÿÿ  ÿÿýÿ  ÿÿþÿ       þÿ   ÿÿÿÿ     ÿÿ     ÿÿÿÿ        ÿÿÿÿ    þÿþÿ  þÿÿÿ   ýÿ  þÿýÿ  ÿÿÿÿ      þÿÿÿ  ÿÿüÿ    üÿþÿ  þÿþÿ    ÿÿÿÿ  þÿýÿ  ÿÿÿÿ ÿÿÿÿ  þÿþÿ  ÿÿÿÿÿÿ  þÿûÿ  ýÿùÿ  ýÿþÿ ÿÿ   ÿÿþÿ      ÿÿ   ÿÿþÿ   þÿ  ÿÿýÿ    üÿÿÿ   üÿ  ÿÿþÿ    þÿþÿ  ÿÿüÿ  ýÿ   ÿÿüÿ  ÿÿÿÿÿÿÿÿ  þÿ     ÿÿ        ÿÿ    þÿþÿ  þÿüÿ  þÿúÿ  þÿúÿ  þÿþÿ   þÿ  ÿÿ     ÿÿ     ÿÿ         þÿ   ÿÿÿÿ   üÿ     üÿ     üÿ   ÿÿüÿ  þÿýÿ  þÿÿÿ   ÿÿ     þÿ  ÿÿ   ÿÿÿÿ   þÿ  ÿÿ     ÿÿ     ÿÿ     ÿÿ   ÿÿ   ÿÿ     ýÿ   ÿÿýÿ  ÿÿ   ÿÿ   ÿÿüÿ  ýÿþÿ  þÿ  þÿ   ÿÿþÿ  þÿþÿ    þÿÿÿ  þÿÿÿ  þÿ   ÿÿ     ÿÿ     þÿÿÿ  ÿÿ  ýÿ  þÿüÿ  ýÿ   ÿÿþÿ     ÿÿþÿ  ÿÿÿÿ  ÿÿ     ÿÿ   ÿÿÿÿ  ÿÿþÿ  ÿÿÿÿ   ýÿ    ýÿýÿ    ýÿÿÿ   ÿÿýÿ  ÿÿüÿ  ÿÿþÿ      ÿÿ   ÿÿÿÿ    ÿÿÿÿ  ÿÿýÿ    þÿÿÿ    ÿÿÿÿ  ÿÿÿÿ  ÿÿþÿ    þÿýÿ  ýÿþÿ  ûÿ   ÿÿûÿ    þÿÿÿ    ýÿþÿ  ÿÿÿÿ   ÿÿ      ÿÿÿÿ     þÿ  þÿÿÿ  þÿþÿ  ÿÿÿÿ   ÿÿÿÿ            ÿÿÿÿ  ÿÿÿÿ    þÿþÿ    ýÿýÿ   ýÿþÿ    ÿÿÿÿ    ÿÿÿÿ      ÿÿþÿ     ûÿ     ûÿ     þÿÿÿ  ÿÿ   ÿÿÿÿ  ýÿ   ÿÿüÿ  ÿÿüÿ  ÿÿþÿ  üÿþÿ  ýÿþÿ   þÿþÿ  ýÿþÿ  úÿÿÿ  üÿþÿ  ýÿ   ÿÿýÿ  üÿÿÿ   þÿ  ýÿÿÿ   ýÿ   ÿÿ  þÿüÿ  ÿÿüÿ    þÿþÿ  þÿþÿ  þÿ   þÿ     üÿ     þÿ     ÿÿ  ýÿÿÿ  üÿ   þÿýÿ  ûÿÿÿ  þÿýÿ    ùÿÿÿ  ùÿÿÿ  ûÿþÿ     üÿÿÿ  üÿþÿ    þÿÿÿ     þÿÿÿ  þÿÿÿ   ÿÿþÿ  ýÿþÿ  ýÿ         ÿÿ     ÿÿ        ÿÿÿÿ ÿÿÿÿ  üÿþÿ  ýÿýÿ  ÿÿþÿ     ÿÿ  ÿÿ     ÿÿ    ÿÿ  ÿÿ  þÿ   þÿýÿ  ÿÿÿÿ       þÿÿÿ  þÿþÿ  ýÿþÿ  ýÿ       ÿÿ  ÿÿþÿ     þÿ    þÿÿÿ  ÿÿýÿ     þÿ   þÿ  ýÿÿÿ   ÿÿ  þÿÿÿ  ÿÿÿÿ  ÿÿÿÿ    þÿÿÿ  ÿÿÿÿ  þÿÿÿ  üÿýÿ  þÿýÿ  þÿþÿ  þÿÿÿ  þÿ   ÿÿþÿ  ÿÿþÿ    þÿÿÿ  þÿÿÿ  þÿÿÿ    ÿÿ         þÿÿÿ  ýÿþÿ  ÿÿþÿ      ÿÿ    ÿÿ  ÿÿþÿ  ÿÿþÿ    ÿÿÿÿ  þÿÿÿ      þÿþÿ  üÿýÿ  ýÿÿÿ   þÿ      ÿÿ    ÿÿ     ÿÿÿÿ  þÿüÿ  ÿÿüÿ    þÿÿÿ  þÿÿÿ  þÿ   ÿÿþÿ      ÿÿÿÿ    þÿÿÿ   þÿýÿ    üÿýÿ  ÿÿüÿÿÿ    üÿÿÿ  üÿýÿ  üÿþÿ  ýÿ   ÿÿ   ÿÿþÿ  þÿÿÿ      ÿÿÿÿ    ÿÿÿÿ  ýÿýÿ  ýÿ   ÿÿþÿ  ýÿÿÿ  ÿÿÿÿ        ÿÿþÿ  ÿÿûÿ    üÿþÿ  þÿ   ÿÿþÿ    þÿÿÿ  þÿþÿ  þÿþÿ  þÿ     ÿÿ    ÿÿ   ÿÿ     üÿ   ÿÿüÿ    üÿ     þÿÿÿ   üÿþÿ  üÿ     þÿ         ÿÿ     ÿÿ    ÿÿ  ÿÿþÿ  þÿ   ÿÿüÿ    ýÿÿÿ  ÿÿþÿ   ÿÿÿÿ  ýÿÿÿ  üÿýÿ  þÿþÿ        ýÿ    þÿþÿ    üÿÿÿ  ýÿýÿ  ÿÿüÿ     þÿÿÿ    üÿ     ÿÿÿÿÿÿ  þÿüÿ  ÿÿþÿÿÿ    þÿ     ÿÿÿÿ     ÿÿÿÿ  þÿ         ÿÿÿÿ      ÿÿÿÿ  þÿýÿ  ÿÿþÿ  þÿ   ÿÿþÿ  þÿþÿ  ûÿþÿ  ûÿþÿ  ûÿýÿ  üÿþÿ    ÿÿÿÿ  üÿ   ÿÿûÿ  ÿÿþÿ  ÿÿÿÿ   ýÿ  ÿÿþÿ   ýÿ    ÿÿÿÿ  ÿÿýÿ  ýÿ   ÿÿüÿ  ýÿþÿ  þÿ       ÿÿÿÿ  ýÿþÿ  ûÿ   ÿÿûÿ    üÿÿÿ  ýÿ   ÿÿýÿ  ÿÿýÿ    ÿÿ   ÿÿÿÿ  þÿþÿ  þÿÿÿ        þÿ   ÿÿ  ÿÿÿÿ     ÿÿ     þÿ  þÿÿÿ  ÿÿ    þÿ  ýÿþÿ  ûÿþÿ   ýÿ  þÿÿÿ  ýÿÿÿ  ÿÿÿÿ  ÿÿÿÿ    ÿÿÿÿ  ÿÿ   ÿÿÿÿ   ÿÿ  þÿ   ÿÿýÿ  ÿÿýÿ  ÿÿÿÿ    ÿÿÿÿ  ÿÿþÿ    þÿÿÿ  ýÿÿÿ  þÿýÿ  þÿþÿ  üÿ   ÿÿüÿ    ÿÿÿÿ     ýÿ   ÿÿþÿ  þÿ   ÿÿÿÿ   ÿÿÿÿ  ýÿüÿ  ýÿýÿ  ÿÿþÿ  ÿÿþÿ  þÿÿÿ   ÿÿ         þÿ     ýÿ     þÿ     ÿÿ     ÿÿ      þÿÿÿ  ÿÿÿÿ      ÿÿÿÿ    ýÿþÿ  þÿüÿ    üÿ   ÿÿþÿ  ýÿþÿ  þÿýÿ  þÿ  þÿýÿ  ýÿüÿ    ýÿ  þÿ  þÿúÿ  ýÿûÿ  þÿýÿ  ÿÿþÿ  ÿÿüÿ    ýÿþÿ  ÿÿþÿ        þÿþÿ  ÿÿüÿ     ýÿ        ýÿ     üÿ    ûÿþÿ  üÿþÿ  üÿÿÿ  þÿþÿ    þÿÿÿ    þÿþÿ  ÿÿüÿ      ÿÿþÿ    ýÿÿÿ  ÿÿÿÿ    ÿÿþÿ  ÿÿýÿ    ÿÿþÿ    ÿÿÿÿ      þÿÿÿ  ÿÿÿÿ      ÿÿÿÿÿÿ    ûÿþÿ  ûÿþÿ      ÿÿþÿ  ÿÿþÿÿÿ    üÿþÿ  þÿýÿ    ÿÿþÿÿÿ  þÿüÿ    ýÿ     ÿÿÿÿ     þÿ        ÿÿÿÿ  ÿÿþÿÿÿ  þÿýÿ  þÿþÿ    ÿÿþÿ  ÿÿýÿ    ýÿþÿ  ýÿÿÿ    þÿÿÿ  ýÿýÿ  ÿÿþÿ  ÿÿ  ýÿþÿ  ýÿÿÿ  þÿþÿ  ýÿþÿ  þÿÿÿ   þÿ        þÿ  þÿüÿ  üÿüÿ  ûÿüÿ    ÿÿþÿÿÿ  ûÿýÿ  ýÿþÿ      ÿÿÿÿ  ÿÿ   ÿÿÿÿ  ýÿÿÿ   ýÿ  ÿÿüÿ    ûÿþÿ  üÿÿÿ   ýÿ     þÿþÿ  ÿÿÿÿÿÿ    üÿþÿ  üÿþÿ  ÿÿýÿÿÿ    üÿÿÿ  ýÿÿÿ   ÿÿÿÿ  ÿÿþÿ      þÿýÿ  ýÿúÿ  ÿÿüÿÿÿ  ÿÿÿÿ   ÿÿ   þÿ  ÿÿÿÿ      ÿÿþÿ  ÿÿüÿ  ÿÿýÿ  ýÿÿÿ   ýÿ     ýÿ    þÿþÿ    ýÿÿÿ   þÿÿÿ   ÿÿ  þÿ     ýÿ     þÿÿÿ  þÿ     þÿ     ÿÿÿÿÿÿ  þÿýÿ   ýÿþÿ        ÿÿ    þÿýÿ  þÿüÿ  þÿûÿ   þÿýÿ    üÿÿÿ  ýÿ    ÿÿ  ÿÿÿÿ  þÿþÿ  ÿÿÿÿ      ýÿÿÿ  þÿýÿ    þÿþÿ    ÿÿ    ÿÿ  ýÿþÿ  üÿÿÿ   ÿÿ  ÿÿ    þÿþÿ    üÿÿÿ  ýÿýÿ  ÿÿýÿ      ÿÿþÿ  ÿÿÿÿ      ÿÿþÿ  ÿÿÿÿ     ÿÿ       þÿ  ÿÿþÿ  ÿÿ         ÿÿ     ÿÿÿÿ      ÿÿ   ÿÿþÿ  þÿÿÿ  ýÿÿÿ   þÿ  ÿÿÿÿ ÿÿÿÿ   ÿÿ ÿÿýÿ  üÿýÿ  ýÿýÿ    ýÿ     þÿ   ÿÿ   ÿÿþÿ  þÿ   ÿÿ     ÿÿ ÿÿÿÿ ÿÿýÿ  ÿÿýÿ  ÿÿ    ÿÿ    þÿÿÿ    ÿÿ   ÿÿÿÿ  þÿ   ÿÿ   ÿÿýÿ  þÿüÿ    ÿÿÿÿÿÿ    üÿÿÿ  ÿÿ  ÿÿÿÿ  üÿýÿ  ÿÿûÿ     úÿ     ýÿ      þÿ     ýÿ  þÿÿÿ  þÿÿÿ   ýÿ  ÿÿýÿ      ûÿþÿ  ùÿýÿ  üÿýÿ  ÿÿÿÿ   ÿÿ  ýÿÿÿ  ýÿþÿ      ÿÿÿÿ    þÿþÿ  ÿÿûÿÿÿ  þÿýÿ    üÿÿÿ   ýÿ  ÿÿýÿ  þÿ   þÿÿÿ   ýÿ  þÿ   þÿÿÿ   ýÿ  þÿ   þÿÿÿ   ýÿ  þÿýÿ  þÿýÿ  þÿ   þÿ     ýÿ     ÿÿÿÿ      ÿÿ     ÿÿÿÿ    ýÿ     üÿÿÿ  þÿ     þÿ   ÿÿÿÿ  ýÿ     üÿÿÿ  þÿÿÿ  ÿÿ   ÿÿ   ÿÿÿÿ  ýÿ     ýÿÿÿ  þÿ     ýÿ     ÿÿ     ýÿ   ÿÿýÿ  ÿÿ    þÿ   ÿÿþÿ   ÿÿ   ÿÿ        üÿþÿ  ûÿþÿ  ÿÿÿÿ     ÿÿþÿ  ÿÿ  ÿÿ     ûÿ  ýÿýÿ  ýÿ     ÿÿÿÿ    ýÿþÿ  ûÿýÿ  ýÿþÿ      ÿÿÿÿ        ÿÿ     ÿÿÿÿ  ÿÿ         ÿÿ   ÿÿýÿ  ÿÿþÿÿÿ  ýÿþÿ  ýÿ  ýÿÿÿ  üÿÿÿ  üÿÿÿ  þÿÿÿ      ÿÿÿÿ      ÿÿÿÿ  þÿýÿ  ýÿþÿ  ýÿ   ÿÿýÿ  ÿÿÿÿ    ÿÿÿÿ  ÿÿÿÿ  ÿÿ   ÿÿÿÿ      ÿÿþÿ  þÿýÿ    ýÿþÿ  ýÿ  ýÿþÿ   þÿ  ýÿÿÿ  þÿþÿ      ýÿÿÿ  ýÿ  þÿþÿ    ÿÿ         ÿÿÿÿ  ÿÿþÿ    ýÿÿÿ   ÿÿ ÿÿÿÿ  þÿ   þÿ   ÿÿýÿ    þÿ   ÿÿÿÿ    ÿÿÿÿ    ÿÿÿÿ     ÿÿ  ýÿ   ÿÿüÿ    ûÿ   ÿÿüÿ  ÿÿ  üÿ   ÿÿûÿ    þÿÿÿ      ÿÿ       ÿÿþÿ  þÿþÿ    ÿÿÿÿ  þÿýÿ  üÿþÿ  þÿÿÿ ÿÿÿÿ  þÿþÿ  ÿÿþÿ    þÿþÿ  þÿþÿ  þÿüÿ  ÿÿýÿÿÿ  ÿÿüÿ    ýÿÿÿ  þÿþÿ  þÿýÿ  üÿüÿ  üÿýÿ  ÿÿÿÿÿÿ     ýÿ  þÿüÿ  ÿÿýÿ     þÿ    þÿÿÿ    ÿÿÿÿ    üÿÿÿ  þÿþÿ  þÿþÿ  þÿ   þÿ  ýÿÿÿ  üÿÿÿ  ýÿþÿ  ÿÿýÿ     þÿÿÿ    þÿÿÿ  üÿ   ÿÿýÿ    þÿÿÿ  ÿÿþÿ     þÿÿÿ   þÿþÿ  ýÿÿÿ ÿÿþÿ  þÿ   ÿÿÿÿ   þÿÿÿ                ÿÿÿÿ  ÿÿþÿ    þÿÿÿ    ýÿÿÿ  þÿþÿ  ÿÿþÿÿÿ  ÿÿþÿ  þÿýÿ  þÿþÿ    þÿ     ýÿÿÿ  þÿþÿ   þÿÿÿ    þÿ            ÿÿ        þÿþÿ  ýÿþÿ  þÿþÿ      ÿÿÿÿ  þÿýÿ   ÿÿýÿ  ÿÿüÿ  þÿþÿ  ÿÿþÿ    þÿÿÿ   þÿ  ÿÿ       ÿÿÿÿ  ýÿ   ÿÿþÿ   ÿÿ      þÿ   ÿÿýÿ  þÿ   ÿÿÿÿ ÿÿÿÿ  þÿÿÿ  ÿÿ    ÿÿ       ÿÿÿÿ  ÿÿÿÿ      þÿýÿ  ÿÿÿÿ    ÿÿþÿ  ÿÿüÿ    ûÿýÿ  ÿÿþÿ      ÿÿÿÿ     þÿ  ÿÿÿÿ     þÿýÿ  ÿÿûÿ    ÿÿÿÿÿÿ     þÿ  þÿ  ýÿüÿ  ýÿýÿ  þÿÿÿ ÿÿþÿ  þÿýÿ  ÿÿ   þÿ     þÿ     þÿ  ÿÿþÿ         ÿÿ     þÿ   ÿÿ     üÿÿÿ  þÿýÿ    ÿÿ              ÿÿ   ÿÿþÿ  þÿÿÿ   ýÿ   ÿÿüÿ  þÿüÿ  þÿ     ÿÿ     þÿ         ÿÿ  ýÿ   ÿÿýÿ  ýÿÿÿ   þÿ          þÿÿÿ  ÿÿþÿ    þÿþÿ  þÿÿÿ  þÿÿÿ            ÿÿÿÿ    ÿÿýÿ  ÿÿûÿ  ÿÿýÿ  þÿþÿ  ÿÿüÿ    ýÿþÿ  þÿÿÿ   ýÿ     üÿ     þÿ  þÿþÿ  þÿþÿ   þÿþÿ  ÿÿþÿ      ýÿ     úÿ  ýÿûÿ  þÿÿÿ   ÿÿ       þÿ    ÿÿþÿ     ýÿ     ýÿ     ÿÿ     ÿÿ     þÿÿÿ  ýÿÿÿ   ÿÿ   ýÿ  ÿÿÿÿ ÿÿþÿ  ûÿÿÿ  ûÿþÿ  þÿþÿ    ýÿ        ÿÿ     ÿÿ    ÿÿ    üÿÿÿ   ÿÿ ÿÿÿÿ  ýÿÿÿ   ýÿ    üÿÿÿ  ýÿÿÿ   þÿ  ÿÿ   ÿÿÿÿ   ÿÿ  ÿÿÿÿ      þÿÿÿ  ÿÿÿÿÿÿ    ÿÿÿÿ     ýÿ     þÿ      þÿÿÿ  ÿÿÿÿ           þÿ  ÿÿýÿÿÿ   ýÿÿÿ   üÿ     þÿ         ÿÿÿÿ  ÿÿýÿ  ýÿýÿ  ýÿþÿ  þÿÿÿ    ÿÿÿÿ  ýÿþÿ  üÿþÿ  ýÿþÿ   þÿþÿ  þÿÿÿ   þÿ  þÿÿÿ     þÿþÿ  ÿÿ  ÿÿþÿ  þÿýÿ  ÿÿ    ÿÿ   ÿÿÿÿ  ÿÿÿÿÿÿ  ýÿýÿ  þÿþÿ      ÿÿÿÿ    ÿÿ     þÿÿÿ  ÿÿþÿ        ÿÿÿÿ  þÿ   ÿÿ   ÿÿýÿ  ýÿþÿ  þÿ   ÿÿÿÿ  ýÿ   ÿÿþÿ  ýÿ   ÿÿ   ÿÿÿÿ  þÿ   þÿ   ÿÿýÿ  ýÿþÿ   þÿ      ÿÿÿÿ  ÿÿþÿ    üÿÿÿ   üÿ  ÿÿþÿ      þÿ     ÿÿ   ÿÿþÿ    ÿÿ       ÿÿýÿ        þÿ     ýÿÿÿ  þÿýÿ    üÿþÿ  ýÿþÿ    ÿÿüÿ  ÿÿýÿ     ÿÿýÿ  ýÿüÿ  þÿþÿ  ÿÿ   ÿÿ     ýÿ   ÿÿýÿ    þÿ       ÿÿ  þÿ   ÿÿþÿ  ÿÿÿÿ ÿÿÿÿ  ÿÿÿÿ  ÿÿÿÿ        þÿÿÿ   ýÿ  þÿÿÿ   ÿÿ  ÿÿ  þÿþÿ  üÿ  þÿûÿ    ýÿÿÿ   üÿüÿ  ýÿüÿ    üÿ     ûÿ  þÿþÿ           þÿ     ÿÿ     ÿÿÿÿ  ÿÿ     ÿÿ    ÿÿ   ÿÿ    ÿÿ       þÿÿÿ  þÿÿÿ   ýÿ    ýÿÿÿ  ýÿÿÿ   ÿÿ  üÿÿÿ    ÿÿÿÿ  ÿÿ    ÿÿ  ýÿ   ÿÿûÿ    ûÿÿÿ  ûÿýÿ  ÿÿýÿþÿ    ûÿÿÿ  ýÿÿÿ        ÿÿ     ÿÿ     ÿÿ       ÿÿýÿ    ýÿ         ÿÿÿÿ  ÿÿ     ÿÿ   ÿÿþÿ  ýÿýÿ  üÿÿÿ   þÿ  þÿ   ÿÿÿÿ  ýÿÿÿ   ýÿ     ûÿ  ýÿûÿ  þÿþÿ  ÿÿÿÿ  þÿÿÿ  ýÿÿÿ   þÿ   ÿÿ  þÿÿÿ       ÿÿ  þÿþÿ  ýÿ         ýÿ  þÿúÿ  þÿüÿ  ýÿ  þÿÿÿ ÿÿ  ýÿýÿ  üÿÿÿ   ÿÿ  ÿÿ  þÿýÿ  ýÿÿÿ   þÿ  þÿþÿ    ýÿ     ÿÿýÿ     üÿ     üÿ     üÿ      ÿÿýÿ  þÿþÿ   þÿ  þÿ  þÿýÿ  ÿÿþÿÿÿ  ÿÿüÿÿÿ  ÿÿþÿ     üÿ   ÿÿüÿ  þÿÿÿ   þÿ  þÿþÿ  þÿÿÿ   ýÿ    ÿÿþÿ    þÿÿÿ     ÿÿÿÿÿÿ    þÿÿÿ  þÿÿÿ            ÿÿ   ÿÿýÿ  ýÿÿÿ  þÿ     ýÿÿÿ  ûÿÿÿ  üÿþÿ  þÿýÿ  þÿþÿ                    ÿÿÿÿ    ýÿ  þÿÿÿ þÿýÿ  ûÿýÿ  üÿþÿ    ÿÿ    ÿÿ  þÿÿÿ  ýÿ     ÿÿÿÿ    ÿÿÿÿ  ÿÿÿÿ  ÿÿþÿ  þÿýÿ  þÿÿÿ   üÿ  ýÿþÿ  þÿÿÿ ÿÿþÿ    þÿ    þÿþÿ    þÿ    üÿþÿ  ýÿþÿ    üÿýÿ  ýÿüÿ   üÿýÿ  üÿýÿ  ÿÿÿÿ        þÿþÿ  þÿÿÿ ÿÿ   þÿþÿ  þÿ   ÿÿþÿ    ÿÿ   ÿÿþÿ  ÿÿþÿ          ÿÿ   ÿÿþÿ  þÿýÿ  þÿýÿ  ÿÿýÿ  ýÿýÿ  üÿþÿ  þÿÿÿ  ÿÿþÿ  þÿýÿ  ÿÿÿÿÿÿ     ÿÿ ÿÿþÿ  üÿüÿ  ûÿþÿ   ÿÿ   ÿÿ   þÿ  ýÿÿÿ   þÿ   ýÿ  ýÿüÿ  ýÿýÿ  ÿÿ                 ÿÿ          þÿþÿ  üÿýÿ  ýÿÿÿ  ÿÿÿÿ     ÿÿ   þÿ    ÿÿÿÿÿÿ  ÿÿÿÿ   ÿÿ  þÿÿÿ   ÿÿþÿ  ÿÿÿÿ   ÿÿ  þÿÿÿ   ýÿþÿ  üÿþÿ  þÿ        ýÿ   ÿÿüÿ  ýÿÿÿ ÿÿûÿ  ÿÿýÿ        þÿ    ýÿÿÿ   þÿ    üÿÿÿ  ûÿÿÿ      þÿ   þÿúÿ  üÿûÿ  ûÿýÿ  üÿÿÿ   ýÿ     þÿ    ÿÿÿÿ       ÿÿ        ÿÿÿÿ    þÿÿÿ   ÿÿ  üÿ   ÿÿüÿ    ýÿ   ÿÿ  ýÿýÿ  üÿÿÿ  üÿÿÿ  þÿüÿ  ÿÿþÿ      þÿÿÿ   ýÿ  ýÿÿÿ   þÿ  ÿÿ     ýÿ     ýÿ         þÿÿÿ  ýÿÿÿ   ýÿ     üÿ    þÿÿÿ        þÿ     ÿÿ                                   ÿÿýÿ  þÿýÿ   ÿÿþÿ    þÿÿÿ  þÿÿÿ  ýÿÿÿ     ýÿýÿ  ýÿýÿ    þÿýÿ    ýÿ    ÿÿÿÿ   ÿÿ         þÿ    ÿÿþÿ    þÿþÿ  þÿþÿ  üÿÿÿ   ýÿ  ýÿþÿ  üÿÿÿ   ýÿ  þÿþÿ   þÿþÿ  ÿÿüÿ     ÿÿ           þÿ          þÿ     þÿ     ýÿ  þÿýÿ  üÿÿÿ  ýÿÿÿ  ÿÿýÿ   ÿÿÿÿ  üÿÿÿ  üÿýÿ  ÿÿýÿ     ýÿ   ÿÿþÿ   üÿ  üÿüÿ  ûÿþÿ  ûÿüÿ  ûÿýÿ  üÿþÿ  ÿÿýÿ    þÿÿÿ    ÿÿþÿ  ÿÿüÿ  ÿÿþÿ   ÿÿ    ÿÿÿÿ  ÿÿÿÿ  ÿÿÿÿ  þÿÿÿ    ÿÿÿÿ  þÿþÿ  ýÿ  ÿÿÿÿ      þÿÿÿ   ÿÿ   þÿ  þÿúÿ  ÿÿùÿ    ýÿþÿ    ÿÿþÿÿÿ    þÿÿÿ  ÿÿþÿ     ÿÿÿÿ     þÿ   ÿÿþÿ  ûÿ     üÿ     þÿ     þÿ     ÿÿÿÿ  ÿÿþÿ     ÿÿ þÿÿÿ   ýÿ  ÿÿüÿ    ýÿþÿ  þÿþÿ      ÿÿÿÿ  ýÿÿÿ   þÿ  üÿ   ÿÿúÿ  ÿÿûÿ  ÿÿýÿ  ÿÿþÿ  ÿÿþÿ    ýÿÿÿ    ýÿ     ÿÿ  ÿÿÿÿ  þÿþÿ    ýÿ   ÿÿþÿ  ýÿþÿ  þÿ   ÿÿþÿ  þÿþÿ    ÿÿÿÿ          þÿ     üÿÿÿ  üÿþÿ  þÿþÿ    þÿÿÿ  ýÿýÿ  üÿþÿ  þÿÿÿ    þÿ   ÿÿþÿ  þÿ     þÿ     þÿ     ÿÿ  ÿÿ     ûÿ     úÿ  þÿüÿ  þÿþÿ   ÿÿþÿ  ÿÿÿÿ  ýÿýÿ  ýÿûÿ  þÿþÿ  ÿÿþÿ  ÿÿÿÿ  ÿÿ  þÿÿÿ    ÿÿ    ÿÿÿÿ ÿÿýÿ  ýÿýÿ  þÿþÿ    ýÿ     ýÿÿÿ  ÿÿÿÿÿÿ  ÿÿ  ÿÿÿÿ  þÿýÿ  þÿþÿ  þÿ   ÿÿþÿ    ÿÿÿÿ  þÿýÿ    þÿþÿ  ýÿýÿ  ýÿ   ÿÿ   ÿÿþÿ    þÿþÿ   ýÿýÿ  ýÿüÿ  ÿÿÿÿ       ÿÿÿÿ  ÿÿþÿ    þÿþÿ  ÿÿþÿ         ÿÿ      ÿÿÿÿ      þÿ   ÿÿÿÿ   þÿ  þÿÿÿ   þÿ  þÿüÿ  ÿÿûÿ    ÿÿþÿ    ÿÿþÿ    üÿþÿ  úÿüÿ  ýÿûÿ  ÿÿþÿ     ÿÿ     ÿÿ      þÿÿÿ  þÿþÿ  ÿÿÿÿ     ÿÿ  þÿýÿ  þÿýÿ     þÿþÿ  þÿýÿ    þÿÿÿ  ÿÿþÿ            ÿÿ   ÿÿÿÿ  þÿ   ÿÿ    ÿÿ  ÿÿþÿ  ÿÿÿÿ  ÿÿ     þÿ           ÿÿ     þÿ     ÿÿ      ÿÿ       ÿÿÿÿ  þÿýÿ  ÿÿýÿÿÿ  ýÿÿÿ  þÿÿÿ      ýÿÿÿ  ûÿÿÿ  ýÿÿÿ   þÿýÿ  þÿÿÿ   üÿ     üÿÿÿ  ÿÿüÿÿÿ  üÿþÿ  ÿÿÿÿÿÿ     ýÿ     üÿ    þÿýÿ  þÿüÿ  ýÿþÿ  ýÿÿÿ  ÿÿþÿÿÿ  þÿþÿ    ÿÿþÿ     ýÿ     þÿ    ÿÿþÿ    ÿÿþÿÿÿ  ýÿýÿ  ÿÿ    þÿ  üÿüÿ  ûÿüÿ  þÿÿÿ    þÿ   ÿÿûÿ  ýÿþÿ  þÿ    ÿÿ  ûÿÿÿ  üÿÿÿ ÿÿþÿ  ýÿÿÿ  þÿþÿ  ýÿýÿ  þÿýÿ    ýÿÿÿ  ýÿ   ÿÿÿÿ   ýÿ  ÿÿþÿ    ÿÿýÿ  ÿÿýÿ  ÿÿÿÿ    ÿÿÿÿ  þÿÿÿ   ÿÿ   ÿÿ  þÿÿÿ   ÿÿ   þÿ    ýÿþÿ  ÿÿþÿ     þÿþÿ  ýÿüÿ  ÿÿüÿ  þÿýÿ  ýÿýÿ    üÿþÿ  ýÿÿÿ      þÿþÿ  ýÿÿÿ ÿÿ   ÿÿüÿ  ÿÿýÿ  þÿ     ÿÿ         þÿ     ÿÿ     ÿÿ    ÿÿÿÿ  ÿÿþÿ  ÿÿýÿ    þÿÿÿ  ÿÿÿÿ  þÿýÿ  þÿþÿ  ÿÿ    ÿÿ          þÿÿÿ  þÿýÿ   üÿýÿ    üÿÿÿ  üÿýÿ  üÿýÿ  üÿþÿ  þÿ   ÿÿÿÿ    ýÿÿÿ  þÿþÿ     ÿÿþÿ  ÿÿ  ýÿþÿ  ýÿÿÿ        þÿÿÿ  ÿÿþÿ      þÿÿÿ  ýÿýÿ  ÿÿýÿ  ÿÿþÿ   ÿÿ   ýÿ  ÿÿþÿ   þÿ    ÿÿþÿ    ûÿýÿ  þÿüÿ    üÿýÿ  þÿþÿ  ýÿ     þÿ       ÿÿÿÿ   üÿ    úÿ   þÿûÿ  üÿþÿ   üÿ  ÿÿÿÿ   ÿÿ  ÿÿ    ÿÿ  þÿ   ÿÿüÿ  þÿüÿ  ÿÿýÿ  ÿÿ         þÿ     ÿÿÿÿ  ÿÿÿÿ  ÿÿ    ýÿ   ÿÿüÿ     üÿ  ýÿþÿ  ýÿ         þÿÿÿ  ÿÿÿÿ    ÿÿÿÿÿÿÿÿ    üÿ    þÿþÿ    ÿÿþÿ     ÿÿ    þÿÿÿ   þÿ     ÿÿ  ÿÿ  ÿÿüÿ    ÿÿþÿ    ýÿþÿ  ýÿÿÿ  ýÿÿÿ    þÿÿÿ  ýÿþÿ  þÿ         ÿÿ   þÿ  üÿþÿ  þÿÿÿ  ÿÿ  ÿÿþÿ    þÿÿÿ    þÿÿÿ  üÿþÿ  ûÿ   ÿÿýÿ  ÿÿÿÿ ÿÿ   ÿÿÿÿ   ÿÿ   þÿ  ÿÿ  þÿÿÿ   ÿÿ      ÿÿþÿ     þÿ     ÿÿ   þÿ     üÿ    ýÿþÿ    üÿÿÿ  ýÿÿÿ     þÿ   ÿÿüÿ  ýÿüÿ  ýÿþÿ   þÿ  þÿþÿ  ÿÿ    þÿ  þÿýÿ  þÿÿÿ  þÿþÿ  þÿýÿ    ÿÿÿÿ     þÿ     ÿÿ  þÿþÿ  þÿþÿ   ÿÿþÿ     þÿ      ÿÿ  ÿÿþÿÿÿ  ýÿþÿ  ÿÿýÿ      ÿÿ        ÿÿÿÿ  ÿÿþÿ    þÿÿÿ    þÿýÿ    ýÿ    ÿÿþÿ  ÿÿþÿ     þÿ    þÿÿÿ     ýÿþÿ  þÿþÿ      ÿÿÿÿ      ÿÿþÿ    þÿÿÿ  þÿýÿ  þÿûÿ  ÿÿùÿ    ûÿþÿ   ÿÿüÿ    úÿþÿ  þÿüÿ    ýÿ     ÿÿÿÿ  ÿÿþÿ  ÿÿÿÿ   ÿÿ  þÿ   ÿÿÿÿ  ýÿÿÿ  þÿÿÿ  ÿÿÿÿ  þÿþÿ  ýÿûÿ  ÿÿýÿ  ÿÿÿÿ  ÿÿþÿ  þÿüÿ  ÿÿüÿ    ÿÿþÿ    ÿÿýÿ     ÿÿ         ýÿ  þÿÿÿ   þÿ    þÿþÿ  üÿýÿ  ýÿýÿ   ÿÿþÿ  ÿÿþÿ  þÿþÿ  ÿÿþÿ      ÿÿ           ÿÿþÿ  þÿüÿ  ÿÿþÿ         ÿÿ          þÿþÿ  üÿüÿ  üÿþÿ      ÿÿþÿ  ÿÿÿÿ          ÿÿþÿ    ýÿ   ÿÿÿÿ  ÿÿÿÿ      þÿþÿ    þÿÿÿ    þÿÿÿ  ÿÿÿÿÿÿ  ÿÿþÿ  ÿÿ  þÿÿÿ  ÿÿÿÿÿÿ    ûÿýÿ  ûÿþÿ   þÿ  þÿ   ÿÿ   þÿýÿ  üÿþÿ  üÿ   ÿÿ   ÿÿÿÿ  ýÿÿÿ    ÿÿÿÿ  ÿÿýÿ    ÿÿÿÿ  ÿÿ   ÿÿýÿ  þÿÿÿ    ÿÿüÿ  ýÿûÿ  þÿÿÿ      ýÿÿÿ  þÿÿÿ      ýÿþÿ  ÿÿûÿ    ûÿÿÿ  ýÿÿÿ  þÿ   ÿÿ   þÿÿÿ  ÿÿÿÿ  þÿÿÿ   ÿÿ   ÿÿ  ýÿÿÿ  ÿÿ   ÿÿÿÿ       ÿÿ     ûÿ     ûÿ     üÿÿÿ  ýÿûÿ  ýÿúÿ  þÿÿÿ ÿÿÿÿ  þÿÿÿ    ÿÿ   ÿÿÿÿ    þÿÿÿ  ÿÿýÿ  ÿÿýÿ  ÿÿþÿ   ÿÿ  ýÿ   ÿÿþÿ   ýÿ  ýÿýÿ  ýÿýÿ  ýÿ   þÿýÿ  ýÿ   ÿÿ  þÿ   ÿÿÿÿ      ÿÿþÿ    ÿÿÿÿ    ýÿýÿ  ÿÿýÿ      þÿþÿ  þÿûÿ  ÿÿþÿ         ÿÿÿÿ    ýÿüÿ  ÿÿüÿÿÿ    ýÿþÿ  þÿ   þÿþÿ  ûÿþÿ  üÿþÿ  ýÿþÿ    ÿÿþÿ    þÿþÿ   ÿÿÿÿ       üÿÿÿ  ýÿÿÿ ÿÿÿÿ   þÿ     þÿ   ÿÿþÿ    ÿÿÿÿ     ÿÿ  þÿ   ÿÿþÿ   þÿ    þÿÿÿ  ÿÿýÿ  ÿÿ    ÿÿ  þÿýÿ  ýÿÿÿ  ÿÿ    ÿÿ     þÿ     þÿ  þÿÿÿ    ÿÿÿÿ  ýÿüÿ    ÿÿÿÿÿÿ    þÿþÿ  þÿýÿ  üÿýÿ  ýÿýÿ     ÿÿÿÿ      þÿÿÿ  ÿÿýÿ     üÿ     þÿ    ÿÿþÿ  ýÿüÿ  þÿüÿ    ûÿ   ÿÿýÿ  þÿ  þÿþÿ  ÿÿýÿ     üÿ     þÿ  ÿÿ    ÿÿ        ÿÿþÿ    ýÿþÿ  ÿÿüÿ      ÿÿÿÿ  þÿ   ÿÿÿÿ   ýÿ      þÿÿÿ  þÿþÿ   þÿ    üÿÿÿ  þÿýÿ  þÿ  ýÿÿÿ  üÿ   ÿÿþÿ  þÿ     þÿ     ÿÿÿÿ  ÿÿþÿ  ýÿ   ÿÿýÿ  üÿýÿ  ýÿýÿ  üÿýÿ  þÿ  ÿÿ   ÿÿÿÿ   ýÿ  þÿþÿ  üÿ  þÿþÿ  ÿÿ  ýÿüÿ  ÿÿýÿÿÿ    ÿÿ         ÿÿÿÿ  ÿÿ     þÿ   ÿÿ   ÿÿþÿ  ýÿþÿ  üÿüÿ  þÿüÿ    ÿÿÿÿ     ýÿ     ýÿ         ÿÿ     ÿÿ     ÿÿ     ÿÿ   ÿÿÿÿ   ÿÿ   ýÿ     ýÿÿÿ  ÿÿýÿ  ÿÿÿÿ ÿÿÿÿ   ÿÿ       þÿ     ûÿ  þÿþÿ        ÿÿ  þÿþÿ  þÿÿÿ        þÿ  þÿþÿ    ÿÿÿÿÿÿ  þÿûÿ    úÿÿÿ  üÿ   ÿÿþÿ      ÿÿÿÿ  ýÿÿÿ  þÿ   ÿÿ   ÿÿÿÿ    ÿÿÿÿ    þÿÿÿ  ÿÿýÿ  þÿÿÿ ÿÿÿÿ   ÿÿ    þÿþÿ    ÿÿÿÿ    þÿþÿ    þÿÿÿ  ÿÿüÿ    ýÿþÿ       þÿ     ÿÿ         þÿ     þÿÿÿ    þÿþÿ    þÿÿÿ   ÿÿþÿ  þÿ     ûÿ     ûÿÿÿ  üÿÿÿ ÿÿþÿ   þÿ  þÿ  ýÿÿÿ   þÿ  ýÿ   ÿÿýÿ      ÿÿþÿ  ýÿÿÿ  ÿÿÿÿ    ÿÿþÿ      ÿÿüÿ  ÿÿûÿ  ÿÿþÿ    ÿÿþÿ  ÿÿýÿ  ÿÿþÿ   ÿÿ  ÿÿÿÿ      üÿýÿ  ýÿÿÿ   ÿÿ    þÿþÿ    ýÿþÿ  þÿüÿ  ÿÿûÿ  ÿÿýÿ  þÿÿÿ  ýÿÿÿ  þÿþÿ      ÿÿþÿ  ÿÿûÿ  þÿþÿ   þÿ       ÿÿ     þÿ  ýÿ   ÿÿþÿ  þÿÿÿ    ÿÿÿÿ      ÿÿÿÿ    ÿÿÿÿ      ýÿþÿ  ýÿýÿ  ÿÿýÿ  ÿÿýÿ  ÿÿýÿ    ÿÿÿÿ  ÿÿ   ÿÿÿÿ   ÿÿ  þÿ   ÿÿÿÿ   ýÿ  ýÿûÿ  ýÿüÿ  ÿÿþÿ        ÿÿÿÿ  ýÿÿÿ  þÿÿÿ      ÿÿÿÿ  ÿÿÿÿ   ÿÿ  ÿÿýÿ     ÿÿ  ÿÿ   ÿÿþÿ    ýÿýÿ  ÿÿýÿ  ÿÿþÿ   ÿÿ   üÿ  ÿÿüÿ     üÿüÿ  ûÿýÿ  ûÿÿÿ   ýÿ     ýÿ  þÿÿÿ   þÿ  þÿþÿ  ÿÿþÿ     ÿÿ  ÿÿ    ÿÿþÿ     þÿ   ÿÿÿÿ   üÿ     þÿ  þÿ  þÿüÿ  ýÿýÿ  ÿÿÿÿ      þÿþÿ   üÿþÿ  üÿýÿ  ÿÿÿÿ   ÿÿÿÿ  ýÿÿÿ  üÿÿÿ  ýÿ     üÿ   ÿÿþÿ             þÿÿÿ  þÿ   ÿÿÿÿ   ýÿ  þÿ   ÿÿÿÿ   ÿÿ     ÿÿ     ÿÿ     ÿÿ       ÿÿÿÿ  ýÿ   ÿÿûÿ  þÿüÿ    ýÿ   ÿÿþÿ  ýÿþÿ  üÿÿÿ  þÿþÿ      ÿÿÿÿ  þÿýÿ    þÿÿÿ  þÿ  üÿ   ÿÿüÿ  ýÿ   þÿüÿ  ÿÿÿÿ  þÿ     üÿÿÿ  ýÿ   ÿÿþÿ  ýÿþÿ  þÿüÿ    üÿÿÿ  ÿÿþÿÿÿ    ÿÿÿÿÿÿ  þÿüÿ  ýÿýÿ  ûÿ  ÿÿüÿ  þÿüÿ  þÿüÿ  ýÿÿÿ ÿÿþÿ  ýÿÿÿ   þÿ  þÿþÿ  ÿÿýÿ    ÿÿþÿ     ÿÿ         üÿ     þÿ         ÿÿ      þÿ   þÿüÿ  üÿýÿ  ýÿÿÿ   üÿ     üÿÿÿ  ûÿþÿ  ÿÿþÿ      ÿÿÿÿ    ÿÿÿÿ  ÿÿþÿ  ÿÿýÿ  þÿþÿ   ÿÿ      ÿÿþÿ  ÿÿÿÿ          ÿÿþÿ    ÿÿ         þÿ        þÿ     þÿ         ÿÿÿÿ  ýÿ   ÿÿüÿ  ÿÿ         ÿÿ   ÿÿþÿ    þÿ         ÿÿ   ÿÿÿÿ  þÿ   ÿÿ  þÿýÿ    ýÿÿÿ  ýÿþÿ  ýÿýÿ  ýÿþÿ  ÿÿ   ÿÿÿÿ  ÿÿÿÿ      ÿÿþÿ  ÿÿýÿ    ýÿÿÿ    ýÿÿÿ  þÿýÿ    þÿýÿ  ýÿýÿ  üÿýÿ  ýÿþÿ            ÿÿ  þÿÿÿ   üÿ  üÿÿÿ   úÿ  þÿùÿ  þÿýÿ  ÿÿ    ÿÿ             ÿÿ     ÿÿ       ÿÿÿÿ  þÿÿÿ   üÿ    ýÿÿÿ  ÿÿþÿ  ÿÿþÿ  ÿÿýÿ  ÿÿÿÿ ÿÿÿÿ  ûÿ   þÿûÿ  ÿÿþÿ      þÿýÿ  þÿþÿ  ýÿ   ÿÿþÿ  ÿÿýÿ  þÿþÿ  ÿÿÿÿ    þÿýÿ  ÿÿýÿ    þÿýÿ  ÿÿýÿ  ÿÿÿÿ ÿÿþÿ  ÿÿ    þÿ     þÿ         ÿÿÿÿ  ÿÿþÿ      ÿÿ   ÿÿýÿ    ÿÿÿÿ    þÿýÿ      ÿÿþÿ  ÿÿûÿ  ÿÿýÿ    ÿÿþÿ  ÿÿÿÿÿÿ  þÿÿÿ   üÿ     þÿÿÿ    ûÿÿÿ   ÿÿ   ÿÿ      þÿþÿ  ýÿþÿ    üÿÿÿ  ýÿ   ÿÿÿÿ   þÿ    þÿÿÿ  þÿþÿ  þÿÿÿ   ýÿ  ÿÿüÿ    þÿþÿ    þÿ    ÿÿ  ÿÿÿÿ    ÿÿÿÿ  ýÿÿÿ  þÿÿÿ    þÿþÿ      ÿÿÿÿ    þÿÿÿ  þÿÿÿ   ýÿýÿ  þÿúÿ    ýÿ   ÿÿ  þÿÿÿ  þÿÿÿ   þÿþÿ  ÿÿýÿ    þÿþÿ  ÿÿÿÿþÿ    üÿÿÿ   ýÿ  ÿÿ     ÿÿ  þÿÿÿ  ÿÿÿÿÿÿ  ÿÿýÿ  þÿÿÿ   ÿÿ  ÿÿÿÿ       þÿ  þÿÿÿ  ýÿÿÿ    þÿþÿ    ÿÿÿÿ  ÿÿÿÿ  þÿÿÿ  ýÿþÿ  þÿýÿÿÿ  ýÿûÿ  ÿÿýÿ ÿÿÿÿ  ýÿÿÿ  üÿÿÿ  ýÿÿÿ  ýÿýÿ  üÿýÿ  ÿÿûÿÿÿ  þÿ   ÿÿ   ÿÿüÿ    ýÿ     üÿ   ÿÿüÿ    þÿ     þÿ       ÿÿÿÿ  þÿýÿ  ÿÿþÿ         ÿÿ     þÿ  þÿÿÿ ÿÿþÿ  üÿÿÿ ÿÿýÿ  üÿþÿ  ýÿÿÿ   ÿÿ   þÿ    ÿÿþÿ    üÿþÿ  þÿþÿ  þÿþÿ  þÿ  ýÿÿÿ  üÿýÿ    üÿÿÿ  ÿÿþÿ      ÿÿþÿ  ÿÿýÿ      ÿÿ   ÿÿÿÿ   üÿ  ÿÿÿÿ   ÿÿ         þÿ  ÿÿ    þÿ    úÿÿÿ  üÿÿÿ      ÿÿÿÿ    ÿÿþÿ  þÿ   ýÿÿÿ  üÿþÿ  ÿÿþÿ     þÿ     þÿ     þÿ  þÿÿÿ  þÿþÿ  þÿþÿ      ÿÿ     þÿ         ÿÿ  ÿÿ    ÿÿ        þÿÿÿ  ûÿþÿ  ûÿÿÿ  þÿþÿ    üÿÿÿ  ýÿ   ÿÿÿÿ   ÿÿ     ÿÿ     þÿ     üÿ     ýÿ     ÿÿ    þÿþÿ  üÿÿÿ   ûÿ  þÿþÿ ÿÿþÿ  ýÿÿÿ ÿÿýÿ  üÿÿÿ   ýÿ  ÿÿÿÿ    þÿþÿ  üÿÿÿ   üÿ  þÿÿÿ   þÿ    þÿÿÿ  þÿþÿ  þÿþÿ  þÿýÿ       þÿ    üÿþÿ  þÿþÿ    ÿÿþÿ    þÿþÿ    üÿÿÿ  ýÿ   ÿÿýÿ  ýÿýÿ  þÿÿÿ    ÿÿþÿ  ýÿüÿ  ÿÿ    þÿ  þÿüÿ  ýÿÿÿ   ýÿ     üÿÿÿ  úÿÿÿ   ûÿ    üÿþÿ  ýÿÿÿ      ÿÿÿÿ   þÿ  ÿÿ    ÿÿ  ÿÿÿÿ  ÿÿþÿ     þÿ                    þÿÿÿ   ýÿþÿ  þÿýÿ  ÿÿþÿ  ÿÿüÿ    ûÿþÿ  ÿÿýÿ         þÿÿÿ  ýÿÿÿ               þÿþÿ  ÿÿ         üÿ  þÿýÿ  þÿýÿ  þÿÿÿ  þÿÿÿ  þÿþÿ    ÿÿÿÿ  þÿþÿ  þÿÿÿ  ÿÿÿÿ     ÿÿ        þÿþÿ  üÿýÿ  ýÿ  ûÿ  üÿùÿ  ýÿþÿ   þÿ  ÿÿüÿ     ýÿ  ÿÿ  þÿÿÿ   ÿÿ   ÿÿ    ÿÿþÿ  ÿÿÿÿ   ýÿ  þÿýÿ  þÿþÿ  ýÿÿÿ   ÿÿ   üÿ  ÿÿûÿ    þÿÿÿ          ÿÿÿÿ  þÿþÿ  ÿÿÿÿ  ÿÿÿÿ    ÿÿÿÿ    ÿÿÿÿ  þÿ   ÿÿýÿ    ÿÿ  ÿÿ     ÿÿÿÿÿÿ  þÿüÿ  þÿÿÿ ÿÿ  ýÿþÿ  üÿ   ÿÿþÿ  üÿþÿ  üÿÿÿ  þÿÿÿ    ýÿýÿ  þÿþÿ      ýÿÿÿ  þÿýÿ    þÿÿÿ   ÿÿýÿ  þÿýÿ  ÿÿýÿ  þÿ   ÿÿüÿ  þÿþÿ ÿÿ     ýÿÿÿ      þÿÿÿ  þÿþÿ      ÿÿÿÿ  ÿÿþÿ  ÿÿ   ÿÿ   ÿÿþÿ        ÿÿ     þÿÿÿ  þÿþÿ    þÿ     ýÿÿÿ  ýÿ   ÿÿüÿ  þÿÿÿ        üÿÿÿ  üÿüÿ  ýÿþÿ  ÿÿÿÿ     ÿÿ        þÿþÿ   þÿþÿ  þÿýÿ  þÿþÿ  þÿþÿ  ýÿ   þÿþÿ  ýÿ   ÿÿ   þÿþÿ  ýÿÿÿ  ÿÿÿÿ    ÿÿÿÿ  ÿÿÿÿ  ÿÿÿÿ  þÿÿÿ   ÿÿ  ÿÿ    ÿÿ  ÿÿÿÿ    ÿÿþÿ  ÿÿýÿ  ýÿýÿ  ÿÿ   ÿÿÿÿ  þÿÿÿ    ÿÿ    ÿÿ    úÿÿÿ  ùÿÿÿ   üÿ  þÿ   ÿÿýÿ  ÿÿÿÿ      ÿÿÿÿ   ýÿ  ÿÿ  ýÿÿÿ   ýÿ  ÿÿ     ÿÿÿÿ    ÿÿÿÿ      þÿÿÿ  þÿÿÿ      ýÿ   ÿÿýÿ  ÿÿýÿ    þÿýÿ  þÿ   ÿÿýÿ  ÿÿýÿ    ÿÿýÿ  ÿÿýÿ     þÿ   ÿÿ  þÿþÿ  ýÿÿÿ  ýÿÿÿ        ÿÿ   üÿ  þÿþÿ  üÿÿÿ   ýÿ   ÿÿýÿ  üÿþÿ  ýÿþÿ    ÿÿ  þÿþÿ  ÿÿýÿÿÿ  ýÿüÿ  üÿþÿ   ýÿ  þÿÿÿ    þÿÿÿ  ÿÿÿÿ  ÿÿ  ÿÿüÿ      þÿþÿ  ÿÿýÿ    ýÿþÿ  þÿþÿ    ÿÿÿÿ     ÿÿ     ÿÿ     ÿÿÿÿ    þÿÿÿ  þÿþÿ    ýÿ   ÿÿýÿ  þÿ   ÿÿ  ýÿÿÿ  þÿÿÿ  ýÿÿÿ  þÿ   þÿþÿ  ýÿÿÿ    þÿþÿ    ýÿÿÿ  ÿÿþÿ        ýÿÿÿ  þÿþÿ    ýÿ   ÿÿýÿ  ÿÿÿÿ  þÿþÿ   ýÿ  ÿÿûÿ    üÿÿÿ  þÿýÿ  ÿÿýÿ  þÿüÿ  ÿÿüÿ  þÿþÿ  þÿ     ÿÿ    ÿÿ     ýÿ    üÿþÿ  þÿÿÿ ÿÿÿÿ  üÿýÿ  ýÿûÿ  ÿÿüÿ     þÿ         ÿÿ         ÿÿ         ÿÿ         ÿÿ     þÿ   ýÿ  þÿüÿ  þÿÿÿ  ÿÿ  þÿþÿ  þÿþÿ    þÿ     þÿ   ÿÿþÿ    ûÿýÿ  úÿüÿ  þÿ  ÿÿÿÿ  þÿ   ÿÿ     ÿÿÿÿ    þÿÿÿ  ýÿÿÿ   þÿ  ÿÿÿÿ  ÿÿ  ÿÿ         ýÿ   ÿÿüÿ    üÿ    üÿþÿ  þÿ            ÿÿþÿ  ÿÿþÿ  ýÿ     ýÿÿÿ    ýÿÿÿ   üÿ  ýÿýÿ    ÿÿþÿ  þÿüÿ      ÿÿ     þÿÿÿ   ÿÿ    üÿ   ÿÿüÿ      ÿÿþÿ  þÿÿÿ   ÿÿ  ÿÿ     ÿÿ    ÿÿ  ÿÿýÿ  ýÿþÿ  ÿÿ   ÿÿÿÿ  ýÿýÿ  þÿüÿ          ÿÿ    ýÿýÿ  þÿþÿ     üÿ   ÿÿùÿ  ýÿüÿ  üÿÿÿ   ÿÿýÿ    ûÿÿÿ   þÿ  þÿýÿ  ýÿþÿ  þÿþÿ  ÿÿÿÿ             ÿÿ  þÿÿÿ  þÿÿÿ  ÿÿÿÿÿÿ    þÿÿÿ    ÿÿ   ÿÿþÿ  þÿþÿ          ÿÿ     üÿ     üÿ     ÿÿ         ýÿ    üÿþÿ  ÿÿþÿÿÿ  üÿþÿ  ýÿÿÿ      þÿ      ÿÿÿÿ  ÿÿþÿ  þÿÿÿ  ÿÿÿÿ    þÿÿÿ  þÿÿÿ      þÿÿÿ    ÿÿÿÿ  ÿÿþÿ  ÿÿÿÿ   ýÿ  ýÿÿÿ  ýÿÿÿ  ýÿÿÿ  þÿÿÿ  þÿþÿ    ýÿÿÿ  ýÿýÿ  ÿÿýÿ  ÿÿûÿ    ûÿþÿ  ýÿýÿ  ýÿüÿ  ýÿüÿ  ÿÿýÿ      ÿÿ   þÿ  þÿþÿ  ÿÿÿÿ      þÿþÿ  þÿüÿ    ýÿþÿ  þÿÿÿ ÿÿ     úÿ     ûÿþÿ  ýÿûÿ  ÿÿúÿ  ÿÿüÿ  ÿÿÿÿ ÿÿþÿ  ýÿÿÿ  ýÿ     þÿ   þÿÿÿ  ûÿÿÿ   ýÿ    ÿÿÿÿ  ÿÿýÿ  ÿÿüÿ    þÿþÿ   üÿýÿ  ýÿÿÿ ÿÿÿÿ    þÿ     ûÿ   ÿÿûÿ    üÿ   ÿÿýÿ  ýÿþÿ  ýÿ   ÿÿþÿ  ÿÿþÿ          ÿÿ   þÿ  ÿÿÿÿ  þÿþÿ  ýÿüÿ  ÿÿüÿ    ÿÿ    ÿÿ  ÿÿÿÿ  ÿÿ       ÿÿÿÿ  ÿÿÿÿ  þÿÿÿ    ýÿþÿ  þÿüÿ  þÿüÿ  ýÿ     ýÿ  þÿ  þÿþÿ  ÿÿýÿ    ÿÿþÿ    ýÿÿÿ  ÿÿÿÿ  ÿÿÿÿ   ÿÿ   üÿ  ÿÿüÿ  ÿÿþÿ   ÿÿ   ÿÿ  ÿÿýÿ    þÿþÿ  ÿÿüÿ    üÿÿÿ    üÿþÿ  üÿþÿ  ýÿ   ÿÿþÿ  ýÿ   ÿÿüÿ   þÿýÿ    üÿ     ýÿ           ÿÿ    ÿÿþÿ     þÿÿÿ  ÿÿþÿ     þÿÿÿ    þÿÿÿ  þÿÿÿ ÿÿ     þÿ     ÿÿ   ÿÿ             ÿÿ  þÿþÿ  þÿþÿ  þÿýÿ  þÿþÿ     þÿ  ÿÿ    ÿÿÿÿ    ÿÿÿÿ     ÿÿ    ÿÿ  ÿÿüÿ  þÿþÿ  ÿÿ    ÿÿ  þÿþÿ  ýÿþÿ  ÿÿþÿ     ýÿ  ýÿÿÿ  ýÿÿÿ    þÿýÿ  ýÿþÿ  ÿÿÿÿ      ÿÿ        ÿÿ  ÿÿ  þÿÿÿ   þÿ  þÿ  þÿýÿ    ýÿ        ÿÿ   ÿÿýÿ  üÿÿÿ  ýÿÿÿ   ÿÿþÿ  ÿÿÿÿ  ÿÿ  þÿþÿ  üÿþÿ  ýÿþÿ  þÿ     þÿ   ÿÿÿÿ ÿÿÿÿ  þÿýÿ  þÿýÿ    ýÿ         ÿÿ     ýÿ     ÿÿ      þÿþÿ  þÿýÿ  ýÿýÿ  ÿÿÿÿ    ÿÿÿÿ   þÿ    üÿÿÿ   þÿ  ÿÿ     üÿ  ÿÿ  ÿÿþÿ  ýÿÿÿ ÿÿ   þÿúÿ  ýÿýÿ  ýÿ  þÿýÿ     þÿÿÿ  þÿÿÿ     ÿÿþÿ     ÿÿ          üÿþÿ  ûÿýÿ  ýÿýÿ  ýÿýÿ  ÿÿýÿÿÿ    ÿÿÿÿÿÿ  üÿüÿ  þÿýÿ    ÿÿÿÿ  ÿÿÿÿ      þÿÿÿ  ýÿÿÿ  þÿ         ÿÿÿÿ  ýÿ   ÿÿÿÿ   üÿ  ýÿþÿ  üÿ  ÿÿýÿÿÿ   þÿÿÿ  ÿÿþÿ     ýÿ        ýÿ     üÿ   ÿÿÿÿ  üÿþÿ  ÿÿÿÿÿÿ  ÿÿÿÿ   ÿÿ         ÿÿ    ÿÿþÿ    ÿÿÿÿ      þÿÿÿ  ÿÿ    ÿÿ  þÿþÿ  üÿ     ýÿ         þÿ    ÿÿþÿ    ÿÿýÿ    ýÿþÿ  ÿÿüÿ    üÿÿÿ  ýÿÿÿ  ýÿÿÿ  þÿýÿ  ýÿþÿ  þÿÿÿ  ÿÿÿÿ  ÿÿþÿ  ÿÿÿÿ      þÿÿÿ  þÿýÿ    þÿÿÿ      üÿýÿ  ûÿþÿ   ûÿ  þÿþÿ      þÿ
+\ No newline at end of file
+*** ../vim-8.1.1501/src/testdir/Make_all.mak	2019-05-31 20:02:47.567231180 +0200
+--- src/testdir/Make_all.mak	2019-06-09 13:12:58.159410658 +0200
+***************
+*** 228,233 ****
+--- 228,234 ----
+  	test_signs \
+  	test_smartindent \
+  	test_sort \
++ 	test_sound \
+  	test_source \
+  	test_source_utf8 \
+  	test_spell \
+***************
+*** 399,404 ****
+--- 400,406 ----
+  	test_signals.res \
+  	test_signs.res \
+  	test_smartindent.res \
++ 	test_sound.res \
+  	test_source.res \
+  	test_spell.res \
+  	test_startup.res \
+*** ../vim-8.1.1501/.travis.yml	2019-06-06 15:13:16.597604260 +0200
+--- .travis.yml	2019-06-09 13:26:26.356810909 +0200
+***************
+*** 77,82 ****
+--- 77,83 ----
+        - clang
+        - lcov
+        - gettext
++       - libcanberra-dev
+        - libperl-dev
+        - python-dev
+        - python3-dev
+*** ../vim-8.1.1501/src/version.c	2019-06-08 20:48:26.243470232 +0200
+--- src/version.c	2019-06-08 21:50:42.149065116 +0200
+***************
+*** 769,770 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1502,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+127. You bring your laptop and cellular phone to church.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

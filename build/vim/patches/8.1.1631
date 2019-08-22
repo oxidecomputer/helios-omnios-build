@@ -1,0 +1,482 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1631
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1631
+Problem:    Displaying signs is inefficient.
+Solution:   Avoid making multiple calls to get information about a placed
+            sign. (Yegappan Lakshmanan, closes #4586)
+Files:	    src/proto/sign.pro, src/screen.c, src/sign.c, src/structs.h
+
+
+*** ../vim-8.1.1630/src/proto/sign.pro	2019-06-29 07:56:26.042876840 +0200
+--- src/proto/sign.pro	2019-07-04 18:13:59.787228750 +0200
+***************
+*** 1,6 ****
+  /* sign.c */
+  void init_signs(void);
+! int buf_getsigntype(buf_T *buf, linenr_T lnum, int type);
+  linenr_T buf_delsign(buf_T *buf, linenr_T atlnum, int id, char_u *group);
+  int buf_findsign(buf_T *buf, int id, char_u *group);
+  int buf_findsign_id(buf_T *buf, linenr_T lnum, char_u *groupname);
+--- 1,6 ----
+  /* sign.c */
+  void init_signs(void);
+! int buf_get_signattrs(buf_T *buf, linenr_T lnum, sign_attrs_T *sattr);
+  linenr_T buf_delsign(buf_T *buf, linenr_T atlnum, int id, char_u *group);
+  int buf_findsign(buf_T *buf, int id, char_u *group);
+  int buf_findsign_id(buf_T *buf, linenr_T lnum, char_u *groupname);
+***************
+*** 13,20 ****
+  void ex_sign(exarg_T *eap);
+  void get_buffer_signs(buf_T *buf, list_T *l);
+  void sign_gui_started(void);
+- int sign_get_attr(int typenr, int line);
+- char_u *sign_get_text(int typenr);
+  void *sign_get_image(int typenr);
+  void free_signs(void);
+  char_u *get_sign_name(expand_T *xp, int idx);
+--- 13,18 ----
+*** ../vim-8.1.1630/src/screen.c	2019-07-04 11:59:25.416462600 +0200
+--- src/screen.c	2019-07-04 18:17:44.685540686 +0200
+***************
+*** 3042,3048 ****
+  get_sign_display_info(
+  	int		nrcol,
+  	win_T		*wp,
+! 	linenr_T	lnum,
+  	int		wcr_attr,
+  	int		row,
+  	int		startrow,
+--- 3042,3049 ----
+  get_sign_display_info(
+  	int		nrcol,
+  	win_T		*wp,
+! 	linenr_T	lnum UNUSED,
+! 	sign_attrs_T	*sattr,
+  	int		wcr_attr,
+  	int		row,
+  	int		startrow,
+***************
+*** 3077,3085 ****
+  #endif
+         )
+      {
+! 	text_sign = buf_getsigntype(wp->w_buffer, lnum, SIGN_TEXT);
+  # ifdef FEAT_SIGN_ICONS
+! 	icon_sign = buf_getsigntype(wp->w_buffer, lnum, SIGN_ICON);
+  	if (gui.in_use && icon_sign != 0)
+  	{
+  	    // Use the image in this position.
+--- 3078,3086 ----
+  #endif
+         )
+      {
+! 	text_sign = (sattr->text != NULL) ? sattr->typenr : 0;
+  # ifdef FEAT_SIGN_ICONS
+! 	icon_sign = (sattr->icon != NULL) ? sattr->typenr : 0;
+  	if (gui.in_use && icon_sign != 0)
+  	{
+  	    // Use the image in this position.
+***************
+*** 3093,3099 ****
+  	    else
+  		*c_extrap = SIGN_BYTE;
+  #  ifdef FEAT_NETBEANS_INTG
+! 	    if (buf_signcount(wp->w_buffer, lnum) > 1)
+  	    {
+  		if (nrcol)
+  		{
+--- 3094,3100 ----
+  	    else
+  		*c_extrap = SIGN_BYTE;
+  #  ifdef FEAT_NETBEANS_INTG
+! 	    if (netbeans_active() && (buf_signcount(wp->w_buffer, lnum) > 1))
+  	    {
+  		if (nrcol)
+  		{
+***************
+*** 3114,3120 ****
+  # endif
+  	    if (text_sign != 0)
+  	    {
+! 		*pp_extra = sign_get_text(text_sign);
+  		if (*pp_extra != NULL)
+  		{
+  		    if (nrcol)
+--- 3115,3121 ----
+  # endif
+  	    if (text_sign != 0)
+  	    {
+! 		*pp_extra = sattr->text;
+  		if (*pp_extra != NULL)
+  		{
+  		    if (nrcol)
+***************
+*** 3127,3133 ****
+  		    *c_finalp = NUL;
+  		    *n_extrap = (int)STRLEN(*pp_extra);
+  		}
+! 		*char_attrp = sign_get_attr(text_sign, FALSE);
+  	    }
+      }
+  }
+--- 3128,3134 ----
+  		    *c_finalp = NUL;
+  		    *n_extrap = (int)STRLEN(*pp_extra);
+  		}
+! 		*char_attrp = sattr->texthl;
+  	    }
+      }
+  }
+***************
+*** 3264,3269 ****
+--- 3265,3272 ----
+  #endif
+  #if defined(FEAT_SIGNS) || defined(FEAT_QUICKFIX) \
+  	|| defined(FEAT_SYN_HL) || defined(FEAT_DIFF)
++     int		sign_present = FALSE;
++     sign_attrs_T sattr;
+  # define LINE_ATTR
+      int		line_attr = 0;		/* attribute for the whole line */
+  #endif
+***************
+*** 3585,3596 ****
+      filler_todo = filler_lines;
+  #endif
+  
+  #ifdef LINE_ATTR
+  # ifdef FEAT_SIGNS
+      /* If this line has a sign with line highlighting set line_attr. */
+!     v = buf_getsigntype(wp->w_buffer, lnum, SIGN_LINEHL);
+!     if (v != 0)
+! 	line_attr = sign_get_attr((int)v, TRUE);
+  # endif
+  # if defined(FEAT_QUICKFIX)
+      /* Highlight the current line in the quickfix window. */
+--- 3588,3602 ----
+      filler_todo = filler_lines;
+  #endif
+  
++ #ifdef FEAT_SIGNS
++     sign_present = buf_get_signattrs(wp->w_buffer, lnum, &sattr);
++ #endif
++ 
+  #ifdef LINE_ATTR
+  # ifdef FEAT_SIGNS
+      /* If this line has a sign with line highlighting set line_attr. */
+!     if (sign_present)
+! 	line_attr = sattr.linehl;
+  # endif
+  # if defined(FEAT_QUICKFIX)
+      /* Highlight the current line in the quickfix window. */
+***************
+*** 3974,3981 ****
+  		/* Show the sign column when there are any signs in this
+  		 * buffer or when using Netbeans. */
+  		if (signcolumn_on(wp))
+! 		    get_sign_display_info(FALSE, wp, lnum, wcr_attr, row,
+! 			    startrow, filler_lines, filler_todo, &c_extra,
+  			    &c_final, extra, &p_extra, &n_extra, &char_attr);
+  	    }
+  #endif
+--- 3980,3987 ----
+  		/* Show the sign column when there are any signs in this
+  		 * buffer or when using Netbeans. */
+  		if (signcolumn_on(wp))
+! 		    get_sign_display_info(FALSE, wp, lnum, &sattr, wcr_attr,
+! 			    row, startrow, filler_lines, filler_todo, &c_extra,
+  			    &c_final, extra, &p_extra, &n_extra, &char_attr);
+  	    }
+  #endif
+***************
+*** 3997,4007 ****
+  		    // in 'lnum', then display the sign instead of the line
+  		    // number.
+  		    if ((*wp->w_p_scl == 'n' && *(wp->w_p_scl + 1) == 'u')
+! 			    && buf_findsign_id(wp->w_buffer, lnum,
+! 							(char_u *)"*") != 0)
+! 			get_sign_display_info(TRUE, wp, lnum, wcr_attr, row,
+! 				startrow, filler_lines, filler_todo, &c_extra,
+! 				&c_final, extra, &p_extra, &n_extra,
+  				&char_attr);
+  		    else
+  #endif
+--- 4003,4012 ----
+  		    // in 'lnum', then display the sign instead of the line
+  		    // number.
+  		    if ((*wp->w_p_scl == 'n' && *(wp->w_p_scl + 1) == 'u')
+! 			    && sign_present)
+! 			get_sign_display_info(TRUE, wp, lnum, &sattr, wcr_attr,
+! 				row, startrow, filler_lines, filler_todo,
+! 				&c_extra, &c_final, extra, &p_extra, &n_extra,
+  				&char_attr);
+  		    else
+  #endif
+*** ../vim-8.1.1630/src/sign.c	2019-07-04 11:59:25.420462567 +0200
+--- src/sign.c	2019-07-04 18:10:31.012861405 +0200
+***************
+*** 274,279 ****
+--- 274,293 ----
+  }
+  
+  /*
++  * Lookup a sign by typenr. Returns NULL if sign is not found.
++  */
++     static sign_T *
++ find_sign_by_typenr(int typenr)
++ {
++     sign_T	*sp;
++ 
++     for (sp = first_sign; sp != NULL; sp = sp->sn_next)
++ 	if (sp->sn_typenr == typenr)
++ 	    return sp;
++     return NULL;
++ }
++ 
++ /*
+   * Get the name of a sign by its typenr.
+   */
+      static char_u *
+***************
+*** 445,475 ****
+  }
+  
+  /*
+!  * Return the type number of the sign at line number 'lnum' in buffer 'buf'
+!  * which has the attribute specified by 'type'. Returns 0 if a sign is not
+!  * found at the line number or it doesn't have the specified attribute.
+   */
+      int
+! buf_getsigntype(
+!     buf_T	*buf,
+!     linenr_T	lnum,
+!     int		type)	// SIGN_ICON, SIGN_TEXT, SIGN_ANY, SIGN_LINEHL
+  {
+!     signlist_T	*sign;		// a sign in a b_signlist
+  
+      FOR_ALL_SIGNS_IN_BUF(buf, sign)
+! 	if (sign->lnum == lnum
+! 		&& (type == SIGN_ANY
+  # ifdef FEAT_SIGN_ICONS
+! 		    || (type == SIGN_ICON
+! 			&& sign_get_image(sign->typenr) != NULL)
+  # endif
+! 		    || (type == SIGN_TEXT
+! 			&& sign_get_text(sign->typenr) != NULL)
+! 		    || (type == SIGN_LINEHL
+! 			&& sign_get_attr(sign->typenr, TRUE) != 0)))
+! 	    return sign->typenr;
+!     return 0;
+  }
+  
+  /*
+--- 459,502 ----
+  }
+  
+  /*
+!  * Return the attributes of the first sign placed on line 'lnum' in buffer
+!  * 'buf'. Used when refreshing the screen. Returns TRUE if a sign is found on
+!  * 'lnum', FALSE otherwise.
+   */
+      int
+! buf_get_signattrs(buf_T *buf, linenr_T lnum, sign_attrs_T *sattr)
+  {
+!     signlist_T	*sign;
+!     sign_T	*sp;
+! 
+!     vim_memset(sattr, 0, sizeof(sign_attrs_T));
+  
+      FOR_ALL_SIGNS_IN_BUF(buf, sign)
+!     {
+! 	if (sign->lnum > lnum)
+! 	    // Signs are sorted by line number in the buffer. No need to check
+! 	    // for signs after the specified line number 'lnum'.
+! 	    break;
+! 
+! 	if (sign->lnum == lnum)
+! 	{
+! 	    sattr->typenr = sign->typenr;
+! 	    sp = find_sign_by_typenr(sign->typenr);
+! 	    if (sp == NULL)
+! 		return FALSE;
+! 
+  # ifdef FEAT_SIGN_ICONS
+! 	    sattr->icon = sp->sn_image;
+  # endif
+! 	    sattr->text = sp->sn_text;
+! 	    if (sattr->text != NULL && sp->sn_text_hl > 0)
+! 		sattr->texthl = syn_id2attr(sp->sn_text_hl);
+! 	    if (sp->sn_line_hl > 0)
+! 		sattr->linehl = syn_id2attr(sp->sn_line_hl);
+! 	    return TRUE;
+! 	}
+!     }
+!     return FALSE;
+  }
+  
+  /*
+***************
+*** 571,578 ****
+--- 598,612 ----
+      signlist_T	*sign;		// a sign in the signlist
+  
+      FOR_ALL_SIGNS_IN_BUF(buf, sign)
++     {
++ 	if (sign->lnum > lnum)
++ 	    // Signs are sorted by line number in the buffer. No need to check
++ 	    // for signs after the specified line number 'lnum'.
++ 	    break;
++ 
+  	if (sign->lnum == lnum && sign_in_group(sign, groupname))
+  	    return sign;
++     }
+  
+      return NULL;
+  }
+***************
+*** 608,615 ****
+--- 642,656 ----
+      signlist_T	*sign;		// a sign in the signlist
+  
+      FOR_ALL_SIGNS_IN_BUF(buf, sign)
++     {
++ 	if (sign->lnum > lnum)
++ 	    // Signs are sorted by line number in the buffer. No need to check
++ 	    // for signs after the specified line number 'lnum'.
++ 	    break;
++ 
+  	if (sign->lnum == lnum && sign->typenr == typenr)
+  	    return sign->id;
++     }
+  
+      return 0;
+  }
+***************
+*** 626,634 ****
+--- 667,682 ----
+      int		count = 0;
+  
+      FOR_ALL_SIGNS_IN_BUF(buf, sign)
++     {
++ 	if (sign->lnum > lnum)
++ 	    // Signs are sorted by line number in the buffer. No need to check
++ 	    // for signs after the specified line number 'lnum'.
++ 	    break;
++ 
+  	if (sign->lnum == lnum)
+  	    if (sign_get_image(sign->typenr) != NULL)
+  		count++;
++     }
+  
+      return count;
+  }
+***************
+*** 1792,1839 ****
+      vim_free(sp);
+  }
+  
+- /*
+-  * Get highlighting attribute for sign "typenr".
+-  * If "line" is TRUE: line highl, if FALSE: text highl.
+-  */
+-     int
+- sign_get_attr(int typenr, int line)
+- {
+-     sign_T	*sp;
+- 
+-     for (sp = first_sign; sp != NULL; sp = sp->sn_next)
+- 	if (sp->sn_typenr == typenr)
+- 	{
+- 	    if (line)
+- 	    {
+- 		if (sp->sn_line_hl > 0)
+- 		    return syn_id2attr(sp->sn_line_hl);
+- 	    }
+- 	    else
+- 	    {
+- 		if (sp->sn_text_hl > 0)
+- 		    return syn_id2attr(sp->sn_text_hl);
+- 	    }
+- 	    break;
+- 	}
+-     return 0;
+- }
+- 
+- /*
+-  * Get text mark for sign "typenr".
+-  * Returns NULL if there isn't one.
+-  */
+-     char_u *
+- sign_get_text(int typenr)
+- {
+-     sign_T	*sp;
+- 
+-     for (sp = first_sign; sp != NULL; sp = sp->sn_next)
+- 	if (sp->sn_typenr == typenr)
+- 	    return sp->sn_text;
+-     return NULL;
+- }
+- 
+  # if defined(FEAT_SIGN_ICONS) || defined(PROTO)
+      void *
+  sign_get_image(
+--- 1840,1845 ----
+*** ../vim-8.1.1630/src/structs.h	2019-07-04 16:05:10.665946103 +0200
+--- src/structs.h	2019-07-04 18:10:31.016861380 +0200
+***************
+*** 759,764 ****
+--- 759,775 ----
+      signlist_T  *prev;		// previous entry -- for easy reordering
+  };
+  
++ /*
++  * Sign attributes. Used by the screen refresh routines.
++  */
++ typedef struct sign_attrs_S {
++     int		typenr;
++     void	*icon;
++     char_u	*text;
++     int		texthl;
++     int		linehl;
++ } sign_attrs_T;
++ 
+  #if defined(FEAT_SIGNS) || defined(PROTO)
+  // Macros to get the sign group structure from the group name
+  #define SGN_KEY_OFF	offsetof(signgroup_T, sg_name)
+***************
+*** 767,777 ****
+  // Default sign priority for highlighting
+  #define SIGN_DEF_PRIO	10
+  
+- /* type argument for buf_getsigntype() */
+- #define SIGN_ANY	0
+- #define SIGN_LINEHL	1
+- #define SIGN_ICON	2
+- #define SIGN_TEXT	3
+  #endif
+  
+  /*
+--- 778,783 ----
+*** ../vim-8.1.1630/src/version.c	2019-07-04 17:35:01.119169967 +0200
+--- src/version.c	2019-07-04 18:13:47.427325016 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1631,
+  /**/
+
+-- 
+Why doesn't Tarzan have a beard?
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

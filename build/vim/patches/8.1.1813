@@ -1,0 +1,256 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1813
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1813
+Problem:    ATTENTION prompt for a preview popup window.
+Solution:   Close the popup window if aborting the buffer load.  Avoid getting
+            the ATTENTION dialog.
+Files:	    src/tag.c, src/ex_cmds.c, src/memline.c, src/vim.h,
+            runtime/doc/windows.txt
+
+
+*** ../vim-8.1.1812/src/tag.c	2019-05-28 23:08:12.076648654 +0200
+--- src/tag.c	2019-08-04 20:25:59.692406798 +0200
+***************
+*** 3663,3669 ****
+  	if (g_do_tagpreview != 0
+  			   && curwin != curwin_save && win_valid(curwin_save))
+  	{
+! 	    /* Return cursor to where we were */
+  	    validate_cursor();
+  	    redraw_later(VALID);
+  	    win_enter(curwin_save, TRUE);
+--- 3663,3669 ----
+  	if (g_do_tagpreview != 0
+  			   && curwin != curwin_save && win_valid(curwin_save))
+  	{
+! 	    // Return cursor to where we were
+  	    validate_cursor();
+  	    redraw_later(VALID);
+  	    win_enter(curwin_save, TRUE);
+***************
+*** 3675,3685 ****
+      else
+      {
+  	--RedrawingDisabled;
+! 	if (postponed_split)		/* close the window */
+  	{
+  	    win_close(curwin, FALSE);
+  	    postponed_split = 0;
+  	}
+      }
+  
+  erret:
+--- 3675,3697 ----
+      else
+      {
+  	--RedrawingDisabled;
+! 	got_int = FALSE;  // don't want entering window to fail
+! 
+! 	if (postponed_split)		// close the window
+  	{
+  	    win_close(curwin, FALSE);
+  	    postponed_split = 0;
+  	}
++ #if defined(FEAT_QUICKFIX) && defined(FEAT_TEXT_PROP)
++ 	else if (WIN_IS_POPUP(curwin))
++ 	{
++ 	    win_T   *wp = curwin;
++ 
++ 	    if (win_valid(curwin_save))
++ 		win_enter(curwin_save, TRUE);
++ 	    popup_close(wp->w_id);
++ 	}
++ #endif
+      }
+  
+  erret:
+*** ../vim-8.1.1812/src/ex_cmds.c	2019-08-01 22:40:27.068043894 +0200
+--- src/ex_cmds.c	2019-08-04 20:27:40.259938824 +0200
+***************
+*** 2454,2460 ****
+  
+  /*
+   * Check the 'write' option.
+!  * Return TRUE and give a message when it's not st.
+   */
+      int
+  not_writing(void)
+--- 2454,2460 ----
+  
+  /*
+   * Check the 'write' option.
+!  * Return TRUE and give a message when it's not set.
+   */
+      int
+  not_writing(void)
+***************
+*** 3118,3123 ****
+--- 3118,3129 ----
+  	topline = curwin->w_topline;
+  	if (!oldbuf)			    /* need to read the file */
+  	{
++ #ifdef FEAT_TEXT_PROP
++ 	    // Don't use the swap-exists dialog for a popup window, can't edit
++ 	    // the buffer.
++ 	    if (WIN_IS_POPUP(curwin))
++ 		curbuf->b_flags |= BF_NO_SEA;
++ #endif
+  	    swap_exists_action = SEA_DIALOG;
+  	    curbuf->b_flags |= BF_CHECK_RO; /* set/reset 'ro' flag */
+  
+***************
+*** 3131,3136 ****
+--- 3137,3145 ----
+  	    (void)open_buffer(FALSE, eap, readfile_flags);
+  #endif
+  
++ #ifdef FEAT_TEXT_PROP
++ 	    curbuf->b_flags &= ~BF_NO_SEA;
++ #endif
+  	    if (swap_exists_action == SEA_QUIT)
+  		retval = FAIL;
+  	    handle_swap_exists(&old_curbuf);
+***************
+*** 3173,3179 ****
+  	maketitle();
+  #endif
+  #ifdef FEAT_TEXT_PROP
+! 	if (popup_is_popup(curwin) && curwin->w_p_pvw)
+  	    popup_set_title(curwin);
+  #endif
+      }
+--- 3182,3188 ----
+  	maketitle();
+  #endif
+  #ifdef FEAT_TEXT_PROP
+! 	if (WIN_IS_POPUP(curwin) && curwin->w_p_pvw && retval != FAIL)
+  	    popup_set_title(curwin);
+  #endif
+      }
+*** ../vim-8.1.1812/src/memline.c	2019-07-21 15:23:32.318333807 +0200
+--- src/memline.c	2019-08-04 20:23:53.737126657 +0200
+***************
+*** 4860,4866 ****
+  	     * (happens when all .swp files are in one directory).
+  	     */
+  	    if (!recoverymode && buf_fname != NULL
+! 				&& !buf->b_help && !(buf->b_flags & BF_DUMMY))
+  	    {
+  		int		fd;
+  		struct block0	b0;
+--- 4860,4867 ----
+  	     * (happens when all .swp files are in one directory).
+  	     */
+  	    if (!recoverymode && buf_fname != NULL
+! 				&& !buf->b_help
+! 				&& !(buf->b_flags & (BF_DUMMY | BF_NO_SEA)))
+  	    {
+  		int		fd;
+  		struct block0	b0;
+*** ../vim-8.1.1812/src/vim.h	2019-08-03 16:18:03.429654593 +0200
+--- src/vim.h	2019-08-04 20:23:28.101276491 +0200
+***************
+*** 714,719 ****
+--- 714,720 ----
+  #define BF_DUMMY	0x80	// dummy buffer, only used internally
+  #define BF_PRESERVED	0x100	// ":preserve" was used
+  #define BF_SYN_SET	0x200	// 'syntax' option was set
++ #define BF_NO_SEA	0x400	// no swap_exists_action (ATTENTION prompt)
+  
+  /* Mask to check for flags that prevent normal writing */
+  #define BF_WRITE_MASK	(BF_NOTEDITED + BF_NEW + BF_READERR)
+*** ../vim-8.1.1812/runtime/doc/windows.txt	2019-07-18 21:42:45.959840521 +0200
+--- runtime/doc/windows.txt	2019-08-04 20:39:24.228278911 +0200
+***************
+*** 28,35 ****
+  
+  {not able to use multiple windows when the |+windows| feature was disabled at
+  compile time}
+- {not able to use vertically split windows when the |+vertsplit| feature was
+- disabled at compile time}
+  
+  ==============================================================================
+  1. Introduction					*windows-intro* *window*
+--- 28,33 ----
+***************
+*** 162,167 ****
+--- 160,169 ----
+  		Note: CTRL-S does not work on all terminals and might block
+  		further input, use CTRL-Q to get going again.
+  		Also see |++opt| and |+cmd|.
++ 							*E242*
++ 		Be careful when splitting a window in an autocommand, it may
++ 		mess up the window layout if this happens while making other
++ 		window layout changes.
+  
+  CTRL-W CTRL-V						*CTRL-W_CTRL-V*
+  CTRL-W v						*CTRL-W_v*
+***************
+*** 667,672 ****
+--- 667,674 ----
+  		|:vertical| was prepended).
+  		Buf/Win Enter/Leave autocommands are not executed for the new
+  		windows here, that's only done when they are really entered.
++ 		If autocommands change the window layout while this command is
++ 		busy an error will be given. *E249*
+  
+  :[N]sa[rgument][!] [++opt] [+cmd] [N]			*:sa* *:sargument*
+  		Short for ":split | argument [N]": split window and go to Nth
+***************
+*** 869,878 ****
+  option.  When set, it overrules the 'previewwindow' and 'previewheight'
+  settings.  The option is a comma separated list of values:
+  	height		maximum height of the popup
+! 	width		maximu width of the popup
+  Example: >
+  	:set previewpopup=height:10,width:60
+! <
+  						*:pta* *:ptag*
+  :pta[g][!] [tagname]
+  		Does ":tag[!] [tagname]" and shows the found tag in a
+--- 871,889 ----
+  option.  When set, it overrules the 'previewwindow' and 'previewheight'
+  settings.  The option is a comma separated list of values:
+  	height		maximum height of the popup
+! 	width		maximum width of the popup
+  Example: >
+  	:set previewpopup=height:10,width:60
+! 
+! A few peculiarities:
+! - If the file is in a buffer already, it will be re-used.  This will allow for
+!   editing the file while it's visible in the popup window.
+! - No ATTENTION dialog will be used, since you can't edit the file in the popup
+!   window.  However, if you later open the same buffer in a normal window, you
+!   may not notice it's edited elsewhere.  And when then using ":edit" to
+!   trigger the ATTENTION and responding "A" for Abort, the preview window will
+!   become empty.
+! 
+  						*:pta* *:ptag*
+  :pta[g][!] [tagname]
+  		Does ":tag[!] [tagname]" and shows the found tag in a
+*** ../vim-8.1.1812/src/version.c	2019-08-04 18:55:32.172860444 +0200
+--- src/version.c	2019-08-04 19:14:11.741355167 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1813,
+  /**/
+
+-- 
+If they don't keep on exercising their lips, he thought, their brains
+start working.
+		-- Douglas Adams, "The Hitchhiker's Guide to the Galaxy"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,239 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1902
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1902
+Problem:    Cannot have an info popup without a border.
+Solution:   Add the "border" item to 'completepopup'.
+Files:	    src/popupwin.c, src/proto/popupwin.pro, src/popupmnu.c,
+            src/testdir/test_popupwin.vim, src/testdir/gen_opt_test.vim,
+            src/testdir/dumps/Test_popupwin_infopopup_nb_1.dump
+
+
+*** ../vim-8.1.1901/src/popupwin.c	2019-08-20 21:11:43.180949125 +0200
+--- src/popupwin.c	2019-08-21 15:07:02.618796377 +0200
+***************
+*** 935,941 ****
+  /*
+   * Get the padding plus border at the top, adjusted to 1 if there is a title.
+   */
+!     static int
+  popup_top_extra(win_T *wp)
+  {
+      int	extra = wp->w_popup_border[0] + wp->w_popup_padding[0];
+--- 935,941 ----
+  /*
+   * Get the padding plus border at the top, adjusted to 1 if there is a title.
+   */
+!     int
+  popup_top_extra(win_T *wp)
+  {
+      int	extra = wp->w_popup_border[0] + wp->w_popup_padding[0];
+***************
+*** 1350,1355 ****
+--- 1350,1373 ----
+  		*p = c;
+  	    }
+  	}
++ 	else if (STRNCMP(s, "border:", 7) == 0)
++ 	{
++ 	    char_u	*arg = s + 7;
++ 	    int		on = STRNCMP(arg, "on", 2) == 0 && arg + 2 == p;
++ 	    int		off = STRNCMP(arg, "off", 3) == 0 && arg + 3 == p;
++ 	    int		i;
++ 
++ 	    if (!on && !off)
++ 		return FAIL;
++ 	    if (wp != NULL)
++ 	    {
++ 		for (i = 0; i < 4; ++i)
++ 		    wp->w_popup_border[i] = on ? 1 : 0;
++ 		if (off)
++ 		    // only show the X for close when there is a border
++ 		    wp->w_popup_close = POPCLOSE_NONE;
++ 	    }
++ 	}
+  	else
+  	    return FAIL;
+      }
+*** ../vim-8.1.1901/src/proto/popupwin.pro	2019-08-20 20:13:40.330821936 +0200
+--- src/proto/popupwin.pro	2019-08-21 15:02:24.492109948 +0200
+***************
+*** 6,11 ****
+--- 6,12 ----
+  void popup_set_firstline(win_T *wp);
+  int popup_is_in_scrollbar(win_T *wp, int row, int col);
+  void popup_handle_scrollbar_click(win_T *wp, int row, int col);
++ int popup_top_extra(win_T *wp);
+  int popup_height(win_T *wp);
+  int popup_width(win_T *wp);
+  int popup_extra_width(win_T *wp);
+*** ../vim-8.1.1901/src/popupmnu.c	2019-08-21 14:36:29.391376081 +0200
+--- src/popupmnu.c	2019-08-21 15:01:39.060328897 +0200
+***************
+*** 745,750 ****
+--- 745,751 ----
+  		if (use_popup)
+  		{
+  		    int col = pum_col + pum_width + 1;
++ 		    int row = pum_row + pum_selected - pum_first + 1;
+  
+  		    if (Columns - col < 20 && Columns - col < pum_col)
+  		    {
+***************
+*** 755,762 ****
+  		    else
+  			curwin->w_maxwidth = Columns - col + 1;
+  		    curwin->w_maxwidth -= popup_extra_width(curwin);
+! 		    popup_set_wantpos_rowcol(curwin,
+! 				      pum_row + pum_selected - pum_first, col);
+  		}
+  # endif
+  		if (!resized
+--- 756,763 ----
+  		    else
+  			curwin->w_maxwidth = Columns - col + 1;
+  		    curwin->w_maxwidth -= popup_extra_width(curwin);
+! 		    row -= popup_top_extra(curwin);
+! 		    popup_set_wantpos_rowcol(curwin, row, col);
+  		}
+  # endif
+  		if (!resized
+*** ../vim-8.1.1901/src/testdir/test_popupwin.vim	2019-08-18 16:34:42.915429659 +0200
+--- src/testdir/test_popupwin.vim	2019-08-21 14:56:47.029779688 +0200
+***************
+*** 2193,2206 ****
+    call delete('Xheader.h')
+  endfunc
+  
+! func Test_popupmenu_info()
+!   CheckScreendump
+! 
+    let lines =<< trim END
+        set completeopt+=preview,popup
+        set completefunc=CompleteFuncDict
+        hi InfoPopup ctermbg=yellow
+-       set completepopup=height:4,highlight:InfoPopup
+  
+        func CompleteFuncDict(findstart, base)
+  	if a:findstart
+--- 2193,2203 ----
+    call delete('Xheader.h')
+  endfunc
+  
+! func Get_popupmenu_lines()
+    let lines =<< trim END
+        set completeopt+=preview,popup
+        set completefunc=CompleteFuncDict
+        hi InfoPopup ctermbg=yellow
+  
+        func CompleteFuncDict(findstart, base)
+  	if a:findstart
+***************
+*** 2249,2255 ****
+--- 2246,2261 ----
+        endfunc
+        call setline(1, 'text text text text text text text ')
+    END
++   return lines
++ endfunc
++ 
++ func Test_popupmenu_info_border()
++   CheckScreendump
++ 
++   let lines = Get_popupmenu_lines()
++   call add(lines, 'set completepopup=height:4,highlight:InfoPopup')
+    call writefile(lines, 'XtestInfoPopup')
++ 
+    let buf = RunVimInTerminal('-S XtestInfoPopup', #{rows: 14})
+    call term_wait(buf, 50)
+  
+***************
+*** 2269,2272 ****
+--- 2275,2295 ----
+    call delete('XtestInfoPopup')
+  endfunc
+  
++ func Test_popupmenu_info_noborder()
++   CheckScreendump
++ 
++   let lines = Get_popupmenu_lines()
++   call add(lines, 'set completepopup=height:4,border:off')
++   call writefile(lines, 'XtestInfoPopupNb')
++ 
++   let buf = RunVimInTerminal('-S XtestInfoPopupNb', #{rows: 14})
++   call term_wait(buf, 50)
++ 
++   call term_sendkeys(buf, "A\<C-X>\<C-U>")
++   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_nb_1', {})
++ 
++   call StopVimInTerminal(buf)
++   call delete('XtestInfoPopupNb')
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2
+*** ../vim-8.1.1901/src/testdir/gen_opt_test.vim	2019-08-18 17:58:08.389767777 +0200
+--- src/testdir/gen_opt_test.vim	2019-08-21 14:53:03.346965106 +0200
+***************
+*** 78,84 ****
+        \ 'complete': [['', 'w,b'], ['xxx']],
+        \ 'concealcursor': [['', 'n', 'nvic'], ['xxx']],
+        \ 'completeopt': [['', 'menu', 'menu,longest'], ['xxx', 'menu,,,longest,']],
+!       \ 'completepopup': [['', 'height:13', 'highlight:That', 'width:10,height:234,highlight:Mine'], ['height:yes', 'width:no', 'xxx', 'xxx:99']],
+        \ 'completeslash': [['', 'slash', 'backslash'], ['xxx']],
+        \ 'cryptmethod': [['', 'zip'], ['xxx']],
+        \ 'cscopequickfix': [['', 's-', 's-,c+,e0'], ['xxx', 's,g,d']],
+--- 78,84 ----
+        \ 'complete': [['', 'w,b'], ['xxx']],
+        \ 'concealcursor': [['', 'n', 'nvic'], ['xxx']],
+        \ 'completeopt': [['', 'menu', 'menu,longest'], ['xxx', 'menu,,,longest,']],
+!       \ 'completepopup': [['', 'height:13', 'highlight:That', 'width:10,height:234,highlight:Mine'], ['height:yes', 'width:no', 'xxx', 'xxx:99', 'border:maybe', 'border:1']],
+        \ 'completeslash': [['', 'slash', 'backslash'], ['xxx']],
+        \ 'cryptmethod': [['', 'zip'], ['xxx']],
+        \ 'cscopequickfix': [['', 's-', 's-,c+,e0'], ['xxx', 's,g,d']],
+*** ../vim-8.1.1901/src/testdir/dumps/Test_popupwin_infopopup_nb_1.dump	2019-08-21 15:12:37.845253166 +0200
+--- src/testdir/dumps/Test_popupwin_infopopup_nb_1.dump	2019-08-21 15:07:15.266737501 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |t+0&#ffffff0|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|a|w|o|r|d> @43
++ |~+0#4040ff13&| @23| +0#0000001#e0e0e08|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| @1|w|o|r|d|s| |a|r|e| |c|o@1|l| | +0#4040ff13#ffffff0@11
++ |~| @23| +0#0000001#ffd7ff255|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @23| +0#0000001#ffd7ff255|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @23| +0#0000001#ffd7ff255|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |m+0#00e0003&|a|t|c|h| |1| |o|f| |4| +0#0000000&@26
+*** ../vim-8.1.1901/src/version.c	2019-08-21 14:36:29.399376050 +0200
+--- src/version.c	2019-08-21 14:47:18.456627636 +0200
+***************
+*** 763,764 ****
+--- 763,766 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1902,
+  /**/
+
+-- 
+The primary purpose of the DATA statement is to give names to constants;
+instead of referring to pi as 3.141592653589793 at every appearance, the
+variable PI can be given that value with a DATA statement and used instead
+of the longer form of the constant.  This also simplifies modifying the
+program, should the value of pi change.
+	-- FORTRAN manual for Xerox Computers
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

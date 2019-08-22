@@ -1,0 +1,286 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1422
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1422
+Problem:    Popup_getoptions() not implemented yet.
+Solution:   Implement it. (closes #4452)
+Files:	    runtime/doc/popup.txt, src/evalfunc.c, src/popupwin.c,
+            src/proto/popupwin.pro, src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1421/runtime/doc/popup.txt	2019-05-29 21:44:30.764788713 +0200
+--- runtime/doc/popup.txt	2019-05-30 14:24:42.327163943 +0200
+***************
+*** 86,100 ****
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+  - when creating the window set options to Vim default? (verify with 'number')
+- - Do not show tilde below last line.
+  - Implement filter.
+    Check that popup_close() works in the filter.
+  - Handle screen resize in screenalloc().
+  - Make redrawing more efficient and avoid flicker.
+      Fix redrawing problem with completion.
+      Fix redrawing problem when scrolling non-current window
+      Fix redrawing the statusline on top of a popup
+! - Properly figure out the size and position.
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Implement all the unimplemented options and features.
+  
+--- 86,103 ----
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+  - when creating the window set options to Vim default? (verify with 'number')
+  - Implement filter.
+    Check that popup_close() works in the filter.
++ - Implement the "pos" option.
+  - Handle screen resize in screenalloc().
+  - Make redrawing more efficient and avoid flicker.
++     Store popup info in a mask, use the mask in screen_line()
+      Fix redrawing problem with completion.
+      Fix redrawing problem when scrolling non-current window
+      Fix redrawing the statusline on top of a popup
+! - Figure out the size and position better.
+!     if wrapping splits a double-wide character
+!     if wrapping has an indent
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Implement all the unimplemented options and features.
+  
+***************
+*** 228,243 ****
+  
+  
+  popup_getoptions({id})					*popup_getoptions()*
+! 	  	{not implemented yet}
+! 		Return the {options} for popup {id}.
+  
+  popup_getposition({id})					*popup_getposition()*
+  		Return the position and size of popup {id}.  Returns a Dict
+  		with these entries:
+! 			col	screen column of the popup, one-based
+! 			line	screen line of the popup, one-based
+! 			width	width of the popup in screen cells
+! 			height	height of the popup in screen cells
+  		Note that these are the actual screen positions.  They differ
+  		from the values in `popup_getoptions()` for the sizing and
+  		positioning mechanism applied.
+--- 231,253 ----
+  
+  
+  popup_getoptions({id})					*popup_getoptions()*
+! 		Return the {options} for popup {id} in a Dict.
+! 		A zero value means the option was not set.
+! 
+! 		The "highlight" entry is omitted, use the 'wincolor' option
+! 		for that: >
+! 			let hl = getwinvar(winid, '&wincolor')
+! 
+! <		If popup window {id} is not found an empty Dict is returned.
+  
+  popup_getposition({id})					*popup_getposition()*
+  		Return the position and size of popup {id}.  Returns a Dict
+  		with these entries:
+! 		    col		screen column of the popup, one-based
+! 		    line	screen line of the popup, one-based
+! 		    width	width of the popup in screen cells
+! 		    height	height of the popup in screen cells
+! 		    visible 	one if the popup is displayed, zero if hidden
+  		Note that these are the actual screen positions.  They differ
+  		from the values in `popup_getoptions()` for the sizing and
+  		positioning mechanism applied.
+***************
+*** 304,312 ****
+  			{only number is implemented}
+  	pos		"topleft", "topright", "botleft" or "botright":
+  			defines what corner of the popup "line" and "col" are
+! 			used for.  Default is "botleft".  Alternatively
+! 			"center" can be used to position the popup in the
+! 			center of the Vim window.
+  			{not implemented yet}
+  	flip		when TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+--- 314,322 ----
+  			{only number is implemented}
+  	pos		"topleft", "topright", "botleft" or "botright":
+  			defines what corner of the popup "line" and "col" are
+! 			used for.  When not set "topleft" is used.
+! 			Alternatively "center" can be used to position the
+! 			popup in the center of the Vim window.
+  			{not implemented yet}
+  	flip		when TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+*** ../vim-8.1.1421/src/evalfunc.c	2019-05-29 21:44:30.764788713 +0200
+--- src/evalfunc.c	2019-05-30 14:12:04.363485719 +0200
+***************
+*** 811,816 ****
+--- 811,817 ----
+  #ifdef FEAT_TEXT_PROP
+      {"popup_close",	1, 1, f_popup_close},
+      {"popup_create",	2, 2, f_popup_create},
++     {"popup_getoptions", 1, 1, f_popup_getoptions},
+      {"popup_getposition", 1, 1, f_popup_getposition},
+      {"popup_hide",	1, 1, f_popup_hide},
+      {"popup_move",	2, 2, f_popup_move},
+*** ../vim-8.1.1421/src/popupwin.c	2019-05-30 00:11:48.704086357 +0200
+--- src/popupwin.c	2019-05-30 14:23:50.803455533 +0200
+***************
+*** 530,535 ****
+--- 530,567 ----
+  	dict_add_number(dict, "col", wp->w_wincol + 1);
+  	dict_add_number(dict, "width", wp->w_width);
+  	dict_add_number(dict, "height", wp->w_height);
++ 	dict_add_number(dict, "visible",
++ 				       (wp->w_popup_flags & POPF_HIDDEN) == 0);
++     }
++ }
++ 
++ /*
++  * f_popup_getoptions({id})
++  */
++     void
++ f_popup_getoptions(typval_T *argvars, typval_T *rettv)
++ {
++     dict_T	*dict;
++     int		id = (int)tv_get_number(argvars);
++     win_T	*wp = find_popup_win(id);
++ 
++     if (rettv_dict_alloc(rettv) == OK)
++     {
++ 	if (wp == NULL)
++ 	    return;
++ 
++ 	dict = rettv->vval.v_dict;
++ 	dict_add_number(dict, "line", wp->w_wantline);
++ 	dict_add_number(dict, "col", wp->w_wantcol);
++ 	dict_add_number(dict, "minwidth", wp->w_minwidth);
++ 	dict_add_number(dict, "minheight", wp->w_minheight);
++ 	dict_add_number(dict, "maxheight", wp->w_maxheight);
++ 	dict_add_number(dict, "maxwidth", wp->w_maxwidth);
++ 	dict_add_number(dict, "zindex", wp->w_zindex);
++ # if defined(FEAT_TIMERS)
++ 	dict_add_number(dict, "time", wp->w_popup_timer != NULL
++ 				 ?  (long)wp->w_popup_timer->tr_interval : 0L);
++ # endif
+      }
+  }
+  #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.1421/src/proto/popupwin.pro	2019-05-30 00:11:48.704086357 +0200
+--- src/proto/popupwin.pro	2019-05-30 14:11:15.287769511 +0200
+***************
+*** 10,14 ****
+--- 10,15 ----
+  void close_all_popups(void);
+  void ex_popupclear(exarg_T *eap);
+  void f_popup_move(typval_T *argvars, typval_T *rettv);
++ void f_popup_getoptions(typval_T *argvars, typval_T *rettv);
+  void f_popup_getposition(typval_T *argvars, typval_T *rettv);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1421/src/testdir/test_popupwin.vim	2019-05-30 00:11:48.704086357 +0200
+--- src/testdir/test_popupwin.vim	2019-05-30 14:28:02.174052682 +0200
+***************
+*** 108,123 ****
+--- 108,126 ----
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('world', line)
++   call assert_equal(1, popup_getposition(winid).visible)
+  
+    call popup_hide(winid)
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('hello', line)
++   call assert_equal(0, popup_getposition(winid).visible)
+  
+    call popup_show(winid)
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('world', line)
++   call assert_equal(1, popup_getposition(winid).visible)
+  
+  
+    call popup_close(winid)
+***************
+*** 178,183 ****
+--- 181,187 ----
+    call assert_equal(3, res.col)
+    call assert_equal(10, res.width)
+    call assert_equal(11, res.height)
++   call assert_equal(1, res.visible)
+  
+    call popup_close(winid)
+  endfunc
+***************
+*** 215,219 ****
+--- 219,266 ----
+      call assert_equal(test[2], position.height)
+  
+      call popup_close(winid)
++     call assert_equal({}, popup_getposition(winid))
+    endfor
+  endfunc
++ 
++ func Test_popup_getoptions()
++   let winid = popup_create('hello', {
++     \ 'line': 2,
++     \ 'col': 3,
++     \ 'minwidth': 10,
++     \ 'minheight': 11,
++     \ 'maxwidth': 20,
++     \ 'maxheight': 21,
++     \ 'zindex': 100,
++     \ 'time': 5000,
++     \})
++   redraw
++   let res = popup_getoptions(winid)
++   call assert_equal(2, res.line)
++   call assert_equal(3, res.col)
++   call assert_equal(10, res.minwidth)
++   call assert_equal(11, res.minheight)
++   call assert_equal(20, res.maxwidth)
++   call assert_equal(21, res.maxheight)
++   call assert_equal(100, res.zindex)
++   if has('timers')
++     call assert_equal(5000, res.time)
++   endif
++   call popup_close(winid)
++ 
++   let winid = popup_create('hello', {})
++   redraw
++   let res = popup_getoptions(winid)
++   call assert_equal(0, res.line)
++   call assert_equal(0, res.col)
++   call assert_equal(0, res.minwidth)
++   call assert_equal(0, res.minheight)
++   call assert_equal(0, res.maxwidth)
++   call assert_equal(0, res.maxheight)
++   call assert_equal(50, res.zindex)
++   if has('timers')
++     call assert_equal(0, res.time)
++   endif
++   call popup_close(winid)
++   call assert_equal({}, popup_getoptions(winid))
++ endfunc
+*** ../vim-8.1.1421/src/version.c	2019-05-30 00:11:48.704086357 +0200
+--- src/version.c	2019-05-30 14:28:17.621969065 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1422,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+50. The last girl you picked up was only a jpeg.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

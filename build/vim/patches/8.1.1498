@@ -1,0 +1,308 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1498
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1498
+Problem:    ":write" increments b:changedtick even though nothing changed.
+            (Daniel Hahler)
+Solution:   Only increment b:changedtick if the modified flag is reset.
+Files:	    src/change.c, src/proto/change.pro, runtime/doc/eval.txt,
+            src/buffer.c, src/ex_cmds2.c, src/fileio.c, src/memline.c,
+            src/undo.c
+
+*** ../vim-8.1.1497/src/change.c	2019-06-06 22:50:31.780850393 +0200
+--- src/change.c	2019-06-08 18:06:36.224407948 +0200
+***************
+*** 842,850 ****
+  /*
+   * Called when the changed flag must be reset for buffer "buf".
+   * When "ff" is TRUE also reset 'fileformat'.
+   */
+      void
+! unchanged(buf_T *buf, int ff)
+  {
+      if (buf->b_changed || (ff && file_ff_differs(buf, FALSE)))
+      {
+--- 842,852 ----
+  /*
+   * Called when the changed flag must be reset for buffer "buf".
+   * When "ff" is TRUE also reset 'fileformat'.
++  * When "always_inc_changedtick" is TRUE b:changedtick is incremented also when
++  * the changed flag was off.
+   */
+      void
+! unchanged(buf_T *buf, int ff, int always_inc_changedtick)
+  {
+      if (buf->b_changed || (ff && file_ff_differs(buf, FALSE)))
+      {
+***************
+*** 857,864 ****
+  #ifdef FEAT_TITLE
+  	need_maketitle = TRUE;	    // set window title later
+  #endif
+      }
+!     ++CHANGEDTICK(buf);
+  #ifdef FEAT_NETBEANS_INTG
+      netbeans_unmodified(buf);
+  #endif
+--- 859,868 ----
+  #ifdef FEAT_TITLE
+  	need_maketitle = TRUE;	    // set window title later
+  #endif
++ 	++CHANGEDTICK(buf);
+      }
+!     else if (always_inc_changedtick)
+! 	++CHANGEDTICK(buf);
+  #ifdef FEAT_NETBEANS_INTG
+      netbeans_unmodified(buf);
+  #endif
+*** ../vim-8.1.1497/src/proto/change.pro	2019-05-16 22:11:43.715228803 +0200
+--- src/proto/change.pro	2019-06-08 17:54:45.196704533 +0200
+***************
+*** 14,20 ****
+  void deleted_lines(linenr_T lnum, long count);
+  void deleted_lines_mark(linenr_T lnum, long count);
+  void changed_lines(linenr_T lnum, colnr_T col, linenr_T lnume, long xtra);
+! void unchanged(buf_T *buf, int ff);
+  void ins_bytes(char_u *p);
+  void ins_bytes_len(char_u *p, int len);
+  void ins_char(int c);
+--- 14,20 ----
+  void deleted_lines(linenr_T lnum, long count);
+  void deleted_lines_mark(linenr_T lnum, long count);
+  void changed_lines(linenr_T lnum, colnr_T col, linenr_T lnume, long xtra);
+! void unchanged(buf_T *buf, int ff, int always_inc_changedtick);
+  void ins_bytes(char_u *p);
+  void ins_bytes_len(char_u *p, int len);
+  void ins_char(int c);
+*** ../vim-8.1.1497/runtime/doc/eval.txt	2019-06-04 22:48:11.441416200 +0200
+--- runtime/doc/eval.txt	2019-06-08 17:44:29.152751951 +0200
+***************
+*** 1503,1510 ****
+  					*b:changedtick* *changetick*
+  b:changedtick	The total number of changes to the current buffer.  It is
+  		incremented for each change.  An undo command is also a change
+! 		in this case.  This can be used to perform an action only when
+! 		the buffer has changed.  Example: >
+  		    :if my_changedtick != b:changedtick
+  		    :	let my_changedtick = b:changedtick
+  		    :	call My_Update()
+--- 1504,1513 ----
+  					*b:changedtick* *changetick*
+  b:changedtick	The total number of changes to the current buffer.  It is
+  		incremented for each change.  An undo command is also a change
+! 		in this case.  Resetting 'modified' when writing the buffer is
+! 		also counted.
+! 		This can be used to perform an action only when the buffer has
+! 		changed.  Example: >
+  		    :if my_changedtick != b:changedtick
+  		    :	let my_changedtick = b:changedtick
+  		    :	call My_Update()
+*** ../vim-8.1.1497/src/buffer.c	2019-06-01 13:28:30.269829512 +0200
+--- src/buffer.c	2019-06-08 17:52:21.513606102 +0200
+***************
+*** 60,66 ****
+  /* Number of times free_buffer() was called. */
+  static int	buf_free_count = 0;
+  
+! /* Read data from buffer for retrying. */
+      static int
+  read_buffer(
+      int		read_stdin,	    /* read file from stdin, otherwise fifo */
+--- 60,68 ----
+  /* Number of times free_buffer() was called. */
+  static int	buf_free_count = 0;
+  
+! /*
+!  * Read data from buffer for retrying.
+!  */
+      static int
+  read_buffer(
+      int		read_stdin,	    /* read file from stdin, otherwise fifo */
+***************
+*** 104,110 ****
+  	if (!readonlymode && !BUFEMPTY())
+  	    changed();
+  	else if (retval == OK)
+! 	    unchanged(curbuf, FALSE);
+  
+  	if (retval == OK)
+  	{
+--- 106,112 ----
+  	if (!readonlymode && !BUFEMPTY())
+  	    changed();
+  	else if (retval == OK)
+! 	    unchanged(curbuf, FALSE, TRUE);
+  
+  	if (retval == OK)
+  	{
+***************
+*** 275,281 ****
+         )
+  	changed();
+      else if (retval == OK && !read_stdin && !read_fifo)
+! 	unchanged(curbuf, FALSE);
+      save_file_ff(curbuf);		/* keep this fileformat */
+  
+      /* Set last_changedtick to avoid triggering a TextChanged autocommand right
+--- 277,283 ----
+         )
+  	changed();
+      else if (retval == OK && !read_stdin && !read_fifo)
+! 	unchanged(curbuf, FALSE, TRUE);
+      save_file_ff(curbuf);		/* keep this fileformat */
+  
+      /* Set last_changedtick to avoid triggering a TextChanged autocommand right
+***************
+*** 700,706 ****
+  buf_clear_file(buf_T *buf)
+  {
+      buf->b_ml.ml_line_count = 1;
+!     unchanged(buf, TRUE);
+      buf->b_shortname = FALSE;
+      buf->b_p_eol = TRUE;
+      buf->b_start_eol = TRUE;
+--- 702,708 ----
+  buf_clear_file(buf_T *buf)
+  {
+      buf->b_ml.ml_line_count = 1;
+!     unchanged(buf, TRUE, TRUE);
+      buf->b_shortname = FALSE;
+      buf->b_p_eol = TRUE;
+      buf->b_start_eol = TRUE;
+*** ../vim-8.1.1497/src/ex_cmds2.c	2019-06-01 14:15:49.535433551 +0200
+--- src/ex_cmds2.c	2019-06-08 17:53:00.781357915 +0200
+***************
+*** 1197,1203 ****
+      }
+      else if (ret == VIM_NO)
+      {
+! 	unchanged(buf, TRUE);
+      }
+      else if (ret == VIM_ALL)
+      {
+--- 1197,1203 ----
+      }
+      else if (ret == VIM_NO)
+      {
+! 	unchanged(buf, TRUE, FALSE);
+      }
+      else if (ret == VIM_ALL)
+      {
+***************
+*** 1240,1246 ****
+  	 * mark all buffers as unchanged
+  	 */
+  	FOR_ALL_BUFFERS(buf2)
+! 	    unchanged(buf2, TRUE);
+      }
+  }
+  #endif
+--- 1240,1246 ----
+  	 * mark all buffers as unchanged
+  	 */
+  	FOR_ALL_BUFFERS(buf2)
+! 	    unchanged(buf2, TRUE, FALSE);
+      }
+  }
+  #endif
+*** ../vim-8.1.1497/src/fileio.c	2019-05-28 23:08:12.060648736 +0200
+--- src/fileio.c	2019-06-08 17:53:35.869137361 +0200
+***************
+*** 4908,4915 ****
+  	    && !write_info.bw_conv_error
+  	    && (overwriting || vim_strchr(p_cpo, CPO_PLUS) != NULL))
+      {
+! 	unchanged(buf, TRUE);
+! 	/* b:changedtick is always incremented in unchanged() but that
+  	 * should not trigger a TextChanged event. */
+  	if (buf->b_last_changedtick + 1 == CHANGEDTICK(buf))
+  	    buf->b_last_changedtick = CHANGEDTICK(buf);
+--- 4908,4915 ----
+  	    && !write_info.bw_conv_error
+  	    && (overwriting || vim_strchr(p_cpo, CPO_PLUS) != NULL))
+      {
+! 	unchanged(buf, TRUE, FALSE);
+! 	/* b:changedtick is may be incremented in unchanged() but that
+  	 * should not trigger a TextChanged event. */
+  	if (buf->b_last_changedtick + 1 == CHANGEDTICK(buf))
+  	    buf->b_last_changedtick = CHANGEDTICK(buf);
+***************
+*** 7081,7087 ****
+  	    else if (buf == curbuf)  /* "buf" still valid */
+  	    {
+  		/* Mark the buffer as unmodified and free undo info. */
+! 		unchanged(buf, TRUE);
+  		if ((flags & READ_KEEP_UNDO) == 0)
+  		{
+  		    u_blockfree(buf);
+--- 7081,7087 ----
+  	    else if (buf == curbuf)  /* "buf" still valid */
+  	    {
+  		/* Mark the buffer as unmodified and free undo info. */
+! 		unchanged(buf, TRUE, TRUE);
+  		if ((flags & READ_KEEP_UNDO) == 0)
+  		{
+  		    u_blockfree(buf);
+*** ../vim-8.1.1497/src/memline.c	2019-05-28 23:08:12.068648696 +0200
+--- src/memline.c	2019-06-08 17:53:47.581063963 +0200
+***************
+*** 1435,1441 ****
+  	set_option_value((char_u *)"fenc", 0L, b0_fenc, OPT_LOCAL);
+  	vim_free(b0_fenc);
+      }
+!     unchanged(curbuf, TRUE);
+  
+      bnum = 1;		/* start with block 1 */
+      page_count = 1;	/* which is 1 page */
+--- 1435,1441 ----
+  	set_option_value((char_u *)"fenc", 0L, b0_fenc, OPT_LOCAL);
+  	vim_free(b0_fenc);
+      }
+!     unchanged(curbuf, TRUE, TRUE);
+  
+      bnum = 1;		/* start with block 1 */
+      page_count = 1;	/* which is 1 page */
+*** ../vim-8.1.1497/src/undo.c	2019-05-28 23:08:12.080648632 +0200
+--- src/undo.c	2019-06-08 17:54:00.040986010 +0200
+***************
+*** 2805,2811 ****
+  	/* per netbeans undo rules, keep it as modified */
+  	if (!isNetbeansModified(curbuf))
+  #endif
+! 	unchanged(curbuf, FALSE);
+  
+      /*
+       * restore marks from before undo/redo
+--- 2805,2811 ----
+  	/* per netbeans undo rules, keep it as modified */
+  	if (!isNetbeansModified(curbuf))
+  #endif
+! 	unchanged(curbuf, FALSE, TRUE);
+  
+      /*
+       * restore marks from before undo/redo
+*** ../vim-8.1.1497/src/version.c	2019-06-08 17:25:28.687640718 +0200
+--- src/version.c	2019-06-08 18:06:14.800535110 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1498,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+125. You begin to wonder how often it REALLY is necessary to get up
+     and shower or bathe.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

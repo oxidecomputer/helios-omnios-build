@@ -1,0 +1,457 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1589
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1589
+Problem:    Popup window does not indicate scroll position.
+Solution:   Add a scrollbar.
+Files:	    runtime/doc/popup.txt, src/popupwin.c, src/structs.h,
+            src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_firstline.dump,
+            src/testdir/dumps/Test_popupwin_scroll_1.dump,
+            src/testdir/dumps/Test_popupwin_scroll_2.dump,
+            src/testdir/dumps/Test_popupwin_scroll_3.dump,
+            src/testdir/dumps/Test_popupwin_scroll_4.dump
+
+
+*** ../vim-8.1.1588/runtime/doc/popup.txt	2019-06-24 05:06:30.705124234 +0200
+--- runtime/doc/popup.txt	2019-06-24 05:04:19.709659754 +0200
+***************
+*** 87,95 ****
+  
+  
+  TODO:
+- - Why does 'nrformats' leak from the popup window buffer???
+  - When the lines do not fit show a scrollbar (like in the popup menu).
+!   Use the mouse wheel for scrolling.
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+    Use ERROR_IF_POPUP_WINDOW for more commands.
+  - Add 'balloonpopup': instead of showing text, let the callback open a popup
+--- 87,96 ----
+  
+  
+  TODO:
+  - When the lines do not fit show a scrollbar (like in the popup menu).
+! - Use the mouse wheel for scrolling.
+! - Have a way to scroll to the botton. (#4577)
+! - Why does 'nrformats' leak from the popup window buffer???
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+    Use ERROR_IF_POPUP_WINDOW for more commands.
+  - Add 'balloonpopup': instead of showing text, let the callback open a popup
+***************
+*** 347,352 ****
+--- 348,356 ----
+  <		The PopupNotification highlight group is used instead of
+  		WarningMsg if it is defined.
+  
++ 		This popup should only be used with the |+timers| feature,
++ 		otherwise it will not disappear.
++ 
+  		The position will be adjusted to avoid overlap with other
+  		notifications.
+  		Use {options} to change the properties.
+***************
+*** 370,375 ****
+--- 374,380 ----
+  			border
+  			borderhighlight
+  			borderchars
++ 			scrollbar
+  			zindex
+  			mask
+  			time
+***************
+*** 475,480 ****
+--- 480,486 ----
+  	firstline	First buffer line to display.  When larger than one it
+  			looks like the text scrolled up.  When out of range
+  			the last buffer line will at the top of the window.
++ 			Also see "scrollbar".
+  	hidden		When TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
+  			{not implemented yet}
+***************
+*** 525,530 ****
+--- 531,538 ----
+  			By default a double line is used all around when
+  			'encoding' is "utf-8" and 'ambiwidth' is "single",
+  			otherwise ASCII characters are used.
++ 	scrollbar	non-zero: show a scrollbar when the text doesn't fit.
++ 			zero: do not show a scrollbar.  Default is non-zero.
+  	zindex		Priority for the popup, default 50.  Minimum value is
+  			1, maximum value is 32000.
+  	mask		A list of lists with coordinates, defining parts of
+*** ../vim-8.1.1588/src/popupwin.c	2019-06-24 05:06:30.705124234 +0200
+--- src/popupwin.c	2019-06-25 04:58:11.896894588 +0200
+***************
+*** 287,292 ****
+--- 287,296 ----
+      if (wp->w_firstline < 1)
+  	wp->w_firstline = 1;
+  
++     di = dict_find(dict, (char_u *)"scrollbar", -1);
++     if (di != NULL)
++ 	wp->w_want_scrollbar = dict_get_number(dict, (char_u *)"scrollbar");
++ 
+      str = dict_get_string(dict, (char_u *)"title", FALSE);
+      if (str != NULL)
+      {
+***************
+*** 733,738 ****
+--- 737,745 ----
+  	    break;
+      }
+  
++     wp->w_has_scrollbar = wp->w_want_scrollbar
++ 	   && (wp->w_topline > 1 || lnum <= wp->w_buffer->b_ml.ml_line_count);
++ 
+      minwidth = wp->w_minwidth;
+      if (wp->w_popup_title != NULL && *wp->w_popup_title != NUL)
+      {
+***************
+*** 1047,1052 ****
+--- 1054,1060 ----
+  	VIM_CLEAR(wp->w_border_highlight[i]);
+      for (i = 0; i < 8; ++i)
+  	wp->w_border_char[i] = 0;
++     wp->w_want_scrollbar = 1;
+  
+      // Deal with options.
+      apply_options(wp, argvars[1].vval.v_dict);
+***************
+*** 1483,1488 ****
+--- 1491,1497 ----
+      dict_T	*dict;
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
++     linenr_T	old_firstline;
+  
+      if (wp == NULL)
+  	return;  // invalid {id}
+***************
+*** 1493,1502 ****
+--- 1502,1514 ----
+  	return;
+      }
+      dict = argvars[1].vval.v_dict;
++     old_firstline = wp->w_firstline;
+  
+      apply_move_options(wp, dict);
+      apply_general_options(wp, dict);
+  
++     if (old_firstline != wp->w_firstline)
++ 	redraw_win_later(wp, NOT_VALID);
+      popup_mask_refresh = TRUE;
+      popup_adjust_position(wp);
+  }
+***************
+*** 1534,1539 ****
+--- 1546,1552 ----
+  	dict_add_number(dict, "core_width", wp->w_width);
+  	dict_add_number(dict, "core_height", wp->w_height);
+  
++ 	dict_add_number(dict, "scrollbar", wp->w_has_scrollbar);
+  	dict_add_number(dict, "visible",
+  		      win_valid(wp) && (wp->w_popup_flags & POPF_HIDDEN) == 0);
+      }
+***************
+*** 1656,1661 ****
+--- 1669,1675 ----
+  	dict_add_number(dict, "maxheight", wp->w_maxheight);
+  	dict_add_number(dict, "maxwidth", wp->w_maxwidth);
+  	dict_add_number(dict, "firstline", wp->w_firstline);
++ 	dict_add_number(dict, "scrollbar", wp->w_want_scrollbar);
+  	dict_add_number(dict, "zindex", wp->w_zindex);
+  	dict_add_number(dict, "fixed", wp->w_popup_fixed);
+  	dict_add_string(dict, "title", wp->w_popup_title);
+***************
+*** 2114,2119 ****
+--- 2128,2137 ----
+      char_u  buf[MB_MAXBYTES];
+      int	    row;
+      int	    i;
++     int	    sb_thumb_top;
++     int	    sb_thumb_height;
++     int	    attr_scroll = highlight_attr[HLF_PSB];
++     int	    attr_thumb = highlight_attr[HLF_PST];
+  
+      // Find the window with the lowest zindex that hasn't been updated yet,
+      // so that the window with a higher zindex is drawn later, thus goes on
+***************
+*** 2143,2149 ****
+  	wp->w_wincol -= left_off;
+  
+  	total_width = wp->w_popup_border[3] + wp->w_popup_padding[3]
+! 		+ wp->w_width + wp->w_popup_padding[1] + wp->w_popup_border[1];
+  	total_height = popup_top_extra(wp)
+  		+ wp->w_height + wp->w_popup_padding[2] + wp->w_popup_border[2];
+  	popup_attr = get_wcr_attr(wp);
+--- 2161,2168 ----
+  	wp->w_wincol -= left_off;
+  
+  	total_width = wp->w_popup_border[3] + wp->w_popup_padding[3]
+! 		+ wp->w_width + wp->w_popup_padding[1] + wp->w_popup_border[1]
+! 		+ wp->w_has_scrollbar;
+  	total_height = popup_top_extra(wp)
+  		+ wp->w_height + wp->w_popup_padding[2] + wp->w_popup_border[2];
+  	popup_attr = get_wcr_attr(wp);
+***************
+*** 2203,2209 ****
+  	    row = wp->w_winrow + wp->w_popup_border[0];
+  	    screen_fill(row, row + top_padding,
+  		    wp->w_wincol + wp->w_popup_border[3],
+! 		    wp->w_wincol + total_width - wp->w_popup_border[1],
+  							 ' ', ' ', popup_attr);
+  	}
+  
+--- 2222,2229 ----
+  	    row = wp->w_winrow + wp->w_popup_border[0];
+  	    screen_fill(row, row + top_padding,
+  		    wp->w_wincol + wp->w_popup_border[3],
+! 		    wp->w_wincol + total_width - wp->w_popup_border[1]
+! 							- wp->w_has_scrollbar,
+  							 ' ', ' ', popup_attr);
+  	}
+  
+***************
+*** 2212,2221 ****
+  	    screen_puts(wp->w_popup_title, wp->w_winrow, wp->w_wincol + 1,
+  		    wp->w_popup_border[0] > 0 ? border_attr[0] : popup_attr);
+  
+! 	for (row = wp->w_winrow + wp->w_popup_border[0];
+! 		row < wp->w_winrow + total_height - wp->w_popup_border[2];
+! 		    ++row)
+  	{
+  	    // left border
+  	    if (wp->w_popup_border[3] > 0)
+  	    {
+--- 2232,2255 ----
+  	    screen_puts(wp->w_popup_title, wp->w_winrow, wp->w_wincol + 1,
+  		    wp->w_popup_border[0] > 0 ? border_attr[0] : popup_attr);
+  
+! 	// Compute scrollbar thumb position and size.
+! 	if (wp->w_has_scrollbar)
+! 	{
+! 	    linenr_T linecount = wp->w_buffer->b_ml.ml_line_count;
+! 
+! 	    sb_thumb_height = wp->w_height * wp->w_height / linecount;
+! 	    if (sb_thumb_height == 0)
+! 		sb_thumb_height = 1;
+! 	    sb_thumb_top = ((wp->w_topline * (wp->w_height - sb_thumb_height)
+! 			    + (linecount - wp->w_height) / 2))
+! 			      / (linecount - (wp->w_height - sb_thumb_height));
+! 	}
+! 
+! 	for (i = wp->w_popup_border[0];
+! 				 i < total_height - wp->w_popup_border[2]; ++i)
+  	{
++ 	    row = wp->w_winrow + i;
++ 
+  	    // left border
+  	    if (wp->w_popup_border[3] > 0)
+  	    {
+***************
+*** 2226,2231 ****
+--- 2260,2280 ----
+  	    if (wp->w_popup_padding[3] > 0)
+  		screen_puts(get_spaces(wp->w_popup_padding[3]), row,
+  			wp->w_wincol + wp->w_popup_border[3], popup_attr);
++ 	    // scrollbar
++ 	    if (wp->w_has_scrollbar)
++ 	    {
++ 		int line = i - top_off;
++ 		int scroll_col = wp->w_wincol + total_width - 1
++ 						       - wp->w_popup_border[1];
++ 
++ 		if (line >= 0 && line < wp->w_height)
++ 		    screen_putchar(' ', row, scroll_col,
++ 			    line >= sb_thumb_top
++ 				       && line < sb_thumb_top + sb_thumb_height
++ 						  ? attr_thumb : attr_scroll);
++ 		else
++ 		    screen_putchar(' ', row, scroll_col, popup_attr);
++ 	    }
+  	    // right border
+  	    if (wp->w_popup_border[1] > 0)
+  	    {
+*** ../vim-8.1.1588/src/structs.h	2019-06-23 00:15:02.577534926 +0200
+--- src/structs.h	2019-06-24 01:11:58.892629818 +0200
+***************
+*** 2902,2907 ****
+--- 2902,2909 ----
+      int		w_wantline;	    // "line" for popup window
+      int		w_wantcol;	    // "col" for popup window
+      int		w_firstline;	    // "firstline" for popup window
++     int		w_want_scrollbar;   // when zero don't use a scrollbar
++     int		w_has_scrollbar;    // scrollbar displayed
+      int		w_popup_padding[4]; // popup padding top/right/bot/left
+      int		w_popup_border[4];  // popup border top/right/bot/left
+      char_u	*w_border_highlight[4];  // popup border highlight
+*** ../vim-8.1.1588/src/testdir/test_popupwin.vim	2019-06-24 00:58:02.908020514 +0200
+--- src/testdir/test_popupwin.vim	2019-06-25 05:09:19.326103217 +0200
+***************
+*** 1407,1418 ****
+    call term_sendkeys(buf, ":call popup_notification('another important notification', {})\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_notify_02', {})
+  
+- 
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestNotifications')
+  endfunc
+  
+  func Test_popup_settext()
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+--- 1407,1448 ----
+    call term_sendkeys(buf, ":call popup_notification('another important notification', {})\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_notify_02', {})
+  
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestNotifications')
+  endfunc
+  
++ func Test_popup_scrollbar()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let lines =<< trim END
++     call setline(1, range(1, 20))
++     let winid = popup_create(['one', 'two', 'three', 'four', 'five',
++ 	  \ 'six', 'seven', 'eight', 'nine'], {
++ 	  \ 'minwidth': 8,
++ 	  \ 'maxheight': 4,
++ 	  \ })
++   END
++   call writefile(lines, 'XtestPopupScroll')
++   let buf = RunVimInTerminal('-S XtestPopupScroll', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_scroll_1', {})
++ 
++   call term_sendkeys(buf, ":call popup_setoptions(winid, {'firstline': 2})\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_scroll_2', {})
++ 
++   call term_sendkeys(buf, ":call popup_setoptions(winid, {'firstline': 6})\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_scroll_3', {})
++ 
++   call term_sendkeys(buf, ":call popup_setoptions(winid, {'firstline': 9})\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_scroll_4', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupScroll')
++ endfunc
++ 
+  func Test_popup_settext()
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+*** ../vim-8.1.1588/src/testdir/dumps/Test_popupwin_firstline.dump	2019-06-12 23:39:42.257782258 +0200
+--- src/testdir/dumps/Test_popupwin_firstline.dump	2019-06-25 04:58:25.444836687 +0200
+***************
+*** 1,10 ****
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @73
+! |4| @33|3+0#0000001#ffd7ff255@4| +0#0000000#ffffff0@34
+! |5| @33|4+0#0000001#ffd7ff255@1| @2| +0#0000000#ffffff0@34
+! |6| @33|5+0#0000001#ffd7ff255| @3| +0#0000000#ffffff0@34
+! |7| @33|6+0#0000001#ffd7ff255@4| +0#0000000#ffffff0@34
+  |8| @73
+  |9| @73
+  @57|1|,|1| @10|T|o|p| 
+--- 1,10 ----
+  >1+0&#ffffff0| @73
+  |2| @73
+  |3| @73
+! |4| @33|3+0#0000001#ffd7ff255@4| +0#0000000#a8a8a8255| +0&#ffffff0@33
+! |5| @33|4+0#0000001#ffd7ff255@1| @2| +0#0000000#0000001| +0&#ffffff0@33
+! |6| @33|5+0#0000001#ffd7ff255| @3| +0#0000000#a8a8a8255| +0&#ffffff0@33
+! |7| @33|6+0#0000001#ffd7ff255@4| +0#0000000#a8a8a8255| +0&#ffffff0@33
+  |8| @73
+  |9| @73
+  @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1588/src/testdir/dumps/Test_popupwin_scroll_1.dump	2019-06-25 05:14:01.721069491 +0200
+--- src/testdir/dumps/Test_popupwin_scroll_1.dump	2019-06-25 05:09:29.122062844 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @31|o+0#0000001#ffd7ff255|n|e| @4| +0#0000000#0000001| +0&#ffffff0@32
++ |5| @31|t+0#0000001#ffd7ff255|w|o| @4| +0#0000000#a8a8a8255| +0&#ffffff0@32
++ |6| @31|t+0#0000001#ffd7ff255|h|r|e@1| @2| +0#0000000#a8a8a8255| +0&#ffffff0@32
++ |7| @31|f+0#0000001#ffd7ff255|o|u|r| @3| +0#0000000#a8a8a8255| +0&#ffffff0@32
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1588/src/testdir/dumps/Test_popupwin_scroll_2.dump	2019-06-25 05:14:01.725069478 +0200
+--- src/testdir/dumps/Test_popupwin_scroll_2.dump	2019-06-25 05:09:30.170058527 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @31|t+0#0000001#ffd7ff255|w|o| @4| +0#0000000#a8a8a8255| +0&#ffffff0@32
++ |5| @31|t+0#0000001#ffd7ff255|h|r|e@1| @2| +0#0000000#0000001| +0&#ffffff0@32
++ |6| @31|f+0#0000001#ffd7ff255|o|u|r| @3| +0#0000000#a8a8a8255| +0&#ffffff0@32
++ |7| @31|f+0#0000001#ffd7ff255|i|v|e| @3| +0#0000000#a8a8a8255| +0&#ffffff0@32
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |p|o|p|u|p|_|s|e|t|o|p|t|i|o|n|s|(|w|i|n|i|d|,| |{|'|f|i|r|s|t|l|i|n|e|'|:| |2|}|)| @9|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1588/src/testdir/dumps/Test_popupwin_scroll_3.dump	2019-06-25 05:14:01.729069469 +0200
+--- src/testdir/dumps/Test_popupwin_scroll_3.dump	2019-06-25 05:09:31.222054191 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @31|s+0#0000001#ffd7ff255|i|x| @4| +0#0000000#a8a8a8255| +0&#ffffff0@32
++ |5| @31|s+0#0000001#ffd7ff255|e|v|e|n| @2| +0#0000000#a8a8a8255| +0&#ffffff0@32
++ |6| @31|e+0#0000001#ffd7ff255|i|g|h|t| @2| +0#0000000#a8a8a8255| +0&#ffffff0@32
++ |7| @31|n+0#0000001#ffd7ff255|i|n|e| @3| +0#0000000#0000001| +0&#ffffff0@32
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |p|o|p|u|p|_|s|e|t|o|p|t|i|o|n|s|(|w|i|n|i|d|,| |{|'|f|i|r|s|t|l|i|n|e|'|:| |6|}|)| @9|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1588/src/testdir/dumps/Test_popupwin_scroll_4.dump	2019-06-25 05:14:01.733069461 +0200
+--- src/testdir/dumps/Test_popupwin_scroll_4.dump	2019-06-25 05:09:32.270049874 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @73
++ |5| @31|n+0#0000001#ffd7ff255|i|n|e| @3| +0#0000000#0000001| +0&#ffffff0@32
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |p|o|p|u|p|_|s|e|t|o|p|t|i|o|n|s|(|w|i|n|i|d|,| |{|'|f|i|r|s|t|l|i|n|e|'|:| |9|}|)| @9|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1588/src/version.c	2019-06-25 04:12:12.312665250 +0200
+--- src/version.c	2019-06-25 05:12:44.337260577 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1589,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+269. You receive an e-mail from the wife of a deceased president, offering
+     to send you twenty million dollar, and you are not even surprised.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

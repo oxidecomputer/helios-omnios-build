@@ -1,0 +1,562 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1548
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1548
+Problem:    Popup_dialog() is not implemented.
+Solution:   Implement popup_dialog() and popup_filter_yesno().
+Files:	    src/popupwin.c, src/proto/popupwin.pro, src/evalfunc.c,
+            src/structs.h, src/globals.h, src/testdir/test_popupwin.vim,
+            runtime/doc/popup.txt
+
+
+*** ../vim-8.1.1547/src/popupwin.c	2019-06-15 14:31:33.774185476 +0200
+--- src/popupwin.c	2019-06-15 21:40:51.129608271 +0200
+***************
+*** 201,206 ****
+--- 201,210 ----
+  	drag_start_wantcol = wp->w_wincol + 1;
+      else
+  	drag_start_wantcol = wp->w_wantcol;
++ 
++     // Stop centering the popup
++     if (wp->w_popup_pos == POPPOS_CENTER)
++ 	wp->w_popup_pos = POPPOS_TOPLEFT;
+  }
+  
+  /*
+***************
+*** 301,307 ****
+  	wp->w_p_wrap = nr != 0;
+      }
+  
+!     wp->w_popup_drag = dict_get_number(dict, (char_u *)"drag");
+  
+      di = dict_find(dict, (char_u *)"callback", -1);
+      if (di != NULL)
+--- 305,313 ----
+  	wp->w_p_wrap = nr != 0;
+      }
+  
+!     di = dict_find(dict, (char_u *)"drag", -1);
+!     if (di != NULL)
+! 	wp->w_popup_drag = dict_get_number(dict, (char_u *)"drag");
+  
+      di = dict_find(dict, (char_u *)"callback", -1);
+      if (di != NULL)
+***************
+*** 692,704 ****
+  {
+      TYPE_NORMAL,
+      TYPE_ATCURSOR,
+!     TYPE_NOTIFICATION
+  } create_type_T;
+  
+  /*
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+-  * When called from f_popup_atcursor() "type" is TYPE_ATCURSOR.
+   */
+      static void
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+--- 698,710 ----
+  {
+      TYPE_NORMAL,
+      TYPE_ATCURSOR,
+!     TYPE_NOTIFICATION,
+!     TYPE_DIALOG
+  } create_type_T;
+  
+  /*
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+   */
+      static void
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+***************
+*** 871,876 ****
+--- 877,896 ----
+  		OPT_FREE|OPT_LOCAL, 0);
+      }
+  
++     if (type == TYPE_DIALOG)
++     {
++ 	int i;
++ 
++ 	wp->w_popup_pos = POPPOS_CENTER;
++ 	wp->w_zindex = POPUPWIN_DIALOG_ZINDEX;
++ 	wp->w_popup_drag = 1;
++ 	for (i = 0; i < 4; ++i)
++ 	{
++ 	    wp->w_popup_border[i] = 1;
++ 	    wp->w_popup_padding[i] = 1;
++ 	}
++     }
++ 
+      // Deal with options.
+      apply_options(wp, buf, argvars[1].vval.v_dict);
+  
+***************
+*** 913,945 ****
+  }
+  
+  /*
+-  * popup_notification({text}, {options})
+-  */
+-     void
+- f_popup_notification(typval_T *argvars, typval_T *rettv)
+- {
+-     popup_create(argvars, rettv, TYPE_NOTIFICATION);
+- }
+- 
+- /*
+-  * Find the popup window with window-ID "id".
+-  * If the popup window does not exist NULL is returned.
+-  * If the window is not a popup window, and error message is given.
+-  */
+-     static win_T *
+- find_popup_win(int id)
+- {
+-     win_T *wp = win_id2wp(id);
+- 
+-     if (wp != NULL && !bt_popup(wp->w_buffer))
+-     {
+- 	semsg(_("E993: window %d is not a popup window"), id);
+- 	return NULL;
+-     }
+-     return wp;
+- }
+- 
+- /*
+   * Invoke the close callback for window "wp" with value "result".
+   * Careful: The callback may make "wp" invalid!
+   */
+--- 933,938 ----
+***************
+*** 986,991 ****
+--- 979,1068 ----
+  }
+  
+  /*
++  * popup_filter_yesno({text}, {options})
++  */
++     void
++ f_popup_filter_yesno(typval_T *argvars, typval_T *rettv)
++ {
++     int		id = tv_get_number(&argvars[0]);
++     win_T	*wp = win_id2wp(id);
++     char_u	*key = tv_get_string(&argvars[1]);
++     typval_T	res;
++ 
++     // If the popup has been closed don't consume the key.
++     if (wp == NULL)
++ 	return;
++ 
++     // consume all keys until done
++     rettv->vval.v_number = 1;
++ 
++     if (STRCMP(key, "y") == 0 || STRCMP(key, "Y") == 0)
++ 	res.vval.v_number = 1;
++     else if (STRCMP(key, "n") == 0 || STRCMP(key, "N") == 0
++ 	    || STRCMP(key, "x") == 0 || STRCMP(key, "X") == 0
++ 	    || STRCMP(key, "\x1b") == 0)
++ 	res.vval.v_number = 0;
++     else
++     {
++ 	int	c = *key;
++ 	int	row = mouse_row;
++ 	int	col = mouse_col;
++ 
++ 	if (c == K_SPECIAL && key[1] != NUL)
++ 	    c = TO_SPECIAL(key[1], key[2]);
++ 	if (wp->w_popup_drag
++ 		&& is_mouse_key(c)
++ 		&& (wp == popup_dragwin
++ 			      || wp == mouse_find_win(&row, &col, FIND_POPUP)))
++ 	    // allow for dragging the popup
++ 	    rettv->vval.v_number = 0;
++ 
++ 	// ignore this key
++ 	return;
++     }
++ 
++     // Invoke callback
++     res.v_type = VAR_NUMBER;
++     popup_close_and_callback(wp, &res);
++ }
++ 
++ /*
++  * popup_dialog({text}, {options})
++  */
++     void
++ f_popup_dialog(typval_T *argvars, typval_T *rettv)
++ {
++     popup_create(argvars, rettv, TYPE_DIALOG);
++ }
++ 
++ /*
++  * popup_notification({text}, {options})
++  */
++     void
++ f_popup_notification(typval_T *argvars, typval_T *rettv)
++ {
++     popup_create(argvars, rettv, TYPE_NOTIFICATION);
++ }
++ 
++ /*
++  * Find the popup window with window-ID "id".
++  * If the popup window does not exist NULL is returned.
++  * If the window is not a popup window, and error message is given.
++  */
++     static win_T *
++ find_popup_win(int id)
++ {
++     win_T *wp = win_id2wp(id);
++ 
++     if (wp != NULL && !bt_popup(wp->w_buffer))
++     {
++ 	semsg(_("E993: window %d is not a popup window"), id);
++ 	return NULL;
++     }
++     return wp;
++ }
++ 
++ /*
+   * popup_close({id})
+   */
+      void
+***************
+*** 1299,1304 ****
+--- 1376,1390 ----
+      typval_T	argv[3];
+      char_u	buf[NUMBUFLEN];
+  
++     // Emergency exit: CTRL-C closes the popup.
++     if (c == Ctrl_C)
++     {
++ 	rettv.v_type = VAR_NUMBER;
++ 	rettv.vval.v_number = -1;
++ 	popup_close_and_callback(wp, &rettv);
++ 	return 1;
++     }
++ 
+      argv[0].v_type = VAR_NUMBER;
+      argv[0].vval.v_number = (varnumber_T)wp->w_id;
+  
+***************
+*** 1310,1315 ****
+--- 1396,1402 ----
+  
+      argv[2].v_type = VAR_UNKNOWN;
+  
++     // NOTE: The callback might close the popup, thus make "wp" invalid.
+      call_callback(&wp->w_filter_cb, -1,
+  			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+      res = tv_get_number(&rettv);
+***************
+*** 1326,1332 ****
+  popup_do_filter(int c)
+  {
+      int		res = FALSE;
+!     win_T   *wp;
+  
+      popup_reset_handled();
+  
+--- 1413,1419 ----
+  popup_do_filter(int c)
+  {
+      int		res = FALSE;
+!     win_T	*wp;
+  
+      popup_reset_handled();
+  
+*** ../vim-8.1.1547/src/proto/popupwin.pro	2019-06-14 20:00:45.374401154 +0200
+--- src/proto/popupwin.pro	2019-06-15 20:13:13.546643737 +0200
+***************
+*** 8,13 ****
+--- 8,15 ----
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
++ void f_popup_filter_yesno(typval_T *argvars, typval_T *rettv);
++ void f_popup_dialog(typval_T *argvars, typval_T *rettv);
+  void f_popup_notification(typval_T *argvars, typval_T *rettv);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+  void f_popup_hide(typval_T *argvars, typval_T *rettv);
+*** ../vim-8.1.1547/src/evalfunc.c	2019-06-15 19:37:11.676608528 +0200
+--- src/evalfunc.c	2019-06-15 19:59:56.176792018 +0200
+***************
+*** 815,820 ****
+--- 815,822 ----
+      {"popup_clear",	0, 0, f_popup_clear},
+      {"popup_close",	1, 2, f_popup_close},
+      {"popup_create",	2, 2, f_popup_create},
++     {"popup_dialog",	2, 2, f_popup_dialog},
++     {"popup_filter_yesno", 2, 2, f_popup_filter_yesno},
+      {"popup_getoptions", 1, 1, f_popup_getoptions},
+      {"popup_getpos",	1, 1, f_popup_getpos},
+      {"popup_hide",	1, 1, f_popup_hide},
+*** ../vim-8.1.1547/src/structs.h	2019-06-15 17:12:01.569914997 +0200
+--- src/structs.h	2019-06-15 20:16:13.761858641 +0200
+***************
+*** 1998,2004 ****
+  
+  # define POPUPWIN_DEFAULT_ZINDEX	 50
+  # define POPUPMENU_ZINDEX		100
+! # define POPUPWIN_NOTIFICATION_ZINDEX   200
+  #endif
+  
+  /*
+--- 1998,2005 ----
+  
+  # define POPUPWIN_DEFAULT_ZINDEX	 50
+  # define POPUPMENU_ZINDEX		100
+! # define POPUPWIN_DIALOG_ZINDEX		200
+! # define POPUPWIN_NOTIFICATION_ZINDEX   300
+  #endif
+  
+  /*
+*** ../vim-8.1.1547/src/globals.h	2019-06-14 21:36:51.018437479 +0200
+--- src/globals.h	2019-06-15 21:23:42.381987109 +0200
+***************
+*** 599,605 ****
+  EXTERN int	aucmd_win_used INIT(= FALSE);	/* aucmd_win is being used */
+  
+  #ifdef FEAT_TEXT_PROP
+! EXTERN win_T    *first_popupwin;	// first global popup window
+  #endif
+  
+  /*
+--- 599,606 ----
+  EXTERN int	aucmd_win_used INIT(= FALSE);	/* aucmd_win is being used */
+  
+  #ifdef FEAT_TEXT_PROP
+! EXTERN win_T    *first_popupwin;		// first global popup window
+! EXTERN win_T	*popup_dragwin INIT(= NULL);	// popup window being dragged
+  #endif
+  
+  /*
+*** ../vim-8.1.1547/src/testdir/test_popupwin.vim	2019-06-15 17:57:43.972724036 +0200
+--- src/testdir/test_popupwin.vim	2019-06-15 21:42:29.825319235 +0200
+***************
+*** 870,875 ****
+--- 870,905 ----
+    call popup_clear()
+  endfunc
+  
++ func ShowDialog(key, result)
++   let s:cb_res = 999
++   let winid = popup_dialog('do you want to quit (Yes/no)?', {
++ 	  \ 'filter': 'popup_filter_yesno',
++ 	  \ 'callback': 'QuitCallback',
++ 	  \ })
++   redraw
++   call feedkeys(a:key, "xt")
++   call assert_equal(winid, s:cb_winid)
++   call assert_equal(a:result, s:cb_res)
++ endfunc
++ 
++ func Test_popup_dialog()
++   func QuitCallback(id, res)
++     let s:cb_winid = a:id
++     let s:cb_res = a:res
++   endfunc
++ 
++   let winid = ShowDialog("y", 1)
++   let winid = ShowDialog("Y", 1)
++   let winid = ShowDialog("n", 0)
++   let winid = ShowDialog("N", 0)
++   let winid = ShowDialog("x", 0)
++   let winid = ShowDialog("X", 0)
++   let winid = ShowDialog("\<Esc>", 0)
++   let winid = ShowDialog("\<C-C>", -1)
++ 
++   delfunc QuitCallback
++ endfunc
++ 
+  func Test_popup_close_callback()
+    func PopupDone(id, result)
+      let g:result = a:result
+*** ../vim-8.1.1547/runtime/doc/popup.txt	2019-06-15 14:31:33.774185476 +0200
+--- runtime/doc/popup.txt	2019-06-15 21:37:35.846448429 +0200
+***************
+*** 103,112 ****
+  - When drawing on top half a double-wide character, display ">" or "<" in the
+    incomplete cell.
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Implement:
+- 	popup_dialog({text}, {options})
+  	popup_filter_menu({id}, {key})
+- 	popup_filter_yesno({id}, {key})
+  	popup_menu({text}, {options})
+  	popup_setoptions({id}, {options})
+  	flip option
+--- 103,112 ----
+  - When drawing on top half a double-wide character, display ">" or "<" in the
+    incomplete cell.
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
++ - Use a popup window for the "info" item of completion instead of using a
++   preview window.
+  - Implement:
+  	popup_filter_menu({id}, {key})
+  	popup_menu({text}, {options})
+  	popup_setoptions({id}, {options})
+  	flip option
+***************
+*** 196,211 ****
+  
+  
+  popup_dialog({text}, {options})				*popup_dialog()*
+- 		{not implemented yet}
+  		Just like |popup_create()| but with these default options: >
+  			call popup_create({text}, {
+  				\ 'pos': 'center',
+  				\ 'zindex': 200,
+  				\ 'border': [],
+  				\ 'padding': [],
+  				\})
+  <		Use {options} to change the properties. E.g. add a 'filter'
+! 		option with value 'popup_filter_yesno'.
+  
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
+--- 196,218 ----
+  
+  
+  popup_dialog({text}, {options})				*popup_dialog()*
+  		Just like |popup_create()| but with these default options: >
+  			call popup_create({text}, {
+  				\ 'pos': 'center',
+  				\ 'zindex': 200,
++ 				\ 'drag': 1,
+  				\ 'border': [],
+  				\ 'padding': [],
+  				\})
+  <		Use {options} to change the properties. E.g. add a 'filter'
+! 		option with value 'popup_filter_yesno'.  Example: >
+! 			call popup_create('do you want to quit (Yes/no)?', {
+! 				\ 'filter': 'popup_filter_yesno',
+! 				\ 'callback': 'QuitCallback',
+! 				\ })
+! 
+! <		By default the dialog can be dragged, so that text below it
+! 		can be read if needed.
+  
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
+***************
+*** 218,229 ****
+  
+  
+  popup_filter_yesno({id}, {key})				*popup_filter_yesno()*
+- 		{not implemented yet}
+  		Filter that can be used for a popup. It handles only the keys
+  		'y', 'Y' and 'n' or 'N'.  Invokes the "callback" of the
+  		popup menu with the 1 for 'y' or 'Y' and zero for 'n' or 'N'
+! 		as the second argument.  Pressing Esc and CTRL-C works like
+! 		pressing 'n'.  Other keys are ignored.
+  
+  
+  popup_getoptions({id})					*popup_getoptions()*
+--- 225,236 ----
+  
+  
+  popup_filter_yesno({id}, {key})				*popup_filter_yesno()*
+  		Filter that can be used for a popup. It handles only the keys
+  		'y', 'Y' and 'n' or 'N'.  Invokes the "callback" of the
+  		popup menu with the 1 for 'y' or 'Y' and zero for 'n' or 'N'
+! 		as the second argument.  Pressing Esc and 'x' works like
+! 		pressing 'n'.  CTRL-C invokes the callback with -1.  Other
+! 		keys are ignored.
+  
+  
+  popup_getoptions({id})					*popup_getoptions()*
+***************
+*** 301,307 ****
+  				\ 'minwidth': 20,
+  				\ 'time': 3000,
+  				\ 'tabpage': -1,
+! 				\ 'zindex': 200,
+  				\ 'drag': 1,
+  				\ 'highlight': 'WarningMsg',
+  				\ 'border': [],
+--- 308,314 ----
+  				\ 'minwidth': 20,
+  				\ 'time': 3000,
+  				\ 'tabpage': -1,
+! 				\ 'zindex': 300,
+  				\ 'drag': 1,
+  				\ 'highlight': 'WarningMsg',
+  				\ 'border': [],
+***************
+*** 521,527 ****
+  is called first.
+  
+  The filter function is called with two arguments: the ID of the popup and the
+! key, e.g.: >
+  	func MyFilter(winid, key)
+  	  if a:key == "\<F2>"
+  	    " do something
+--- 528,534 ----
+  is called first.
+  
+  The filter function is called with two arguments: the ID of the popup and the
+! key as a string, e.g.: >
+  	func MyFilter(winid, key)
+  	  if a:key == "\<F2>"
+  	    " do something
+***************
+*** 556,570 ****
+  
+  POPUP CALLBACK						*popup-callback*
+  
+! A callback that is invoked when the popup closes.  Used by
+! |popup_filter_menu()|.
+  
+  The callback is invoked with two arguments: the ID of the popup window and the
+  result, which could be an index in the popup lines, or whatever was passed as
+  the second argument of `popup_close()`.
+  
+! If the popup is closed because the cursor moved, the number -1 is passed to
+! the callback.
+  
+  ==============================================================================
+  3. Examples						*popup-examples*
+--- 563,576 ----
+  
+  POPUP CALLBACK						*popup-callback*
+  
+! A callback that is invoked when the popup closes.
+  
+  The callback is invoked with two arguments: the ID of the popup window and the
+  result, which could be an index in the popup lines, or whatever was passed as
+  the second argument of `popup_close()`.
+  
+! If the popup is force-closed, e.g. because the cursor moved or CTRL-C was
+! pressed, the number -1 is passed to the callback.
+  
+  ==============================================================================
+  3. Examples						*popup-examples*
+*** ../vim-8.1.1547/src/version.c	2019-06-15 19:37:11.680608505 +0200
+--- src/version.c	2019-06-15 20:32:52.776940398 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1548,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+195. Your cat has its own home page.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

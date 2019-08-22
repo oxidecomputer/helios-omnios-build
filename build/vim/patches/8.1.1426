@@ -1,0 +1,184 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1426
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1426
+Problem:    No test for syntax highlight in popup window.
+Solution:   Add a screenshot test.  Update associated documentation. Avoid
+            'buftype' being reset by setbufvar().
+Files:	    runtime/doc/eval.txt, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_10.dump,
+            src/testdir/dumps/Test_popupwin_11.dump
+
+
+*** ../vim-8.1.1425/runtime/doc/eval.txt	2019-05-29 21:44:30.764788713 +0200
+--- runtime/doc/eval.txt	2019-05-30 17:43:35.578679898 +0200
+***************
+*** 7341,7346 ****
+--- 7342,7349 ----
+  		   all		when TRUE remove all matching text properties,
+  				not just the first one
+  		A property matches when either "id" or "type" matches.
++ 		If buffer "bufnr" does not exist you get an error message.
++ 		If buffer 'bufnr" is not loaded then nothing happens.
+  
+  		Returns the number of properties that were removed.
+  
+***************
+*** 8397,8402 ****
+--- 8400,8407 ----
+  settabvar({tabnr}, {varname}, {val})			*settabvar()*
+  		Set tab-local variable {varname} to {val} in tab page {tabnr}.
+  		|t:var|
++ 		Note that autocommands are blocked, side effects may not be
++ 		triggered, e.g. when setting 'filetype'.
+  		Note that the variable name without "t:" must be used.
+  		Tabs are numbered starting with one.
+  		This function is not available in the |sandbox|.
+***************
+*** 8408,8413 ****
+--- 8413,8420 ----
+  		use |setwinvar()|.
+  		{winnr} can be the window number or the |window-ID|.
+  		When {winnr} is zero the current window is used.
++ 		Note that autocommands are blocked, side effects may not be
++ 		triggered, e.g. when setting 'filetype' or 'syntax'.
+  		This also works for a global or local buffer option, but it
+  		doesn't work for a global or local buffer variable.
+  		For a local buffer option the global value is unchanged.
+***************
+*** 10314,10322 ****
+  win_execute({id}, {command} [, {silent}])		*win_execute()*
+  		Like `execute()` but in the context of window {id}.
+  		The window will temporarily be made the current window,
+! 		without triggering autocommands.
+! 		Example: >
+! 			call win_execute(winid, 'syntax enable')
+  
+  win_findbuf({bufnr})					*win_findbuf()*
+  		Returns a list with |window-ID|s for windows that contain
+--- 10322,10334 ----
+  win_execute({id}, {command} [, {silent}])		*win_execute()*
+  		Like `execute()` but in the context of window {id}.
+  		The window will temporarily be made the current window,
+! 		without triggering autocommands.  When executing {command}
+! 		autocommands will be triggered, this may have unexpected side
+! 		effects.  Use |:noautocmd| if needed.
+! 		Example: >
+! 			call win_execute(winid, 'set syntax=python')
+! <		Doing the same with `setwinvar()` would not trigger
+! 		autocommands and not actually show syntax highlighting.
+  
+  win_findbuf({bufnr})					*win_findbuf()*
+  		Returns a list with |window-ID|s for windows that contain
+*** ../vim-8.1.1425/src/testdir/test_popupwin.vim	2019-05-30 15:22:39.836174965 +0200
+--- src/testdir/test_popupwin.vim	2019-05-30 18:04:53.131951342 +0200
+***************
+*** 56,61 ****
+--- 56,109 ----
+    call delete('XtestPopup')
+  endfunc
+  
++ func Test_popup_with_syntax_win_execute()
++   if !CanRunVimInTerminal()
++     return
++   endif
++   call writefile([
++ 	\ "call setline(1, range(1, 100))",
++ 	\ "hi PopupColor ctermbg=lightblue",
++ 	\ "let winid = popup_create([",
++ 	\ "\\ '#include <stdio.h>',",
++ 	\ "\\ 'int main(void)',",
++ 	\ "\\ '{',",
++ 	\ "\\ '    printf(123);',",
++ 	\ "\\ '}',",
++ 	\ "\\], {'line': 3, 'col': 25, 'highlight': 'PopupColor'})",
++ 	\ "call win_execute(winid, 'set syntax=cpp')",
++ 	\], 'XtestPopup')
++   let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_10', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopup')
++ endfunc
++ 
++ func Test_popup_with_syntax_setbufvar()
++   if !CanRunVimInTerminal()
++     return
++   endif
++   call writefile([
++ 	\ "call setline(1, range(1, 100))",
++ 	\ "hi PopupColor ctermbg=lightgrey",
++ 	\ "let winid = popup_create([",
++ 	\ "\\ '#include <stdio.h>',",
++ 	\ "\\ 'int main(void)',",
++ 	\ "\\ '{',",
++ 	\ "\\ '    printf(567);',",
++ 	\ "\\ '}',",
++ 	\ "\\], {'line': 3, 'col': 21, 'highlight': 'PopupColor'})",
++ 	\ "call setbufvar(winbufnr(winid), '&syntax', 'cpp')",
++ 	\], 'XtestPopup')
++   let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_11', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopup')
++ endfunc
++ 
+  func Test_popup_time()
+    if !has('timers')
+      return
+*** ../vim-8.1.1425/src/testdir/dumps/Test_popupwin_10.dump	2019-05-30 18:39:17.748746347 +0200
+--- src/testdir/dumps/Test_popupwin_10.dump	2019-05-30 17:34:56.409700896 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @22|#+0#e000e06#5fd7ff255|i|n|c|l|u|d|e| |<+0#e000002&|s|t|d|i|o|.|h|>| +0#0000000#ffffff0@32
++ |4| @22|i+0#00e0003#5fd7ff255|n|t| +0#0000000&|m|a|i|n|(|v+0#00e0003&|o|i|d|)+0#0000000&| @3| +0&#ffffff0@32
++ |5| @22|{+0&#5fd7ff255| @16| +0&#ffffff0@32
++ |6| @22| +0&#5fd7ff255@3|p|r|i|n|t|f|(|1+0#e000002&|2|3|)+0#0000000&|;| @1| +0&#ffffff0@32
++ |7| @22|}+0&#5fd7ff255| @16| +0&#ffffff0@32
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1425/src/testdir/dumps/Test_popupwin_11.dump	2019-05-30 18:39:17.748746347 +0200
+--- src/testdir/dumps/Test_popupwin_11.dump	2019-05-30 18:38:16.577080941 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @18|#+0#e000e06#e0e0e08|i|n|c|l|u|d|e| |<+0#e000002&|s|t|d|i|o|.|h|>| +0#0000000#ffffff0@36
++ |4| @18|i+0#00e0003#e0e0e08|n|t| +0#0000000&|m|a|i|n|(|v+0#00e0003&|o|i|d|)+0#0000000&| @3| +0&#ffffff0@36
++ |5| @18|{+0&#e0e0e08| @16| +0&#ffffff0@36
++ |6| @18| +0&#e0e0e08@3|p|r|i|n|t|f|(|5+0#e000002&|6|7|)+0#0000000&|;| @1| +0&#ffffff0@36
++ |7| @18|}+0&#e0e0e08| @16| +0&#ffffff0@36
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1425/src/version.c	2019-05-30 17:29:34.771666630 +0200
+--- src/version.c	2019-05-30 17:38:27.492457079 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1426,
+  /**/
+
+-- 
+"I can't complain, but sometimes I still do."   (Joe Walsh)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

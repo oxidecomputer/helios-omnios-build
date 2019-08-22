@@ -1,0 +1,201 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1610
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1610
+Problem:    There is no way to add or load a buffer without side effects.
+Solution:   Add the bufadd() and bufload() functions.
+Files:	    runtime/doc/eval.txt, src/evalfunc.c,
+            src/testdir/test_functions.vim
+
+
+*** ../vim-8.1.1609/runtime/doc/eval.txt	2019-06-24 00:58:02.904020530 +0200
+--- runtime/doc/eval.txt	2019-06-30 19:54:15.134906182 +0200
+***************
+*** 2271,2278 ****
+--- 2272,2281 ----
+  browse({save}, {title}, {initdir}, {default})
+  				String	put up a file requester
+  browsedir({title}, {initdir})	String	put up a directory requester
++ bufadd({name})			Number	add a buffer to the buffer list
+  bufexists({expr})		Number	|TRUE| if buffer {expr} exists
+  buflisted({expr})		Number	|TRUE| if buffer {expr} is listed
++ bufload({expr})			Number	load buffer {expr} if not loaded yet
+  bufloaded({expr})		Number	|TRUE| if buffer {expr} is loaded
+  bufname({expr})			String	Name of the buffer {expr}
+  bufnr({expr} [, {create}])	Number	Number of the buffer {expr}
+***************
+*** 3131,3136 ****
+--- 3134,3147 ----
+  		When the "Cancel" button is hit, something went wrong, or
+  		browsing is not possible, an empty string is returned.
+  
++ bufadd({name})						*bufadd()*
++ 		Add a buffer to the buffer list with {name}.
++ 		If a buffer for file {name} already exists, return that buffer
++ 		number.  Otherwise return the buffer number of the newly
++ 		created buffer.  When {name} is an empty string then a new
++ 		buffer is always created.
++ 		The buffer will not have' 'buflisted' set.
++ 
+  bufexists({expr})					*bufexists()*
+  		The result is a Number, which is |TRUE| if a buffer called
+  		{expr} exists.
+***************
+*** 3160,3165 ****
+--- 3171,3185 ----
+  		{expr} exists and is listed (has the 'buflisted' option set).
+  		The {expr} argument is used like with |bufexists()|.
+  
++ bufload({expr})						*bufload()*
++ 		Ensure the buffer {expr} is loaded.  When the buffer name
++ 		refers to an existing file then the file is read.  Otherwise
++ 		the buffer will be empty.  If the buffer was already loaded
++ 		then there is no change.
++ 		If there is an existing swap file for the file of the buffer,
++ 		there will be no dialog, the buffer will be loaded anyway.
++ 		The {expr} argument is used like with |bufexists()|.
++ 
+  bufloaded({expr})					*bufloaded()*
+  		The result is a Number, which is |TRUE| if a buffer called
+  		{expr} exists and is loaded (shown in a window or hidden).
+*** ../vim-8.1.1609/src/evalfunc.c	2019-06-29 07:56:26.042876840 +0200
+--- src/evalfunc.c	2019-06-30 19:53:13.519288954 +0200
+***************
+*** 71,78 ****
+--- 71,80 ----
+  #endif
+  static void f_browse(typval_T *argvars, typval_T *rettv);
+  static void f_browsedir(typval_T *argvars, typval_T *rettv);
++ static void f_bufadd(typval_T *argvars, typval_T *rettv);
+  static void f_bufexists(typval_T *argvars, typval_T *rettv);
+  static void f_buflisted(typval_T *argvars, typval_T *rettv);
++ static void f_bufload(typval_T *argvars, typval_T *rettv);
+  static void f_bufloaded(typval_T *argvars, typval_T *rettv);
+  static void f_bufname(typval_T *argvars, typval_T *rettv);
+  static void f_bufnr(typval_T *argvars, typval_T *rettv);
+***************
+*** 526,536 ****
+--- 528,540 ----
+  #endif
+      {"browse",		4, 4, f_browse},
+      {"browsedir",	2, 2, f_browsedir},
++     {"bufadd",		1, 1, f_bufadd},
+      {"bufexists",	1, 1, f_bufexists},
+      {"buffer_exists",	1, 1, f_bufexists},	/* obsolete */
+      {"buffer_name",	1, 1, f_bufname},	/* obsolete */
+      {"buffer_number",	1, 1, f_bufnr},		/* obsolete */
+      {"buflisted",	1, 1, f_buflisted},
++     {"bufload",		1, 1, f_bufload},
+      {"bufloaded",	1, 1, f_bufloaded},
+      {"bufname",		1, 1, f_bufname},
+      {"bufnr",		1, 2, f_bufnr},
+***************
+*** 1920,1925 ****
+--- 1924,1938 ----
+  }
+  
+  /*
++  * "bufadd(expr)" function
++  */
++     static void
++ f_bufadd(typval_T *argvars, typval_T *rettv)
++ {
++     rettv->vval.v_number = buflist_add(tv_get_string(&argvars[0]), 0);
++ }
++ 
++ /*
+   * "bufexists(expr)" function
+   */
+      static void
+***************
+*** 1941,1946 ****
+--- 1954,1978 ----
+  }
+  
+  /*
++  * "bufload(expr)" function
++  */
++     static void
++ f_bufload(typval_T *argvars, typval_T *rettv UNUSED)
++ {
++     buf_T	*buf = get_buf_arg(&argvars[0]);
++ 
++     if (buf != NULL && buf->b_ml.ml_mfp == NULL)
++     {
++ 	aco_save_T	aco;
++ 
++ 	aucmd_prepbuf(&aco, buf);
++ 	swap_exists_action = SEA_NONE;
++ 	open_buffer(FALSE, NULL, 0);
++ 	aucmd_restbuf(&aco);
++     }
++ }
++ 
++ /*
+   * "bufloaded(expr)" function
+   */
+      static void
+*** ../vim-8.1.1609/src/testdir/test_functions.vim	2019-06-24 00:58:02.908020514 +0200
+--- src/testdir/test_functions.vim	2019-06-30 20:20:00.413123670 +0200
+***************
+*** 1515,1517 ****
+--- 1515,1545 ----
+  func Test_eventhandler()
+    call assert_equal(0, eventhandler())
+  endfunc
++ 
++ func Test_bufadd_bufload()
++   call assert_equal(0, bufexists('someName'))
++   let buf = bufadd('someName')
++   call assert_notequal(0, buf)
++   call assert_equal(1, bufexists('someName'))
++   call assert_equal(0, getbufvar(buf, '&buflisted'))
++   call assert_equal(0, bufloaded(buf))
++   call bufload(buf)
++   call assert_equal(1, bufloaded(buf))
++   call assert_equal([''], getbufline(buf, 1, '$'))
++ 
++   let curbuf = bufnr('')
++   call writefile(['some', 'text'], 'otherName')
++   let buf = bufadd('otherName')
++   call assert_notequal(0, buf)
++   call assert_equal(1, bufexists('otherName'))
++   call assert_equal(0, getbufvar(buf, '&buflisted'))
++   call assert_equal(0, bufloaded(buf))
++   call bufload(buf)
++   call assert_equal(1, bufloaded(buf))
++   call assert_equal(['some', 'text'], getbufline(buf, 1, '$'))
++   call assert_equal(curbuf, bufnr(''))
++ 
++   bwipe someName
++   bwipe otherName
++   call assert_equal(0, bufexists('someName'))
++ endfunc
+*** ../vim-8.1.1609/src/version.c	2019-06-30 18:04:53.793559360 +0200
+--- src/version.c	2019-06-30 18:52:07.350634977 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1610,
+  /**/
+
+-- 
+   GALAHAD hurries to the door and pushes through it.  As he leaves the room
+   we CUT TO the reverse to show that he is now in a room full of bathing
+   and romping GIRLIES, all innocent, wide-eyed and beautiful.  They smile
+   enchantingly at him as he tries to keep walking without being diverted by
+   the lovely sights assaulting his eyeballs.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

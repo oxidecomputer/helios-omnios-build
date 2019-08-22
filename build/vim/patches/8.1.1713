@@ -1,0 +1,677 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1713
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1713
+Problem:    Highlighting cursor line only works with popup_menu().
+Solution:   Add the "cursorline" property. (Naruhiko Nishino, closes #4671)
+Files:	    runtime/doc/popup.txt, src/popupwin.c,
+            src/testdir/dumps/Test_popupwin_cursorline_1.dump,
+            src/testdir/dumps/Test_popupwin_cursorline_2.dump,
+            src/testdir/dumps/Test_popupwin_cursorline_3.dump,
+            src/testdir/dumps/Test_popupwin_cursorline_4.dump,
+            src/testdir/dumps/Test_popupwin_cursorline_5.dump,
+            src/testdir/dumps/Test_popupwin_cursorline_6.dump,
+            src/testdir/dumps/Test_popupwin_menu_filter_1.dump,
+            src/testdir/dumps/Test_popupwin_menu_filter_2.dump,
+            src/testdir/dumps/Test_popupwin_menu_filter_3.dump,
+            src/testdir/dumps/Test_popupwin_menu_filter_4.dump,
+            src/testdir/test_popupwin.vim, src/vim.h
+
+
+*** ../vim-8.1.1712/runtime/doc/popup.txt	2019-07-16 22:03:28.902863158 +0200
+--- runtime/doc/popup.txt	2019-07-18 13:13:04.157684537 +0200
+***************
+*** 303,309 ****
+  		zero.  When all values are one then an empty list is included.
+  
+  		"borderhighlight" is not included when all values are empty.
+! 		"scrollbarhighlight" and "thumbhighlight" are onlu included
+  		when set.
+  
+  		"tabpage" will be -1 for a global popup, zero for a popup on
+--- 303,309 ----
+  		zero.  When all values are one then an empty list is included.
+  
+  		"borderhighlight" is not included when all values are empty.
+! 		"scrollbarhighlight" and "thumbhighlight" are only included
+  		when set.
+  
+  		"tabpage" will be -1 for a global popup, zero for a popup on
+***************
+*** 345,351 ****
+  
+  
+  popup_locate({row}, {col})				 *popup_locate()*
+! 		Return the |window-ID| of the popup at screen positoin {row}
+  		and {col}.  If there are multiple popups the one with the
+  		highest zindex is returned.  If there are no popups at this
+  		position then zero is returned.
+--- 345,351 ----
+  
+  
+  popup_locate({row}, {col})				 *popup_locate()*
+! 		Return the |window-ID| of the popup at screen position {row}
+  		and {col}.  If there are multiple popups the one with the
+  		highest zindex is returned.  If there are no popups at this
+  		position then zero is returned.
+***************
+*** 362,367 ****
+--- 362,368 ----
+  				\ drag: 1,
+  				\ wrap: 0,
+  				\ border: [],
++ 				\ cursorline: 1,
+  				\ padding: [0,1,0,1],
+  				\ filter: 'popup_filter_menu',
+  				\ })
+***************
+*** 429,434 ****
+--- 430,436 ----
+  			callback
+  			close
+  			drag
++ 			cursorline
+  			filter
+  			firstline
+  			flip
+***************
+*** 598,603 ****
+--- 600,610 ----
+  			  {start} or after {end}
+  			The popup also closes if the cursor moves to another
+  			line or to another window.
++ 	cursorline	non-zero: Highlight the cursor line. Also scrolls the
++ 				  text to show this line (only works properly
++ 				  when 'wrap' is off).
++ 			zero: 	  Do not highlight the cursor line.
++ 			Default is zero, except for |popup_menu()|.
+  	filter		A callback that can filter typed characters, see
+  			|popup-filter|.
+  	callback	A callback that is called when the popup closes, e.g.
+***************
+*** 695,702 ****
+  the window.  This can be disabled by setting the "scrollbar" option to zero.
+  When the scrollbar is displayed mouse scroll events, while the mouse pointer
+  is on the popup, will cause the text to scroll up or down as you would expect.
+! A click in the upper halve of the scrollbar will scroll the text one line
+! down.  A click in the lower halve wil scroll the text one line up.  However,
+  this is limited so that the popup does not get smaller.
+  
+  
+--- 702,709 ----
+  the window.  This can be disabled by setting the "scrollbar" option to zero.
+  When the scrollbar is displayed mouse scroll events, while the mouse pointer
+  is on the popup, will cause the text to scroll up or down as you would expect.
+! A click in the upper half of the scrollbar will scroll the text one line
+! down.  A click in the lower half wil scroll the text one line up.  However,
+  this is limited so that the popup does not get smaller.
+  
+  
+***************
+*** 709,715 ****
+  		leftmost, negative for counting from the right, -1 for
+  		rightmost
+      endcol	last column, like "col"
+!     line	start line, positive for conting from the top, 1 for top,
+  		negative for counting from the bottom, -1 for bottom
+      endline	end line, like "line"
+  
+--- 716,722 ----
+  		leftmost, negative for counting from the right, -1 for
+  		rightmost
+      endcol	last column, like "col"
+!     line	start line, positive for counting from the top, 1 for top,
+  		negative for counting from the bottom, -1 for bottom
+      endline	end line, like "line"
+  
+*** ../vim-8.1.1712/src/popupwin.c	2019-07-17 21:37:28.576734130 +0200
+--- src/popupwin.c	2019-07-18 13:36:34.636862370 +0200
+***************
+*** 442,447 ****
+--- 442,475 ----
+  }
+  
+  /*
++  * Highlight the line with the cursor.
++  * Also scrolls the text to put the cursor line in view.
++  */
++     static void
++ popup_highlight_curline(win_T *wp)
++ {
++     int	    id;
++     char    buf[100];
++ 
++     match_delete(wp, 1, FALSE);
++ 
++     if ((wp->w_popup_flags & POPF_CURSORLINE) != 0)
++     {
++ 	// Scroll to show the line with the cursor.  This assumes lines don't
++ 	// wrap.
++ 	while (wp->w_topline + wp->w_height - 1 < wp->w_cursor.lnum)
++ 	    wp->w_topline++;
++ 	while (wp->w_cursor.lnum < wp->w_topline)
++ 	    wp->w_topline--;
++ 
++ 	id = syn_name2id((char_u *)"PopupSelected");
++ 	vim_snprintf(buf, sizeof(buf), "\\%%%dl.*", (int)wp->w_cursor.lnum);
++ 	match_add(wp, (char_u *)(id == 0 ? "PmenuSel" : "PopupSelected"),
++ 					     (char_u *)buf, 10, 1, NULL, NULL);
++     }
++ }
++ 
++ /*
+   * Shared between popup_create() and f_popup_setoptions().
+   */
+      static void
+***************
+*** 635,640 ****
+--- 663,682 ----
+  	handle_moved_argument(wp, di, TRUE);
+      }
+  
++     di = dict_find(dict, (char_u *)"cursorline", -1);
++     if (di != NULL)
++     {
++ 	if (di->di_tv.v_type == VAR_NUMBER)
++ 	{
++ 	    if (di->di_tv.vval.v_number != 0)
++ 		wp->w_popup_flags |= POPF_CURSORLINE;
++ 	    else
++ 		wp->w_popup_flags &= ~POPF_CURSORLINE;
++ 	}
++ 	else
++ 	    semsg(_(e_invargval), "cursorline");
++     }
++ 
+      di = dict_find(dict, (char_u *)"filter", -1);
+      if (di != NULL)
+      {
+***************
+*** 662,667 ****
+--- 704,710 ----
+  
+  /*
+   * Go through the options in "dict" and apply them to popup window "wp".
++  * Only used when creating a new popup window.
+   */
+      static void
+  apply_options(win_T *wp, dict_T *dict)
+***************
+*** 679,684 ****
+--- 722,728 ----
+      }
+  
+      popup_mask_refresh = TRUE;
++     popup_highlight_curline(wp);
+  }
+  
+  /*
+***************
+*** 1313,1318 ****
+--- 1357,1363 ----
+  	    set_callback(&wp->w_filter_cb, &callback);
+  
+  	wp->w_p_wrap = 0;
++ 	wp->w_popup_flags |= POPF_CURSORLINE;
+      }
+  
+      for (i = 0; i < 4; ++i)
+***************
+*** 1502,1527 ****
+  	rettv->vval.v_number = 0;
+  }
+  
+-     static void
+- popup_highlight_curline(win_T *wp)
+- {
+-     int	    id;
+-     char    buf[100];
+- 
+-     match_delete(wp, 1, FALSE);
+- 
+-     // Scroll to show the line with the cursor.  This assumes lines don't wrap.
+-     while (wp->w_topline + wp->w_height - 1 < wp->w_cursor.lnum)
+- 	wp->w_topline++;
+-     while (wp->w_cursor.lnum < wp->w_topline)
+- 	wp->w_topline--;
+- 
+-     id = syn_name2id((char_u *)"PopupSelected");
+-     vim_snprintf(buf, sizeof(buf), "\\%%%dl.*", (int)wp->w_cursor.lnum);
+-     match_add(wp, (char_u *)(id == 0 ? "PmenuSel" : "PopupSelected"),
+- 					     (char_u *)buf, 10, 1, NULL, NULL);
+- }
+- 
+  /*
+   * popup_filter_menu({text}, {options})
+   */
+--- 1547,1552 ----
+***************
+*** 1630,1639 ****
+      void
+  f_popup_menu(typval_T *argvars, typval_T *rettv)
+  {
+!     win_T *wp = popup_create(argvars, rettv, TYPE_MENU);
+! 
+!     if (wp != NULL)
+! 	popup_highlight_curline(wp);
+  }
+  
+  /*
+--- 1655,1661 ----
+      void
+  f_popup_menu(typval_T *argvars, typval_T *rettv)
+  {
+!     popup_create(argvars, rettv, TYPE_MENU);
+  }
+  
+  /*
+***************
+*** 1858,1863 ****
+--- 1880,1886 ----
+      if (old_firstline != wp->w_firstline)
+  	redraw_win_later(wp, NOT_VALID);
+      popup_mask_refresh = TRUE;
++     popup_highlight_curline(wp);
+      popup_adjust_position(wp);
+  }
+  
+***************
+*** 2047,2052 ****
+--- 2070,2076 ----
+  	dict_add_string(dict, "title", wp->w_popup_title);
+  	dict_add_number(dict, "wrap", wp->w_p_wrap);
+  	dict_add_number(dict, "drag", wp->w_popup_drag);
++ 	dict_add_number(dict, "cursorline", (wp->w_popup_flags & POPF_CURSORLINE) != 0);
+  	dict_add_string(dict, "highlight", wp->w_p_wcr);
+  	if (wp->w_scrollbar_highlight != NULL)
+  	    dict_add_string(dict, "scrollbarhighlight",
+***************
+*** 2181,2186 ****
+--- 2205,2211 ----
+      int		dummy;
+      typval_T	argv[3];
+      char_u	buf[NUMBUFLEN];
++     linenr_T	old_lnum = wp->w_cursor.lnum;
+  
+      // Emergency exit: CTRL-C closes the popup.
+      if (c == Ctrl_C)
+***************
+*** 2205,2210 ****
+--- 2230,2238 ----
+      // NOTE: The callback might close the popup, thus make "wp" invalid.
+      call_callback(&wp->w_filter_cb, -1,
+  			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
++     if (old_lnum != wp->w_cursor.lnum)
++ 	popup_highlight_curline(wp);
++ 
+      res = tv_get_number(&rettv);
+      vim_free(argv[1].vval.v_string);
+      clear_tv(&rettv);
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_cursorline_1.dump	2019-07-18 13:44:51.670609463 +0200
+--- src/testdir/dumps/Test_popupwin_cursorline_1.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @34|1+0#0000001#ffd7ff255@2| +0#4040ff13#ffffff0@35
++ |~| @34|2+0#0000001#ffd7ff255@2| +0#4040ff13#ffffff0@35
++ |~| @34|3+0#0000001#ffd7ff255@2| +0#4040ff13#ffffff0@35
++ |~| @73
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_cursorline_2.dump	2019-07-18 13:44:51.674609443 +0200
+--- src/testdir/dumps/Test_popupwin_cursorline_2.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @34|1+0#0000001#e0e0e08@2| +0#4040ff13#ffffff0@35
++ |~| @34|2+0#0000001#ffd7ff255@2| +0#4040ff13#ffffff0@35
++ |~| @34|3+0#0000001#ffd7ff255@2| +0#4040ff13#ffffff0@35
++ |~| @73
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_cursorline_3.dump	2019-07-18 13:44:51.674609443 +0200
+--- src/testdir/dumps/Test_popupwin_cursorline_3.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |1@2| | +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |2@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|╚+0#0000001#ffd7ff255|═@5|╝| +0#4040ff13#ffffff0@32
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_cursorline_4.dump	2019-07-18 13:44:51.678609426 +0200
+--- src/testdir/dumps/Test_popupwin_cursorline_4.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |2@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |3@2| | +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|╚+0#0000001#ffd7ff255|═@5|╝| +0#4040ff13#ffffff0@32
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_cursorline_5.dump	2019-07-18 13:44:51.682609406 +0200
+--- src/testdir/dumps/Test_popupwin_cursorline_5.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |1+0&#e0e0e08@2| +0&#ffd7ff255| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |2@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|╚+0#0000001#ffd7ff255|═@5|╝| +0#4040ff13#ffffff0@32
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_cursorline_6.dump	2019-07-18 13:44:51.686609387 +0200
+--- src/testdir/dumps/Test_popupwin_cursorline_6.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |2@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |3+0&#e0e0e08@2| +0&#ffd7ff255| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|╚+0#0000001#ffd7ff255|═@5|╝| +0#4040ff13#ffffff0@32
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_menu_filter_1.dump	2019-07-18 13:44:51.690609369 +0200
+--- src/testdir/dumps/Test_popupwin_menu_filter_1.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |1@2| | +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |2+0&#e0e0e08@2| +0&#ffd7ff255| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |3@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|╚+0#0000001#ffd7ff255|═@5|╝| +0#4040ff13#ffffff0@32
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_menu_filter_2.dump	2019-07-18 13:44:51.694609350 +0200
+--- src/testdir/dumps/Test_popupwin_menu_filter_2.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |1+0&#e0e0e08@2| +0&#ffd7ff255| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |2@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |3@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|╚+0#0000001#ffd7ff255|═@5|╝| +0#4040ff13#ffffff0@32
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_menu_filter_3.dump	2019-07-18 13:44:51.698609332 +0200
+--- src/testdir/dumps/Test_popupwin_menu_filter_3.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |7@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |8@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |9+0&#e0e0e08@2| +0&#ffd7ff255| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|╚+0#0000001#ffd7ff255|═@5|╝| +0#4040ff13#ffffff0@32
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/dumps/Test_popupwin_menu_filter_4.dump	2019-07-18 13:44:51.702609313 +0200
+--- src/testdir/dumps/Test_popupwin_menu_filter_4.dump	2019-07-18 13:07:41.601932940 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @32|╔+0#0000001#ffd7ff255|═@5|╗| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |1+0&#e0e0e08@2| +0&#ffd7ff255| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |2@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|║+0#0000001#ffd7ff255| |3@2| | +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@32
++ |~| @32|╚+0#0000001#ffd7ff255|═@5|╝| +0#4040ff13#ffffff0@32
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1712/src/testdir/test_popupwin.vim	2019-07-17 21:37:28.576734130 +0200
+--- src/testdir/test_popupwin.vim	2019-07-18 13:07:41.605932942 +0200
+***************
+*** 1921,1924 ****
+--- 1921,2096 ----
+    call delete('XtestPopupMenuScroll')
+  endfunc
+  
++ func Test_popup_menu_filter()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let lines =<< trim END
++ 	function! MyFilter(winid, key) abort
++ 	  if a:key == "0"
++ 		call win_execute(a:winid, "call setpos('.', [0, 1, 1, 0])")
++ 		return 1
++ 	  endif
++ 	  if a:key == "G"
++ 		call win_execute(a:winid, "call setpos('.', [0, line('$'), 1, 0])")
++ 		return 1
++ 	  endif
++ 	  if a:key == "j"
++ 		call win_execute(a:winid, "call setpos('.', [0, line('.') + 1, 1, 0])")
++ 		return 1
++ 	  endif
++ 	  if a:key == "k"
++ 		call win_execute(a:winid, "call setpos('.', [0, line('.') - 1, 1, 0])")
++ 		return 1
++ 	  endif
++ 	  if a:key == 'x'
++ 		call popup_close(a:winid)
++ 		return 1
++ 	  endif
++ 	  return 0
++ 	endfunction
++ 	call popup_menu(['111', '222', '333', '444', '555', '666', '777', '888', '999'], #{
++ 	  \ maxheight : 3,
++ 	  \ filter : 'MyFilter'
++ 	  \ })
++   END
++   call writefile(lines, 'XtestPopupMenuFilter')
++   let buf = RunVimInTerminal('-S XtestPopupMenuFilter', #{rows: 10})
++ 
++   call term_sendkeys(buf, "j")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_filter_1', {})
++ 
++   call term_sendkeys(buf, "k")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_filter_2', {})
++ 
++   call term_sendkeys(buf, "G")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_filter_3', {})
++ 
++   call term_sendkeys(buf, "0")
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_filter_4', {})
++ 
++   call term_sendkeys(buf, "x")
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupMenuFilter')
++ endfunc
++ 
++ func Test_popup_cursorline()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let winid = popup_create('some text', {})
++   call assert_equal(0, popup_getoptions(winid).cursorline)
++   call popup_close(winid)
++ 
++   let winid = popup_create('some text', #{ cursorline: 1, })
++   call assert_equal(1, popup_getoptions(winid).cursorline)
++   call popup_close(winid)
++ 
++   let winid = popup_create('some text', #{ cursorline: 0, })
++   call assert_equal(0, popup_getoptions(winid).cursorline)
++   call popup_close(winid)
++ 
++   let winid = popup_menu('some text', {})
++   call assert_equal(1, popup_getoptions(winid).cursorline)
++   call popup_close(winid)
++ 
++   let winid = popup_menu('some text', #{ cursorline: 1, })
++   call assert_equal(1, popup_getoptions(winid).cursorline)
++   call popup_close(winid)
++ 
++   let winid = popup_menu('some text', #{ cursorline: 0, })
++   call assert_equal(0, popup_getoptions(winid).cursorline)
++   call popup_close(winid)
++ 
++   " ---------
++   " Pattern 1
++   " ---------
++   let lines =<< trim END
++ 	call popup_create(['111', '222', '333'], #{ cursorline : 0 })
++   END
++   call writefile(lines, 'XtestPopupCursorLine')
++   let buf = RunVimInTerminal('-S XtestPopupCursorLine', #{rows: 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_cursorline_1', {})
++   call term_sendkeys(buf, ":call popup_clear()\<cr>")
++   call StopVimInTerminal(buf)
++ 
++   " ---------
++   " Pattern 2
++   " ---------
++   let lines =<< trim END
++ 	call popup_create(['111', '222', '333'], #{ cursorline : 1 })
++   END
++   call writefile(lines, 'XtestPopupCursorLine')
++   let buf = RunVimInTerminal('-S XtestPopupCursorLine', #{rows: 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_cursorline_2', {})
++   call term_sendkeys(buf, ":call popup_clear()\<cr>")
++   call StopVimInTerminal(buf)
++ 
++   " ---------
++   " Pattern 3
++   " ---------
++   let lines =<< trim END
++ 	function! MyFilter(winid, key) abort
++ 	  if a:key == "j"
++ 		call win_execute(a:winid, "call setpos('.', [0, line('.') + 1, 1, 0]) | redraw")
++ 		return 1
++ 	  endif
++ 	  if a:key == 'x'
++ 		call popup_close(a:winid)
++ 		return 1
++ 	  endif
++ 	  return 0
++ 	endfunction
++ 	call popup_menu(['111', '222', '333'], #{
++ 	  \ cursorline : 0,
++ 	  \ maxheight : 2,
++ 	  \ filter : 'MyFilter',
++ 	  \ })
++   END
++   call writefile(lines, 'XtestPopupCursorLine')
++   let buf = RunVimInTerminal('-S XtestPopupCursorLine', #{rows: 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_cursorline_3', {})
++   call term_sendkeys(buf, "j")
++   call term_sendkeys(buf, "j")
++   call VerifyScreenDump(buf, 'Test_popupwin_cursorline_4', {})
++   call term_sendkeys(buf, "x")
++   call StopVimInTerminal(buf)
++ 
++   " ---------
++   " Pattern 4
++   " ---------
++   let lines =<< trim END
++ 	function! MyFilter(winid, key) abort
++ 	  if a:key == "j"
++ 		call win_execute(a:winid, "call setpos('.', [0, line('.') + 1, 1, 0]) | redraw")
++ 		return 1
++ 	  endif
++ 	  if a:key == 'x'
++ 		call popup_close(a:winid)
++ 		return 1
++ 	  endif
++ 	  return 0
++ 	endfunction
++ 	call popup_menu(['111', '222', '333'], #{
++ 	  \ cursorline : 1,
++ 	  \ maxheight : 2,
++ 	  \ filter : 'MyFilter',
++ 	  \ })
++   END
++   call writefile(lines, 'XtestPopupCursorLine')
++   let buf = RunVimInTerminal('-S XtestPopupCursorLine', #{rows: 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_cursorline_5', {})
++   call term_sendkeys(buf, "j")
++   call term_sendkeys(buf, "j")
++   call VerifyScreenDump(buf, 'Test_popupwin_cursorline_6', {})
++   call term_sendkeys(buf, "x")
++   call StopVimInTerminal(buf)
++ 
++   call delete('XtestPopupCursorLine')
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1712/src/vim.h	2019-06-30 22:16:06.931821750 +0200
+--- src/vim.h	2019-07-18 13:07:41.605932942 +0200
+***************
+*** 617,622 ****
+--- 617,623 ----
+  #define POPF_IS_POPUP	1	// this is a popup window
+  #define POPF_HIDDEN	2	// popup is not displayed
+  #define POPF_HANDLED	4	// popup was just redrawn or filtered
++ #define POPF_CURSORLINE	8	// popup is highlighting at the cursorline
+  #ifdef FEAT_TEXT_PROP
+  # define WIN_IS_POPUP(wp) ((wp)->w_popup_flags != 0)
+  #else
+*** ../vim-8.1.1712/src/version.c	2019-07-18 12:48:11.951123888 +0200
+--- src/version.c	2019-07-18 13:44:37.002677697 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1713,
+  /**/
+
+-- 
+A parent can be arrested if his child cannot hold back a burp during a church
+service.
+		[real standing law in Nebraska, United States of America]
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

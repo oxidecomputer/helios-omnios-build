@@ -1,0 +1,773 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1580
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1580
+Problem:    Cannot make part of a popup transparent.
+Solution:   Add the "mask" option.
+Files:	    runtime/doc/popup.txt, src/popupwin.c, src/screen.c,
+            src/structs.h, src/window.c, src/ui.c, src/vim.h, src/globals.h,
+            src/testdir/dumps/Test_popupwin_mask_1.dump,
+            src/testdir/dumps/Test_popupwin_mask_2.dump
+
+
+*** ../vim-8.1.1579/runtime/doc/popup.txt	2019-06-20 02:31:43.251893859 +0200
+--- runtime/doc/popup.txt	2019-06-22 23:59:12.673367124 +0200
+***************
+*** 112,118 ****
+    How to add highlighting?
+  - Implement:
+  	flip option
+- 	transparent area, to minimize covering text.  Define rectangles?
+  
+  ==============================================================================
+  2. Functions						*popup-functions*
+--- 112,117 ----
+***************
+*** 308,314 ****
+  				\ 'filter': 'popup_filter_menu',
+  				\ })
+  <		The current line is highlighted with a match using
+! 		PopupSelected, or |PmenuSel| if that is not defined.
+  
+  		Use {options} to change the properties.  Should at least set
+  		"callback" to a function that handles the selected item.
+--- 307,313 ----
+  				\ 'filter': 'popup_filter_menu',
+  				\ })
+  <		The current line is highlighted with a match using
+! 		"PopupSelected", or "PmenuSel" if that is not defined.
+  
+  		Use {options} to change the properties.  Should at least set
+  		"callback" to a function that handles the selected item.
+***************
+*** 372,377 ****
+--- 371,377 ----
+  			borderhighlight
+  			borderchars
+  			zindex
++ 			mask
+  			time
+  			moved
+  			filter
+***************
+*** 421,427 ****
+  POPUP_CREATE() ARGUMENTS				*popup_create-usage*
+  
+  The first argument of |popup_create()| (and the second argument to
+! |popup_setttext()|) specifies the text to be displayed, and optionally text
+  properties.  It is in one of three forms:
+  - a string
+  - a list of strings
+--- 421,427 ----
+  POPUP_CREATE() ARGUMENTS				*popup_create-usage*
+  
+  The first argument of |popup_create()| (and the second argument to
+! |popup_settext()|) specifies the text to be displayed, and optionally text
+  properties.  It is in one of three forms:
+  - a string
+  - a list of strings
+***************
+*** 478,484 ****
+  	hidden		When TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
+  			{not implemented yet}
+! 	tabpage		When -1: display the popup on all tabs.
+  			When 0 (the default): display the popup on the current
+  			tab page.
+  			Otherwise the number of the tab page the popup is
+--- 478,484 ----
+  	hidden		When TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
+  			{not implemented yet}
+! 	tabpage		When -1: display the popup on all tab pages.
+  			When 0 (the default): display the popup on the current
+  			tab page.
+  			Otherwise the number of the tab page the popup is
+***************
+*** 523,532 ****
+  			When the list has two characters the first is used for
+  			the border lines, the second for the corners.
+  			By default a double line is used all around when
+! 			'encoding' is "utf-8" and 'ambiwidth' is "single,
+  			otherwise ASCII characters are used.
+  	zindex		Priority for the popup, default 50.  Minimum value is
+  			1, maximum value is 32000.
+  	time		Time in milliseconds after which the popup will close.
+  			When omitted |popup_close()| must be used.
+  	moved		Specifies to close the popup if the cursor moved:
+--- 523,534 ----
+  			When the list has two characters the first is used for
+  			the border lines, the second for the corners.
+  			By default a double line is used all around when
+! 			'encoding' is "utf-8" and 'ambiwidth' is "single",
+  			otherwise ASCII characters are used.
+  	zindex		Priority for the popup, default 50.  Minimum value is
+  			1, maximum value is 32000.
++ 	mask		A list of lists with coordinates, defining parts of
++ 			the popup that are transparent.  See |popup-mask|.
+  	time		Time in milliseconds after which the popup will close.
+  			When omitted |popup_close()| must be used.
+  	moved		Specifies to close the popup if the cursor moved:
+***************
+*** 557,563 ****
+  - "lnum" is always the current line in the list
+  - "bufnr" is always the buffer of the popup
+  - "col" is in the Dict instead of a separate argument
+- - "transparent" is extra
+  So we get:
+  	col		starting column, counted in bytes, use one for the
+  			first column.
+--- 559,564 ----
+***************
+*** 570,579 ****
+  			used
+  	type		name of the text property type, as added with
+  			|prop_type_add()|
+- 	transparent	do not show these characters, show the text under it;
+- 			if there is a border character to the right or below
+- 			it will be made transparent as well
+- 			{not implemented yet}
+  
+  
+  POPUP FILTER						*popup-filter*
+--- 571,576 ----
+***************
+*** 632,637 ****
+--- 629,654 ----
+  If the popup is force-closed, e.g. because the cursor moved or CTRL-C was
+  pressed, the number -1 is passed to the callback.
+  
++ 
++ POPUP MASK						*popup-mask*
++ 
++ To minimize the text that the popup covers, parts of it can be made
++ transparent.  This is defined by a "mask" which is a list of lists, where each
++ list has four numbers:
++     col		start column, positive for counting from the left, 1 for
++ 		leftmost, negative for counting from the right, -1 for
++ 		rightmost
++     endcol	last column, like "col"
++     line	start line, positive for conting from the top, 1 for top,
++ 		negative for counting from the bottom, -1 for bottom
++     endline	end line, like "line"
++ 
++ For example, to make the last 10 columns of the last line transparent:
++ 	[[-10, -1, -1, -1]]
++ 
++ To make the four corners transparent:
++ 	[[1, 1, 1, 1], [-1, -1, 1, 1], [1, 1, -1, -1], [-1, -1, -1, -1]]
++ 
+  ==============================================================================
+  3. Examples						*popup-examples*
+  
+***************
+*** 653,659 ****
+  					*popup_menu-shortcut-example*
+  Extend popup_filter_menu() with shortcut keys: >
+  
+! 	call popup_menu('Save', 'Cancel', 'Discard'], {
+  		\ 'filter': 'MyMenuFilter',
+  		\ 'callback': 'MyMenuHandler',
+  		\ })
+--- 670,676 ----
+  					*popup_menu-shortcut-example*
+  Extend popup_filter_menu() with shortcut keys: >
+  
+! 	call popup_menu(['Save', 'Cancel', 'Discard'], {
+  		\ 'filter': 'MyMenuFilter',
+  		\ 'callback': 'MyMenuHandler',
+  		\ })
+*** ../vim-8.1.1579/src/popupwin.c	2019-06-20 03:45:31.171536943 +0200
+--- src/popupwin.c	2019-06-22 17:38:27.735835742 +0200
+***************
+*** 381,386 ****
+--- 381,418 ----
+  	    wp->w_zindex = 32000;
+      }
+  
++     di = dict_find(dict, (char_u *)"mask", -1);
++     if (di != NULL)
++     {
++ 	int ok = TRUE;
++ 
++ 	if (di->di_tv.v_type != VAR_LIST)
++ 	    ok = FALSE;
++ 	else if (di->di_tv.vval.v_list != NULL)
++ 	{
++ 	    listitem_T *li;
++ 
++ 	    for (li = di->di_tv.vval.v_list->lv_first; li != NULL;
++ 							      li = li->li_next)
++ 	    {
++ 		if (li->li_tv.v_type != VAR_LIST
++ 			|| li->li_tv.vval.v_list == NULL
++ 			|| li->li_tv.vval.v_list->lv_len != 4)
++ 		{
++ 		    ok = FALSE;
++ 		    break;
++ 		}
++ 	    }
++ 	}
++ 	if (ok)
++ 	{
++ 	    wp->w_popup_mask = di->di_tv.vval.v_list;
++ 	    ++wp->w_popup_mask->lv_refcount;
++ 	}
++ 	else
++ 	    semsg(_(e_invargval), "mask");
++     }
++ 
+  #if defined(FEAT_TIMERS)
+      // Add timer to close the popup after some time.
+      nr = dict_get_number(dict, (char_u *)"time");
+***************
+*** 1826,1831 ****
+--- 1858,1958 ----
+  }
+  
+  /*
++  * Return TRUE if "col" / "line" matches with an entry in w_popup_mask.
++  * "col" and "line" are screen coordinates.
++  */
++     static int
++ popup_masked(win_T *wp, int screencol, int screenline)
++ {
++     int		col = screencol - wp->w_wincol + 1;
++     int		line = screenline - wp->w_winrow + 1;
++     listitem_T	*lio, *li;
++     int		width, height;
++ 
++     if (wp->w_popup_mask == NULL)
++ 	return FALSE;
++     width = popup_width(wp);
++     height = popup_height(wp);
++ 
++     for (lio = wp->w_popup_mask->lv_first; lio != NULL; lio = lio->li_next)
++     {
++ 	int cols, cole;
++ 	int lines, linee;
++ 
++ 	li = lio->li_tv.vval.v_list->lv_first;
++ 	cols = tv_get_number(&li->li_tv);
++ 	if (cols < 0)
++ 	    cols = width + cols + 1;
++ 	if (col < cols)
++ 	    continue;
++ 	li = li->li_next;
++ 	cole = tv_get_number(&li->li_tv);
++ 	if (cole < 0)
++ 	    cole = width + cole + 1;
++ 	if (col > cole)
++ 	    continue;
++ 	li = li->li_next;
++ 	lines = tv_get_number(&li->li_tv);
++ 	if (lines < 0)
++ 	    lines = height + lines + 1;
++ 	if (line < lines)
++ 	    continue;
++ 	li = li->li_next;
++ 	linee = tv_get_number(&li->li_tv);
++ 	if (linee < 0)
++ 	    linee = height + linee + 1;
++ 	if (line > linee)
++ 	    continue;
++ 	return TRUE;
++     }
++     return FALSE;
++ }
++ 
++ /*
++  * Set flags in popup_transparent[] for window "wp" to "val".
++  */
++     static void
++ update_popup_transparent(win_T *wp, int val)
++ {
++     if (wp->w_popup_mask != NULL)
++     {
++ 	int		width = popup_width(wp);
++ 	int		height = popup_height(wp);
++ 	listitem_T	*lio, *li;
++ 	int		cols, cole;
++ 	int		lines, linee;
++ 	int		col, line;
++ 
++ 	for (lio = wp->w_popup_mask->lv_first; lio != NULL; lio = lio->li_next)
++ 	{
++ 	    li = lio->li_tv.vval.v_list->lv_first;
++ 	    cols = tv_get_number(&li->li_tv);
++ 	    if (cols < 0)
++ 		cols = width + cols + 1;
++ 	    li = li->li_next;
++ 	    cole = tv_get_number(&li->li_tv);
++ 	    if (cole < 0)
++ 		cole = width + cole + 1;
++ 	    li = li->li_next;
++ 	    lines = tv_get_number(&li->li_tv);
++ 	    if (lines < 0)
++ 		lines = height + lines + 1;
++ 	    li = li->li_next;
++ 	    linee = tv_get_number(&li->li_tv);
++ 	    if (linee < 0)
++ 		linee = height + linee + 1;
++ 
++ 	    --cols;
++ 	    --lines;
++ 	    for (line = lines; line < linee && line < screen_Rows; ++line)
++ 		for (col = cols; col < cole && col < screen_Columns; ++col)
++ 		    popup_transparent[(line + wp->w_winrow) * screen_Columns
++ 						   + col + wp->w_wincol] = val;
++ 	}
++     }
++ }
++ 
++ /*
+   * Update "popup_mask" if needed.
+   * Also recomputes the popup size and positions.
+   * Also updates "popup_visible".
+***************
+*** 1880,1885 ****
+--- 2007,2015 ----
+      popup_reset_handled();
+      while ((wp = find_next_popup(TRUE)) != NULL)
+      {
++ 	int height = popup_height(wp);
++ 	int width = popup_width(wp);
++ 
+  	popup_visible = TRUE;
+  
+  	// Recompute the position if the text changed.
+***************
+*** 1888,1899 ****
+  	    popup_adjust_position(wp);
+  
+  	for (line = wp->w_winrow;
+! 		line < wp->w_winrow + popup_height(wp)
+! 						 && line < screen_Rows; ++line)
+  	    for (col = wp->w_wincol;
+! 		 col < wp->w_wincol + popup_width(wp)
+! 						&& col < screen_Columns; ++col)
+! 		mask[line * screen_Columns + col] = wp->w_zindex;
+      }
+  
+      // Only check which lines are to be updated if not already
+--- 2018,2028 ----
+  	    popup_adjust_position(wp);
+  
+  	for (line = wp->w_winrow;
+! 		line < wp->w_winrow + height && line < screen_Rows; ++line)
+  	    for (col = wp->w_wincol;
+! 		 col < wp->w_wincol + width && col < screen_Columns; ++col)
+! 		if (!popup_masked(wp, col, line))
+! 		    mask[line * screen_Columns + col] = wp->w_zindex;
+      }
+  
+      // Only check which lines are to be updated if not already
+***************
+*** 1995,2000 ****
+--- 2124,2132 ----
+  	// zindex is on top of the character.
+  	screen_zindex = wp->w_zindex;
+  
++ 	// Set flags in popup_transparent[] for masked cells.
++ 	update_popup_transparent(wp, 1);
++ 
+  	// adjust w_winrow and w_wincol for border and padding, since
+  	// win_update() doesn't handle them.
+  	top_off = popup_top_extra(wp);
+***************
+*** 2135,2140 ****
+--- 2267,2274 ----
+  	    }
+  	}
+  
++ 	update_popup_transparent(wp, 0);
++ 
+  	// Back to the normal zindex.
+  	screen_zindex = 0;
+      }
+***************
+*** 2161,2166 ****
+--- 2295,2305 ----
+  	tv.vval.v_partial = wp->w_filter_cb.cb_partial;
+  	abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL);
+      }
++     if (wp->w_popup_mask != NULL && wp->w_popup_mask->lv_copyID != copyID)
++     {
++ 	wp->w_popup_mask->lv_copyID = copyID;
++ 	abort = abort || set_ref_in_list(wp->w_popup_mask, copyID, NULL);
++     }
+      return abort;
+  }
+  
+*** ../vim-8.1.1579/src/screen.c	2019-06-19 18:01:11.559716659 +0200
+--- src/screen.c	2019-06-22 17:21:41.439663570 +0200
+***************
+*** 6265,6270 ****
+--- 6265,6287 ----
+  }
+  #endif
+  
++ #ifdef FEAT_TEXT_PROP
++ /*
++  * Return TRUE if this position has a higher level popup or this cell is
++  * transparent in the current popup.
++  */
++     static int
++ blocked_by_popup(int row, int col)
++ {
++     int off;
++ 
++     if (!popup_visible)
++ 	return FALSE;
++     off = row * screen_Columns + col;
++     return popup_mask[off] > screen_zindex || popup_transparent[off];
++ }
++ #endif
++ 
+  /*
+   * Move one "cooked" screen line to the screen, but only the characters that
+   * have actually changed.  Handle insert/delete character.
+***************
+*** 6371,6381 ****
+  	}
+  #endif
+  #ifdef FEAT_TEXT_PROP
+! 	// Skip if under a(nother) popup.
+! 	if (popup_mask[row * screen_Columns + col + coloff] > screen_zindex)
+  	    redraw_this = FALSE;
+  #endif
+- 
+  	if (redraw_this)
+  	{
+  	    /*
+--- 6388,6396 ----
+  	}
+  #endif
+  #ifdef FEAT_TEXT_PROP
+! 	if (blocked_by_popup(row, col + coloff))
+  	    redraw_this = FALSE;
+  #endif
+  	if (redraw_this)
+  	{
+  	    /*
+***************
+*** 6627,6634 ****
+  	if (coloff + col < Columns)
+  	{
+  #ifdef FEAT_TEXT_PROP
+! 	    if (popup_mask[row * screen_Columns + col + coloff]
+! 							     <= screen_zindex)
+  #endif
+  	    {
+  		int c;
+--- 6642,6648 ----
+  	if (coloff + col < Columns)
+  	{
+  #ifdef FEAT_TEXT_PROP
+! 	    if (!blocked_by_popup(row, col + coloff))
+  #endif
+  	    {
+  		int c;
+***************
+*** 7721,7727 ****
+  
+  	if ((need_redraw || force_redraw_this)
+  #ifdef FEAT_TEXT_PROP
+! 		&& popup_mask[row * screen_Columns + col] <= screen_zindex
+  #endif
+  	   )
+  	{
+--- 7735,7741 ----
+  
+  	if ((need_redraw || force_redraw_this)
+  #ifdef FEAT_TEXT_PROP
+! 		&& !blocked_by_popup(row, col)
+  #endif
+  	   )
+  	{
+***************
+*** 8490,8497 ****
+  	return;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+!     // Skip if under a(nother) popup.
+!     if (popup_mask[row * screen_Columns + col] > screen_zindex)
+  	return;
+  #endif
+  
+--- 8504,8510 ----
+  	return;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+!     if (blocked_by_popup(row, col))
+  	return;
+  #endif
+  
+***************
+*** 8679,8701 ****
+   */
+      void
+  screen_fill(
+!     int	    start_row,
+!     int	    end_row,
+!     int	    start_col,
+!     int	    end_col,
+!     int	    c1,
+!     int	    c2,
+!     int	    attr)
+! {
+!     int		    row;
+!     int		    col;
+!     int		    off;
+!     int		    end_off;
+!     int		    did_delete;
+!     int		    c;
+!     int		    norm_term;
+  #if defined(FEAT_GUI) || defined(UNIX)
+!     int		    force_next = FALSE;
+  #endif
+  
+      if (end_row > screen_Rows)		/* safety check */
+--- 8692,8714 ----
+   */
+      void
+  screen_fill(
+! 	int	start_row,
+! 	int	end_row,
+! 	int	start_col,
+! 	int	end_col,
+! 	int	c1,
+! 	int	c2,
+! 	int	attr)
+! {
+!     int	    row;
+!     int	    col;
+!     int	    off;
+!     int	    end_off;
+!     int	    did_delete;
+!     int	    c;
+!     int	    norm_term;
+  #if defined(FEAT_GUI) || defined(UNIX)
+!     int	    force_next = FALSE;
+  #endif
+  
+      if (end_row > screen_Rows)		/* safety check */
+***************
+*** 8794,8800 ****
+  		    )
+  #ifdef FEAT_TEXT_PROP
+  		    // Skip if under a(nother) popup.
+! 		    && popup_mask[row * screen_Columns + col] <= screen_zindex
+  #endif
+  	       )
+  	    {
+--- 8807,8813 ----
+  		    )
+  #ifdef FEAT_TEXT_PROP
+  		    // Skip if under a(nother) popup.
+! 		    && !blocked_by_popup(row, col)
+  #endif
+  	       )
+  	    {
+***************
+*** 8936,8941 ****
+--- 8949,8955 ----
+  #ifdef FEAT_TEXT_PROP
+      short	    *new_popup_mask;
+      short	    *new_popup_mask_next;
++     char	    *new_popup_transparent;
+  #endif
+      tabpage_T	    *tp;
+      static int	    entered = FALSE;		/* avoid recursiveness */
+***************
+*** 9021,9026 ****
+--- 9035,9041 ----
+  #ifdef FEAT_TEXT_PROP
+      new_popup_mask = LALLOC_MULT(short, Rows * Columns);
+      new_popup_mask_next = LALLOC_MULT(short, Rows * Columns);
++     new_popup_transparent = LALLOC_MULT(char, Rows * Columns);
+  #endif
+  
+      FOR_ALL_TAB_WINDOWS(tp, wp)
+***************
+*** 9067,9072 ****
+--- 9082,9088 ----
+  #ifdef FEAT_TEXT_PROP
+  	    || new_popup_mask == NULL
+  	    || new_popup_mask_next == NULL
++ 	    || new_popup_transparent == NULL
+  #endif
+  	    || outofmem)
+      {
+***************
+*** 9091,9096 ****
+--- 9107,9113 ----
+  #ifdef FEAT_TEXT_PROP
+  	VIM_CLEAR(new_popup_mask);
+  	VIM_CLEAR(new_popup_mask_next);
++ 	VIM_CLEAR(new_popup_transparent);
+  #endif
+      }
+      else
+***************
+*** 9180,9187 ****
+      TabPageIdxs = new_TabPageIdxs;
+  #ifdef FEAT_TEXT_PROP
+      popup_mask = new_popup_mask;
+-     popup_mask_next = new_popup_mask_next;
+      vim_memset(popup_mask, 0, Rows * Columns * sizeof(short));
+      popup_mask_refresh = TRUE;
+  #endif
+  
+--- 9197,9206 ----
+      TabPageIdxs = new_TabPageIdxs;
+  #ifdef FEAT_TEXT_PROP
+      popup_mask = new_popup_mask;
+      vim_memset(popup_mask, 0, Rows * Columns * sizeof(short));
++     popup_mask_next = new_popup_mask_next;
++     popup_transparent = new_popup_transparent;
++     vim_memset(popup_transparent, 0, Rows * Columns * sizeof(char));
+      popup_mask_refresh = TRUE;
+  #endif
+  
+***************
+*** 9250,9255 ****
+--- 9269,9275 ----
+  #ifdef FEAT_TEXT_PROP
+      VIM_CLEAR(popup_mask);
+      VIM_CLEAR(popup_mask_next);
++     VIM_CLEAR(popup_transparent);
+  #endif
+  }
+  
+*** ../vim-8.1.1579/src/structs.h	2019-06-16 20:08:52.585130260 +0200
+--- src/structs.h	2019-06-22 02:56:54.892000562 +0200
+***************
+*** 2916,2921 ****
+--- 2916,2922 ----
+      colnr_T	w_popup_mincol;	    // close popup if cursor before this col
+      colnr_T	w_popup_maxcol;	    // close popup if cursor after this col
+      int		w_popup_drag;	    // allow moving the popup with the mouse
++     list_T	*w_popup_mask;	    // list of lists for "mask"
+  
+  # if defined(FEAT_TIMERS)
+      timer_T	*w_popup_timer;	    // timer for closing popup window
+*** ../vim-8.1.1579/src/window.c	2019-06-16 20:08:52.585130260 +0200
+--- src/window.c	2019-06-22 03:47:57.652007159 +0200
+***************
+*** 4858,4863 ****
+--- 4858,4864 ----
+      for (i = 0; i < 4; ++i)
+  	VIM_CLEAR(wp->w_border_highlight[i]);
+      vim_free(wp->w_popup_title);
++     list_unref(wp->w_popup_mask);
+  #endif
+  
+  #ifdef FEAT_SYN_HL
+*** ../vim-8.1.1579/src/ui.c	2019-06-21 00:12:25.688049606 +0200
+--- src/ui.c	2019-06-22 03:41:03.425608944 +0200
+***************
+*** 1498,1504 ****
+  
+  #ifdef FEAT_TEXT_PROP
+      // this goes on top of all popup windows
+!     screen_zindex = 32000;
+  
+      if (col < cbd->min_col)
+      {
+--- 1498,1504 ----
+  
+  #ifdef FEAT_TEXT_PROP
+      // this goes on top of all popup windows
+!     screen_zindex = CLIP_ZINDEX;
+  
+      if (col < cbd->min_col)
+      {
+*** ../vim-8.1.1579/src/vim.h	2019-06-15 17:12:01.573914970 +0200
+--- src/vim.h	2019-06-22 03:41:29.801506652 +0200
+***************
+*** 2602,2605 ****
+--- 2602,2607 ----
+  #define APC_SAVE_FOR_UNDO	1   // call u_savesub() before making changes
+  #define APC_SUBSTITUTE		2   // text is replaced, not inserted
+  
++ #define CLIP_ZINDEX 32000
++ 
+  #endif /* VIM__H */
+*** ../vim-8.1.1579/src/globals.h	2019-06-15 21:46:25.948960483 +0200
+--- src/globals.h	2019-06-22 15:46:21.905775039 +0200
+***************
+*** 74,79 ****
+--- 74,81 ----
+  // Array with size Rows x Columns containing zindex of popups.
+  EXTERN short	*popup_mask INIT(= NULL);
+  EXTERN short	*popup_mask_next INIT(= NULL);
++ // Array with flags for tansparent cells of current popup.
++ EXTERN char	*popup_transparent INIT(= NULL);
+  
+  // Flag set to TRUE when popup_mask needs to be updated.
+  EXTERN int	popup_mask_refresh INIT(= TRUE);
+***************
+*** 1681,1685 ****
+--- 1683,1689 ----
+  
+  #ifdef FEAT_TEXT_PROP
+  EXTERN int text_prop_frozen INIT(= 0);
++ 
++ // Set to TRUE if there is any visible popup.
+  EXTERN int popup_visible INIT(= FALSE);
+  #endif
+*** ../vim-8.1.1579/src/testdir/dumps/Test_popupwin_mask_1.dump	2019-06-23 00:11:37.530355941 +0200
+--- src/testdir/dumps/Test_popupwin_mask_1.dump	2019-06-23 00:06:12.179663682 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08@12|1+0&#ffffff0|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9| +0&#e0e0e08|s|o|m|e| |1+0&#ffffff0|3|x+0#0000001#ffd7ff255|t+0#0000000#e0e0e08| @3|x+0#0000001#ffd7ff255@2|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9| +0&#e0e0e08|0+0&#ffffff0|1@1|t+0&#e0e0e08|h|1+0&#ffffff0|3|y+0#0000001#ffd7ff255|l+0#0000000#e0e0e08|i|n|e| |y+0#0000001#ffd7ff255@2|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9| +0&#e0e0e08@8|4+0&#ffffff0|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1579/src/testdir/dumps/Test_popupwin_mask_2.dump	2019-06-23 00:11:37.530355941 +0200
+--- src/testdir/dumps/Test_popupwin_mask_2.dump	2019-06-23 00:06:13.235659424 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1|0| +0&#e0e0e08@12|x+0#0000001#ffd7ff255@1|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08|s|o|m|e| |3+0&#ffffff0|y+0#0000001#ffd7ff255@1|t+0#0000000#e0e0e08| @3|y+0#0000001#ffd7ff255@1|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08|1+0&#ffffff0@2|t+0&#e0e0e08|h|3+0&#ffffff0|1|4|l+0&#e0e0e08|i|n|e| |7+0&#ffffff0|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08@8|1+0&#ffffff0|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
++ |:|c|a|l@1| |p|o|p|u|p|_|m|o|v|e|(|w|i|n|i|d|,| |{|'|c|o|l|'|:| |1@1|,| |'|l|i|n|e|'|:| |3|}|)| @9|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1579/src/version.c	2019-06-22 01:40:38.173537408 +0200
+--- src/version.c	2019-06-23 00:08:02.883217821 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1580,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+254. You wake up daily with your keyboard printed on your forehead.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,130 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1760
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1760
+Problem:    Extra line break for wrapping output of :args.
+Solution:   Avoid the extra line break. (Daniel Hahler, closes #4737)
+Files:	    src/version.c, src/testdir/test_arglist.vim
+
+
+*** ../vim-8.1.1759/src/version.c	2019-07-27 21:05:16.683942730 +0200
+--- src/version.c	2019-07-27 21:23:19.289301370 +0200
+***************
+*** 4418,4428 ****
+  
+      if (Columns < width)
+      {
+! 	/* Not enough screen columns - show one per line */
+  	for (i = 0; i < item_count; ++i)
+  	{
+  	    version_msg_wrap(items[i], i == current);
+! 	    if (msg_col > 0)
+  		msg_putchar('\n');
+  	}
+  	return;
+--- 4420,4430 ----
+  
+      if (Columns < width)
+      {
+! 	// Not enough screen columns - show one per line
+  	for (i = 0; i < item_count; ++i)
+  	{
+  	    version_msg_wrap(items[i], i == current);
+! 	    if (msg_col > 0 && i < item_count - 1)
+  		msg_putchar('\n');
+  	}
+  	return;
+***************
+*** 4433,4439 ****
+      ncol = (int) (Columns + 1) / width;
+      nrow = item_count / ncol + (item_count % ncol ? 1 : 0);
+  
+!     // "i" counts columns then rows.  idx counts rows then columns.
+      for (i = 0; !got_int && i < nrow * ncol; ++i)
+      {
+  	int idx = (i / ncol) + (i % ncol) * nrow;
+--- 4435,4441 ----
+      ncol = (int) (Columns + 1) / width;
+      nrow = item_count / ncol + (item_count % ncol ? 1 : 0);
+  
+!     // "i" counts columns then rows.  "idx" counts rows then columns.
+      for (i = 0; !got_int && i < nrow * ncol; ++i)
+      {
+  	int idx = (i / ncol) + (i % ncol) * nrow;
+***************
+*** 4467,4475 ****
+  	else
+  	{
+  	    // this row is out of items, thus at the end of the row
+! 	    if (msg_col > 0 && cur_row < nrow)
+! 		msg_putchar('\n');
+! 	    ++cur_row;
+  	}
+      }
+  }
+--- 4469,4480 ----
+  	else
+  	{
+  	    // this row is out of items, thus at the end of the row
+! 	    if (msg_col > 0)
+! 	    {
+! 		if (cur_row < nrow)
+! 		    msg_putchar('\n');
+! 		++cur_row;
+! 	    }
+  	}
+      }
+  }
+*** ../vim-8.1.1759/src/testdir/test_arglist.vim	2019-07-23 23:00:04.863109796 +0200
+--- src/testdir/test_arglist.vim	2019-07-27 21:21:28.257465068 +0200
+***************
+*** 169,174 ****
+--- 169,193 ----
+  
+    let &hidden = save_hidden
+  
++   let save_columns = &columns
++   let &columns = 79
++   exe 'args ' .. join(range(1, 81))
++   call assert_equal(join([
++         \ '',
++         \ '[1] 6   11  16  21  26  31  36  41  46  51  56  61  66  71  76  81  ',
++         \ '2   7   12  17  22  27  32  37  42  47  52  57  62  67  72  77  ',
++         \ '3   8   13  18  23  28  33  38  43  48  53  58  63  68  73  78  ',
++         \ '4   9   14  19  24  29  34  39  44  49  54  59  64  69  74  79  ',
++         \ '5   10  15  20  25  30  35  40  45  50  55  60  65  70  75  80  ',
++         \ ], "\n"),
++         \ execute('args'))
++ 
++   " No trailing newline with one item per row.
++   let long_arg = repeat('X', 81)
++   exe 'args ' .. long_arg
++   call assert_equal("\n[".long_arg.']', execute('args'))
++   let &columns = save_columns
++ 
+    " Setting argument list should fail when the current buffer has unsaved
+    " changes
+    %argd
+*** ../vim-8.1.1759/src/version.c	2019-07-27 21:05:16.683942730 +0200
+--- src/version.c	2019-07-27 21:23:19.289301370 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1760,
+  /**/
+
+-- 
+This computer is so slow, it takes forever to execute and endless loop!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

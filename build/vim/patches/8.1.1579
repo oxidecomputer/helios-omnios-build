@@ -1,0 +1,194 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1579
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1579
+Problem:    Dict and list could be GC'ed while displaying error in a timer.
+            (Yasuhiro Matsumoto)
+Solution:   Block garbage collection when executing a timer.  Add
+            test_garbagecollect_soon(). Add "no_wait_return" to
+            test_override(). (closes #4571)
+Files:      src/dict.c, src/testdir/test_timers.vim, src/evalfunc.c,
+            runtime/doc/eval.txt
+
+
+*** ../vim-8.1.1578/src/dict.c	2019-06-16 22:54:10.649908500 +0200
+--- src/dict.c	2019-06-22 01:35:50.826315228 +0200
+***************
+*** 28,34 ****
+  {
+      dict_T *d;
+  
+!     d = ALLOC_ONE(dict_T);
+      if (d != NULL)
+      {
+  	/* Add the dict to the list of dicts for garbage collection. */
+--- 28,34 ----
+  {
+      dict_T *d;
+  
+!     d = ALLOC_CLEAR_ONE(dict_T);
+      if (d != NULL)
+      {
+  	/* Add the dict to the list of dicts for garbage collection. */
+***************
+*** 811,817 ****
+      {
+  	semsg(_("E723: Missing end of Dictionary '}': %s"), *arg);
+  failret:
+! 	if (evaluate)
+  	    dict_free(d);
+  	return FAIL;
+      }
+--- 811,817 ----
+      {
+  	semsg(_("E723: Missing end of Dictionary '}': %s"), *arg);
+  failret:
+! 	if (d != NULL)
+  	    dict_free(d);
+  	return FAIL;
+      }
+*** ../vim-8.1.1578/src/testdir/test_timers.vim	2019-06-15 17:57:43.976724009 +0200
+--- src/testdir/test_timers.vim	2019-06-22 01:34:47.866460866 +0200
+***************
+*** 309,312 ****
+--- 309,336 ----
+    call delete('Xtrctext')
+  endfunc
+  
++ " Test that the garbage collector isn't triggered if a timer callback invokes
++ " vgetc().
++ func Test_nocatch_garbage_collect()
++   " 'uptimetime. must be bigger than the timer timeout
++   set ut=200
++   call test_garbagecollect_soon()
++   call test_override('no_wait_return', 0)
++   func CauseAnError(id)
++     " This will show an error and wait for Enter.
++     let a = {'foo', 'bar'}
++   endfunc
++   func FeedChar(id)
++     call feedkeys('x', 't')
++   endfunc
++   call timer_start(300, 'FeedChar')
++   call timer_start(100, 'CauseAnError')
++   let x = getchar()
++ 
++   set ut&
++   call test_override('no_wait_return', 1)
++   delfunc CauseAnError
++   delfunc FeedChar
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1578/src/evalfunc.c	2019-06-18 22:53:19.014129858 +0200
+--- src/evalfunc.c	2019-06-22 01:36:06.226278002 +0200
+***************
+*** 448,453 ****
+--- 448,454 ----
+  static void f_test_override(typval_T *argvars, typval_T *rettv);
+  static void f_test_refcount(typval_T *argvars, typval_T *rettv);
+  static void f_test_garbagecollect_now(typval_T *argvars, typval_T *rettv);
++ static void f_test_garbagecollect_soon(typval_T *argvars, typval_T *rettv);
+  static void f_test_ignore_error(typval_T *argvars, typval_T *rettv);
+  static void f_test_null_blob(typval_T *argvars, typval_T *rettv);
+  #ifdef FEAT_JOB_CHANNEL
+***************
+*** 1019,1024 ****
+--- 1020,1026 ----
+      {"test_autochdir",	0, 0, f_test_autochdir},
+      {"test_feedinput",	1, 1, f_test_feedinput},
+      {"test_garbagecollect_now",	0, 0, f_test_garbagecollect_now},
++     {"test_garbagecollect_soon",	0, 0, f_test_garbagecollect_soon},
+      {"test_getvalue",	1, 1, f_test_getvalue},
+      {"test_ignore_error",	1, 1, f_test_ignore_error},
+      {"test_null_blob",	0, 0, f_test_null_blob},
+***************
+*** 14460,14465 ****
+--- 14462,14469 ----
+  	    nfa_fail_for_testing = val;
+  	else if (STRCMP(name, (char_u *)"no_query_mouse") == 0)
+  	    no_query_mouse_for_testing = val;
++ 	else if (STRCMP(name, (char_u *)"no_wait_return") == 0)
++ 	    no_wait_return = val;
+  	else if (STRCMP(name, (char_u *)"ALL") == 0)
+  	{
+  	    disable_char_avail_for_testing = FALSE;
+***************
+*** 14551,14556 ****
+--- 14555,14569 ----
+  }
+  
+  /*
++  * "test_garbagecollect_soon()" function
++  */
++     static void
++ f_test_garbagecollect_soon(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
++ {
++     may_garbage_collect = TRUE;
++ }
++ 
++ /*
+   * "test_ignore_error()" function
+   */
+      static void
+*** ../vim-8.1.1578/runtime/doc/eval.txt	2019-06-17 22:19:09.360785869 +0200
+--- runtime/doc/eval.txt	2019-06-22 00:21:11.659461398 +0200
+***************
+*** 2740,2745 ****
+--- 2741,2747 ----
+  test_autochdir()		none	enable 'autochdir' during startup
+  test_feedinput({string})	none	add key sequence to input buffer
+  test_garbagecollect_now()	none	free memory right now for testing
++ test_garbagecollect_soon()	none	free memory soon for testing
+  test_getvalue({string})		any	get value of an internal variable
+  test_ignore_error({expr})	none	ignore a specific error
+  test_null_blob()		Blob	null value for testing
+***************
+*** 10009,10014 ****
+--- 10010,10019 ----
+  		internally, and |v:testing| must have been set before calling
+  		any function.
+  
++ test_garbagecollect_soon()			 *test_garbagecollect_soon()*
++ 		Set the flag to call the garbagecollector as if in the main
++ 		loop.  Only to be used in tests.
++ 
+  test_getvalue({name})					*test_getvalue()*
+  		Get the value of an internal variable.  These values for
+  		{name} are supported:
+***************
+*** 10072,10077 ****
+--- 10077,10084 ----
+  			     fallback to the old engine
+  		no_query_mouse  do not query the mouse position for "dec"
+  				terminals
++ 		no_wait_return	set the "no_wait_return" flag.  Not restored
++ 				with "ALL".
+  		ALL	     clear all overrides ({val} is not used)
+  
+  		"starting" is to be used when a test should behave like
+*** ../vim-8.1.1578/src/version.c	2019-06-21 17:36:03.918009937 +0200
+--- src/version.c	2019-06-22 01:39:22.313757778 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1579,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+250. You've given up the search for the "perfect woman" and instead,
+     sit in front of the PC until you're just too tired to care.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

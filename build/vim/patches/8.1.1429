@@ -1,0 +1,532 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1429
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1429
+Problem:    "pos" option of popup window not supported yet.
+Solution:   Implement the option. Rename popup_getposition() to
+            popup_getpos().
+Files:	    src/structs.h, src/popupwin.c, src/proto/popupwin.pro,
+            runtime/doc/popup.txt
+
+
+*** ../vim-8.1.1428/src/structs.h	2019-05-30 00:11:48.704086357 +0200
+--- src/structs.h	2019-05-30 19:48:48.436658475 +0200
+***************
+*** 1982,1987 ****
+--- 1982,1996 ----
+  //  # define CRYPT_NOT_INPLACE 1
+  #endif
+  
++ #ifdef FEAT_TEXT_PROP
++ typedef enum {
++     POPPOS_BOTLEFT,
++     POPPOS_TOPLEFT,
++     POPPOS_BOTRIGHT,
++     POPPOS_TOPRIGHT,
++     POPPOS_CENTER
++ } poppos_T;
++ #endif
+  
+  /*
+   * These are items normally related to a buffer.  But when using ":ownsyntax"
+***************
+*** 2873,2879 ****
+      int		w_vsep_width;	    /* Number of separator columns (0 or 1). */
+      pos_save_T	w_save_cursor;	    /* backup of cursor pos and topline */
+  #ifdef FEAT_TEXT_PROP
+!     int		w_popup_flags;	    // PFL_ values
+      int		w_zindex;
+      int		w_minheight;	    // "minheight" for popup window
+      int		w_minwidth;	    // "minwidth" for popup window
+--- 2882,2889 ----
+      int		w_vsep_width;	    /* Number of separator columns (0 or 1). */
+      pos_save_T	w_save_cursor;	    /* backup of cursor pos and topline */
+  #ifdef FEAT_TEXT_PROP
+!     int		w_popup_flags;	    // POPF_ values
+!     poppos_T	w_popup_pos;
+      int		w_zindex;
+      int		w_minheight;	    // "minheight" for popup window
+      int		w_minwidth;	    // "minwidth" for popup window
+*** ../vim-8.1.1428/src/popupwin.c	2019-05-30 19:24:57.615269014 +0200
+--- src/popupwin.c	2019-05-30 21:18:23.603081264 +0200
+***************
+*** 15,26 ****
+  
+  #ifdef FEAT_TEXT_PROP
+  
+  /*
+   * Get option value for"key", which is "line" or "col".
+   * Handles "cursor+N" and "cursor-N".
+   */
+      static int
+! popup_options_pos(dict_T *dict, char_u *key)
+  {
+      dictitem_T	*di;
+      char_u	*val;
+--- 15,39 ----
+  
+  #ifdef FEAT_TEXT_PROP
+  
++ typedef struct {
++     char	*pp_name;
++     poppos_T	pp_val;
++ } poppos_entry_T;
++ 
++ static poppos_entry_T poppos_entries[] = {
++     {"botleft", POPPOS_BOTLEFT},
++     {"topleft", POPPOS_TOPLEFT},
++     {"botright", POPPOS_BOTRIGHT},
++     {"topright", POPPOS_TOPRIGHT},
++     {"center", POPPOS_CENTER}
++ };
++ 
+  /*
+   * Get option value for"key", which is "line" or "col".
+   * Handles "cursor+N" and "cursor-N".
+   */
+      static int
+! popup_options_one(dict_T *dict, char_u *key)
+  {
+      dictitem_T	*di;
+      char_u	*val;
+***************
+*** 58,63 ****
+--- 71,106 ----
+      return n;
+  }
+  
++     static void
++ get_pos_options(win_T *wp, dict_T *dict)
++ {
++     char_u	*str;
++     int		nr;
++ 
++     nr = popup_options_one(dict, (char_u *)"line");
++     if (nr > 0)
++ 	wp->w_wantline = nr;
++     nr = popup_options_one(dict, (char_u *)"col");
++     if (nr > 0)
++ 	wp->w_wantcol = nr;
++ 
++     str = dict_get_string(dict, (char_u *)"pos", FALSE);
++     if (str != NULL)
++     {
++ 	for (nr = 0;
++ 		nr < (int)(sizeof(poppos_entries) / sizeof(poppos_entry_T));
++ 									  ++nr)
++ 	    if (STRCMP(str, poppos_entries[nr].pp_name) == 0)
++ 	    {
++ 		wp->w_popup_pos = poppos_entries[nr].pp_val;
++ 		nr = -1;
++ 		break;
++ 	    }
++ 	if (nr != -1)
++ 	    semsg(_(e_invarg2), str);
++     }
++ }
++ 
+  /*
+   * Go through the options in "dict" and apply them to buffer "buf" displayed in
+   * popup window "wp".
+***************
+*** 66,72 ****
+--- 109,117 ----
+      static void
+  apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict, int atcursor)
+  {
++ #if defined(FEAT_TIMERS)
+      int	    nr;
++ #endif
+      char_u  *str;
+  
+      wp->w_minwidth = dict_get_number(dict, (char_u *)"minwidth");
+***************
+*** 76,92 ****
+  
+      if (atcursor)
+      {
+  	setcursor_mayforce(TRUE);
+  	wp->w_wantline = screen_screenrow();
+  	wp->w_wantcol = screen_screencol() + 1;
+      }
+  
+!     nr = popup_options_pos(dict, (char_u *)"line");
+!     if (nr > 0)
+! 	wp->w_wantline = nr;
+!     nr = popup_options_pos(dict, (char_u *)"col");
+!     if (nr > 0)
+! 	wp->w_wantcol = nr;
+  
+      wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
+  
+--- 121,138 ----
+  
+      if (atcursor)
+      {
++ 	wp->w_popup_pos = POPPOS_BOTLEFT;
+  	setcursor_mayforce(TRUE);
+  	wp->w_wantline = screen_screenrow();
++ 	if (wp->w_wantline == 0)  // cursor in first line
++ 	{
++ 	    wp->w_wantline = 2;
++ 	    wp->w_popup_pos = POPPOS_TOPLEFT;
++ 	}
+  	wp->w_wantcol = screen_screencol() + 1;
+      }
+  
+!     get_pos_options(wp, dict);
+  
+      wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
+  
+***************
+*** 212,235 ****
+      linenr_T	lnum;
+      int		wrapped = 0;
+      int		maxwidth;
+  
+!     // TODO: Compute the size and position properly.
+!     if (wp->w_wantline > 0)
+! 	wp->w_winrow = wp->w_wantline - 1;
+      else
+! 	// TODO: better default
+! 	wp->w_winrow = Rows > 5 ? Rows / 2 - 2 : 0;
+!     if (wp->w_winrow >= Rows)
+! 	wp->w_winrow = Rows - 1;
+  
+!     if (wp->w_wantcol > 0)
+! 	wp->w_wincol = wp->w_wantcol - 1;
+!     else
+! 	// TODO: better default
+! 	wp->w_wincol = Columns > 20 ? Columns / 2 - 10 : 0;
+!     if (wp->w_wincol >= Columns - 3)
+! 	wp->w_wincol = Columns - 3;
+  
+      maxwidth = Columns - wp->w_wincol;
+      if (wp->w_maxwidth > 0 && maxwidth > wp->w_maxwidth)
+  	maxwidth = wp->w_maxwidth;
+--- 258,299 ----
+      linenr_T	lnum;
+      int		wrapped = 0;
+      int		maxwidth;
++     int		center_vert = FALSE;
++     int		center_hor = FALSE;
+  
+!     wp->w_winrow = 0;
+!     wp->w_wincol = 0;
+!     if (wp->w_popup_pos == POPPOS_CENTER)
+!     {
+! 	// center after computing the size
+! 	center_vert = TRUE;
+! 	center_hor = TRUE;
+!     }
+      else
+!     {
+! 	if (wp->w_wantline == 0)
+! 	    center_vert = TRUE;
+! 	else if (wp->w_popup_pos == POPPOS_TOPLEFT
+! 		|| wp->w_popup_pos == POPPOS_TOPRIGHT)
+! 	{
+! 	    wp->w_winrow = wp->w_wantline - 1;
+! 	    if (wp->w_winrow >= Rows)
+! 		wp->w_winrow = Rows - 1;
+! 	}
+  
+! 	if (wp->w_wantcol == 0)
+! 	    center_hor = TRUE;
+! 	else if (wp->w_popup_pos == POPPOS_TOPLEFT
+! 		|| wp->w_popup_pos == POPPOS_BOTLEFT)
+! 	{
+! 	    wp->w_wincol = wp->w_wantcol - 1;
+! 	    if (wp->w_wincol >= Columns - 3)
+! 		wp->w_wincol = Columns - 3;
+! 	}
+!     }
+  
++     // When centering or right aligned, use maximum width.
++     // When left aligned use the space available.
+      maxwidth = Columns - wp->w_wincol;
+      if (wp->w_maxwidth > 0 && maxwidth > wp->w_maxwidth)
+  	maxwidth = wp->w_maxwidth;
+***************
+*** 255,260 ****
+--- 319,334 ----
+  	wp->w_width = wp->w_minwidth;
+      if (wp->w_width > maxwidth)
+  	wp->w_width = maxwidth;
++     if (center_hor)
++ 	wp->w_wincol = (Columns - wp->w_width) / 2;
++     else if (wp->w_popup_pos == POPPOS_BOTRIGHT
++ 	    || wp->w_popup_pos == POPPOS_TOPRIGHT)
++     {
++ 	// Right aligned: move to the right if needed.
++ 	// No truncation, because that would change the height.
++ 	if (wp->w_width < wp->w_wantcol)
++ 	    wp->w_wincol = wp->w_wantcol - wp->w_width;
++     }
+  
+      if (wp->w_height <= 1)
+  	wp->w_height = wp->w_buffer->b_ml.ml_line_count + wrapped;
+***************
+*** 265,270 ****
+--- 339,357 ----
+      if (wp->w_height > Rows - wp->w_winrow)
+  	wp->w_height = Rows - wp->w_winrow;
+  
++     if (center_vert)
++ 	wp->w_winrow = (Rows - wp->w_height) / 2;
++     else if (wp->w_popup_pos == POPPOS_BOTRIGHT
++ 	    || wp->w_popup_pos == POPPOS_BOTLEFT)
++     {
++ 	if (wp->w_height <= wp->w_wantline)
++ 	    // bottom aligned: may move down
++ 	    wp->w_winrow = wp->w_wantline - wp->w_height;
++ 	else
++ 	    // not enough space, make top aligned
++ 	    wp->w_winrow = wp->w_wantline + 1;
++     }
++ 
+      wp->w_popup_last_changedtick = CHANGEDTICK(wp->w_buffer);
+  }
+  
+***************
+*** 304,310 ****
+      if (wp == NULL)
+  	return;
+      rettv->vval.v_number = wp->w_id;
+!     wp->w_p_wrap = TRUE;  // 'wrap' is default on
+  
+      buf = buflist_new(NULL, NULL, (linenr_T)0, BLN_NEW|BLN_LISTED|BLN_DUMMY);
+      if (buf == NULL)
+--- 391,397 ----
+      if (wp == NULL)
+  	return;
+      rettv->vval.v_number = wp->w_id;
+!     wp->w_popup_pos = POPPOS_TOPLEFT;
+  
+      buf = buflist_new(NULL, NULL, (linenr_T)0, BLN_NEW|BLN_LISTED|BLN_DUMMY);
+      if (buf == NULL)
+***************
+*** 322,327 ****
+--- 409,416 ----
+      buf->b_p_swf = FALSE;   // no swap file
+      buf->b_p_bl = FALSE;    // unlisted buffer
+      buf->b_locked = TRUE;
++     wp->w_p_wrap = TRUE;  // 'wrap' is default on
++ 
+      // Avoid that 'buftype' is reset when this buffer is entered.
+      buf->b_p_initialized = TRUE;
+  
+***************
+*** 578,588 ****
+  	wp->w_maxwidth = nr;
+      if ((nr = dict_get_number(d, (char_u *)"maxheight")) > 0)
+  	wp->w_maxheight = nr;
+!     if ((nr = dict_get_number(d, (char_u *)"line")) > 0)
+! 	wp->w_wantline = nr;
+!     if ((nr = dict_get_number(d, (char_u *)"col")) > 0)
+! 	wp->w_wantcol = nr;
+!     // TODO: "pos"
+  
+      if (wp->w_winrow + wp->w_height >= cmdline_row)
+  	clear_cmdline = TRUE;
+--- 667,673 ----
+  	wp->w_maxwidth = nr;
+      if ((nr = dict_get_number(d, (char_u *)"maxheight")) > 0)
+  	wp->w_maxheight = nr;
+!     get_pos_options(wp, d);
+  
+      if (wp->w_winrow + wp->w_height >= cmdline_row)
+  	clear_cmdline = TRUE;
+***************
+*** 591,600 ****
+  }
+  
+  /*
+!  * popup_getposition({id})
+   */
+      void
+! f_popup_getposition(typval_T *argvars, typval_T *rettv)
+  {
+      dict_T	*dict;
+      int		id = (int)tv_get_number(argvars);
+--- 676,685 ----
+  }
+  
+  /*
+!  * popup_getpos({id})
+   */
+      void
+! f_popup_getpos(typval_T *argvars, typval_T *rettv)
+  {
+      dict_T	*dict;
+      int		id = (int)tv_get_number(argvars);
+***************
+*** 623,628 ****
+--- 708,714 ----
+      dict_T	*dict;
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
++     int		i;
+  
+      if (rettv_dict_alloc(rettv) == OK)
+      {
+***************
+*** 637,642 ****
+--- 723,738 ----
+  	dict_add_number(dict, "maxheight", wp->w_maxheight);
+  	dict_add_number(dict, "maxwidth", wp->w_maxwidth);
+  	dict_add_number(dict, "zindex", wp->w_zindex);
++ 
++ 	for (i = 0; i < (int)(sizeof(poppos_entries) / sizeof(poppos_entry_T));
++ 									   ++i)
++ 	    if (wp->w_popup_pos == poppos_entries[i].pp_val)
++ 	    {
++ 		dict_add_string(dict, "pos",
++ 					  (char_u *)poppos_entries[i].pp_name);
++ 		break;
++ 	    }
++ 
+  # if defined(FEAT_TIMERS)
+  	dict_add_number(dict, "time", wp->w_popup_timer != NULL
+  				 ?  (long)wp->w_popup_timer->tr_interval : 0L);
+*** ../vim-8.1.1428/src/proto/popupwin.pro	2019-05-30 19:24:57.615269014 +0200
+--- src/proto/popupwin.pro	2019-05-30 21:19:20.050800869 +0200
+***************
+*** 1,16 ****
+  /* popupwin.c */
+! int popup_any_visible(void);
+! void close_all_popups(void);
+! void ex_popupclear(exarg_T *eap);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+- void f_popup_create(typval_T *argvars, typval_T *rettv);
+- void f_popup_getoptions(typval_T *argvars, typval_T *rettv);
+- void f_popup_getposition(typval_T *argvars, typval_T *rettv);
+  void f_popup_hide(typval_T *argvars, typval_T *rettv);
+- void f_popup_move(typval_T *argvars, typval_T *rettv);
+  void f_popup_show(typval_T *argvars, typval_T *rettv);
+- void popup_adjust_position(win_T *wp);
+  void popup_close(int id);
+  void popup_close_tabpage(tabpage_T *tp, int id);
+  /* vim: set ft=c : */
+--- 1,16 ----
+  /* popupwin.c */
+! void popup_adjust_position(win_T *wp);
+! void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
++ int popup_any_visible(void);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+  void f_popup_hide(typval_T *argvars, typval_T *rettv);
+  void f_popup_show(typval_T *argvars, typval_T *rettv);
+  void popup_close(int id);
+  void popup_close_tabpage(tabpage_T *tp, int id);
++ void close_all_popups(void);
++ void ex_popupclear(exarg_T *eap);
++ void f_popup_move(typval_T *argvars, typval_T *rettv);
++ void f_popup_getpos(typval_T *argvars, typval_T *rettv);
++ void f_popup_getoptions(typval_T *argvars, typval_T *rettv);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1428/runtime/doc/popup.txt	2019-05-30 19:24:57.615269014 +0200
+--- runtime/doc/popup.txt	2019-05-30 21:17:46.191262945 +0200
+***************
+*** 232,238 ****
+  
+  popup_getoptions({id})					*popup_getoptions()*
+  		Return the {options} for popup {id} in a Dict.
+! 		A zero value means the option was not set.
+  
+  		The "highlight" entry is omitted, use the 'wincolor' option
+  		for that: >
+--- 232,239 ----
+  
+  popup_getoptions({id})					*popup_getoptions()*
+  		Return the {options} for popup {id} in a Dict.
+! 		A zero value means the option was not set.  For "zindex" the
+! 		default value is returned, not zero.
+  
+  		The "highlight" entry is omitted, use the 'wincolor' option
+  		for that: >
+***************
+*** 240,246 ****
+  
+  <		If popup window {id} is not found an empty Dict is returned.
+  
+! popup_getposition({id})					*popup_getposition()*
+  		Return the position and size of popup {id}.  Returns a Dict
+  		with these entries:
+  		    col		screen column of the popup, one-based
+--- 241,247 ----
+  
+  <		If popup window {id} is not found an empty Dict is returned.
+  
+! popup_getpos({id})					*popup_getpos()*
+  		Return the position and size of popup {id}.  Returns a Dict
+  		with these entries:
+  		    col		screen column of the popup, one-based
+***************
+*** 303,321 ****
+  			|popup-props|.
+  
+  The second argument of |popup_create()| is a dictionary with options:
+! 	line		screen line where to position the popup; can use
+! 			"cursor", "cursor+1" or "cursor-1" to use the line of
+! 			the cursor and add or subtract a number of lines;
+! 			default is "cursor-1".
+! 	col		screen column where to position the popup; can use
+! 			"cursor" to use the column of the cursor, "cursor+99"
+! 			and "cursor-99" to add or subtract a number of
+! 			columns; default is "cursor"
+  	pos		"topleft", "topright", "botleft" or "botright":
+  			defines what corner of the popup "line" and "col" are
+  			used for.  When not set "topleft" is used.
+  			Alternatively "center" can be used to position the
+! 			popup in the center of the Vim window.
+  			{not implemented yet}
+  	flip		when TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+--- 304,325 ----
+  			|popup-props|.
+  
+  The second argument of |popup_create()| is a dictionary with options:
+! 	line		screen line where to position the popup; can use a
+! 			number or "cursor", "cursor+1" or "cursor-1" to use
+! 			the line of the cursor and add or subtract a number of
+! 			lines; if omitted the popup is vertically centered,
+! 			otherwise "pos" is used.
+! 	col		screen column where to position the popup; can use a
+! 			number or "cursor" to use the column of the cursor,
+! 			"cursor+99" and "cursor-99" to add or subtract a
+! 			number of columns; if omitted the popup is
+! 			horizontally centered, otherwise "pos" is used
+  	pos		"topleft", "topright", "botleft" or "botright":
+  			defines what corner of the popup "line" and "col" are
+  			used for.  When not set "topleft" is used.
+  			Alternatively "center" can be used to position the
+! 			popup in the center of the Vim window, in which case
+! 			"line" and "col" are ignored.
+  			{not implemented yet}
+  	flip		when TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+*** ../vim-8.1.1428/src/version.c	2019-05-30 19:24:57.615269014 +0200
+--- src/version.c	2019-05-30 21:22:31.477803848 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1429,
+  /**/
+
+-- 
+ERROR 047: Keyboard not found.  Press RETURN to continue.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

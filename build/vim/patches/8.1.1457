@@ -1,0 +1,211 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1457
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1457
+Problem:    Cannot reuse a buffer when loading a screen dump.
+Solution:   Add the "bufnr" option.
+Files:	    runtime/doc/eval.txt, src/structs.h, src/channel.c,
+            src/terminal.c, src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.1456/runtime/doc/eval.txt	2019-05-30 18:40:20.120405138 +0200
+--- runtime/doc/eval.txt	2019-06-03 20:02:23.894159435 +0200
+***************
+*** 9557,9562 ****
+--- 9558,9568 ----
+  		   "curwin"	     use the current window, do not split the
+  				     window; fails if the current buffer
+  				     cannot be |abandon|ed
++ 		   "bufnr"	     do not create a new buffer, use the
++ 				     existing buffer "bufnr".  This buffer
++ 				     must have been previously created with
++ 				     term_dumpdiff() or term_dumpload() and
++ 				     visible in a window.
+  		   "norestore"	     do not add the terminal window to a
+  				     session file
+  
+*** ../vim-8.1.1456/src/structs.h	2019-06-02 18:40:02.637508840 +0200
+--- src/structs.h	2019-06-03 20:17:25.897778944 +0200
+***************
+*** 1807,1812 ****
+--- 1807,1813 ----
+  #define JO2_TERM_KILL	    0x4000	/* "term_kill" */
+  #define JO2_ANSI_COLORS	    0x8000	/* "ansi_colors" */
+  #define JO2_TTY_TYPE	    0x10000	/* "tty_type" */
++ #define JO2_BUFNR	    0x20000	/* "bufnr" */
+  
+  #define JO_MODE_ALL	(JO_MODE + JO_IN_MODE + JO_OUT_MODE + JO_ERR_MODE)
+  #define JO_CB_ALL \
+***************
+*** 1864,1869 ****
+--- 1865,1871 ----
+      int		jo_term_cols;
+      int		jo_vertical;
+      int		jo_curwin;
++     buf_T	*jo_bufnr_buf;
+      int		jo_hidden;
+      int		jo_term_norestore;
+      char_u	*jo_term_name;
+*** ../vim-8.1.1456/src/channel.c	2019-06-01 13:28:30.269829512 +0200
+--- src/channel.c	2019-06-03 20:26:34.991095446 +0200
+***************
+*** 4901,4906 ****
+--- 4901,4932 ----
+  		opt->jo_set2 |= JO2_CURWIN;
+  		opt->jo_curwin = tv_get_number(item);
+  	    }
++ 	    else if (STRCMP(hi->hi_key, "bufnr") == 0)
++ 	    {
++ 		int nr;
++ 
++ 		if (!(supported2 & JO2_CURWIN))
++ 		    break;
++ 		opt->jo_set2 |= JO2_BUFNR;
++ 		nr = tv_get_number(item);
++ 		if (nr <= 0)
++ 		{
++ 		    semsg(_(e_invargNval), hi->hi_key, tv_get_string(item));
++ 		    return FAIL;
++ 		}
++ 		opt->jo_bufnr_buf = buflist_findnr(nr);
++ 		if (opt->jo_bufnr_buf == NULL)
++ 		{
++ 		    semsg(_(e_nobufnr), (long)nr);
++ 		    return FAIL;
++ 		}
++ 		if (opt->jo_bufnr_buf->b_nwindows == 0
++ 			|| opt->jo_bufnr_buf->b_term == NULL)
++ 		{
++ 		    semsg(_(e_invarg2), "bufnr");
++ 		    return FAIL;
++ 		}
++ 	    }
+  	    else if (STRCMP(hi->hi_key, "hidden") == 0)
+  	    {
+  		if (!(supported2 & JO2_HIDDEN))
+*** ../vim-8.1.1456/src/terminal.c	2019-05-28 23:08:12.080648632 +0200
+--- src/terminal.c	2019-06-03 20:37:45.571814232 +0200
+***************
+*** 4616,4622 ****
+  term_load_dump(typval_T *argvars, typval_T *rettv, int do_diff)
+  {
+      jobopt_T	opt;
+!     buf_T	*buf;
+      char_u	buf1[NUMBUFLEN];
+      char_u	buf2[NUMBUFLEN];
+      char_u	*fname1;
+--- 4616,4622 ----
+  term_load_dump(typval_T *argvars, typval_T *rettv, int do_diff)
+  {
+      jobopt_T	opt;
+!     buf_T	*buf = NULL;
+      char_u	buf1[NUMBUFLEN];
+      char_u	buf2[NUMBUFLEN];
+      char_u	*fname1;
+***************
+*** 4671,4677 ****
+  	}
+      }
+  
+!     buf = term_start(&argvars[0], NULL, &opt, TERM_START_NOJOB);
+      if (buf != NULL && buf->b_term != NULL)
+      {
+  	int		i;
+--- 4671,4697 ----
+  	}
+      }
+  
+!     if (opt.jo_bufnr_buf != NULL)
+!     {
+! 	win_T *wp = buf_jump_open_win(opt.jo_bufnr_buf);
+! 
+! 	// With "bufnr" argument: enter the window with this buffer and make it
+! 	// empty.
+! 	if (wp == NULL)
+! 	    semsg(_(e_invarg2), "bufnr");
+! 	else
+! 	{
+! 	    buf = curbuf;
+! 	    while (!(curbuf->b_ml.ml_flags & ML_EMPTY))
+! 		ml_delete((linenr_T)1, FALSE);
+! 	    ga_clear(&curbuf->b_term->tl_scrollback);
+! 	    redraw_later(NOT_VALID);
+! 	}
+!     }
+!     else
+! 	// Create a new terminal window.
+! 	buf = term_start(&argvars[0], NULL, &opt, TERM_START_NOJOB);
+! 
+      if (buf != NULL && buf->b_term != NULL)
+      {
+  	int		i;
+*** ../vim-8.1.1456/src/testdir/test_terminal.vim	2019-05-20 22:12:30.724442773 +0200
+--- src/testdir/test_terminal.vim	2019-06-03 21:12:05.602119720 +0200
+***************
+*** 1119,1129 ****
+  
+  " just testing basic functionality.
+  func Test_terminal_dumpload()
+    call assert_equal(1, winnr('$'))
+!   call term_dumpload('dumps/Test_popup_command_01.dump')
+    call assert_equal(2, winnr('$'))
+    call assert_equal(20, line('$'))
+    call Check_dump01(0)
+    quit
+  endfunc
+  
+--- 1119,1148 ----
+  
+  " just testing basic functionality.
+  func Test_terminal_dumpload()
++   let curbuf = winbufnr('')
+    call assert_equal(1, winnr('$'))
+!   let buf = term_dumpload('dumps/Test_popup_command_01.dump')
+    call assert_equal(2, winnr('$'))
+    call assert_equal(20, line('$'))
+    call Check_dump01(0)
++ 
++   " Load another dump in the same window
++   let buf2 = term_dumpload('dumps/Test_diff_01.dump', {'bufnr': buf})
++   call assert_equal(buf, buf2)
++   call assert_notequal('one two three four five', trim(getline(1)))
++ 
++   " Load the first dump again in the same window
++   let buf2 = term_dumpload('dumps/Test_popup_command_01.dump', {'bufnr': buf})
++   call assert_equal(buf, buf2)
++   call Check_dump01(0)
++ 
++   call assert_fails("call term_dumpload('dumps/Test_popup_command_01.dump', {'bufnr': curbuf})", 'E475:')
++   call assert_fails("call term_dumpload('dumps/Test_popup_command_01.dump', {'bufnr': 9999})", 'E86:')
++   new
++   let closedbuf = winbufnr('')
++   quit
++   call assert_fails("call term_dumpload('dumps/Test_popup_command_01.dump', {'bufnr': closedbuf})", 'E475:')
++ 
+    quit
+  endfunc
+  
+*** ../vim-8.1.1456/src/version.c	2019-06-02 20:33:27.018782294 +0200
+--- src/version.c	2019-06-03 21:12:57.825786687 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1457,
+  /**/
+
+-- 
+From "know your smileys":
+ O:-)	Saint
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

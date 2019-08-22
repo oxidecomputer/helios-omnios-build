@@ -1,0 +1,162 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1570
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1570
+Problem:    Icon signs not displayed properly in the number column.
+Solution:   Display them properly. (Yegappan Lakshmanan, closes #4559)
+Files:	    src/gui.c, src/screen.c, src/testdir/test_signs.vim
+
+
+*** ../vim-8.1.1569/src/gui.c	2019-06-12 20:21:57.737817533 +0200
+--- src/gui.c	2019-06-19 16:24:00.780553942 +0200
+***************
+*** 2253,2258 ****
+--- 2253,2259 ----
+      int		col = gui.col;
+  #ifdef FEAT_SIGN_ICONS
+      int		draw_sign = FALSE;
++     char_u	extra[18];
+  # ifdef FEAT_NETBEANS_INTG
+      int		multi_sign = FALSE;
+  # endif
+***************
+*** 2275,2284 ****
+  	    multi_sign = TRUE;
+  # endif
+  	/* draw spaces instead */
+! 	s = (char_u *)"  ";
+  	if (len == 1 && col > 0)
+  	    --col;
+! 	len = 2;
+  	draw_sign = TRUE;
+  	highlight_mask = 0;
+      }
+--- 2276,2292 ----
+  	    multi_sign = TRUE;
+  # endif
+  	/* draw spaces instead */
+! 	if (*curwin->w_p_scl == 'n' && *(curwin->w_p_scl + 1) == 'u' &&
+! 		(curwin->w_p_nu || curwin->w_p_rnu))
+! 	{
+! 	    sprintf((char *)extra, "%*c ", number_width(curwin), ' ');
+! 	    s = extra;
+! 	}
+! 	else
+! 	    s = (char_u *)"  ";
+  	if (len == 1 && col > 0)
+  	    --col;
+! 	len = (int)STRLEN(s);
+  	draw_sign = TRUE;
+  	highlight_mask = 0;
+      }
+*** ../vim-8.1.1569/src/screen.c	2019-06-19 14:28:37.924981011 +0200
+--- src/screen.c	2019-06-19 16:24:00.780553942 +0200
+***************
+*** 3088,3102 ****
+  	if (gui.in_use && icon_sign != 0)
+  	{
+  	    // Use the image in this position.
+! 	    *c_extrap = SIGN_BYTE;
+! 	    *c_finalp = NUL;
+  #  ifdef FEAT_NETBEANS_INTG
+  	    if (buf_signcount(wp->w_buffer, lnum) > 1)
+  	    {
+! 		*c_extrap = MULTISIGN_BYTE;
+! 		*c_finalp = NUL;
+  	    }
+  #  endif
+  	    *char_attrp = icon_sign;
+  	}
+  	else
+--- 3088,3118 ----
+  	if (gui.in_use && icon_sign != 0)
+  	{
+  	    // Use the image in this position.
+! 	    if (nrcol)
+! 	    {
+! 		*c_extrap = NUL;
+! 		sprintf((char *)extra, "%-*c ", number_width(wp), SIGN_BYTE);
+! 		*pp_extra = extra;
+! 		*n_extrap = (int)STRLEN(*pp_extra);
+! 	    }
+! 	    else
+! 		*c_extrap = SIGN_BYTE;
+  #  ifdef FEAT_NETBEANS_INTG
+  	    if (buf_signcount(wp->w_buffer, lnum) > 1)
+  	    {
+! 		if (nrcol)
+! 		{
+! 		    *c_extrap = NUL;
+! 		    sprintf((char *)extra, "%-*c ", number_width(wp),
+! 							MULTISIGN_BYTE);
+! 		    *pp_extra = extra;
+! 		    *n_extrap = (int)STRLEN(*pp_extra);
+! 		}
+! 		else
+! 		    *c_extrap = MULTISIGN_BYTE;
+  	    }
+  #  endif
++ 	    *c_finalp = NUL;
+  	    *char_attrp = icon_sign;
+  	}
+  	else
+***************
+*** 3108,3114 ****
+  		{
+  		    if (nrcol)
+  		    {
+! 			sprintf((char *)extra, "%-*s ", number_width(wp),
+  								*pp_extra);
+  			*pp_extra = extra;
+  		    }
+--- 3124,3130 ----
+  		{
+  		    if (nrcol)
+  		    {
+! 			sprintf((char *)extra, "%*s ", number_width(wp),
+  								*pp_extra);
+  			*pp_extra = extra;
+  		    }
+*** ../vim-8.1.1569/src/testdir/test_signs.vim	2019-06-17 21:48:02.215646277 +0200
+--- src/testdir/test_signs.vim	2019-06-19 16:24:00.784553926 +0200
+***************
+*** 1776,1782 ****
+    " Enable number column. Check whether sign is displayed in the number column
+    set number
+    redraw!
+!   call assert_equal("=>  01234", s:ScreenLine(1, 1, 9))
+  
+    " Disable sign column. Make sure line number is displayed
+    set signcolumn=no
+--- 1776,1782 ----
+    " Enable number column. Check whether sign is displayed in the number column
+    set number
+    redraw!
+!   call assert_equal(" => 01234", s:ScreenLine(1, 1, 9))
+  
+    " Disable sign column. Make sure line number is displayed
+    set signcolumn=no
+*** ../vim-8.1.1569/src/version.c	2019-06-19 14:28:37.924981011 +0200
+--- src/version.c	2019-06-19 16:30:26.390959668 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1570,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+241. You try to look for Net Search even when you're in File Manager.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,925 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1561
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1561
+Problem:    Popup_setoptions() is not implemented yet.
+Solution:   Implement popup_setoptions().  Also add more fields to
+            popup_getoptions().
+Files:	    runtime/doc/popup.txt, src/popupwin.c, src/proto/popupwin.pro,
+            src/dict.c, src/proto/dict.pro, src/evalfunc.c,
+            src/testdir/test_popupwin.vim, src/testdir/runtest.vim
+
+
+*** ../vim-8.1.1560/runtime/doc/popup.txt	2019-06-16 20:08:52.585130260 +0200
+--- runtime/doc/popup.txt	2019-06-16 21:36:45.256184679 +0200
+***************
+*** 109,116 ****
+  - When the lines do not fit show a scrollbar (like in the popup menu).
+    Use the mouse wheel for scrolling.
+  - Implement:
+- 	popup_setoptions({id}, {options})
+- 	hidden option
+  	tabpage option with number
+  	flip option
+  	transparent text property
+--- 109,114 ----
+***************
+*** 247,257 ****
+  		A zero value means the option was not set.  For "zindex" the
+  		default value is returned, not zero.
+  
+! 		The "highlight" entry is omitted, use the 'wincolor' option
+! 		for that: >
+! 			let hl = getwinvar(winid, '&wincolor')
+  
+! <		If popup window {id} is not found an empty Dict is returned.
+  
+  
+  popup_getpos({id})					*popup_getpos()*
+--- 245,259 ----
+  		A zero value means the option was not set.  For "zindex" the
+  		default value is returned, not zero.
+  
+! 		The "moved" entry is a list with minimum and maximum column,
+! 		[0, 0] when not set.
+  
+! 		"border" and "padding" are not included when all values are
+! 		zero.  When all values are one then an empty list is included.
+! 
+! 		"borderhighlight" is not included when all values are empty.
+! 
+! 		If popup window {id} is not found an empty Dict is returned.
+  
+  
+  popup_getpos({id})					*popup_getpos()*
+***************
+*** 307,315 ****
+  popup_move({id}, {options})					*popup_move()*
+  		Move popup {id} to the position specified with {options}.
+  		{options} may contain the items from |popup_create()| that
+! 		specify the popup position: "line", "col", "pos", "maxheight",
+! 		"minheight", "maxwidth" and "minwidth".
+  		For {id} see `popup_hide()`.
+  
+  
+  popup_notification({text}, {options})			 *popup_notification()*
+--- 309,325 ----
+  popup_move({id}, {options})					*popup_move()*
+  		Move popup {id} to the position specified with {options}.
+  		{options} may contain the items from |popup_create()| that
+! 		specify the popup position:
+! 			line
+! 			col
+! 			pos
+! 			maxheight
+! 			minheight
+! 			maxwidth
+! 			minwidth
+! 			fixed
+  		For {id} see `popup_hide()`.
++ 		For other options see |popup_setoptions()|.
+  
+  
+  popup_notification({text}, {options})			 *popup_notification()*
+***************
+*** 341,348 ****
+  
+  
+  popup_setoptions({id}, {options})			*popup_setoptions()*
+- 		{not implemented yet}
+  		Override options in popup {id} with entries in {options}.
+  
+  popup_settext({id}, {text})				*popup_settext()*
+  		Set the text of the buffer in poup win {id}. {text} is the
+--- 351,376 ----
+  
+  
+  popup_setoptions({id}, {options})			*popup_setoptions()*
+  		Override options in popup {id} with entries in {options}.
++ 		These options can be set:
++ 			flip
++ 			firstline
++ 			title
++ 			wrap
++ 			drag
++ 			highlight
++ 			padding
++ 			border
++ 			borderhighlight
++ 			borderchars
++ 			zindex
++ 			time
++ 			moved
++ 			filter
++ 			callback
++ 		The options from |popup_move()| can also be used.
++ 		For "hidden" use |popup_hide()| and |popup_show()|.
++ 		"tabpage" cannot be changed.
+  
+  popup_settext({id}, {text})				*popup_settext()*
+  		Set the text of the buffer in poup win {id}. {text} is the
+*** ../vim-8.1.1560/src/popupwin.c	2019-06-16 20:39:10.738273858 +0200
+--- src/popupwin.c	2019-06-16 22:11:19.033587053 +0200
+***************
+*** 106,112 ****
+  }
+  
+      static void
+! get_padding_border(dict_T *dict, int *array, char *name, int max_val)
+  {
+      dictitem_T	*di;
+  
+--- 106,112 ----
+  }
+  
+      static void
+! set_padding_border(dict_T *dict, int *array, char *name, int max_val)
+  {
+      dictitem_T	*di;
+  
+***************
+*** 251,298 ****
+  #endif
+  
+  /*
+!  * Go through the options in "dict" and apply them to buffer "buf" displayed in
+!  * popup window "wp".
+   */
+      static void
+! apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict)
+  {
+      int		nr;
+      char_u	*str;
+-     dictitem_T	*di;
+-     int		i;
+- 
+-     di = dict_find(dict, (char_u *)"minwidth", -1);
+-     if (di != NULL)
+- 	wp->w_minwidth = dict_get_number(dict, (char_u *)"minwidth");
+-     wp->w_minheight = dict_get_number(dict, (char_u *)"minheight");
+-     wp->w_maxwidth = dict_get_number(dict, (char_u *)"maxwidth");
+-     wp->w_maxheight = dict_get_number(dict, (char_u *)"maxheight");
+  
+!     get_pos_options(wp, dict);
+  
+!     di = dict_find(dict, (char_u *)"zindex", -1);
+      if (di != NULL)
+!     {
+! 	wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
+! 	if (wp->w_zindex < 1)
+! 	    wp->w_zindex = POPUPWIN_DEFAULT_ZINDEX;
+! 	if (wp->w_zindex > 32000)
+! 	    wp->w_zindex = 32000;
+!     }
+! 
+! #if defined(FEAT_TIMERS)
+!     // Add timer to close the popup after some time.
+!     nr = dict_get_number(dict, (char_u *)"time");
+!     if (nr > 0)
+! 	popup_add_timeout(wp, nr);
+! #endif
+! 
+!     // Option values resulting in setting an option.
+!     str = dict_get_string(dict, (char_u *)"highlight", FALSE);
+!     if (str != NULL)
+! 	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+! 						   str, OPT_FREE|OPT_LOCAL, 0);
+  
+      str = dict_get_string(dict, (char_u *)"title", FALSE);
+      if (str != NULL)
+--- 251,291 ----
+  #endif
+  
+  /*
+!  * Shared between popup_create() and f_popup_move().
+   */
+      static void
+! apply_move_options(win_T *wp, dict_T *d)
+  {
++     int nr;
++ 
++     if ((nr = dict_get_number(d, (char_u *)"minwidth")) > 0)
++ 	wp->w_minwidth = nr;
++     if ((nr = dict_get_number(d, (char_u *)"minheight")) > 0)
++ 	wp->w_minheight = nr;
++     if ((nr = dict_get_number(d, (char_u *)"maxwidth")) > 0)
++ 	wp->w_maxwidth = nr;
++     if ((nr = dict_get_number(d, (char_u *)"maxheight")) > 0)
++ 	wp->w_maxheight = nr;
++     get_pos_options(wp, d);
++ }
++ 
++ /*
++  * Shared between popup_create() and f_popup_setoptions().
++  */
++     static void
++ apply_general_options(win_T *wp, dict_T *dict)
++ {
++     dictitem_T	*di;
+      int		nr;
+      char_u	*str;
+  
+!     // TODO: flip
+  
+!     di = dict_find(dict, (char_u *)"firstline", -1);
+      if (di != NULL)
+! 	wp->w_firstline = dict_get_number(dict, (char_u *)"firstline");
+!     if (wp->w_firstline < 1)
+! 	wp->w_firstline = 1;
+  
+      str = dict_get_string(dict, (char_u *)"title", FALSE);
+      if (str != NULL)
+***************
+*** 301,310 ****
+  	wp->w_popup_title = vim_strsave(str);
+      }
+  
+-     wp->w_firstline = dict_get_number(dict, (char_u *)"firstline");
+-     if (wp->w_firstline < 1)
+- 	wp->w_firstline = 1;
+- 
+      di = dict_find(dict, (char_u *)"wrap", -1);
+      if (di != NULL)
+      {
+--- 294,299 ----
+***************
+*** 316,344 ****
+      if (di != NULL)
+  	wp->w_popup_drag = dict_get_number(dict, (char_u *)"drag");
+  
+!     di = dict_find(dict, (char_u *)"callback", -1);
+!     if (di != NULL)
+!     {
+! 	callback_T	callback = get_callback(&di->di_tv);
+! 
+! 	if (callback.cb_name != NULL)
+! 	    set_callback(&wp->w_close_cb, &callback);
+!     }
+! 
+!     di = dict_find(dict, (char_u *)"filter", -1);
+!     if (di != NULL)
+!     {
+! 	callback_T	callback = get_callback(&di->di_tv);
+! 
+! 	if (callback.cb_name != NULL)
+! 	    set_callback(&wp->w_filter_cb, &callback);
+!     }
+  
+!     get_padding_border(dict, wp->w_popup_padding, "padding", 999);
+!     get_padding_border(dict, wp->w_popup_border, "border", 1);
+  
+-     for (i = 0; i < 4; ++i)
+- 	VIM_CLEAR(wp->w_border_highlight[i]);
+      di = dict_find(dict, (char_u *)"borderhighlight", -1);
+      if (di != NULL)
+      {
+--- 305,318 ----
+      if (di != NULL)
+  	wp->w_popup_drag = dict_get_number(dict, (char_u *)"drag");
+  
+!     str = dict_get_string(dict, (char_u *)"highlight", FALSE);
+!     if (str != NULL)
+! 	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+! 						   str, OPT_FREE|OPT_LOCAL, 0);
+  
+!     set_padding_border(dict, wp->w_popup_padding, "padding", 999);
+!     set_padding_border(dict, wp->w_popup_border, "border", 1);
+  
+      di = dict_find(dict, (char_u *)"borderhighlight", -1);
+      if (di != NULL)
+      {
+***************
+*** 348,353 ****
+--- 322,328 ----
+  	{
+  	    list_T	*list = di->di_tv.vval.v_list;
+  	    listitem_T	*li;
++ 	    int		i;
+  
+  	    if (list != NULL)
+  		for (i = 0, li = list->lv_first; i < 4 && i < list->lv_len;
+***************
+*** 364,371 ****
+  	}
+      }
+  
+-     for (i = 0; i < 8; ++i)
+- 	wp->w_border_char[i] = 0;
+      di = dict_find(dict, (char_u *)"borderchars", -1);
+      if (di != NULL)
+      {
+--- 339,344 ----
+***************
+*** 375,380 ****
+--- 348,354 ----
+  	{
+  	    list_T	*list = di->di_tv.vval.v_list;
+  	    listitem_T	*li;
++ 	    int		i;
+  
+  	    if (list != NULL)
+  		for (i = 0, li = list->lv_first; i < 8 && i < list->lv_len;
+***************
+*** 397,402 ****
+--- 371,393 ----
+  	}
+      }
+  
++     di = dict_find(dict, (char_u *)"zindex", -1);
++     if (di != NULL)
++     {
++ 	wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
++ 	if (wp->w_zindex < 1)
++ 	    wp->w_zindex = POPUPWIN_DEFAULT_ZINDEX;
++ 	if (wp->w_zindex > 32000)
++ 	    wp->w_zindex = 32000;
++     }
++ 
++ #if defined(FEAT_TIMERS)
++     // Add timer to close the popup after some time.
++     nr = dict_get_number(dict, (char_u *)"time");
++     if (nr > 0)
++ 	popup_add_timeout(wp, nr);
++ #endif
++ 
+      di = dict_find(dict, (char_u *)"moved", -1);
+      if (di != NULL)
+      {
+***************
+*** 428,433 ****
+--- 419,460 ----
+  	    semsg(_(e_invarg2), tv_get_string(&di->di_tv));
+      }
+  
++     di = dict_find(dict, (char_u *)"filter", -1);
++     if (di != NULL)
++     {
++ 	callback_T	callback = get_callback(&di->di_tv);
++ 
++ 	if (callback.cb_name != NULL)
++ 	{
++ 	    free_callback(&wp->w_filter_cb);
++ 	    set_callback(&wp->w_filter_cb, &callback);
++ 	}
++     }
++ 
++     di = dict_find(dict, (char_u *)"callback", -1);
++     if (di != NULL)
++     {
++ 	callback_T	callback = get_callback(&di->di_tv);
++ 
++ 	if (callback.cb_name != NULL)
++ 	{
++ 	    free_callback(&wp->w_close_cb);
++ 	    set_callback(&wp->w_close_cb, &callback);
++ 	}
++     }
++ }
++ 
++ /*
++  * Go through the options in "dict" and apply them to popup window "wp".
++  */
++     static void
++ apply_options(win_T *wp, dict_T *dict)
++ {
++     int		nr;
++ 
++     apply_move_options(wp, dict);
++     apply_general_options(wp, dict);
++ 
+      nr = dict_get_number(dict, (char_u *)"hidden");
+      if (nr > 0)
+      {
+***************
+*** 804,809 ****
+--- 831,837 ----
+      buf_T   *buf;
+      dict_T  *d;
+      int	    nr;
++     int	    i;
+  
+      // Check arguments look OK.
+      if (!(argvars[0].v_type == VAR_STRING && argvars[0].vval.v_string != NULL)
+***************
+*** 903,909 ****
+      {
+  	win_T  *twp, *nextwin;
+  	int	height = buf->b_ml.ml_line_count + 3;
+- 	int	i;
+  
+  	// Try to not overlap with another global popup.  Guess we need 3
+  	// more screen lines than buffer lines.
+--- 931,936 ----
+***************
+*** 946,953 ****
+  
+      if (type == TYPE_DIALOG || type == TYPE_MENU)
+      {
+- 	int i;
+- 
+  	wp->w_popup_pos = POPPOS_CENTER;
+  	wp->w_zindex = POPUPWIN_DIALOG_ZINDEX;
+  	wp->w_popup_drag = 1;
+--- 973,978 ----
+***************
+*** 972,979 ****
+  	wp->w_p_wrap = 0;
+      }
+  
+      // Deal with options.
+!     apply_options(wp, buf, argvars[1].vval.v_dict);
+  
+      if (type == TYPE_NOTIFICATION && wp->w_popup_timer == NULL)
+  	popup_add_timeout(wp, 3000);
+--- 997,1009 ----
+  	wp->w_p_wrap = 0;
+      }
+  
++     for (i = 0; i < 4; ++i)
++ 	VIM_CLEAR(wp->w_border_highlight[i]);
++     for (i = 0; i < 8; ++i)
++ 	wp->w_border_char[i] = 0;
++ 
+      // Deal with options.
+!     apply_options(wp, argvars[1].vval.v_dict);
+  
+      if (type == TYPE_NOTIFICATION && wp->w_popup_timer == NULL)
+  	popup_add_timeout(wp, 3000);
+***************
+*** 1375,1382 ****
+      void
+  f_popup_move(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+!     dict_T	*d;
+!     int		nr;
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
+  
+--- 1405,1411 ----
+      void
+  f_popup_move(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+!     dict_T	*dict;
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
+  
+***************
+*** 1388,1404 ****
+  	emsg(_(e_dictreq));
+  	return;
+      }
+!     d = argvars[1].vval.v_dict;
+  
+!     if ((nr = dict_get_number(d, (char_u *)"minwidth")) > 0)
+! 	wp->w_minwidth = nr;
+!     if ((nr = dict_get_number(d, (char_u *)"minheight")) > 0)
+! 	wp->w_minheight = nr;
+!     if ((nr = dict_get_number(d, (char_u *)"maxwidth")) > 0)
+! 	wp->w_maxwidth = nr;
+!     if ((nr = dict_get_number(d, (char_u *)"maxheight")) > 0)
+! 	wp->w_maxheight = nr;
+!     get_pos_options(wp, d);
+  
+      if (wp->w_winrow + wp->w_height >= cmdline_row)
+  	clear_cmdline = TRUE;
+--- 1417,1425 ----
+  	emsg(_(e_dictreq));
+  	return;
+      }
+!     dict = argvars[1].vval.v_dict;
+  
+!     apply_move_options(wp, dict);
+  
+      if (wp->w_winrow + wp->w_height >= cmdline_row)
+  	clear_cmdline = TRUE;
+***************
+*** 1406,1411 ****
+--- 1427,1458 ----
+  }
+  
+  /*
++  * popup_setoptions({id}, {options})
++  */
++     void
++ f_popup_setoptions(typval_T *argvars, typval_T *rettv UNUSED)
++ {
++     dict_T	*dict;
++     int		id = (int)tv_get_number(argvars);
++     win_T	*wp = find_popup_win(id);
++ 
++     if (wp == NULL)
++ 	return;  // invalid {id}
++ 
++     if (argvars[1].v_type != VAR_DICT || argvars[1].vval.v_dict == NULL)
++     {
++ 	emsg(_(e_dictreq));
++ 	return;
++     }
++     dict = argvars[1].vval.v_dict;
++ 
++     apply_move_options(wp, dict);
++     apply_general_options(wp, dict);
++ 
++     popup_adjust_position(wp);
++ }
++ 
++ /*
+   * popup_getpos({id})
+   */
+      void
+***************
+*** 1444,1449 ****
+--- 1491,1588 ----
+  }
+  
+  /*
++  * For popup_getoptions(): add a "border" or "padding" entry to "dict".
++  */
++     static void
++ get_padding_border(dict_T *dict, int *array, char *name)
++ {
++     list_T  *list;
++     int	    i;
++ 
++     if (array[0] == 0 && array[1] == 0 && array[2] == 0 && array[3] == 0)
++ 	return;
++ 
++     list = list_alloc();
++     if (list != NULL)
++     {
++ 	dict_add_list(dict, name, list);
++ 	if (array[0] != 1 || array[1] != 1 || array[2] != 1 || array[3] != 1)
++ 	    for (i = 0; i < 4; ++i)
++ 		list_append_number(list, array[i]);
++     }
++ }
++ 
++ /*
++  * For popup_getoptions(): add a "borderhighlight" entry to "dict".
++  */
++     static void
++ get_borderhighlight(dict_T *dict, win_T *wp)
++ {
++     list_T  *list;
++     int	    i;
++ 
++     for (i = 0; i < 4; ++i)
++ 	if (wp->w_border_highlight[i] != NULL)
++ 	    break;
++     if (i == 4)
++ 	return;
++ 
++     list = list_alloc();
++     if (list != NULL)
++     {
++ 	dict_add_list(dict, "borderhighlight", list);
++ 	for (i = 0; i < 4; ++i)
++ 	    list_append_string(list, wp->w_border_highlight[i], -1);
++     }
++ }
++ 
++ /*
++  * For popup_getoptions(): add a "borderchars" entry to "dict".
++  */
++     static void
++ get_borderchars(dict_T *dict, win_T *wp)
++ {
++     list_T  *list;
++     int	    i;
++     char_u  buf[NUMBUFLEN];
++     int	    len;
++ 
++     for (i = 0; i < 8; ++i)
++ 	if (wp->w_border_char[i] != 0)
++ 	    break;
++     if (i == 8)
++ 	return;
++ 
++     list = list_alloc();
++     if (list != NULL)
++     {
++ 	dict_add_list(dict, "borderchars", list);
++ 	for (i = 0; i < 8; ++i)
++ 	{
++ 	    len = mb_char2bytes(wp->w_border_char[i], buf);
++ 	    list_append_string(list, buf, len);
++ 	}
++     }
++ }
++ 
++ /*
++  * For popup_getoptions(): add a "moved" entry to "dict".
++  */
++     static void
++ get_moved_list(dict_T *dict, win_T *wp)
++ {
++     list_T  *list;
++ 
++     list = list_alloc();
++     if (list != NULL)
++     {
++ 	dict_add_list(dict, "moved", list);
++ 	list_append_number(list, wp->w_popup_mincol);
++ 	list_append_number(list, wp->w_popup_maxcol);
++     }
++ }
++ 
++ /*
+   * popup_getoptions({id})
+   */
+      void
+***************
+*** 1469,1474 ****
+--- 1608,1628 ----
+  	dict_add_number(dict, "firstline", wp->w_firstline);
+  	dict_add_number(dict, "zindex", wp->w_zindex);
+  	dict_add_number(dict, "fixed", wp->w_popup_fixed);
++ 	dict_add_string(dict, "title", wp->w_popup_title);
++ 	dict_add_number(dict, "wrap", wp->w_p_wrap);
++ 	dict_add_number(dict, "drag", wp->w_popup_drag);
++ 	dict_add_string(dict, "highlight", wp->w_p_wcr);
++ 
++ 	get_padding_border(dict, wp->w_popup_padding, "padding");
++ 	get_padding_border(dict, wp->w_popup_border, "border");
++ 	get_borderhighlight(dict, wp);
++ 	get_borderchars(dict, wp);
++ 	get_moved_list(dict, wp);
++ 
++ 	if (wp->w_filter_cb.cb_name != NULL)
++ 	    dict_add_callback(dict, "filter", &wp->w_filter_cb);
++ 	if (wp->w_close_cb.cb_name != NULL)
++ 	    dict_add_callback(dict, "callback", &wp->w_close_cb);
+  
+  	for (i = 0; i < (int)(sizeof(poppos_entries) / sizeof(poppos_entry_T));
+  									   ++i)
+*** ../vim-8.1.1560/src/proto/popupwin.pro	2019-06-16 19:05:08.710676808 +0200
+--- src/proto/popupwin.pro	2019-06-16 20:54:20.017138677 +0200
+***************
+*** 21,26 ****
+--- 21,27 ----
+  void popup_close_tabpage(tabpage_T *tp, int id);
+  void close_all_popups(void);
+  void f_popup_move(typval_T *argvars, typval_T *rettv);
++ void f_popup_setoptions(typval_T *argvars, typval_T *rettv);
+  void f_popup_getpos(typval_T *argvars, typval_T *rettv);
+  void f_popup_getoptions(typval_T *argvars, typval_T *rettv);
+  int error_if_popup_window(void);
+*** ../vim-8.1.1560/src/dict.c	2019-06-02 16:51:18.011257964 +0200
+--- src/dict.c	2019-06-16 21:50:03.055899736 +0200
+***************
+*** 448,453 ****
+--- 448,474 ----
+  }
+  
+  /*
++  * Add a callback to dictionary "d".
++  * Returns FAIL when out of memory and when key already exists.
++  */
++     int
++ dict_add_callback(dict_T *d, char *key, callback_T *cb)
++ {
++     dictitem_T	*item;
++ 
++     item = dictitem_alloc((char_u *)key);
++     if (item == NULL)
++ 	return FAIL;
++     put_callback(cb, &item->di_tv);
++     if (dict_add(d, item) == FAIL)
++     {
++ 	dictitem_free(item);
++ 	return FAIL;
++     }
++     return OK;
++ }
++ 
++ /*
+   * Initializes "iter" for iterating over dictionary items with
+   * dict_iterate_next().
+   * If "var" is not a Dict or an empty Dict then there will be nothing to
+*** ../vim-8.1.1560/src/proto/dict.pro	2019-06-02 16:51:18.011257964 +0200
+--- src/proto/dict.pro	2019-06-16 21:50:47.639675084 +0200
+***************
+*** 18,23 ****
+--- 18,24 ----
+  int dict_add_string(dict_T *d, char *key, char_u *str);
+  int dict_add_string_len(dict_T *d, char *key, char_u *str, int len);
+  int dict_add_list(dict_T *d, char *key, list_T *list);
++ int dict_add_callback(dict_T *d, char *key, callback_T *cb);
+  void dict_iterate_start(typval_T *var, dict_iterator_T *iter);
+  char_u *dict_iterate_next(dict_iterator_T *iter, typval_T **tv_result);
+  int dict_add_dict(dict_T *d, char *key, dict_T *dict);
+*** ../vim-8.1.1560/src/evalfunc.c	2019-06-16 19:05:08.714676794 +0200
+--- src/evalfunc.c	2019-06-16 20:53:51.529297362 +0200
+***************
+*** 824,829 ****
+--- 824,830 ----
+      {"popup_menu",	2, 2, f_popup_menu},
+      {"popup_move",	2, 2, f_popup_move},
+      {"popup_notification", 2, 2, f_popup_notification},
++     {"popup_setoptions", 2, 2, f_popup_setoptions},
+      {"popup_settext",	2, 2, f_popup_settext},
+      {"popup_show",	1, 1, f_popup_show},
+  #endif
+*** ../vim-8.1.1560/src/testdir/test_popupwin.vim	2019-06-16 20:39:10.742273835 +0200
+--- src/testdir/test_popupwin.vim	2019-06-16 22:51:57.326207686 +0200
+***************
+*** 129,137 ****
+  	\ 'visible': 1}
+    let winid = popup_create('hello border', {'line': 2, 'col': 3, 'border': []})",
+    call assert_equal(with_border_or_padding, popup_getpos(winid))
+! 
+!   let winid = popup_create('hello paddng', {'line': 2, 'col': 3, 'padding': []})
+    call assert_equal(with_border_or_padding, popup_getpos(winid))
+  
+    let winid = popup_create('hello both', {'line': 3, 'col': 8, 'border': [], 'padding': []})
+    call assert_equal({
+--- 129,157 ----
+  	\ 'visible': 1}
+    let winid = popup_create('hello border', {'line': 2, 'col': 3, 'border': []})",
+    call assert_equal(with_border_or_padding, popup_getpos(winid))
+!   let options = popup_getoptions(winid)
+!   call assert_equal([], options.border)
+!   call assert_false(has_key(options, "padding"))
+! 
+!   let winid = popup_create('hello padding', {'line': 2, 'col': 3, 'padding': []})
+!   let with_border_or_padding.width = 15
+!   let with_border_or_padding.core_width = 13
+    call assert_equal(with_border_or_padding, popup_getpos(winid))
++   let options = popup_getoptions(winid)
++   call assert_false(has_key(options, "border"))
++   call assert_equal([], options.padding)
++ 
++   call popup_setoptions(winid, {
++ 	\ 'padding': [1, 2, 3, 4],
++ 	\ 'border': [4, 0, 7, 8],
++ 	\ 'borderhighlight': ['Top', 'Right', 'Bottom', 'Left'],
++ 	\ 'borderchars': ['1', '^', '2', '>', '3', 'v', '4', '<'],
++ 	\ })
++   let options = popup_getoptions(winid)
++   call assert_equal([1, 0, 1, 1], options.border)
++   call assert_equal([1, 2, 3, 4], options.padding)
++   call assert_equal(['Top', 'Right', 'Bottom', 'Left'], options.borderhighlight)
++   call assert_equal(['1', '^', '2', '>', '3', 'v', '4', '<'], options.borderchars)
+  
+    let winid = popup_create('hello both', {'line': 3, 'col': 8, 'border': [], 'padding': []})
+    call assert_equal({
+***************
+*** 144,149 ****
+--- 164,171 ----
+  	\ 'height': 5,
+  	\ 'core_height': 1,
+  	\ 'visible': 1}, popup_getpos(winid))
++ 
++   call popup_clear()
+  endfunc
+  
+  func Test_popup_with_syntax_win_execute()
+***************
+*** 288,293 ****
+--- 310,325 ----
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupFirstline')
++ 
++   let winid = popup_create(['1111', '222222', '33333', '44444'], {
++ 	\ 'maxheight': 2,
++ 	\ 'firstline': 3,
++ 	\ })
++   call assert_equal(3, popup_getoptions(winid).firstline)
++   call popup_setoptions(winid, {'firstline': 1})
++   call assert_equal(1, popup_getoptions(winid).firstline)
++ 
++   call popup_close(winid)
+  endfunc
+  
+  func Test_popup_drag()
+***************
+*** 978,983 ****
+--- 1010,1022 ----
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupTitle')
++ 
++   let winid = popup_create('something', {'title': 'Some Title'})
++   call assert_equal('Some Title', popup_getoptions(winid).title)
++   call popup_setoptions(winid, {'title': 'Another Title'})
++   call assert_equal('Another Title', popup_getoptions(winid).title)
++ 
++   call popup_clear()
+  endfunc
+  
+  func Test_popup_close_callback()
+***************
+*** 1230,1235 ****
+--- 1269,1275 ----
+    let winid = popup_atcursor('text', {'moved': 'any'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
++   call assert_equal([4, 4], popup_getoptions(winid).moved)
+    " trigger the check for last_cursormoved by going into insert mode
+    call feedkeys("li\<Esc>", 'xt')
+    call assert_equal({}, popup_getpos(winid))
+***************
+*** 1239,1244 ****
+--- 1279,1285 ----
+    let winid = popup_atcursor('text', {'moved': 'word'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
++   call assert_equal([4, 7], popup_getoptions(winid).moved)
+    call feedkeys("hi\<Esc>", 'xt')
+    call assert_equal({}, popup_getpos(winid))
+    call popup_clear()
+***************
+*** 1247,1252 ****
+--- 1288,1294 ----
+    let winid = popup_atcursor('text', {'moved': 'word'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
++   call assert_equal([4, 7], popup_getoptions(winid).moved)
+    call feedkeys("li\<Esc>", 'xt')
+    call assert_equal(1, popup_getpos(winid).visible)
+    call feedkeys("ei\<Esc>", 'xt')
+***************
+*** 1260,1265 ****
+--- 1302,1308 ----
+    let winid = popup_atcursor('text', {})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
++   call assert_equal([2, 15], popup_getoptions(winid).moved)
+    call feedkeys("eli\<Esc>", 'xt')
+    call assert_equal(1, popup_getpos(winid).visible)
+    call feedkeys("wi\<Esc>", 'xt')
+***************
+*** 1377,1382 ****
+--- 1420,1427 ----
+  	  \ })
+    redraw
+    call assert_equal(0, popup_getpos(winid).visible)
++   call assert_equal(function('popup_filter_yesno'), popup_getoptions(winid).filter)
++   call assert_equal(function('QuitCallback'), popup_getoptions(winid).callback)
+    exe "normal anot used by filter\<Esc>"
+    call assert_equal('not used by filter', getline(1))
+  
+***************
+*** 1387,1389 ****
+--- 1432,1451 ----
+    bwipe!
+    delfunc QuitCallback
+  endfunc
++ 
++ " Test options not checked elsewhere
++ func Test_set_get_options()
++   let winid = popup_create('some text', {'highlight': 'Beautiful'})
++   let options = popup_getoptions(winid)
++   call assert_equal(1, options.wrap)
++   call assert_equal(0, options.drag)
++   call assert_equal('Beautiful', options.highlight)
++ 
++   call popup_setoptions(winid, {'wrap': 0, 'drag': 1, 'highlight': 'Another'})
++   let options = popup_getoptions(winid)
++   call assert_equal(0, options.wrap)
++   call assert_equal(1, options.drag)
++   call assert_equal('Another', options.highlight)
++ 
++   call popup_close(winid)
++ endfunc
+*** ../vim-8.1.1560/src/testdir/runtest.vim	2019-06-15 18:20:35.464067181 +0200
+--- src/testdir/runtest.vim	2019-06-16 22:51:16.766284748 +0200
+***************
+*** 170,175 ****
+--- 170,180 ----
+    au!
+    au SwapExists * call HandleSwapExists()
+  
++   " Close any stray popup windows
++   if has('textprop')
++     call popup_clear()
++   endif
++ 
+    " Close any extra tab pages and windows and make the current one not modified.
+    while tabpagenr('$') > 1
+      quit!
+*** ../vim-8.1.1560/src/version.c	2019-06-16 20:39:10.742273835 +0200
+--- src/version.c	2019-06-16 22:52:33.882132332 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1561,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+213. Your kids start referring to you as "that guy in front of the monitor."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

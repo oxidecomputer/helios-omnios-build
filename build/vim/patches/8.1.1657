@@ -1,0 +1,467 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1657
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1657
+Problem:    Terminal: screen updates from 'balloonexpr' are not displayed.
+Solution:   Update the screen if needed.  Fix the word position for
+            "mousemoved".
+Files:	    src/beval.c, src/proto/beval.pro, src/popupwin.c, src/normal.c,
+            src/proto/normal.pro
+
+
+*** ../vim-8.1.1656/src/beval.c	2019-07-08 22:23:30.574768870 +0200
+--- src/beval.c	2019-07-09 23:07:49.382246903 +0200
+***************
+*** 27,36 ****
+  	win_T	    **winp,	// can be NULL
+  	linenr_T    *lnump,	// can be NULL
+  	char_u	    **textp,
+! 	int	    *colp)
+  {
+      int		row = mouserow;
+      int		col = mousecol;
+      win_T	*wp;
+      char_u	*lbuf;
+      linenr_T	lnum;
+--- 27,38 ----
+  	win_T	    **winp,	// can be NULL
+  	linenr_T    *lnump,	// can be NULL
+  	char_u	    **textp,
+! 	int	    *colp,	// column where mouse hovers, can be NULL
+! 	int	    *startcolp) // column where text starts, can be NULL
+  {
+      int		row = mouserow;
+      int		col = mousecol;
++     int		scol;
+      win_T	*wp;
+      char_u	*lbuf;
+      linenr_T	lnum;
+***************
+*** 98,105 ****
+  		    {
+  			// Find the word under the cursor.
+  			++emsg_off;
+! 			len = find_ident_at_pos(wp, lnum, (colnr_T)col, &lbuf,
+! 									flags);
+  			--emsg_off;
+  			if (len == 0)
+  			    return FAIL;
+--- 100,107 ----
+  		    {
+  			// Find the word under the cursor.
+  			++emsg_off;
+! 			len = find_ident_at_pos(wp, lnum, (colnr_T)col,
+! 							  &lbuf, &scol, flags);
+  			--emsg_off;
+  			if (len == 0)
+  			    return FAIL;
+***************
+*** 112,118 ****
+  		if (lnump != NULL)
+  		    *lnump = lnum;
+  		*textp = lbuf;
+! 		*colp = col;
+  		return OK;
+  	    }
+  	}
+--- 114,123 ----
+  		if (lnump != NULL)
+  		    *lnump = lnum;
+  		*textp = lbuf;
+! 		if (colp != NULL)
+! 		    *colp = col;
+! 		if (startcolp != NULL)
+! 		    *startcolp = scol;
+  		return OK;
+  	    }
+  	}
+***************
+*** 150,156 ****
+  #endif
+      if (find_word_under_cursor(row, col, getword,
+  		FIND_IDENT + FIND_STRING + FIND_EVAL,
+! 		winp, lnump, textp, colp) == OK)
+      {
+  #ifdef FEAT_VARTABS
+  	vim_free(beval->vts);
+--- 155,161 ----
+  #endif
+      if (find_word_under_cursor(row, col, getword,
+  		FIND_IDENT + FIND_STRING + FIND_EVAL,
+! 		winp, lnump, textp, colp, NULL) == OK)
+      {
+  #ifdef FEAT_VARTABS
+  	vim_free(beval->vts);
+***************
+*** 296,307 ****
+  	    if (result != NULL && result[0] != NUL)
+  		post_balloon(beval, result, NULL);
+  
+- # ifdef FEAT_GUI
+  	    // The 'balloonexpr' evaluation may show something on the screen
+  	    // that requires a screen update.
+! 	    if (gui.in_use && must_redraw)
+  		redraw_after_callback(FALSE);
+- # endif
+  
+  	    recursive = FALSE;
+  	    return;
+--- 301,310 ----
+  	    if (result != NULL && result[0] != NUL)
+  		post_balloon(beval, result, NULL);
+  
+  	    // The 'balloonexpr' evaluation may show something on the screen
+  	    // that requires a screen update.
+! 	    if (must_redraw)
+  		redraw_after_callback(FALSE);
+  
+  	    recursive = FALSE;
+  	    return;
+*** ../vim-8.1.1656/src/proto/beval.pro	2019-07-07 20:30:43.518359624 +0200
+--- src/proto/beval.pro	2019-07-09 23:14:00.572561678 +0200
+***************
+*** 1,5 ****
+  /* beval.c */
+! int find_word_under_cursor(int mouserow, int mousecol, int getword, int flags, win_T **winp, linenr_T *lnump, char_u **textp, int *colp);
+  int get_beval_info(BalloonEval *beval, int getword, win_T **winp, linenr_T *lnump, char_u **textp, int *colp);
+  void post_balloon(BalloonEval *beval, char_u *mesg, list_T *list);
+  int can_use_beval(void);
+--- 1,5 ----
+  /* beval.c */
+! int find_word_under_cursor(int mouserow, int mousecol, int getword, int flags, win_T **winp, linenr_T *lnump, char_u **textp, int *colp, int *startcolp);
+  int get_beval_info(BalloonEval *beval, int getword, win_T **winp, linenr_T *lnump, char_u **textp, int *colp);
+  void post_balloon(BalloonEval *beval, char_u *mesg, list_T *list);
+  int can_use_beval(void);
+*** ../vim-8.1.1656/src/popupwin.c	2019-07-09 20:25:19.911815741 +0200
+--- src/popupwin.c	2019-07-09 23:04:44.435128124 +0200
+***************
+*** 188,194 ****
+      int		col;
+  
+      if (find_word_under_cursor(mouse_row, mouse_col, TRUE, flags,
+! 						NULL, NULL, &text, &col) == OK)
+      {
+  	wp->w_popup_mouse_mincol = col;
+  	wp->w_popup_mouse_maxcol = col + STRLEN(text) - 1;
+--- 188,194 ----
+      int		col;
+  
+      if (find_word_under_cursor(mouse_row, mouse_col, TRUE, flags,
+! 					 NULL, NULL, &text, NULL, &col) == OK)
+      {
+  	wp->w_popup_mouse_mincol = col;
+  	wp->w_popup_mouse_maxcol = col + STRLEN(text) - 1;
+***************
+*** 1437,1442 ****
+--- 1437,1443 ----
+      {
+  	typval_T res;
+  
++ ch_log(NULL, "closing popup %d", wp->w_id);
+  	res.v_type = VAR_NUMBER;
+  	res.vval.v_number = -2;
+  	// Careful: this makes "wp" invalid.
+*** ../vim-8.1.1656/src/normal.c	2019-07-07 18:27:52.365277132 +0200
+--- src/normal.c	2019-07-09 23:21:57.510482992 +0200
+***************
+*** 2325,2330 ****
+--- 2325,2331 ----
+  	ui_may_remove_balloon();
+  	if (p_bevalterm)
+  	{
++ ch_log(NULL, "setting balloon timer");
+  	    profile_setlimit(p_bdlay, &bevalexpr_due);
+  	    bevalexpr_due_set = TRUE;
+  	}
+***************
+*** 3327,3354 ****
+   * Find the identifier under or to the right of the cursor.
+   * "find_type" can have one of three values:
+   * FIND_IDENT:   find an identifier (keyword)
+!  * FIND_STRING:  find any non-white string
+!  * FIND_IDENT + FIND_STRING: find any non-white string, identifier preferred.
+   * FIND_EVAL:	 find text useful for C program debugging
+   *
+   * There are three steps:
+!  * 1. Search forward for the start of an identifier/string.  Doesn't move if
+   *    already on one.
+!  * 2. Search backward for the start of this identifier/string.
+   *    This doesn't match the real Vi but I like it a little better and it
+   *    shouldn't bother anyone.
+!  * 3. Search forward to the end of this identifier/string.
+   *    When FIND_IDENT isn't defined, we backup until a blank.
+   *
+!  * Returns the length of the string, or zero if no string is found.
+!  * If a string is found, a pointer to the string is put in "*string".  This
+!  * string is not always NUL terminated.
+   */
+      int
+! find_ident_under_cursor(char_u **string, int find_type)
+  {
+      return find_ident_at_pos(curwin, curwin->w_cursor.lnum,
+! 				     curwin->w_cursor.col, string, find_type);
+  }
+  
+  /*
+--- 3328,3355 ----
+   * Find the identifier under or to the right of the cursor.
+   * "find_type" can have one of three values:
+   * FIND_IDENT:   find an identifier (keyword)
+!  * FIND_STRING:  find any non-white text
+!  * FIND_IDENT + FIND_STRING: find any non-white text, identifier preferred.
+   * FIND_EVAL:	 find text useful for C program debugging
+   *
+   * There are three steps:
+!  * 1. Search forward for the start of an identifier/text.  Doesn't move if
+   *    already on one.
+!  * 2. Search backward for the start of this identifier/text.
+   *    This doesn't match the real Vi but I like it a little better and it
+   *    shouldn't bother anyone.
+!  * 3. Search forward to the end of this identifier/text.
+   *    When FIND_IDENT isn't defined, we backup until a blank.
+   *
+!  * Returns the length of the text, or zero if no text is found.
+!  * If text is found, a pointer to the text is put in "*text".  This
+!  * points into the current buffer line and is not always NUL terminated.
+   */
+      int
+! find_ident_under_cursor(char_u **text, int find_type)
+  {
+      return find_ident_at_pos(curwin, curwin->w_cursor.lnum,
+! 				curwin->w_cursor.col, text, NULL, find_type);
+  }
+  
+  /*
+***************
+*** 3360,3392 ****
+      win_T	*wp,
+      linenr_T	lnum,
+      colnr_T	startcol,
+!     char_u	**string,
+      int		find_type)
+  {
+      char_u	*ptr;
+!     int		col = 0;	    /* init to shut up GCC */
+      int		i;
+      int		this_class = 0;
+      int		prev_class;
+      int		prevcol;
+!     int		bn = 0;	    /* bracket nesting */
+  
+      /*
+       * if i == 0: try to find an identifier
+!      * if i == 1: try to find any non-white string
+       */
+      ptr = ml_get_buf(wp->w_buffer, lnum, FALSE);
+      for (i = (find_type & FIND_IDENT) ? 0 : 1;	i < 2; ++i)
+      {
+  	/*
+! 	 * 1. skip to start of identifier/string
+  	 */
+  	col = startcol;
+  	if (has_mbyte)
+  	{
+  	    while (ptr[col] != NUL)
+  	    {
+! 		/* Stop at a ']' to evaluate "a[x]". */
+  		if ((find_type & FIND_EVAL) && ptr[col] == ']')
+  		    break;
+  		this_class = mb_get_class(ptr + col);
+--- 3361,3394 ----
+      win_T	*wp,
+      linenr_T	lnum,
+      colnr_T	startcol,
+!     char_u	**text,
+!     int		*textcol,	// column where "text" starts, can be NULL
+      int		find_type)
+  {
+      char_u	*ptr;
+!     int		col = 0;	// init to shut up GCC
+      int		i;
+      int		this_class = 0;
+      int		prev_class;
+      int		prevcol;
+!     int		bn = 0;		// bracket nesting
+  
+      /*
+       * if i == 0: try to find an identifier
+!      * if i == 1: try to find any non-white text
+       */
+      ptr = ml_get_buf(wp->w_buffer, lnum, FALSE);
+      for (i = (find_type & FIND_IDENT) ? 0 : 1;	i < 2; ++i)
+      {
+  	/*
+! 	 * 1. skip to start of identifier/text
+  	 */
+  	col = startcol;
+  	if (has_mbyte)
+  	{
+  	    while (ptr[col] != NUL)
+  	    {
+! 		// Stop at a ']' to evaluate "a[x]".
+  		if ((find_type & FIND_EVAL) && ptr[col] == ']')
+  		    break;
+  		this_class = mb_get_class(ptr + col);
+***************
+*** 3402,3412 ****
+  		    )
+  		++col;
+  
+! 	/* When starting on a ']' count it, so that we include the '['. */
+  	bn = ptr[col] == ']';
+  
+  	/*
+! 	 * 2. Back up to start of identifier/string.
+  	 */
+  	if (has_mbyte)
+  	{
+--- 3404,3414 ----
+  		    )
+  		++col;
+  
+! 	// When starting on a ']' count it, so that we include the '['.
+  	bn = ptr[col] == ']';
+  
+  	/*
+! 	 * 2. Back up to start of identifier/text.
+  	 */
+  	if (has_mbyte)
+  	{
+***************
+*** 3432,3439 ****
+  		col = prevcol;
+  	    }
+  
+! 	    /* If we don't want just any old string, or we've found an
+! 	     * identifier, stop searching. */
+  	    if (this_class > 2)
+  		this_class = 2;
+  	    if (!(find_type & FIND_STRING) || this_class == 2)
+--- 3434,3441 ----
+  		col = prevcol;
+  	    }
+  
+! 	    // If we don't want just any old text, or we've found an
+! 	    // identifier, stop searching.
+  	    if (this_class > 2)
+  		this_class = 2;
+  	    if (!(find_type & FIND_STRING) || this_class == 2)
+***************
+*** 3454,3461 ****
+  			))
+  		--col;
+  
+! 	    /* If we don't want just any old string, or we've found an
+! 	     * identifier, stop searching. */
+  	    if (!(find_type & FIND_STRING) || vim_iswordc(ptr[col]))
+  		break;
+  	}
+--- 3456,3463 ----
+  			))
+  		--col;
+  
+! 	    // If we don't want just any old text, or we've found an
+! 	    // identifier, stop searching.
+  	    if (!(find_type & FIND_STRING) || vim_iswordc(ptr[col]))
+  		break;
+  	}
+***************
+*** 3464,3470 ****
+      if (ptr[col] == NUL || (i == 0
+  		&& (has_mbyte ? this_class != 2 : !vim_iswordc(ptr[col]))))
+      {
+! 	// didn't find an identifier or string
+  	if ((find_type & FIND_NOERROR) == 0)
+  	{
+  	    if (find_type & FIND_STRING)
+--- 3466,3472 ----
+      if (ptr[col] == NUL || (i == 0
+  		&& (has_mbyte ? this_class != 2 : !vim_iswordc(ptr[col]))))
+      {
+! 	// didn't find an identifier or text
+  	if ((find_type & FIND_NOERROR) == 0)
+  	{
+  	    if (find_type & FIND_STRING)
+***************
+*** 3475,3491 ****
+  	return 0;
+      }
+      ptr += col;
+!     *string = ptr;
+  
+      /*
+!      * 3. Find the end if the identifier/string.
+       */
+      bn = 0;
+      startcol -= col;
+      col = 0;
+      if (has_mbyte)
+      {
+! 	/* Search for point of changing multibyte character class. */
+  	this_class = mb_get_class(ptr);
+  	while (ptr[col] != NUL
+  		&& ((i == 0 ? mb_get_class(ptr + col) == this_class
+--- 3477,3495 ----
+  	return 0;
+      }
+      ptr += col;
+!     *text = ptr;
+!     if (textcol != NULL)
+! 	*textcol = col;
+  
+      /*
+!      * 3. Find the end if the identifier/text.
+       */
+      bn = 0;
+      startcol -= col;
+      col = 0;
+      if (has_mbyte)
+      {
+! 	// Search for point of changing multibyte character class.
+  	this_class = mb_get_class(ptr);
+  	while (ptr[col] != NUL
+  		&& ((i == 0 ? mb_get_class(ptr + col) == this_class
+*** ../vim-8.1.1656/src/proto/normal.pro	2018-05-17 13:52:46.000000000 +0200
+--- src/proto/normal.pro	2019-07-09 23:13:23.364727054 +0200
+***************
+*** 7,14 ****
+  void end_visual_mode(void);
+  void reset_VIsual_and_resel(void);
+  void reset_VIsual(void);
+! int find_ident_under_cursor(char_u **string, int find_type);
+! int find_ident_at_pos(win_T *wp, linenr_T lnum, colnr_T startcol, char_u **string, int find_type);
+  void clear_showcmd(void);
+  int add_to_showcmd(int c);
+  void add_to_showcmd_c(int c);
+--- 7,14 ----
+  void end_visual_mode(void);
+  void reset_VIsual_and_resel(void);
+  void reset_VIsual(void);
+! int find_ident_under_cursor(char_u **text, int find_type);
+! int find_ident_at_pos(win_T *wp, linenr_T lnum, colnr_T startcol, char_u **text, int *textcol, int find_type);
+  void clear_showcmd(void);
+  int add_to_showcmd(int c);
+  void add_to_showcmd_c(int c);
+*** ../vim-8.1.1656/src/version.c	2019-07-09 20:25:19.911815741 +0200
+--- src/version.c	2019-07-09 23:18:47.835302456 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1657,
+  /**/
+
+-- 
+    f y cn rd ths thn y cn hv grt jb n cmptr prgrmmng
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

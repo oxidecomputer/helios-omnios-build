@@ -1,0 +1,93 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1681
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1681
+Problem:    Insert stray "{" when listener gets buffer line. (Paul Jolly)
+Solution:   Flush the cached line after invoking listeners. (closes #4455)
+Files:	    src/memline.c, src/testdir/test_listener.vim
+
+
+*** ../vim-8.1.1680/src/memline.c	2019-06-18 22:53:19.018129835 +0200
+--- src/memline.c	2019-07-13 20:11:02.755661155 +0200
+***************
+*** 2836,2843 ****
+  
+  #ifdef FEAT_EVAL
+      // When inserting above recorded changes: flush the changes before changing
+!     // the text.
+      may_invoke_listeners(buf, lnum + 1, lnum + 1, 1);
+  #endif
+  
+  #ifdef FEAT_TEXT_PROP
+--- 2836,2845 ----
+  
+  #ifdef FEAT_EVAL
+      // When inserting above recorded changes: flush the changes before changing
+!     // the text.  Then flush the cached line, it may become invalid.
+      may_invoke_listeners(buf, lnum + 1, lnum + 1, 1);
++     if (curbuf->b_ml.ml_line_lnum != 0)
++ 	ml_flush_line(curbuf);
+  #endif
+  
+  #ifdef FEAT_TEXT_PROP
+*** ../vim-8.1.1680/src/testdir/test_listener.vim	2019-06-20 03:45:31.175536929 +0200
+--- src/testdir/test_listener.vim	2019-07-13 20:10:35.639776461 +0200
+***************
+*** 242,244 ****
+--- 242,270 ----
+    delfunc MyListener
+    bwipe!
+  endfunc
++ 
++ " This verifies the fix for issue #4455
++ func Test_listener_caches_buffer_line()
++   new
++   inoremap <silent> <CR> <CR><Esc>O
++ 
++   function EchoChanges(bufnr, start, end, added, changes)
++     for l:change in a:changes
++       let text = getbufline(a:bufnr, l:change.lnum, l:change.end-1+l:change.added)
++     endfor
++   endfunction
++   let lid = listener_add("EchoChanges")
++   set autoindent
++   set cindent
++ 
++   call setline(1, ["{", "\tif true {}", "}"])
++   exe "normal /{}\nl"
++   call feedkeys("i\r\e", 'xt')
++   call assert_equal(["{", "\tif true {", "", "\t}", "}"], getline(1, 5))
++ 
++   bwipe!
++   delfunc EchoChanges
++   call listener_remove(lid)
++   iunmap <CR>
++   set nocindent
++ endfunc
+*** ../vim-8.1.1680/src/version.c	2019-07-13 18:17:20.448328434 +0200
+--- src/version.c	2019-07-13 19:48:30.488967986 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1681,
+  /**/
+
+-- 
+TALL KNIGHT: We are now no longer the Knights Who Say Ni!
+ONE KNIGHT:  Ni!
+OTHERS:      Sh!
+ONE KNIGHT:  (whispers) Sorry.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

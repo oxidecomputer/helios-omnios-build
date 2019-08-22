@@ -1,0 +1,123 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1719
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1719
+Problem:    Popup too wide when 'showbreak' is set.
+Solution:   Set window width when computing line length. (closes #4701)
+Files:	    src/popupwin.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_showbreak.dump
+
+
+*** ../vim-8.1.1718/src/popupwin.c	2019-07-20 16:51:14.343605469 +0200
+--- src/popupwin.c	2019-07-20 17:44:12.448828951 +0200
+***************
+*** 971,979 ****
+      wp->w_width = 1;
+      for (lnum = wp->w_topline; lnum <= wp->w_buffer->b_ml.ml_line_count; ++lnum)
+      {
+! 	// count Tabs for what they are worth
+! 	int len = win_linetabsize(wp, ml_get_buf(wp->w_buffer, lnum, FALSE),
+  							      (colnr_T)MAXCOL);
+  
+  	if (wp->w_p_wrap)
+  	{
+--- 971,986 ----
+      wp->w_width = 1;
+      for (lnum = wp->w_topline; lnum <= wp->w_buffer->b_ml.ml_line_count; ++lnum)
+      {
+! 	int len;
+! 	int w_width = wp->w_width;
+! 
+! 	// Count Tabs for what they are worth and compute the length based on
+! 	// the maximum width (matters when 'showbreak' is set).
+! 	if (wp->w_width < maxwidth)
+! 	    wp->w_width = maxwidth;
+! 	len = win_linetabsize(wp, ml_get_buf(wp->w_buffer, lnum, FALSE),
+  							      (colnr_T)MAXCOL);
++ 	wp->w_width = w_width;
+  
+  	if (wp->w_p_wrap)
+  	{
+*** ../vim-8.1.1718/src/testdir/test_popupwin.vim	2019-07-20 15:09:35.778697427 +0200
+--- src/testdir/test_popupwin.vim	2019-07-20 17:42:55.417282123 +0200
+***************
+*** 717,722 ****
+--- 717,743 ----
+    call delete('XtestPopup')
+  endfunc
+  
++ func Test_popup_with_showbreak()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++   let lines =<< trim END
++ 	 set showbreak=>>\ 
++ 	 call setline(1, range(1, 20))
++ 	 let winid = popup_dialog(
++ 	   \ 'a long line here',
++ 	   \ #{filter: 'popup_filter_yesno'})
++   END
++   call writefile(lines, 'XtestPopupShowbreak')
++   let buf = RunVimInTerminal('-S XtestPopupShowbreak', #{rows: 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_showbreak', {})
++ 
++   " clean up
++   call term_sendkeys(buf, "y")
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupShowbreak')
++ endfunc
++ 
+  func Test_popup_time()
+    if !has('timers')
+      throw 'Skipped: timer feature not supported'
+***************
+*** 2162,2165 ****
+    call delete('XtestPreviewPopup')
+  endfunc
+  
+! " vim: shiftwidth=2 sts=2 expandtab
+--- 2183,2186 ----
+    call delete('XtestPreviewPopup')
+  endfunc
+  
+! " vim: shiftwidth=2 sts=2
+*** ../vim-8.1.1718/src/testdir/dumps/Test_popupwin_showbreak.dump	2019-07-20 17:45:38.660325994 +0200
+--- src/testdir/dumps/Test_popupwin_showbreak.dump	2019-07-20 17:37:50.391123472 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @25|╔+0#0000001#ffd7ff255|═@17|╗| +0#0000000#ffffff0@27
++ |5| @25|║+0#0000001#ffd7ff255| |a| |l|o|n|g| |l|i|n|e| |h|e|r|e| |║| +0#0000000#ffffff0@27
++ |6| @25|╚+0#0000001#ffd7ff255|═@17|╝| +0#0000000#ffffff0@27
++ |7| @73
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1718/src/version.c	2019-07-20 16:51:14.343605469 +0200
+--- src/version.c	2019-07-20 17:39:47.274407299 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1719,
+  /**/
+
+-- 
+   [The rest of the ARMY stand around looking at a loss.]
+INSPECTOR END OF FILM: (picks up megaphone) All right!  Clear off!  Go on!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,168 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1895
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1895
+Problem:    Using NULL pointer when out of memory.
+Solution:   Bail out or skip the code using the pointer. (Zu-Ming Jiang,
+            closes #4805, closes #4843, closes #4939, closes #4844)
+Files:	    src/message.c, src/highlight.c, src/buffer.c, src/ops.c
+
+
+*** ../vim-8.1.1894/src/message.c	2019-08-20 20:13:40.326821952 +0200
+--- src/message.c	2019-08-20 22:30:07.581128475 +0200
+***************
+*** 2588,2603 ****
+  		int n = (int)(s - p);
+  
+  		buf = alloc(n + 3);
+! 		memcpy(buf, p, n);
+! 		if (!info_message)
+! 		    buf[n++] = CAR;
+! 		buf[n++] = NL;
+! 		buf[n++] = NUL;
+! 		if (info_message)   // informative message, not an error
+! 		    mch_msg((char *)buf);
+! 		else
+! 		    mch_errmsg((char *)buf);
+! 		vim_free(buf);
+  		p = s + 1;
+  	    }
+  	}
+--- 2588,2606 ----
+  		int n = (int)(s - p);
+  
+  		buf = alloc(n + 3);
+! 		if (buf != NULL)
+! 		{
+! 		    memcpy(buf, p, n);
+! 		    if (!info_message)
+! 			buf[n++] = CAR;
+! 		    buf[n++] = NL;
+! 		    buf[n++] = NUL;
+! 		    if (info_message)   // informative message, not an error
+! 			mch_msg((char *)buf);
+! 		    else
+! 			mch_errmsg((char *)buf);
+! 		    vim_free(buf);
+! 		}
+  		p = s + 1;
+  	    }
+  	}
+*** ../vim-8.1.1894/src/highlight.c	2019-08-18 22:25:54.661448011 +0200
+--- src/highlight.c	2019-08-20 22:54:24.488488582 +0200
+***************
+*** 3016,3021 ****
+--- 3016,3022 ----
+  syn_add_group(char_u *name)
+  {
+      char_u	*p;
++     char_u	*name_up;
+  
+      // Check that the name is ASCII letters, digits and underscore.
+      for (p = name; *p != NUL; ++p)
+***************
+*** 3061,3069 ****
+  	return 0;
+      }
+  
+      vim_memset(&(HL_TABLE()[highlight_ga.ga_len]), 0, sizeof(hl_group_T));
+      HL_TABLE()[highlight_ga.ga_len].sg_name = name;
+!     HL_TABLE()[highlight_ga.ga_len].sg_name_u = vim_strsave_up(name);
+  #if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS)
+      HL_TABLE()[highlight_ga.ga_len].sg_gui_bg = INVALCOLOR;
+      HL_TABLE()[highlight_ga.ga_len].sg_gui_fg = INVALCOLOR;
+--- 3062,3077 ----
+  	return 0;
+      }
+  
++     name_up = vim_strsave_up(name);
++     if (name_up == NULL)
++     {
++ 	vim_free(name);
++ 	return 0;
++     }
++ 
+      vim_memset(&(HL_TABLE()[highlight_ga.ga_len]), 0, sizeof(hl_group_T));
+      HL_TABLE()[highlight_ga.ga_len].sg_name = name;
+!     HL_TABLE()[highlight_ga.ga_len].sg_name_u = name_up;
+  #if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS)
+      HL_TABLE()[highlight_ga.ga_len].sg_gui_bg = INVALCOLOR;
+      HL_TABLE()[highlight_ga.ga_len].sg_gui_fg = INVALCOLOR;
+*** ../vim-8.1.1894/src/buffer.c	2019-08-20 20:13:40.318821992 +0200
+--- src/buffer.c	2019-08-20 22:51:26.565548319 +0200
+***************
+*** 181,194 ****
+  	    if (curbuf->b_ml.ml_mfp != NULL)
+  		break;
+  	/*
+! 	 * if there is no memfile at all, exit
+  	 * This is OK, since there are no changes to lose.
+  	 */
+  	if (curbuf == NULL)
+  	{
+  	    emsg(_("E82: Cannot allocate any buffer, exiting..."));
+  	    getout(2);
+  	}
+  	emsg(_("E83: Cannot allocate buffer, using other one..."));
+  	enter_buffer(curbuf);
+  #ifdef FEAT_SYN_HL
+--- 181,199 ----
+  	    if (curbuf->b_ml.ml_mfp != NULL)
+  		break;
+  	/*
+! 	 * If there is no memfile at all, exit.
+  	 * This is OK, since there are no changes to lose.
+  	 */
+  	if (curbuf == NULL)
+  	{
+  	    emsg(_("E82: Cannot allocate any buffer, exiting..."));
++ 
++ 	    // Don't try to do any saving, with "curbuf" NULL almost nothing
++ 	    // will work.
++ 	    v_dying = 2;
+  	    getout(2);
+  	}
++ 
+  	emsg(_("E83: Cannot allocate buffer, using other one..."));
+  	enter_buffer(curbuf);
+  #ifdef FEAT_SYN_HL
+*** ../vim-8.1.1894/src/ops.c	2019-08-20 20:13:40.330821936 +0200
+--- src/ops.c	2019-08-20 22:53:58.632631493 +0200
+***************
+*** 4556,4561 ****
+--- 4556,4566 ----
+  
+      /* allocate the space for the new line */
+      newp = alloc(sumsize + 1);
++     if (newp == NULL)
++     {
++ 	ret = FAIL;
++ 	goto theend;
++     }
+      cend = newp + sumsize;
+      *cend = 0;
+  
+*** ../vim-8.1.1894/src/version.c	2019-08-20 21:57:57.652689478 +0200
+--- src/version.c	2019-08-20 22:57:40.408159013 +0200
+***************
+*** 767,768 ****
+--- 767,770 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1895,
+  /**/
+
+-- 
+% cat /usr/include/long_life.h
+long life(double fun);
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

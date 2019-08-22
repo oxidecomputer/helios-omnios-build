@@ -1,0 +1,213 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1875
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1875
+Problem:    Cannot get size and position of the popup menu.
+Solution:   Add pum_getpos(). (Ben Jackson, closes #4827)
+Files:	    runtime/doc/autocmd.txt, runtime/doc/eval.txt, src/evalfunc.c,
+            src/testdir/test_popup.vim
+
+
+*** ../vim-8.1.1874/runtime/doc/autocmd.txt	2019-06-15 17:12:01.565915021 +0200
+--- runtime/doc/autocmd.txt	2019-08-17 19:29:52.688526644 +0200
+***************
+*** 595,600 ****
+--- 595,604 ----
+  				    scrollbar		TRUE if visible
+  
+  				It is not allowed to change the text |textlock|.
++ 
++ 				The size and position of the popup are also
++ 				available by calling |pum_getpos()|.
++ 
+  							*CompleteDone*
+  CompleteDone			After Insert mode completion is done.  Either
+  				when something was completed or abandoning
+*** ../vim-8.1.1874/runtime/doc/eval.txt	2019-08-10 22:21:43.001777985 +0200
+--- runtime/doc/eval.txt	2019-08-17 19:32:40.919794581 +0200
+***************
+*** 2613,2618 ****
+--- 2621,2627 ----
+  prop_type_get([{name} [, {props}])
+  				Dict	get property type values
+  prop_type_list([{props}])	List	get list of property types
++ pum_getpos()			Dict	position and size of pum if visible
+  pumvisible()			Number	whether popup menu is visible
+  pyeval({expr})			any	evaluate |Python| expression
+  py3eval({expr})			any	evaluate |python3| expression
+***************
+*** 3477,3482 ****
+--- 3486,3495 ----
+  		the items listed in {what} are returned.  Unsupported items in
+  		{what} are silently ignored.
+  
++ 		To get the position and size of the popup menu, see
++ 		|pum_getpos()|. It's also available in |v:event| during the
++ 		|CompleteChanged| event.
++ 
+  		Examples: >
+  			" Get all items
+  			call complete_info()
+***************
+*** 6957,6962 ****
+--- 6990,7009 ----
+  <
+  prop_ functions are documented here: |text-prop-functions|.
+  
++ pum_getpos()						*pum_getpos()*
++ 		If the popup menu (see |ins-completion-menu|) is not visible,
++ 		returns an empty |Dictionary|, otherwise, returns a
++ 		|Dictionary| with the following keys:
++ 			height		nr of items visible
++ 			width		screen cells
++ 			row		top screen row (0 first row)
++ 			col		leftmost screen column (0 first col)
++ 			size		total nr of items
++ 			scrollbar	|TRUE| if visible
++ 
++ 		The values are the same as in |v:event| during
++ 		|CompleteChanged|.
++ 
+  pumvisible()						*pumvisible()*
+  		Returns non-zero when the popup menu is visible, zero
+  		otherwise.  See |ins-completion-menu|.
+*** ../vim-8.1.1874/src/evalfunc.c	2019-08-17 14:38:35.647786228 +0200
+--- src/evalfunc.c	2019-08-17 19:33:33.355563678 +0200
+***************
+*** 234,239 ****
+--- 234,240 ----
+  #endif
+  static void f_prevnonblank(typval_T *argvars, typval_T *rettv);
+  static void f_printf(typval_T *argvars, typval_T *rettv);
++ static void f_pum_getpos(typval_T *argvars, typval_T *rettv);
+  static void f_pumvisible(typval_T *argvars, typval_T *rettv);
+  #ifdef FEAT_PYTHON3
+  static void f_py3eval(typval_T *argvars, typval_T *rettv);
+***************
+*** 741,746 ****
+--- 742,748 ----
+      {"prop_type_get",	1, 2, 0,	  f_prop_type_get},
+      {"prop_type_list",	0, 1, 0,	  f_prop_type_list},
+  #endif
++     {"pum_getpos",	0, 0, 0,	  f_pum_getpos},
+      {"pumvisible",	0, 0, 0,	  f_pumvisible},
+  #ifdef FEAT_PYTHON3
+      {"py3eval",		1, 1, 0,	  f_py3eval},
+***************
+*** 7961,7966 ****
+--- 7963,7981 ----
+  }
+  
+  /*
++  * "pum_getpos()" function
++  */
++     static void
++ f_pum_getpos(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
++ {
++     if (rettv_dict_alloc(rettv) != OK)
++ 	return;
++ #ifdef FEAT_INS_EXPAND
++     pum_set_event_info(rettv->vval.v_dict);
++ #endif
++ }
++ 
++ /*
+   * "pumvisible()" function
+   */
+      static void
+*** ../vim-8.1.1874/src/testdir/test_popup.vim	2019-08-07 23:07:03.960858821 +0200
+--- src/testdir/test_popup.vim	2019-08-17 19:29:52.688526644 +0200
+***************
+*** 1033,1038 ****
+--- 1033,1052 ----
+    bwipe!
+  endfunc
+  
++ func Test_popup_complete_info_no_pum()
++   new
++   call assert_false( pumvisible() )
++   let no_pum_info = complete_info()
++   let d = {
++         \   'mode': '',
++         \   'pum_visible': 0,
++         \   'items': [],
++         \   'selected': -1,
++         \  }
++   call assert_equal( d, complete_info() )
++   bwipe!
++ endfunc
++ 
+  func Test_CompleteChanged()
+    new
+    call setline(1, ['foo', 'bar', 'foobar', ''])
+***************
+*** 1063,1070 ****
+  
+    autocmd! AAAAA_Group
+    set complete& completeopt&
+!   delfunc! OnPumchange
+    bw!
+  endfunc
+  
+  " vim: shiftwidth=2 sts=2 expandtab
+--- 1077,1112 ----
+  
+    autocmd! AAAAA_Group
+    set complete& completeopt&
+!   delfunc! OnPumChange
+!   bw!
+! endfunc
+! 
+! function! GetPumPosition()
+!   call assert_true( pumvisible() )
+!   let g:pum_pos = pum_getpos()
+!   return ''
+! endfunction
+! 
+! func Test_pum_getpos()
+!   new
+!   inoremap <buffer><F5> <C-R>=GetPumPosition()<CR>
+!   setlocal completefunc=UserDefinedComplete
+! 
+!   let d = {
+!     \   'height':    5,
+!     \   'width':     15,
+!     \   'row':       1,
+!     \   'col':       0,
+!     \   'size':      5,
+!     \   'scrollbar': v:false,
+!     \ }
+!   call feedkeys("i\<C-X>\<C-U>\<F5>", 'tx')
+!   call assert_equal(d, g:pum_pos)
+! 
+!   call assert_false( pumvisible() )
+!   call assert_equal( {}, pum_getpos() )
+    bw!
++   unlet g:pum_pos
+  endfunc
+  
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1874/src/version.c	2019-08-17 19:10:49.636938826 +0200
+--- src/version.c	2019-08-17 19:31:07.832201434 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1875,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+86. E-mail Deficiency Depression (EDD) forces you to e-mail yourself.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

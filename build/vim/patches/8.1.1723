@@ -1,0 +1,253 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1723
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1723
+Problem:    Heredoc assignment has no room for new features. (FUJIWARA Takuya)
+Solution:   Require the marker does not start with a lower case character.
+            (closes #4705)
+Files:	    runtime/doc/eval.txt, src/eval.c, src/testdir/test_let.vim
+
+
+*** ../vim-8.1.1722/runtime/doc/eval.txt	2019-07-16 22:03:28.902863158 +0200
+--- runtime/doc/eval.txt	2019-07-21 14:02:28.253531948 +0200
+***************
+*** 11380,11386 ****
+  			Like above, but append/add/subtract the value for each
+  			|List| item.
+  
+! 					*:let=<<* *:let-heredoc* *E990* *E991*
+  :let {var-name} =<< [trim] {marker}
+  text...
+  text...
+--- 11192,11199 ----
+  			Like above, but append/add/subtract the value for each
+  			|List| item.
+  
+! 						*:let=<<* *:let-heredoc*
+! 						*E990* *E991* *E172* *E221*
+  :let {var-name} =<< [trim] {marker}
+  text...
+  text...
+***************
+*** 11388,11398 ****
+  			Set internal variable {var-name} to a List containing
+  			the lines of text bounded by the string {marker}.
+  			{marker} must not contain white space.
+  			The last line should end only with the {marker} string
+  			without any other character.  Watch out for white
+  			space after {marker}!
+- 			If {marker} is not supplied, then "." is used as the
+- 			default marker.
+  
+  			Without "trim" any white space characters in the lines
+  			of text are preserved.  If "trim" is specified before
+--- 11201,11210 ----
+  			Set internal variable {var-name} to a List containing
+  			the lines of text bounded by the string {marker}.
+  			{marker} must not contain white space.
++ 			{marker} cannot start with a lower case character.
+  			The last line should end only with the {marker} string
+  			without any other character.  Watch out for white
+  			space after {marker}!
+  
+  			Without "trim" any white space characters in the lines
+  			of text are preserved.  If "trim" is specified before
+*** ../vim-8.1.1722/src/eval.c	2019-07-20 21:11:09.367858652 +0200
+--- src/eval.c	2019-07-21 14:01:52.577861578 +0200
+***************
+*** 1283,1289 ****
+  	text_indent_len = -1;
+      }
+  
+!     // The marker is the next word.  Default marker is "."
+      if (*cmd != NUL && *cmd != '"')
+      {
+  	marker = skipwhite(cmd);
+--- 1283,1289 ----
+  	text_indent_len = -1;
+      }
+  
+!     // The marker is the next word.
+      if (*cmd != NUL && *cmd != '"')
+      {
+  	marker = skipwhite(cmd);
+***************
+*** 1294,1302 ****
+  	    return NULL;
+  	}
+  	*p = NUL;
+      }
+      else
+! 	marker = (char_u *)".";
+  
+      l = list_alloc();
+      if (l == NULL)
+--- 1294,1310 ----
+  	    return NULL;
+  	}
+  	*p = NUL;
++ 	if (vim_islower(*marker))
++ 	{
++ 	    emsg(_("E221: Marker cannot start with lower case letter"));
++ 	    return NULL;
++ 	}
+      }
+      else
+!     {
+! 	emsg(_("E172: Missing marker"));
+! 	return NULL;
+!     }
+  
+      l = list_alloc();
+      if (l == NULL)
+*** ../vim-8.1.1722/src/testdir/test_let.vim	2019-06-25 04:12:12.312665250 +0200
+--- src/testdir/test_let.vim	2019-07-21 14:03:04.993202048 +0200
+***************
+*** 164,177 ****
+    call assert_fails('source XheredocFail', 'E126:')
+    call delete('XheredocFail')
+  
+!   let text =<< trim END
+    func MissingEnd()
+      let v =<< END
+    endfunc
+!   END
+    call writefile(text, 'XheredocWrong')
+    call assert_fails('source XheredocWrong', 'E126:')
+    call delete('XheredocWrong')
+  endfunc
+  
+  " Test for the setting a variable using the heredoc syntax
+--- 164,191 ----
+    call assert_fails('source XheredocFail', 'E126:')
+    call delete('XheredocFail')
+  
+!   let text =<< trim CodeEnd
+    func MissingEnd()
+      let v =<< END
+    endfunc
+!   CodeEnd
+    call writefile(text, 'XheredocWrong')
+    call assert_fails('source XheredocWrong', 'E126:')
+    call delete('XheredocWrong')
++ 
++   let text =<< trim TEXTend
++     let v =<< " comment
++   TEXTend
++   call writefile(text, 'XheredocNoMarker')
++   call assert_fails('source XheredocNoMarker', 'E172:')
++   call delete('XheredocNoMarker')
++ 
++   let text =<< trim TEXTend
++     let v =<< text
++   TEXTend
++   call writefile(text, 'XheredocBadMarker')
++   call assert_fails('source XheredocBadMarker', 'E221:')
++   call delete('XheredocBadMarker')
+  endfunc
+  
+  " Test for the setting a variable using the heredoc syntax
+***************
+*** 184,192 ****
+  
+    call assert_equal(["Some sample text", "\tText with indent", "  !@#$%^&*()-+_={}|[]\\~`:\";'<>?,./"], var1)
+  
+!   let var2 =<<
+  Editor
+! .
+    call assert_equal(['Editor'], var2)
+  
+    let var3 =<<END
+--- 198,206 ----
+  
+    call assert_equal(["Some sample text", "\tText with indent", "  !@#$%^&*()-+_={}|[]\\~`:\";'<>?,./"], var1)
+  
+!   let var2 =<< XXX
+  Editor
+! XXX
+    call assert_equal(['Editor'], var2)
+  
+    let var3 =<<END
+***************
+*** 218,226 ****
+    !!!
+    call assert_equal(['Line1', ' line2', "\tLine3", '!!!',], var1)
+  
+!   let var1 =<< trim
+      Line1
+!   .
+    call assert_equal(['Line1'], var1)
+  
+    " ignore "endfunc"
+--- 232,240 ----
+    !!!
+    call assert_equal(['Line1', ' line2', "\tLine3", '!!!',], var1)
+  
+!   let var1 =<< trim XX
+      Line1
+!   XX
+    call assert_equal(['Line1'], var1)
+  
+    " ignore "endfunc"
+***************
+*** 260,275 ****
+    call assert_equal(['something', 'python << xx'], var1)
+  
+    " ignore "append"
+!   let var1 =<<
+  something
+  app
+! .
+    call assert_equal(['something', 'app'], var1)
+  
+    " ignore "append" with trim
+!   let var1 =<< trim
+    something
+    app
+!   .
+    call assert_equal(['something', 'app'], var1)
+  endfunc
+--- 274,289 ----
+    call assert_equal(['something', 'python << xx'], var1)
+  
+    " ignore "append"
+!   let var1 =<< E
+  something
+  app
+! E
+    call assert_equal(['something', 'app'], var1)
+  
+    " ignore "append" with trim
+!   let var1 =<< trim END
+    something
+    app
+!   END
+    call assert_equal(['something', 'app'], var1)
+  endfunc
+*** ../vim-8.1.1722/src/version.c	2019-07-20 21:11:09.367858652 +0200
+--- src/version.c	2019-07-21 14:13:21.844627346 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1723,
+  /**/
+
+-- 
+MICHAEL PALIN PLAYED: 1ST SOLDIER WITH A KEEN INTEREST IN BIRDS, DENNIS, MR
+                      DUCK (A VILLAGE CARPENTER WHO IS ALMOST KEENER THAN
+                      ANYONE ELSE TO BURN WITCHES), THREE-HEADED KNIGHT, SIR
+                      GALAHAD, KING OF SWAMP CASTLE, BROTHER MAYNARD'S ROOMATE
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

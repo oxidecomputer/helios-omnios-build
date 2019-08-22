@@ -1,0 +1,312 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1799
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1799
+Problem:    Cannot avoid mapping for a popup window.
+Solution:   Add the "mapping" property, default TRUE.
+Files:	    runtime/doc/popup.txt, src/getchar.c, src/popupwin.c, src/vim.h,
+            src/proto/popupwin.pro, src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1798/runtime/doc/popup.txt	2019-08-01 21:09:49.923160274 +0200
+--- runtime/doc/popup.txt	2019-08-03 16:02:51.079872870 +0200
+***************
+*** 246,251 ****
+--- 246,252 ----
+  				\ drag: 1,
+  				\ border: [],
+  				\ padding: [],
++ 				\ mapping: 0,
+  				\})
+  <		Use {options} to change the properties. E.g. add a 'filter'
+  		option with value 'popup_filter_yesno'.  Example: >
+***************
+*** 369,380 ****
+--- 370,389 ----
+  				\ cursorline: 1,
+  				\ padding: [0,1,0,1],
+  				\ filter: 'popup_filter_menu',
++ 				\ mapping: 0,
+  				\ })
+  <		The current line is highlighted with a match using
+  		"PopupSelected", or "PmenuSel" if that is not defined.
+  
+  		Use {options} to change the properties.  Should at least set
+  		"callback" to a function that handles the selected item.
++ 		Example: >
++ 			func ColorSelected(id, result)
++ 			   " use a:result
++ 			endfunc
++ 			call popup_menu(['red', 'green', 'blue'], #{
++ 				\ callback: 'ColorSelected',
++ 				\ })
+  
+  
+  popup_move({id}, {options})					*popup_move()*
+***************
+*** 433,448 ****
+  			borderhighlight
+  			callback
+  			close
+- 			drag
+- 			resize
+  			cursorline
+  			filter
+  			firstline
+  			flip
+  			highlight
+  			mask
+  			moved
+  			padding
+  			scrollbar
+  			scrollbarhighlight
+  			thumbhighlight
+--- 442,458 ----
+  			borderhighlight
+  			callback
+  			close
+  			cursorline
++ 			drag
+  			filter
+  			firstline
+  			flip
+  			highlight
++ 			mapping
+  			mask
+  			moved
+  			padding
++ 			resize
+  			scrollbar
+  			scrollbarhighlight
+  			thumbhighlight
+***************
+*** 615,620 ****
+--- 625,633 ----
+  			Default is zero, except for |popup_menu()|.
+  	filter		A callback that can filter typed characters, see
+  			|popup-filter|.
++ 	mapping		Allow for key mapping.  When FALSE and the popup is
++ 			visible and has a filter callback key mapping is
++ 			disabled.  Default value is TRUE.
+  	callback	A callback that is called when the popup closes, e.g.
+  			when using |popup_filter_menu()|, see |popup-callback|.
+  
+***************
+*** 671,678 ****
+  	  endif
+  	  return 0
+  	endfunc
+! 
+! Currently the key is what results after any mapping.  This may change...
+  
+  Some common key actions:
+  	x		close the popup (see note below)
+--- 684,694 ----
+  	  endif
+  	  return 0
+  	endfunc
+! <							*popup-mapping*
+! Normally the key is what results after any mapping, since the keys pass on as
+! normal input if the filter does not use it.  If the filter consumes all the
+! keys, set the "mapping" property to zero so that mappings do not get in the
+! way.  This is default for |popup_menu()| and |popup_dialog()|.
+  
+  Some common key actions:
+  	x		close the popup (see note below)
+***************
+*** 703,708 ****
+--- 719,729 ----
+  If the popup is force-closed, e.g. because the cursor moved or CTRL-C was
+  pressed, the number -1 is passed to the callback.
+  
++ Example: >
++ 	func SelectedColor(id, result)
++ 	   echo 'choice made: ' .. a:result
++ 	endfunc
++ 
+  
+  POPUP SCROLLBAR						*popup-scrollbar*
+  
+*** ../vim-8.1.1798/src/getchar.c	2019-08-03 14:59:40.387763912 +0200
+--- src/getchar.c	2019-08-03 16:11:02.104455757 +0200
+***************
+*** 1575,1580 ****
+--- 1575,1583 ----
+  #if defined(FEAT_XIM) && defined(FEAT_GUI_GTK)
+  		    || im_is_preediting()
+  #endif
++ #if defined(FEAT_TEXT_PROP)
++ 		    || popup_no_mapping()
++ #endif
+  		    )
+  	    {
+  		// no mapping after modifier has been read
+*** ../vim-8.1.1798/src/popupwin.c	2019-08-01 22:40:27.068043894 +0200
+--- src/popupwin.c	2019-08-03 16:13:01.931651079 +0200
+***************
+*** 800,805 ****
+--- 800,814 ----
+  	    set_callback(&wp->w_filter_cb, &callback);
+  	}
+      }
++     di = dict_find(dict, (char_u *)"mapping", -1);
++     if (di != NULL)
++     {
++ 	nr = dict_get_number(dict, (char_u *)"mapping");
++ 	if (nr)
++ 	    wp->w_popup_flags |= POPF_MAPPING;
++ 	else
++ 	    wp->w_popup_flags &= ~POPF_MAPPING;
++     }
+  
+      di = dict_find(dict, (char_u *)"callback", -1);
+      if (di != NULL)
+***************
+*** 1413,1419 ****
+      if (rettv != NULL)
+  	rettv->vval.v_number = wp->w_id;
+      wp->w_popup_pos = POPPOS_TOPLEFT;
+!     wp->w_popup_flags = POPF_IS_POPUP;
+  
+      if (buf != NULL)
+      {
+--- 1422,1428 ----
+      if (rettv != NULL)
+  	rettv->vval.v_number = wp->w_id;
+      wp->w_popup_pos = POPPOS_TOPLEFT;
+!     wp->w_popup_flags = POPF_IS_POPUP | POPF_MAPPING;
+  
+      if (buf != NULL)
+      {
+***************
+*** 1561,1566 ****
+--- 1570,1576 ----
+  	wp->w_popup_pos = POPPOS_CENTER;
+  	wp->w_zindex = POPUPWIN_DIALOG_ZINDEX;
+  	wp->w_popup_flags |= POPF_DRAG;
++ 	wp->w_popup_flags &= ~POPF_MAPPING;
+  	for (i = 0; i < 4; ++i)
+  	{
+  	    wp->w_popup_border[i] = 1;
+***************
+*** 2502,2507 ****
+--- 2512,2536 ----
+  }
+  
+  /*
++  * Return TRUE if there is a popup visible with a filter callback and the
++  * "mapping" property off.
++  */
++     int
++ popup_no_mapping(void)
++ {
++     int	    round;
++     win_T   *wp;
++ 
++     for (round = 1; round <= 2; ++round)
++ 	for (wp = round == 1 ? first_popupwin : curtab->tp_first_popupwin;
++ 						   wp != NULL; wp = wp->w_next)
++ 	    if (wp->w_filter_cb.cb_name != NULL
++ 		    && (wp->w_popup_flags & (POPF_HIDDEN | POPF_MAPPING)) == 0)
++ 		return TRUE;
++     return FALSE;
++ }
++ 
++ /*
+   * Called when the cursor moved: check if any popup needs to be closed if the
+   * cursor moved far enough.
+   */
+*** ../vim-8.1.1798/src/vim.h	2019-08-03 13:29:43.303352770 +0200
+--- src/vim.h	2019-08-03 15:45:57.678530644 +0200
+***************
+*** 621,626 ****
+--- 621,627 ----
+  #define POPF_ON_CMDLINE	0x10	// popup overlaps command line
+  #define POPF_DRAG	0x20	// popup can be moved by dragging
+  #define POPF_RESIZE	0x40	// popup can be resized by dragging
++ #define POPF_MAPPING	0x80	// mapping keys
+  
+  #ifdef FEAT_TEXT_PROP
+  # define WIN_IS_POPUP(wp) ((wp)->w_popup_flags != 0)
+*** ../vim-8.1.1798/src/proto/popupwin.pro	2019-08-01 22:40:27.068043894 +0200
+--- src/proto/popupwin.pro	2019-08-03 15:51:10.084618665 +0200
+***************
+*** 38,43 ****
+--- 38,44 ----
+  void popup_reset_handled(void);
+  win_T *find_next_popup(int lowest);
+  int popup_do_filter(int c);
++ int popup_no_mapping(void);
+  void popup_check_cursor_pos(void);
+  void may_update_popup_mask(int type);
+  void update_popups(void (*win_update)(win_T *wp));
+*** ../vim-8.1.1798/src/testdir/test_popupwin.vim	2019-08-01 21:09:49.923160274 +0200
+--- src/testdir/test_popupwin.vim	2019-08-03 16:12:19.091937826 +0200
+***************
+*** 657,662 ****
+--- 657,663 ----
+    call assert_fails('call popup_create("text", #{mask: ["asdf"]})', 'E475:')
+    call popup_clear()
+    call assert_fails('call popup_create("text", #{mask: test_null_list()})', 'E475:')
++   call assert_fails('call popup_create("text", #{mapping: []})', 'E745:')
+    call popup_clear()
+  endfunc
+  
+***************
+*** 1203,1208 ****
+--- 1204,1211 ----
+      let s:cb_winid = a:id
+      let s:cb_res = a:res
+    endfunc
++   " mapping won't be used in popup
++   map j k
+  
+    let winid = ShowMenu(" ", 1)
+    let winid = ShowMenu("j \<CR>", 2)
+***************
+*** 1215,1220 ****
+--- 1218,1224 ----
+    let winid = ShowMenu("\<C-C>", -1)
+  
+    delfunc QuitCallback
++   unmap j
+  endfunc
+  
+  func Test_popup_menu_screenshot()
+***************
+*** 2194,2199 ****
+--- 2198,2206 ----
+    call term_sendkeys(buf, "/another\<CR>\<C-W>}")
+    call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_4', {})
+  
++   call term_sendkeys(buf, ":cd ..\<CR>:\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_5', {})
++ 
+    call StopVimInTerminal(buf)
+    call delete('Xtags')
+    call delete('Xtagfile')
+*** ../vim-8.1.1798/src/version.c	2019-08-03 14:59:40.387763912 +0200
+--- src/version.c	2019-08-03 15:36:33.469879055 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1799,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+17. You turn on your intercom when leaving the room so you can hear if new
+    e-mail arrives.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

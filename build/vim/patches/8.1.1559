@@ -1,0 +1,416 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1559
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1559
+Problem:    Popup window title property not implemented yet.
+Solution:   Implement the title property.
+Files:	    runtime/doc/popup.txt, src/popupwin.c, src/structs.h
+            src/window.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_menu_01.dump,
+            src/testdir/dumps/Test_popupwin_menu_02.dump,
+            src/testdir/dumps/Test_popupwin_title.dump
+
+
+*** ../vim-8.1.1558/runtime/doc/popup.txt	2019-06-16 19:05:08.710676808 +0200
+--- runtime/doc/popup.txt	2019-06-16 20:00:00.465350232 +0200
+***************
+*** 112,118 ****
+  	popup_setoptions({id}, {options})
+  	hidden option
+  	tabpage option with number
+- 	title option
+  	flip option
+  	transparent text property
+  
+--- 112,117 ----
+***************
+*** 452,459 ****
+  	title		Text to be displayed above the first item in the
+  			popup, on top of any border.  If there is no top
+  			border one line of padding is added to put the title
+! 			on.
+! 			{not implemented yet}
+  	wrap		TRUE to make the lines wrap (default TRUE).
+  	drag		TRUE to allow the popup to be dragged with the mouse
+  			by grabbing at at the border.  Has no effect if the
+--- 451,458 ----
+  	title		Text to be displayed above the first item in the
+  			popup, on top of any border.  If there is no top
+  			border one line of padding is added to put the title
+! 			on.  You might want to add one or more spaces at the
+! 			start and end as padding.
+  	wrap		TRUE to make the lines wrap (default TRUE).
+  	drag		TRUE to allow the popup to be dragged with the mouse
+  			by grabbing at at the border.  Has no effect if the
+*** ../vim-8.1.1558/src/popupwin.c	2019-06-16 19:05:08.710676808 +0200
+--- src/popupwin.c	2019-06-16 19:54:52.992744452 +0200
+***************
+*** 294,299 ****
+--- 294,306 ----
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+  						   str, OPT_FREE|OPT_LOCAL, 0);
+  
++     str = dict_get_string(dict, (char_u *)"title", FALSE);
++     if (str != NULL)
++     {
++ 	vim_free(wp->w_popup_title);
++ 	wp->w_popup_title = vim_strsave(str);
++     }
++ 
+      wp->w_firstline = dict_get_number(dict, (char_u *)"firstline");
+      if (wp->w_firstline < 1)
+  	wp->w_firstline = 1;
+***************
+*** 532,537 ****
+--- 539,557 ----
+  }
+  
+  /*
++  * Get the padding plus border at the top, adjusted to 1 if there is a title.
++  */
++     static int
++ popup_top_extra(win_T *wp)
++ {
++     int	extra = wp->w_popup_border[0] + wp->w_popup_padding[0];
++ 
++     if (extra == 0 && wp->w_popup_title != NULL && *wp->w_popup_title != NUL)
++ 	return 1;
++     return extra;
++ }
++ 
++ /*
+   * Adjust the position and size of the popup to fit on the screen.
+   */
+      void
+***************
+*** 543,549 ****
+      int		center_vert = FALSE;
+      int		center_hor = FALSE;
+      int		allow_adjust_left = !wp->w_popup_fixed;
+!     int		top_extra = wp->w_popup_border[0] + wp->w_popup_padding[0];
+      int		right_extra = wp->w_popup_border[1] + wp->w_popup_padding[1];
+      int		bot_extra = wp->w_popup_border[2] + wp->w_popup_padding[2];
+      int		left_extra = wp->w_popup_border[3] + wp->w_popup_padding[3];
+--- 563,569 ----
+      int		center_vert = FALSE;
+      int		center_hor = FALSE;
+      int		allow_adjust_left = !wp->w_popup_fixed;
+!     int		top_extra = popup_top_extra(wp);
+      int		right_extra = wp->w_popup_border[1] + wp->w_popup_padding[1];
+      int		bot_extra = wp->w_popup_border[2] + wp->w_popup_padding[2];
+      int		left_extra = wp->w_popup_border[3] + wp->w_popup_padding[3];
+***************
+*** 553,558 ****
+--- 573,579 ----
+      int		org_wincol = wp->w_wincol;
+      int		org_width = wp->w_width;
+      int		org_height = wp->w_height;
++     int		minwidth;
+  
+      wp->w_winrow = 0;
+      wp->w_wincol = 0;
+***************
+*** 646,653 ****
+  	    break;
+      }
+  
+!     if (wp->w_minwidth > 0 && wp->w_width < wp->w_minwidth)
+! 	wp->w_width = wp->w_minwidth;
+      if (wp->w_width > maxwidth)
+  	wp->w_width = maxwidth;
+      if (center_hor)
+--- 667,683 ----
+  	    break;
+      }
+  
+!     minwidth = wp->w_minwidth;
+!     if (wp->w_popup_title != NULL && *wp->w_popup_title != NUL)
+!     {
+! 	int title_len = vim_strsize(wp->w_popup_title) + 2 - extra_width;
+! 
+! 	if (minwidth < title_len)
+! 	    minwidth = title_len;
+!     }
+! 
+!     if (minwidth > 0 && wp->w_width < minwidth)
+! 	wp->w_width = minwidth;
+      if (wp->w_width > maxwidth)
+  	wp->w_width = maxwidth;
+      if (center_hor)
+***************
+*** 1384,1390 ****
+      {
+  	if (wp == NULL)
+  	    return;  // invalid {id}
+! 	top_extra = wp->w_popup_border[0] + wp->w_popup_padding[0];
+  	left_extra = wp->w_popup_border[3] + wp->w_popup_padding[3];
+  
+  	dict = rettv->vval.v_dict;
+--- 1414,1420 ----
+      {
+  	if (wp == NULL)
+  	    return;  // invalid {id}
+! 	top_extra = popup_top_extra(wp);
+  	left_extra = wp->w_popup_border[3] + wp->w_popup_padding[3];
+  
+  	dict = rettv->vval.v_dict;
+***************
+*** 1750,1755 ****
+--- 1780,1786 ----
+      int	    left_off;
+      int	    total_width;
+      int	    total_height;
++     int	    top_padding;
+      int	    popup_attr;
+      int	    border_attr[4];
+      int	    border_char[8];
+***************
+*** 1770,1776 ****
+  
+  	// adjust w_winrow and w_wincol for border and padding, since
+  	// win_update() doesn't handle them.
+! 	top_off = wp->w_popup_padding[0] + wp->w_popup_border[0];
+  	left_off = wp->w_popup_padding[3] + wp->w_popup_border[3];
+  	wp->w_winrow += top_off;
+  	wp->w_wincol += left_off;
+--- 1801,1807 ----
+  
+  	// adjust w_winrow and w_wincol for border and padding, since
+  	// win_update() doesn't handle them.
+! 	top_off = popup_top_extra(wp);
+  	left_off = wp->w_popup_padding[3] + wp->w_popup_border[3];
+  	wp->w_winrow += top_off;
+  	wp->w_wincol += left_off;
+***************
+*** 1783,1789 ****
+  
+  	total_width = wp->w_popup_border[3] + wp->w_popup_padding[3]
+  		+ wp->w_width + wp->w_popup_padding[1] + wp->w_popup_border[1];
+! 	total_height = wp->w_popup_border[0] + wp->w_popup_padding[0]
+  		+ wp->w_height + wp->w_popup_padding[2] + wp->w_popup_border[2];
+  	popup_attr = get_wcr_attr(wp);
+  
+--- 1814,1820 ----
+  
+  	total_width = wp->w_popup_border[3] + wp->w_popup_padding[3]
+  		+ wp->w_width + wp->w_popup_padding[1] + wp->w_popup_border[1];
+! 	total_height = popup_top_extra(wp)
+  		+ wp->w_height + wp->w_popup_padding[2] + wp->w_popup_border[2];
+  	popup_attr = get_wcr_attr(wp);
+  
+***************
+*** 1816,1821 ****
+--- 1847,1853 ----
+  		border_attr[i] = syn_name2attr(wp->w_border_highlight[i]);
+  	}
+  
++ 	top_padding = wp->w_popup_padding[0];
+  	if (wp->w_popup_border[0] > 0)
+  	{
+  	    // top border
+***************
+*** 1832,1848 ****
+  			       wp->w_wincol + total_width - 1, border_attr[1]);
+  	    }
+  	}
+  
+! 	if (wp->w_popup_padding[0] > 0)
+  	{
+  	    // top padding
+  	    row = wp->w_winrow + wp->w_popup_border[0];
+! 	    screen_fill(row, row + wp->w_popup_padding[0],
+  		    wp->w_wincol + wp->w_popup_border[3],
+  		    wp->w_wincol + total_width - wp->w_popup_border[1],
+  							 ' ', ' ', popup_attr);
+  	}
+  
+  	for (row = wp->w_winrow + wp->w_popup_border[0];
+  		row < wp->w_winrow + total_height - wp->w_popup_border[2];
+  		    ++row)
+--- 1864,1887 ----
+  			       wp->w_wincol + total_width - 1, border_attr[1]);
+  	    }
+  	}
++ 	else if (wp->w_popup_padding[0] == 0 && popup_top_extra(wp) > 0)
++ 	    top_padding = 1;
+  
+! 	if (top_padding > 0)
+  	{
+  	    // top padding
+  	    row = wp->w_winrow + wp->w_popup_border[0];
+! 	    screen_fill(row, row + top_padding,
+  		    wp->w_wincol + wp->w_popup_border[3],
+  		    wp->w_wincol + total_width - wp->w_popup_border[1],
+  							 ' ', ' ', popup_attr);
+  	}
+  
++ 	// Title goes on top of border or padding.
++ 	if (wp->w_popup_title != NULL)
++ 	    screen_puts(wp->w_popup_title, wp->w_winrow, wp->w_wincol + 1,
++ 		    wp->w_popup_border[0] > 0 ? border_attr[0] : popup_attr);
++ 
+  	for (row = wp->w_winrow + wp->w_popup_border[0];
+  		row < wp->w_winrow + total_height - wp->w_popup_border[2];
+  		    ++row)
+*** ../vim-8.1.1558/src/structs.h	2019-06-15 21:46:25.948960483 +0200
+--- src/structs.h	2019-06-16 19:34:15.938611573 +0200
+***************
+*** 2891,2896 ****
+--- 2891,2897 ----
+      pos_save_T	w_save_cursor;	    /* backup of cursor pos and topline */
+  #ifdef FEAT_TEXT_PROP
+      int		w_popup_flags;	    // POPF_ values
++     char_u	*w_popup_title;
+      poppos_T	w_popup_pos;
+      int		w_popup_fixed;	    // do not shift popup to fit on screen
+      int		w_zindex;
+*** ../vim-8.1.1558/src/window.c	2019-06-16 15:50:42.012557682 +0200
+--- src/window.c	2019-06-16 20:07:51.885549555 +0200
+***************
+*** 4857,4862 ****
+--- 4857,4863 ----
+      free_callback(&wp->w_filter_cb);
+      for (i = 0; i < 4; ++i)
+  	VIM_CLEAR(wp->w_border_highlight[i]);
++     vim_free(wp->w_popup_title);
+  #endif
+  
+  #ifdef FEAT_SYN_HL
+*** ../vim-8.1.1558/src/testdir/test_popupwin.vim	2019-06-16 19:05:08.714676794 +0200
+--- src/testdir/test_popupwin.vim	2019-06-16 20:02:07.664202325 +0200
+***************
+*** 940,946 ****
+    let lines =<< trim END
+  	call setline(1, range(1, 20))
+  	hi PopupSelected ctermbg=lightblue
+! 	call popup_menu(['one', 'two', 'another'], {'callback': 'MenuDone'})
+  	func MenuDone(id, res)
+  	  echomsg "selected " .. a:res
+  	endfunc
+--- 940,946 ----
+    let lines =<< trim END
+  	call setline(1, range(1, 20))
+  	hi PopupSelected ctermbg=lightblue
+! 	call popup_menu(['one', 'two', 'another'], {'callback': 'MenuDone', 'title': ' make a choice from the list '})
+  	func MenuDone(id, res)
+  	  echomsg "selected " .. a:res
+  	endfunc
+***************
+*** 960,965 ****
+--- 960,985 ----
+    call delete('XtestPopupMenu')
+  endfunc
+  
++ func Test_popup_title()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   " Create a popup without title or border, a line of padding will be added to
++   " put the title on.
++   let lines =<< trim END
++ 	call setline(1, range(1, 20))
++ 	call popup_create(['one', 'two', 'another'], {'title': 'Title String'})
++   END
++   call writefile(lines, 'XtestPopupTitle')
++   let buf = RunVimInTerminal('-S XtestPopupTitle', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_title', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupTitle')
++ endfunc
++ 
+  func Test_popup_close_callback()
+    func PopupDone(id, result)
+      let g:result = a:result
+*** ../vim-8.1.1558/src/testdir/dumps/Test_popupwin_menu_01.dump	2019-06-16 19:05:08.714676794 +0200
+--- src/testdir/dumps/Test_popupwin_menu_01.dump	2019-06-16 20:02:17.944114370 +0200
+***************
+*** 1,10 ****
+  >1+0&#ffffff0| @73
+! |2| @30|╔+0#0000001#ffd7ff255|═@8|╗| +0#0000000#ffffff0@31
+! |3| @30|║+0#0000001#ffd7ff255| @8|║| +0#0000000#ffffff0@31
+! |4| @30|║+0#0000001#ffd7ff255| |o+0#0000000#5fd7ff255|n|e| +0#0000001#ffd7ff255@4|║| +0#0000000#ffffff0@31
+! |5| @30|║+0#0000001#ffd7ff255| |t|w|o| @4|║| +0#0000000#ffffff0@31
+! |6| @30|║+0#0000001#ffd7ff255| |a|n|o|t|h|e|r| |║| +0#0000000#ffffff0@31
+! |7| @30|║+0#0000001#ffd7ff255| @8|║| +0#0000000#ffffff0@31
+! |8| @30|╚+0#0000001#ffd7ff255|═@8|╝| +0#0000000#ffffff0@31
+  |9| @73
+  @57|1|,|1| @10|T|o|p| 
+--- 1,10 ----
+  >1+0&#ffffff0| @73
+! |2| @20|╔+0#0000001#ffd7ff255| |m|a|k|e| |a| |c|h|o|i|c|e| |f|r|o|m| |t|h|e| |l|i|s|t| |╗| +0#0000000#ffffff0@21
+! |3| @20|║+0#0000001#ffd7ff255| @28|║| +0#0000000#ffffff0@21
+! |4| @20|║+0#0000001#ffd7ff255| |o+0#0000000#5fd7ff255|n|e| +0#0000001#ffd7ff255@24|║| +0#0000000#ffffff0@21
+! |5| @20|║+0#0000001#ffd7ff255| |t|w|o| @24|║| +0#0000000#ffffff0@21
+! |6| @20|║+0#0000001#ffd7ff255| |a|n|o|t|h|e|r| @20|║| +0#0000000#ffffff0@21
+! |7| @20|║+0#0000001#ffd7ff255| @28|║| +0#0000000#ffffff0@21
+! |8| @20|╚+0#0000001#ffd7ff255|═@28|╝| +0#0000000#ffffff0@21
+  |9| @73
+  @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1558/src/testdir/dumps/Test_popupwin_menu_02.dump	2019-06-16 19:05:08.714676794 +0200
+--- src/testdir/dumps/Test_popupwin_menu_02.dump	2019-06-16 20:02:18.992105440 +0200
+***************
+*** 1,10 ****
+  >1+0&#ffffff0| @73
+! |2| @30|╔+0#0000001#ffd7ff255|═@8|╗| +0#0000000#ffffff0@31
+! |3| @30|║+0#0000001#ffd7ff255| @8|║| +0#0000000#ffffff0@31
+! |4| @30|║+0#0000001#ffd7ff255| |o|n|e| @4|║| +0#0000000#ffffff0@31
+! |5| @30|║+0#0000001#ffd7ff255| |t|w|o| @4|║| +0#0000000#ffffff0@31
+! |6| @30|║+0#0000001#ffd7ff255| |a+0#0000000#5fd7ff255|n|o|t|h|e|r| +0#0000001#ffd7ff255|║| +0#0000000#ffffff0@31
+! |7| @30|║+0#0000001#ffd7ff255| @8|║| +0#0000000#ffffff0@31
+! |8| @30|╚+0#0000001#ffd7ff255|═@8|╝| +0#0000000#ffffff0@31
+  |9| @73
+  @57|1|,|1| @10|T|o|p| 
+--- 1,10 ----
+  >1+0&#ffffff0| @73
+! |2| @20|╔+0#0000001#ffd7ff255| |m|a|k|e| |a| |c|h|o|i|c|e| |f|r|o|m| |t|h|e| |l|i|s|t| |╗| +0#0000000#ffffff0@21
+! |3| @20|║+0#0000001#ffd7ff255| @28|║| +0#0000000#ffffff0@21
+! |4| @20|║+0#0000001#ffd7ff255| |o|n|e| @24|║| +0#0000000#ffffff0@21
+! |5| @20|║+0#0000001#ffd7ff255| |t|w|o| @24|║| +0#0000000#ffffff0@21
+! |6| @20|║+0#0000001#ffd7ff255| |a+0#0000000#5fd7ff255|n|o|t|h|e|r| +0#0000001#ffd7ff255@20|║| +0#0000000#ffffff0@21
+! |7| @20|║+0#0000001#ffd7ff255| @28|║| +0#0000000#ffffff0@21
+! |8| @20|╚+0#0000001#ffd7ff255|═@28|╝| +0#0000000#ffffff0@21
+  |9| @73
+  @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1558/src/testdir/dumps/Test_popupwin_title.dump	2019-06-16 20:06:33.506108857 +0200
+--- src/testdir/dumps/Test_popupwin_title.dump	2019-06-16 20:02:24.884055376 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @28| +0#0000001#ffd7ff255|T|i|t|l|e| |S|t|r|i|n|g| | +0#0000000#ffffff0@30
++ |5| @28|o+0#0000001#ffd7ff255|n|e| @10| +0#0000000#ffffff0@30
++ |6| @28|t+0#0000001#ffd7ff255|w|o| @10| +0#0000000#ffffff0@30
++ |7| @28|a+0#0000001#ffd7ff255|n|o|t|h|e|r| @6| +0#0000000#ffffff0@30
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1558/src/version.c	2019-06-16 19:05:08.714676794 +0200
+--- src/version.c	2019-06-16 20:06:03.494328962 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1559,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+211. Your husband leaves you...taking the computer with him and you
+     call him crying, and beg him to bring the computer back.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

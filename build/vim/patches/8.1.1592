@@ -1,0 +1,176 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1592
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1592
+Problem:    May start file dialog while exiting.
+Solution:   Ignore the "browse" modifier when exiting. (Ozaki Kiichi,
+            closes #4582
+Files:	    src/ex_cmds.c, src/terminal.c
+
+
+*** ../vim-8.1.1591/src/ex_cmds.c	2019-06-25 04:12:12.308665266 +0200
+--- src/ex_cmds.c	2019-06-25 06:41:04.446496424 +0200
+***************
+*** 3186,3192 ****
+  
+      ffname = eap->arg;
+  #ifdef FEAT_BROWSE
+!     if (cmdmod.browse)
+      {
+  	browse_file = do_browse(BROWSE_SAVE, (char_u *)_("Save As"), ffname,
+  						    NULL, NULL, NULL, curbuf);
+--- 3186,3192 ----
+  
+      ffname = eap->arg;
+  #ifdef FEAT_BROWSE
+!     if (cmdmod.browse && !exiting)
+      {
+  	browse_file = do_browse(BROWSE_SAVE, (char_u *)_("Save As"), ffname,
+  						    NULL, NULL, NULL, curbuf);
+*** ../vim-8.1.1591/src/terminal.c	2019-06-20 03:45:31.171536943 +0200
+--- src/terminal.c	2019-06-25 06:45:23.029539425 +0200
+***************
+*** 358,363 ****
+--- 358,373 ----
+  }
+  
+  /*
++  * Flush messages on channels.
++  */
++     static void
++ term_flush_messages()
++ {
++     mch_check_messages();
++     parse_queued_messages();
++ }
++ 
++ /*
+   * Close a terminal buffer (and its window).  Used when creating the terminal
+   * fails.
+   */
+***************
+*** 1455,1462 ****
+  	    return OK;
+  
+  	ui_delay(10L, FALSE);
+! 	mch_check_messages();
+! 	parse_queued_messages();
+      }
+      return FAIL;
+  }
+--- 1465,1471 ----
+  	    return OK;
+  
+  	ui_delay(10L, FALSE);
+! 	term_flush_messages();
+      }
+      return FAIL;
+  }
+***************
+*** 3064,3070 ****
+      for (term = first_term; term != NULL; term = next_term)
+      {
+  	next_term = term->tl_next;
+! 	if (term->tl_job == ch->ch_job)
+  	{
+  	    term->tl_channel_closed = TRUE;
+  	    did_one = TRUE;
+--- 3073,3079 ----
+      for (term = first_term; term != NULL; term = next_term)
+      {
+  	next_term = term->tl_next;
+! 	if (term->tl_job == ch->ch_job && !term->tl_channel_closed)
+  	{
+  	    term->tl_channel_closed = TRUE;
+  	    did_one = TRUE;
+***************
+*** 5628,5660 ****
+  	ch_log(NULL, "term_wait(): waiting for channel to close");
+  	while (buf->b_term != NULL && !buf->b_term->tl_channel_closed)
+  	{
+! 	    mch_check_messages();
+! 	    parse_queued_messages();
+  	    ui_delay(10L, FALSE);
+  	    if (!buf_valid(buf))
+  		/* If the terminal is closed when the channel is closed the
+  		 * buffer disappears. */
+  		break;
+  	}
+! 	mch_check_messages();
+! 	parse_queued_messages();
+      }
+      else
+      {
+  	long wait = 10L;
+  
+! 	mch_check_messages();
+! 	parse_queued_messages();
+  
+  	/* Wait for some time for any channel I/O. */
+  	if (argvars[1].v_type != VAR_UNKNOWN)
+  	    wait = tv_get_number(&argvars[1]);
+  	ui_delay(wait, TRUE);
+- 	mch_check_messages();
+  
+  	/* Flushing messages on channels is hopefully sufficient.
+  	 * TODO: is there a better way? */
+! 	parse_queued_messages();
+      }
+  }
+  
+--- 5637,5667 ----
+  	ch_log(NULL, "term_wait(): waiting for channel to close");
+  	while (buf->b_term != NULL && !buf->b_term->tl_channel_closed)
+  	{
+! 	    term_flush_messages();
+! 
+  	    ui_delay(10L, FALSE);
+  	    if (!buf_valid(buf))
+  		/* If the terminal is closed when the channel is closed the
+  		 * buffer disappears. */
+  		break;
+  	}
+! 
+! 	term_flush_messages();
+      }
+      else
+      {
+  	long wait = 10L;
+  
+! 	term_flush_messages();
+  
+  	/* Wait for some time for any channel I/O. */
+  	if (argvars[1].v_type != VAR_UNKNOWN)
+  	    wait = tv_get_number(&argvars[1]);
+  	ui_delay(wait, TRUE);
+  
+  	/* Flushing messages on channels is hopefully sufficient.
+  	 * TODO: is there a better way? */
+! 	term_flush_messages();
+      }
+  }
+  
+*** ../vim-8.1.1591/src/version.c	2019-06-25 06:27:57.541385307 +0200
+--- src/version.c	2019-06-25 06:46:26.021306033 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1592,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+10E. You start counting in hex.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

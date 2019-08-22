@@ -1,0 +1,218 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1753
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1753
+Problem:    Use of popup window mask is inefficient.
+Solution:   Precompute and cache the mask.
+Files:	    src/popupwin.c
+
+
+*** ../vim-8.1.1752/src/popupwin.c	2019-07-26 21:26:31.163382011 +0200
+--- src/popupwin.c	2019-07-26 22:08:25.390837979 +0200
+***************
+*** 673,678 ****
+--- 673,679 ----
+  	{
+  	    wp->w_popup_mask = di->di_tv.vval.v_list;
+  	    ++wp->w_popup_mask->lv_refcount;
++ 	    VIM_CLEAR(wp->w_popup_mask_cells);
+  	}
+  	else
+  	    semsg(_(e_invargval), "mask");
+***************
+*** 2417,2437 ****
+  }
+  
+  /*
+!  * Return TRUE if "col" / "line" matches with an entry in w_popup_mask.
+!  * "col" and "line" are screen coordinates.
+   */
+!     static int
+! popup_masked(win_T *wp, int screencol, int screenline)
+  {
+-     int		col = screencol - wp->w_wincol + 1 + wp->w_popup_leftoff;
+-     int		line = screenline - wp->w_winrow + 1;
+      listitem_T	*lio, *li;
+!     int		width, height;
+  
+      if (wp->w_popup_mask == NULL)
+! 	return FALSE;
+!     width = popup_width(wp);
+!     height = popup_height(wp);
+  
+      for (lio = wp->w_popup_mask->lv_first; lio != NULL; lio = lio->li_next)
+      {
+--- 2418,2444 ----
+  }
+  
+  /*
+!  * Update "w_popup_mask_cells".
+   */
+!     static void
+! popup_update_mask(win_T *wp, int width, int height)
+  {
+      listitem_T	*lio, *li;
+!     char_u	*cells;
+!     int		row, col;
+  
+      if (wp->w_popup_mask == NULL)
+! 	return;
+!     if (wp->w_popup_mask_cells != NULL
+! 	    && wp->w_popup_mask_height == height
+! 	    && wp->w_popup_mask_width == width)
+! 	return;  // cache is still valid
+! 
+!     vim_free(wp->w_popup_mask_cells);
+!     wp->w_popup_mask_cells = alloc_clear(width * height);
+!     if (wp->w_popup_mask_cells == NULL)
+! 	return;
+!     cells = wp->w_popup_mask_cells;
+  
+      for (lio = wp->w_popup_mask->lv_first; lio != NULL; lio = lio->li_next)
+      {
+***************
+*** 2442,2470 ****
+  	cols = tv_get_number(&li->li_tv);
+  	if (cols < 0)
+  	    cols = width + cols + 1;
+- 	if (col < cols)
+- 	    continue;
+  	li = li->li_next;
+  	cole = tv_get_number(&li->li_tv);
+  	if (cole < 0)
+  	    cole = width + cole + 1;
+- 	if (col > cole)
+- 	    continue;
+  	li = li->li_next;
+  	lines = tv_get_number(&li->li_tv);
+  	if (lines < 0)
+  	    lines = height + lines + 1;
+- 	if (line < lines)
+- 	    continue;
+  	li = li->li_next;
+  	linee = tv_get_number(&li->li_tv);
+  	if (linee < 0)
+  	    linee = height + linee + 1;
+! 	if (line > linee)
+! 	    continue;
+! 	return TRUE;
+      }
+!     return FALSE;
+  }
+  
+  /*
+--- 2449,2486 ----
+  	cols = tv_get_number(&li->li_tv);
+  	if (cols < 0)
+  	    cols = width + cols + 1;
+  	li = li->li_next;
+  	cole = tv_get_number(&li->li_tv);
+  	if (cole < 0)
+  	    cole = width + cole + 1;
+  	li = li->li_next;
+  	lines = tv_get_number(&li->li_tv);
+  	if (lines < 0)
+  	    lines = height + lines + 1;
+  	li = li->li_next;
+  	linee = tv_get_number(&li->li_tv);
+  	if (linee < 0)
+  	    linee = height + linee + 1;
+! 
+! 	for (row = lines - 1; row < linee && row < height; ++row)
+! 	    for (col = cols - 1; col < cole && col < width; ++col)
+! 		cells[row * width + col] = 1;
+      }
+! }
+! 
+! /*
+!  * Return TRUE if "col" / "line" matches with an entry in w_popup_mask.
+!  * "col" and "line" are screen coordinates.
+!  */
+!     static int
+! popup_masked(win_T *wp, int width, int height, int screencol, int screenline)
+! {
+!     int col = screencol - wp->w_wincol + wp->w_popup_leftoff;
+!     int line = screenline - wp->w_winrow;
+! 
+!     return col >= 0 && col < width
+! 	    && line >= 0 && line < height
+! 	    && wp->w_popup_mask_cells[line * width + col];
+  }
+  
+  /*
+***************
+*** 2574,2581 ****
+      popup_reset_handled();
+      while ((wp = find_next_popup(TRUE)) != NULL)
+      {
+- 	int height;
+  	int width;
+  
+  	popup_visible = TRUE;
+  
+--- 2590,2597 ----
+      popup_reset_handled();
+      while ((wp = find_next_popup(TRUE)) != NULL)
+      {
+  	int width;
++ 	int height;
+  
+  	popup_visible = TRUE;
+  
+***************
+*** 2584,2596 ****
+  		|| wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
+  	height = popup_height(wp);
+! 	width = popup_width(wp) - wp->w_popup_leftoff;
+  	for (line = wp->w_winrow;
+  		line < wp->w_winrow + height && line < screen_Rows; ++line)
+  	    for (col = wp->w_wincol;
+! 		 col < wp->w_wincol + width && col < screen_Columns; ++col)
+! 		if (!popup_masked(wp, col, line))
+  		    mask[line * screen_Columns + col] = wp->w_zindex;
+      }
+  
+--- 2600,2615 ----
+  		|| wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
++ 	width = popup_width(wp);
+  	height = popup_height(wp);
+! 	popup_update_mask(wp, width, height);
+  	for (line = wp->w_winrow;
+  		line < wp->w_winrow + height && line < screen_Rows; ++line)
+  	    for (col = wp->w_wincol;
+! 		 col < wp->w_wincol + width - wp->w_popup_leftoff
+! 						&& col < screen_Columns; ++col)
+! 		if (wp->w_popup_mask_cells == NULL
+! 				|| !popup_masked(wp, width, height, col, line))
+  		    mask[line * screen_Columns + col] = wp->w_zindex;
+      }
+  
+*** ../vim-8.1.1752/src/version.c	2019-07-26 21:26:31.163382011 +0200
+--- src/version.c	2019-07-26 21:48:26.888010162 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1753,
+  /**/
+
+-- 
+BLACK KNIGHT: I'm invincible!
+ARTHUR:       You're a looney.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

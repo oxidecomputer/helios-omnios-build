@@ -1,0 +1,116 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1757
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1757
+Problem:    Text added with appendbufline() to another buffer isn't displayed.
+Solution:   Update topline. (partly by Christian Brabandt, closes #4718)
+Files:	    src/evalfunc.c, src/testdir/test_bufline.vim,
+            src/testdir/dumps/Test_appendbufline_1.dump
+
+
+*** ../vim-8.1.1756/src/evalfunc.c	2019-07-26 21:01:25.573903976 +0200
+--- src/evalfunc.c	2019-07-27 14:05:02.725245604 +0200
+***************
+*** 1401,1412 ****
+  	    if (wp->w_buffer == buf && wp->w_cursor.lnum > append_lnum)
+  		wp->w_cursor.lnum += added;
+  	check_cursor_col();
+! 
+! #ifdef FEAT_JOB_CHANNEL
+! 	if (bt_prompt(curbuf) && (State & INSERT))
+! 	    // show the line with the prompt
+! 	    update_topline();
+! #endif
+      }
+  
+      if (!is_curbuf)
+--- 1401,1407 ----
+  	    if (wp->w_buffer == buf && wp->w_cursor.lnum > append_lnum)
+  		wp->w_cursor.lnum += added;
+  	check_cursor_col();
+! 	update_topline();
+      }
+  
+      if (!is_curbuf)
+*** ../vim-8.1.1756/src/testdir/test_bufline.vim	2019-05-20 22:12:30.720442793 +0200
+--- src/testdir/test_bufline.vim	2019-07-27 14:38:52.048985411 +0200
+***************
+*** 1,6 ****
+--- 1,7 ----
+  " Tests for setbufline(), getbufline(), appendbufline(), deletebufline()
+  
+  source shared.vim
++ source screendump.vim
+  
+  func Test_setbufline_getbufline()
+    new
+***************
+*** 144,146 ****
+--- 145,172 ----
+    call assert_equal(['b', 'c'], getbufline(b, 1, 2))
+    exe "bwipe! " . b
+  endfunc
++ 
++ func Test_appendbufline_redraw()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++   let lines =<< trim END
++     new foo
++     let winnr=bufwinnr('foo')
++     let buf=bufnr('foo')
++     wincmd p
++     call appendbufline(buf, '$', range(1,200))
++     exe winnr. 'wincmd w'
++     norm! G
++     wincmd p
++     call deletebufline(buf, 1, '$')
++     call appendbufline(buf, '$', 'Hello Vim world...')
++   END
++   call writefile(lines, 'XscriptMatchCommon')
++   let buf = RunVimInTerminal('-S XscriptMatchCommon', #{rows: 10})
++   call term_wait(buf)
++   call VerifyScreenDump(buf, 'Test_appendbufline_1', {})
++ 
++   call StopVimInTerminal(buf)
++   call delete('XscriptMatchCommon')
++ endfunc
+*** ../vim-8.1.1756/src/testdir/dumps/Test_appendbufline_1.dump	2019-07-27 17:38:36.579035266 +0200
+--- src/testdir/dumps/Test_appendbufline_1.dump	2019-07-27 14:11:21.247251744 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ | +0&#ffffff0@74
++ |H|e|l@1|o| |V|i|m| |w|o|r|l|d|.@2| @56
++ |~+0#4040ff13&| @73
++ |~| @73
++ |f+1#0000000&|o@1| |[|+|]| @49|1|,|0|-|1| @9|A|l@1
++ > +0&&@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |[+3#0000000&|N|o| |N|a|m|e|]| @47|0|,|0|-|1| @9|A|l@1
++ |-+0&&@1|N|o| |l|i|n|e|s| |i|n| |b|u|f@1|e|r|-@1| @52
+*** ../vim-8.1.1756/src/version.c	2019-07-27 17:31:33.028355333 +0200
+--- src/version.c	2019-07-27 17:34:35.331857893 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1757,
+  /**/
+
+-- 
+Hacker: Someone skilled in computer programming (good guy).
+Cracker: A hacker that uses his skills to crack software (bad guy).
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

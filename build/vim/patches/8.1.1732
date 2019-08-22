@@ -1,0 +1,113 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1732
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1732
+Problem:    Completion in cmdwin does not work for buffer-local commands.
+Solution:   Use the right buffer. (closes #4711)
+Files:	    src/usercmd.c, src/testdir/test_ins_complete.vim
+
+
+*** ../vim-8.1.1731/src/usercmd.c	2019-07-12 17:57:54.836524031 +0200
+--- src/usercmd.c	2019-07-22 21:50:17.740745534 +0200
+***************
+*** 309,317 ****
+      char_u *
+  get_user_commands(expand_T *xp UNUSED, int idx)
+  {
+!     if (idx < curbuf->b_ucmds.ga_len)
+! 	return USER_CMD_GA(&curbuf->b_ucmds, idx)->uc_name;
+!     idx -= curbuf->b_ucmds.ga_len;
+      if (idx < ucmds.ga_len)
+  	return USER_CMD(idx)->uc_name;
+      return NULL;
+--- 309,324 ----
+      char_u *
+  get_user_commands(expand_T *xp UNUSED, int idx)
+  {
+!     // In cmdwin, the alternative buffer should be used.
+!     buf_T *buf =
+! #ifdef FEAT_CMDWIN
+! 	(cmdwin_type != 0 && get_cmdline_type() == NUL) ? prevwin->w_buffer :
+! #endif
+! 	curbuf;
+! 
+!     if (idx < buf->b_ucmds.ga_len)
+! 	return USER_CMD_GA(&buf->b_ucmds, idx)->uc_name;
+!     idx -= buf->b_ucmds.ga_len;
+      if (idx < ucmds.ga_len)
+  	return USER_CMD(idx)->uc_name;
+      return NULL;
+***************
+*** 395,401 ****
+      long	a;
+      garray_T	*gap;
+  
+!     gap = &curbuf->b_ucmds;
+      for (;;)
+      {
+  	for (i = 0; i < gap->ga_len; ++i)
+--- 402,414 ----
+      long	a;
+      garray_T	*gap;
+  
+!     /* In cmdwin, the alternative buffer should be used. */
+!     gap =
+! #ifdef FEAT_CMDWIN
+! 	(cmdwin_type != 0 && get_cmdline_type() == NUL) ?
+! 	&prevwin->w_buffer->b_ucmds :
+! #endif
+! 	&curbuf->b_ucmds;
+      for (;;)
+      {
+  	for (i = 0; i < gap->ga_len; ++i)
+*** ../vim-8.1.1731/src/testdir/test_ins_complete.vim	2019-04-08 18:59:50.973019097 +0200
+--- src/testdir/test_ins_complete.vim	2019-07-22 21:46:47.917806765 +0200
+***************
+*** 313,315 ****
+--- 313,333 ----
+    bwipe!
+    set completeopt&
+  endfunc
++ 
++ func Test_compl_in_cmdwin()
++   set wildmenu wildchar=<Tab>
++   com! -nargs=1 -complete=command GetInput let input = <q-args>
++   com! -buffer TestCommand echo 'TestCommand'
++ 
++   let input = ''
++   call feedkeys("q:iGetInput T\<C-x>\<C-v>\<CR>", 'tx!')
++   call assert_equal('TestCommand', input)
++ 
++   let input = ''
++   call feedkeys("q::GetInput T\<Tab>\<CR>:q\<CR>", 'tx!')
++   call assert_equal('T', input)
++ 
++   delcom TestCommand
++   delcom GetInput
++   set wildmenu& wildchar&
++ endfunc
+*** ../vim-8.1.1731/src/version.c	2019-07-22 20:50:14.215964267 +0200
+--- src/version.c	2019-07-22 21:55:06.307292299 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1732,
+  /**/
+
+-- 
+We apologise again for the fault in the subtitles.  Those responsible for
+sacking the people who have just been sacked have been sacked.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

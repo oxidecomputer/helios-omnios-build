@@ -1,0 +1,176 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1471
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1471
+Problem:    'background' not correctly set for 2-digit rgb termresponse.
+Solution:   Adjust what digit to use. (closes #4495)
+Files:	    src/term.c, src/testdir/test_termcodes.vim
+
+
+*** ../vim-8.1.1470/src/term.c	2019-06-05 22:07:47.780695739 +0200
+--- src/term.c	2019-06-05 22:50:12.231496426 +0200
+***************
+*** 4994,5010 ****
+  			    && (is_4digit
+  				   || (tp[j + 9] == '/' && tp[i + 12 == '/'])))
+  			{
+  # ifdef FEAT_TERMINAL
+  			    int rval, gval, bval;
+  
+! 			    rval = hexhex2nr(tp + j + 7);
+! 			    gval = hexhex2nr(tp + j + (is_4digit ? 12 : 10));
+! 			    bval = hexhex2nr(tp + j + (is_4digit ? 17 : 13));
+  # endif
+  			    if (is_bg)
+  			    {
+! 				char *newval = (3 * '6' < tp[j+7] + tp[j+12]
+! 						+ tp[j+17]) ? "light" : "dark";
+  
+  				LOG_TR(("Received RBG response: %s", tp));
+  				rbg_status.tr_progress = STATUS_GOT;
+--- 4994,5013 ----
+  			    && (is_4digit
+  				   || (tp[j + 9] == '/' && tp[i + 12 == '/'])))
+  			{
++ 			    char_u *tp_r = tp + j + 7;
++ 			    char_u *tp_g = tp + j + (is_4digit ? 12 : 10);
++ 			    char_u *tp_b = tp + j + (is_4digit ? 17 : 13);
+  # ifdef FEAT_TERMINAL
+  			    int rval, gval, bval;
+  
+! 			    rval = hexhex2nr(tp_r);
+! 			    gval = hexhex2nr(tp_b);
+! 			    bval = hexhex2nr(tp_g);
+  # endif
+  			    if (is_bg)
+  			    {
+! 				char *new_bg_val = (3 * '6' < *tp_r + *tp_g +
+! 						     *tp_b) ? "light" : "dark";
+  
+  				LOG_TR(("Received RBG response: %s", tp));
+  				rbg_status.tr_progress = STATUS_GOT;
+***************
+*** 5014,5024 ****
+  				bg_b = bval;
+  # endif
+  				if (!option_was_set((char_u *)"bg")
+! 						  && STRCMP(p_bg, newval) != 0)
+  				{
+  				    /* value differs, apply it */
+  				    set_option_value((char_u *)"bg", 0L,
+! 							  (char_u *)newval, 0);
+  				    reset_option_was_set((char_u *)"bg");
+  				    redraw_asap(CLEAR);
+  				}
+--- 5017,5027 ----
+  				bg_b = bval;
+  # endif
+  				if (!option_was_set((char_u *)"bg")
+! 					      && STRCMP(p_bg, new_bg_val) != 0)
+  				{
+  				    /* value differs, apply it */
+  				    set_option_value((char_u *)"bg", 0L,
+! 						      (char_u *)new_bg_val, 0);
+  				    reset_option_was_set((char_u *)"bg");
+  				    redraw_asap(CLEAR);
+  				}
+*** ../vim-8.1.1470/src/testdir/test_termcodes.vim	2019-06-05 22:07:47.784695712 +0200
+--- src/testdir/test_termcodes.vim	2019-06-05 22:55:00.277623892 +0200
+***************
+*** 647,667 ****
+    call feedkeys(seq, 'Lx!')
+    call assert_equal(seq, v:termrfgresp)
+  
+!   " response to t_RB, 4 digits
+!   let red = 0x21
+!   let green = 0x43
+    let blue = 0x65
+    let seq = printf("\<Esc>]11;rgb:%02x00/%02x00/%02x00\x07", red, green, blue)
+    call feedkeys(seq, 'Lx!')
+    call assert_equal(seq, v:termrbgresp)
+  
+!   " response to t_RB, 2 digits
+!   let red = 0x87
+!   let green = 0xa9
+!   let blue = 0xcb
+    let seq = printf("\<Esc>]11;rgb:%02x/%02x/%02x\x07", red, green, blue)
+    call feedkeys(seq, 'Lx!')
+    call assert_equal(seq, v:termrbgresp)
+    
+    set t_RF= t_RB=
+  endfunc
+--- 647,695 ----
+    call feedkeys(seq, 'Lx!')
+    call assert_equal(seq, v:termrfgresp)
+  
+!   " response to t_RB, 4 digits, dark
+!   set background=light
+!   call test_option_not_set('background')
+!   let red = 0x29
+!   let green = 0x4a
+!   let blue = 0x6b
+!   let seq = printf("\<Esc>]11;rgb:%02x00/%02x00/%02x00\x07", red, green, blue)
+!   call feedkeys(seq, 'Lx!')
+!   call assert_equal(seq, v:termrbgresp)
+!   call assert_equal('dark', &background)
+! 
+!   " response to t_RB, 4 digits, light
+!   set background=dark
+!   call test_option_not_set('background')
+!   let red = 0x81
+!   let green = 0x63
+    let blue = 0x65
+    let seq = printf("\<Esc>]11;rgb:%02x00/%02x00/%02x00\x07", red, green, blue)
+    call feedkeys(seq, 'Lx!')
+    call assert_equal(seq, v:termrbgresp)
++   call assert_equal('light', &background)
+  
+!   " response to t_RB, 2 digits, dark
+!   set background=light
+!   call test_option_not_set('background')
+!   let red = 0x47
+!   let green = 0x59
+!   let blue = 0x5b
+!   let seq = printf("\<Esc>]11;rgb:%02x/%02x/%02x\x07", red, green, blue)
+!   call feedkeys(seq, 'Lx!')
+!   call assert_equal(seq, v:termrbgresp)
+!   call assert_equal('dark', &background)
+!   
+!   " response to t_RB, 2 digits, light
+!   set background=dark
+!   call test_option_not_set('background')
+!   let red = 0x83
+!   let green = 0xa4
+!   let blue = 0xc2
+    let seq = printf("\<Esc>]11;rgb:%02x/%02x/%02x\x07", red, green, blue)
+    call feedkeys(seq, 'Lx!')
+    call assert_equal(seq, v:termrbgresp)
++   call assert_equal('light', &background)
+    
+    set t_RF= t_RB=
+  endfunc
+*** ../vim-8.1.1470/src/version.c	2019-06-05 22:46:09.837107776 +0200
+--- src/version.c	2019-06-05 22:56:16.273134924 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1471,
+  /**/
+
+-- 
+I AM THANKFUL...
+...for all the complaining I hear about the government
+because it means we have freedom of speech.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

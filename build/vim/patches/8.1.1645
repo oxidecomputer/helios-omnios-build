@@ -1,0 +1,1172 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1645
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1645
+Problem:    Cannot use a popup window for a balloon.
+Solution:   Add popup_beval().  Add the "mousemoved" property.  Add the
+            screenpos() function.
+Files:	    src/popupwin.c, src/proto/popupwin.pro, src/move.c,
+            src/proto/move.pro, src/beval.c, src/proto/beval.pro,
+            src/evalfunc.c, src/popupmnu.c, src/normal.c,
+            src/testdir/test_popupwin.vim, src/testdir/test_cursor_func.vim,
+            runtime/doc/popup.txt, runtime/doc/eval.txt,
+            runtime/doc/usr_41.txt,
+            src/testdir/dumps/Test_popupwin_beval_1.dump,
+            src/testdir/dumps/Test_popupwin_beval_2.dump,
+            src/testdir/dumps/Test_popupwin_beval_3.dump
+
+
+*** ../vim-8.1.1644/src/popupwin.c	2019-07-05 20:17:18.928510171 +0200
+--- src/popupwin.c	2019-07-07 16:59:37.333487332 +0200
+***************
+*** 168,173 ****
+--- 168,202 ----
+  }
+  
+  /*
++  * Used when popup options contain "mousemoved": set default moved values.
++  */
++     static void
++ set_mousemoved_values(win_T *wp)
++ {
++     wp->w_popup_mouse_row = mouse_row;
++     wp->w_popup_mouse_mincol = mouse_col;
++     wp->w_popup_mouse_maxcol = mouse_col;
++ }
++ 
++ /*
++  * Used when popup options contain "moved" with "word" or "WORD".
++  */
++     static void
++ set_mousemoved_columns(win_T *wp, int flags)
++ {
++     char_u	*text;
++     int		col;
++ 
++     if (find_word_under_cursor(mouse_row, mouse_col, TRUE, flags,
++ 						NULL, NULL, &text, &col) == OK)
++     {
++ 	wp->w_popup_mouse_mincol = col;
++ 	wp->w_popup_mouse_maxcol = col + STRLEN(text) - 1;
++ 	vim_free(text);
++     }
++ }
++ 
++ /*
+   * Return TRUE if "row"/"col" is on the border of the popup.
+   * The values are relative to the top-left corner.
+   */
+***************
+*** 336,341 ****
+--- 365,417 ----
+  }
+  
+      static void
++ handle_moved_argument(win_T *wp, dictitem_T *di, int mousemoved)
++ {
++     if (di->di_tv.v_type == VAR_STRING && di->di_tv.vval.v_string != NULL)
++     {
++ 	char_u  *s = di->di_tv.vval.v_string;
++ 	int	flags = 0;
++ 
++ 	if (STRCMP(s, "word") == 0)
++ 	    flags = FIND_IDENT | FIND_STRING;
++ 	else if (STRCMP(s, "WORD") == 0)
++ 	    flags = FIND_STRING;
++ 	else if (STRCMP(s, "expr") == 0)
++ 	    flags = FIND_IDENT | FIND_STRING | FIND_EVAL;
++ 	else if (STRCMP(s, "any") != 0)
++ 	    semsg(_(e_invarg2), s);
++ 	if (flags != 0)
++ 	{
++ 	    if (mousemoved)
++ 		set_mousemoved_columns(wp, flags);
++ 	    else
++ 		set_moved_columns(wp, flags);
++ 	}
++     }
++     else if (di->di_tv.v_type == VAR_LIST
++ 	    && di->di_tv.vval.v_list != NULL
++ 	    && di->di_tv.vval.v_list->lv_len == 2)
++     {
++ 	list_T	*l = di->di_tv.vval.v_list;
++ 	int	mincol = tv_get_number(&l->lv_first->li_tv);
++ 	int	maxcol = tv_get_number(&l->lv_first->li_next->li_tv);
++ 
++ 	if (mousemoved)
++ 	{
++ 	    wp->w_popup_mouse_mincol = mincol;
++ 	    wp->w_popup_mouse_maxcol = maxcol;
++ 	}
++ 	else
++ 	{
++ 	    wp->w_popup_mincol = mincol;
++ 	    wp->w_popup_maxcol = maxcol;
++ 	}
++     }
++     else
++ 	semsg(_(e_invarg2), tv_get_string(&di->di_tv));
++ }
++ 
++     static void
+  check_highlight(dict_T *dict, char *name, char_u **pval)
+  {
+      dictitem_T  *di;
+***************
+*** 541,571 ****
+      if (di != NULL)
+      {
+  	set_moved_values(wp);
+! 	if (di->di_tv.v_type == VAR_STRING && di->di_tv.vval.v_string != NULL)
+! 	{
+! 	    char_u  *s = di->di_tv.vval.v_string;
+! 	    int	    flags = 0;
+! 
+! 	    if (STRCMP(s, "word") == 0)
+! 		flags = FIND_IDENT | FIND_STRING;
+! 	    else if (STRCMP(s, "WORD") == 0)
+! 		flags = FIND_STRING;
+! 	    else if (STRCMP(s, "any") != 0)
+! 		semsg(_(e_invarg2), s);
+! 	    if (flags != 0)
+! 		set_moved_columns(wp, flags);
+! 	}
+! 	else if (di->di_tv.v_type == VAR_LIST
+! 		&& di->di_tv.vval.v_list != NULL
+! 		&& di->di_tv.vval.v_list->lv_len == 2)
+! 	{
+! 	    list_T *l = di->di_tv.vval.v_list;
+  
+! 	    wp->w_popup_mincol = tv_get_number(&l->lv_first->li_tv);
+! 	    wp->w_popup_maxcol = tv_get_number(&l->lv_first->li_next->li_tv);
+! 	}
+! 	else
+! 	    semsg(_(e_invarg2), tv_get_string(&di->di_tv));
+      }
+  
+      di = dict_find(dict, (char_u *)"filter", -1);
+--- 617,630 ----
+      if (di != NULL)
+      {
+  	set_moved_values(wp);
+! 	handle_moved_argument(wp, di, FALSE);
+!     }
+  
+!     di = dict_find(dict, (char_u *)"mousemoved", -1);
+!     if (di != NULL)
+!     {
+! 	set_mousemoved_values(wp);
+! 	handle_moved_argument(wp, di, TRUE);
+      }
+  
+      di = dict_find(dict, (char_u *)"filter", -1);
+***************
+*** 956,961 ****
+--- 1015,1021 ----
+  {
+      TYPE_NORMAL,
+      TYPE_ATCURSOR,
++     TYPE_BEVAL,
+      TYPE_NOTIFICATION,
+      TYPE_DIALOG,
+      TYPE_MENU
+***************
+*** 1137,1153 ****
+      {
+  	wp->w_popup_pos = POPPOS_BOTLEFT;
+  	setcursor_mayforce(TRUE);
+! 	wp->w_wantline = screen_screenrow();
+  	if (wp->w_wantline == 0)  // cursor in first line
+  	{
+  	    wp->w_wantline = 2;
+  	    wp->w_popup_pos = POPPOS_TOPLEFT;
+  	}
+! 	wp->w_wantcol = screen_screencol() + 1;
+  	set_moved_values(wp);
+  	set_moved_columns(wp, FIND_STRING);
+      }
+  
+      // set default values
+      wp->w_zindex = POPUPWIN_DEFAULT_ZINDEX;
+      wp->w_popup_close = POPCLOSE_NONE;
+--- 1197,1229 ----
+      {
+  	wp->w_popup_pos = POPPOS_BOTLEFT;
+  	setcursor_mayforce(TRUE);
+! 	wp->w_wantline = curwin->w_winrow + curwin->w_wrow;
+  	if (wp->w_wantline == 0)  // cursor in first line
+  	{
+  	    wp->w_wantline = 2;
+  	    wp->w_popup_pos = POPPOS_TOPLEFT;
+  	}
+! 	wp->w_wantcol = curwin->w_wincol + curwin->w_wcol + 1;
+  	set_moved_values(wp);
+  	set_moved_columns(wp, FIND_STRING);
+      }
+  
++     if (type == TYPE_BEVAL)
++     {
++ 	wp->w_popup_pos = POPPOS_BOTLEFT;
++ 
++ 	// by default use the mouse position
++ 	wp->w_wantline = mouse_row;
++ 	if (wp->w_wantline <= 0)  // mouse on first line
++ 	{
++ 	    wp->w_wantline = 2;
++ 	    wp->w_popup_pos = POPPOS_TOPLEFT;
++ 	}
++ 	wp->w_wantcol = mouse_col + 1;
++ 	set_mousemoved_values(wp);
++ 	set_mousemoved_columns(wp, FIND_IDENT + FIND_STRING + FIND_EVAL);
++     }
++ 
+      // set default values
+      wp->w_zindex = POPUPWIN_DEFAULT_ZINDEX;
+      wp->w_popup_close = POPCLOSE_NONE;
+***************
+*** 1276,1281 ****
+--- 1352,1366 ----
+  }
+  
+  /*
++  * popup_beval({text}, {options})
++  */
++     void
++ f_popup_beval(typval_T *argvars, typval_T *rettv)
++ {
++     popup_create(argvars, rettv, TYPE_BEVAL);
++ }
++ 
++ /*
+   * Invoke the close callback for window "wp" with value "result".
+   * Careful: The callback may make "wp" invalid!
+   */
+***************
+*** 1334,1339 ****
+--- 1419,1466 ----
+      popup_close_and_callback(wp, &res);
+  }
+  
++     static void
++ check_mouse_moved(win_T *wp, win_T *mouse_wp)
++ {
++     // Close the popup when all if these are true:
++     // - the mouse is not on this popup
++     // - "mousemoved" was used
++     // - the mouse is no longer on the same screen row or the mouse column is
++     //   outside of the relevant text
++     if (wp != mouse_wp
++ 	    && wp->w_popup_mouse_row != 0
++ 	    && (wp->w_popup_mouse_row != mouse_row
++ 		|| mouse_col < wp->w_popup_mouse_mincol
++ 		|| mouse_col > wp->w_popup_mouse_maxcol))
++     {
++ 	typval_T res;
++ 
++ 	res.v_type = VAR_NUMBER;
++ 	res.vval.v_number = -2;
++ 	popup_close_and_callback(wp, &res);
++     }
++ }
++ 
++ /*
++  * Called when the mouse moved: may close a popup with "mousemoved".
++  */
++     void
++ popup_handle_mouse_moved(void)
++ {
++     win_T   *wp;
++     win_T   *mouse_wp;
++     int	    row = mouse_row;
++     int	    col = mouse_col;
++ 
++     // find the window where the mouse is in
++     mouse_wp = mouse_find_win(&row, &col, FIND_POPUP);
++ 
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	check_mouse_moved(wp, mouse_wp);
++     for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	check_mouse_moved(wp, mouse_wp);
++ }
++ 
+  /*
+   * In a filter: check if the typed key is a mouse event that is used for
+   * dragging the popup.
+***************
+*** 1821,1827 ****
+  }
+  
+  /*
+!  * For popup_getoptions(): add a "moved" entry to "dict".
+   */
+      static void
+  get_moved_list(dict_T *dict, win_T *wp)
+--- 1948,1954 ----
+  }
+  
+  /*
+!  * For popup_getoptions(): add a "moved" and "mousemoved" entry to "dict".
+   */
+      static void
+  get_moved_list(dict_T *dict, win_T *wp)
+***************
+*** 1832,1840 ****
+--- 1959,1976 ----
+      if (list != NULL)
+      {
+  	dict_add_list(dict, "moved", list);
++ 	list_append_number(list, wp->w_popup_lnum);
+  	list_append_number(list, wp->w_popup_mincol);
+  	list_append_number(list, wp->w_popup_maxcol);
+      }
++     list = list_alloc();
++     if (list != NULL)
++     {
++ 	dict_add_list(dict, "mousemoved", list);
++ 	list_append_number(list, wp->w_popup_mouse_row);
++ 	list_append_number(list, wp->w_popup_mouse_mincol);
++ 	list_append_number(list, wp->w_popup_mouse_maxcol);
++     }
+  }
+  
+  /*
+*** ../vim-8.1.1644/src/proto/popupwin.pro	2019-06-30 18:04:53.793559360 +0200
+--- src/proto/popupwin.pro	2019-07-06 17:06:06.122751209 +0200
+***************
+*** 11,17 ****
+--- 11,19 ----
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
++ void f_popup_beval(typval_T *argvars, typval_T *rettv);
+  void popup_close_for_mouse_click(win_T *wp);
++ void popup_handle_mouse_moved(void);
+  void f_popup_filter_menu(typval_T *argvars, typval_T *rettv);
+  void f_popup_filter_yesno(typval_T *argvars, typval_T *rettv);
+  void f_popup_dialog(typval_T *argvars, typval_T *rettv);
+*** ../vim-8.1.1644/src/move.c	2019-03-30 18:46:57.356077354 +0100
+--- src/move.c	2019-07-07 17:02:20.284693207 +0200
+***************
+*** 1189,1194 ****
+--- 1189,1284 ----
+      curwin->w_valid |= VALID_WCOL|VALID_WROW|VALID_VIRTCOL;
+  }
+  
++ #if defined(FEAT_EVAL) || defined(PROTO)
++ /*
++  * Compute the screen position of text character at "pos" in window "wp"
++  * The resulting values are one-based, zero when character is not visible.
++  */
++     static void
++ textpos2screenpos(
++ 	win_T	*wp,
++ 	pos_T	*pos,
++ 	int	*rowp,	// screen row
++ 	int	*scolp,	// start screen column
++ 	int	*ccolp,	// cursor screen column
++ 	int	*ecolp)	// end screen column
++ {
++     colnr_T	scol = 0, ccol = 0, ecol = 0;
++     int		row = 0;
++     int		rowoff = 0;
++     colnr_T	coloff = 0;
++ 
++     if (pos->lnum >= wp->w_topline && pos->lnum < wp->w_botline)
++     {
++ 	colnr_T off;
++ 	colnr_T col;
++ 	int     width;
++ 
++ 	row = plines_m_win(wp, wp->w_topline, pos->lnum - 1) + 1;
++ 	getvcol(wp, pos, &scol, &ccol, &ecol);
++ 
++ 	// similar to what is done in validate_cursor_col()
++ 	col = scol;
++ 	off = win_col_off(wp);
++ 	col += off;
++ 	width = wp->w_width - off + win_col_off2(wp);
++ 
++ 	/* long line wrapping, adjust row */
++ 	if (wp->w_p_wrap
++ 		&& col >= (colnr_T)wp->w_width
++ 		&& width > 0)
++ 	{
++ 	    /* use same formula as what is used in curs_columns() */
++ 	    rowoff = ((col - wp->w_width) / width + 1);
++ 	    col -= rowoff * width;
++ 	}
++ 	col -= wp->w_leftcol;
++ 	if (col >= width)
++ 	    col = -1;
++ 	if (col >= 0)
++ 	    coloff = col - scol + wp->w_wincol + 1;
++ 	else
++ 	    // character is left or right of the window
++ 	    row = scol = ccol = ecol = 0;
++     }
++     *rowp = wp->w_winrow + row + rowoff;
++     *scolp = scol + coloff;
++     *ccolp = ccol + coloff;
++     *ecolp = ecol + coloff;
++ }
++ 
++ /*
++  * "screenpos({winid}, {lnum}, {col})" function
++  */
++     void
++ f_screenpos(typval_T *argvars UNUSED, typval_T *rettv)
++ {
++     dict_T	*dict;
++     win_T	*wp;
++     pos_T	pos;
++     int		row = 0;
++     int		scol = 0, ccol = 0, ecol = 0;
++ 
++     if (rettv_dict_alloc(rettv) != OK)
++ 	return;
++     dict = rettv->vval.v_dict;
++ 
++     wp = find_win_by_nr_or_id(&argvars[0]);
++     if (wp == NULL)
++ 	return;
++ 
++     pos.lnum = tv_get_number(&argvars[1]);
++     pos.col = tv_get_number(&argvars[2]) - 1;
++     pos.coladd = 0;
++     textpos2screenpos(wp, &pos, &row, &scol, &ccol, &ecol);
++ 
++     dict_add_number(dict, "row", row);
++     dict_add_number(dict, "col", scol);
++     dict_add_number(dict, "curscol", ccol);
++     dict_add_number(dict, "endcol", ecol);
++ }
++ #endif
++ 
+  /*
+   * Scroll the current window down by "line_count" logical lines.  "CTRL-Y"
+   */
+*** ../vim-8.1.1644/src/proto/move.pro	2019-01-31 13:22:28.068543628 +0100
+--- src/proto/move.pro	2019-07-07 17:02:26.788661232 +0200
+***************
+*** 27,32 ****
+--- 27,33 ----
+  int win_col_off2(win_T *wp);
+  int curwin_col_off2(void);
+  void curs_columns(int may_scroll);
++ void f_screenpos(typval_T *argvars, typval_T *rettv);
+  void scrolldown(long line_count, int byfold);
+  void scrollup(long line_count, int byfold);
+  void check_topfill(win_T *wp, int down);
+*** ../vim-8.1.1644/src/beval.c	2019-06-12 20:21:57.737817533 +0200
+--- src/beval.c	2019-07-07 16:31:17.941627410 +0200
+***************
+*** 14,20 ****
+  
+  /*
+   * Get the text and position to be evaluated for "beval".
+!  * If "getword" is true the returned text is not the whole line but the
+   * relevant word in allocated memory.
+   * Returns OK or FAIL.
+   */
+--- 14,20 ----
+  
+  /*
+   * Get the text and position to be evaluated for "beval".
+!  * If "getword" is TRUE the returned text is not the whole line but the
+   * relevant word in allocated memory.
+   * Returns OK or FAIL.
+   */
+***************
+*** 27,38 ****
+      char_u	**textp,
+      int		*colp)
+  {
+-     win_T	*wp;
+      int		row, col;
+-     char_u	*lbuf;
+-     linenr_T	lnum;
+  
+-     *textp = NULL;
+  # ifdef FEAT_BEVAL_TERM
+  #  ifdef FEAT_GUI
+      if (!gui.in_use)
+--- 27,34 ----
+***************
+*** 49,70 ****
+  	col = X_2_COL(beval->x);
+      }
+  #endif
+      wp = mouse_find_win(&row, &col, FAIL_POPUP);
+      if (wp != NULL && row >= 0 && row < wp->w_height && col < wp->w_width)
+      {
+! 	/* Found a window and the cursor is in the text.  Now find the line
+! 	 * number. */
+  	if (!mouse_comp_pos(wp, &row, &col, &lnum))
+  	{
+! 	    /* Not past end of the file. */
+  	    lbuf = ml_get_buf(wp->w_buffer, lnum, FALSE);
+  	    if (col <= win_linetabsize(wp, lbuf, (colnr_T)MAXCOL))
+  	    {
+! 		/* Not past end of line. */
+  		if (getword)
+  		{
+! 		    /* For Netbeans we get the relevant part of the line
+! 		     * instead of the whole line. */
+  		    int		len;
+  		    pos_T	*spos = NULL, *epos = NULL;
+  
+--- 45,112 ----
+  	col = X_2_COL(beval->x);
+      }
+  #endif
++     if (find_word_under_cursor(row, col, getword,
++ 		FIND_IDENT + FIND_STRING + FIND_EVAL,
++ 		winp, lnump, textp, colp) == OK)
++     {
++ #ifdef FEAT_VARTABS
++ 	vim_free(beval->vts);
++ 	beval->vts = tabstop_copy((*winp)->w_buffer->b_p_vts_array);
++ 	if ((*winp)->w_buffer->b_p_vts_array != NULL && beval->vts == NULL)
++ 	{
++ 	    if (getword)
++ 		vim_free(*textp);
++ 	    return FAIL;
++ 	}
++ #endif
++ 	beval->ts = (*winp)->w_buffer->b_p_ts;
++ 	return OK;
++     }
++ 
++     return FAIL;
++ }
++ 
++ /*
++  * Find text under the mouse position "row" / "col".
++  * If "getword" is TRUE the returned text in "*textp" is not the whole line but
++  * the relevant word in allocated memory.
++  * Return OK if found.
++  * Return FAIL if not found, no text at the mouse position.
++  */
++     int
++ find_word_under_cursor(
++ 	int	    mouserow,
++ 	int	    mousecol,
++ 	int	    getword,
++ 	int	    flags,	// flags for find_ident_at_pos()
++ 	win_T	    **winp,	// can be NULL
++ 	linenr_T    *lnump,	// can be NULL
++ 	char_u	    **textp,
++ 	int	    *colp)
++ {
++     int		row = mouserow;
++     int		col = mousecol;
++     win_T	*wp;
++     char_u	*lbuf;
++     linenr_T	lnum;
++ 
++     *textp = NULL;
+      wp = mouse_find_win(&row, &col, FAIL_POPUP);
+      if (wp != NULL && row >= 0 && row < wp->w_height && col < wp->w_width)
+      {
+! 	// Found a window and the cursor is in the text.  Now find the line
+! 	// number.
+  	if (!mouse_comp_pos(wp, &row, &col, &lnum))
+  	{
+! 	    // Not past end of the file.
+  	    lbuf = ml_get_buf(wp->w_buffer, lnum, FALSE);
+  	    if (col <= win_linetabsize(wp, lbuf, (colnr_T)MAXCOL))
+  	    {
+! 		// Not past end of line.
+  		if (getword)
+  		{
+! 		    // For Netbeans we get the relevant part of the line
+! 		    // instead of the whole line.
+  		    int		len;
+  		    pos_T	*spos = NULL, *epos = NULL;
+  
+***************
+*** 93,101 ****
+  				? col <= (int)epos->col
+  				: lnum < epos->lnum))
+  		    {
+! 			/* Visual mode and pointing to the line with the
+! 			 * Visual selection: return selected text, with a
+! 			 * maximum of one line. */
+  			if (spos->lnum != epos->lnum || spos->col == epos->col)
+  			    return FAIL;
+  
+--- 135,143 ----
+  				? col <= (int)epos->col
+  				: lnum < epos->lnum))
+  		    {
+! 			// Visual mode and pointing to the line with the
+! 			// Visual selection: return selected text, with a
+! 			// maximum of one line.
+  			if (spos->lnum != epos->lnum || spos->col == epos->col)
+  			    return FAIL;
+  
+***************
+*** 109,118 ****
+  		    }
+  		    else
+  		    {
+! 			/* Find the word under the cursor. */
+  			++emsg_off;
+  			len = find_ident_at_pos(wp, lnum, (colnr_T)col, &lbuf,
+! 					FIND_IDENT + FIND_STRING + FIND_EVAL);
+  			--emsg_off;
+  			if (len == 0)
+  			    return FAIL;
+--- 151,160 ----
+  		    }
+  		    else
+  		    {
+! 			// Find the word under the cursor.
+  			++emsg_off;
+  			len = find_ident_at_pos(wp, lnum, (colnr_T)col, &lbuf,
+! 									flags);
+  			--emsg_off;
+  			if (len == 0)
+  			    return FAIL;
+***************
+*** 120,141 ****
+  		    }
+  		}
+  
+! 		*winp = wp;
+! 		*lnump = lnum;
+  		*textp = lbuf;
+  		*colp = col;
+- #ifdef FEAT_VARTABS
+- 		vim_free(beval->vts);
+- 		beval->vts = tabstop_copy(wp->w_buffer->b_p_vts_array);
+- 		if (wp->w_buffer->b_p_vts_array != NULL && beval->vts == NULL)
+- 		    return FAIL;
+- #endif
+- 		beval->ts = wp->w_buffer->b_p_ts;
+  		return OK;
+  	    }
+  	}
+      }
+- 
+      return FAIL;
+  }
+  
+--- 162,177 ----
+  		    }
+  		}
+  
+! 		if (winp != NULL)
+! 		    *winp = wp;
+! 		if (lnump != NULL)
+! 		    *lnump = lnum;
+  		*textp = lbuf;
+  		*colp = col;
+  		return OK;
+  	    }
+  	}
+      }
+      return FAIL;
+  }
+  
+*** ../vim-8.1.1644/src/proto/beval.pro	2018-05-17 13:52:56.000000000 +0200
+--- src/proto/beval.pro	2019-07-07 16:04:03.689341355 +0200
+***************
+*** 1,5 ****
+--- 1,6 ----
+  /* beval.c */
+  int get_beval_info(BalloonEval *beval, int getword, win_T **winp, linenr_T *lnump, char_u **textp, int *colp);
++ int find_word_under_cursor(int mouserow, int mousecol, int getword, int flags, win_T **winp, linenr_T *lnump, char_u **textp, int *colp);
+  void post_balloon(BalloonEval *beval, char_u *mesg, list_T *list);
+  int can_use_beval(void);
+  void general_beval_cb(BalloonEval *beval, int state);
+*** ../vim-8.1.1644/src/evalfunc.c	2019-07-04 15:39:23.823385977 +0200
+--- src/evalfunc.c	2019-07-06 15:58:24.308858997 +0200
+***************
+*** 771,776 ****
+--- 771,777 ----
+  #endif
+  #ifdef FEAT_TEXT_PROP
+      {"popup_atcursor",	2, 2, f_popup_atcursor},
++     {"popup_beval",	2, 2, f_popup_beval},
+      {"popup_clear",	0, 0, f_popup_clear},
+      {"popup_close",	1, 2, f_popup_close},
+      {"popup_create",	2, 2, f_popup_create},
+***************
+*** 849,854 ****
+--- 850,856 ----
+      {"screenchar",	2, 2, f_screenchar},
+      {"screenchars",	2, 2, f_screenchars},
+      {"screencol",	0, 0, f_screencol},
++     {"screenpos",	3, 3, f_screenpos},
+      {"screenrow",	0, 0, f_screenrow},
+      {"screenstring",	2, 2, f_screenstring},
+      {"search",		1, 4, f_search},
+*** ../vim-8.1.1644/src/popupmnu.c	2019-06-15 19:37:11.680608505 +0200
+--- src/popupmnu.c	2019-07-06 16:41:49.828506031 +0200
+***************
+*** 992,999 ****
+  # if defined(FEAT_BEVAL_TERM) || defined(PROTO)
+  static pumitem_T *balloon_array = NULL;
+  static int balloon_arraysize;
+- static int balloon_mouse_row = 0;
+- static int balloon_mouse_col = 0;
+  
+  #define BALLOON_MIN_WIDTH 50
+  #define BALLOON_MIN_HEIGHT 10
+--- 992,997 ----
+***************
+*** 1209,1216 ****
+      void
+  ui_may_remove_balloon(void)
+  {
+!     if (mouse_row != balloon_mouse_row || mouse_col != balloon_mouse_col)
+! 	ui_remove_balloon();
+  }
+  # endif
+  
+--- 1207,1215 ----
+      void
+  ui_may_remove_balloon(void)
+  {
+!     // For now: remove the balloon whenever the mouse moves to another screen
+!     // cell.
+!     ui_remove_balloon();
+  }
+  # endif
+  
+*** ../vim-8.1.1644/src/normal.c	2019-06-30 22:16:06.931821750 +0200
+--- src/normal.c	2019-07-06 16:43:04.132100090 +0200
+***************
+*** 2329,2334 ****
+--- 2329,2337 ----
+  	    bevalexpr_due_set = TRUE;
+  	}
+  #endif
++ #ifdef FEAT_TEXT_PROP
++ 	popup_handle_mouse_moved();
++ #endif
+  	return FALSE;
+      }
+  
+*** ../vim-8.1.1644/src/testdir/test_popupwin.vim	2019-07-05 21:53:14.939268472 +0200
+--- src/testdir/test_popupwin.vim	2019-07-07 18:18:14.652578345 +0200
+***************
+*** 1005,1010 ****
+--- 1005,1057 ----
+    bwipe!
+  endfunc
+  
++ func Test_popup_beval()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let lines =<< trim END
++ 	call setline(1, range(1, 20))
++ 	call setline(5, 'here is some text to hover over')
++ 	set balloonevalterm
++ 	set balloonexpr=BalloonExpr()
++ 	set balloondelay=100
++ 	func BalloonExpr()
++ 	  let s:winid = popup_beval([v:beval_text], {})
++ 	  return ''
++ 	endfunc
++ 	func Hover()
++ 	  call test_setmouse(5, 15)
++ 	  call feedkeys("\<MouseMove>\<Ignore>", "xt")
++ 	  sleep 100m
++ 	endfunc
++ 	func MoveOntoPopup()
++ 	  call test_setmouse(4, 17)
++ 	  call feedkeys("\<F4>\<MouseMove>\<Ignore>", "xt")
++ 	endfunc
++ 	func MoveAway()
++ 	  call test_setmouse(5, 13)
++ 	  call feedkeys("\<F5>\<MouseMove>\<Ignore>", "xt")
++ 	endfunc
++   END
++   call writefile(lines, 'XtestPopupBeval')
++   let buf = RunVimInTerminal('-S XtestPopupBeval', {'rows': 10})
++   call term_wait(buf, 100)
++   call term_sendkeys(buf, 'j')
++   call term_sendkeys(buf, ":call Hover()\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_beval_1', {})
++ 
++   call term_sendkeys(buf, ":call MoveOntoPopup()\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_beval_2', {})
++ 
++   call term_sendkeys(buf, ":call MoveAway()\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_beval_3', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupBeval')
++ endfunc
++ 
+  func Test_popup_filter()
+    new
+    call setline(1, 'some text')
+***************
+*** 1413,1419 ****
+    let winid = popup_atcursor('text', {'moved': 'any'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+!   call assert_equal([4, 4], popup_getoptions(winid).moved)
+    " trigger the check for last_cursormoved by going into insert mode
+    call feedkeys("li\<Esc>", 'xt')
+    call assert_equal({}, popup_getpos(winid))
+--- 1460,1466 ----
+    let winid = popup_atcursor('text', {'moved': 'any'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+!   call assert_equal([1, 4, 4], popup_getoptions(winid).moved)
+    " trigger the check for last_cursormoved by going into insert mode
+    call feedkeys("li\<Esc>", 'xt')
+    call assert_equal({}, popup_getpos(winid))
+***************
+*** 1423,1429 ****
+    let winid = popup_atcursor('text', {'moved': 'word'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+!   call assert_equal([4, 7], popup_getoptions(winid).moved)
+    call feedkeys("hi\<Esc>", 'xt')
+    call assert_equal({}, popup_getpos(winid))
+    call popup_clear()
+--- 1470,1476 ----
+    let winid = popup_atcursor('text', {'moved': 'word'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+!   call assert_equal([1, 4, 7], popup_getoptions(winid).moved)
+    call feedkeys("hi\<Esc>", 'xt')
+    call assert_equal({}, popup_getpos(winid))
+    call popup_clear()
+***************
+*** 1432,1438 ****
+    let winid = popup_atcursor('text', {'moved': 'word'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+!   call assert_equal([4, 7], popup_getoptions(winid).moved)
+    call feedkeys("li\<Esc>", 'xt')
+    call assert_equal(1, popup_getpos(winid).visible)
+    call feedkeys("ei\<Esc>", 'xt')
+--- 1479,1485 ----
+    let winid = popup_atcursor('text', {'moved': 'word'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+!   call assert_equal([1, 4, 7], popup_getoptions(winid).moved)
+    call feedkeys("li\<Esc>", 'xt')
+    call assert_equal(1, popup_getpos(winid).visible)
+    call feedkeys("ei\<Esc>", 'xt')
+***************
+*** 1446,1452 ****
+    let winid = popup_atcursor('text', {})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+!   call assert_equal([2, 15], popup_getoptions(winid).moved)
+    call feedkeys("eli\<Esc>", 'xt')
+    call assert_equal(1, popup_getpos(winid).visible)
+    call feedkeys("wi\<Esc>", 'xt')
+--- 1493,1499 ----
+    let winid = popup_atcursor('text', {})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+!   call assert_equal([2, 2, 15], popup_getoptions(winid).moved)
+    call feedkeys("eli\<Esc>", 'xt')
+    call assert_equal(1, popup_getpos(winid).visible)
+    call feedkeys("wi\<Esc>", 'xt')
+*** ../vim-8.1.1644/src/testdir/test_cursor_func.vim	2019-05-16 22:24:52.403017783 +0200
+--- src/testdir/test_cursor_func.vim	2019-07-07 14:42:25.107175433 +0200
+***************
+*** 72,74 ****
+--- 72,102 ----
+    call assert_equal(6, winsaveview().curswant)
+    quit!
+  endfunc
++ 
++ func Test_screenpos()
++   rightbelow new
++   rightbelow 20vsplit
++   call setline(1, ["\tsome text", "long wrapping line here", "next line"])
++   redraw
++   let winid = win_getid()
++   let [winrow, wincol] = win_screenpos(winid)
++   call assert_equal({'row': winrow,
++ 	\ 'col': wincol + 0,
++ 	\ 'curscol': wincol + 7,
++ 	\ 'endcol': wincol + 7}, screenpos(winid, 1, 1))
++   call assert_equal({'row': winrow,
++ 	\ 'col': wincol + 13,
++ 	\ 'curscol': wincol + 13,
++ 	\ 'endcol': wincol + 13}, screenpos(winid, 1, 7))
++   call assert_equal({'row': winrow + 2,
++ 	\ 'col': wincol + 1,
++ 	\ 'curscol': wincol + 1,
++ 	\ 'endcol': wincol + 1}, screenpos(winid, 2, 22))
++   setlocal number
++   call assert_equal({'row': winrow + 3,
++ 	\ 'col': wincol + 9,
++ 	\ 'curscol': wincol + 9,
++ 	\ 'endcol': wincol + 9}, screenpos(winid, 2, 22))
++   close
++   bwipe!
++ endfunc
+*** ../vim-8.1.1644/runtime/doc/popup.txt	2019-07-04 16:53:21.369654166 +0200
+--- runtime/doc/popup.txt	2019-07-07 17:12:34.957616704 +0200
+***************
+*** 146,151 ****
+--- 146,153 ----
+  	|popup_create()|	centered in the screen
+  	|popup_atcursor()|	just above the cursor position, closes when
+  				the cursor moves away
++ 	|popup_beval()|		at the position indicated by v:beval_
++ 				variables, closes when the mouse moves away
+  	|popup_notification()|	show a notification for three seconds
+  	|popup_dialog()|	centered with padding and border
+  	|popup_menu()|		prompt for selecting an item from a list
+***************
+*** 184,189 ****
+--- 186,205 ----
+  <		Use {options} to change the properties.
+  
+  
++ popup_beval({what}, {options})			*popup_beval()*
++ 		Show the {what} above the position from 'ballooneval' and
++ 		close it when the mouse moves.  This works like: >
++ 		  let pos = screenpos(v:beval_winnr, v:beval_lnum, v:beval_col)
++ 		  call popup_create({what}, {
++ 			\ 'pos': 'botleft',
++ 			\ 'line': pos.lnum - 1,
++ 			\ 'col': pos.col,
++ 			\ 'mousemoved': 'WORD',
++ 			\ })
++ <		Use {options} to change the properties.
++ 		See |popup_beval_example| for an example use.
++ 
++ 
+  							*popup_clear()*
+  popup_clear()	Emergency solution to a misbehaving plugin: close all popup
+  		windows for the current tab and global popups.
+***************
+*** 276,283 ****
+  		A zero value means the option was not set.  For "zindex" the
+  		default value is returned, not zero.
+  
+! 		The "moved" entry is a list with minimum and maximum column,
+! 		[0, 0] when not set.
+  
+  		"border" and "padding" are not included when all values are
+  		zero.  When all values are one then an empty list is included.
+--- 292,302 ----
+  		A zero value means the option was not set.  For "zindex" the
+  		default value is returned, not zero.
+  
+! 		The "moved" entry is a list with line number, minimum and
+! 		maximum column, [0, 0, 0] when not set.
+! 
+! 		The "mousemoved" entry is a list with screen row, minimum and
+! 		maximum screen column, [0, 0, 0] when not set.
+  
+  		"border" and "padding" are not included when all values are
+  		zero.  When all values are one then an empty list is included.
+***************
+*** 566,571 ****
+--- 585,591 ----
+  			- "any": if the cursor moved at all
+  			- "word": if the cursor moved outside |<cword>|
+  			- "WORD": if the cursor moved outside |<cWORD>|
++ 			- "expr": if the cursor moved outside |<cexpr>|
+  			- [{start}, {end}]: if the cursor moved before column
+  			  {start} or after {end}
+  			The popup also closes if the cursor moves to another
+***************
+*** 736,740 ****
+--- 756,800 ----
+  	  return popup_filter_menu(a:id, a:key)
+  	endfunc
+  <
++ 					*popup_beval_example*
++ Example for using a popup window for 'ballooneval': >
++ 
++ 	set ballooneval balloonevalterm
++ 	set balloonexpr=BalloonExpr()
++ 	let s:winid = 0
++ 
++ 	func BalloonExpr()
++ 	  if s:winid
++ 	    call popup_close(s:winid)
++ 	    let s:winid = 0
++ 	  endif
++ 	  let s:winid = popup_beval([bufname(v:beval_bufnr), v:beval_text], {})
++ 	  return ''
++ 	endfunc
++ <
++ If the text has to be obtained asynchronously return an empty string from the
++ expression function and call popup_beval() once the text is available.  In
++ this example similated with a timer callback: >
++ 
++ 	set ballooneval balloonevalterm
++ 	set balloonexpr=BalloonExpr()
++ 	let s:winid = 0
++ 
++ 	func BalloonExpr()
++ 	  if s:winid
++ 	    call popup_close(s:winid)
++ 	    let s:winid = 0
++ 	  endif
++ 	  " simulate an asynchronous loopup for the text to display
++ 	  let s:balloonFile = bufname(v:beval_bufnr)
++ 	  let s:balloonWord = v:beval_text
++ 	  call timer_start(100, 'ShowPopup')
++ 	  return ''
++ 	endfunc
++ 
++ 	func ShowPopup(id)
++ 	  let s:winid = popup_beval([s:balloonFile, s:balloonWord], {})
++ 	endfunc
++ <
+  
+   vim:tw=78:ts=8:noet:ft=help:norl:
+*** ../vim-8.1.1644/runtime/doc/eval.txt	2019-07-04 17:11:16.799440884 +0200
+--- runtime/doc/eval.txt	2019-07-07 14:41:25.071768307 +0200
+***************
+*** 2534,2539 ****
+--- 2535,2541 ----
+  pathshorten({expr})		String	shorten directory names in a path
+  perleval({expr})		any	evaluate |Perl| expression
+  popup_atcursor({what}, {options}) Number create popup window near the cursor
++ popup_beval({what}, {options}) 	Number 	create popup window for 'ballooneval'
+  popup_clear()			none	close all popup windows
+  popup_close({id} [, {result}])	none	close popup window {id}
+  popup_create({what}, {options}) Number	create a popup window
+***************
+*** 2612,2617 ****
+--- 2614,2620 ----
+  screenchar({row}, {col})	Number	character at screen position
+  screenchars({row}, {col})	List	List of characters at screen position
+  screencol()			Number	current cursor column
++ screenpos({winid}, {lnum}, {col}) Dict	screen row and col of a text character
+  screenrow()			Number	current cursor row
+  screenstring({row}, {col})	String	characters at screen position
+  search({pattern} [, {flags} [, {stopline} [, {timeout}]]])
+***************
+*** 7906,7911 ****
+--- 7909,7931 ----
+  			nnoremap <expr> GG ":echom ".screencol()."\n"
+  			nnoremap <silent> GG :echom screencol()<CR>
+  <
++ screenpos({winid}, {lnum}, {col})				*screenpos()*
++ 		The result is a Dict with the screen position of the text
++ 		character in window {winid} at buffer line {lnum} and column
++ 		{col}.  {col} is a one-based byte index.
++ 		The Dict has these members:
++ 			row	screen row
++ 			col	first screen column
++ 			endcol	last screen column
++ 			curscol	cursor screen column
++ 		If the specified position is not visible, all values are zero.
++ 		The "endcol" value differs from "col" when the character
++ 		occupies more than one screen cell.  E.g. for a Tab "col" can
++ 		be 1 and "endcol" can be 8.
++ 		The "curscol" value is where the cursor would be placed.  For
++ 		a Tab it would be the same as "endcol", while for a double
++ 		width character it would be the same as "col".
++ 
+  screenrow()							*screenrow()*
+  		The result is a Number, which is the current screen row of the
+  		cursor.  The top line has number one.
+*** ../vim-8.1.1644/runtime/doc/usr_41.txt	2019-07-04 16:53:21.373654143 +0200
+--- runtime/doc/usr_41.txt	2019-07-06 15:16:12.426341319 +0200
+***************
+*** 720,725 ****
+--- 720,726 ----
+  	cursor()		position the cursor at a line/column
+  	screencol()		get screen column of the cursor
+  	screenrow()		get screen row of the cursor
++ 	screenpos()		screen row and col of a text character
+  	getcurpos()		get position of the cursor
+  	getpos()		get position of cursor, mark, etc.
+  	setpos()		set position of cursor, mark, etc.
+***************
+*** 1046,1051 ****
+--- 1047,1054 ----
+  	popup_create()		create popup centered in the screen
+  	popup_atcursor()	create popup just above the cursor position,
+  				closes when the cursor moves away
++ 	popup_beval()		at the position indicated by v:beval_
++ 				variables, closes when the mouse moves away
+  	popup_notification()	show a notification for three seconds
+  	popup_dialog()		create popup centered with padding and border
+  	popup_menu()		prompt for selecting an item from a list
+*** ../vim-8.1.1644/src/testdir/dumps/Test_popupwin_beval_1.dump	2019-07-07 18:22:04.315270748 +0200
+--- src/testdir/dumps/Test_popupwin_beval_1.dump	2019-07-07 18:15:51.053411015 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ |1+0&#ffffff0| @73
++ >2| @73
++ |3| @73
++ |4| @12|t+0#0000001#ffd7ff255|e|x|t| +0#0000000#ffffff0@56
++ |h|e|r|e| |i|s| |s|o|m|e| |t|e|x|t| |t|o| |h|o|v|e|r| |o|v|e|r| @43
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |H|o|v|e|r|(|)| @43|2|,|1| @10|T|o|p| 
+*** ../vim-8.1.1644/src/testdir/dumps/Test_popupwin_beval_2.dump	2019-07-07 18:22:04.319270725 +0200
+--- src/testdir/dumps/Test_popupwin_beval_2.dump	2019-07-07 18:18:55.720342601 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ |1+0&#ffffff0| @73
++ >2| @73
++ |3| @73
++ |4| @12|t+0#0000001#ffd7ff255|e|x|t| +0#0000000#ffffff0@56
++ |h|e|r|e| |i|s| |s|o|m|e| |t|e|x|t| |t|o| |h|o|v|e|r| |o|v|e|r| @43
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |M|o|v|e|O|n|t|o|P|o|p|u|p|(|)| @35|2|,|1| @10|T|o|p| 
+*** ../vim-8.1.1644/src/testdir/dumps/Test_popupwin_beval_3.dump	2019-07-07 18:22:04.323270704 +0200
+--- src/testdir/dumps/Test_popupwin_beval_3.dump	2019-07-07 18:16:43.881103039 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ |1+0&#ffffff0| @73
++ >2| @73
++ |3| @73
++ |4| @73
++ |h|e|r|e| |i|s| |s|o|m|e| |t|e|x|t| |t|o| |h|o|v|e|r| |o|v|e|r| @43
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |M|o|v|e|A|w|a|y|(|)| @40|2|,|1| @10|T|o|p| 
+*** ../vim-8.1.1644/src/version.c	2019-07-07 15:12:08.765146251 +0200
+--- src/version.c	2019-07-07 18:19:47.056049202 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1645,
+  /**/
+
+-- 
+ARTHUR:  Well, I can't just call you `Man'.
+DENNIS:  Well, you could say `Dennis'.
+ARTHUR:  Well, I didn't know you were called `Dennis.'
+DENNIS:  Well, you didn't bother to find out, did you?
+                                  The Quest for the Holy Grail (Monty Python)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

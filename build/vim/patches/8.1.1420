@@ -1,0 +1,149 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1420
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1420
+Problem:    Popup window size only uses first line length.
+Solution:   Use the longest line. (Ben Jackson, closes #4451)  Also deal with
+            wrapping lines.
+Files:	    src/popupwin.c, src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1419/src/popupwin.c	2019-05-29 21:44:30.764788713 +0200
+--- src/popupwin.c	2019-05-29 23:02:05.528300268 +0200
+***************
+*** 154,159 ****
+--- 154,163 ----
+      static void
+  popup_adjust_position(win_T *wp)
+  {
++     linenr_T	lnum;
++     int		wrapped = 0;
++     int		maxwidth;
++ 
+      // TODO: Compute the size and position properly.
+      if (wp->w_wantline > 0)
+  	wp->w_winrow = wp->w_wantline - 1;
+***************
+*** 171,188 ****
+      if (wp->w_wincol >= Columns - 3)
+  	wp->w_wincol = Columns - 3;
+  
+!     // TODO: set width based on longest text line and the 'wrap' option
+!     wp->w_width = vim_strsize(ml_get_buf(wp->w_buffer, 1, FALSE));
+      if (wp->w_minwidth > 0 && wp->w_width < wp->w_minwidth)
+  	wp->w_width = wp->w_minwidth;
+!     if (wp->w_maxwidth > 0 && wp->w_width > wp->w_maxwidth)
+! 	wp->w_width = wp->w_maxwidth;
+!     if (wp->w_width > Columns - wp->w_wincol)
+! 	wp->w_width = Columns - wp->w_wincol;
+  
+      if (wp->w_height <= 1)
+! 	// TODO: adjust height for wrapped lines
+! 	wp->w_height = wp->w_buffer->b_ml.ml_line_count;
+      if (wp->w_minheight > 0 && wp->w_height < wp->w_minheight)
+  	wp->w_height = wp->w_minheight;
+      if (wp->w_maxheight > 0 && wp->w_height > wp->w_maxheight)
+--- 175,208 ----
+      if (wp->w_wincol >= Columns - 3)
+  	wp->w_wincol = Columns - 3;
+  
+!     maxwidth = Columns - wp->w_wincol;
+!     if (wp->w_maxwidth > 0 && maxwidth > wp->w_maxwidth)
+! 	maxwidth = wp->w_maxwidth;
+! 
+!     // Compute width based on longest text line and the 'wrap' option.
+!     // TODO: more accurate wrapping
+!     wp->w_width = 0;
+!     for (lnum = 1; lnum <= wp->w_buffer->b_ml.ml_line_count; ++lnum)
+!     {
+! 	int len = vim_strsize(ml_get_buf(wp->w_buffer, lnum, FALSE));
+! 
+! 	while (wp->w_p_wrap && len > maxwidth)
+! 	{
+! 	    ++wrapped;
+! 	    len -= maxwidth;
+! 	    wp->w_width = maxwidth;
+! 	}
+! 	if (wp->w_width < len)
+! 	    wp->w_width = len;
+!     }
+! 
+      if (wp->w_minwidth > 0 && wp->w_width < wp->w_minwidth)
+  	wp->w_width = wp->w_minwidth;
+!     if (wp->w_width > maxwidth)
+! 	wp->w_width = maxwidth;
+  
+      if (wp->w_height <= 1)
+! 	wp->w_height = wp->w_buffer->b_ml.ml_line_count + wrapped;
+      if (wp->w_minheight > 0 && wp->w_height < wp->w_minheight)
+  	wp->w_height = wp->w_minheight;
+      if (wp->w_maxheight > 0 && wp->w_height > wp->w_maxheight)
+*** ../vim-8.1.1419/src/testdir/test_popupwin.vim	2019-05-29 20:26:32.525530253 +0200
+--- src/testdir/test_popupwin.vim	2019-05-29 23:08:49.922611877 +0200
+***************
+*** 176,178 ****
+--- 176,214 ----
+  
+    call popup_close(winid)
+  endfunc
++ 
++ func Test_popup_width_longest()
++   let tests = [
++ 	\ [['hello', 'this', 'window', 'displays', 'all of its text'], 15],
++ 	\ [['hello', 'this', 'window', 'all of its text', 'displays'], 15],
++ 	\ [['hello', 'this', 'all of its text', 'window', 'displays'], 15],
++ 	\ [['hello', 'all of its text', 'this', 'window', 'displays'], 15],
++ 	\ [['all of its text', 'hello', 'this', 'window', 'displays'], 15],
++ 	\ ]
++ 
++   for test in tests
++     let winid = popup_create(test[0], {'line': 2, 'col': 3})
++     redraw
++     let position = popup_getposition(winid)
++     call assert_equal(test[1], position.width)
++     call popup_close(winid)
++   endfor
++ endfunc
++ 
++ func Test_popup_wraps()
++   let tests = [
++ 	\ ['nowrap', 6, 1],
++ 	\ ['a line that wraps once', 12, 2],
++ 	\ ['a line that wraps two times', 12, 3],
++ 	\ ]
++   for test in tests
++     let winid = popup_create(test[0],
++ 	  \ {'line': 2, 'col': 3, 'maxwidth': 12})
++     redraw
++     let position = popup_getposition(winid)
++     call assert_equal(test[1], position.width)
++     call assert_equal(test[2], position.height)
++ 
++     call popup_close(winid)
++   endfor
++ endfunc
+*** ../vim-8.1.1419/src/version.c	2019-05-29 22:28:25.763184805 +0200
+--- src/version.c	2019-05-29 22:53:50.798934188 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1420,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+48. You get a tatoo that says "This body best viewed with Netscape 3.1 or
+    higher."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///
