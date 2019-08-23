@@ -26,13 +26,17 @@
 . ../../lib/functions.sh
 
 PROG=less
-VER=530
+VER=551
 PKG=text/less
-SUMMARY="$PROG - GNU paginator"
+SUMMARY="less - paginator"
 DESC="A program similar to more, but which allows backward movement "
 DESC+="in the file as well as forward movement"
 
 set_arch 64
+
+CONFIGURE_OPTS="
+    --with-regex=pcre2
+"
 
 init
 download_source $PROG $PROG $VER
