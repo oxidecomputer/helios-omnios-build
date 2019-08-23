@@ -1,0 +1,341 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1455
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1455
+Problem:    Popup_atcursor() not completely implemented.
+Solution:   Add the default for the "moved" property.
+Files:	    src/popupwin.c, src/normal.c, src/vim.h,
+            src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1454/src/popupwin.c	2019-06-02 18:40:02.637508840 +0200
+--- src/popupwin.c	2019-06-02 19:49:53.304066084 +0200
+***************
+*** 138,149 ****
+  }
+  
+  /*
+   * Go through the options in "dict" and apply them to buffer "buf" displayed in
+   * popup window "wp".
+-  * When called from f_popup_atcursor() "atcursor" is TRUE.
+   */
+      static void
+! apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict, int atcursor)
+  {
+      int		nr;
+      char_u	*str;
+--- 138,176 ----
+  }
+  
+  /*
++  * Used when popup options contain "moved": set default moved values.
++  */
++     static void
++ set_moved_values(win_T *wp)
++ {
++     wp->w_popup_curwin = curwin;
++     wp->w_popup_lnum = curwin->w_cursor.lnum;
++     wp->w_popup_mincol = curwin->w_cursor.col;
++     wp->w_popup_maxcol = curwin->w_cursor.col;
++ }
++ 
++ /*
++  * Used when popup options contain "moved" with "word" or "WORD".
++  */
++     static void
++ set_moved_columns(win_T *wp, int flags)
++ {
++     char_u	*ptr;
++     int		len = find_ident_under_cursor(&ptr, flags | FIND_NOERROR);
++ 
++     if (len > 0)
++     {
++ 	wp->w_popup_mincol = (int)(ptr - ml_get_curline());
++ 	wp->w_popup_maxcol = wp->w_popup_mincol + len - 1;
++     }
++ }
++ 
++ /*
+   * Go through the options in "dict" and apply them to buffer "buf" displayed in
+   * popup window "wp".
+   */
+      static void
+! apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict)
+  {
+      int		nr;
+      char_u	*str;
+***************
+*** 155,173 ****
+      wp->w_maxwidth = dict_get_number(dict, (char_u *)"maxwidth");
+      wp->w_maxheight = dict_get_number(dict, (char_u *)"maxheight");
+  
+-     if (atcursor)
+-     {
+- 	wp->w_popup_pos = POPPOS_BOTLEFT;
+- 	setcursor_mayforce(TRUE);
+- 	wp->w_wantline = screen_screenrow();
+- 	if (wp->w_wantline == 0)  // cursor in first line
+- 	{
+- 	    wp->w_wantline = 2;
+- 	    wp->w_popup_pos = POPPOS_TOPLEFT;
+- 	}
+- 	wp->w_wantcol = screen_screencol() + 1;
+-     }
+- 
+      get_pos_options(wp, dict);
+  
+      wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
+--- 182,187 ----
+***************
+*** 289,298 ****
+      di = dict_find(dict, (char_u *)"moved", -1);
+      if (di != NULL)
+      {
+! 	wp->w_popup_curwin = curwin;
+! 	wp->w_popup_lnum = curwin->w_cursor.lnum;
+! 	wp->w_popup_mincol = curwin->w_cursor.col;
+! 	wp->w_popup_maxcol = curwin->w_cursor.col;
+  	if (di->di_tv.v_type == VAR_STRING && di->di_tv.vval.v_string != NULL)
+  	{
+  	    char_u  *s = di->di_tv.vval.v_string;
+--- 303,309 ----
+      di = dict_find(dict, (char_u *)"moved", -1);
+      if (di != NULL)
+      {
+! 	set_moved_values(wp);
+  	if (di->di_tv.v_type == VAR_STRING && di->di_tv.vval.v_string != NULL)
+  	{
+  	    char_u  *s = di->di_tv.vval.v_string;
+***************
+*** 305,320 ****
+  	    else if (STRCMP(s, "any") != 0)
+  		semsg(_(e_invarg2), s);
+  	    if (flags != 0)
+! 	    {
+! 		char_u	*ptr;
+! 		int	len = find_ident_under_cursor(&ptr, flags);
+! 
+! 		if (len > 0)
+! 		{
+! 		    wp->w_popup_mincol = (int)(ptr - ml_get_curline());
+! 		    wp->w_popup_maxcol = wp->w_popup_mincol + len - 1;
+! 		}
+! 	    }
+  	}
+  	else if (di->di_tv.v_type == VAR_LIST
+  		&& di->di_tv.vval.v_list != NULL
+--- 316,322 ----
+  	    else if (STRCMP(s, "any") != 0)
+  		semsg(_(e_invarg2), s);
+  	    if (flags != 0)
+! 		set_moved_columns(wp, flags);
+  	}
+  	else if (di->di_tv.v_type == VAR_LIST
+  		&& di->di_tv.vval.v_list != NULL
+***************
+*** 554,566 ****
+      wp->w_popup_last_changedtick = CHANGEDTICK(wp->w_buffer);
+  }
+  
+  /*
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+   * When called from f_popup_atcursor() "atcursor" is TRUE.
+   */
+      static void
+! popup_create(typval_T *argvars, typval_T *rettv, int atcursor)
+  {
+      win_T   *wp;
+      buf_T   *buf;
+--- 556,574 ----
+      wp->w_popup_last_changedtick = CHANGEDTICK(wp->w_buffer);
+  }
+  
++ typedef enum
++ {
++     TYPE_NORMAL,
++     TYPE_ATCURSOR
++ } create_type_T;
++ 
+  /*
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+   * When called from f_popup_atcursor() "atcursor" is TRUE.
+   */
+      static void
+! popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+  {
+      win_T   *wp;
+      buf_T   *buf;
+***************
+*** 652,659 ****
+      ml_delete(buf->b_ml.ml_line_count, FALSE);
+      curbuf = curwin->w_buffer;
+  
+      // Deal with options.
+!     apply_options(wp, buf, argvars[1].vval.v_dict, atcursor);
+  
+      // set default values
+      if (wp->w_zindex == 0)
+--- 660,682 ----
+      ml_delete(buf->b_ml.ml_line_count, FALSE);
+      curbuf = curwin->w_buffer;
+  
++     if (type == TYPE_ATCURSOR)
++     {
++ 	wp->w_popup_pos = POPPOS_BOTLEFT;
++ 	setcursor_mayforce(TRUE);
++ 	wp->w_wantline = screen_screenrow();
++ 	if (wp->w_wantline == 0)  // cursor in first line
++ 	{
++ 	    wp->w_wantline = 2;
++ 	    wp->w_popup_pos = POPPOS_TOPLEFT;
++ 	}
++ 	wp->w_wantcol = screen_screencol() + 1;
++ 	set_moved_values(wp);
++ 	set_moved_columns(wp, FIND_STRING);
++     }
++ 
+      // Deal with options.
+!     apply_options(wp, buf, argvars[1].vval.v_dict);
+  
+      // set default values
+      if (wp->w_zindex == 0)
+***************
+*** 672,678 ****
+      void
+  f_popup_create(typval_T *argvars, typval_T *rettv)
+  {
+!     popup_create(argvars, rettv, FALSE);
+  }
+  
+  /*
+--- 695,701 ----
+      void
+  f_popup_create(typval_T *argvars, typval_T *rettv)
+  {
+!     popup_create(argvars, rettv, TYPE_NORMAL);
+  }
+  
+  /*
+***************
+*** 681,687 ****
+      void
+  f_popup_atcursor(typval_T *argvars, typval_T *rettv)
+  {
+!     popup_create(argvars, rettv, TRUE);
+  }
+  
+  /*
+--- 704,710 ----
+      void
+  f_popup_atcursor(typval_T *argvars, typval_T *rettv)
+  {
+!     popup_create(argvars, rettv, TYPE_ATCURSOR);
+  }
+  
+  /*
+*** ../vim-8.1.1454/src/normal.c	2019-05-28 23:08:12.068648696 +0200
+--- src/normal.c	2019-06-02 19:42:59.866656946 +0200
+***************
+*** 3461,3473 ****
+      if (ptr[col] == NUL || (i == 0
+  		&& (has_mbyte ? this_class != 2 : !vim_iswordc(ptr[col]))))
+      {
+! 	/*
+! 	 * didn't find an identifier or string
+! 	 */
+! 	if (find_type & FIND_STRING)
+! 	    emsg(_("E348: No string under cursor"));
+! 	else
+! 	    emsg(_(e_noident));
+  	return 0;
+      }
+      ptr += col;
+--- 3461,3474 ----
+      if (ptr[col] == NUL || (i == 0
+  		&& (has_mbyte ? this_class != 2 : !vim_iswordc(ptr[col]))))
+      {
+! 	// didn't find an identifier or string
+! 	if ((find_type & FIND_NOERROR) == 0)
+! 	{
+! 	    if (find_type & FIND_STRING)
+! 		emsg(_("E348: No string under cursor"));
+! 	    else
+! 		emsg(_(e_noident));
+! 	}
+  	return 0;
+      }
+      ptr += col;
+*** ../vim-8.1.1454/src/vim.h	2019-06-01 17:13:15.884517713 +0200
+--- src/vim.h	2019-06-02 19:43:48.170353186 +0200
+***************
+*** 879,888 ****
+  #define SEARCH_PEEK  0x800  /* peek for typed char, cancel search */
+  #define SEARCH_COL  0x1000  /* start at specified column instead of zero */
+  
+! /* Values for find_ident_under_cursor() */
+! #define FIND_IDENT	1	/* find identifier (word) */
+! #define FIND_STRING	2	/* find any string (WORD) */
+! #define FIND_EVAL	4	/* include "->", "[]" and "." */
+  
+  /* Values for file_name_in_line() */
+  #define FNAME_MESS	1	/* give error message */
+--- 879,889 ----
+  #define SEARCH_PEEK  0x800  /* peek for typed char, cancel search */
+  #define SEARCH_COL  0x1000  /* start at specified column instead of zero */
+  
+! // Values for find_ident_under_cursor()
+! #define FIND_IDENT	1	// find identifier (word)
+! #define FIND_STRING	2	// find any string (WORD)
+! #define FIND_EVAL	4	// include "->", "[]" and "."
+! #define FIND_NOERROR	8	// no error when no word found
+  
+  /* Values for file_name_in_line() */
+  #define FNAME_MESS	1	/* give error message */
+*** ../vim-8.1.1454/src/testdir/test_popupwin.vim	2019-06-02 18:40:02.641508815 +0200
+--- src/testdir/test_popupwin.vim	2019-06-02 19:51:53.963344600 +0200
+***************
+*** 1009,1016 ****
+    call assert_equal({}, popup_getpos(winid))
+    popupclear
+  
+    exe "normal gg0/WORD\<CR>"
+!   let winid = popup_atcursor('text', {'moved': 'WORD'})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+    call feedkeys("eli\<Esc>", 'xt')
+--- 1009,1017 ----
+    call assert_equal({}, popup_getpos(winid))
+    popupclear
+  
++   " WORD is the default
+    exe "normal gg0/WORD\<CR>"
+!   let winid = popup_atcursor('text', {})
+    redraw
+    call assert_equal(1, popup_getpos(winid).visible)
+    call feedkeys("eli\<Esc>", 'xt')
+*** ../vim-8.1.1454/src/version.c	2019-06-02 19:02:24.478427721 +0200
+--- src/version.c	2019-06-02 19:28:23.096298172 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1455,
+  /**/
+
+-- 
+From "know your smileys":
+ :~)	A man with a tape recorder up his nose
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

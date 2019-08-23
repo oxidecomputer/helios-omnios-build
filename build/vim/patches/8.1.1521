@@ -1,0 +1,138 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1521
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1521
+Problem:    When a popup window is closed the buffer remains.
+Solution:   Wipe out the buffer.
+Files:	    src/window.c, src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1520/src/window.c	2019-06-02 16:51:18.011257964 +0200
+--- src/window.c	2019-06-12 21:03:37.170494931 +0200
+***************
+*** 2324,2335 ****
+  }
+  
+  /*
+!  * Close the buffer of "win" and unload it if "free_buf" is TRUE.
+   * "abort_if_last" is passed to close_buffer(): abort closing if all other
+   * windows are closed.
+   */
+      static void
+! win_close_buffer(win_T *win, int free_buf, int abort_if_last)
+  {
+  #ifdef FEAT_SYN_HL
+      // Free independent synblock before the buffer is freed.
+--- 2324,2336 ----
+  }
+  
+  /*
+!  * Close the buffer of "win" and unload it if "action" is DOBUF_UNLOAD.
+!  * "action" can also be zero (do nothing) or DOBUF_WIPE.
+   * "abort_if_last" is passed to close_buffer(): abort closing if all other
+   * windows are closed.
+   */
+      static void
+! win_close_buffer(win_T *win, int action, int abort_if_last)
+  {
+  #ifdef FEAT_SYN_HL
+      // Free independent synblock before the buffer is freed.
+***************
+*** 2350,2357 ****
+  
+  	set_bufref(&bufref, curbuf);
+  	win->w_closing = TRUE;
+! 	close_buffer(win, win->w_buffer, free_buf ? DOBUF_UNLOAD : 0,
+! 								abort_if_last);
+  	if (win_valid_any_tab(win))
+  	    win->w_closing = FALSE;
+  	// Make sure curbuf is valid. It can become invalid if 'bufhidden' is
+--- 2351,2357 ----
+  
+  	set_bufref(&bufref, curbuf);
+  	win->w_closing = TRUE;
+! 	close_buffer(win, win->w_buffer, action, abort_if_last);
+  	if (win_valid_any_tab(win))
+  	    win->w_closing = FALSE;
+  	// Make sure curbuf is valid. It can become invalid if 'bufhidden' is
+***************
+*** 2462,2468 ****
+  	out_flush();
+  #endif
+  
+!     win_close_buffer(win, free_buf, TRUE);
+  
+      if (only_one_window() && win_valid(win) && win->w_buffer == NULL
+  	    && (last_window() || curtab != prev_curtab
+--- 2462,2468 ----
+  	out_flush();
+  #endif
+  
+!     win_close_buffer(win, free_buf ? DOBUF_UNLOAD : 0, TRUE);
+  
+      if (only_one_window() && win_valid(win) && win->w_buffer == NULL
+  	    && (last_window() || curtab != prev_curtab
+***************
+*** 4894,4900 ****
+      void
+  win_free_popup(win_T *win)
+  {
+!     win_close_buffer(win, TRUE, FALSE);
+  # if defined(FEAT_TIMERS)
+      if (win->w_popup_timer != NULL)
+  	stop_timer(win->w_popup_timer);
+--- 4894,4900 ----
+      void
+  win_free_popup(win_T *win)
+  {
+!     win_close_buffer(win, DOBUF_WIPE, FALSE);
+  # if defined(FEAT_TIMERS)
+      if (win->w_popup_timer != NULL)
+  	stop_timer(win->w_popup_timer);
+*** ../vim-8.1.1520/src/testdir/test_popupwin.vim	2019-06-11 21:56:15.518267135 +0200
+--- src/testdir/test_popupwin.vim	2019-06-12 21:03:13.014610997 +0200
+***************
+*** 272,283 ****
+--- 272,288 ----
+  func Test_popup_in_tab()
+    " default popup is local to tab, not visible when in other tab
+    let winid = popup_create("text", {})
++   let bufnr = winbufnr(winid)
+    call assert_equal(1, popup_getpos(winid).visible)
+    tabnew
+    call assert_equal(0, popup_getpos(winid).visible)
+    quit
+    call assert_equal(1, popup_getpos(winid).visible)
++ 
++   call assert_equal(1, bufexists(bufnr))
+    call popup_clear()
++   " buffer is gone now
++   call assert_equal(0, bufexists(bufnr))
+  
+    " global popup is visible in any tab
+    let winid = popup_create("text", {'tab': -1})
+*** ../vim-8.1.1520/src/version.c	2019-06-12 20:21:57.737817533 +0200
+--- src/version.c	2019-06-12 21:04:08.502344653 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1521,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+163. You go outside for the fresh air (at -30 degrees) but open the
+     window first to hear new mail arrive.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

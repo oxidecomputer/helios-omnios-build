@@ -1,0 +1,199 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1717
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1717
+Problem:    Last char in menu popup window highlighted.
+Solution:   Do not highlight an extra character twice.
+Files:	    src/screen.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_menu_04.dump
+
+
+*** ../vim-8.1.1716/src/screen.c	2019-07-18 12:48:11.951123888 +0200
+--- src/screen.c	2019-07-20 15:08:38.406956988 +0200
+***************
+*** 3219,3228 ****
+      int		syntax_attr = 0;	/* attributes desired by syntax */
+      int		has_syntax = FALSE;	/* this buffer has syntax highl. */
+      int		save_did_emsg;
+-     int		eol_hl_off = 0;		/* 1 if highlighted char after EOL */
+      int		draw_color_col = FALSE;	/* highlight colorcolumn */
+      int		*color_cols = NULL;	/* pointer to according columns array */
+  #endif
+  #ifdef FEAT_TEXT_PROP
+      int		text_prop_count;
+      int		text_prop_next = 0;	// next text property to use
+--- 3219,3228 ----
+      int		syntax_attr = 0;	/* attributes desired by syntax */
+      int		has_syntax = FALSE;	/* this buffer has syntax highl. */
+      int		save_did_emsg;
+      int		draw_color_col = FALSE;	/* highlight colorcolumn */
+      int		*color_cols = NULL;	/* pointer to according columns array */
+  #endif
++     int		eol_hl_off = 0;		/* 1 if highlighted char after EOL */
+  #ifdef FEAT_TEXT_PROP
+      int		text_prop_count;
+      int		text_prop_next = 0;	// next text property to use
+***************
+*** 5557,5567 ****
+  	/*
+  	 * At end of the text line or just after the last character.
+  	 */
+! 	if (c == NUL
+  #if defined(LINE_ATTR)
+  		|| did_line_attr == 1
+  #endif
+! 		)
+  	{
+  #ifdef FEAT_SEARCH_EXTRA
+  	    long prevcol = (long)(ptr - line) - (c == NUL);
+--- 5557,5567 ----
+  	/*
+  	 * At end of the text line or just after the last character.
+  	 */
+! 	if ((c == NUL
+  #if defined(LINE_ATTR)
+  		|| did_line_attr == 1
+  #endif
+! 		) && eol_hl_off == 0)
+  	{
+  #ifdef FEAT_SEARCH_EXTRA
+  	    long prevcol = (long)(ptr - line) - (c == NUL);
+***************
+*** 5687,5695 ****
+  		    ++off;
+  		}
+  		++vcol;
+- #ifdef FEAT_SYN_HL
+  		eol_hl_off = 1;
+- #endif
+  	    }
+  	}
+  
+--- 5687,5693 ----
+*** ../vim-8.1.1716/src/testdir/test_popupwin.vim	2019-07-18 13:45:54.350319282 +0200
+--- src/testdir/test_popupwin.vim	2019-07-20 15:07:29.439269007 +0200
+***************
+*** 1215,1220 ****
+--- 1215,1243 ----
+    call delete('XtestPopupMenu')
+  endfunc
+  
++ func Test_popup_menu_narrow()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let lines =<< trim END
++ 	call setline(1, range(1, 20))
++ 	hi PopupSelected ctermbg=green
++ 	call popup_menu(['one', 'two', 'three'], #{callback: 'MenuDone'})
++ 	func MenuDone(id, res)
++ 	  echomsg "selected " .. a:res
++ 	endfunc
++   END
++   call writefile(lines, 'XtestPopupNarrowMenu')
++   let buf = RunVimInTerminal('-S XtestPopupNarrowMenu', #{rows: 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_menu_04', {})
++ 
++   " clean up
++   call term_sendkeys(buf, "x")
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupNarrowMenu')
++ endfunc
++ 
+  func Test_popup_title()
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+***************
+*** 2093,2096 ****
+--- 2116,2165 ----
+    call delete('XtestPopupCursorLine')
+  endfunc
+  
++ func Test_previewpopup()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++   call writefile([
++         \ "!_TAG_FILE_ENCODING\tutf-8\t//",
++         \ "another\tXtagfile\t/^this is another",
++         \ "theword\tXtagfile\t/^theword"],
++         \ 'Xtags')
++   call writefile(range(1,20)
++         \ + ['theword is here']
++         \ + range(22, 27)
++         \ + ['this is another place']
++         \ + range(29, 40),
++         \ "Xtagfile")
++   let lines =<< trim END
++         set tags=Xtags
++ 	call setline(1, [
++               \ 'one',
++               \ 'two',
++               \ 'three',
++               \ 'four',
++               \ 'five',
++               \ 'six',
++               \ 'seven',
++               \ 'find theword somewhere',
++               \ 'nine',
++               \ 'this is another word'])
++         set previewpopup=height:4,width:40
++   END
++   call writefile(lines, 'XtestPreviewPopup')
++   let buf = RunVimInTerminal('-S XtestPreviewPopup', #{rows: 14})
++ 
++   call term_sendkeys(buf, "/theword\<CR>\<C-W>}")
++   call term_sendkeys(buf, ":\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_1', {})
++ 
++   call term_sendkeys(buf, "/another\<CR>\<C-W>}")
++   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_2', {})
++ 
++   call StopVimInTerminal(buf)
++   call delete('Xtags')
++   call delete('Xtagfile')
++   call delete('XtestPreviewPopup')
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1716/src/testdir/dumps/Test_popupwin_menu_04.dump	2019-07-20 15:09:19.002773298 +0200
+--- src/testdir/dumps/Test_popupwin_menu_04.dump	2019-07-20 15:05:29.187813151 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @31|╔+0#0000001#ffd7ff255|═@6|╗| +0#0000000#ffffff0@32
++ |4| @31|║+0#0000001#ffd7ff255| |o+0#0000000#40ff4011|n|e| +0#0000001#ffd7ff255@2|║| +0#0000000#ffffff0@32
++ |5| @31|║+0#0000001#ffd7ff255| |t|w|o| @2|║| +0#0000000#ffffff0@32
++ |6| @31|║+0#0000001#ffd7ff255| |t|h|r|e@1| |║| +0#0000000#ffffff0@32
++ |7| @31|╚+0#0000001#ffd7ff255|═@6|╝| +0#0000000#ffffff0@32
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1716/src/version.c	2019-07-19 23:15:09.817150088 +0200
+--- src/version.c	2019-07-20 15:09:25.778742639 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1717,
+  /**/
+
+-- 
+   Another bucket of what can only be described as human ordure hits ARTHUR.
+ARTHUR: ... Right!  (to the KNIGHTS) That settles it!
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

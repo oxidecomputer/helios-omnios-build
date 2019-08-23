@@ -1,0 +1,122 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1484
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1484
+Problem:    Some tests are slow.
+Solution:   Add timing to the test messages.  Fix double free when quitting in
+            VimLeavePre autocmd.
+Files:	    src/testdir/runtest.vim, src/eval.c
+
+
+*** ../vim-8.1.1483/src/testdir/runtest.vim	2019-06-06 13:37:56.967789508 +0200
+--- src/testdir/runtest.vim	2019-06-06 17:39:17.999764119 +0200
+***************
+*** 42,47 ****
+--- 42,51 ----
+    cquit
+  endif
+  
++ if has('reltime')
++   let s:start_time = reltime()
++ endif
++ 
+  " Common with all tests on all systems.
+  source setup.vim
+  
+***************
+*** 99,104 ****
+--- 103,111 ----
+  
+  func RunTheTest(test)
+    echo 'Executing ' . a:test
++   if has('reltime')
++     let func_start = reltime()
++   endif
+  
+    " Avoid stopping at the "hit enter" prompt
+    set nomore
+***************
+*** 126,132 ****
+      endtry
+    endif
+  
+!   call add(s:messages, 'Executing ' . a:test)
+    let s:done += 1
+  
+    if a:test =~ 'Test_nocatch_'
+--- 133,143 ----
+      endtry
+    endif
+  
+!   let message = 'Executed ' . a:test
+!   if has('reltime')
+!     let message ..= ' in ' .. reltimestr(reltime(func_start)) .. ' seconds'
+!   endif
+!   call add(s:messages, message)
+    let s:done += 1
+  
+    if a:test =~ 'Test_nocatch_'
+***************
+*** 232,237 ****
+--- 243,251 ----
+    else
+      let message = 'Executed ' . s:done . (s:done > 1 ? ' tests' : ' test')
+    endif
++   if has('reltime')
++     let message ..= ' in ' .. reltimestr(reltime(s:start_time)) .. ' seconds'
++   endif
+    echo message
+    call add(s:messages, message)
+    if s:fail > 0
+*** ../vim-8.1.1483/src/eval.c	2019-06-01 13:28:30.273829492 +0200
+--- src/eval.c	2019-06-06 17:57:24.701211822 +0200
+***************
+*** 430,440 ****
+  	vim_free(SCRIPT_SV(i));
+      ga_clear(&ga_scripts);
+  
+!     /* unreferenced lists and dicts */
+!     (void)garbage_collect(FALSE);
+! 
+!     /* functions */
+      free_all_functions();
+  }
+  #endif
+  
+--- 430,441 ----
+  	vim_free(SCRIPT_SV(i));
+      ga_clear(&ga_scripts);
+  
+!     // functions need to be freed before gargabe collecting, otherwise local
+!     // variables might be freed twice.
+      free_all_functions();
++ 
++     // unreferenced lists and dicts
++     (void)garbage_collect(FALSE);
+  }
+  #endif
+  
+*** ../vim-8.1.1483/src/version.c	2019-06-06 16:12:05.927134625 +0200
+--- src/version.c	2019-06-06 16:26:07.558637258 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1484,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+101. U can read htis w/o ny porblm and cant figur eout Y its evn listd.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,1636 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1887
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1887
+Problem:    The +cmdline_compl feature is not in the tiny version.
+Solution:   Graduate the +cmdline_compl feature.
+Files:	    src/cmdexpand.c, src/arglist.c, src/autocmd.c, src/buffer.c,
+            src/cmdhist.c, src/eval.c, src/evalfunc.c, src/ex_cmds2.c,
+            src/ex_docmd.c, src/ex_getln.c, src/feature.h, src/highlight.c,
+            src/if_cscope.c, src/map.c, src/menu.c, src/misc1.c, src/misc2.c,
+            src/option.c, src/sign.c, src/syntax.c, src/tag.c, src/term.c,
+            src/usercmd.c, src/userfunc.c, src/version.c, src/globals.h,
+            src/option.h, src/structs.h, runtime/doc/cmdline.txt
+
+
+*** ../vim-8.1.1886/src/cmdexpand.c	2019-08-18 21:43:52.134401507 +0200
+--- src/cmdexpand.c	2019-08-18 22:08:40.622696974 +0200
+***************
+*** 18,34 ****
+  static void	set_expand_context(expand_T *xp);
+  static int	ExpandFromContext(expand_T *xp, char_u *, int *, char_u ***, int);
+  static int	expand_showtail(expand_T *xp);
+- #ifdef FEAT_CMDL_COMPL
+  static int	expand_shellcmd(char_u *filepat, int *num_file, char_u ***file, int flagsarg);
+  static int	ExpandRTDir(char_u *pat, int flags, int *num_file, char_u ***file, char *dirname[]);
+  static int	ExpandPackAddDir(char_u *pat, int *num_file, char_u ***file);
+! # if defined(FEAT_EVAL)
+  static int	ExpandUserDefined(expand_T *xp, regmatch_T *regmatch, int *num_file, char_u ***file);
+  static int	ExpandUserList(expand_T *xp, int *num_file, char_u ***file);
+- # endif
+  #endif
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+      static int
+  sort_func_compare(const void *s1, const void *s2)
+  {
+--- 18,31 ----
+  static void	set_expand_context(expand_T *xp);
+  static int	ExpandFromContext(expand_T *xp, char_u *, int *, char_u ***, int);
+  static int	expand_showtail(expand_T *xp);
+  static int	expand_shellcmd(char_u *filepat, int *num_file, char_u ***file, int flagsarg);
+  static int	ExpandRTDir(char_u *pat, int flags, int *num_file, char_u ***file, char *dirname[]);
+  static int	ExpandPackAddDir(char_u *pat, int *num_file, char_u ***file);
+! #if defined(FEAT_EVAL)
+  static int	ExpandUserDefined(expand_T *xp, regmatch_T *regmatch, int *num_file, char_u ***file);
+  static int	ExpandUserList(expand_T *xp, int *num_file, char_u ***file);
+  #endif
+  
+      static int
+  sort_func_compare(const void *s1, const void *s2)
+  {
+***************
+*** 39,45 ****
+      if (*p1 == '<' && *p2 != '<') return 1;
+      return STRCMP(p1, p2);
+  }
+- #endif
+  
+      static void
+  ExpandEscape(
+--- 36,41 ----
+***************
+*** 504,510 ****
+  #endif
+      xp->xp_numfiles = -1;
+      xp->xp_files = NULL;
+! #if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+      xp->xp_arg = NULL;
+  #endif
+      xp->xp_line = NULL;
+--- 500,506 ----
+  #endif
+      xp->xp_numfiles = -1;
+      xp->xp_files = NULL;
+! #if defined(FEAT_EVAL)
+      xp->xp_arg = NULL;
+  #endif
+      xp->xp_line = NULL;
+***************
+*** 985,1002 ****
+  #ifdef FEAT_EVAL
+      if (use_ccline && ccline->cmdfirstc == '=')
+      {
+- # ifdef FEAT_CMDL_COMPL
+  	// pass CMD_SIZE because there is no real command
+  	set_context_for_expression(xp, str, CMD_SIZE);
+- # endif
+      }
+      else if (use_ccline && ccline->input_fn)
+      {
+  	xp->xp_context = ccline->xp_context;
+  	xp->xp_pattern = ccline->cmdbuff;
+- # if defined(FEAT_CMDL_COMPL)
+  	xp->xp_arg = ccline->xp_arg;
+- # endif
+      }
+      else
+  #endif
+--- 981,994 ----
+***************
+*** 1131,1139 ****
+      char_u	***file,
+      int		options)  // WILD_ flags
+  {
+- #ifdef FEAT_CMDL_COMPL
+      regmatch_T	regmatch;
+- #endif
+      int		ret;
+      int		flags;
+  
+--- 1123,1129 ----
+***************
+*** 1230,1238 ****
+  	return FAIL;
+      }
+  
+- #ifndef FEAT_CMDL_COMPL
+-     return FAIL;
+- #else
+      if (xp->xp_context == EXPAND_SHELLCMD)
+  	return expand_shellcmd(pat, num_file, file, flags);
+      if (xp->xp_context == EXPAND_OLD_SETTING)
+--- 1220,1225 ----
+***************
+*** 1361,1370 ****
+      vim_regfree(regmatch.regprog);
+  
+      return ret;
+- #endif // FEAT_CMDL_COMPL
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Expand a list of names.
+   *
+--- 1348,1355 ----
+***************
+*** 1452,1462 ****
+  	    sort_strings(*file, *num_file);
+      }
+  
+! # ifdef FEAT_CMDL_COMPL
+      // Reset the variables used for special highlight names expansion, so that
+      // they don't show up when getting normal highlight names by ID.
+      reset_expand_highlight();
+! # endif
+  
+      return OK;
+  }
+--- 1437,1447 ----
+  	    sort_strings(*file, *num_file);
+      }
+  
+! #if defined(FEAT_SYN_HL)
+      // Reset the variables used for special highlight names expansion, so that
+      // they don't show up when getting normal highlight names by ID.
+      reset_expand_highlight();
+! #endif
+  
+      return OK;
+  }
+***************
+*** 1890,1898 ****
+      *num_file = ga.ga_len;
+      return OK;
+  }
+- #endif
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(FEAT_EVAL) || defined(PROTO)
+  /*
+   * Expand "file" for all comma-separated directories in "path".
+   * Adds the matches to "ga".  Caller must init "ga".
+--- 1875,1881 ----
+***************
+*** 1955,1963 ****
+  
+      vim_free(buf);
+  }
+- #endif
+  
+! #if defined(FEAT_CMDL_COMPL) | defined(PROTO)
+  /*
+   * "getcompletion()" function
+   */
+--- 1938,1945 ----
+  
+      vim_free(buf);
+  }
+  
+! #if defined(FEAT_EVAL) || defined(PROTO)
+  /*
+   * "getcompletion()" function
+   */
+***************
+*** 2028,2031 ****
+      vim_free(pat);
+      ExpandCleanup(&xpc);
+  }
+! #endif // FEAT_CMDL_COMPL
+--- 2010,2013 ----
+      vim_free(pat);
+      ExpandCleanup(&xpc);
+  }
+! #endif // FEAT_EVAL
+*** ../vim-8.1.1886/src/arglist.c	2019-08-17 14:38:35.643786247 +0200
+--- src/arglist.c	2019-08-18 22:06:34.579369738 +0200
+***************
+*** 817,823 ****
+  #endif
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Function given to ExpandGeneric() to obtain the possible arguments of the
+   * argedit and argdelete commands.
+--- 817,822 ----
+***************
+*** 830,836 ****
+  
+      return alist_name(&ARGLIST[idx]);
+  }
+- #endif
+  
+  /*
+   * Get the file name for an argument list entry.
+--- 829,834 ----
+*** ../vim-8.1.1886/src/autocmd.c	2019-08-17 17:50:04.360627316 +0200
+--- src/autocmd.c	2019-08-18 22:06:51.067280961 +0200
+***************
+*** 2422,2428 ****
+      return retval;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Function given to ExpandGeneric() to obtain the list of autocommand group
+   * names.
+--- 2422,2427 ----
+***************
+*** 2507,2513 ****
+      return (char_u *)event_names[idx - augroups.ga_len].name;
+  }
+  
+- #endif	// FEAT_CMDL_COMPL
+  
+  #if defined(FEAT_EVAL) || defined(PROTO)
+  /*
+--- 2506,2511 ----
+*** ../vim-8.1.1886/src/buffer.c	2019-08-17 14:38:35.643786247 +0200
+--- src/buffer.c	2019-08-18 22:07:05.103205576 +0200
+***************
+*** 2567,2574 ****
+      return match;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- 
+  /*
+   * Find all buffer names that match.
+   * For command line expansion of ":buf" and ":sbuf".
+--- 2567,2572 ----
+***************
+*** 2673,2680 ****
+      return (count == 0 ? FAIL : OK);
+  }
+  
+- #endif /* FEAT_CMDL_COMPL */
+- 
+  /*
+   * Check for a match on the file name for buffer "buf" with regprog "prog".
+   */
+--- 2671,2676 ----
+*** ../vim-8.1.1886/src/cmdhist.c	2019-08-06 21:59:37.755982526 +0200
+--- src/cmdhist.c	2019-08-18 22:08:54.914621477 +0200
+***************
+*** 88,94 ****
+      NULL
+  };
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Function given to ExpandGeneric() to obtain the possible first
+   * arguments of the ":history command.
+--- 88,93 ----
+***************
+*** 112,118 ****
+  	return (char_u *)"all";
+      return NULL;
+  }
+- #endif
+  
+  /*
+   * init_history() - Initialize the command line history.
+--- 111,116 ----
+*** ../vim-8.1.1886/src/eval.c	2019-08-17 21:04:12.806190044 +0200
+--- src/eval.c	2019-08-18 22:09:38.390392693 +0200
+***************
+*** 420,428 ****
+      hash_clear(&compat_hashtab);
+  
+      free_scriptnames();
+- # if defined(FEAT_CMDL_COMPL)
+      free_locales();
+- # endif
+  
+      /* global variables */
+      vars_clear(&globvarht);
+--- 420,426 ----
+***************
+*** 1135,1144 ****
+      return retval;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) \
+- 	|| defined(FEAT_COMPL_FUNC) || defined(PROTO)
+- 
+- # if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Call Vim script function "func" and return the result as a string.
+   * Returns NULL when calling the function fails.
+--- 1133,1138 ----
+***************
+*** 1161,1167 ****
+      clear_tv(&rettv);
+      return retval;
+  }
+- # endif
+  
+  /*
+   * Call Vim script function "func" and return the result as a List.
+--- 1155,1160 ----
+***************
+*** 1188,1194 ****
+  
+      return rettv.vval.v_list;
+  }
+- #endif
+  
+  
+  #ifdef FEAT_FOLDING
+--- 1181,1186 ----
+***************
+*** 2994,3001 ****
+      vim_free(fi);
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- 
+      void
+  set_context_for_expression(
+      expand_T	*xp,
+--- 2986,2991 ----
+***************
+*** 3110,3117 ****
+      xp->xp_pattern = arg;
+  }
+  
+- #endif /* FEAT_CMDL_COMPL */
+- 
+  /*
+   * ":unlet[!] var1 ... " command.
+   */
+--- 3100,3105 ----
+***************
+*** 3509,3516 ****
+  }
+  #endif
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- 
+  /*
+   * Local string buffer for the next two functions to store a variable name
+   * with its prefix. Allocated in cat_prefix_varname(), freed later in
+--- 3497,3502 ----
+***************
+*** 3630,3637 ****
+      return NULL;
+  }
+  
+- #endif /* FEAT_CMDL_COMPL */
+- 
+  /*
+   * Return TRUE if "pat" matches "text".
+   * Does not use 'cpo' and always uses 'magic'.
+--- 3616,3621 ----
+*** ../vim-8.1.1886/src/evalfunc.c	2019-08-18 21:43:52.138401489 +0200
+--- src/evalfunc.c	2019-08-18 22:10:01.894269554 +0200
+***************
+*** 573,581 ****
+      {"getcmdpos",	0, 0, 0,	  f_getcmdpos},
+      {"getcmdtype",	0, 0, 0,	  f_getcmdtype},
+      {"getcmdwintype",	0, 0, 0,	  f_getcmdwintype},
+- #if defined(FEAT_CMDL_COMPL)
+      {"getcompletion",	2, 3, 0,	  f_getcompletion},
+- #endif
+      {"getcurpos",	0, 0, 0,	  f_getcurpos},
+      {"getcwd",		0, 2, 0,	  f_getcwd},
+      {"getenv",		1, 1, 0,	  f_getenv},
+--- 573,579 ----
+***************
+*** 981,988 ****
+      {"xor",		2, 2, 0,	  f_xor},
+  };
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- 
+  /*
+   * Function given to ExpandGeneric() to obtain the list of internal
+   * or user defined function names.
+--- 979,984 ----
+***************
+*** 1034,1041 ****
+      return get_user_var_name(xp, ++intidx);
+  }
+  
+- #endif /* FEAT_CMDL_COMPL */
+- 
+  /*
+   * Find internal function "name" in table "global_functions".
+   * Return index, or -1 if not found
+--- 1030,1035 ----
+***************
+*** 5845,5853 ****
+  #ifdef FEAT_CLIPBOARD
+  	"clipboard",
+  #endif
+- #ifdef FEAT_CMDL_COMPL
+  	"cmdline_compl",
+- #endif
+  	"cmdline_hist",
+  #ifdef FEAT_COMMENTS
+  	"comments",
+--- 5839,5845 ----
+*** ../vim-8.1.1886/src/ex_cmds2.c	2019-08-17 14:38:35.647786228 +0200
+--- src/ex_cmds2.c	2019-08-18 22:10:24.218152908 +0200
+***************
+*** 3242,3256 ****
+      }
+  }
+  
+- # if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- 
+  static char_u	**locales = NULL;	/* Array of all available locales */
+  
+! #  ifndef MSWIN
+  static int	did_init_locales = FALSE;
+  
+! /* Return an array of strings for all available locales + NULL for the
+!  * last element.  Return NULL in case of error. */
+      static char_u **
+  find_locales(void)
+  {
+--- 3242,3256 ----
+      }
+  }
+  
+  static char_u	**locales = NULL;	/* Array of all available locales */
+  
+! # ifndef MSWIN
+  static int	did_init_locales = FALSE;
+  
+! /*
+!  * Return an array of strings for all available locales + NULL for the
+!  * last element.  Return NULL in case of error.
+!  */
+      static char_u **
+  find_locales(void)
+  {
+***************
+*** 3289,3295 ****
+      ((char_u **)locales_ga.ga_data)[locales_ga.ga_len] = NULL;
+      return (char_u **)locales_ga.ga_data;
+  }
+! #  endif
+  
+  /*
+   * Lazy initialization of all available locales.
+--- 3289,3295 ----
+      ((char_u **)locales_ga.ga_data)[locales_ga.ga_len] = NULL;
+      return (char_u **)locales_ga.ga_data;
+  }
+! # endif
+  
+  /*
+   * Lazy initialization of all available locales.
+***************
+*** 3351,3356 ****
+  	return NULL;
+      return locales[idx];
+  }
+- # endif
+  
+  #endif
+--- 3351,3355 ----
+*** ../vim-8.1.1886/src/ex_docmd.c	2019-08-18 15:24:23.197608923 +0200
+--- src/ex_docmd.c	2019-08-18 22:11:24.361839973 +0200
+***************
+*** 3323,3332 ****
+      char_u		*cmd, *arg;
+      int			len = 0;
+      exarg_T		ea;
+- #ifdef FEAT_CMDL_COMPL
+      int			compl = EXPAND_NOTHING;
+      int			delim;
+- #endif
+      int			forceit = FALSE;
+      int			usefilter = FALSE;  /* filter instead of file name */
+  
+--- 3323,3330 ----
+***************
+*** 3432,3444 ****
+  	else if (cmd[0] >= 'A' && cmd[0] <= 'Z')
+  	{
+  	    ea.cmd = cmd;
+! 	    p = find_ucmd(&ea, p, NULL, xp,
+! #if defined(FEAT_CMDL_COMPL)
+! 		    &compl
+! #else
+! 		    NULL
+! #endif
+! 		    );
+  	    if (p == NULL)
+  		ea.cmdidx = CMD_SIZE;	// ambiguous user command
+  	}
+--- 3430,3436 ----
+  	else if (cmd[0] >= 'A' && cmd[0] <= 'Z')
+  	{
+  	    ea.cmd = cmd;
+! 	    p = find_ucmd(&ea, p, NULL, xp, &compl);
+  	    if (p == NULL)
+  		ea.cmdidx = CMD_SIZE;	// ambiguous user command
+  	}
+***************
+*** 3662,3675 ****
+  	    {
+  		xp->xp_context = EXPAND_ENV_VARS;
+  		++xp->xp_pattern;
+- #if defined(FEAT_CMDL_COMPL)
+  		/* Avoid that the assignment uses EXPAND_FILES again. */
+  		if (compl != EXPAND_USER_DEFINED && compl != EXPAND_USER_LIST)
+  		    compl = EXPAND_ENV_VARS;
+- #endif
+  	    }
+  	}
+- #if defined(FEAT_CMDL_COMPL)
+  	/* Check for user names */
+  	if (*xp->xp_pattern == '~')
+  	{
+--- 3654,3664 ----
+***************
+*** 3685,3691 ****
+  		++xp->xp_pattern;
+  	    }
+  	}
+- #endif
+      }
+  
+  /*
+--- 3674,3679 ----
+***************
+*** 3759,3766 ****
+  	    }
+  	    return skipwhite(arg);
+  
+! #ifdef FEAT_CMDL_COMPL
+! # ifdef FEAT_SEARCH_EXTRA
+  	case CMD_match:
+  	    if (*arg == NUL || !ends_excmd(*arg))
+  	    {
+--- 3747,3753 ----
+  	    }
+  	    return skipwhite(arg);
+  
+! #ifdef FEAT_SEARCH_EXTRA
+  	case CMD_match:
+  	    if (*arg == NUL || !ends_excmd(*arg))
+  	    {
+***************
+*** 3774,3780 ****
+  		}
+  	    }
+  	    return find_nextcmd(arg);
+! # endif
+  
+  /*
+   * All completion for the +cmdline_compl feature goes here.
+--- 3761,3767 ----
+  		}
+  	    }
+  	    return find_nextcmd(arg);
+! #endif
+  
+  /*
+   * All completion for the +cmdline_compl feature goes here.
+***************
+*** 4143,4150 ****
+  	    xp->xp_pattern = arg;
+  	    break;
+  
+- #endif /* FEAT_CMDL_COMPL */
+- 
+  	default:
+  	    break;
+      }
+--- 4130,4135 ----
+***************
+*** 5554,5560 ****
+      return OK;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Function given to ExpandGeneric() to obtain the list of command names.
+   */
+--- 5539,5544 ----
+***************
+*** 5565,5571 ****
+  	return get_user_command_name(idx);
+      return cmdnames[idx].cmd_name;
+  }
+- #endif
+  
+      static void
+  ex_colorscheme(exarg_T *eap)
+--- 5549,5554 ----
+***************
+*** 9178,9184 ****
+  	semsg(_(e_invarg2), eap->arg);
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Function given to ExpandGeneric() to obtain the possible arguments of the
+   * ":behave {mswin,xterm}" command.
+--- 9161,9166 ----
+***************
+*** 9204,9212 ****
+  	return (char_u *)"clear";
+      return NULL;
+  }
+- #endif
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+      char_u *
+  get_mapclear_arg(expand_T *xp UNUSED, int idx)
+  {
+--- 9186,9192 ----
+***************
+*** 9214,9220 ****
+  	return (char_u *)"<buffer>";
+      return NULL;
+  }
+- #endif
+  
+  static int filetype_detect = FALSE;
+  static int filetype_plugin = FALSE;
+--- 9194,9199 ----
+*** ../vim-8.1.1886/src/ex_getln.c	2019-08-18 21:43:52.138401489 +0200
+--- src/ex_getln.c	2019-08-18 22:11:40.469756507 +0200
+***************
+*** 894,902 ****
+      {
+  	xpc.xp_context = ccline.xp_context;
+  	xpc.xp_pattern = ccline.cmdbuff;
+- # if defined(FEAT_CMDL_COMPL)
+  	xpc.xp_arg = ccline.xp_arg;
+- # endif
+      }
+  #endif
+  
+--- 894,900 ----
+*** ../vim-8.1.1886/src/feature.h	2019-08-17 20:17:48.081707408 +0200
+--- src/feature.h	2019-08-18 22:18:14.323748231 +0200
+***************
+*** 105,110 ****
+--- 105,111 ----
+   * +virtualedit		'virtualedit' option and its implementation
+   * +user_commands	Allow the user to define his own commands.
+   * +multi_byte		Generic multi-byte character handling.
++  * +cmdline_compl	completion of mappings/abbreviations in cmdline mode.
+   *
+   * Obsolete:
+   * +tag_old_static	Old style static tags: "file:tag  file  ..".
+***************
+*** 177,190 ****
+  # define FEAT_INS_EXPAND
+  #endif
+  
+- /*
+-  * +cmdline_compl	completion of mappings/abbreviations in cmdline mode.
+-  *			Takes a few Kbyte of code.
+-  */
+- #ifdef FEAT_NORMAL
+- # define FEAT_CMDL_COMPL
+- #endif
+- 
+  #ifdef FEAT_NORMAL
+  # define VIM_BACKTICK		/* internal backtick expansion */
+  #endif
+--- 178,183 ----
+*** ../vim-8.1.1886/src/highlight.c	2019-07-24 19:00:32.941236032 +0200
+--- src/highlight.c	2019-08-18 22:12:17.669564249 +0200
+***************
+*** 3499,3506 ****
+      return OK;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- 
+  static void highlight_list(void);
+  static void highlight_list_two(int cnt, int attr);
+  
+--- 3499,3504 ----
+***************
+*** 3577,3586 ****
+      ui_delay(cnt == 99 ? 40L : (long)cnt * 50L, FALSE);
+  }
+  
+- #endif // FEAT_CMDL_COMPL
+- 
+- #if defined(FEAT_CMDL_COMPL) || (defined(FEAT_SYN_HL) && defined(FEAT_EVAL)) \
+-     || defined(FEAT_SIGNS) || defined(PROTO)
+  /*
+   * Function given to ExpandGeneric() to obtain the list of group names.
+   */
+--- 3575,3580 ----
+***************
+*** 3605,3611 ****
+      if (skip_cleared && idx < highlight_ga.ga_len && HL_TABLE()[idx].sg_cleared)
+  	return (char_u *)"";
+  
+- #ifdef FEAT_CMDL_COMPL
+      if (idx == highlight_ga.ga_len && include_none != 0)
+  	return (char_u *)"none";
+      if (idx == highlight_ga.ga_len + include_none && include_default != 0)
+--- 3599,3604 ----
+***************
+*** 3616,3627 ****
+      if (idx == highlight_ga.ga_len + include_none + include_default + 1
+  							 && include_link != 0)
+  	return (char_u *)"clear";
+- #endif
+      if (idx >= highlight_ga.ga_len)
+  	return NULL;
+      return HL_TABLE()[idx].sg_name;
+  }
+- #endif
+  
+  #if defined(FEAT_GUI) || defined(PROTO)
+  /*
+--- 3609,3618 ----
+*** ../vim-8.1.1886/src/if_cscope.c	2019-05-28 23:08:12.064648717 +0200
+--- src/if_cscope.c	2019-08-18 22:12:36.497467221 +0200
+***************
+*** 79,86 ****
+      (void)semsg(_("E560: Usage: cs[cope] %s"), cs_cmds[(int)x].usage);
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- 
+  static enum
+  {
+      EXP_CSCOPE_SUBCMD,	/* expand ":cscope" sub-commands */
+--- 79,84 ----
+***************
+*** 189,196 ****
+      }
+  }
+  
+- #endif /* FEAT_CMDL_COMPL */
+- 
+  /*
+   * Find the command, print help if invalid, and then call the corresponding
+   * command function.
+--- 187,192 ----
+*** ../vim-8.1.1886/src/map.c	2019-08-01 14:26:53.196455837 +0200
+--- src/map.c	2019-08-18 22:12:43.493431200 +0200
+***************
+*** 982,988 ****
+      return FALSE;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Used below when expanding mapping/abbreviation names.
+   */
+--- 982,987 ----
+***************
+*** 1198,1204 ****
+      *num_file = count;
+      return (count == 0 ? FAIL : OK);
+  }
+- #endif // FEAT_CMDL_COMPL
+  
+  /*
+   * Check for an abbreviation.
+--- 1197,1202 ----
+*** ../vim-8.1.1886/src/menu.c	2019-07-04 17:35:01.115169990 +0200
+--- src/menu.c	2019-08-18 22:13:17.913254274 +0200
+***************
+*** 43,51 ****
+  #endif
+  
+  static int menu_is_hidden(char_u *name);
+- #if defined(FEAT_CMDL_COMPL) || (defined(FEAT_GUI_MSWIN) && defined(FEAT_TEAROFF))
+  static int menu_is_tearoff(char_u *name);
+- #endif
+  
+  #if defined(FEAT_MULTI_LANG) || defined(FEAT_TOOLBAR)
+  static char_u *menu_skip_part(char_u *p);
+--- 43,49 ----
+***************
+*** 1234,1241 ****
+      }
+  }
+  
+- #ifdef FEAT_CMDL_COMPL
+- 
+  /*
+   * Used when expanding menu names.
+   */
+--- 1232,1237 ----
+***************
+*** 1555,1561 ****
+  
+      return str;
+  }
+- #endif /* FEAT_CMDL_COMPL */
+  
+  /*
+   * Skip over this element of the menu path and return the start of the next
+--- 1551,1556 ----
+***************
+*** 1864,1871 ****
+      return (name[0] == ']') || (menu_is_popup(name) && name[5] != NUL);
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) \
+- 	|| (defined(FEAT_GUI_MSWIN) && defined(FEAT_TEAROFF))
+  /*
+   * Return TRUE if the menu is the tearoff menu.
+   */
+--- 1859,1864 ----
+***************
+*** 1878,1884 ****
+      return FALSE;
+  #endif
+  }
+- #endif
+  
+  #if defined(FEAT_GUI) || defined(FEAT_TERM_POPUP_MENU) || defined(PROTO)
+  
+--- 1871,1876 ----
+*** ../vim-8.1.1886/src/misc1.c	2019-07-21 14:50:15.379092378 +0200
+--- src/misc1.c	2019-08-18 22:14:23.028920935 +0200
+***************
+*** 14,20 ****
+  #include "vim.h"
+  #include "version.h"
+  
+! #if defined(FEAT_CMDL_COMPL) && defined(MSWIN)
+  # include <lm.h>
+  #endif
+  
+--- 14,20 ----
+  #include "vim.h"
+  #include "version.h"
+  
+! #if defined(MSWIN)
+  # include <lm.h>
+  #endif
+  
+***************
+*** 24,33 ****
+  #define URL_SLASH	1		/* path_is_url() has found "://" */
+  #define URL_BACKSLASH	2		/* path_is_url() has found ":\\" */
+  
+! /* All user names (for ~user completion as done by shell). */
+! #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  static garray_T	ga_users;
+- #endif
+  
+  /*
+   * Count the size (in window cells) of the indent in the current line.
+--- 24,31 ----
+  #define URL_SLASH	1		/* path_is_url() has found "://" */
+  #define URL_BACKSLASH	2		/* path_is_url() has found ":\\" */
+  
+! // All user names (for ~user completion as done by shell).
+  static garray_T	ga_users;
+  
+  /*
+   * Count the size (in window cells) of the indent in the current line.
+***************
+*** 1715,1727 ****
+      vim_free(homedir);
+  }
+  
+- # ifdef FEAT_CMDL_COMPL
+      void
+  free_users(void)
+  {
+      ga_clear_strings(&ga_users);
+  }
+- # endif
+  #endif
+  
+  /*
+--- 1713,1723 ----
+***************
+*** 2366,2372 ****
+  #endif
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Function given to ExpandGeneric() to obtain an environment variable name.
+   */
+--- 2362,2367 ----
+***************
+*** 2532,2538 ****
+      }
+      return result;
+  }
+- #endif
+  
+  /*
+   * Replace home directory by "~" in each space or comma separated file name in
+--- 2527,2532 ----
+***************
+*** 3868,3874 ****
+  }
+  #endif
+  
+- #if defined(FEAT_SEARCHPATH) || defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Sort "gap" and remove duplicate entries.  "gap" is expected to contain a
+   * list of file names in allocated memory.
+--- 3862,3867 ----
+***************
+*** 3890,3896 ****
+  	    --gap->ga_len;
+  	}
+  }
+- #endif
+  
+  /*
+   * Return TRUE if "p" contains what looks like an environment variable.
+--- 3883,3888 ----
+***************
+*** 4246,4252 ****
+  }
+  #endif /* !NO_EXPANDPATH */
+  
+! #if defined(VIM_BACKTICK) || defined(FEAT_EVAL) || defined(PROTO)
+  
+  #ifndef SEEK_SET
+  # define SEEK_SET 0
+--- 4238,4246 ----
+  }
+  #endif /* !NO_EXPANDPATH */
+  
+! #if defined(VIM_BACKTICK) || defined(FEAT_EVAL) \
+! 	|| (defined(HAVE_LOCALE_H) || defined(X_LOCALE)) \
+! 	|| defined(PROTO)
+  
+  #ifndef SEEK_SET
+  # define SEEK_SET 0
+*** ../vim-8.1.1886/src/misc2.c	2019-08-16 20:33:02.664193979 +0200
+--- src/misc2.c	2019-08-18 22:14:55.144757130 +0200
+***************
+*** 1108,1116 ****
+      free_all_marks();
+      alist_clear(&global_alist);
+      free_homedir();
+- # if defined(FEAT_CMDL_COMPL)
+      free_users();
+- # endif
+      free_search_patterns();
+      free_old_sub();
+      free_last_insert();
+--- 1108,1114 ----
+***************
+*** 3041,3047 ****
+      return 0;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+      char_u *
+  get_key_name(int i)
+  {
+--- 3039,3044 ----
+***************
+*** 3049,3055 ****
+  	return NULL;
+      return  key_names_table[i].name;
+  }
+- #endif
+  
+  #if defined(FEAT_MOUSE) || defined(PROTO)
+  /*
+--- 3046,3051 ----
+*** ../vim-8.1.1886/src/option.c	2019-08-18 16:34:42.915429659 +0200
+--- src/option.c	2019-08-18 22:15:22.792616359 +0200
+***************
+*** 3045,3057 ****
+  			    (char_u *)&p_wim, PV_NONE,
+  			    {(char_u *)"full", (char_u *)0L} SCTX_INIT},
+      {"wildoptions", "wop",  P_STRING|P_VI_DEF,
+- #ifdef FEAT_CMDL_COMPL
+  			    (char_u *)&p_wop, PV_NONE,
+  			    {(char_u *)"", (char_u *)0L}
+- #else
+- 			    (char_u *)NULL, PV_NONE,
+- 			    {(char_u *)NULL, (char_u *)0L}
+- #endif
+  			    SCTX_INIT},
+      {"winaltkeys",  "wak",  P_STRING|P_VI_DEF,
+  #ifdef FEAT_WAK
+--- 3045,3052 ----
+***************
+*** 3228,3236 ****
+  #ifdef FEAT_CRYPT
+  static char *(p_cm_values[]) = {"zip", "blowfish", "blowfish2", NULL};
+  #endif
+- #ifdef FEAT_CMDL_COMPL
+  static char *(p_wop_values[]) = {"tagfile", NULL};
+- #endif
+  #ifdef FEAT_WAK
+  static char *(p_wak_values[]) = {"yes", "menu", "no", NULL};
+  #endif
+--- 3223,3229 ----
+***************
+*** 6510,6523 ****
+  	    errmsg = e_invarg;
+      }
+  
+- #ifdef FEAT_CMDL_COMPL
+      /* 'wildoptions' */
+      else if (varp == &p_wop)
+      {
+  	if (check_opt_strings(p_wop, p_wop_values, TRUE) != OK)
+  	    errmsg = e_invarg;
+      }
+- #endif
+  
+  #ifdef FEAT_WAK
+      /* 'winaltkeys' */
+--- 6503,6514 ----
+***************
+*** 11846,11852 ****
+      p_imsearch = curbuf->b_p_imsearch;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  static int expand_option_idx = -1;
+  static char_u expand_option_name[5] = {'t', '_', NUL, NUL, NUL};
+  static int expand_option_flags = 0;
+--- 11837,11842 ----
+***************
+*** 12276,12282 ****
+      *num_file = 1;
+      return OK;
+  }
+- #endif
+  
+  /*
+   * Get the value for the numeric or string option *opp in a nice format into
+--- 12266,12271 ----
+*** ../vim-8.1.1886/src/sign.c	2019-08-08 20:49:10.771344293 +0200
+--- src/sign.c	2019-08-18 22:15:36.324547573 +0200
+***************
+*** 1878,1884 ****
+  	sign_undefine(first_sign, NULL);
+  }
+  
+- # if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  static enum
+  {
+      EXP_SUBCMD,		// expand :sign sub-commands
+--- 1878,1883 ----
+***************
+*** 2107,2113 ****
+  	}
+      }
+  }
+- # endif
+  
+  /*
+   * Define a sign using the attributes in 'dict'. Returns 0 on success and -1 on
+--- 2106,2111 ----
+*** ../vim-8.1.1886/src/syntax.c	2019-08-08 20:49:10.771344293 +0200
+--- src/syntax.c	2019-08-18 22:15:59.252431131 +0200
+***************
+*** 6302,6308 ****
+  	    || win->w_s->b_keywtab_ic.ht_used > 0);
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  
+  static enum
+  {
+--- 6302,6307 ----
+***************
+*** 6409,6415 ****
+      return NULL;
+  }
+  
+- #endif /* FEAT_CMDL_COMPL */
+  
+  /*
+   * Function called for expression evaluation: get syntax ID at file position.
+--- 6408,6413 ----
+***************
+*** 6569,6575 ****
+      }
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Function given to ExpandGeneric() to obtain the possible arguments of the
+   * ":syntime {on,off,clear,report}" command.
+--- 6567,6572 ----
+***************
+*** 6586,6592 ****
+      }
+      return NULL;
+  }
+- #endif
+  
+  typedef struct
+  {
+--- 6583,6588 ----
+*** ../vim-8.1.1886/src/tag.c	2019-08-18 15:24:23.197608923 +0200
+--- src/tag.c	2019-08-18 22:16:11.676368111 +0200
+***************
+*** 3859,3865 ****
+      VIM_CLEAR(item->user_data);
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+      int
+  expand_tags(
+      int		tagnames,	/* expand tag names */
+--- 3859,3864 ----
+***************
+*** 3907,3913 ****
+      }
+      return ret;
+  }
+- #endif
+  
+  #if defined(FEAT_EVAL) || defined(PROTO)
+  /*
+--- 3906,3911 ----
+*** ../vim-8.1.1886/src/term.c	2019-07-24 14:25:07.171074151 +0200
+--- src/term.c	2019-08-18 22:16:28.340283659 +0200
+***************
+*** 4299,4305 ****
+      return NULL;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+      char_u *
+  get_termcode(int i)
+  {
+--- 4299,4304 ----
+***************
+*** 4307,4313 ****
+  	return NULL;
+      return &termcodes[i].name[0];
+  }
+- #endif
+  
+      void
+  del_termcode(char_u *name)
+--- 4306,4311 ----
+***************
+*** 6700,6706 ****
+  }
+  #endif
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  /*
+   * Translate an internal mapping/abbreviation representation into the
+   * corresponding external one recognized by :map/:abbrev commands.
+--- 6698,6703 ----
+***************
+*** 6775,6781 ****
+      ga_append(&ga, NUL);
+      return (char_u *)(ga.ga_data);
+  }
+- #endif
+  
+  #if (defined(MSWIN) && (!defined(FEAT_GUI) || defined(VIMDLL))) || defined(PROTO)
+  static char ksme_str[20];
+--- 6772,6777 ----
+*** ../vim-8.1.1886/src/usercmd.c	2019-08-06 21:59:37.763982481 +0200
+--- src/usercmd.c	2019-08-18 22:17:39.047926122 +0200
+***************
+*** 23,31 ****
+      cmd_addr_T	uc_addr_type;	// The command's address type
+  # ifdef FEAT_EVAL
+      sctx_T	uc_script_ctx;	// SCTX where the command was defined
+- #  ifdef FEAT_CMDL_COMPL
+      char_u	*uc_compl_arg;	// completion argument if any
+- #  endif
+  # endif
+  } ucmd_T;
+  
+--- 23,29 ----
+***************
+*** 55,61 ****
+  #if defined(FEAT_CSCOPE)
+      {EXPAND_CSCOPE, "cscope"},
+  #endif
+! #if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+      {EXPAND_USER_DEFINED, "custom"},
+      {EXPAND_USER_LIST, "customlist"},
+  #endif
+--- 53,59 ----
+  #if defined(FEAT_CSCOPE)
+      {EXPAND_CSCOPE, "cscope"},
+  #endif
+! #if defined(FEAT_EVAL)
+      {EXPAND_USER_DEFINED, "custom"},
+      {EXPAND_USER_LIST, "customlist"},
+  #endif
+***************
+*** 185,201 ****
+  		    eap->useridx = j;
+  		    eap->addr_type = uc->uc_addr_type;
+  
+- # ifdef FEAT_CMDL_COMPL
+  		    if (complp != NULL)
+  			*complp = uc->uc_compl;
+! #  ifdef FEAT_EVAL
+  		    if (xp != NULL)
+  		    {
+  			xp->xp_arg = uc->uc_compl_arg;
+  			xp->xp_script_ctx = uc->uc_script_ctx;
+  			xp->xp_script_ctx.sc_lnum += sourcing_lnum;
+  		    }
+- #  endif
+  # endif
+  		    // Do not search for further abbreviations
+  		    // if this is an exact match.
+--- 183,197 ----
+  		    eap->useridx = j;
+  		    eap->addr_type = uc->uc_addr_type;
+  
+  		    if (complp != NULL)
+  			*complp = uc->uc_compl;
+! # ifdef FEAT_EVAL
+  		    if (xp != NULL)
+  		    {
+  			xp->xp_arg = uc->uc_compl_arg;
+  			xp->xp_script_ctx = uc->uc_script_ctx;
+  			xp->xp_script_ctx.sc_lnum += sourcing_lnum;
+  		    }
+  # endif
+  		    // Do not search for further abbreviations
+  		    // if this is an exact match.
+***************
+*** 232,239 ****
+      return p;
+  }
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- 
+      char_u *
+  set_context_in_user_cmd(expand_T *xp, char_u *arg_in)
+  {
+--- 228,233 ----
+***************
+*** 384,391 ****
+      return EXPAND_NOTHING;
+  }
+  
+- #endif // FEAT_CMDL_COMPL
+- 
+  /*
+   * List user commands starting with "name[name_len]".
+   */
+--- 378,383 ----
+***************
+*** 622,628 ****
+      char_u	**compl_arg UNUSED)
+  {
+      char_u	*arg = NULL;
+! # if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+      size_t	arglen = 0;
+  # endif
+      int		i;
+--- 614,620 ----
+      char_u	**compl_arg UNUSED)
+  {
+      char_u	*arg = NULL;
+! # if defined(FEAT_EVAL)
+      size_t	arglen = 0;
+  # endif
+      int		i;
+***************
+*** 634,640 ****
+  	if (value[i] == ',')
+  	{
+  	    arg = &value[i + 1];
+! # if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+  	    arglen = vallen - i - 1;
+  # endif
+  	    valend = i;
+--- 626,632 ----
+  	if (value[i] == ',')
+  	{
+  	    arg = &value[i + 1];
+! # if defined(FEAT_EVAL)
+  	    arglen = vallen - i - 1;
+  # endif
+  	    valend = i;
+***************
+*** 663,669 ****
+  	return FAIL;
+      }
+  
+! # if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+      if (*complp != EXPAND_USER_DEFINED && *complp != EXPAND_USER_LIST
+  							       && arg != NULL)
+  # else
+--- 655,661 ----
+  	return FAIL;
+      }
+  
+! # if defined(FEAT_EVAL)
+      if (*complp != EXPAND_USER_DEFINED && *complp != EXPAND_USER_LIST
+  							       && arg != NULL)
+  # else
+***************
+*** 674,680 ****
+  	return FAIL;
+      }
+  
+! # if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+      if ((*complp == EXPAND_USER_DEFINED || *complp == EXPAND_USER_LIST)
+  							       && arg == NULL)
+      {
+--- 666,672 ----
+  	return FAIL;
+      }
+  
+! # if defined(FEAT_EVAL)
+      if ((*complp == EXPAND_USER_DEFINED || *complp == EXPAND_USER_LIST)
+  							       && arg == NULL)
+      {
+***************
+*** 930,936 ****
+  	    }
+  
+  	    VIM_CLEAR(cmd->uc_rep);
+! #if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+  	    VIM_CLEAR(cmd->uc_compl_arg);
+  #endif
+  	    break;
+--- 922,928 ----
+  	    }
+  
+  	    VIM_CLEAR(cmd->uc_rep);
+! #if defined(FEAT_EVAL)
+  	    VIM_CLEAR(cmd->uc_compl_arg);
+  #endif
+  	    break;
+***************
+*** 964,972 ****
+  #ifdef FEAT_EVAL
+      cmd->uc_script_ctx = current_sctx;
+      cmd->uc_script_ctx.sc_lnum += sourcing_lnum;
+- # ifdef FEAT_CMDL_COMPL
+      cmd->uc_compl_arg = compl_arg;
+- # endif
+  #endif
+      cmd->uc_addr_type = addr_type;
+  
+--- 956,962 ----
+***************
+*** 974,980 ****
+  
+  fail:
+      vim_free(rep_buf);
+! #if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+      vim_free(compl_arg);
+  #endif
+      return FAIL;
+--- 964,970 ----
+  
+  fail:
+      vim_free(rep_buf);
+! #if defined(FEAT_EVAL)
+      vim_free(compl_arg);
+  #endif
+      return FAIL;
+***************
+*** 1074,1080 ****
+  	cmd = USER_CMD_GA(gap, i);
+  	vim_free(cmd->uc_name);
+  	vim_free(cmd->uc_rep);
+! # if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+  	vim_free(cmd->uc_compl_arg);
+  # endif
+      }
+--- 1064,1070 ----
+  	cmd = USER_CMD_GA(gap, i);
+  	vim_free(cmd->uc_name);
+  	vim_free(cmd->uc_rep);
+! # if defined(FEAT_EVAL)
+  	vim_free(cmd->uc_compl_arg);
+  # endif
+      }
+***************
+*** 1115,1121 ****
+  
+      vim_free(cmd->uc_name);
+      vim_free(cmd->uc_rep);
+! # if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+      vim_free(cmd->uc_compl_arg);
+  # endif
+  
+--- 1105,1111 ----
+  
+      vim_free(cmd->uc_name);
+      vim_free(cmd->uc_rep);
+! # if defined(FEAT_EVAL)
+      vim_free(cmd->uc_compl_arg);
+  # endif
+  
+*** ../vim-8.1.1886/src/userfunc.c	2019-08-17 21:04:12.806190044 +0200
+--- src/userfunc.c	2019-08-18 22:17:53.659852400 +0200
+***************
+*** 2793,2800 ****
+  }
+  #endif
+  
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- 
+  /*
+   * Function given to ExpandGeneric() to obtain the list of user defined
+   * function names.
+--- 2793,2798 ----
+***************
+*** 2838,2845 ****
+      return NULL;
+  }
+  
+- #endif /* FEAT_CMDL_COMPL */
+- 
+  /*
+   * ":delfunction {name}"
+   */
+--- 2836,2841 ----
+*** ../vim-8.1.1886/src/version.c	2019-08-18 21:43:52.138401489 +0200
+--- src/version.c	2019-08-18 22:24:29.033873641 +0200
+***************
+*** 158,168 ****
+  #else
+  	"-clipboard",
+  #endif
+- #ifdef FEAT_CMDL_COMPL
+  	"+cmdline_compl",
+- #else
+- 	"-cmdline_compl",
+- #endif
+  	"+cmdline_hist",
+  #ifdef FEAT_CMDL_INFO
+  	"+cmdline_info",
+--- 158,164 ----
+*** ../vim-8.1.1886/src/globals.h	2019-08-06 21:59:37.763982481 +0200
+--- src/globals.h	2019-08-18 22:18:30.763665438 +0200
+***************
+*** 356,367 ****
+  EXTERN int	scroll_region INIT(= FALSE); // term supports scroll region
+  EXTERN int	t_colors INIT(= 0);	    // int value of T_CCO
+  
+- #ifdef FEAT_CMDL_COMPL
+  // Flags to indicate an additional string for highlight name completion.
+  EXTERN int include_none INIT(= 0);	// when 1 include "None"
+  EXTERN int include_default INIT(= 0);	// when 1 include "default"
+  EXTERN int include_link INIT(= 0);	// when 2 include "link" and "clear"
+- #endif
+  
+  /*
+   * When highlight_match is TRUE, highlight a match, starting at the cursor
+--- 356,365 ----
+*** ../vim-8.1.1886/src/option.h	2019-08-18 16:34:42.915429659 +0200
+--- src/option.h	2019-08-18 22:18:41.703610384 +0200
+***************
+*** 926,934 ****
+  extern char_u	*p_vfile;	// 'verbosefile'
+  #endif
+  EXTERN int	p_warn;		// 'warn'
+- #ifdef FEAT_CMDL_COMPL
+  EXTERN char_u	*p_wop;		// 'wildoptions'
+- #endif
+  EXTERN long	p_window;	// 'window'
+  #if defined(FEAT_GUI_MSWIN) || defined(FEAT_GUI_MOTIF) || defined(LINT) \
+  	|| defined (FEAT_GUI_GTK) || defined(FEAT_GUI_PHOTON)
+--- 926,932 ----
+*** ../vim-8.1.1886/src/structs.h	2019-08-18 21:43:52.138401489 +0200
+--- src/structs.h	2019-08-18 22:18:56.063538142 +0200
+***************
+*** 555,561 ****
+      int		xp_context;		// type of expansion
+      char_u	*xp_pattern;		// start of item to expand
+      int		xp_pattern_len;		// bytes in xp_pattern before cursor
+! #if defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
+      char_u	*xp_arg;		// completion function
+      sctx_T	xp_script_ctx;		// SCTX for completion function
+  #endif
+--- 555,561 ----
+      int		xp_context;		// type of expansion
+      char_u	*xp_pattern;		// start of item to expand
+      int		xp_pattern_len;		// bytes in xp_pattern before cursor
+! #if defined(FEAT_EVAL)
+      char_u	*xp_arg;		// completion function
+      sctx_T	xp_script_ctx;		// SCTX for completion function
+  #endif
+*** ../vim-8.1.1886/runtime/doc/cmdline.txt	2019-05-05 18:11:46.308590707 +0200
+--- runtime/doc/cmdline.txt	2019-08-18 22:23:03.238300904 +0200
+***************
+*** 1,4 ****
+! *cmdline.txt*   For Vim version 8.1.  Last change: 2019 May 05
+  
+  
+  		  VIM REFERENCE MANUAL    by Bram Moolenaar
+--- 1,4 ----
+! *cmdline.txt*   For Vim version 8.1.  Last change: 2019 Aug 18
+  
+  
+  		  VIM REFERENCE MANUAL    by Bram Moolenaar
+***************
+*** 27,33 ****
+  Normally characters are inserted in front of the cursor position.  You can
+  move around in the command-line with the left and right cursor keys.  With the
+  <Insert> key, you can toggle between inserting and overstriking characters.
+- {Vi: can only alter the last character in the line}
+  
+  Note that if your keyboard does not have working cursor keys or any of the
+  other special keys, you can use ":cnoremap" to define another key for them.
+--- 27,32 ----
+***************
+*** 381,390 ****
+  - Mappings: Only after a ":map" or similar command.
+  - Variable and function names: Only after a ":if", ":call" or similar command.
+  
+! When Vim was compiled without the |+cmdline_compl| feature only file names,
+! directories and help items can be completed.  The number of help item matches
+! is limited (currently to 300) to avoid a long delay when there are very many
+! matches.
+  
+  These are the commands that can be used:
+  
+--- 380,387 ----
+  - Mappings: Only after a ":map" or similar command.
+  - Variable and function names: Only after a ":if", ":call" or similar command.
+  
+! The number of help item matches is limited (currently to 300) to avoid a long
+! delay when there are very many matches.
+  
+  These are the commands that can be used:
+  
+***************
+*** 703,709 ****
+  If more line specifiers are given than required for the command, the first
+  one(s) will be ignored.
+  
+! Line numbers may be specified with:		*:range* *E14* *{address}*
+  	{number}	an absolute line number
+  	.		the current line			  *:.*
+  	$		the last line in the file		  *:$*
+--- 700,706 ----
+  If more line specifiers are given than required for the command, the first
+  one(s) will be ignored.
+  
+! Line numbers may be specified with:		*:range* *{address}*
+  	{number}	an absolute line number
+  	.		the current line			  *:.*
+  	$		the last line in the file		  *:$*
+***************
+*** 1065,1072 ****
+  In the command-line window the command line can be edited just like editing
+  text in any window.  It is a special kind of window, because you cannot leave
+  it in a normal way.
+! {not available when compiled without the |+cmdline_hist| or |+vertsplit|
+! feature}
+  
+  
+  OPEN						*c_CTRL-F* *q:* *q/* *q?*
+--- 1062,1068 ----
+  In the command-line window the command line can be edited just like editing
+  text in any window.  It is a special kind of window, because you cannot leave
+  it in a normal way.
+! {not available when compiled without the |+cmdline_hist| feature}
+  
+  
+  OPEN						*c_CTRL-F* *q:* *q/* *q?*
+***************
+*** 1141,1147 ****
+  The command-line window cannot be used:
+  - when there already is a command-line window (no nesting)
+  - for entering an encryption key or when using inputsecret()
+- - when Vim was not compiled with the |+vertsplit| feature
+  
+  Some options are set when the command-line window is opened:
+  'filetype'	"vim", when editing an Ex command-line; this starts Vim syntax
+--- 1137,1142 ----
+*** ../vim-8.1.1886/src/version.c	2019-08-18 21:43:52.138401489 +0200
+--- src/version.c	2019-08-18 22:24:29.033873641 +0200
+***************
+*** 771,772 ****
+--- 767,770 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1887,
+  /**/
+
+-- 
+From "know your smileys":
+ !-|	I-am-a-Cylon-Centurian-with-one-red-eye-bouncing-back-and-forth
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

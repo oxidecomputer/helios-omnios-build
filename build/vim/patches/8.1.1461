@@ -1,0 +1,139 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1461
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1461
+Problem:    Tests do not run or are not reliable on some systems.
+Solution:   Use "findstr" instead of "grep" on MS-Windows. Clear
+            PROMPT_COMMAND in the terminal test. Delete temp file. Wait for
+            output after executing a debug command. (Yegappan Lakshmanan,
+            closes #4479)
+Files:	    src/testdir/test_debugger.vim, src/testdir/test_environ.vim,
+            src/testdir/test_filetype.vim, src/testdir/test_source.vim,
+            src/testdir/test_terminal.vim
+
+
+*** ../vim-8.1.1460/src/testdir/test_debugger.vim	2019-04-20 22:28:38.961420148 +0200
+--- src/testdir/test_debugger.vim	2019-06-03 22:39:43.551377080 +0200
+***************
+*** 52,67 ****
+    let buf = RunVimInTerminal('-S Xtest.vim', {})
+  
+    " Start the Vim debugger
+!   call RunDbgCmd(buf, ':debug echo Foo()')
+  
+    " Create a few stack frames by stepping through functions
+!   call RunDbgCmd(buf, 'step')
+!   call RunDbgCmd(buf, 'step')
+!   call RunDbgCmd(buf, 'step')
+!   call RunDbgCmd(buf, 'step')
+!   call RunDbgCmd(buf, 'step')
+!   call RunDbgCmd(buf, 'step')
+!   call RunDbgCmd(buf, 'step')
+  
+    " check backtrace
+    call RunDbgCmd(buf, 'backtrace', [
+--- 52,67 ----
+    let buf = RunVimInTerminal('-S Xtest.vim', {})
+  
+    " Start the Vim debugger
+!   call RunDbgCmd(buf, ':debug echo Foo()', ['cmd: echo Foo()'])
+  
+    " Create a few stack frames by stepping through functions
+!   call RunDbgCmd(buf, 'step', ['line 1: let var1 = 1'])
+!   call RunDbgCmd(buf, 'step', ['line 2: let var2 = Bar(var1) + 9'])
+!   call RunDbgCmd(buf, 'step', ['line 1: let var1 = 2 + a:var'])
+!   call RunDbgCmd(buf, 'step', ['line 2: let var2 = Bazz(var1) + 4'])
+!   call RunDbgCmd(buf, 'step', ['line 1: try'])
+!   call RunDbgCmd(buf, 'step', ['line 2: let var1 = 3 + a:var'])
+!   call RunDbgCmd(buf, 'step', ['line 3: let var3 = "another var"'])
+  
+    " check backtrace
+    call RunDbgCmd(buf, 'backtrace', [
+*** ../vim-8.1.1460/src/testdir/test_environ.vim	2019-05-09 14:52:22.083358820 +0200
+--- src/testdir/test_environ.vim	2019-06-03 22:39:43.551377080 +0200
+***************
+*** 36,42 ****
+  
+    call setenv('FOO', v:null)
+    if has('win32')
+!     let result = system('set | grep ^FOO=')
+    else
+      let result = system('env | grep ^FOO=')
+    endif
+--- 36,42 ----
+  
+    call setenv('FOO', v:null)
+    if has('win32')
+!     let result = system('set | findstr ^FOO=')
+    else
+      let result = system('env | grep ^FOO=')
+    endif
+*** ../vim-8.1.1460/src/testdir/test_filetype.vim	2019-05-06 21:46:05.062544448 +0200
+--- src/testdir/test_filetype.vim	2019-06-03 22:39:43.551377080 +0200
+***************
+*** 520,526 ****
+        catch
+  	call assert_report('cannot edit "' . names[i] . '": ' . v:errmsg)
+        endtry
+!       call assert_equal(ft, &filetype, 'with file name: ' . names[i])
+        bwipe!
+      endfor
+    endfor
+--- 520,530 ----
+        catch
+  	call assert_report('cannot edit "' . names[i] . '": ' . v:errmsg)
+        endtry
+!       if &filetype == '' && &readonly
+! 	" File exists but not able to edit it (permission denied)
+!       else
+! 	call assert_equal(ft, &filetype, 'with file name: ' . names[i])
+!       endif
+        bwipe!
+      endfor
+    endfor
+*** ../vim-8.1.1460/src/testdir/test_source.vim	2019-05-22 22:38:21.660405578 +0200
+--- src/testdir/test_source.vim	2019-06-03 22:39:43.551377080 +0200
+***************
+*** 44,47 ****
+--- 44,48 ----
+    call assert_equal('hello', getline(1))
+    call assert_fails('sandbox source! Xsourcehello', 'E48:')
+    bwipe!
++   call delete('Xsourcehello')
+  endfunc
+*** ../vim-8.1.1460/src/testdir/test_terminal.vim	2019-06-03 21:14:55.129048884 +0200
+--- src/testdir/test_terminal.vim	2019-06-03 22:39:43.551377080 +0200
+***************
+*** 8,13 ****
+--- 8,14 ----
+  source screendump.vim
+  
+  let s:python = PythonProg()
++ let $PROMPT_COMMAND=''
+  
+  " Open a terminal with a shell, assign the job to g:job and return the buffer
+  " number.
+*** ../vim-8.1.1460/src/version.c	2019-06-03 22:53:27.457687696 +0200
+--- src/version.c	2019-06-03 22:54:33.433266568 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1461,
+  /**/
+
+-- 
+From "know your smileys":
+ :q	vi user saying, "How do I get out of this damn emacs editor?"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

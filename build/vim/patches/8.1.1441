@@ -1,0 +1,679 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1441
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1441
+Problem:    Popup window filter not yet implemented.
+Solution:   Implement the popup filter.
+Files:	    src/structs.h, runtime/doc/popup.txt, src/popupwin.c,
+            src/proto/popupwin.pro, src/window.c, src/getchar.c, src/screen.c,
+            src/misc2.c, src/proto/misc2.pro, src/vim.h,
+            src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1440/src/structs.h	2019-06-01 13:28:30.265829531 +0200
+--- src/structs.h	2019-06-01 14:41:32.923095976 +0200
+***************
+*** 2890,2895 ****
+--- 2890,2896 ----
+      int		w_wantcol;	    // "col" for popup window
+      varnumber_T	w_popup_last_changedtick; // b:changedtick when position was
+  					  // computed
++     callback_T	w_filter_cb;	    // popup filter callback
+  # if defined(FEAT_TIMERS)
+      timer_T	*w_popup_timer;	    // timer for closing popup window
+  # endif
+*** ../vim-8.1.1440/runtime/doc/popup.txt	2019-05-30 22:32:10.804178558 +0200
+--- runtime/doc/popup.txt	2019-06-01 17:08:46.906685908 +0200
+***************
+*** 13,21 ****
+  3. Examples			|popup-examples|
+  
+  
+! {not available if the |+eval| feature was disabled at compile time}
+! {not able to use text properties if the |+textprop| feature was disabled at
+! compile time}
+  
+  ==============================================================================
+  1. Introduction						*popup-intro*
+--- 13,19 ----
+  3. Examples			|popup-examples|
+  
+  
+! {not available if the |+textprop| feature was disabled at compile time}
+  
+  ==============================================================================
+  1. Introduction						*popup-intro*
+***************
+*** 60,74 ****
+  
+  The height of the window is normally equal to the number of, possibly
+  wrapping, lines in the buffer.  It can be limited with the "maxheight"
+! property.  You can use empty lines to increase the height.
+  
+  The width of the window is normally equal to the longest line in the buffer.
+  It can be limited with the "maxwidth" property.  You can use spaces to
+! increase the width.
+  
+  By default the 'wrap' option is set, so that no text disappears.  However, if
+  there is not enough space, some text may be invisible.
+  
+  
+  
+  TODO:
+--- 58,79 ----
+  
+  The height of the window is normally equal to the number of, possibly
+  wrapping, lines in the buffer.  It can be limited with the "maxheight"
+! property.  You can use empty lines to increase the height or the "minheight"
+! property.
+  
+  The width of the window is normally equal to the longest line in the buffer.
+  It can be limited with the "maxwidth" property.  You can use spaces to
+! increase the width or the "minwidth" property.
+  
+  By default the 'wrap' option is set, so that no text disappears.  However, if
+  there is not enough space, some text may be invisible.
+  
++ Vim tries to show the popup in the location you specify.  In some cases, e.g.
++ when the popup would go outside of the Vim window, it will show it somewhere
++ else.  E.g. if you use `popup_atcursor()` the popup normally shows just above
++ the current cursor position, but if the cursor is close to the top of the Vim
++ window it will be placed below the cursor position.
++ 
+  
+  
+  TODO:
+***************
+*** 85,100 ****
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+! - Implement filter.
+!   Check that popup_close() works in the filter.
+  - Implement padding
+  - Implement border
+- - Handle screen resize in screenalloc().
+  - Make redrawing more efficient and avoid flicker.
+      Store popup info in a mask, use the mask in screen_line()
+      Fix redrawing problem with completion.
+      Fix redrawing problem when scrolling non-current window
+      Fix redrawing the statusline on top of a popup
+  - Figure out the size and position better.
+      if wrapping splits a double-wide character
+      if wrapping inserts indent
+--- 90,109 ----
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+! - Invoke filter with character before mapping?
+! - Handle screen resize in screenalloc(). (Ben Jackson, #4467)
+! - Why does 'nrformats' leak from the popup window buffer???
+  - Implement padding
+  - Implement border
+  - Make redrawing more efficient and avoid flicker.
+      Store popup info in a mask, use the mask in screen_line()
++     Keep mask until next update_screen(), find differences and redraw affected
++     windows/lines
+      Fix redrawing problem with completion.
+      Fix redrawing problem when scrolling non-current window
+      Fix redrawing the statusline on top of a popup
++ - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
++   Use NOT_IN_POPUP_WINDOW.
+  - Figure out the size and position better.
+      if wrapping splits a double-wide character
+      if wrapping inserts indent
+***************
+*** 114,120 ****
+  		- a string
+  		- a list of strings
+  		- a list of text lines with text properties
+! 		  	{not implemented yet}
+  		{options} is a dictionary with many possible entries.
+  		See |popup_create-usage| for details.
+  
+--- 123,129 ----
+  		- a string
+  		- a list of strings
+  		- a list of text lines with text properties
+! 
+  		{options} is a dictionary with many possible entries.
+  		See |popup_create-usage| for details.
+  
+***************
+*** 376,382 ****
+  			{not implemented yet}
+  	filter		a callback that can filter typed characters, see 
+  			|popup-filter|
+- 			{not implemented yet}
+  	callback	a callback to be used when the popup closes, e.g. when
+  			using |popup_filter_menu()|, see |popup-callback|.
+  			{not implemented yet}
+--- 385,390 ----
+***************
+*** 410,423 ****
+  	type		name of the text property type, as added with
+  			|prop_type_add()|
+  	transparent	do not show these characters, show the text under it;
+! 			if there is an border character to the right or below
+  			it will be made transparent as well
+  			{not implemented yet}
+  
+  
+  POPUP FILTER						*popup-filter*
+  
+- {not implemented yet}
+  A callback that gets any typed keys while a popup is displayed.  The filter is
+  not invoked when the popup is hidden.
+  
+--- 418,430 ----
+  	type		name of the text property type, as added with
+  			|prop_type_add()|
+  	transparent	do not show these characters, show the text under it;
+! 			if there is a border character to the right or below
+  			it will be made transparent as well
+  			{not implemented yet}
+  
+  
+  POPUP FILTER						*popup-filter*
+  
+  A callback that gets any typed keys while a popup is displayed.  The filter is
+  not invoked when the popup is hidden.
+  
+***************
+*** 428,437 ****
+  is called first.
+  
+  The filter function is called with two arguments: the ID of the popup and the
+! key.
+  
+  Some common key actions:
+! 	Esc		close the popup
+  	cursor keys	select another entry
+  	Tab		accept current suggestion
+  
+--- 435,457 ----
+  is called first.
+  
+  The filter function is called with two arguments: the ID of the popup and the
+! key, e.g.: >
+! 	func MyFilter(winid, key)
+! 	  if a:key == "\<F2>"
+! 	    " do something
+! 	    return 1
+! 	  endif
+! 	  if a:key == 'x'
+! 	    call popup_close(a:winid)
+! 	    return 1
+! 	  endif
+! 	  return 0
+!   	endfunc
+! 
+! Currently the key is what results after any mapping.  This may change...
+  
+  Some common key actions:
+! 	x		close the popup (see note below)
+  	cursor keys	select another entry
+  	Tab		accept current suggestion
+  
+***************
+*** 442,447 ****
+--- 462,472 ----
+  Vim provides standard filters |popup_filter_menu()| and
+  |popup_filter_yesno()|.
+  
++ Note that "x" is the normal way to close a popup.  You may want to use Esc,
++ but since many keys start with an Esc character, there may be a delay before
++ Vim recognizes the Esc key.  If you do use Esc, it is reecommended to set the
++ 'ttimeoutlen' option to 100 and set 'timeout' and/or 'ttimeout'.
++ 
+  
+  POPUP CALLBACK						*popup-callback*
+  
+*** ../vim-8.1.1440/src/popupwin.c	2019-06-01 14:15:49.535433551 +0200
+--- src/popupwin.c	2019-06-01 16:50:12.413188030 +0200
+***************
+*** 149,173 ****
+  	if (get_lambda_tv(&ptr, &tv, TRUE) == OK)
+  	{
+  	    wp->w_popup_timer = create_timer(nr, 0);
+! 	    wp->w_popup_timer->tr_callback.cb_name =
+! 				  vim_strsave(partial_name(tv.vval.v_partial));
+! 	    func_ref(wp->w_popup_timer->tr_callback.cb_name);
+! 	    wp->w_popup_timer->tr_callback.cb_partial = tv.vval.v_partial;
+  	}
+      }
+  #endif
+  
+      // Option values resulting in setting an option.
+!     str = dict_get_string(dict, (char_u *)"highlight", TRUE);
+      if (str != NULL)
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+  						   str, OPT_FREE|OPT_LOCAL, 0);
+      di = dict_find(dict, (char_u *)"wrap", -1);
+      if (di != NULL)
+      {
+  	nr = dict_get_number(dict, (char_u *)"wrap");
+  	wp->w_p_wrap = nr != 0;
+      }
+  }
+  
+  /*
+--- 149,181 ----
+  	if (get_lambda_tv(&ptr, &tv, TRUE) == OK)
+  	{
+  	    wp->w_popup_timer = create_timer(nr, 0);
+! 	    wp->w_popup_timer->tr_callback = get_callback(&tv);
+! 	    clear_tv(&tv);
+  	}
+      }
+  #endif
+  
+      // Option values resulting in setting an option.
+!     str = dict_get_string(dict, (char_u *)"highlight", FALSE);
+      if (str != NULL)
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+  						   str, OPT_FREE|OPT_LOCAL, 0);
++ 
+      di = dict_find(dict, (char_u *)"wrap", -1);
+      if (di != NULL)
+      {
+  	nr = dict_get_number(dict, (char_u *)"wrap");
+  	wp->w_p_wrap = nr != 0;
+      }
++ 
++     di = dict_find(dict, (char_u *)"filter", -1);
++     if (di != NULL)
++     {
++ 	callback_T	callback = get_callback(&di->di_tv);
++ 
++ 	if (callback.cb_name != NULL)
++ 	    set_callback(&wp->w_filter_cb, &callback);
++     }
+  }
+  
+  /*
+***************
+*** 759,762 ****
+--- 767,875 ----
+      return FALSE;
+  }
+  
++ /*
++  * Reset all the POPF_HANDLED flags in global popup windows and popup windows
++  * in the current tab.
++  */
++     void
++ popup_reset_handled()
++ {
++     win_T *wp;
++ 
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	wp->w_popup_flags &= ~POPF_HANDLED;
++     for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	wp->w_popup_flags &= ~POPF_HANDLED;
++ }
++ 
++ /*
++  * Find the next visible popup where POPF_HANDLED is not set.
++  * Must have called popup_reset_handled() first.
++  * When "lowest" is TRUE find the popup with the lowest zindex, otherwise the
++  * popup with the highest zindex.
++  */
++     win_T *
++ find_next_popup(int lowest)
++ {
++     win_T   *wp;
++     win_T   *found_wp;
++     int	    found_zindex;
++ 
++     found_zindex = lowest ? INT_MAX : 0;
++     found_wp = NULL;
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	if ((wp->w_popup_flags & (POPF_HANDLED|POPF_HIDDEN)) == 0
++ 		&& (lowest ? wp->w_zindex < found_zindex
++ 			   : wp->w_zindex > found_zindex))
++ 	{
++ 	    found_zindex = wp->w_zindex;
++ 	    found_wp = wp;
++ 	}
++     for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	if ((wp->w_popup_flags & (POPF_HANDLED|POPF_HIDDEN)) == 0
++ 		&& (lowest ? wp->w_zindex < found_zindex
++ 			   : wp->w_zindex > found_zindex))
++ 	{
++ 	    found_zindex = wp->w_zindex;
++ 	    found_wp = wp;
++ 	}
++ 
++     if (found_wp != NULL)
++ 	found_wp->w_popup_flags |= POPF_HANDLED;
++     return found_wp;
++ }
++ 
++ /*
++  * Invoke the filter callback for window "wp" with typed character "c".
++  * Uses the global "mod_mask" for modifiers.
++  * Returns the return value of the filter.
++  * Careful: The filter may make "wp" invalid!
++  */
++     static int
++ invoke_popup_filter(win_T *wp, int c)
++ {
++     int		res;
++     typval_T	rettv;
++     int		dummy;
++     typval_T	argv[3];
++     char_u	buf[NUMBUFLEN];
++ 
++     argv[0].v_type = VAR_NUMBER;
++     argv[0].vval.v_number = (varnumber_T)wp->w_id;
++ 
++     // Convert the number to a string, so that the function can use:
++     //	    if a:c == "\<F2>"
++     buf[special_to_buf(c, mod_mask, TRUE, buf)] = NUL;
++     argv[1].v_type = VAR_STRING;
++     argv[1].vval.v_string = vim_strsave(buf);
++ 
++     argv[2].v_type = VAR_UNKNOWN;
++ 
++     call_callback(&wp->w_filter_cb, -1,
++ 			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
++     res = tv_get_number(&rettv);
++     vim_free(argv[1].vval.v_string);
++     clear_tv(&rettv);
++     return res;
++ }
++ 
++ /*
++  * Called when "c" was typed: invoke popup filter callbacks.
++  * Returns TRUE when the character was consumed,
++  */
++     int
++ popup_do_filter(int c)
++ {
++     int		res = FALSE;
++     win_T   *wp;
++ 
++     popup_reset_handled();
++ 
++     while (!res && (wp = find_next_popup(FALSE)) != NULL)
++ 	if (wp->w_filter_cb.cb_name != NULL)
++ 	    res = invoke_popup_filter(wp, c);
++ 
++     return res;
++ }
++ 
+  #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.1440/src/proto/popupwin.pro	2019-06-01 14:15:49.535433551 +0200
+--- src/proto/popupwin.pro	2019-06-01 15:27:43.874215916 +0200
+***************
+*** 14,17 ****
+--- 14,20 ----
+  void f_popup_getpos(typval_T *argvars, typval_T *rettv);
+  void f_popup_getoptions(typval_T *argvars, typval_T *rettv);
+  int not_in_popup_window(void);
++ void popup_reset_handled(void);
++ win_T *find_next_popup(int lowest);
++ int popup_do_filter(int c);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1440/src/window.c	2019-06-01 14:15:49.535433551 +0200
+--- src/window.c	2019-06-01 14:45:04.693979677 +0200
+***************
+*** 4844,4849 ****
+--- 4844,4852 ----
+  #ifdef FEAT_MENU
+      remove_winbar(wp);
+  #endif
++ #ifdef FEAT_TEXT_PROP
++     free_callback(&wp->w_filter_cb);
++ #endif
+  
+  #ifdef FEAT_SYN_HL
+      vim_free(wp->w_p_cc_cols);
+*** ../vim-8.1.1440/src/getchar.c	2019-05-28 23:08:12.064648717 +0200
+--- src/getchar.c	2019-06-01 15:27:15.194364518 +0200
+***************
+*** 1801,1806 ****
+--- 1801,1810 ----
+  	ui_remove_balloon();
+      }
+  #endif
++ #ifdef FEAT_TEXT_PROP
++     if (popup_do_filter(c))
++ 	c = K_IGNORE;
++ #endif
+  
+      return c;
+  }
+*** ../vim-8.1.1440/src/screen.c	2019-05-30 00:11:48.704086357 +0200
+--- src/screen.c	2019-06-01 15:27:52.722170128 +0200
+***************
+*** 996,1043 ****
+  update_popups(void)
+  {
+      win_T   *wp;
+-     win_T   *lowest_wp;
+-     int	    lowest_zindex;
+- 
+-     // Reset all the VALID_POPUP flags.
+-     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+- 	wp->w_popup_flags &= ~POPF_REDRAWN;
+-     for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+- 	wp->w_popup_flags &= ~POPF_REDRAWN;
+  
+      // TODO: don't redraw every popup every time.
+!     for (;;)
+      {
+- 	// Find the window with the lowest zindex that hasn't been updated yet,
+- 	// so that the window with a higher zindex is drawn later, thus goes on
+- 	// top.
+- 	lowest_zindex = INT_MAX;
+- 	lowest_wp = NULL;
+- 	for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
+- 	    if ((wp->w_popup_flags & (POPF_REDRAWN|POPF_HIDDEN)) == 0
+- 					       && wp->w_zindex < lowest_zindex)
+- 	    {
+- 		lowest_zindex = wp->w_zindex;
+- 		lowest_wp = wp;
+- 	    }
+- 	for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
+- 	    if ((wp->w_popup_flags & (POPF_REDRAWN|POPF_HIDDEN)) == 0
+- 					       && wp->w_zindex < lowest_zindex)
+- 	    {
+- 		lowest_zindex = wp->w_zindex;
+- 		lowest_wp = wp;
+- 	    }
+- 
+- 	if (lowest_wp == NULL)
+- 	    break;
+- 
+  	// Recompute the position if the text changed.
+! 	if (lowest_wp->w_popup_last_changedtick
+! 					   != CHANGEDTICK(lowest_wp->w_buffer))
+! 	    popup_adjust_position(lowest_wp);
+  
+! 	win_update(lowest_wp);
+! 	lowest_wp->w_popup_flags |= POPF_REDRAWN;
+      }
+  }
+  #endif
+--- 996,1014 ----
+  update_popups(void)
+  {
+      win_T   *wp;
+  
++     // Find the window with the lowest zindex that hasn't been updated yet,
++     // so that the window with a higher zindex is drawn later, thus goes on
++     // top.
+      // TODO: don't redraw every popup every time.
+!     popup_reset_handled();
+!     while ((wp = find_next_popup(TRUE)) != NULL)
+      {
+  	// Recompute the position if the text changed.
+! 	if (wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+! 	    popup_adjust_position(wp);
+  
+! 	win_update(wp);
+      }
+  }
+  #endif
+*** ../vim-8.1.1440/src/misc2.c	2019-06-01 14:36:22.020738812 +0200
+--- src/misc2.c	2019-06-01 16:19:53.258610026 +0200
+***************
+*** 2731,2747 ****
+  trans_special(
+      char_u	**srcp,
+      char_u	*dst,
+!     int		keycode, /* prefer key code, e.g. K_DEL instead of DEL */
+!     int		in_string) /* TRUE when inside a double quoted string */
+  {
+      int		modifiers = 0;
+      int		key;
+-     int		dlen = 0;
+  
+      key = find_special_key(srcp, &modifiers, keycode, FALSE, in_string);
+      if (key == 0)
+  	return 0;
+  
+      /* Put the appropriate modifier in a string */
+      if (modifiers != 0)
+      {
+--- 2731,2761 ----
+  trans_special(
+      char_u	**srcp,
+      char_u	*dst,
+!     int		keycode,    // prefer key code, e.g. K_DEL instead of DEL
+!     int		in_string)  // TRUE when inside a double quoted string
+  {
+      int		modifiers = 0;
+      int		key;
+  
+      key = find_special_key(srcp, &modifiers, keycode, FALSE, in_string);
+      if (key == 0)
+  	return 0;
+  
++     return special_to_buf(key, modifiers, keycode, dst);
++ }
++ 
++ /*
++  * Put the character sequence for "key" with "modifiers" into "dst" and return
++  * the resulting length.
++  * When "keycode" is TRUE prefer key code, e.g. K_DEL instead of DEL.
++  * The sequence is not NUL terminated.
++  * This is how characters in a string are encoded.
++  */
++     int
++ special_to_buf(int key, int modifiers, int keycode, char_u *dst)
++ {
++     int		dlen = 0;
++ 
+      /* Put the appropriate modifier in a string */
+      if (modifiers != 0)
+      {
+*** ../vim-8.1.1440/src/proto/misc2.pro	2019-05-28 23:08:12.072648675 +0200
+--- src/proto/misc2.pro	2019-06-01 16:19:36.870691383 +0200
+***************
+*** 69,74 ****
+--- 69,75 ----
+  int handle_x_keys(int key);
+  char_u *get_special_key_name(int c, int modifiers);
+  int trans_special(char_u **srcp, char_u *dst, int keycode, int in_string);
++ int special_to_buf(int key, int modifiers, int keycode, char_u *dst);
+  int find_special_key(char_u **srcp, int *modp, int keycode, int keep_x_key, int in_string);
+  int extract_modifiers(int key, int *modp);
+  int find_special_key_in_table(int c);
+*** ../vim-8.1.1440/src/vim.h	2019-05-28 23:08:12.080648632 +0200
+--- src/vim.h	2019-06-01 15:15:00.158051300 +0200
+***************
+*** 615,621 ****
+  
+  // Values for w_popup_flags.
+  #define POPF_HIDDEN	1	// popup is not displayed
+! #define POPF_REDRAWN	2	// popup was just redrawn
+  
+  /*
+   * Terminal highlighting attribute bits.
+--- 615,621 ----
+  
+  // Values for w_popup_flags.
+  #define POPF_HIDDEN	1	// popup is not displayed
+! #define POPF_HANDLED	2	// popup was just redrawn or filtered
+  
+  /*
+   * Terminal highlighting attribute bits.
+*** ../vim-8.1.1440/src/testdir/test_popupwin.vim	2019-06-01 17:06:22.688018611 +0200
+--- src/testdir/test_popupwin.vim	2019-06-01 17:04:10.768916509 +0200
+***************
+*** 473,475 ****
+--- 473,518 ----
+  
+    bwipe!
+  endfunc
++ 
++ func Test_popup_filter()
++   new
++   call setline(1, 'some text')
++ 
++   func MyPopupFilter(winid, c)
++     if a:c == 'e'
++       let g:eaten = 'e'
++       return 1
++     endif
++     if a:c == '0'
++       let g:ignored = '0'
++       return 0
++     endif
++     if a:c == 'x'
++       call popup_close(a:winid)
++       return 1
++     endif
++     return 0
++   endfunc
++ 
++   let winid = popup_create('something', {'filter': 'MyPopupFilter'})
++   redraw
++ 
++   " e is consumed by the filter
++   call feedkeys('e', 'xt')
++   call assert_equal('e', g:eaten)
++ 
++   " 0 is ignored by the filter
++   normal $
++   call assert_equal(9, getcurpos()[2])
++   call feedkeys('0', 'xt')
++   call assert_equal('0', g:ignored)
++   call assert_equal(1, getcurpos()[2])
++ 
++   " x closes the popup
++   call feedkeys('x', 'xt')
++   call assert_equal('e', g:eaten)
++   call assert_equal(-1, winbufnr(winid))
++ 
++   delfunc MyPopupFilter
++   popupclear
++ endfunc
+*** ../vim-8.1.1440/src/version.c	2019-06-01 17:06:22.688018611 +0200
+--- src/version.c	2019-06-01 17:07:13.767529586 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1441,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+75. You start wondering whether you could actually upgrade your brain
+    with a Pentium Pro microprocessor 80.  The upgrade works just fine.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

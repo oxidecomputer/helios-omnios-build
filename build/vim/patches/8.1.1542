@@ -1,0 +1,1527 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1542
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1542
+Problem:    An OptionSet autocommand does not get enough info.
+Solution:   Add v:option_command, v:option_oldlocal and v:option_oldglobal.
+            (Latrice Wilgus, closes #4118)
+Files:	    runtime/doc/autocmd.txt, runtime/doc/eval.txt,
+            runtime/doc/version8.txt, src/eval.c, src/option.c, src/structs.h,
+            src/testdir/test_autocmd.vim, src/vim.h
+
+
+*** ../vim-8.1.1541/runtime/doc/autocmd.txt	2019-05-05 18:11:46.308590707 +0200
+--- runtime/doc/autocmd.txt	2019-06-15 16:51:41.292612221 +0200
+***************
+*** 873,887 ****
+  							*OptionSet*
+  OptionSet			After setting an option.  The pattern is
+  				matched against the long option name.
+! 				The |v:option_old| variable indicates the
+! 				old option value, |v:option_new| variable
+! 				indicates the newly set value, the
+! 				|v:option_type| variable indicates whether
+! 				it's global or local scoped and |<amatch>|
+! 				indicates what option has been set.
+  
+! 				Is not triggered on startup and for the 'key'
+! 				option for obvious reasons.
+  
+  				Usage example: Check for the existence of the
+  				directory in the 'backupdir' and 'undodir'
+--- 873,905 ----
+  							*OptionSet*
+  OptionSet			After setting an option.  The pattern is
+  				matched against the long option name.
+! 				|<amatch>| indicates what option has been set.
+  
+! 				|v:option_type| indicates whether it's global
+! 				or local scoped
+! 				|v:option_command| indicates what type of
+! 				set/let command was used (follow the tag to
+! 				see the table).
+! 				|v:option_new| indicates the newly set value.
+! 				|v:option_oldlocal| hass the old local value.
+! 				|v:option_oldglobal| hass the old global
+! 				value
+! 				|v:option_old| indicates the old option value.
+! 
+! 				|v:option_oldlocal| is only set when |:set|
+! 				or |:setlocal| or a |modeline| was used to set
+! 				the option. Similarly |v:option_oldglobal| is
+! 				only set when |:set| or |:setglobal| was used.
+! 
+! 				Note that when setting a |global-local| string
+! 				option with |:set|, then |v:option_old| is the
+! 				old global value. However, for all other kinds
+! 				of options (local string options, global-local
+! 				number options, ...) it is the old local
+! 				value.
+! 
+! 				OptionSet is not triggered on startup and for
+! 				the 'key' option for obvious reasons.
+  
+  				Usage example: Check for the existence of the
+  				directory in the 'backupdir' and 'undodir'
+***************
+*** 1365,1371 ****
+  Note that the 'eventignore' option applies here too.  Events listed in this
+  option will not cause any commands to be executed.
+  
+! 					*:do* *:doau* *:doautocmd* *E217*
+  :do[autocmd] [<nomodeline>] [group] {event} [fname]
+  			Apply the autocommands matching [fname] (default:
+  			current file name) for {event} to the current buffer.
+--- 1383,1389 ----
+  Note that the 'eventignore' option applies here too.  Events listed in this
+  option will not cause any commands to be executed.
+  
+! 				*:do* *:doau* *:doaut* *:doautocmd* *E217*
+  :do[autocmd] [<nomodeline>] [group] {event} [fname]
+  			Apply the autocommands matching [fname] (default:
+  			current file name) for {event} to the current buffer.
+*** ../vim-8.1.1541/runtime/doc/eval.txt	2019-06-15 15:44:46.706530976 +0200
+--- runtime/doc/eval.txt	2019-06-15 16:41:52.383744849 +0200
+***************
+*** 1942,1951 ****
+  		autocommand.
+  						    *v:option_old*
+  v:option_old    Old value of the option. Valid while executing an |OptionSet|
+! 		autocommand.
+  						    *v:option_type*
+  v:option_type   Scope of the set command. Valid while executing an
+  		|OptionSet| autocommand. Can be either "global" or "local"
+  					*v:operator* *operator-variable*
+  v:operator	The last operator given in Normal mode.  This is a single
+  		character except for commands starting with <g> or <z>,
+--- 1943,1971 ----
+  		autocommand.
+  						    *v:option_old*
+  v:option_old    Old value of the option. Valid while executing an |OptionSet|
+! 		autocommand. Depending on the command used for setting and the
+! 		kind of option this is either the local old value or the
+! 		global old value.
+! 						    *v:option_oldlocal*
+! v:option_oldlocal
+! 		Old local value of the option. Valid while executing an
+! 		|OptionSet| autocommand.
+! 						    *v:option_oldglobal*
+! v:option_oldglobal
+! 		Old global value of the option. Valid while executing an
+! 		|OptionSet| autocommand.
+  						    *v:option_type*
+  v:option_type   Scope of the set command. Valid while executing an
+  		|OptionSet| autocommand. Can be either "global" or "local"
++ 						    *v:option_command*
++ v:option_command
++ 		Command used to set the option. Valid while executing an
++ 		|OptionSet| autocommand.
++ 			value		option was set via   ~
++ 			"setlocal"	|:setlocal| or ":let l:xxx"
++ 			"setglobal"	|:setglobal| or ":let g:xxx"
++ 			"set"		|:set| or |:let|
++ 			"modeline"	|modeline|
+  					*v:operator* *operator-variable*
+  v:operator	The last operator given in Normal mode.  This is a single
+  		character except for commands starting with <g> or <z>,
+*** ../vim-8.1.1541/runtime/doc/version8.txt	2019-05-05 18:11:46.332590572 +0200
+--- runtime/doc/version8.txt	2019-06-15 16:41:52.391744807 +0200
+***************
+*** 336,342 ****
+--- 336,345 ----
+  |v:null|		an empty String, used for JSON
+  |v:option_new|    	new value of the option, used by |OptionSet|
+  |v:option_old|    	old value of the option, used by |OptionSet|
++ |v:option_oldlocal|	old local value of the option, used by |OptionSet|
++ |v:option_oldglobal|	old global value of the option, used by |OptionSet|
+  |v:option_type|   	scope of the set command, used by |OptionSet|
++ |v:option_command|	command used to set the option, used by |OptionSet|
+  |v:progpath|		the command with which Vim was invoked
+  |v:t_bool|		value of Boolean type
+  |v:t_channel|		value of Channel type
+***************
+*** 24465,24471 ****
+  Files:      src/syntax.c
+  
+  Patch 8.0.1622
+! Problem:    Possible NULL pointer dereferencey. (Coverity)
+  Solution:   Reverse the check for a NULL pointer.
+  Files:      src/quickfix.c
+  
+--- 24468,24474 ----
+  Files:      src/syntax.c
+  
+  Patch 8.0.1622
+! Problem:    Possible NULL pointer dereference. (Coverity)
+  Solution:   Reverse the check for a NULL pointer.
+  Files:      src/quickfix.c
+  
+*** ../vim-8.1.1541/src/eval.c	2019-06-15 15:44:46.710530957 +0200
+--- src/eval.c	2019-06-15 16:41:52.391744807 +0200
+***************
+*** 172,177 ****
+--- 172,180 ----
+      {VV_NAME("completed_item",	 VAR_DICT), VV_RO},
+      {VV_NAME("option_new",	 VAR_STRING), VV_RO},
+      {VV_NAME("option_old",	 VAR_STRING), VV_RO},
++     {VV_NAME("option_oldlocal",	 VAR_STRING), VV_RO},
++     {VV_NAME("option_oldglobal", VAR_STRING), VV_RO},
++     {VV_NAME("option_command",	 VAR_STRING), VV_RO},
+      {VV_NAME("option_type",	 VAR_STRING), VV_RO},
+      {VV_NAME("errors",		 VAR_LIST), 0},
+      {VV_NAME("false",		 VAR_SPECIAL), VV_RO},
+***************
+*** 337,343 ****
+      for (i = 0; i < VV_LEN; ++i)
+      {
+  	p = &vimvars[i];
+! 	if (STRLEN(p->vv_name) > 16)
+  	{
+  	    iemsg("INTERNAL: name too long, increase size of dictitem16_T");
+  	    getout(1);
+--- 340,346 ----
+      for (i = 0; i < VV_LEN; ++i)
+      {
+  	p = &vimvars[i];
+! 	if (STRLEN(p->vv_name) > DICTITEM16_KEY_LEN)
+  	{
+  	    iemsg("INTERNAL: name too long, increase size of dictitem16_T");
+  	    getout(1);
+***************
+*** 9500,9513 ****
+  }
+  
+  /*
+!  * Reset v:option_new, v:option_old and v:option_type.
+   */
+      void
+  reset_v_option_vars(void)
+  {
+      set_vim_var_string(VV_OPTION_NEW,  NULL, -1);
+      set_vim_var_string(VV_OPTION_OLD,  NULL, -1);
+      set_vim_var_string(VV_OPTION_TYPE, NULL, -1);
+  }
+  
+  /*
+--- 9503,9520 ----
+  }
+  
+  /*
+!  * reset v:option_new, v:option_old, v:option_oldlocal, v:option_oldglobal,
+!  * v:option_type, and v:option_command.
+   */
+      void
+  reset_v_option_vars(void)
+  {
+      set_vim_var_string(VV_OPTION_NEW,  NULL, -1);
+      set_vim_var_string(VV_OPTION_OLD,  NULL, -1);
++     set_vim_var_string(VV_OPTION_OLDLOCAL, NULL, -1);
++     set_vim_var_string(VV_OPTION_OLDGLOBAL, NULL, -1);
+      set_vim_var_string(VV_OPTION_TYPE, NULL, -1);
++     set_vim_var_string(VV_OPTION_COMMAND, NULL, -1);
+  }
+  
+  /*
+*** ../vim-8.1.1541/src/option.c	2019-06-12 19:05:44.925966622 +0200
+--- src/option.c	2019-06-15 17:00:37.673770301 +0200
+***************
+*** 4336,4347 ****
+  #endif
+  
+  #if defined(FEAT_EVAL)
+      static void
+  trigger_optionsset_string(
+  	int	opt_idx,
+  	int	opt_flags,
+! 	char_u *oldval,
+! 	char_u *newval)
+  {
+      // Don't do this recursively.
+      if (oldval != NULL && newval != NULL
+--- 4336,4360 ----
+  #endif
+  
+  #if defined(FEAT_EVAL)
++ /*
++  * Trigger the OptionSet autocommand.
++  * "opt_idx"	is the index of the option being set.
++  * "opt_flags"	can be OPT_LOCAL etc.
++  * "oldval"	the old value
++  *  "oldval_l"  the old local value (only non-NULL if global and local value
++  *		are set)
++  * "oldval_g"   the old global value (only non-NULL if global and local value
++  *		are set)
++  * "newval"	the new value
++  */
+      static void
+  trigger_optionsset_string(
+  	int	opt_idx,
+  	int	opt_flags,
+! 	char_u  *oldval,
+! 	char_u  *oldval_l,
+! 	char_u  *oldval_g,
+! 	char_u  *newval)
+  {
+      // Don't do this recursively.
+      if (oldval != NULL && newval != NULL
+***************
+*** 4354,4359 ****
+--- 4367,4393 ----
+  	set_vim_var_string(VV_OPTION_OLD, oldval, -1);
+  	set_vim_var_string(VV_OPTION_NEW, newval, -1);
+  	set_vim_var_string(VV_OPTION_TYPE, buf_type, -1);
++ 	if (opt_flags & OPT_LOCAL)
++ 	{
++ 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"setlocal", -1);
++ 	    set_vim_var_string(VV_OPTION_OLDLOCAL, oldval, -1);
++ 	}
++ 	if (opt_flags & OPT_GLOBAL)
++ 	{
++ 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"setglobal", -1);
++ 	    set_vim_var_string(VV_OPTION_OLDGLOBAL, oldval, -1);
++ 	}
++ 	if ((opt_flags & (OPT_LOCAL | OPT_GLOBAL)) == 0)
++ 	{
++ 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"set", -1);
++ 	    set_vim_var_string(VV_OPTION_OLDLOCAL, oldval_l, -1);
++ 	    set_vim_var_string(VV_OPTION_OLDGLOBAL, oldval_g, -1);
++ 	}
++ 	if (opt_flags & OPT_MODELINE)
++ 	{
++ 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"modeline", -1);
++ 	    set_vim_var_string(VV_OPTION_OLDLOCAL, oldval, -1);
++ 	}
+  	apply_autocmds(EVENT_OPTIONSET,
+  		       (char_u *)options[opt_idx].fullname, NULL, FALSE, NULL);
+  	reset_v_option_vars();
+***************
+*** 4836,4843 ****
+--- 4870,4881 ----
+  			char_u	  *oldval = NULL; /* previous value if *varp */
+  			char_u	  *newval;
+  			char_u	  *origval = NULL;
++ 			char_u	  *origval_l = NULL;
++ 			char_u	  *origval_g = NULL;
+  #if defined(FEAT_EVAL)
+  			char_u	  *saved_origval = NULL;
++ 			char_u	  *saved_origval_l = NULL;
++ 			char_u	  *saved_origval_g = NULL;
+  			char_u	  *saved_newval = NULL;
+  #endif
+  			unsigned  newlen;
+***************
+*** 4857,4864 ****
+  			 * new value is valid. */
+  			oldval = *(char_u **)varp;
+  
+! 			/* When setting the local value of a global
+! 			 * option, the old value may be the global value. */
+  			if (((int)options[opt_idx].indir & PV_BOTH)
+  					       && (opt_flags & OPT_LOCAL))
+  			    origval = *(char_u **)get_varp(
+--- 4895,4917 ----
+  			 * new value is valid. */
+  			oldval = *(char_u **)varp;
+  
+! 			if ((opt_flags & (OPT_LOCAL | OPT_GLOBAL)) == 0)
+! 			{
+! 			    origval_l = *(char_u **)get_varp_scope(
+! 					       &(options[opt_idx]), OPT_LOCAL);
+! 			    origval_g = *(char_u **)get_varp_scope(
+! 					      &(options[opt_idx]), OPT_GLOBAL);
+! 
+! 			    // A global-local string option might have an empty
+! 			    // option as value to indicate that the global
+! 			    // value should be used.
+! 			    if (((int)options[opt_idx].indir & PV_BOTH)
+! 						  && origval_l == empty_option)
+! 				origval_l = origval_g;
+! 			}
+! 
+! 			// When setting the local value of a global
+! 			// option, the old value may be the global value.
+  			if (((int)options[opt_idx].indir & PV_BOTH)
+  					       && (opt_flags & OPT_LOCAL))
+  			    origval = *(char_u **)get_varp(
+***************
+*** 4944,4949 ****
+--- 4997,5006 ----
+  				vim_free(oldval);
+  				if (origval == oldval)
+  				    origval = *(char_u **)varp;
++ 				if (origval_l == oldval)
++ 				    origval_l = *(char_u **)varp;
++ 				if (origval_g == oldval)
++ 				    origval_g = *(char_u **)varp;
+  				oldval = *(char_u **)varp;
+  			    }
+  			    /*
+***************
+*** 5201,5206 ****
+--- 5258,5267 ----
+  			    /* newval (and varp) may become invalid if the
+  			     * buffer is closed by autocommands. */
+  			    saved_newval = vim_strsave(newval);
++ 			    if (origval_l != NULL)
++ 				saved_origval_l = vim_strsave(origval_l);
++ 			    if (origval_g != NULL)
++ 				saved_origval_g = vim_strsave(origval_g);
+  			}
+  #endif
+  
+***************
+*** 5234,5242 ****
+  
+  #if defined(FEAT_EVAL)
+  			if (errmsg == NULL)
+! 			    trigger_optionsset_string(opt_idx, opt_flags,
+! 						  saved_origval, saved_newval);
+  			vim_free(saved_origval);
+  			vim_free(saved_newval);
+  #endif
+  			/* If error detected, print the error message. */
+--- 5295,5307 ----
+  
+  #if defined(FEAT_EVAL)
+  			if (errmsg == NULL)
+! 			    trigger_optionsset_string(
+! 				    opt_idx, opt_flags, saved_origval,
+! 				    saved_origval_l, saved_origval_g,
+! 				    saved_newval);
+  			vim_free(saved_origval);
++ 			vim_free(saved_origval_l);
++ 			vim_free(saved_origval_g);
+  			vim_free(saved_newval);
+  #endif
+  			/* If error detected, print the error message. */
+***************
+*** 6070,6077 ****
+--- 6135,6146 ----
+      char_u	*s;
+      char_u	**varp;
+      char_u	*oldval;
++     char_u	*oldval_l = NULL;
++     char_u	*oldval_g = NULL;
+  #if defined(FEAT_EVAL)
+      char_u	*saved_oldval = NULL;
++     char_u	*saved_oldval_l = NULL;
++     char_u	*saved_oldval_g = NULL;
+      char_u	*saved_newval = NULL;
+  #endif
+      char	*r = NULL;
+***************
+*** 6089,6094 ****
+--- 6158,6170 ----
+  			? OPT_GLOBAL : OPT_LOCAL)
+  		    : opt_flags);
+  	oldval = *varp;
++ 	if ((opt_flags & (OPT_LOCAL | OPT_GLOBAL)) == 0)
++ 	{
++ 	    oldval_l = *(char_u **)get_varp_scope(&(options[opt_idx]),
++ 								    OPT_LOCAL);
++ 	    oldval_g = *(char_u **)get_varp_scope(&(options[opt_idx]),
++ 								   OPT_GLOBAL);
++ 	}
+  	*varp = s;
+  
+  #if defined(FEAT_EVAL)
+***************
+*** 6098,6103 ****
+--- 6174,6183 ----
+  # endif
+  		)
+  	{
++ 	    if (oldval_l != NULL)
++ 		saved_oldval_l = vim_strsave(oldval_l);
++ 	    if (oldval_g != NULL)
++ 		saved_oldval_g = vim_strsave(oldval_g);
+  	    saved_oldval = vim_strsave(oldval);
+  	    saved_newval = vim_strsave(s);
+  	}
+***************
+*** 6110,6117 ****
+  	/* call autocommand after handling side effects */
+  	if (r == NULL)
+  	    trigger_optionsset_string(opt_idx, opt_flags,
+! 						   saved_oldval, saved_newval);
+  	vim_free(saved_oldval);
+  	vim_free(saved_newval);
+  #endif
+      }
+--- 6190,6200 ----
+  	/* call autocommand after handling side effects */
+  	if (r == NULL)
+  	    trigger_optionsset_string(opt_idx, opt_flags,
+! 				   saved_oldval, saved_oldval_l,
+! 				   saved_oldval_g, saved_newval);
+  	vim_free(saved_oldval);
++ 	vim_free(saved_oldval_l);
++ 	vim_free(saved_oldval_g);
+  	vim_free(saved_newval);
+  #endif
+      }
+***************
+*** 8442,8447 ****
+--- 8525,8531 ----
+      int		opt_flags)		/* OPT_LOCAL and/or OPT_GLOBAL */
+  {
+      int		old_value = *(int *)varp;
++     int		old_global_value = 0;
+  
+      /* Disallow changing some options from secure mode */
+      if ((secure
+***************
+*** 8451,8456 ****
+--- 8535,8547 ----
+  		) && (options[opt_idx].flags & P_SECURE))
+  	return e_secure;
+  
++     // Save the global value before changing anything. This is needed as for
++     // a global-only option setting the "local value" in fact sets the global
++     // value (since there is only one value).
++     if ((opt_flags & (OPT_LOCAL | OPT_GLOBAL)) == 0)
++ 	old_global_value = *(int *)get_varp_scope(&(options[opt_idx]),
++ 								   OPT_GLOBAL);
++ 
+      *(int *)varp = value;	    /* set the new value */
+  #ifdef FEAT_EVAL
+      /* Remember where the option was set. */
+***************
+*** 8976,8990 ****
+      // Don't do this while starting up or recursively.
+      if (!starting && *get_vim_var_str(VV_OPTION_TYPE) == NUL)
+      {
+! 	char_u buf_old[2], buf_new[2], buf_type[7];
+  
+  	vim_snprintf((char *)buf_old, 2, "%d", old_value ? TRUE: FALSE);
+  	vim_snprintf((char *)buf_new, 2, "%d", value ? TRUE: FALSE);
+! 	vim_snprintf((char *)buf_type, 7, "%s", (opt_flags & OPT_LOCAL) ? "local" : "global");
+  	set_vim_var_string(VV_OPTION_NEW, buf_new, -1);
+  	set_vim_var_string(VV_OPTION_OLD, buf_old, -1);
+  	set_vim_var_string(VV_OPTION_TYPE, buf_type, -1);
+! 	apply_autocmds(EVENT_OPTIONSET, (char_u *) options[opt_idx].fullname, NULL, FALSE, NULL);
+  	reset_v_option_vars();
+      }
+  #endif
+--- 9067,9106 ----
+      // Don't do this while starting up or recursively.
+      if (!starting && *get_vim_var_str(VV_OPTION_TYPE) == NUL)
+      {
+! 	char_u buf_old[2], buf_old_global[2], buf_new[2], buf_type[7];
+  
+  	vim_snprintf((char *)buf_old, 2, "%d", old_value ? TRUE: FALSE);
++ 	vim_snprintf((char *)buf_old_global, 2, "%d",
++ 					       old_global_value ? TRUE: FALSE);
+  	vim_snprintf((char *)buf_new, 2, "%d", value ? TRUE: FALSE);
+! 	vim_snprintf((char *)buf_type, 7, "%s",
+! 				 (opt_flags & OPT_LOCAL) ? "local" : "global");
+  	set_vim_var_string(VV_OPTION_NEW, buf_new, -1);
+  	set_vim_var_string(VV_OPTION_OLD, buf_old, -1);
+  	set_vim_var_string(VV_OPTION_TYPE, buf_type, -1);
+! 	if (opt_flags & OPT_LOCAL)
+! 	{
+! 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"setlocal", -1);
+! 	    set_vim_var_string(VV_OPTION_OLDLOCAL, buf_old, -1);
+! 	}
+! 	if (opt_flags & OPT_GLOBAL)
+! 	{
+! 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"setglobal", -1);
+! 	    set_vim_var_string(VV_OPTION_OLDGLOBAL, buf_old, -1);
+! 	}
+! 	if ((opt_flags & (OPT_LOCAL | OPT_GLOBAL)) == 0)
+! 	{
+! 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"set", -1);
+! 	    set_vim_var_string(VV_OPTION_OLDLOCAL, buf_old, -1);
+! 	    set_vim_var_string(VV_OPTION_OLDGLOBAL, buf_old_global, -1);
+! 	}
+! 	if (opt_flags & OPT_MODELINE)
+! 	{
+! 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"modeline", -1);
+! 	    set_vim_var_string(VV_OPTION_OLDLOCAL, buf_old, -1);
+! 	}
+! 	apply_autocmds(EVENT_OPTIONSET, (char_u *)options[opt_idx].fullname,
+! 							    NULL, FALSE, NULL);
+  	reset_v_option_vars();
+      }
+  #endif
+***************
+*** 9014,9021 ****
+  {
+      char	*errmsg = NULL;
+      long	old_value = *(long *)varp;
+!     long	old_Rows = Rows;	/* remember old Rows */
+!     long	old_Columns = Columns;	/* remember old Columns */
+      long	*pp = (long *)varp;
+  
+      /* Disallow changing some options from secure mode. */
+--- 9130,9139 ----
+  {
+      char	*errmsg = NULL;
+      long	old_value = *(long *)varp;
+!     long	old_global_value = 0;	// only used when setting a local and
+! 					// global option
+!     long	old_Rows = Rows;	// remember old Rows
+!     long	old_Columns = Columns;	// remember old Columns
+      long	*pp = (long *)varp;
+  
+      /* Disallow changing some options from secure mode. */
+***************
+*** 9026,9031 ****
+--- 9144,9155 ----
+  		) && (options[opt_idx].flags & P_SECURE))
+  	return e_secure;
+  
++     // Save the global value before changing anything. This is needed as for
++     // a global-only option setting the "local value" infact sets the global
++     // value (since there is only one value).
++     if ((opt_flags & (OPT_LOCAL | OPT_GLOBAL)) == 0)
++ 	old_global_value = *(long *)get_varp_scope(&(options[opt_idx]), OPT_GLOBAL);
++ 
+      *pp = value;
+  #ifdef FEAT_EVAL
+      /* Remember where the option was set. */
+***************
+*** 9533,9547 ****
+      // Don't do this while starting up, failure or recursively.
+      if (!starting && errmsg == NULL && *get_vim_var_str(VV_OPTION_TYPE) == NUL)
+      {
+! 	char_u buf_old[11], buf_new[11], buf_type[7];
+! 
+  	vim_snprintf((char *)buf_old, 10, "%ld", old_value);
+  	vim_snprintf((char *)buf_new, 10, "%ld", value);
+  	vim_snprintf((char *)buf_type, 7, "%s", (opt_flags & OPT_LOCAL) ? "local" : "global");
+  	set_vim_var_string(VV_OPTION_NEW, buf_new, -1);
+  	set_vim_var_string(VV_OPTION_OLD, buf_old, -1);
+  	set_vim_var_string(VV_OPTION_TYPE, buf_type, -1);
+! 	apply_autocmds(EVENT_OPTIONSET, (char_u *) options[opt_idx].fullname, NULL, FALSE, NULL);
+  	reset_v_option_vars();
+      }
+  #endif
+--- 9657,9693 ----
+      // Don't do this while starting up, failure or recursively.
+      if (!starting && errmsg == NULL && *get_vim_var_str(VV_OPTION_TYPE) == NUL)
+      {
+! 	char_u buf_old[11], buf_old_global[11], buf_new[11], buf_type[7];
+  	vim_snprintf((char *)buf_old, 10, "%ld", old_value);
++ 	vim_snprintf((char *)buf_old_global, 10, "%ld", old_global_value);
+  	vim_snprintf((char *)buf_new, 10, "%ld", value);
+  	vim_snprintf((char *)buf_type, 7, "%s", (opt_flags & OPT_LOCAL) ? "local" : "global");
+  	set_vim_var_string(VV_OPTION_NEW, buf_new, -1);
+  	set_vim_var_string(VV_OPTION_OLD, buf_old, -1);
+  	set_vim_var_string(VV_OPTION_TYPE, buf_type, -1);
+! 	if (opt_flags & OPT_LOCAL)
+! 	{
+! 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"setlocal", -1);
+! 	    set_vim_var_string(VV_OPTION_OLDLOCAL, buf_old, -1);
+! 	}
+! 	if (opt_flags & OPT_GLOBAL)
+! 	{
+! 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"setglobal", -1);
+! 	    set_vim_var_string(VV_OPTION_OLDGLOBAL, buf_old, -1);
+! 	}
+! 	if ((opt_flags & (OPT_LOCAL | OPT_GLOBAL)) == 0)
+! 	{
+! 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"set", -1);
+! 	    set_vim_var_string(VV_OPTION_OLDLOCAL, buf_old, -1);
+! 	    set_vim_var_string(VV_OPTION_OLDGLOBAL, buf_old_global, -1);
+! 	}
+! 	if (opt_flags & OPT_MODELINE)
+! 	{
+! 	    set_vim_var_string(VV_OPTION_COMMAND, (char_u *)"modeline", -1);
+! 	    set_vim_var_string(VV_OPTION_OLDLOCAL, buf_old, -1);
+! 	}
+! 	apply_autocmds(EVENT_OPTIONSET, (char_u *)options[opt_idx].fullname,
+! 							    NULL, FALSE, NULL);
+  	reset_v_option_vars();
+      }
+  #endif
+*** ../vim-8.1.1541/src/structs.h	2019-06-13 23:59:46.784290745 +0200
+--- src/structs.h	2019-06-15 17:02:24.725203646 +0200
+***************
+*** 1369,1380 ****
+  };
+  typedef struct dictitem_S dictitem_T;
+  
+! /* A dictitem with a 16 character key (plus NUL). */
+  struct dictitem16_S
+  {
+      typval_T	di_tv;		/* type and value of the variable */
+      char_u	di_flags;	/* flags (only used for variable) */
+!     char_u	di_key[17];	/* key */
+  };
+  typedef struct dictitem16_S dictitem16_T;
+  
+--- 1369,1384 ----
+  };
+  typedef struct dictitem_S dictitem_T;
+  
+! /*
+!  * A dictitem with a 16 character key (plus NUL).  This is an efficient way to
+!  * have a fixed-size dictitem.
+!  */
+! #define DICTITEM16_KEY_LEN 16
+  struct dictitem16_S
+  {
+      typval_T	di_tv;		/* type and value of the variable */
+      char_u	di_flags;	/* flags (only used for variable) */
+!     char_u	di_key[DICTITEM16_KEY_LEN + 1];	/* key */
+  };
+  typedef struct dictitem16_S dictitem16_T;
+  
+*** ../vim-8.1.1541/src/testdir/test_autocmd.vim	2019-05-20 22:12:30.720442793 +0200
+--- src/testdir/test_autocmd.vim	2019-06-15 16:41:52.395744786 +0200
+***************
+*** 495,503 ****
+  endfunc
+  
+  func s:AutoCommandOptionSet(match)
+    let item     = remove(g:options, 0)
+!   let expected = printf("Option: <%s>, Oldval: <%s>, NewVal: <%s>, Scope: <%s>\n", item[0], item[1], item[2], item[3])
+!   let actual   = printf("Option: <%s>, Oldval: <%s>, NewVal: <%s>, Scope: <%s>\n", a:match, v:option_old, v:option_new, v:option_type)
+    let g:opt    = [expected, actual]
+    "call assert_equal(expected, actual)
+  endfunc
+--- 495,504 ----
+  endfunc
+  
+  func s:AutoCommandOptionSet(match)
++   let template = "Option: <%s>, OldVal: <%s>, OldValLocal: <%s>, OldValGlobal: <%s>, NewVal: <%s>, Scope: <%s>, Command: <%s>\n"
+    let item     = remove(g:options, 0)
+!   let expected = printf(template, item[0], item[1], item[2], item[3], item[4], item[5], item[6])
+!   let actual   = printf(template, a:match, v:option_old, v:option_oldlocal, v:option_oldglobal, v:option_new, v:option_type, v:option_command)
+    let g:opt    = [expected, actual]
+    "call assert_equal(expected, actual)
+  endfunc
+***************
+*** 514,605 ****
+    au OptionSet * :call s:AutoCommandOptionSet(expand("<amatch>"))
+  
+    " 1: Setting number option"
+!   let g:options=[['number', 0, 1, 'global']]
+    set nu
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 2: Setting local number option"
+!   let g:options=[['number', 1, 0, 'local']]
+    setlocal nonu
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 3: Setting global number option"
+!   let g:options=[['number', 1, 0, 'global']]
+    setglobal nonu
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 4: Setting local autoindent option"
+!   let g:options=[['autoindent', 0, 1, 'local']]
+    setlocal ai
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 5: Setting global autoindent option"
+!   let g:options=[['autoindent', 0, 1, 'global']]
+    setglobal ai
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 6: Setting global autoindent option"
+!   let g:options=[['autoindent', 1, 0, 'global']]
+    set ai!
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " Should not print anything, use :noa
+    " 7: don't trigger OptionSet"
+!   let g:options=[['invalid', 1, 1, 'invalid']]
+    noa set nonu
+!   call assert_equal([['invalid', 1, 1, 'invalid']], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 8: Setting several global list and number option"
+!   let g:options=[['list', 0, 1, 'global'], ['number', 0, 1, 'global']]
+    set list nu
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 9: don't trigger OptionSet"
+!   let g:options=[['invalid', 1, 1, 'invalid'], ['invalid', 1, 1, 'invalid']]
+    noa set nolist nonu
+!   call assert_equal([['invalid', 1, 1, 'invalid'], ['invalid', 1, 1, 'invalid']], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 10: Setting global acd"
+!   let g:options=[['autochdir', 0, 1, 'local']]
+    setlocal acd
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 11: Setting global autoread (also sets local value)"
+!   let g:options=[['autoread', 0, 1, 'global']]
+    set ar
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 12: Setting local autoread"
+!   let g:options=[['autoread', 1, 1, 'local']]
+    setlocal ar
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 13: Setting global autoread"
+!   let g:options=[['autoread', 1, 0, 'global']]
+    setglobal invar
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 14: Setting option backspace through :let"
+!   let g:options=[['backspace', '', 'eol,indent,start', 'global']]
+    let &bs="eol,indent,start"
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 15: Setting option backspace through setbufvar()"
+!   let g:options=[['backup', 0, 1, 'local']]
+    " try twice, first time, shouldn't trigger because option name is invalid,
+    " second time, it should trigger
+    let bnum = bufnr('%')
+--- 515,614 ----
+    au OptionSet * :call s:AutoCommandOptionSet(expand("<amatch>"))
+  
+    " 1: Setting number option"
+!   let g:options=[['number', 0, 0, 0, 1, 'global', 'set']]
+    set nu
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 2: Setting local number option"
+!   let g:options=[['number', 1, 1, '', 0, 'local', 'setlocal']]
+    setlocal nonu
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 3: Setting global number option"
+!   let g:options=[['number', 1, '', 1, 0, 'global', 'setglobal']]
+    setglobal nonu
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 4: Setting local autoindent option"
+!   let g:options=[['autoindent', 0, 0, '', 1, 'local', 'setlocal']]
+    setlocal ai
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 5: Setting global autoindent option"
+!   let g:options=[['autoindent', 0, '', 0, 1, 'global', 'setglobal']]
+    setglobal ai
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 6: Setting global autoindent option"
+!   let g:options=[['autoindent', 1, 1, 1, 0, 'global', 'set']]
+!   set ai!
+!   call assert_equal([], g:options)
+!   call assert_equal(g:opt[0], g:opt[1])
+! 
+!   " 6a: Setting global autoindent option"
+!   let g:options=[['autoindent', 1, 1, 0, 0, 'global', 'set']]
+!   noa setlocal ai
+!   noa setglobal noai
+    set ai!
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " Should not print anything, use :noa
+    " 7: don't trigger OptionSet"
+!   let g:options=[['invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid']]
+    noa set nonu
+!   call assert_equal([['invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid']], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 8: Setting several global list and number option"
+!   let g:options=[['list', 0, 0, 0, 1, 'global', 'set'], ['number', 0, 0, 0, 1, 'global', 'set']]
+    set list nu
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 9: don't trigger OptionSet"
+!   let g:options=[['invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid'], ['invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid']]
+    noa set nolist nonu
+!   call assert_equal([['invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid'], ['invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'invalid']], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 10: Setting global acd"
+!   let g:options=[['autochdir', 0, 0, '', 1, 'local', 'setlocal']]
+    setlocal acd
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 11: Setting global autoread (also sets local value)"
+!   let g:options=[['autoread', 0, 0, 0, 1, 'global', 'set']]
+    set ar
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 12: Setting local autoread"
+!   let g:options=[['autoread', 1, 1, '', 1, 'local', 'setlocal']]
+    setlocal ar
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 13: Setting global autoread"
+!   let g:options=[['autoread', 1, '', 1, 0, 'global', 'setglobal']]
+    setglobal invar
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 14: Setting option backspace through :let"
+!   let g:options=[['backspace', '', '', '', 'eol,indent,start', 'global', 'set']]
+    let &bs="eol,indent,start"
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 15: Setting option backspace through setbufvar()"
+!   let g:options=[['backup', 0, 0, '', 1, 'local', 'setlocal']]
+    " try twice, first time, shouldn't trigger because option name is invalid,
+    " second time, it should trigger
+    let bnum = bufnr('%')
+***************
+*** 610,643 ****
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 16: Setting number option using setwinvar"
+!   let g:options=[['number', 0, 1, 'local']]
+    call setwinvar(0, '&number', 1)
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 17: Setting key option, shouldn't trigger"
+!   let g:options=[['key', 'invalid', 'invalid1', 'invalid']]
+    setlocal key=blah
+    setlocal key=
+!   call assert_equal([['key', 'invalid', 'invalid1', 'invalid']], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+!   " 18: Setting string option"
+    let oldval = &tags
+!   let g:options=[['tags', oldval, 'tagpath', 'global']]
+    set tags=tagpath
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+!   " 1l: Resetting string option"
+!   let g:options=[['tags', 'tagpath', oldval, 'global']]
+    set tags&
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " Cleanup
+    au! OptionSet
+!   for opt in ['nu', 'ai', 'acd', 'ar', 'bs', 'backup', 'cul', 'cp']
+      exe printf(":set %s&vim", opt)
+    endfor
+    call test_override('starting', 0)
+--- 619,1106 ----
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 16: Setting number option using setwinvar"
+!   let g:options=[['number', 0, 0, '', 1, 'local', 'setlocal']]
+    call setwinvar(0, '&number', 1)
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+    " 17: Setting key option, shouldn't trigger"
+!   let g:options=[['key', 'invalid', 'invalid1', 'invalid2', 'invalid3', 'invalid4', 'invalid5']]
+    setlocal key=blah
+    setlocal key=
+!   call assert_equal([['key', 'invalid', 'invalid1', 'invalid2', 'invalid3', 'invalid4', 'invalid5']], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+! 
+!   " 18a: Setting string global option"
+!   let oldval = &backupext
+!   let g:options=[['backupext', oldval, oldval, oldval, 'foo', 'global', 'set']]
+!   set backupext=foo
+!   call assert_equal([], g:options)
+!   call assert_equal(g:opt[0], g:opt[1])
+! 
+!   " 18b: Resetting string global option"
+!   let g:options=[['backupext', 'foo', 'foo', 'foo', oldval, 'global', 'set']]
+!   set backupext&
+!   call assert_equal([], g:options)
+!   call assert_equal(g:opt[0], g:opt[1])
+! 
+!   " 18c: Setting global string global option"
+!   let g:options=[['backupext', oldval, '', oldval, 'bar', 'global', 'setglobal']]
+!   setglobal backupext=bar
+!   call assert_equal([], g:options)
+!   call assert_equal(g:opt[0], g:opt[1])
+! 
+!   " 18d: Setting local string global option"
+!   " As this is a global option this sets the global value even though
+!   " :setlocal is used!
+!   noa set backupext& " Reset global and local value (without triggering autocmd)
+!   let g:options=[['backupext', oldval, oldval, '', 'baz', 'local', 'setlocal']]
+!   setlocal backupext=baz
+!   call assert_equal([], g:options)
+!   call assert_equal(g:opt[0], g:opt[1])
+! 
+!   " 18e: Setting again string global option"
+!   noa setglobal backupext=ext_global " Reset global and local value (without triggering autocmd)
+!   noa setlocal backupext=ext_local " Sets the global(!) value!
+!   let g:options=[['backupext', 'ext_local', 'ext_local', 'ext_local', 'fuu', 'global', 'set']]
+!   set backupext=fuu
+!   call assert_equal([], g:options)
+!   call assert_equal(g:opt[0], g:opt[1])
+! 
+! 
+!   " 19a: Setting string local-global (to buffer) option"
+    let oldval = &tags
+!   let g:options=[['tags', oldval, oldval, oldval, 'tagpath', 'global', 'set']]
+    set tags=tagpath
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
+!   " 19b: Resetting string local-global (to buffer) option"
+!   let g:options=[['tags', 'tagpath', 'tagpath', 'tagpath', oldval, 'global', 'set']]
+    set tags&
+    call assert_equal([], g:options)
+    call assert_equal(g:opt[0], g:opt[1])
+  
++   " 19c: Setting global string local-global (to buffer) option "
++   let g:options=[['tags', oldval, '', oldval, 'tagpath1', 'global', 'setglobal']]
++   setglobal tags=tagpath1
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 19d: Setting local string local-global (to buffer) option"
++   let g:options=[['tags', 'tagpath1', 'tagpath1', '', 'tagpath2', 'local', 'setlocal']]
++   setlocal tags=tagpath2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 19e: Setting again string local-global (to buffer) option"
++   " Note: v:option_old is the old global value for local-global string options
++   " but the old local value for all other kinds of options.
++   noa setglobal tags=tag_global " Reset global and local value (without triggering autocmd)
++   noa setlocal tags=tag_local
++   let g:options=[['tags', 'tag_global', 'tag_local', 'tag_global', 'tagpath', 'global', 'set']]
++   set tags=tagpath
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 19f: Setting string local-global (to buffer) option to an empty string"
++   " Note: v:option_old is the old global value for local-global string options
++   " but the old local value for all other kinds of options.
++   noa set tags=tag_global " Reset global and local value (without triggering autocmd)
++   noa setlocal tags= " empty string
++   let g:options=[['tags', 'tag_global', '', 'tag_global', 'tagpath', 'global', 'set']]
++   set tags=tagpath
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 20a: Setting string local (to buffer) option"
++   let oldval = &spelllang
++   let g:options=[['spelllang', oldval, oldval, oldval, 'elvish,klingon', 'global', 'set']]
++   set spelllang=elvish,klingon
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 20b: Resetting string local (to buffer) option"
++   let g:options=[['spelllang', 'elvish,klingon', 'elvish,klingon', 'elvish,klingon', oldval, 'global', 'set']]
++   set spelllang&
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 20c: Setting global string local (to buffer) option"
++   let g:options=[['spelllang', oldval, '', oldval, 'elvish', 'global', 'setglobal']]
++   setglobal spelllang=elvish
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 20d: Setting local string local (to buffer) option"
++   noa set spelllang& " Reset global and local value (without triggering autocmd)
++   let g:options=[['spelllang', oldval, oldval, '', 'klingon', 'local', 'setlocal']]
++   setlocal spelllang=klingon
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 20e: Setting again string local (to buffer) option"
++   " Note: v:option_old is the old global value for local-global string options
++   " but the old local value for all other kinds of options.
++   noa setglobal spelllang=spellglobal " Reset global and local value (without triggering autocmd)
++   noa setlocal spelllang=spelllocal
++   let g:options=[['spelllang', 'spelllocal', 'spelllocal', 'spellglobal', 'foo', 'global', 'set']]
++   set spelllang=foo
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 21a: Setting string local-global (to window) option"
++   let oldval = &statusline
++   let g:options=[['statusline', oldval, oldval, oldval, 'foo', 'global', 'set']]
++   set statusline=foo
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 21b: Resetting string local-global (to window) option"
++   " Note: v:option_old is the old global value for local-global string options
++   " but the old local value for all other kinds of options.
++   let g:options=[['statusline', 'foo', 'foo', 'foo', oldval, 'global', 'set']]
++   set statusline&
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 21c: Setting global string local-global (to window) option"
++   let g:options=[['statusline', oldval, '', oldval, 'bar', 'global', 'setglobal']]
++   setglobal statusline=bar
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 21d: Setting local string local-global (to window) option"
++   noa set statusline& " Reset global and local value (without triggering autocmd)
++   let g:options=[['statusline', oldval, oldval, '', 'baz', 'local', 'setlocal']]
++   setlocal statusline=baz
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 21e: Setting again string local-global (to window) option"
++   " Note: v:option_old is the old global value for local-global string options
++   " but the old local value for all other kinds of options.
++   noa setglobal statusline=bar " Reset global and local value (without triggering autocmd)
++   noa setlocal statusline=baz
++   let g:options=[['statusline', 'bar', 'baz', 'bar', 'foo', 'global', 'set']]
++   set statusline=foo
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 22a: Setting string local (to window) option"
++   let oldval = &foldignore
++   let g:options=[['foldignore', oldval, oldval, oldval, 'fo', 'global', 'set']]
++   set foldignore=fo
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 22b: Resetting string local (to window) option"
++   let g:options=[['foldignore', 'fo', 'fo', 'fo', oldval, 'global', 'set']]
++   set foldignore&
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 22c: Setting global string local (to window) option"
++   let g:options=[['foldignore', oldval, '', oldval, 'bar', 'global', 'setglobal']]
++   setglobal foldignore=bar
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 22d: Setting local string local (to window) option"
++   noa set foldignore& " Reset global and local value (without triggering autocmd)
++   let g:options=[['foldignore', oldval, oldval, '', 'baz', 'local', 'setlocal']]
++   setlocal foldignore=baz
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 22e: Setting again string local (to window) option"
++   noa setglobal foldignore=glob " Reset global and local value (without triggering autocmd)
++   noa setlocal foldignore=loc
++   let g:options=[['foldignore', 'loc', 'loc', 'glob', 'fo', 'global', 'set']]
++   set foldignore=fo
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 23a: Setting global number local option"
++   noa setglobal cmdheight=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal cmdheight=1 " Sets the global(!) value!
++   let g:options=[['cmdheight', '1', '', '1', '2', 'global', 'setglobal']]
++   setglobal cmdheight=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 23b: Setting local number global option"
++   noa setglobal cmdheight=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal cmdheight=1 " Sets the global(!) value!
++   let g:options=[['cmdheight', '1', '1', '', '2', 'local', 'setlocal']]
++   setlocal cmdheight=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 23c: Setting again number global option"
++   noa setglobal cmdheight=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal cmdheight=1 " Sets the global(!) value!
++   let g:options=[['cmdheight', '1', '1', '1', '2', 'global', 'set']]
++   set cmdheight=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 23d: Setting again number global option"
++   noa set cmdheight=8 " Reset global and local value (without triggering autocmd)
++   let g:options=[['cmdheight', '8', '8', '8', '2', 'global', 'set']]
++   set cmdheight=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 24a: Setting global number global-local (to buffer) option"
++   noa setglobal undolevels=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal undolevels=1
++   let g:options=[['undolevels', '8', '', '8', '2', 'global', 'setglobal']]
++   setglobal undolevels=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 24b: Setting local number global-local (to buffer) option"
++   noa setglobal undolevels=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal undolevels=1
++   let g:options=[['undolevels', '1', '1', '', '2', 'local', 'setlocal']]
++   setlocal undolevels=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 24c: Setting again number global-local (to buffer) option"
++   noa setglobal undolevels=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal undolevels=1
++   let g:options=[['undolevels', '1', '1', '8', '2', 'global', 'set']]
++   set undolevels=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 24d: Setting again global number global-local (to buffer) option"
++   noa set undolevels=8 " Reset global and local value (without triggering autocmd)
++   let g:options=[['undolevels', '8', '8', '8', '2', 'global', 'set']]
++   set undolevels=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 25a: Setting global number local (to buffer) option"
++   noa setglobal wrapmargin=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal wrapmargin=1
++   let g:options=[['wrapmargin', '8', '', '8', '2', 'global', 'setglobal']]
++   setglobal wrapmargin=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 25b: Setting local number local (to buffer) option"
++   noa setglobal wrapmargin=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal wrapmargin=1
++   let g:options=[['wrapmargin', '1', '1', '', '2', 'local', 'setlocal']]
++   setlocal wrapmargin=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 25c: Setting again number local (to buffer) option"
++   noa setglobal wrapmargin=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal wrapmargin=1
++   let g:options=[['wrapmargin', '1', '1', '8', '2', 'global', 'set']]
++   set wrapmargin=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 25d: Setting again global number local (to buffer) option"
++   noa set wrapmargin=8 " Reset global and local value (without triggering autocmd)
++   let g:options=[['wrapmargin', '8', '8', '8', '2', 'global', 'set']]
++   set wrapmargin=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 26: Setting number global-local (to window) option.
++   " Such option does currently not exist.
++ 
++ 
++   " 27a: Setting global number local (to window) option"
++   noa setglobal foldcolumn=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal foldcolumn=1
++   let g:options=[['foldcolumn', '8', '', '8', '2', 'global', 'setglobal']]
++   setglobal foldcolumn=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 27b: Setting local number local (to window) option"
++   noa setglobal foldcolumn=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal foldcolumn=1
++   let g:options=[['foldcolumn', '1', '1', '', '2', 'local', 'setlocal']]
++   setlocal foldcolumn=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 27c: Setting again number local (to window) option"
++   noa setglobal foldcolumn=8 " Reset global and local value (without triggering autocmd)
++   noa setlocal foldcolumn=1
++   let g:options=[['foldcolumn', '1', '1', '8', '2', 'global', 'set']]
++   set foldcolumn=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 27d: Ssettin again global number local (to window) option"
++   noa set foldcolumn=8 " Reset global and local value (without triggering autocmd)
++   let g:options=[['foldcolumn', '8', '8', '8', '2', 'global', 'set']]
++   set foldcolumn=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 28a: Setting global boolean global option"
++   noa setglobal nowrapscan " Reset global and local value (without triggering autocmd)
++   noa setlocal wrapscan " Sets the global(!) value!
++   let g:options=[['wrapscan', '1', '', '1', '0', 'global', 'setglobal']]
++   setglobal nowrapscan
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 28b: Setting local boolean global option"
++   noa setglobal nowrapscan " Reset global and local value (without triggering autocmd)
++   noa setlocal wrapscan " Sets the global(!) value!
++   let g:options=[['wrapscan', '1', '1', '', '0', 'local', 'setlocal']]
++   setlocal nowrapscan
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 28c: Setting again boolean global option"
++   noa setglobal nowrapscan " Reset global and local value (without triggering autocmd)
++   noa setlocal wrapscan " Sets the global(!) value!
++   let g:options=[['wrapscan', '1', '1', '1', '0', 'global', 'set']]
++   set nowrapscan
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 28d: Setting again global boolean global option"
++   noa set nowrapscan " Reset global and local value (without triggering autocmd)
++   let g:options=[['wrapscan', '0', '0', '0', '1', 'global', 'set']]
++   set wrapscan
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 29a: Setting global boolean global-local (to buffer) option"
++   noa setglobal noautoread " Reset global and local value (without triggering autocmd)
++   noa setlocal autoread
++   let g:options=[['autoread', '0', '', '0', '1', 'global', 'setglobal']]
++   setglobal autoread
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 29b: Setting local boolean global-local (to buffer) option"
++   noa setglobal noautoread " Reset global and local value (without triggering autocmd)
++   noa setlocal autoread
++   let g:options=[['autoread', '1', '1', '', '0', 'local', 'setlocal']]
++   setlocal noautoread
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 29c: Setting again boolean global-local (to buffer) option"
++   noa setglobal noautoread " Reset global and local value (without triggering autocmd)
++   noa setlocal autoread
++   let g:options=[['autoread', '1', '1', '0', '1', 'global', 'set']]
++   set autoread
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 29d: Setting again global boolean global-local (to buffer) option"
++   noa set noautoread " Reset global and local value (without triggering autocmd)
++   let g:options=[['autoread', '0', '0', '0', '1', 'global', 'set']]
++   set autoread
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 30a: Setting global boolean local (to buffer) option"
++   noa setglobal nocindent " Reset global and local value (without triggering autocmd)
++   noa setlocal cindent
++   let g:options=[['cindent', '0', '', '0', '1', 'global', 'setglobal']]
++   setglobal cindent
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 30b: Setting local boolean local (to buffer) option"
++   noa setglobal nocindent " Reset global and local value (without triggering autocmd)
++   noa setlocal cindent
++   let g:options=[['cindent', '1', '1', '', '0', 'local', 'setlocal']]
++   setlocal nocindent
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 30c: Setting again boolean local (to buffer) option"
++   noa setglobal nocindent " Reset global and local value (without triggering autocmd)
++   noa setlocal cindent
++   let g:options=[['cindent', '1', '1', '0', '1', 'global', 'set']]
++   set cindent
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 30d: Setting again global boolean local (to buffer) option"
++   noa set nocindent " Reset global and local value (without triggering autocmd)
++   let g:options=[['cindent', '0', '0', '0', '1', 'global', 'set']]
++   set cindent
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 31: Setting boolean global-local (to window) option
++   " Currently no such option exists.
++ 
++ 
++   " 32a: Setting global boolean local (to window) option"
++   noa setglobal nocursorcolumn " Reset global and local value (without triggering autocmd)
++   noa setlocal cursorcolumn
++   let g:options=[['cursorcolumn', '0', '', '0', '1', 'global', 'setglobal']]
++   setglobal cursorcolumn
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 32b: Setting local boolean local (to window) option"
++   noa setglobal nocursorcolumn " Reset global and local value (without triggering autocmd)
++   noa setlocal cursorcolumn
++   let g:options=[['cursorcolumn', '1', '1', '', '0', 'local', 'setlocal']]
++   setlocal nocursorcolumn
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 32c: Setting again boolean local (to window) option"
++   noa setglobal nocursorcolumn " Reset global and local value (without triggering autocmd)
++   noa setlocal cursorcolumn
++   let g:options=[['cursorcolumn', '1', '1', '0', '1', 'global', 'set']]
++   set cursorcolumn
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++   " 32d: Setting again global boolean local (to window) option"
++   noa set nocursorcolumn " Reset global and local value (without triggering autocmd)
++   let g:options=[['cursorcolumn', '0', '0', '0', '1', 'global', 'set']]
++   set cursorcolumn
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
++   " 33: Test autocomands when an option value is converted internally.
++   noa set backspace=1 " Reset global and local value (without triggering autocmd)
++   let g:options=[['backspace', 'indent,eol', 'indent,eol', 'indent,eol', '2', 'global', 'set']]
++   set backspace=2
++   call assert_equal([], g:options)
++   call assert_equal(g:opt[0], g:opt[1])
++ 
++ 
+    " Cleanup
+    au! OptionSet
+!   for opt in ['nu', 'ai', 'acd', 'ar', 'bs', 'backup', 'cul', 'cp', 'backupext', 'tags', 'spelllang', 'statusline', 'foldignore', 'cmdheight', 'undolevels', 'wrapmargin', 'foldcolumn', 'wrapscan', 'autoread', 'cindent', 'cursorcolumn']
+      exe printf(":set %s&vim", opt)
+    endfor
+    call test_override('starting', 0)
+*** ../vim-8.1.1541/src/vim.h	2019-06-14 23:41:30.439699926 +0200
+--- src/vim.h	2019-06-15 16:45:31.978574232 +0200
+***************
+*** 1935,1975 ****
+  #define VV_COMPLETED_ITEM 60
+  #define VV_OPTION_NEW   61
+  #define VV_OPTION_OLD   62
+! #define VV_OPTION_TYPE  63
+! #define VV_ERRORS	64
+! #define VV_FALSE	65
+! #define VV_TRUE		66
+! #define VV_NULL		67
+! #define VV_NONE		68
+! #define VV_VIM_DID_ENTER 69
+! #define VV_TESTING	70
+! #define VV_TYPE_NUMBER	71
+! #define VV_TYPE_STRING	72
+! #define VV_TYPE_FUNC	73
+! #define VV_TYPE_LIST	74
+! #define VV_TYPE_DICT	75
+! #define VV_TYPE_FLOAT	76
+! #define VV_TYPE_BOOL	77
+! #define VV_TYPE_NONE	78
+! #define VV_TYPE_JOB	79
+! #define VV_TYPE_CHANNEL	80
+! #define VV_TYPE_BLOB	81
+! #define VV_TERMRFGRESP	82
+! #define VV_TERMRBGRESP	83
+! #define VV_TERMU7RESP	84
+! #define VV_TERMSTYLERESP 85
+! #define VV_TERMBLINKRESP 86
+! #define VV_EVENT	87
+! #define VV_VERSIONLONG	88
+! #define VV_LEN		89	// number of v: vars
+  
+! /* used for v_number in VAR_SPECIAL */
+  #define VVAL_FALSE	0L
+  #define VVAL_TRUE	1L
+  #define VVAL_NONE	2L
+  #define VVAL_NULL	3L
+  
+! /* Type values for type(). */
+  #define VAR_TYPE_NUMBER	    0
+  #define VAR_TYPE_STRING	    1
+  #define VAR_TYPE_FUNC	    2
+--- 1935,1978 ----
+  #define VV_COMPLETED_ITEM 60
+  #define VV_OPTION_NEW   61
+  #define VV_OPTION_OLD   62
+! #define VV_OPTION_OLDLOCAL 63
+! #define VV_OPTION_OLDGLOBAL 64
+! #define VV_OPTION_COMMAND 65
+! #define VV_OPTION_TYPE  66
+! #define VV_ERRORS	67
+! #define VV_FALSE	68
+! #define VV_TRUE		69
+! #define VV_NULL		70
+! #define VV_NONE		71
+! #define VV_VIM_DID_ENTER 72
+! #define VV_TESTING	73
+! #define VV_TYPE_NUMBER	74
+! #define VV_TYPE_STRING	75
+! #define VV_TYPE_FUNC	76
+! #define VV_TYPE_LIST	77
+! #define VV_TYPE_DICT	78
+! #define VV_TYPE_FLOAT	79
+! #define VV_TYPE_BOOL	80
+! #define VV_TYPE_NONE	81
+! #define VV_TYPE_JOB	82
+! #define VV_TYPE_CHANNEL	83
+! #define VV_TYPE_BLOB	84
+! #define VV_TERMRFGRESP	85
+! #define VV_TERMRBGRESP	86
+! #define VV_TERMU7RESP	87
+! #define VV_TERMSTYLERESP 88
+! #define VV_TERMBLINKRESP 89
+! #define VV_EVENT	90
+! #define VV_VERSIONLONG	91
+! #define VV_LEN		92	// number of v: vars
+  
+! // used for v_number in VAR_SPECIAL
+  #define VVAL_FALSE	0L
+  #define VVAL_TRUE	1L
+  #define VVAL_NONE	2L
+  #define VVAL_NULL	3L
+  
+! // Type values for type().
+  #define VAR_TYPE_NUMBER	    0
+  #define VAR_TYPE_STRING	    1
+  #define VAR_TYPE_FUNC	    2
+*** ../vim-8.1.1541/src/version.c	2019-06-15 16:34:18.538182171 +0200
+--- src/version.c	2019-06-15 17:08:45.651187040 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1542,
+  /**/
+
+-- 
+A computer program does what you tell it to do, not what you want it to do.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,194 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1648
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1648
+Problem:    MS-Windows: build error with normal feaures.
+Solution:   Adjust #ifdef for find_word_under_cursor().
+Files:	    src/beval.c, src/proto/beval.pro
+
+
+*** ../vim-8.1.1647/src/beval.c	2019-07-07 18:27:52.365277132 +0200
+--- src/beval.c	2019-07-07 20:28:52.915022150 +0200
+***************
+*** 10,71 ****
+  
+  #include "vim.h"
+  
+! #if defined(FEAT_BEVAL) || defined(PROTO)
+! 
+! /*
+!  * Get the text and position to be evaluated for "beval".
+!  * If "getword" is TRUE the returned text is not the whole line but the
+!  * relevant word in allocated memory.
+!  * Returns OK or FAIL.
+!  */
+!     int
+! get_beval_info(
+!     BalloonEval	*beval,
+!     int		getword,
+!     win_T	**winp,
+!     linenr_T	*lnump,
+!     char_u	**textp,
+!     int		*colp)
+! {
+!     int		row, col;
+! 
+! # ifdef FEAT_BEVAL_TERM
+! #  ifdef FEAT_GUI
+!     if (!gui.in_use)
+! #  endif
+!     {
+! 	row = mouse_row;
+! 	col = mouse_col;
+!     }
+! # endif
+! # ifdef FEAT_GUI
+!     if (gui.in_use)
+!     {
+! 	row = Y_2_ROW(beval->y);
+! 	col = X_2_COL(beval->x);
+!     }
+! #endif
+!     if (find_word_under_cursor(row, col, getword,
+! 		FIND_IDENT + FIND_STRING + FIND_EVAL,
+! 		winp, lnump, textp, colp) == OK)
+!     {
+! #ifdef FEAT_VARTABS
+! 	vim_free(beval->vts);
+! 	beval->vts = tabstop_copy((*winp)->w_buffer->b_p_vts_array);
+! 	if ((*winp)->w_buffer->b_p_vts_array != NULL && beval->vts == NULL)
+! 	{
+! 	    if (getword)
+! 		vim_free(*textp);
+! 	    return FAIL;
+! 	}
+! #endif
+! 	beval->ts = (*winp)->w_buffer->b_p_ts;
+! 	return OK;
+!     }
+! 
+!     return FAIL;
+! }
+! 
+  /*
+   * Find text under the mouse position "row" / "col".
+   * If "getword" is TRUE the returned text in "*textp" is not the whole line but
+--- 10,16 ----
+  
+  #include "vim.h"
+  
+! #if defined(FEAT_BEVAL) || defined(FEAT_TEXT_PROP) || defined(PROT)
+  /*
+   * Find text under the mouse position "row" / "col".
+   * If "getword" is TRUE the returned text in "*textp" is not the whole line but
+***************
+*** 174,179 ****
+--- 119,181 ----
+      }
+      return FAIL;
+  }
++ #endif
++ 
++ #if defined(FEAT_BEVAL) || defined(PROTO)
++ 
++ /*
++  * Get the text and position to be evaluated for "beval".
++  * If "getword" is TRUE the returned text is not the whole line but the
++  * relevant word in allocated memory.
++  * Returns OK or FAIL.
++  */
++     int
++ get_beval_info(
++     BalloonEval	*beval,
++     int		getword,
++     win_T	**winp,
++     linenr_T	*lnump,
++     char_u	**textp,
++     int		*colp)
++ {
++     int		row, col;
++ 
++ # ifdef FEAT_BEVAL_TERM
++ #  ifdef FEAT_GUI
++     if (!gui.in_use)
++ #  endif
++     {
++ 	row = mouse_row;
++ 	col = mouse_col;
++     }
++ # endif
++ # ifdef FEAT_GUI
++     if (gui.in_use)
++     {
++ 	row = Y_2_ROW(beval->y);
++ 	col = X_2_COL(beval->x);
++     }
++ #endif
++     if (find_word_under_cursor(row, col, getword,
++ 		FIND_IDENT + FIND_STRING + FIND_EVAL,
++ 		winp, lnump, textp, colp) == OK)
++     {
++ #ifdef FEAT_VARTABS
++ 	vim_free(beval->vts);
++ 	beval->vts = tabstop_copy((*winp)->w_buffer->b_p_vts_array);
++ 	if ((*winp)->w_buffer->b_p_vts_array != NULL && beval->vts == NULL)
++ 	{
++ 	    if (getword)
++ 		vim_free(*textp);
++ 	    return FAIL;
++ 	}
++ #endif
++ 	beval->ts = (*winp)->w_buffer->b_p_ts;
++ 	return OK;
++     }
++ 
++     return FAIL;
++ }
+  
+  /*
+   * Show a balloon with "mesg" or "list".
+*** ../vim-8.1.1647/src/proto/beval.pro	2019-07-07 18:27:52.365277132 +0200
+--- src/proto/beval.pro	2019-07-07 20:29:04.878950693 +0200
+***************
+*** 1,6 ****
+  /* beval.c */
+- int get_beval_info(BalloonEval *beval, int getword, win_T **winp, linenr_T *lnump, char_u **textp, int *colp);
+  int find_word_under_cursor(int mouserow, int mousecol, int getword, int flags, win_T **winp, linenr_T *lnump, char_u **textp, int *colp);
+  void post_balloon(BalloonEval *beval, char_u *mesg, list_T *list);
+  int can_use_beval(void);
+  void general_beval_cb(BalloonEval *beval, int state);
+--- 1,6 ----
+  /* beval.c */
+  int find_word_under_cursor(int mouserow, int mousecol, int getword, int flags, win_T **winp, linenr_T *lnump, char_u **textp, int *colp);
++ int get_beval_info(BalloonEval *beval, int getword, win_T **winp, linenr_T *lnump, char_u **textp, int *colp);
+  void post_balloon(BalloonEval *beval, char_u *mesg, list_T *list);
+  int can_use_beval(void);
+  void general_beval_cb(BalloonEval *beval, int state);
+*** ../vim-8.1.1647/src/version.c	2019-07-07 19:16:54.286128604 +0200
+--- src/version.c	2019-07-07 20:30:09.166565820 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1648,
+  /**/
+
+-- 
+ARTHUR:  Well, I AM king...
+DENNIS:  Oh king, eh, very nice.  An' how'd you get that, eh?  By exploitin'
+         the workers -- by 'angin' on to outdated imperialist dogma which
+         perpetuates the economic an' social differences in our society!  If
+         there's ever going to be any progress--
+                                  The Quest for the Holy Grail (Monty Python)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

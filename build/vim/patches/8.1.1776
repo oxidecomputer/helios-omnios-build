@@ -1,0 +1,324 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1776
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1776
+Problem:    Text added with a job to another buffer isn't displayed.
+Solution:   Update topline after adding a line. (closes #4745)
+Files:	    src/channel.c, src/testdir/test_channel.vim, src/testdir/check.vim,
+            src/testdir/dumps/Test_job_buffer_scroll_1.dump
+
+
+*** ../vim-8.1.1775/src/channel.c	2019-07-08 22:03:59.299180539 +0200
+--- src/channel.c	2019-07-29 21:58:53.979895616 +0200
+***************
+*** 2537,2555 ****
+  
+  	FOR_ALL_WINDOWS(wp)
+  	{
+! 	    if (wp->w_buffer == buffer
+! 		    && (save_write_to
+! 			? wp->w_cursor.lnum == lnum + 1
+! 			: (wp->w_cursor.lnum == lnum
+! 			    && wp->w_cursor.col == 0)))
+  	    {
+! 		++wp->w_cursor.lnum;
+! 		save_curwin = curwin;
+! 		curwin = wp;
+! 		curbuf = curwin->w_buffer;
+! 		scroll_cursor_bot(0, FALSE);
+! 		curwin = save_curwin;
+! 		curbuf = curwin->w_buffer;
+  	    }
+  	}
+  	redraw_buf_and_status_later(buffer, VALID);
+--- 2537,2562 ----
+  
+  	FOR_ALL_WINDOWS(wp)
+  	{
+! 	    if (wp->w_buffer == buffer)
+  	    {
+! 		int move_cursor = save_write_to
+! 			    ? wp->w_cursor.lnum == lnum + 1
+! 			    : (wp->w_cursor.lnum == lnum
+! 				&& wp->w_cursor.col == 0);
+! 
+! 		// If the cursor is at or above the new line, move it one line
+! 		// down.  If the topline is outdated update it now.
+! 		if (move_cursor || wp->w_topline > buffer->b_ml.ml_line_count)
+! 		{
+! 		    if (move_cursor)
+! 			++wp->w_cursor.lnum;
+! 		    save_curwin = curwin;
+! 		    curwin = wp;
+! 		    curbuf = curwin->w_buffer;
+! 		    scroll_cursor_bot(0, FALSE);
+! 		    curwin = save_curwin;
+! 		    curbuf = curwin->w_buffer;
+! 		}
+  	    }
+  	}
+  	redraw_buf_and_status_later(buffer, VALID);
+*** ../vim-8.1.1775/src/testdir/test_channel.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_channel.vim	2019-07-29 22:07:01.946151657 +0200
+***************
+*** 1,10 ****
+  " Test for channel functions.
+  
+! if !has('channel')
+!   throw 'Skipped: channel feature missing'
+! endif
+  
+  source shared.vim
+  
+  let s:python = PythonProg()
+  if s:python == ''
+--- 1,10 ----
+  " Test for channel functions.
+  
+! source check.vim
+! CheckFeature channel
+  
+  source shared.vim
++ source screendump.vim
+  
+  let s:python = PythonProg()
+  if s:python == ''
+***************
+*** 1125,1130 ****
+--- 1125,1159 ----
+    endtry
+  endfunc
+  
++ func Test_write_to_buffer_and_scroll()
++   CheckFeature job
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++   let lines =<< trim END
++       new Xscrollbuffer
++       call setline(1, range(1, 200))
++       $
++       redraw
++       wincmd w
++       call deletebufline('Xscrollbuffer', 1, '$')
++       if has('win32')
++ 	let cmd = ['cmd', '/c', 'echo sometext']
++       else
++ 	let cmd = [&shell, &shellcmdflag, 'echo sometext']
++       endif
++       call job_start(cmd, #{out_io: 'buffer', out_name: 'Xscrollbuffer'})
++   END
++   call writefile(lines, 'XtestBufferScroll')
++   let buf = RunVimInTerminal('-S XtestBufferScroll', #{rows: 10})
++   sleep 500m
++   call VerifyScreenDump(buf, 'Test_job_buffer_scroll_1', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestBufferScroll')
++ endfunc
++ 
+  func Test_pipe_null()
+    if !has('job')
+      return
+***************
+*** 1804,1812 ****
+  endfunc
+  
+  func Test_job_start_windows()
+!   if !has('job') || !has('win32')
+!     return
+!   endif
+  
+    " Check that backslash in $COMSPEC is handled properly.
+    let g:echostr = ''
+--- 1833,1840 ----
+  endfunc
+  
+  func Test_job_start_windows()
+!   CheckFeature job
+!   CheckMSWindows
+  
+    " Check that backslash in $COMSPEC is handled properly.
+    let g:echostr = ''
+***************
+*** 1820,1828 ****
+  endfunc
+  
+  func Test_env()
+!   if !has('job')
+!     return
+!   endif
+  
+    let g:envstr = ''
+    if has('win32')
+--- 1848,1854 ----
+  endfunc
+  
+  func Test_env()
+!   CheckFeature job
+  
+    let g:envstr = ''
+    if has('win32')
+***************
+*** 1837,1845 ****
+  endfunc
+  
+  func Test_cwd()
+!   if !has('job')
+!     return
+!   endif
+  
+    let g:envstr = ''
+    if has('win32')
+--- 1863,1869 ----
+  endfunc
+  
+  func Test_cwd()
+!   CheckFeature job
+  
+    let g:envstr = ''
+    if has('win32')
+***************
+*** 1901,1909 ****
+  endfunc
+  
+  func Test_list_args()
+!   if !has('job')
+!     return
+!   endif
+  
+    call s:test_list_args('import sys;sys.stdout.write("hello world")', "hello world", 0)
+    call s:test_list_args('import sys;sys.stdout.write("hello\nworld")', "hello\nworld", 0)
+--- 1925,1931 ----
+  endfunc
+  
+  func Test_list_args()
+!   CheckFeature job
+  
+    call s:test_list_args('import sys;sys.stdout.write("hello world")', "hello world", 0)
+    call s:test_list_args('import sys;sys.stdout.write("hello\nworld")', "hello\nworld", 0)
+***************
+*** 1956,1964 ****
+  endfunc
+  
+  func Test_job_start_in_timer()
+!   if !has('job') || !has('timers')
+!     return
+!   endif
+  
+    func OutCb(chan, msg)
+      let g:val += 1
+--- 1978,1985 ----
+  endfunc
+  
+  func Test_job_start_in_timer()
+!   CheckFeature job
+!   CheckFeature timers
+  
+    func OutCb(chan, msg)
+      let g:val += 1
+***************
+*** 2017,2025 ****
+  endfunc
+  
+  func Test_no_hang_windows()
+!   if !has('job') || !has('win32')
+!     return
+!   endif
+  
+    try
+      let job = job_start(s:python . " test_channel_pipe.py busy",
+--- 2038,2045 ----
+  endfunc
+  
+  func Test_no_hang_windows()
+!   CheckFeature job
+!   CheckMSWindows
+  
+    try
+      let job = job_start(s:python . " test_channel_pipe.py busy",
+***************
+*** 2055,2063 ****
+  endfunc
+  
+  func Test_job_tty_in_out()
+!   if !has('job') || !has('unix')
+!     return
+!   endif
+  
+    call writefile(['test'], 'Xtestin')
+    let in_opts = [{},
+--- 2075,2082 ----
+  endfunc
+  
+  func Test_job_tty_in_out()
+!   CheckFeature job
+!   CheckUnix
+  
+    call writefile(['test'], 'Xtestin')
+    let in_opts = [{},
+*** ../vim-8.1.1775/src/testdir/check.vim	2019-06-15 17:57:43.968724059 +0200
+--- src/testdir/check.vim	2019-07-29 22:03:31.370955919 +0200
+***************
+*** 21,23 ****
+--- 21,39 ----
+      throw 'Skipped: ' .. a:name .. ' function missing'
+    endif
+  endfunc
++ 
++ " Command to check for running on MS-Windows
++ command CheckMSWindows call CheckMSWindows()
++ func CheckMSWindows()
++   if !has('win32')
++     throw 'Skipped: only works on MS-Windows'
++   endif
++ endfunc
++ 
++ " Command to check for running on Unix
++ command CheckUnix call CheckUnix()
++ func CheckUnix()
++   if !has('unix')
++     throw 'Skipped: only works on Unix'
++   endif
++ endfunc
+*** ../vim-8.1.1775/src/testdir/dumps/Test_job_buffer_scroll_1.dump	2019-07-29 22:09:19.469598496 +0200
+--- src/testdir/dumps/Test_job_buffer_scroll_1.dump	2019-07-29 21:56:20.936325816 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ |s+0&#ffffff0|o|m|e|t|e|x|t| @66
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |X+1#0000000&|s|c|r|o|l@1|b|u|f@1|e|r| |[|+|]| @39|1|,|1| @11|A|l@1
++ > +0&&@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |[+3#0000000&|N|o| |N|a|m|e|]| @47|0|,|0|-|1| @9|A|l@1
++ |-+0&&@1|N|o| |l|i|n|e|s| |i|n| |b|u|f@1|e|r|-@1| @52
+*** ../vim-8.1.1775/src/version.c	2019-07-29 21:14:39.346411760 +0200
+--- src/version.c	2019-07-29 21:57:03.436214333 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1776,
+  /**/
+
+-- 
+The only way the average employee can speak to an executive is by taking a
+second job as a golf caddie.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

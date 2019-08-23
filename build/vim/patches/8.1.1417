@@ -1,0 +1,94 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1417
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1417
+Problem:    MS-Windows: resolve() does not resolve all components of the path.
+            (David Briscoe)
+Solution:   Do not bail out for a reparse point. (Yasuhiro Matsumoto,
+            closes #4211, closes #4447)
+Files:	    src/os_mswin.c, src/testdir/test_functions.vim
+
+
+*** ../vim-8.1.1416/src/os_mswin.c	2019-05-28 23:08:12.072648675 +0200
+--- src/os_mswin.c	2019-05-29 20:28:45.536911268 +0200
+***************
+*** 1787,1798 ****
+      if (p == NULL)
+  	goto fail;
+  
+-     if ((GetFileAttributesW(p) & FILE_ATTRIBUTE_REPARSE_POINT) == 0)
+-     {
+- 	vim_free(p);
+- 	goto fail;
+-     }
+- 
+      h = CreateFileW(p, 0, 0, NULL, OPEN_EXISTING,
+  	    FILE_FLAG_BACKUP_SEMANTICS, NULL);
+      vim_free(p);
+--- 1787,1792 ----
+*** ../vim-8.1.1416/src/testdir/test_functions.vim	2019-05-24 14:14:10.260307596 +0200
+--- src/testdir/test_functions.vim	2019-05-29 20:28:45.536911268 +0200
+***************
+*** 238,244 ****
+  func s:normalize_fname(fname)
+    let ret = substitute(a:fname, '\', '/', 'g')
+    let ret = substitute(ret, '//', '/', 'g')
+!   let ret = tolower(ret)
+  endfunc
+  
+  func Test_resolve_win32()
+--- 238,244 ----
+  func s:normalize_fname(fname)
+    let ret = substitute(a:fname, '\', '/', 'g')
+    let ret = substitute(ret, '//', '/', 'g')
+!   return tolower(ret)
+  endfunc
+  
+  func Test_resolve_win32()
+***************
+*** 330,335 ****
+--- 330,348 ----
+      echomsg 'skipped test for buffer name'
+    endif
+    call delete('Xfile')
++ 
++   " test for reparse point
++   call mkdir('Xdir')
++   silent !mklink /D Xdirlink Xdir
++   if !v:shell_error
++     w Xdir/text.txt
++     call assert_equal(s:normalize_fname(getcwd() . '\Xdir\text.txt'), s:normalize_fname(resolve('Xdirlink\text.txt')))
++     call assert_equal(s:normalize_fname(getcwd() . '\Xdir'), s:normalize_fname(resolve('Xdirlink')))
++   else
++     echomsg 'skipped test for reparse point'
++   endif
++ 
++   call delete('Xdir', 'rf')
+  endfunc
+  
+  func Test_simplify()
+*** ../vim-8.1.1416/src/version.c	2019-05-29 20:26:32.525530253 +0200
+--- src/version.c	2019-05-29 20:31:23.212151747 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1417,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+43. You tell the kids they can't use the computer because "Daddy's got work to
+    do" and you don't even have a job.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

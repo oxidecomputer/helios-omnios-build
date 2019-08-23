@@ -1,0 +1,144 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1563
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1563
+Problem:    Crash when using closures.
+Solution:   Set reference in varlist of funccal when running the garbage
+            collector. (Ozaki Kiichi, closes #4554, closes #4547)
+Files:	    src/testdir/test_vimscript.vim, src/userfunc.c
+
+
+*** ../vim-8.1.1562/src/testdir/test_vimscript.vim	2019-05-24 17:32:57.351719237 +0200
+--- src/testdir/test_vimscript.vim	2019-06-17 21:14:14.411035228 +0200
+***************
+*** 1665,1670 ****
+--- 1665,1681 ----
+      delfunc DictFunc
+  endfunc
+  
++ func! Test_funccall_garbage_collect()
++     func Func(x, ...)
++         call add(a:x, a:000)
++     endfunc
++     call Func([], [])
++     " Must not crash cause by invalid freeing
++     call test_garbagecollect_now()
++     call assert_true(v:true)
++     delfunc Func
++ endfunc
++ 
+  "-------------------------------------------------------------------------------
+  " Modelines								    {{{1
+  " vim: ts=8 sw=4 tw=80 fdm=marker
+*** ../vim-8.1.1562/src/userfunc.c	2019-06-06 19:03:14.388227807 +0200
+--- src/userfunc.c	2019-06-17 21:14:14.411035228 +0200
+***************
+*** 935,946 ****
+  	    v->di_flags |= DI_FLAGS_RO | DI_FLAGS_FIX;
+  	}
+  
+! 	if (isdefault)
+! 	    v->di_tv = def_rettv;
+! 	else
+! 	    // Note: the values are copied directly to avoid alloc/free.
+! 	    // "argvars" must have VAR_FIXED for v_lock.
+! 	    v->di_tv = argvars[i];
+  	v->di_tv.v_lock = VAR_FIXED;
+  
+  	if (addlocal)
+--- 935,943 ----
+  	    v->di_flags |= DI_FLAGS_RO | DI_FLAGS_FIX;
+  	}
+  
+! 	// Note: the values are copied directly to avoid alloc/free.
+! 	// "argvars" must have VAR_FIXED for v_lock.
+! 	v->di_tv = isdefault ? def_rettv : argvars[i];
+  	v->di_tv.v_lock = VAR_FIXED;
+  
+  	if (addlocal)
+***************
+*** 1540,1546 ****
+  	}
+      }
+  
+- 
+      /*
+       * Execute the function if executing and no errors were detected.
+       */
+--- 1537,1542 ----
+***************
+*** 3998,4010 ****
+      int		abort = FALSE;
+      funccall_T	*fc;
+  
+!     for (fc = previous_funccal; fc != NULL; fc = fc->caller)
+      {
+  	fc->fc_copyID = copyID + 1;
+! 	abort = abort || set_ref_in_ht(&fc->l_vars.dv_hashtab, copyID + 1,
+! 									NULL);
+! 	abort = abort || set_ref_in_ht(&fc->l_avars.dv_hashtab, copyID + 1,
+! 									NULL);
+      }
+      return abort;
+  }
+--- 3994,4006 ----
+      int		abort = FALSE;
+      funccall_T	*fc;
+  
+!     for (fc = previous_funccal; !abort && fc != NULL; fc = fc->caller)
+      {
+  	fc->fc_copyID = copyID + 1;
+! 	abort = abort
+! 	    || set_ref_in_ht(&fc->l_vars.dv_hashtab, copyID + 1, NULL)
+! 	    || set_ref_in_ht(&fc->l_avars.dv_hashtab, copyID + 1, NULL)
+! 	    || set_ref_in_list(&fc->l_varlist, copyID + 1, NULL);
+      }
+      return abort;
+  }
+***************
+*** 4017,4025 ****
+      if (fc->fc_copyID != copyID)
+      {
+  	fc->fc_copyID = copyID;
+! 	abort = abort || set_ref_in_ht(&fc->l_vars.dv_hashtab, copyID, NULL);
+! 	abort = abort || set_ref_in_ht(&fc->l_avars.dv_hashtab, copyID, NULL);
+! 	abort = abort || set_ref_in_func(NULL, fc->func, copyID);
+      }
+      return abort;
+  }
+--- 4013,4023 ----
+      if (fc->fc_copyID != copyID)
+      {
+  	fc->fc_copyID = copyID;
+! 	abort = abort
+! 	    || set_ref_in_ht(&fc->l_vars.dv_hashtab, copyID, NULL)
+! 	    || set_ref_in_ht(&fc->l_avars.dv_hashtab, copyID, NULL)
+! 	    || set_ref_in_list(&fc->l_varlist, copyID, NULL)
+! 	    || set_ref_in_func(NULL, fc->func, copyID);
+      }
+      return abort;
+  }
+*** ../vim-8.1.1562/src/version.c	2019-06-17 20:05:29.570879949 +0200
+--- src/version.c	2019-06-17 21:16:54.850284846 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1563,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+217. Your sex life has drastically improved...so what if it's only cyber-sex!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

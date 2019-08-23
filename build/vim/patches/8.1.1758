@@ -1,0 +1,125 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1758
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1758
+Problem:    Count of g$ not used correctly when text is not wrapped.
+Solution:   Do use the count. (Christian Brabandt, closes #4729, closes #4566)
+Files:	    src/normal.c, src/testdir/test_normal.vim
+
+
+*** ../vim-8.1.1757/src/normal.c	2019-07-10 16:14:58.197679048 +0200
+--- src/normal.c	2019-07-27 18:31:48.726207854 +0200
+***************
+*** 8062,8071 ****
+  	    }
+  	    else
+  	    {
+  		i = curwin->w_leftcol + curwin->w_width - col_off - 1;
+  		coladvance((colnr_T)i);
+  
+! 		/* Make sure we stick in this column. */
+  		validate_virtcol();
+  		curwin->w_curswant = curwin->w_virtcol;
+  		curwin->w_set_curswant = FALSE;
+--- 8062,8075 ----
+  	    }
+  	    else
+  	    {
++ 		if (cap->count1 > 1)
++ 		    // if it fails, let the cursor still move to the last char
++ 		    cursor_down(cap->count1 - 1, FALSE);
++ 
+  		i = curwin->w_leftcol + curwin->w_width - col_off - 1;
+  		coladvance((colnr_T)i);
+  
+! 		// Make sure we stick in this column.
+  		validate_virtcol();
+  		curwin->w_curswant = curwin->w_virtcol;
+  		curwin->w_set_curswant = FALSE;
+*** ../vim-8.1.1757/src/testdir/test_normal.vim	2019-06-24 00:58:02.908020514 +0200
+--- src/testdir/test_normal.vim	2019-07-27 18:31:48.730207775 +0200
+***************
+*** 2732,2734 ****
+--- 2732,2789 ----
+  
+    close!
+  endfunc
++ 
++ fun! Test_normal_gdollar_cmd()
++   if !has("jumplist")
++     return
++   endif
++   " Tests for g cmds
++   call Setup_NewWindow()
++   " Make long lines that will wrap
++   %s/$/\=repeat(' foobar', 10)/
++   20vsp
++   set wrap
++   " Test for g$ with count
++   norm! gg
++   norm! 0vg$y
++   call assert_equal(20, col("'>"))
++   call assert_equal('1 foobar foobar foob', getreg(0))
++   norm! gg
++   norm! 0v4g$y
++   call assert_equal(72, col("'>"))
++   call assert_equal('1 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.."\n", getreg(0))
++   norm! gg
++   norm! 0v6g$y
++   call assert_equal(40, col("'>"))
++   call assert_equal('1 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.. "\n"..
++ 		  \ '2 foobar foobar foobar foobar foobar foo', getreg(0))
++   set nowrap
++   " clean up
++   norm! gg
++   norm! 0vg$y
++   call assert_equal(20, col("'>"))
++   call assert_equal('1 foobar foobar foob', getreg(0))
++   norm! gg
++   norm! 0v4g$y
++   call assert_equal(20, col("'>"))
++   call assert_equal('1 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.. "\n"..
++                  \  '2 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.. "\n"..
++                  \  '3 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.. "\n"..
++                  \  '4 foobar foobar foob', getreg(0))
++   norm! gg
++   norm! 0v6g$y
++   call assert_equal(20, col("'>"))
++   call assert_equal('1 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.. "\n"..
++                  \  '2 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.. "\n"..
++                  \  '3 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.. "\n"..
++                  \  '4 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.. "\n"..
++                  \  '5 foobar foobar foobar foobar foobar foobar foobar foobar foobar foobar'.. "\n"..
++                  \  '6 foobar foobar foob', getreg(0))
++   " Move to last line, also down movement is not possible, should still move
++   " the cursor to the last visible char
++   norm! G
++   norm! 0v6g$y
++   call assert_equal(20, col("'>"))
++   call assert_equal('100 foobar foobar fo', getreg(0))
++   bw!
++ endfunc
+*** ../vim-8.1.1757/src/version.c	2019-07-27 17:38:55.474964950 +0200
+--- src/version.c	2019-07-27 18:44:17.315553825 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1758,
+  /**/
+
+-- 
+It is too bad that the speed of light hasn't kept pace with the
+changes in CPU speed and network bandwidth. -- <wietse@porcupine.org>
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

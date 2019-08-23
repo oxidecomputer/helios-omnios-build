@@ -1,0 +1,101 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1844
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1844
+Problem:    Buffer no longer unloaded when adding text properties to it.
+Solution:   Do not create the memfile. (closes #4808)
+Files:	    runtime/doc/textprop.txt, src/testdir/test_textprop.vim,
+            src/textprop.c
+
+
+*** ../vim-8.1.1843/runtime/doc/textprop.txt	2019-07-21 16:39:56.200095876 +0200
+--- runtime/doc/textprop.txt	2019-08-13 22:14:09.774009824 +0200
+***************
+*** 322,327 ****
+--- 322,332 ----
+  When text is deleted and a text property no longer includes any text, it is
+  deleted.  However, a text property that was defined as zero-width will remain,
+  unless the whole line is deleted.
++ `								*E275*
++ When a buffer is unloaded, all the text properties are gone.  There is no way
++ to store the properties in a file.  You can only re-create them.  When a
++ buffer is hidden the text is preserved and so are the text properties.  It is
++ not possible to add text properties to an unloaded buffer.
+  
+  When using replace mode, the text properties stay on the same character
+  positions, even though the characters themselves change.
+*** ../vim-8.1.1843/src/testdir/test_textprop.vim	2019-06-28 21:37:56.758355954 +0200
+--- src/testdir/test_textprop.vim	2019-08-13 22:12:43.790358338 +0200
+***************
+*** 823,825 ****
+--- 823,847 ----
+    bwipe! x
+    close
+  endfunc
++ 
++ func Test_textprop_in_unloaded_buf()
++   edit Xaaa
++   call setline(1, 'aaa')
++   write
++   edit Xbbb
++   call setline(1, 'bbb')
++   write
++   let bnr = bufnr('')
++   edit Xaaa
++ 
++   call prop_type_add('ErrorMsg', #{highlight:'ErrorMsg'})
++   call assert_fails("call prop_add(1, 1, #{end_lnum: 1, endcol: 2, type: 'ErrorMsg', bufnr: bnr})", 'E275:')
++   exe 'buf ' .. bnr
++   call assert_equal('bbb', getline(1))
++   call assert_equal(0, prop_list(1)->len())
++ 
++   bwipe! Xaaa
++   bwipe! Xbbb
++   cal delete('Xaaa')
++   cal delete('Xbbb')
++ endfunc
+*** ../vim-8.1.1843/src/textprop.c	2019-08-08 20:49:10.771344293 +0200
+--- src/textprop.c	2019-08-13 22:11:24.150678194 +0200
+***************
+*** 256,262 ****
+      }
+  
+      if (buf->b_ml.ml_mfp == NULL)
+! 	ml_open(buf);
+  
+      for (lnum = start_lnum; lnum <= end_lnum; ++lnum)
+      {
+--- 256,265 ----
+      }
+  
+      if (buf->b_ml.ml_mfp == NULL)
+!     {
+! 	emsg(_("E275: Cannot add text property to unloaded buffer"));
+! 	return;
+!     }
+  
+      for (lnum = start_lnum; lnum <= end_lnum; ++lnum)
+      {
+*** ../vim-8.1.1843/src/version.c	2019-08-13 00:18:20.557854599 +0200
+--- src/version.c	2019-08-13 22:08:19.499406164 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1844,
+  /**/
+
+-- 
+Never go to the toilet in a paperless office.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,342 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1851
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1851
+Problem:    Crash when sound_playfile() callback plays sound.
+Solution:   Invoke callback later from event loop.
+Files:	    src/testdir/test_sound.vim, src/ui.c, src/sound.c,
+            src/proto/sound.pro, src/feature.h, src/os_unix.c, src/ex_docmd.c,
+            src/misc2.c
+
+
+*** ../vim-8.1.1850/src/testdir/test_sound.vim	2019-06-17 22:19:09.360785869 +0200
+--- src/testdir/test_sound.vim	2019-08-15 22:56:48.372181870 +0200
+***************
+*** 13,19 ****
+    if has('win32')
+      throw 'Skipped: Playing event with callback is not supported on Windows'
+    endif
+- 
+    let id = sound_playevent('bell', 'PlayCallback')
+    if id == 0
+      throw 'Skipped: bell event not available'
+--- 13,18 ----
+***************
+*** 21,27 ****
+    " Stop it quickly, avoid annoying the user.
+    sleep 20m
+    call sound_stop(id)
+!   sleep 20m
+    call assert_equal(id, g:id)
+    call assert_equal(1, g:result)  " sound was aborted
+  endfunc
+--- 20,26 ----
+    " Stop it quickly, avoid annoying the user.
+    sleep 20m
+    call sound_stop(id)
+!   sleep 30m
+    call assert_equal(id, g:id)
+    call assert_equal(1, g:result)  " sound was aborted
+  endfunc
+***************
+*** 46,51 ****
+--- 45,64 ----
+    call assert_true(id2 > 0)
+    sleep 20m
+    call sound_clear()
++   sleep 30m
+    call assert_equal(id2, g:id)
+    call assert_equal(1, g:result)
++ 
++   " recursive use was causing a crash
++   func PlayAgain(id, fname)
++     let g:id = a:id
++     let g:id_again = sound_playfile(a:fname)
++   endfunc
++ 
++   let id3 = sound_playfile(fname, {id, res -> PlayAgain(id, fname)})
++   call assert_true(id3 > 0)
++   sleep 50m
++   call sound_clear()
++   sleep 30m
++   call assert_true(g:id_again > 0)
+  endfunc
+*** ../vim-8.1.1850/src/ui.c	2019-08-01 21:09:49.923160274 +0200
+--- src/ui.c	2019-08-15 23:00:45.383452081 +0200
+***************
+*** 459,470 ****
+  	}
+  	if (due_time <= 0 || (wtime > 0 && due_time > remaining))
+  	    due_time = remaining;
+! # ifdef FEAT_JOB_CHANNEL
+! 	if ((due_time < 0 || due_time > 10L)
+! #  ifdef FEAT_GUI
+! 		&& !gui.in_use
+  #  endif
+! 		&& (has_pending_job() || channel_any_readahead()))
+  	{
+  	    // There is a pending job or channel, should return soon in order
+  	    // to handle them ASAP.  Do check for input briefly.
+--- 459,480 ----
+  	}
+  	if (due_time <= 0 || (wtime > 0 && due_time > remaining))
+  	    due_time = remaining;
+! # if defined(FEAT_JOB_CHANNEL) || defined(FEAT_SOUND_CANBERRA)
+! 	if ((due_time < 0 || due_time > 10L) && (
+! #  if defined(FEAT_JOB_CHANNEL)
+! 		(
+! #   if defined(FEAT_GUI)
+! 		!gui.in_use &&
+! #   endif
+! 		(has_pending_job() || channel_any_readahead()))
+! #   ifdef FEAT_SOUND_CANBERRA
+! 		||
+! #   endif
+  #  endif
+! #  ifdef FEAT_SOUND_CANBERRA
+! 		    has_any_sound_callback()
+! #  endif
+! 		    ))
+  	{
+  	    // There is a pending job or channel, should return soon in order
+  	    // to handle them ASAP.  Do check for input briefly.
+*** ../vim-8.1.1850/src/sound.c	2019-08-05 20:18:11.394540719 +0200
+--- src/sound.c	2019-08-15 22:59:25.603712369 +0200
+***************
+*** 30,35 ****
+--- 30,45 ----
+  
+  static soundcb_T    *first_callback = NULL;
+  
++ /*
++  * Return TRUE when a sound callback has been created, it may be invoked when
++  * the sound finishes playing.  Also see has_sound_callback_in_queue().
++  */
++     int
++ has_any_sound_callback(void)
++ {
++     return first_callback != NULL;
++ }
++ 
+      static soundcb_T *
+  get_sound_callback(typval_T *arg)
+  {
+***************
+*** 85,90 ****
+--- 95,118 ----
+  
+  static ca_context   *context = NULL;
+  
++ // Structure to store info about a sound callback to be invoked soon.
++ typedef struct soundcb_queue_S soundcb_queue_T;
++ 
++ struct soundcb_queue_S {
++     soundcb_queue_T	*scb_next;
++     uint32_t		scb_id;		// ID of the sound
++     int			scb_result;	// CA_ value
++     soundcb_T		*scb_callback;	// function to call
++ };
++ 
++ // Queue of callbacks to invoke from the main loop.
++ static soundcb_queue_T *callback_queue = NULL;
++ 
++ /*
++  * Add a callback to the queue of callbacks to invoke later from the main loop.
++  * That is because the callback may be called from another thread and invoking
++  * another sound function may cause trouble.
++  */
+      static void
+  sound_callback(
+  	ca_context  *c UNUSED,
+***************
+*** 92,114 ****
+  	int	    error_code,
+  	void	    *userdata)
+  {
+!     soundcb_T	*soundcb = (soundcb_T *)userdata;
+!     typval_T	argv[3];
+!     typval_T	rettv;
+! 
+!     argv[0].v_type = VAR_NUMBER;
+!     argv[0].vval.v_number = id;
+!     argv[1].v_type = VAR_NUMBER;
+!     argv[1].vval.v_number = error_code == CA_SUCCESS ? 0
+  			  : error_code == CA_ERROR_CANCELED
+  					    || error_code == CA_ERROR_DESTROYED
+  			  ? 1 : 2;
+!     argv[2].v_type = VAR_UNKNOWN;
+  
+!     call_callback(&soundcb->snd_callback, -1, &rettv, 2, argv);
+!     clear_tv(&rettv);
+  
+!     delete_sound_callback(soundcb);
+      redraw_after_callback(TRUE);
+  }
+  
+--- 120,177 ----
+  	int	    error_code,
+  	void	    *userdata)
+  {
+!     soundcb_T	    *soundcb = (soundcb_T *)userdata;
+!     soundcb_queue_T *scb;
+! 
+!     scb = ALLOC_ONE(soundcb_queue_T);
+!     if (scb == NULL)
+! 	return;
+!     scb->scb_next = callback_queue;
+!     callback_queue = scb;
+!     scb->scb_id = id;
+!     scb->scb_result = error_code == CA_SUCCESS ? 0
+  			  : error_code == CA_ERROR_CANCELED
+  					    || error_code == CA_ERROR_DESTROYED
+  			  ? 1 : 2;
+!     scb->scb_callback = soundcb;
+! }
+! 
+! /*
+!  * Return TRUE if there is a sound callback to be called.
+!  */
+!     int
+! has_sound_callback_in_queue(void)
+! {
+!     return callback_queue != NULL;
+! }
+  
+! /*
+!  * Invoke queued sound callbacks.
+!  */
+!     void
+! invoke_sound_callback(void)
+! {
+!     soundcb_queue_T *scb;
+!     typval_T	    argv[3];
+!     typval_T	    rettv;
+  
+! 
+!     while (callback_queue != NULL)
+!     {
+! 	scb = callback_queue;
+! 	callback_queue = scb->scb_next;
+! 
+! 	argv[0].v_type = VAR_NUMBER;
+! 	argv[0].vval.v_number = scb->scb_id;
+! 	argv[1].v_type = VAR_NUMBER;
+! 	argv[1].vval.v_number = scb->scb_result;
+! 	argv[2].v_type = VAR_UNKNOWN;
+! 
+! 	call_callback(&scb->scb_callback->snd_callback, -1, &rettv, 2, argv);
+! 	clear_tv(&rettv);
+! 
+! 	delete_sound_callback(scb->scb_callback);
+!     }
+      redraw_after_callback(TRUE);
+  }
+  
+*** ../vim-8.1.1850/src/proto/sound.pro	2019-06-10 13:10:45.370588270 +0200
+--- src/proto/sound.pro	2019-08-15 22:36:37.461008652 +0200
+***************
+*** 1,4 ****
+--- 1,7 ----
+  /* sound.c */
++ int has_any_sound_callback(void);
++ int has_sound_callback_in_queue(void);
++ void invoke_sound_callback(void);
+  void f_sound_playevent(typval_T *argvars, typval_T *rettv);
+  void f_sound_playfile(typval_T *argvars, typval_T *rettv);
+  void f_sound_stop(typval_T *argvars, typval_T *rettv);
+*** ../vim-8.1.1850/src/feature.h	2019-08-06 21:59:37.763982481 +0200
+--- src/feature.h	2019-08-15 22:20:57.565692373 +0200
+***************
+*** 666,671 ****
+--- 666,674 ----
+  #if !defined(FEAT_SOUND) && defined(HAVE_CANBERRA)
+  # define FEAT_SOUND
+  #endif
++ #if defined(FEAT_SOUND) && defined(HAVE_CANBERRA)
++ # define FEAT_SOUND_CANBERRA
++ #endif
+  
+  /* There are two ways to use XPM. */
+  #if (defined(HAVE_XM_XPMP_H) && defined(FEAT_GUI_MOTIF)) \
+*** ../vim-8.1.1850/src/os_unix.c	2019-07-24 14:59:42.267465100 +0200
+--- src/os_unix.c	2019-08-15 23:01:05.035386053 +0200
+***************
+*** 5998,6003 ****
+--- 5998,6008 ----
+  		rest -= msec;
+  	}
+  # endif
++ # ifdef FEAT_SOUND_CANBERRA
++ 	// Invoke any pending sound callbacks.
++ 	if (has_sound_callback_in_queue())
++ 	    invoke_sound_callback();
++ # endif
+  # ifdef FEAT_MOUSE_GPM
+  	gpm_process_wanted = 0;
+  	avail = RealWaitForChar(read_cmd_fd, msec,
+*** ../vim-8.1.1850/src/ex_docmd.c	2019-08-06 21:59:37.759982504 +0200
+--- src/ex_docmd.c	2019-08-15 23:01:50.979229070 +0200
+***************
+*** 7692,7699 ****
+  	}
+  #endif
+  #ifdef FEAT_JOB_CHANNEL
+! 	if (has_any_channel() && wait_now > 100L)
+! 	    wait_now = 100L;
+  #endif
+  	ui_delay(wait_now, TRUE);
+  #ifdef FEAT_JOB_CHANNEL
+--- 7692,7703 ----
+  	}
+  #endif
+  #ifdef FEAT_JOB_CHANNEL
+! 	if (has_any_channel() && wait_now > 20L)
+! 	    wait_now = 20L;
+! #endif
+! #ifdef FEAT_SOUND
+! 	if (has_any_sound_callback() && wait_now > 20L)
+! 	    wait_now = 20L;
+  #endif
+  	ui_delay(wait_now, TRUE);
+  #ifdef FEAT_JOB_CHANNEL
+*** ../vim-8.1.1850/src/misc2.c	2019-08-06 21:59:37.759982504 +0200
+--- src/misc2.c	2019-08-15 22:49:58.649056604 +0200
+***************
+*** 4486,4491 ****
+--- 4486,4495 ----
+  # ifdef FEAT_TERMINAL
+  	free_unused_terminals();
+  # endif
++ # ifdef FEAT_SOUND_CANBERRA
++ 	if (has_sound_callback_in_queue())
++ 	    invoke_sound_callback();
++ # endif
+  	break;
+      }
+  
+*** ../vim-8.1.1850/src/version.c	2019-08-15 21:34:31.161015338 +0200
+--- src/version.c	2019-08-15 21:50:54.851199940 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1851,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+59. Your wife says communication is important in a marriage...so you buy
+    another computer and install a second phone line so the two of you can
+    chat.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

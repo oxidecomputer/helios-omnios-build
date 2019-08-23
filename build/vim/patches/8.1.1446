@@ -1,0 +1,291 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1446
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1446
+Problem:    Popup window callback not implemented yet.
+Solution:   Implement the callback.
+Files:      runtime/doc/popup.txt, src/popupwin.c, src/structs.h,
+            src/evalfunc.c, src/window.c, src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1445/runtime/doc/popup.txt	2019-06-01 22:15:10.215177111 +0200
+--- runtime/doc/popup.txt	2019-06-01 22:45:17.811027656 +0200
+***************
+*** 90,95 ****
+--- 90,96 ----
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
++ - Fix positioning with border and padding.
+  - Why does 'nrformats' leak from the popup window buffer???
+  - Make redrawing more efficient and avoid flicker.
+      Store popup info in a mask, use the mask in screen_line()
+***************
+*** 133,142 ****
+  <		In case of failure zero is returned.
+  
+  
+! popup_close({id})					*popup_close()*
+  		Close popup {id}.  The window and the associated buffer will
+  		be deleted.
+  
+  
+  popup_dialog({text}, {options})				*popup_dialog()*
+  	  	{not implemented yet}
+--- 134,148 ----
+  <		In case of failure zero is returned.
+  
+  
+! popup_close({id} [, {result}])				*popup_close()*
+  		Close popup {id}.  The window and the associated buffer will
+  		be deleted.
+  
++ 		If the popup has a callback it will be called just before the
++ 		popup window is deleted.  If the optional {result} is present
++ 		it will be passed as the second argument of the callback.
++ 		Otherwise zero is passed to the callback.
++ 
+  
+  popup_dialog({text}, {options})				*popup_dialog()*
+  	  	{not implemented yet}
+***************
+*** 145,150 ****
+--- 151,157 ----
+  				\ 'pos': 'center',
+  				\ 'zindex': 200,
+  				\ 'border': [],
++ 				\ 'padding': [],
+  				\})
+  <		Use {options} to change the properties.
+  
+***************
+*** 166,171 ****
+--- 173,179 ----
+  
+  
+  popup_atcursor({text}, {options})			 *popup_atcursor()*
++ 	  	{not implemented yet: close when cursor moves}
+  		Show the {text} above the cursor, and close it when the cursor
+  		moves.  This works like: >
+  			call popup_create({text}, {
+***************
+*** 394,400 ****
+  			|popup-filter|
+  	callback	a callback to be used when the popup closes, e.g. when
+  			using |popup_filter_menu()|, see |popup-callback|.
+- 			{not implemented yet}
+  
+  Depending on the "zindex" the popup goes under or above other popups.  The
+  completion menu (|popup-menu|) has zindex 100.  For messages that occur for a
+--- 402,407 ----
+***************
+*** 477,487 ****
+  
+  POPUP CALLBACK						*popup-callback*
+  
+- {not implemented yet}
+  A callback that is invoked when the popup closes.  Used by
+! |popup_filter_menu()|.  Invoked with two arguments: the ID of the popup and
+! the result, which would usually be an index in the popup lines, or whatever
+! the filter wants to pass.
+  
+  ==============================================================================
+  3. Examples						*popup-examples*
+--- 484,495 ----
+  
+  POPUP CALLBACK						*popup-callback*
+  
+  A callback that is invoked when the popup closes.  Used by
+! |popup_filter_menu()|.
+! 
+! The callback is invoked with two arguments: the ID of the popup window and the
+! result, which could be an index in the popup lines, or whatever was passed as
+! the second argument of `popup_close()`.
+  
+  ==============================================================================
+  3. Examples						*popup-examples*
+*** ../vim-8.1.1445/src/popupwin.c	2019-06-01 22:15:10.211177120 +0200
+--- src/popupwin.c	2019-06-01 22:38:42.421014923 +0200
+***************
+*** 201,206 ****
+--- 201,215 ----
+  	wp->w_p_wrap = nr != 0;
+      }
+  
++     di = dict_find(dict, (char_u *)"callback", -1);
++     if (di != NULL)
++     {
++ 	callback_T	callback = get_callback(&di->di_tv);
++ 
++ 	if (callback.cb_name != NULL)
++ 	    set_callback(&wp->w_close_cb, &callback);
++     }
++ 
+      di = dict_find(dict, (char_u *)"filter", -1);
+      if (di != NULL)
+      {
+***************
+*** 632,645 ****
+  }
+  
+  /*
+   * popup_close({id})
+   */
+      void
+  f_popup_close(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+      int		id = (int)tv_get_number(argvars);
+  
+!     popup_close(id);
+  }
+  
+  /*
+--- 641,693 ----
+  }
+  
+  /*
++  * Invoke the close callback for window "wp" with value "result".
++  * Careful: The callback may make "wp" invalid!
++  */
++     static void
++ invoke_popup_callback(win_T *wp, typval_T *result)
++ {
++     typval_T	rettv;
++     int		dummy;
++     typval_T	argv[3];
++ 
++     argv[0].v_type = VAR_NUMBER;
++     argv[0].vval.v_number = (varnumber_T)wp->w_id;
++ 
++     if (result != NULL && result->v_type != VAR_UNKNOWN)
++ 	copy_tv(result, &argv[1]);
++     else
++     {
++ 	argv[1].v_type = VAR_NUMBER;
++ 	argv[1].vval.v_number = 0;
++     }
++ 
++     argv[2].v_type = VAR_UNKNOWN;
++ 
++     call_callback(&wp->w_close_cb, -1,
++ 			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
++     if (result != NULL)
++ 	clear_tv(&argv[1]);
++     clear_tv(&rettv);
++ }
++ 
++ /*
+   * popup_close({id})
+   */
+      void
+  f_popup_close(typval_T *argvars, typval_T *rettv UNUSED)
+  {
+      int		id = (int)tv_get_number(argvars);
++     win_T	*wp = find_popup_win(id);
+  
+!     if (wp != NULL)
+!     {
+! 	if (wp->w_close_cb.cb_name != NULL)
+! 	    // Careful: This may make "wp" invalid.
+! 	    invoke_popup_callback(wp, &argvars[1]);
+! 
+! 	popup_close(id);
+!     }
+  }
+  
+  /*
+***************
+*** 688,693 ****
+--- 736,742 ----
+  
+  /*
+   * Close a popup window by Window-id.
++  * Does not invoke the callback.
+   */
+      void
+  popup_close(int id)
+*** ../vim-8.1.1445/src/structs.h	2019-06-01 22:15:10.211177120 +0200
+--- src/structs.h	2019-06-01 22:36:44.253601570 +0200
+***************
+*** 2894,2899 ****
+--- 2894,2900 ----
+      int		w_border_char[8];   // popup border characters
+      varnumber_T	w_popup_last_changedtick; // b:changedtick when position was
+  					  // computed
++     callback_T	w_close_cb;	    // popup close callback
+      callback_T	w_filter_cb;	    // popup filter callback
+  # if defined(FEAT_TIMERS)
+      timer_T	*w_popup_timer;	    // timer for closing popup window
+*** ../vim-8.1.1445/src/evalfunc.c	2019-06-01 13:28:30.265829531 +0200
+--- src/evalfunc.c	2019-06-01 22:23:58.965206463 +0200
+***************
+*** 810,816 ****
+  #endif
+  #ifdef FEAT_TEXT_PROP
+      {"popup_atcursor",	2, 2, f_popup_atcursor},
+!     {"popup_close",	1, 1, f_popup_close},
+      {"popup_create",	2, 2, f_popup_create},
+      {"popup_getoptions", 1, 1, f_popup_getoptions},
+      {"popup_getpos",	1, 1, f_popup_getpos},
+--- 810,816 ----
+  #endif
+  #ifdef FEAT_TEXT_PROP
+      {"popup_atcursor",	2, 2, f_popup_atcursor},
+!     {"popup_close",	1, 2, f_popup_close},
+      {"popup_create",	2, 2, f_popup_create},
+      {"popup_getoptions", 1, 1, f_popup_getoptions},
+      {"popup_getpos",	1, 1, f_popup_getpos},
+*** ../vim-8.1.1445/src/window.c	2019-06-01 22:15:10.215177111 +0200
+--- src/window.c	2019-06-01 22:36:56.873539136 +0200
+***************
+*** 4845,4850 ****
+--- 4845,4851 ----
+      remove_winbar(wp);
+  #endif
+  #ifdef FEAT_TEXT_PROP
++     free_callback(&wp->w_close_cb);
+      free_callback(&wp->w_filter_cb);
+      for (i = 0; i < 4; ++i)
+  	VIM_CLEAR(wp->w_border_highlight[i]);
+*** ../vim-8.1.1445/src/testdir/test_popupwin.vim	2019-06-01 22:15:10.215177111 +0200
+--- src/testdir/test_popupwin.vim	2019-06-01 22:41:48.592082968 +0200
+***************
+*** 586,588 ****
+--- 586,598 ----
+    delfunc MyPopupFilter
+    popupclear
+  endfunc
++ 
++ func Test_popup_close_callback()
++   func PopupDone(id, result)
++     let g:result = a:result
++   endfunc
++   let winid = popup_create('something', {'callback': 'PopupDone'})
++   redraw
++   call popup_close(winid, 'done')
++   call assert_equal('done', g:result)
++ endfunc
+*** ../vim-8.1.1445/src/version.c	2019-06-01 22:15:10.215177111 +0200
+--- src/version.c	2019-06-01 22:48:33.361971805 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1446,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+82. AT&T names you Customer of the Month for the third consecutive time.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

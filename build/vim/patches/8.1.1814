@@ -1,0 +1,128 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1814
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1814
+Problem:    A long title in a popup window overflows.
+Solution:   Truncate the title. (closes #4770)
+Files:	    src/testdir/test_popupwin.vim, src/popupwin.c,
+            src/testdir/dumps/Test_popupwin_longtitle_1.dump,
+            src/testdir/dumps/Test_popupwin_longtitle_2.dump
+
+
+*** ../vim-8.1.1813/src/testdir/test_popupwin.vim	2019-08-04 18:13:43.715225398 +0200
+--- src/testdir/test_popupwin.vim	2019-08-04 21:09:24.095484131 +0200
+***************
+*** 1282,1293 ****
+    " put the title on.
+    let lines =<< trim END
+  	call setline(1, range(1, 20))
+! 	call popup_create(['one', 'two', 'another'], #{title: 'Title String'})
+    END
+    call writefile(lines, 'XtestPopupTitle')
+    let buf = RunVimInTerminal('-S XtestPopupTitle', #{rows: 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_title', {})
+  
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupTitle')
+--- 1282,1301 ----
+    " put the title on.
+    let lines =<< trim END
+  	call setline(1, range(1, 20))
+! 	let winid = popup_create(['one', 'two', 'another'], #{title: 'Title String'})
+    END
+    call writefile(lines, 'XtestPopupTitle')
+    let buf = RunVimInTerminal('-S XtestPopupTitle', #{rows: 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_title', {})
+  
++   call term_sendkeys(buf, ":call popup_setoptions(winid, #{maxwidth: 20, title: 'a very long title that is not going to fit'})\<CR>")
++   call term_sendkeys(buf, ":\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_longtitle_1', {})
++ 
++   call term_sendkeys(buf, ":call popup_setoptions(winid, #{border: []})\<CR>")
++   call term_sendkeys(buf, ":\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_longtitle_2', {})
++ 
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupTitle')
+*** ../vim-8.1.1813/src/popupwin.c	2019-08-04 17:59:46.428829920 +0200
+--- src/popupwin.c	2019-08-04 21:07:53.747853992 +0200
+***************
+*** 2969,2976 ****
+  
+  	// Title goes on top of border or padding.
+  	if (wp->w_popup_title != NULL)
+! 	    screen_puts(wp->w_popup_title, wp->w_winrow, wp->w_wincol + 1,
+  		    wp->w_popup_border[0] > 0 ? border_attr[0] : popup_attr);
+  
+  	// Compute scrollbar thumb position and size.
+  	if (wp->w_has_scrollbar)
+--- 2969,2982 ----
+  
+  	// Title goes on top of border or padding.
+  	if (wp->w_popup_title != NULL)
+! 	{
+! 	    int	    len = (int)STRLEN(wp->w_popup_title) + 1;
+! 	    char_u  *title = alloc(len);
+! 
+! 	    trunc_string(wp->w_popup_title, title, total_width - 2, len);
+! 	    screen_puts(title, wp->w_winrow, wp->w_wincol + 1,
+  		    wp->w_popup_border[0] > 0 ? border_attr[0] : popup_attr);
++ 	}
+  
+  	// Compute scrollbar thumb position and size.
+  	if (wp->w_has_scrollbar)
+*** ../vim-8.1.1813/src/testdir/dumps/Test_popupwin_longtitle_1.dump	2019-08-04 21:11:31.306933694 +0200
+--- src/testdir/dumps/Test_popupwin_longtitle_1.dump	2019-08-04 21:09:34.591439939 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @25| +0#0000001#ffd7ff255|a| |v|e|r|y| |.@2|g| |t|o| |f|i|t| | +0#0000000#ffffff0@27
++ |5| @25|o+0#0000001#ffd7ff255|n|e| @16| +0#0000000#ffffff0@27
++ |6| @25|t+0#0000001#ffd7ff255|w|o| @16| +0#0000000#ffffff0@27
++ |7| @25|a+0#0000001#ffd7ff255|n|o|t|h|e|r| @12| +0#0000000#ffffff0@27
++ |8| @73
++ |9| @73
++ |:| @55|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1813/src/testdir/dumps/Test_popupwin_longtitle_2.dump	2019-08-04 21:11:31.310933674 +0200
+--- src/testdir/dumps/Test_popupwin_longtitle_2.dump	2019-08-04 21:09:35.647435480 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @24|╔+0#0000001#ffd7ff255|a| |v|e|r|y| |l|.@2|n|g| |t|o| |f|i|t|╗| +0#0000000#ffffff0@26
++ |4| @24|║+0#0000001#ffd7ff255|o|n|e| @16|║| +0#0000000#ffffff0@26
++ |5| @24|║+0#0000001#ffd7ff255|t|w|o| @16|║| +0#0000000#ffffff0@26
++ |6| @24|║+0#0000001#ffd7ff255|a|n|o|t|h|e|r| @12|║| +0#0000000#ffffff0@26
++ |7| @24|╚+0#0000001#ffd7ff255|═@19|╝| +0#0000000#ffffff0@26
++ |8| @73
++ |9| @73
++ |:| @55|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1813/src/version.c	2019-08-04 20:42:39.815198862 +0200
+--- src/version.c	2019-08-04 21:00:32.181270675 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1814,
+  /**/
+
+-- 
+I have a drinking problem -- I can't afford it.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,343 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1430
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1430
+Problem:    Popup window option "wrap" not supported.
+Solution:   Implement it.
+Files:	    src/popupwin.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_wrap.dump,
+            src/testdir/dumps/Test_popupwin_nowrap.dump
+
+
+*** ../vim-8.1.1429/src/popupwin.c	2019-05-30 21:24:22.177201251 +0200
+--- src/popupwin.c	2019-05-30 22:05:24.376650848 +0200
+***************
+*** 109,118 ****
+      static void
+  apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict, int atcursor)
+  {
+! #if defined(FEAT_TIMERS)
+!     int	    nr;
+! #endif
+!     char_u  *str;
+  
+      wp->w_minwidth = dict_get_number(dict, (char_u *)"minwidth");
+      wp->w_minheight = dict_get_number(dict, (char_u *)"minheight");
+--- 109,117 ----
+      static void
+  apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict, int atcursor)
+  {
+!     int		nr;
+!     char_u	*str;
+!     dictitem_T	*di;
+  
+      wp->w_minwidth = dict_get_number(dict, (char_u *)"minwidth");
+      wp->w_minheight = dict_get_number(dict, (char_u *)"minheight");
+***************
+*** 158,167 ****
+--- 157,173 ----
+      }
+  #endif
+  
++     // Option values resulting in setting an option.
+      str = dict_get_string(dict, (char_u *)"highlight", TRUE);
+      if (str != NULL)
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+  						   str, OPT_FREE|OPT_LOCAL, 0);
++     di = dict_find(dict, (char_u *)"wrap", -1);
++     if (di != NULL)
++     {
++ 	nr = dict_get_number(dict, (char_u *)"wrap");
++ 	wp->w_p_wrap = nr != 0;
++     }
+  }
+  
+  /*
+*** ../vim-8.1.1429/src/testdir/test_popupwin.vim	2019-05-30 19:24:57.615269014 +0200
+--- src/testdir/test_popupwin.vim	2019-05-30 22:06:07.392440360 +0200
+***************
+*** 84,101 ****
+    if !CanRunVimInTerminal()
+      return
+    endif
+!   call writefile([
+! 	\ "call setline(1, range(1, 100))",
+! 	\ "hi PopupColor ctermbg=lightgrey",
+! 	\ "let winid = popup_create([",
+! 	\ "\\ '#include <stdio.h>',",
+! 	\ "\\ 'int main(void)',",
+! 	\ "\\ '{',",
+! 	\ "\\ '    printf(567);',",
+! 	\ "\\ '}',",
+! 	\ "\\], {'line': 3, 'col': 21, 'highlight': 'PopupColor'})",
+! 	\ "call setbufvar(winbufnr(winid), '&syntax', 'cpp')",
+! 	\], 'XtestPopup')
+    let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_11', {})
+  
+--- 84,102 ----
+    if !CanRunVimInTerminal()
+      return
+    endif
+!   let lines =<< trim END
+! 	call setline(1, range(1, 100))
+! 	hi PopupColor ctermbg=lightgrey
+! 	let winid = popup_create([
+! 	    \ '#include <stdio.h>',
+! 	    \ 'int main(void)',
+! 	    \ '{',
+! 	    \ '    printf(567);',
+! 	    \ '}',
+! 	    \], {'line': 3, 'col': 21, 'highlight': 'PopupColor'})
+! 	call setbufvar(winbufnr(winid), '&syntax', 'cpp')
+!   END
+!   call writefile(lines, 'XtestPopup')
+    let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
+    call VerifyScreenDump(buf, 'Test_popupwin_11', {})
+  
+***************
+*** 104,109 ****
+--- 105,148 ----
+    call delete('XtestPopup')
+  endfunc
+  
++ func Test_popup_with_wrap()
++   if !CanRunVimInTerminal()
++     return
++   endif
++   let lines =<< trim END
++ 	 call setline(1, range(1, 100))
++ 	 let winid = popup_create(
++ 	   \ 'a long line that wont fit',
++ 	   \ {'line': 3, 'col': 20, 'maxwidth': 10, 'wrap': 1})
++   END
++   call writefile(lines, 'XtestPopup')
++   let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_wrap', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopup')
++ endfunc
++ 
++ func Test_popup_without_wrap()
++   if !CanRunVimInTerminal()
++     return
++   endif
++   let lines =<< trim END
++ 	 call setline(1, range(1, 100))
++ 	 let winid = popup_create(
++ 	   \ 'a long line that wont fit',
++ 	   \ {'line': 3, 'col': 20, 'maxwidth': 10, 'wrap': 0})
++   END
++   call writefile(lines, 'XtestPopup')
++   let buf = RunVimInTerminal('-S XtestPopup', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_nowrap', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopup')
++ endfunc
++ 
+  func Test_popup_time()
+    if !has('timers')
+      return
+***************
+*** 156,174 ****
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('world', line)
+!   call assert_equal(1, popup_getposition(winid).visible)
+  
+    call popup_hide(winid)
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('hello', line)
+!   call assert_equal(0, popup_getposition(winid).visible)
+  
+    call popup_show(winid)
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('world', line)
+!   call assert_equal(1, popup_getposition(winid).visible)
+  
+  
+    call popup_close(winid)
+--- 195,213 ----
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('world', line)
+!   call assert_equal(1, popup_getpos(winid).visible)
+  
+    call popup_hide(winid)
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('hello', line)
+!   call assert_equal(0, popup_getpos(winid).visible)
+  
+    call popup_show(winid)
+    redraw
+    let line = join(map(range(1, 5), 'screenstring(1, v:val)'), '')
+    call assert_equal('world', line)
+!   call assert_equal(1, popup_getpos(winid).visible)
+  
+  
+    call popup_close(winid)
+***************
+*** 216,222 ****
+    bwipe!
+  endfunc
+  
+! func Test_popup_getposition()
+    let winid = popup_create('hello', {
+      \ 'line': 2,
+      \ 'col': 3,
+--- 255,261 ----
+    bwipe!
+  endfunc
+  
+! func Test_popup_getpos()
+    let winid = popup_create('hello', {
+      \ 'line': 2,
+      \ 'col': 3,
+***************
+*** 224,230 ****
+      \ 'minheight': 11,
+      \})
+    redraw
+!   let res = popup_getposition(winid)
+    call assert_equal(2, res.line)
+    call assert_equal(3, res.col)
+    call assert_equal(10, res.width)
+--- 263,269 ----
+      \ 'minheight': 11,
+      \})
+    redraw
+!   let res = popup_getpos(winid)
+    call assert_equal(2, res.line)
+    call assert_equal(3, res.col)
+    call assert_equal(10, res.width)
+***************
+*** 246,252 ****
+    for test in tests
+      let winid = popup_create(test[0], {'line': 2, 'col': 3})
+      redraw
+!     let position = popup_getposition(winid)
+      call assert_equal(test[1], position.width)
+      call popup_close(winid)
+    endfor
+--- 285,291 ----
+    for test in tests
+      let winid = popup_create(test[0], {'line': 2, 'col': 3})
+      redraw
+!     let position = popup_getpos(winid)
+      call assert_equal(test[1], position.width)
+      call popup_close(winid)
+    endfor
+***************
+*** 262,273 ****
+      let winid = popup_create(test[0],
+  	  \ {'line': 2, 'col': 3, 'maxwidth': 12})
+      redraw
+!     let position = popup_getposition(winid)
+      call assert_equal(test[1], position.width)
+      call assert_equal(test[2], position.height)
+  
+      call popup_close(winid)
+!     call assert_equal({}, popup_getposition(winid))
+    endfor
+  endfunc
+  
+--- 301,312 ----
+      let winid = popup_create(test[0],
+  	  \ {'line': 2, 'col': 3, 'maxwidth': 12})
+      redraw
+!     let position = popup_getpos(winid)
+      call assert_equal(test[1], position.width)
+      call assert_equal(test[2], position.height)
+  
+      call popup_close(winid)
+!     call assert_equal({}, popup_getpos(winid))
+    endfor
+  endfunc
+  
+***************
+*** 382,386 ****
+--- 421,443 ----
+    call assert_equal('xvimxxxxxxxxxxxxx', line)
+    call popup_close(winid)
+  
++   " just enough room above
++   call cursor(3, 3)
++   redraw
++   let winid = popup_atcursor(['vim', 'is great'], {})
++   redraw
++   let pos = popup_getpos(winid)
++   call assert_equal(1, pos.line)
++   call popup_close(winid)
++ 
++   " not enough room above, popup goes below the cursor
++   call cursor(3, 3)
++   redraw
++   let winid = popup_atcursor(['vim', 'is', 'great'], {})
++   redraw
++   let pos = popup_getpos(winid)
++   call assert_equal(4, pos.line)
++   call popup_close(winid)
++ 
+    bwipe!
+  endfunc
+*** ../vim-8.1.1429/src/testdir/dumps/Test_popupwin_wrap.dump	2019-05-30 22:04:48.980822048 +0200
+--- src/testdir/dumps/Test_popupwin_wrap.dump	2019-05-30 22:00:52.589908871 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @17|a+0#0000001#ffd7ff255| |l|o|n|g| |l|i|n| +0#0000000#ffffff0@45
++ |4| @17|e+0#0000001#ffd7ff255| |t|h|a|t| |w|o|n| +0#0000000#ffffff0@45
++ |5| @17|t+0#0000001#ffd7ff255| |f|i|t| @4| +0#0000000#ffffff0@45
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1429/src/testdir/dumps/Test_popupwin_nowrap.dump	2019-05-30 22:04:48.984822029 +0200
+--- src/testdir/dumps/Test_popupwin_nowrap.dump	2019-05-30 22:02:32.921460959 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @17|a+0#0000001#ffd7ff255| |l|o|n|g| |l|i|n| +0#0000000#ffffff0@45
++ |4| @73
++ |5| @73
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1429/src/version.c	2019-05-30 21:24:22.177201251 +0200
+--- src/version.c	2019-05-30 22:03:42.601137773 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1430,
+  /**/
+
+-- 
+Over the years, I've developed my sense of deja vu so acutely that now
+I can remember things that *have* happened before ...
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,133 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1486
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1486
+Problem:    A listener change is merged even when it adds a line. (Paul Jolly)
+Solution:   Do not merge a change that adds or removes a line. (closes #4490)
+Files:	    src/change.c, src/testdir/test_listener.vim
+
+
+*** ../vim-8.1.1485/src/change.c	2019-06-01 13:28:30.269829512 +0200
+--- src/change.c	2019-06-06 19:58:19.326775932 +0200
+***************
+*** 186,191 ****
+--- 186,192 ----
+  		    || (prev_lnume >= lnum && xtra != 0))
+  	    {
+  		if (li->li_next == NULL && lnum == prev_lnum
++ 			&& xtra == 0
+  			&& col + 1 == (colnr_T)dict_get_number(
+  				      li->li_tv.vval.v_dict, (char_u *)"col"))
+  		{
+*** ../vim-8.1.1485/src/testdir/test_listener.vim	2019-05-24 21:39:23.893950022 +0200
+--- src/testdir/test_listener.vim	2019-06-06 20:04:46.320364378 +0200
+***************
+*** 28,36 ****
+    set undolevels&  " start new undo block
+    call append(2, 'two two')
+    undo
+    redraw
+!   " the two changes get merged
+!   call assert_equal([{'lnum': 3, 'end': 4, 'col': 1, 'added': 0}], s:list)
+    1
+  
+    " Two listeners, both get called.  Also check column.
+--- 28,37 ----
+    set undolevels&  " start new undo block
+    call append(2, 'two two')
+    undo
++   call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1}], s:list)
+    redraw
+!   " the two changes are not merged
+!   call assert_equal([{'lnum': 3, 'end': 4, 'col': 1, 'added': -1}], s:list)
+    1
+  
+    " Two listeners, both get called.  Also check column.
+***************
+*** 65,79 ****
+    call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1},
+  	\ {'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
+  
+!   " an insert just above a previous change that was the last one gets merged
+    call setline(1, ['one one', 'two'])
+    call listener_flush()
+    let s:list = []
+    call setline(2, 'something')
+    call append(1, 'two two')
+!   call assert_equal([], s:list)
+    call listener_flush()
+!   call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': 1}], s:list)
+  
+    " an insert above a previous change causes a flush
+    call setline(1, ['one one', 'two'])
+--- 66,81 ----
+    call assert_equal([{'lnum': 3, 'end': 3, 'col': 1, 'added': 1},
+  	\ {'lnum': 1, 'end': 2, 'col': 1, 'added': 0}], s:list)
+  
+!   " an insert just above a previous change that was the last one does not get
+!   " merged
+    call setline(1, ['one one', 'two'])
+    call listener_flush()
+    let s:list = []
+    call setline(2, 'something')
+    call append(1, 'two two')
+!   call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': 0}], s:list)
+    call listener_flush()
+!   call assert_equal([{'lnum': 2, 'end': 2, 'col': 1, 'added': 1}], s:list)
+  
+    " an insert above a previous change causes a flush
+    call setline(1, ['one one', 'two'])
+***************
+*** 86,98 ****
+    call assert_equal([{'lnum': 1, 'end': 1, 'col': 1, 'added': 1}], s:list)
+    call assert_equal('two two', s:text)
+  
+!   " a delete at a previous change that was the last one gets merged
+    call setline(1, ['one one', 'two'])
+    call listener_flush()
+    let s:list = []
+    call setline(2, 'something')
+    2del
+!   call assert_equal([], s:list)
+    call listener_flush()
+    call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': -1}], s:list)
+  
+--- 88,100 ----
+    call assert_equal([{'lnum': 1, 'end': 1, 'col': 1, 'added': 1}], s:list)
+    call assert_equal('two two', s:text)
+  
+!   " a delete at a previous change that was the last one does not get merged
+    call setline(1, ['one one', 'two'])
+    call listener_flush()
+    let s:list = []
+    call setline(2, 'something')
+    2del
+!   call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': 0}], s:list)
+    call listener_flush()
+    call assert_equal([{'lnum': 2, 'end': 3, 'col': 1, 'added': -1}], s:list)
+  
+*** ../vim-8.1.1485/src/version.c	2019-06-06 19:03:14.388227807 +0200
+--- src/version.c	2019-06-06 22:50:01.509039136 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1486,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+107. When using your phone you forget that you don't have to use your
+     keyboard.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,323 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1418
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1418
+Problem:    Win_execute() is not implemented yet.
+Solution:   Implement it.
+Files:	    src/evalfunc.c, src/popupwin.c, src/testdir/test_execute_func.vim,
+            runtime/doc/popup.txt, runtime/doc/eval.txt
+
+
+*** ../vim-8.1.1417/src/evalfunc.c	2019-05-29 20:26:32.525530253 +0200
+--- src/evalfunc.c	2019-05-29 21:22:16.884099074 +0200
+***************
+*** 492,497 ****
+--- 492,498 ----
+  static void f_virtcol(typval_T *argvars, typval_T *rettv);
+  static void f_visualmode(typval_T *argvars, typval_T *rettv);
+  static void f_wildmenumode(typval_T *argvars, typval_T *rettv);
++ static void f_win_execute(typval_T *argvars, typval_T *rettv);
+  static void f_win_findbuf(typval_T *argvars, typval_T *rettv);
+  static void f_win_getid(typval_T *argvars, typval_T *rettv);
+  static void f_win_gotoid(typval_T *argvars, typval_T *rettv);
+***************
+*** 1045,1050 ****
+--- 1046,1052 ----
+      {"virtcol",		1, 1, f_virtcol},
+      {"visualmode",	0, 1, f_visualmode},
+      {"wildmenumode",	0, 0, f_wildmenumode},
++     {"win_execute",	2, 3, f_win_execute},
+      {"win_findbuf",	1, 1, f_win_findbuf},
+      {"win_getid",	0, 2, f_win_getid},
+      {"win_gotoid",	1, 1, f_win_gotoid},
+***************
+*** 3519,3525 ****
+   * "execute()" function
+   */
+      static void
+! f_execute(typval_T *argvars, typval_T *rettv)
+  {
+      char_u	*cmd = NULL;
+      list_T	*list = NULL;
+--- 3521,3527 ----
+   * "execute()" function
+   */
+      static void
+! execute_common(typval_T *argvars, typval_T *rettv, int arg_off)
+  {
+      char_u	*cmd = NULL;
+      list_T	*list = NULL;
+***************
+*** 3535,3543 ****
+      rettv->vval.v_string = NULL;
+      rettv->v_type = VAR_STRING;
+  
+!     if (argvars[0].v_type == VAR_LIST)
+      {
+! 	list = argvars[0].vval.v_list;
+  	if (list == NULL || list->lv_first == NULL)
+  	    /* empty list, no commands, empty output */
+  	    return;
+--- 3537,3545 ----
+      rettv->vval.v_string = NULL;
+      rettv->v_type = VAR_STRING;
+  
+!     if (argvars[arg_off].v_type == VAR_LIST)
+      {
+! 	list = argvars[arg_off].vval.v_list;
+  	if (list == NULL || list->lv_first == NULL)
+  	    /* empty list, no commands, empty output */
+  	    return;
+***************
+*** 3545,3559 ****
+      }
+      else
+      {
+! 	cmd = tv_get_string_chk(&argvars[0]);
+  	if (cmd == NULL)
+  	    return;
+      }
+  
+!     if (argvars[1].v_type != VAR_UNKNOWN)
+      {
+  	char_u	buf[NUMBUFLEN];
+! 	char_u  *s = tv_get_string_buf_chk(&argvars[1], buf);
+  
+  	if (s == NULL)
+  	    return;
+--- 3547,3561 ----
+      }
+      else
+      {
+! 	cmd = tv_get_string_chk(&argvars[arg_off]);
+  	if (cmd == NULL)
+  	    return;
+      }
+  
+!     if (argvars[arg_off + 1].v_type != VAR_UNKNOWN)
+      {
+  	char_u	buf[NUMBUFLEN];
+! 	char_u  *s = tv_get_string_buf_chk(&argvars[arg_off + 1], buf);
+  
+  	if (s == NULL)
+  	    return;
+***************
+*** 3621,3626 ****
+--- 3623,3637 ----
+  }
+  
+  /*
++  * "execute()" function
++  */
++     static void
++ f_execute(typval_T *argvars, typval_T *rettv)
++ {
++     execute_common(argvars, rettv, 0);
++ }
++ 
++ /*
+   * "exepath()" function
+   */
+      static void
+***************
+*** 6095,6100 ****
+--- 6106,6135 ----
+  	}
+      }
+  }
++ 
++ /*
++  * "win_execute()" function
++  */
++     static void
++ f_win_execute(typval_T *argvars, typval_T *rettv)
++ {
++     int		id = (int)tv_get_number(argvars);
++     win_T	*wp = win_id2wp(id);
++     win_T	*save_curwin = curwin;
++ 
++     if (wp != NULL)
++     {
++ 	curwin = wp;
++ 	curbuf = curwin->w_buffer;
++ 	check_cursor();
++ 	execute_common(argvars, rettv, 1);
++ 	if (win_valid(save_curwin))
++ 	{
++ 	    curwin = save_curwin;
++ 	    curbuf = curwin->w_buffer;
++ 	}
++     }
++ }
+  
+  /*
+   * "win_findbuf()" function
+*** ../vim-8.1.1417/src/popupwin.c	2019-05-29 20:26:32.525530253 +0200
+--- src/popupwin.c	2019-05-29 21:24:53.287215209 +0200
+***************
+*** 238,243 ****
+--- 238,244 ----
+      buf->b_p_ul = -1;	    // no undo
+      buf->b_p_swf = FALSE;   // no swap file
+      buf->b_p_bl = FALSE;    // unlisted buffer
++     buf->b_locked = TRUE;
+  
+      win_init_popup_win(wp, buf);
+  
+***************
+*** 376,381 ****
+--- 377,383 ----
+      static void
+  popup_free(win_T *wp)
+  {
++     wp->w_buffer->b_locked = FALSE;
+      if (wp->w_winrow + wp->w_height >= cmdline_row)
+  	clear_cmdline = TRUE;
+      win_free_popup(wp);
+*** ../vim-8.1.1417/src/testdir/test_execute_func.vim	2018-12-08 13:57:38.553692769 +0100
+--- src/testdir/test_execute_func.vim	2019-05-29 21:41:04.481900749 +0200
+***************
+*** 78,80 ****
+--- 78,104 ----
+    endfor
+    call assert_equal('xyz ', text2)
+  endfunc
++ 
++ func Test_win_execute()
++   let thiswin = win_getid()
++   new
++   let otherwin = win_getid()
++   call setline(1, 'the new window')
++   call win_gotoid(thiswin)
++   let line = win_execute(otherwin, 'echo getline(1)')
++   call assert_match('the new window', line)
++ 
++   if has('textprop')
++     let popupwin = popup_create('the popup win', {'line': 2, 'col': 3})
++     redraw
++     let line = win_execute(popupwin, 'echo getline(1)')
++     call assert_match('the popup win', line)
++ 
++     call assert_fails('call win_execute(popupwin, "bwipe!")', 'E937:')
++ 
++     call popup_close(popupwin)
++   endif
++ 
++   call win_gotoid(otherwin)
++   bwipe!
++ endfunc
+*** ../vim-8.1.1417/runtime/doc/popup.txt	2019-05-29 20:26:32.525530253 +0200
+--- runtime/doc/popup.txt	2019-05-29 20:49:40.058507387 +0200
+***************
+*** 70,75 ****
+--- 70,76 ----
+  there is not enough space, some text may be invisible.
+  
+  
++ 
+  TODO:
+  
+  Example how to use syntax highlighting of a code snippet.
+***************
+*** 242,255 ****
+  		positioning mechanism applied.
+  		If popup window {id} is not found an empty Dict is returned.
+  
+- win_execute({id}, {command})
+- 	  	{not implemented yet}
+- 		Like `execute()` but in the context of window {id}.
+- 		The window will temporarily be made the current window,
+- 		without triggering autocommands.
+- 		Example: >
+- 			call win_execute(winid, 'syntax enable')
+- <
+  
+  							*:popupclear* *:popupc*
+  :popupc[lear]	Emergency solution to a misbehaving plugin: close all popup
+--- 243,248 ----
+***************
+*** 274,279 ****
+--- 267,276 ----
+  
+  The window does have a cursor position, but the cursor is not displayed.
+  
++ To execute a command in the context of the popup window and buffer use
++ `win_execute()`.  Example: >
++ 	call win_execute(winid, 'syntax enable')
++ 
+  Options can be set on the window with `setwinvar()`, e.g.: >
+  	call setwinvar(winid, '&wrap', 0)
+  And options can be set on the buffer with `setbufvar()`, e.g.: >
+*** ../vim-8.1.1417/runtime/doc/eval.txt	2019-05-19 18:41:23.262148495 +0200
+--- runtime/doc/eval.txt	2019-05-29 20:52:47.933510908 +0200
+***************
+*** 2738,2743 ****
+--- 2739,2746 ----
+  virtcol({expr})			Number	screen column of cursor or mark
+  visualmode([expr])		String	last visual mode used
+  wildmenumode()			Number	whether 'wildmenu' mode is active
++ win_execute({id}, {command} [, {silent}])
++ 				String	execute {command} in window {id}
+  win_findbuf({bufnr})		List	find windows containing {bufnr}
+  win_getid([{win} [, {tab}]])	Number	get window ID for {win} in {tab}
+  win_gotoid({expr})		Number	go to window with ID {expr}
+***************
+*** 4011,4017 ****
+  		To get a list of lines use |split()| on the result: >
+  			split(execute('args'), "\n")
+  
+! <		When used recursively the output of the recursive call is not
+  		included in the output of the higher level call.
+  
+  exepath({expr})						*exepath()*
+--- 4014,4023 ----
+  		To get a list of lines use |split()| on the result: >
+  			split(execute('args'), "\n")
+  
+! <		To execute a command in another window than the current one
+! 		use `win_execute()`.
+! 
+! 		When used recursively the output of the recursive call is not
+  		included in the output of the higher level call.
+  
+  exepath({expr})						*exepath()*
+***************
+*** 10306,10311 ****
+--- 10315,10326 ----
+  <
+  		(Note, this needs the 'wildcharm' option set appropriately).
+  
++ win_execute({id}, {command} [, {silent}])		*win_execute()*
++ 		Like `execute()` but in the context of window {id}.
++ 		The window will temporarily be made the current window,
++ 		without triggering autocommands.
++ 		Example: >
++ 			call win_execute(winid, 'syntax enable')
+  
+  win_findbuf({bufnr})					*win_findbuf()*
+  		Returns a list with |window-ID|s for windows that contain
+*** ../vim-8.1.1417/src/version.c	2019-05-29 20:36:51.502509469 +0200
+--- src/version.c	2019-05-29 20:49:08.242676060 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1418,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+44. Your friends no longer send you e-mail...they just log on to your IRC
+    channel.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

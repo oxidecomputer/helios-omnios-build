@@ -1,0 +1,168 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1450
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1450
+Problem:    Popup window positioning wrong when using padding or borders.
+Solution:   Fix computing the position.
+Files:	    src/popupwin.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_corners.dump
+
+
+*** ../vim-8.1.1449/src/popupwin.c	2019-06-02 14:49:52.368891150 +0200
+--- src/popupwin.c	2019-06-02 15:27:07.476956587 +0200
+***************
+*** 382,387 ****
+--- 382,393 ----
+      int		center_vert = FALSE;
+      int		center_hor = FALSE;
+      int		allow_adjust_left = !wp->w_popup_fixed;
++     int		top_extra = wp->w_popup_border[0] + wp->w_popup_padding[0];
++     int		right_extra = wp->w_popup_border[1] + wp->w_popup_padding[1];
++     int		bot_extra = wp->w_popup_border[2] + wp->w_popup_padding[2];
++     int		left_extra = wp->w_popup_border[3] + wp->w_popup_padding[3];
++     int		extra_height = top_extra + bot_extra;
++     int		extra_width = left_extra + right_extra;
+  
+      wp->w_winrow = 0;
+      wp->w_wincol = 0;
+***************
+*** 474,481 ****
+      {
+  	// Right aligned: move to the right if needed.
+  	// No truncation, because that would change the height.
+! 	if (wp->w_width < wp->w_wantcol)
+! 	    wp->w_wincol = wp->w_wantcol - wp->w_width;
+      }
+  
+      if (wp->w_height <= 1)
+--- 480,487 ----
+      {
+  	// Right aligned: move to the right if needed.
+  	// No truncation, because that would change the height.
+! 	if (wp->w_width + extra_width < wp->w_wantcol)
+! 	    wp->w_wincol = wp->w_wantcol - (wp->w_width + extra_width);
+      }
+  
+      if (wp->w_height <= 1)
+***************
+*** 492,500 ****
+      else if (wp->w_popup_pos == POPPOS_BOTRIGHT
+  	    || wp->w_popup_pos == POPPOS_BOTLEFT)
+      {
+! 	if (wp->w_height <= wp->w_wantline)
+  	    // bottom aligned: may move down
+! 	    wp->w_winrow = wp->w_wantline - wp->w_height;
+  	else
+  	    // not enough space, make top aligned
+  	    wp->w_winrow = wp->w_wantline + 1;
+--- 498,506 ----
+      else if (wp->w_popup_pos == POPPOS_BOTRIGHT
+  	    || wp->w_popup_pos == POPPOS_BOTLEFT)
+      {
+! 	if ((wp->w_height + extra_height) <= wp->w_wantline)
+  	    // bottom aligned: may move down
+! 	    wp->w_winrow = wp->w_wantline - (wp->w_height + extra_height);
+  	else
+  	    // not enough space, make top aligned
+  	    wp->w_winrow = wp->w_wantline + 1;
+*** ../vim-8.1.1449/src/testdir/test_popupwin.vim	2019-06-02 14:49:52.372891128 +0200
+--- src/testdir/test_popupwin.vim	2019-06-02 15:27:28.196847514 +0200
+***************
+*** 175,180 ****
+--- 175,229 ----
+    call delete('XtestPopup')
+  endfunc
+  
++ func Test_popup_all_corners()
++   if !CanRunVimInTerminal()
++     return
++   endif
++   let lines =<< trim END
++ 	call setline(1, repeat([repeat('-', 60)], 15))
++ 	set so=0
++ 	normal 2G3|r#
++ 	let winid1 = popup_create(['first', 'second'], {
++ 	      \ 'line': 'cursor+1',
++ 	      \ 'col': 'cursor',
++ 	      \ 'pos': 'topleft',
++ 	      \ 'border': [],
++ 	      \ 'padding': [],
++ 	      \ })
++ 	normal 25|r@
++ 	let winid1 = popup_create(['First', 'SeconD'], {
++ 	      \ 'line': 'cursor+1',
++ 	      \ 'col': 'cursor',
++ 	      \ 'pos': 'topright',
++ 	      \ 'border': [],
++ 	      \ 'padding': [],
++ 	      \ })
++ 	normal 9G29|r%
++ 	let winid1 = popup_create(['fiRSt', 'seCOnd'], {
++ 	      \ 'line': 'cursor-1',
++ 	      \ 'col': 'cursor',
++ 	      \ 'pos': 'botleft',
++ 	      \ 'border': [],
++ 	      \ 'padding': [],
++ 	      \ })
++ 	normal 51|r&
++ 	let winid1 = popup_create(['FIrsT', 'SEcoND'], {
++ 	      \ 'line': 'cursor-1',
++ 	      \ 'col': 'cursor',
++ 	      \ 'pos': 'botright',
++ 	      \ 'border': [],
++ 	      \ 'padding': [],
++ 	      \ })
++   END
++   call writefile(lines, 'XtestPopupCorners')
++   let buf = RunVimInTerminal('-S XtestPopupCorners', {'rows': 12})
++   call VerifyScreenDump(buf, 'Test_popupwin_corners', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupCorners')
++ endfunc
++ 
+  func Test_win_execute_closing_curwin()
+    split
+    let winid = popup_create('some text', {})
+*** ../vim-8.1.1449/src/testdir/dumps/Test_popupwin_corners.dump	2019-06-02 15:33:19.878990668 +0200
+--- src/testdir/dumps/Test_popupwin_corners.dump	2019-06-02 15:24:00.245939605 +0200
+***************
+*** 0 ****
+--- 1,12 ----
++ |-+0&#ffffff0@59| @14
++ |-@1|#|-@20|@|-@34| @14
++ |-@1|╔+0#0000001#ffd7ff255|═@7|╗|-+0#0000000#ffffff0@2|╔+0#0000001#ffd7ff255|═@7|╗|-+0#0000000#ffffff0@2|╔+0#0000001#ffd7ff255|═@7|╗|-+0#0000000#ffffff0@2|╔+0#0000001#ffd7ff255|═@7|╗|-+0#0000000#ffffff0@8| @14
++ |-@1|║+0#0000001#ffd7ff255| @7|║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| @7|║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| @7|║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| @7|║|-+0#0000000#ffffff0@8| @14
++ |-@1|║+0#0000001#ffd7ff255| |f|i|r|s|t| @1|║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| |F|i|r|s|t| @1|║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| |f|i|R|S|t| @1|║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| |F|I|r|s|T| @1|║|-+0#0000000#ffffff0@8| @14
++ |-@1|║+0#0000001#ffd7ff255| |s|e|c|o|n|d| |║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| |S|e|c|o|n|D| |║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| |s|e|C|O|n|d| |║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| |S|E|c|o|N|D| |║|-+0#0000000#ffffff0@8| @14
++ |-@1|║+0#0000001#ffd7ff255| @7|║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| @7|║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| @7|║|-+0#0000000#ffffff0@2|║+0#0000001#ffd7ff255| @7|║|-+0#0000000#ffffff0@8| @14
++ |-@1|╚+0#0000001#ffd7ff255|═@7|╝|-+0#0000000#ffffff0@2|╚+0#0000001#ffd7ff255|═@7|╝|-+0#0000000#ffffff0@2|╚+0#0000001#ffd7ff255|═@7|╝|-+0#0000000#ffffff0@2|╚+0#0000001#ffd7ff255|═@7|╝|-+0#0000000#ffffff0@8| @14
++ |-@27|%|-@20>&|-@8| @14
++ |-@59| @14
++ |-@59| @14
++ @57|9|,|5|1| @9|T|o|p| 
+*** ../vim-8.1.1449/src/version.c	2019-06-02 14:49:52.372891128 +0200
+--- src/version.c	2019-06-02 15:33:07.663055316 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1450,
+  /**/
+
+-- 
+From "know your smileys":
+ :^[/   mean-smiley-with-cigarette
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

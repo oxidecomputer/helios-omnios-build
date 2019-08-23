@@ -1,0 +1,202 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1700
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1700
+Problem:    Listener callback called for the wrong buffer. 
+Solution:   Invoke listeners before calling ml_append_int().
+Files:	    src/memline.c
+
+
+*** ../vim-8.1.1699/src/memline.c	2019-07-13 20:14:39.626623070 +0200
+--- src/memline.c	2019-07-15 22:58:33.160930543 +0200
+***************
+*** 243,249 ****
+  static void add_b0_fenc(ZERO_BL *b0p, buf_T *buf);
+  static time_t swapfile_info(char_u *);
+  static int recov_file_names(char_u **, char_u *, int prepend_dot);
+- static int ml_append_int(buf_T *, linenr_T, char_u *, colnr_T, int, int);
+  static int ml_delete_int(buf_T *, linenr_T, int);
+  static char_u *findswapname(buf_T *, char_u **, char_u *);
+  static void ml_flush_line(buf_T *);
+--- 243,248 ----
+***************
+*** 2746,2801 ****
+  }
+  #endif
+  
+- /*
+-  * Append a line after lnum (may be 0 to insert a line in front of the file).
+-  * "line" does not need to be allocated, but can't be another line in a
+-  * buffer, unlocking may make it invalid.
+-  *
+-  *   newfile: TRUE when starting to edit a new file, meaning that pe_old_lnum
+-  *		will be set for recovery
+-  * Check: The caller of this function should probably also call
+-  * appended_lines().
+-  *
+-  * return FAIL for failure, OK otherwise
+-  */
+-     int
+- ml_append(
+-     linenr_T	lnum,		/* append after this line (can be 0) */
+-     char_u	*line,		/* text of the new line */
+-     colnr_T	len,		/* length of new line, including NUL, or 0 */
+-     int		newfile)	/* flag, see above */
+- {
+-     /* When starting up, we might still need to create the memfile */
+-     if (curbuf->b_ml.ml_mfp == NULL && open_buffer(FALSE, NULL, 0) == FAIL)
+- 	return FAIL;
+- 
+-     if (curbuf->b_ml.ml_line_lnum != 0)
+- 	ml_flush_line(curbuf);
+-     return ml_append_int(curbuf, lnum, line, len, newfile, FALSE);
+- }
+- 
+- #if defined(FEAT_SPELL) || defined(FEAT_QUICKFIX) || defined(PROTO)
+- /*
+-  * Like ml_append() but for an arbitrary buffer.  The buffer must already have
+-  * a memline.
+-  */
+-     int
+- ml_append_buf(
+-     buf_T	*buf,
+-     linenr_T	lnum,		/* append after this line (can be 0) */
+-     char_u	*line,		/* text of the new line */
+-     colnr_T	len,		/* length of new line, including NUL, or 0 */
+-     int		newfile)	/* flag, see above */
+- {
+-     if (buf->b_ml.ml_mfp == NULL)
+- 	return FAIL;
+- 
+-     if (buf->b_ml.ml_line_lnum != 0)
+- 	ml_flush_line(buf);
+-     return ml_append_int(buf, lnum, line, len, newfile, FALSE);
+- }
+- #endif
+- 
+      static int
+  ml_append_int(
+      buf_T	*buf,
+--- 2745,2750 ----
+***************
+*** 2834,2847 ****
+      if (len == 0)
+  	len = (colnr_T)STRLEN(line) + 1;	// space needed for the text
+  
+- #ifdef FEAT_EVAL
+-     // When inserting above recorded changes: flush the changes before changing
+-     // the text.  Then flush the cached line, it may become invalid.
+-     may_invoke_listeners(buf, lnum + 1, lnum + 1, 1);
+-     if (curbuf->b_ml.ml_line_lnum != 0)
+- 	ml_flush_line(curbuf);
+- #endif
+- 
+  #ifdef FEAT_TEXT_PROP
+      if (curbuf->b_has_textprop && lnum > 0)
+  	// Add text properties that continue from the previous line.
+--- 2783,2788 ----
+***************
+*** 3326,3331 ****
+--- 3267,3345 ----
+  }
+  
+  /*
++  * Flush any pending change and call ml_append_int()
++  */
++     static int
++ ml_append_flush(
++     buf_T	*buf,
++     linenr_T	lnum,		// append after this line (can be 0)
++     char_u	*line,		// text of the new line
++     colnr_T	len,		// length of line, including NUL, or 0
++     int		newfile)	// flag, see above
++ {
++     if (lnum > buf->b_ml.ml_line_count)
++ 	return FAIL;  // lnum out of range
++ 
++     if (buf->b_ml.ml_line_lnum != 0)
++ 	// This may also invoke ml_append_int().
++ 	ml_flush_line(buf);
++ 
++ #ifdef FEAT_EVAL
++     // When inserting above recorded changes: flush the changes before changing
++     // the text.  Then flush the cached line, it may become invalid.
++     may_invoke_listeners(buf, lnum + 1, lnum + 1, 1);
++     if (buf->b_ml.ml_line_lnum != 0)
++ 	ml_flush_line(buf);
++ #endif
++ 
++     return ml_append_int(buf, lnum, line, len, newfile, FALSE);
++ }
++ 
++ /*
++  * Append a line after lnum (may be 0 to insert a line in front of the file).
++  * "line" does not need to be allocated, but can't be another line in a
++  * buffer, unlocking may make it invalid.
++  *
++  *   newfile: TRUE when starting to edit a new file, meaning that pe_old_lnum
++  *		will be set for recovery
++  * Check: The caller of this function should probably also call
++  * appended_lines().
++  *
++  * return FAIL for failure, OK otherwise
++  */
++     int
++ ml_append(
++     linenr_T	lnum,		/* append after this line (can be 0) */
++     char_u	*line,		/* text of the new line */
++     colnr_T	len,		/* length of new line, including NUL, or 0 */
++     int		newfile)	/* flag, see above */
++ {
++     /* When starting up, we might still need to create the memfile */
++     if (curbuf->b_ml.ml_mfp == NULL && open_buffer(FALSE, NULL, 0) == FAIL)
++ 	return FAIL;
++     return ml_append_flush(curbuf, lnum, line, len, newfile);
++ }
++ 
++ #if defined(FEAT_SPELL) || defined(FEAT_QUICKFIX) || defined(PROTO)
++ /*
++  * Like ml_append() but for an arbitrary buffer.  The buffer must already have
++  * a memline.
++  */
++     int
++ ml_append_buf(
++     buf_T	*buf,
++     linenr_T	lnum,		/* append after this line (can be 0) */
++     char_u	*line,		/* text of the new line */
++     colnr_T	len,		/* length of new line, including NUL, or 0 */
++     int		newfile)	/* flag, see above */
++ {
++     if (buf->b_ml.ml_mfp == NULL)
++ 	return FAIL;
++     return ml_append_flush(buf, lnum, line, len, newfile);
++ }
++ #endif
++ 
++ /*
+   * Replace line lnum, with buffering, in current buffer.
+   *
+   * If "copy" is TRUE, make a copy of the line, otherwise the line has been
+*** ../vim-8.1.1699/src/version.c	2019-07-15 22:40:19.061741740 +0200
+--- src/version.c	2019-07-15 22:56:06.345600783 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1700,
+  /**/
+
+-- 
+Dreams are free, but there's a small charge for alterations.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

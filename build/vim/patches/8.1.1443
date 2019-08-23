@@ -1,0 +1,501 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1443
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1443
+Problem:    Popup window padding and border not implemented yet.
+Solution:   Implement padding and border.  Add core position and size to
+            popup_getpos().
+Files:	    src/structs.h, src/popupwin.c, src/screen.c,
+            src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_20.dump, runtime/doc/popup.txt
+
+
+*** ../vim-8.1.1442/src/structs.h	2019-06-01 17:13:15.880517743 +0200
+--- src/structs.h	2019-06-01 18:13:59.147913309 +0200
+***************
+*** 2888,2893 ****
+--- 2888,2895 ----
+      int		w_maxwidth;	    // "maxwidth" for popup window
+      int		w_wantline;	    // "line" for popup window
+      int		w_wantcol;	    // "col" for popup window
++     int		w_popup_padding[4]; // popup padding top/right/bot/left
++     int		w_popup_border[4];  // popup border top/right/bot/left
+      varnumber_T	w_popup_last_changedtick; // b:changedtick when position was
+  					  // computed
+      callback_T	w_filter_cb;	    // popup filter callback
+*** ../vim-8.1.1442/src/popupwin.c	2019-06-01 17:13:15.880517743 +0200
+--- src/popupwin.c	2019-06-01 20:08:02.521743824 +0200
+***************
+*** 101,106 ****
+--- 101,138 ----
+      }
+  }
+  
++     static void
++ get_padding_border(dict_T *dict, int *array, char *name, int max_val)
++ {
++     dictitem_T	*di;
++ 
++     vim_memset(array, 0, sizeof(int) * 4);
++     di = dict_find(dict, (char_u *)name, -1);
++     if (di != NULL)
++     {
++ 	if (di->di_tv.v_type != VAR_LIST)
++ 	    emsg(_(e_listreq));
++ 	else
++ 	{
++ 	    list_T	*list = di->di_tv.vval.v_list;
++ 	    listitem_T	*li;
++ 	    int		i;
++ 	    int		nr;
++ 
++ 	    for (i = 0; i < 4; ++i)
++ 		array[i] = 1;
++ 	    if (list != NULL)
++ 		for (i = 0, li = list->lv_first; i < 4 && i < list->lv_len;
++ 							 ++i, li = li->li_next)
++ 		{
++ 		    nr = (int)tv_get_number(&li->li_tv);
++ 		    if (nr >= 0)
++ 			array[i] = nr > max_val ? max_val : nr;
++ 		}
++ 	}
++     }
++ }
++ 
+  /*
+   * Go through the options in "dict" and apply them to buffer "buf" displayed in
+   * popup window "wp".
+***************
+*** 176,181 ****
+--- 208,216 ----
+  	if (callback.cb_name != NULL)
+  	    set_callback(&wp->w_filter_cb, &callback);
+      }
++ 
++     get_padding_border(dict, wp->w_popup_padding, "padding", 999);
++     get_padding_border(dict, wp->w_popup_border, "border", 1);
+  }
+  
+  /*
+***************
+*** 700,715 ****
+      dict_T	*dict;
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
+  
+      if (rettv_dict_alloc(rettv) == OK)
+      {
+  	if (wp == NULL)
+  	    return;  // invalid {id}
+  	dict = rettv->vval.v_dict;
+  	dict_add_number(dict, "line", wp->w_winrow + 1);
+  	dict_add_number(dict, "col", wp->w_wincol + 1);
+! 	dict_add_number(dict, "width", wp->w_width);
+! 	dict_add_number(dict, "height", wp->w_height);
+  	dict_add_number(dict, "visible",
+  				       (wp->w_popup_flags & POPF_HIDDEN) == 0);
+      }
+--- 735,762 ----
+      dict_T	*dict;
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
++     int		top_extra;
++     int		left_extra;
+  
+      if (rettv_dict_alloc(rettv) == OK)
+      {
+  	if (wp == NULL)
+  	    return;  // invalid {id}
++ 	top_extra = wp->w_popup_border[0] + wp->w_popup_padding[0];
++ 	left_extra = wp->w_popup_border[3] + wp->w_popup_padding[3];
++ 
+  	dict = rettv->vval.v_dict;
++ 
+  	dict_add_number(dict, "line", wp->w_winrow + 1);
+  	dict_add_number(dict, "col", wp->w_wincol + 1);
+! 	dict_add_number(dict, "width", wp->w_width + left_extra + wp->w_popup_border[1] + wp->w_popup_padding[1]);
+! 	dict_add_number(dict, "height", wp->w_height + top_extra + wp->w_popup_border[2] + wp->w_popup_padding[2]);
+! 
+! 	dict_add_number(dict, "core_line", wp->w_winrow + 1 + top_extra);
+! 	dict_add_number(dict, "core_col", wp->w_wincol + 1 + left_extra);
+! 	dict_add_number(dict, "core_width", wp->w_width);
+! 	dict_add_number(dict, "core_height", wp->w_height);
+! 
+  	dict_add_number(dict, "visible",
+  				       (wp->w_popup_flags & POPF_HIDDEN) == 0);
+      }
+*** ../vim-8.1.1442/src/screen.c	2019-06-01 18:11:18.084962963 +0200
+--- src/screen.c	2019-06-01 19:51:24.793577381 +0200
+***************
+*** 991,1001 ****
+--- 991,1036 ----
+  }
+  #endif
+  
++ /*
++  * Get 'wincolor' attribute for window "wp".  If not set and "wp" is a popup
++  * window then get the "Pmenu" highlight attribute.
++  */
++     static int
++ get_wcr_attr(win_T *wp)
++ {
++     int wcr_attr = 0;
++ 
++     if (*wp->w_p_wcr != NUL)
++ 	wcr_attr = syn_name2attr(wp->w_p_wcr);
+  #ifdef FEAT_TEXT_PROP
++     if (bt_popup(wp->w_buffer) && wcr_attr == 0)
++ 	wcr_attr = HL_ATTR(HLF_PNI);
++ #endif
++     return wcr_attr;
++ }
++ 
++ #ifdef FEAT_TEXT_PROP
++ /*
++  * Return a string of "len" spaces in IObuff.
++  */
++     static char_u *
++ get_spaces(int len)
++ {
++     vim_memset(IObuff, ' ', (size_t)len);
++     IObuff[len] = NUL;
++     return IObuff;
++ }
++ 
+      static void
+  update_popups(void)
+  {
+      win_T   *wp;
++     int	    top_off;
++     int	    left_off;
++     int	    total_width;
++     int	    total_height;
++     int	    popup_attr;
++     int	    row;
+  
+      // Find the window with the lowest zindex that hasn't been updated yet,
+      // so that the window with a higher zindex is drawn later, thus goes on
+***************
+*** 1008,1035 ****
+  	if (wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
+  	win_update(wp);
+-     }
+- }
+- #endif
+  
+! /*
+!  * Get 'wincolor' attribute for window "wp".  If not set and "wp" is a popup
+!  * window then get the "Pmenu" highlight attribute.
+!  */
+!     static int
+! get_wcr_attr(win_T *wp)
+! {
+!     int wcr_attr = 0;
+  
+!     if (*wp->w_p_wcr != NUL)
+! 	wcr_attr = syn_name2attr(wp->w_p_wcr);
+! #ifdef FEAT_TEXT_PROP
+!     if (bt_popup(wp->w_buffer) && wcr_attr == 0)
+! 	wcr_attr = HL_ATTR(HLF_PNI);
+! #endif
+!     return wcr_attr;
+  }
+  
+  #if defined(FEAT_GUI) || defined(PROTO)
+  /*
+--- 1043,1139 ----
+  	if (wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
++ 	// adjust w_winrow and w_wincol for border and padding, since
++ 	// win_update() doesn't handle them.
++ 	top_off = wp->w_popup_padding[0] + wp->w_popup_border[0];
++ 	left_off = wp->w_popup_padding[3] + wp->w_popup_border[3];
++ 	wp->w_winrow += top_off;
++ 	wp->w_wincol += left_off;
++ 
++ 	// Draw the popup text.
+  	win_update(wp);
+  
+! 	wp->w_winrow -= top_off;
+! 	wp->w_wincol -= left_off;
+  
+! 	total_width = wp->w_popup_border[3] + wp->w_popup_padding[3]
+! 		+ wp->w_width + wp->w_popup_padding[1] + wp->w_popup_border[1];
+! 	total_height = wp->w_popup_border[0] + wp->w_popup_padding[0]
+! 		+ wp->w_height + wp->w_popup_padding[2] + wp->w_popup_border[2];
+! 	popup_attr = get_wcr_attr(wp);
+! 
+! 	if (wp->w_popup_border[0] > 0)
+! 	{
+! 	    // top border
+! 	    screen_fill(wp->w_winrow, wp->w_winrow + 1,
+! 		    wp->w_wincol,
+! 		    wp->w_wincol + total_width,
+! 		    wp->w_popup_border[3] != 0 ? '+' : '-',
+! 		    '-', popup_attr);
+! 	    if (wp->w_popup_border[1] > 0)
+! 		screen_puts((char_u *)"+", wp->w_winrow,
+! 			wp->w_wincol + total_width - 1, popup_attr);
+! 	}
+! 
+! 	if (wp->w_popup_padding[0] > 0)
+! 	{
+! 	    // top padding
+! 	    row = wp->w_winrow + wp->w_popup_border[0];
+! 	    screen_fill(row, row + wp->w_popup_padding[0],
+! 		    wp->w_wincol + wp->w_popup_border[3],
+! 		    wp->w_wincol + total_width - wp->w_popup_border[1],
+! 							 ' ', ' ', popup_attr);
+! 	}
+! 
+! 	for (row = wp->w_winrow + wp->w_popup_border[0];
+! 		row < wp->w_winrow + total_height - wp->w_popup_border[2];
+! 		    ++row)
+! 	{
+! 	    // left border
+! 	    if (wp->w_popup_border[3] > 0)
+! 		screen_puts((char_u *)"|", row, wp->w_wincol, popup_attr);
+! 	    // left padding
+! 	    if (wp->w_popup_padding[3] > 0)
+! 		screen_puts(get_spaces(wp->w_popup_padding[3]), row,
+! 			wp->w_wincol + wp->w_popup_border[3], popup_attr);
+! 	    // right border
+! 	    if (wp->w_popup_border[1] > 0)
+! 		screen_puts((char_u *)"|", row,
+! 			wp->w_wincol + total_width - 1, popup_attr);
+! 	    // right padding
+! 	    if (wp->w_popup_padding[1] > 0)
+! 		screen_puts(get_spaces(wp->w_popup_padding[1]), row,
+! 			wp->w_wincol + wp->w_popup_border[3]
+! 			   + wp->w_popup_padding[3] + wp->w_width, popup_attr);
+! 	}
+! 
+! 	if (wp->w_popup_padding[2] > 0)
+! 	{
+! 	    // bottom padding
+! 	    row = wp->w_winrow + wp->w_popup_border[0]
+! 				       + wp->w_popup_padding[0] + wp->w_height;
+! 	    screen_fill(row, row + wp->w_popup_padding[2],
+! 		    wp->w_wincol + wp->w_popup_border[3],
+! 		    wp->w_wincol + total_width - wp->w_popup_border[1],
+! 							 ' ', ' ', popup_attr);
+! 	}
+! 
+! 	if (wp->w_popup_border[2] > 0)
+! 	{
+! 	    // bottom border
+! 	    row = wp->w_winrow + total_height - 1;
+! 	    screen_fill(row , row + 1,
+! 		    wp->w_wincol,
+! 		    wp->w_wincol + total_width,
+! 		    wp->w_popup_border[3] != 0 ? '+' : '-',
+! 		    '-', popup_attr);
+! 	    if (wp->w_popup_border[1] > 0)
+! 		screen_puts((char_u *)"+", row,
+! 			wp->w_wincol + total_width - 1, popup_attr);
+! 	}
+!     }
+  }
++ #endif
+  
+  #if defined(FEAT_GUI) || defined(PROTO)
+  /*
+*** ../vim-8.1.1442/src/testdir/test_popupwin.vim	2019-06-01 17:13:15.884517713 +0200
+--- src/testdir/test_popupwin.vim	2019-06-01 20:14:48.550674542 +0200
+***************
+*** 56,61 ****
+--- 56,109 ----
+    call delete('XtestPopup')
+  endfunc
+  
++ func Test_popup_with_border_and_padding()
++   if !CanRunVimInTerminal()
++     return
++   endif
++   call writefile([
++ 	\ "call setline(1, range(1, 100))",
++ 	\ "call popup_create('hello border', {'line': 2, 'col': 3, 'border': []})",
++ 	\ "call popup_create('hello padding', {'line': 2, 'col': 23, 'padding': []})",
++ 	\ "call popup_create('hello both', {'line': 2, 'col': 43, 'border': [], 'padding': []})",
++ 	\ "call popup_create('border TL', {'line': 6, 'col': 3, 'border': [1, 0, 0, 4]})",
++ 	\ "call popup_create('paddings', {'line': 6, 'col': 23, 'padding': [1, 3, 2, 4]})",
++ 	\], 'XtestPopupBorder')
++   let buf = RunVimInTerminal('-S XtestPopupBorder', {'rows': 15})
++   call VerifyScreenDump(buf, 'Test_popupwin_20', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupBorder')
++ 
++   let with_border_or_padding = {
++ 	\ 'line': 2,
++ 	\ 'core_line': 3,
++ 	\ 'col': 3,
++ 	\ 'core_col': 4,
++ 	\ 'width': 14,
++ 	\ 'core_width': 12,
++ 	\ 'height': 3,
++ 	\ 'core_height': 1,
++ 	\ 'visible': 1}
++   let winid = popup_create('hello border', {'line': 2, 'col': 3, 'border': []})",
++   call assert_equal(with_border_or_padding, popup_getpos(winid))
++ 
++   let winid = popup_create('hello paddng', {'line': 2, 'col': 3, 'padding': []})
++   call assert_equal(with_border_or_padding, popup_getpos(winid))
++ 
++   let winid = popup_create('hello both', {'line': 3, 'col': 8, 'border': [], 'padding': []})
++   call assert_equal({
++ 	\ 'line': 3,
++ 	\ 'core_line': 5,
++ 	\ 'col': 8,
++ 	\ 'core_col': 10,
++ 	\ 'width': 14,
++ 	\ 'core_width': 10,
++ 	\ 'height': 5,
++ 	\ 'core_height': 1,
++ 	\ 'visible': 1}, popup_getpos(winid))
++ endfunc
++ 
+  func Test_popup_with_syntax_win_execute()
+    if !CanRunVimInTerminal()
+      return
+*** ../vim-8.1.1442/src/testdir/dumps/Test_popupwin_20.dump	2019-06-01 20:15:43.158268775 +0200
+--- src/testdir/dumps/Test_popupwin_20.dump	2019-06-01 20:05:11.907075294 +0200
+***************
+*** 0 ****
+--- 1,15 ----
++ >1+0&#ffffff0| @73
++ |2| |++0#0000001#ffd7ff255|-@11|+| +0#0000000#ffffff0@5| +0#0000001#ffd7ff255@14| +0#0000000#ffffff0@4|++0#0000001#ffd7ff255|-@11|+| +0#0000000#ffffff0@18
++ |3| ||+0#0000001#ffd7ff255|h|e|l@1|o| |b|o|r|d|e|r||| +0#0000000#ffffff0@5| +0#0000001#ffd7ff255|h|e|l@1|o| |p|a|d@1|i|n|g| | +0#0000000#ffffff0@4||+0#0000001#ffd7ff255| @11||| +0#0000000#ffffff0@18
++ |4| |++0#0000001#ffd7ff255|-@11|+| +0#0000000#ffffff0@5| +0#0000001#ffd7ff255@14| +0#0000000#ffffff0@4||+0#0000001#ffd7ff255| |h|e|l@1|o| |b|o|t|h| ||| +0#0000000#ffffff0@18
++ |5| @40||+0#0000001#ffd7ff255| @11||| +0#0000000#ffffff0@18
++ |6| |++0#0000001#ffd7ff255|-@8| +0#0000000#ffffff0@9| +0#0000001#ffd7ff255@14| +0#0000000#ffffff0@4|++0#0000001#ffd7ff255|-@11|+| +0#0000000#ffffff0@18
++ |7| ||+0#0000001#ffd7ff255|b|o|r|d|e|r| |T|L| +0#0000000#ffffff0@9| +0#0000001#ffd7ff255@3|p|a|d@1|i|n|g|s| @2| +0#0000000#ffffff0@37
++ |8| @20| +0#0000001#ffd7ff255@14| +0#0000000#ffffff0@37
++ |9| @20| +0#0000001#ffd7ff255@14| +0#0000000#ffffff0@37
++ |1|0| @72
++ |1@1| @72
++ |1|2| @72
++ |1|3| @72
++ |1|4| @72
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1442/runtime/doc/popup.txt	2019-06-01 17:13:15.880517743 +0200
+--- runtime/doc/popup.txt	2019-06-01 19:56:04.131671695 +0200
+***************
+*** 90,100 ****
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+- - Invoke filter with character before mapping?
+- - Handle screen resize in screenalloc(). (Ben Jackson, #4467)
+  - Why does 'nrformats' leak from the popup window buffer???
+- - Implement padding
+- - Implement border
+  - Make redrawing more efficient and avoid flicker.
+      Store popup info in a mask, use the mask in screen_line()
+      Keep mask until next update_screen(), find differences and redraw affected
+--- 90,96 ----
+***************
+*** 103,109 ****
+      Fix redrawing problem when scrolling non-current window
+      Fix redrawing the statusline on top of a popup
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+!   Use NOT_IN_POPUP_WINDOW.
+  - Figure out the size and position better.
+      if wrapping splits a double-wide character
+      if wrapping inserts indent
+--- 99,106 ----
+      Fix redrawing problem when scrolling non-current window
+      Fix redrawing the statusline on top of a popup
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+!   Use NOT_IN_POPUP_WINDOW for more commands.
+! - Invoke filter with character before mapping?
+  - Figure out the size and position better.
+      if wrapping splits a double-wide character
+      if wrapping inserts indent
+***************
+*** 255,266 ****
+  		with these entries:
+  		    col		screen column of the popup, one-based
+  		    line	screen line of the popup, one-based
+! 		    width	width of the popup in screen cells
+! 		    height	height of the popup in screen cells
+  		    visible 	one if the popup is displayed, zero if hidden
+  		Note that these are the actual screen positions.  They differ
+  		from the values in `popup_getoptions()` for the sizing and
+  		positioning mechanism applied.
+  		If popup window {id} is not found an empty Dict is returned.
+  
+  
+--- 252,270 ----
+  		with these entries:
+  		    col		screen column of the popup, one-based
+  		    line	screen line of the popup, one-based
+! 		    width	width of the whole popup in screen cells
+! 		    height	height of the whole popup in screen cells
+! 		    core_col	screen column of the text box
+! 		    core_line	screen line of the text box
+! 		    core_width	width of the text box in screen cells
+! 		    core_height	height of the text box in screen cells
+  		    visible 	one if the popup is displayed, zero if hidden
+  		Note that these are the actual screen positions.  They differ
+  		from the values in `popup_getoptions()` for the sizing and
+  		positioning mechanism applied.
++ 
++ 		The "core_" values exclude the padding and border.
++ 
+  		If popup window {id} is not found an empty Dict is returned.
+  
+  
+***************
+*** 361,371 ****
+  			padding uses the 'wincolor' highlight; Example: [1, 2,
+  			1, 3] has 1 line of padding above, 2 columns on the
+  			right, 1 line below and 3 columns on the left
+- 			{not implemented yet}
+  	border		list with numbers, defining the border thickness
+  			above/right/below/left of the popup (similar to CSS);
+  			an empty list uses a border of 1 all around
+- 			{not implemented yet}
+  	borderhighlight	highlight group name to use for the border
+  			{not implemented yet}
+  	borderchars	list with characters, defining the character to use
+--- 365,374 ----
+  			padding uses the 'wincolor' highlight; Example: [1, 2,
+  			1, 3] has 1 line of padding above, 2 columns on the
+  			right, 1 line below and 3 columns on the left
+  	border		list with numbers, defining the border thickness
+  			above/right/below/left of the popup (similar to CSS);
++ 			only values of zero and non-zero are recognized;
+  			an empty list uses a border of 1 all around
+  	borderhighlight	highlight group name to use for the border
+  			{not implemented yet}
+  	borderchars	list with characters, defining the character to use
+*** ../vim-8.1.1442/src/version.c	2019-06-01 18:11:18.084962963 +0200
+--- src/version.c	2019-06-01 19:53:24.984758045 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1443,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+79. All of your most erotic dreams have a scrollbar at the right side.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

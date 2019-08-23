@@ -1,0 +1,669 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1449
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1449
+Problem:    Popup text truncated at end of screen.
+Solution:   Move popup left if needed.  Add the "fixed" property to disable
+            that. (Ben Jackson , closes #4466)
+Files:	    runtime/doc/popup.txt, src/popupwin.c, src/structs.h,
+            src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1448/runtime/doc/popup.txt	2019-06-01 22:49:23.697685695 +0200
+--- runtime/doc/popup.txt	2019-06-02 14:40:53.019846834 +0200
+***************
+*** 65,72 ****
+  It can be limited with the "maxwidth" property.  You can use spaces to
+  increase the width or the "minwidth" property.
+  
+! By default the 'wrap' option is set, so that no text disappears.  However, if
+! there is not enough space, some text may be invisible.
+  
+  Vim tries to show the popup in the location you specify.  In some cases, e.g.
+  when the popup would go outside of the Vim window, it will show it somewhere
+--- 65,74 ----
+  It can be limited with the "maxwidth" property.  You can use spaces to
+  increase the width or the "minwidth" property.
+  
+! By default the 'wrap' option is set, so that no text disappears.  Otherwise,
+! if there is not enough space then the window is shifted left in order to
+! display more text. This can be disabled with the "fixed" property. Also
+! disabled when right-aligned.
+  
+  Vim tries to show the popup in the location you specify.  In some cases, e.g.
+  when the popup would go outside of the Vim window, it will show it somewhere
+***************
+*** 78,85 ****
+  
+  TODO:
+  
+- Example how to use syntax highlighting of a code snippet.
+- 
+  Scrolling: When the screen scrolls up for output of an Ex command, what
+  happens with popups?
+  1. Stay where they are.  Problem: listed text may go behind and can't be read.
+--- 80,85 ----
+***************
+*** 93,104 ****
+  - Fix positioning with border and padding.
+  - Why does 'nrformats' leak from the popup window buffer???
+  - Make redrawing more efficient and avoid flicker.
+!     Store popup info in a mask, use the mask in screen_line()
+!     Keep mask until next update_screen(), find differences and redraw affected
+!     windows/lines
+      Fix redrawing problem with completion.
+      Fix redrawing problem when scrolling non-current window
+-     Fix redrawing the statusline on top of a popup
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+    Use NOT_IN_POPUP_WINDOW for more commands.
+  - Invoke filter with character before mapping?
+--- 93,104 ----
+  - Fix positioning with border and padding.
+  - Why does 'nrformats' leak from the popup window buffer???
+  - Make redrawing more efficient and avoid flicker.
+!     First draw popups, creating a mask, use the mask in screen_line() when
+!     drawing other windows and stuff.  Mask contains zindex of popups.
+!     Keep mask until next update_screen(), use when drawing status lines.
+!     Remove update_popup() calls after draw_tabline()/updating statusline
+      Fix redrawing problem with completion.
+      Fix redrawing problem when scrolling non-current window
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+    Use NOT_IN_POPUP_WINDOW for more commands.
+  - Invoke filter with character before mapping?
+***************
+*** 327,407 ****
+  			|popup-props|.
+  
+  The second argument of |popup_create()| is a dictionary with options:
+! 	line		screen line where to position the popup; can use a
+  			number or "cursor", "cursor+1" or "cursor-1" to use
+  			the line of the cursor and add or subtract a number of
+! 			lines; if omitted the popup is vertically centered,
+! 			otherwise "pos" is used.
+! 	col		screen column where to position the popup; can use a
+  			number or "cursor" to use the column of the cursor,
+! 			"cursor+99" and "cursor-99" to add or subtract a
+! 			number of columns; if omitted the popup is
+! 			horizontally centered, otherwise "pos" is used
+  	pos		"topleft", "topright", "botleft" or "botright":
+  			defines what corner of the popup "line" and "col" are
+  			used for.  When not set "topleft" is used.
+  			Alternatively "center" can be used to position the
+  			popup in the center of the Vim window, in which case
+  			"line" and "col" are ignored.
+! 	flip		when TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+  			avoid overlap with the |popupmenu-completion| or
+! 			another popup with a higher "zindex"
+  			{not implemented yet}
+! 	maxheight	maximum height
+! 	minheight	minimum height
+! 	maxwidth	maximum width
+! 	minwidth	minimum width
+! 	hidden		when TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
+  			{not implemented yet}
+! 	tab		when -1: display the popup on all tabs; when 0 (the
+! 			default): display the popup on the current tab;
+! 			otherwise the number of the tab page the popup is
+! 			displayed on; when invalid the current tab is used
+  			{only -1 and 0 are implemented}
+! 	title		text to be displayed above the first item in the
+! 			popup, on top of any border
+  			{not implemented yet}
+! 	wrap		TRUE to make the lines wrap (default TRUE)
+! 	highlight	highlight group name to use for the text, stored in
+! 			the 'wincolor' option
+! 	padding		list with numbers, defining the padding
+! 			above/right/below/left of the popup (similar to CSS);
+! 			an empty list uses a padding of 1 all around; the
+! 			padding goes around the text, inside any border;
+! 			padding uses the 'wincolor' highlight; Example: [1, 2,
+! 			1, 3] has 1 line of padding above, 2 columns on the
+! 			right, 1 line below and 3 columns on the left
+! 	border		list with numbers, defining the border thickness
+! 			above/right/below/left of the popup (similar to CSS);
+! 			only values of zero and non-zero are recognized;
+! 			an empty list uses a border all around
+! 	borderhighlight	list of highlight group names to use for the border;
+! 			when one entry it is used for all borders, otherwise
+! 			the highlight for the top/right/bottom/left border
+! 	borderchars	list with characters, defining the character to use
+! 			for the top/right/bottom/left border; optionally
+  			followed by the character to use for the
+! 			topleft/topright/botright/botleft corner; when the
+! 			list has one character it is used for all; when
+! 			the list has two characters the first is used for the
+! 			border lines, the second for the corners; by default
+! 			a double line is used all around when 'encoding' is
+! 			"utf-8", otherwise ASCII characters are used.
+! 	zindex		priority for the popup, default 50
+! 	time		time in milliseconds after which the popup will close;
+! 			when omitted |popup_close()| must be used.
+  	moved		"cell": close the popup if the cursor moved at least
+! 			one screen cell; "word" allows for moving within
+! 			|<cword>|, "WORD" allows for moving within |<cWORD>|,
+  			a list with two numbers specifies the start and end
+! 			column
+  			{not implemented yet}
+! 	filter		a callback that can filter typed characters, see 
+! 			|popup-filter|
+! 	callback	a callback to be used when the popup closes, e.g. when
+! 			using |popup_filter_menu()|, see |popup-callback|.
+  
+  Depending on the "zindex" the popup goes under or above other popups.  The
+  completion menu (|popup-menu|) has zindex 100.  For messages that occur for a
+--- 327,426 ----
+  			|popup-props|.
+  
+  The second argument of |popup_create()| is a dictionary with options:
+! 	line		Screen line where to position the popup.  Can use a
+  			number or "cursor", "cursor+1" or "cursor-1" to use
+  			the line of the cursor and add or subtract a number of
+! 			lines.  If omitted the popup is vertically centered.
+! 			The first line is 1.
+! 	col		Screen column where to position the popup.  Can use a
+  			number or "cursor" to use the column of the cursor,
+! 			"cursor+9" or "cursor-9" to add or subtract a number
+! 			of columns.  If omitted the popup is horizontally
+! 			centered.  The first column is 1.
+  	pos		"topleft", "topright", "botleft" or "botright":
+  			defines what corner of the popup "line" and "col" are
+  			used for.  When not set "topleft" is used.
+  			Alternatively "center" can be used to position the
+  			popup in the center of the Vim window, in which case
+  			"line" and "col" are ignored.
+! 	fixed		When FALSE (the default), and:
+! 			 - "pos" is "botleft" or "topleft", and
+! 			 - "wrap" is off, and
+! 			 - the popup would be truncated at the right edge of
+! 			   the screen, then
+! 			the popup is moved to the left so as to fit the
+! 			contents on the screen.  Set to TRUE to disable this.
+! 	flip		When TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+  			avoid overlap with the |popupmenu-completion| or
+! 			another popup with a higher "zindex".
+  			{not implemented yet}
+! 	maxheight	Maximum height of the contents, excluding border and
+! 			padding.
+! 	minheight	Minimum height of the contents, excluding border and
+! 			padding.
+! 	maxwidth	Maximum width of the contents, excluding border and
+! 			padding.
+! 	minwidth	Minimum width of the contents, excluding border and
+! 			padding.
+! 	hidden		When TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
+  			{not implemented yet}
+! 	tab		When -1: display the popup on all tabs.
+! 			When 0 (the default): display the popup on the current
+! 			tab.
+! 			Otherwise the number of the tab page the popup is
+! 			displayed on; when invalid the current tab is used.
+  			{only -1 and 0 are implemented}
+! 	title		Text to be displayed above the first item in the
+! 			popup, on top of any border.  If there is no top
+! 			border on line of padding is added to put the title on.
+  			{not implemented yet}
+! 	wrap		TRUE to make the lines wrap (default TRUE).
+! 	highlight	Highlight group name to use for the text, stored in
+! 			the 'wincolor' option.
+! 	padding		List with numbers, defining the padding
+! 			above/right/below/left of the popup (similar to CSS).
+! 			An empty list uses a padding of 1 all around.  The
+! 			padding goes around the text, inside any border.
+! 			Padding uses the 'wincolor' highlight.
+! 			Example: [1, 2, 1, 3] has 1 line of padding above, 2
+! 			columns on the right, 1 line below and 3 columns on
+! 			the left.
+! 	border		List with numbers, defining the border thickness
+! 			above/right/below/left of the popup (similar to CSS).
+! 			Only values of zero and non-zero are recognized.
+! 			An empty list uses a border all around.
+! 	borderhighlight	List of highlight group names to use for the border.
+! 			When one entry it is used for all borders, otherwise
+! 			the highlight for the top/right/bottom/left border.
+! 			Example: ['TopColor', 'RightColor', 'BottomColor,
+! 			'LeftColor']
+! 	borderchars	List with characters, defining the character to use
+! 			for the top/right/bottom/left border.  Optionally
+  			followed by the character to use for the
+! 			topleft/topright/botright/botleft corner.
+! 			Example: ['-', '|', '-', '|', '┌', '┐', '┘', '└']
+! 			When the list has one character it is used for all.
+! 			When the list has two characters the first is used for
+! 			the border lines, the second for the corners.
+! 			By default a double line is used all around when
+! 			'encoding' is "utf-8", otherwise ASCII characters are
+! 			used.
+! 	zindex		Priority for the popup, default 50.
+! 	time		Time in milliseconds after which the popup will close.
+! 			When omitted |popup_close()| must be used.
+  	moved		"cell": close the popup if the cursor moved at least
+! 			one screen cell.
+! 			"word" allows for moving the cursor within |<cword>|
+! 			"WORD" allows for moving the cursor within |<cWORD>|
+  			a list with two numbers specifies the start and end
+! 			column outside of which the popup will close
+  			{not implemented yet}
+! 	filter		A callback that can filter typed characters, see 
+! 			|popup-filter|.
+! 	callback	A callback that is called when the popup closes, e.g.
+! 			when using |popup_filter_menu()|, see |popup-callback|.
+  
+  Depending on the "zindex" the popup goes under or above other popups.  The
+  completion menu (|popup-menu|) has zindex 100.  For messages that occur for a
+*** ../vim-8.1.1448/src/popupwin.c	2019-06-02 13:22:08.368507012 +0200
+--- src/popupwin.c	2019-06-02 14:43:16.359086768 +0200
+***************
+*** 84,89 ****
+--- 84,91 ----
+      if (nr > 0)
+  	wp->w_wantcol = nr;
+  
++     wp->w_popup_fixed = dict_get_number(dict, (char_u *)"fixed") != 0;
++ 
+      str = dict_get_string(dict, (char_u *)"pos", FALSE);
+      if (str != NULL)
+      {
+***************
+*** 379,384 ****
+--- 381,387 ----
+      int		maxwidth;
+      int		center_vert = FALSE;
+      int		center_hor = FALSE;
++     int		allow_adjust_left = !wp->w_popup_fixed;
+  
+      wp->w_winrow = 0;
+      wp->w_wincol = 0;
+***************
+*** 412,421 ****
+      }
+  
+      // When centering or right aligned, use maximum width.
+!     // When left aligned use the space available.
+      maxwidth = Columns - wp->w_wincol;
+      if (wp->w_maxwidth > 0 && maxwidth > wp->w_maxwidth)
+  	maxwidth = wp->w_maxwidth;
+  
+      // Compute width based on longest text line and the 'wrap' option.
+      // TODO: more accurate wrapping
+--- 415,428 ----
+      }
+  
+      // When centering or right aligned, use maximum width.
+!     // When left aligned use the space available, but shift to the left when we
+!     // hit the right of the screen.
+      maxwidth = Columns - wp->w_wincol;
+      if (wp->w_maxwidth > 0 && maxwidth > wp->w_maxwidth)
++     {
++ 	allow_adjust_left = FALSE;
+  	maxwidth = wp->w_maxwidth;
++     }
+  
+      // Compute width based on longest text line and the 'wrap' option.
+      // TODO: more accurate wrapping
+***************
+*** 424,433 ****
+      {
+  	int len = vim_strsize(ml_get_buf(wp->w_buffer, lnum, FALSE));
+  
+! 	while (wp->w_p_wrap && len > maxwidth)
+  	{
+! 	    ++wrapped;
+! 	    len -= maxwidth;
+  	    wp->w_width = maxwidth;
+  	}
+  	if (wp->w_width < len)
+--- 431,462 ----
+      {
+  	int len = vim_strsize(ml_get_buf(wp->w_buffer, lnum, FALSE));
+  
+! 	if (wp->w_p_wrap)
+  	{
+! 	    while (len > maxwidth)
+! 	    {
+! 		++wrapped;
+! 		len -= maxwidth;
+! 		wp->w_width = maxwidth;
+! 	    }
+! 	}
+! 	else if (len > maxwidth
+! 		&& allow_adjust_left
+! 		&& (wp->w_popup_pos == POPPOS_TOPLEFT
+! 		    || wp->w_popup_pos == POPPOS_BOTLEFT))
+! 	{
+! 	    // adjust leftwise to fit text on screen
+! 	    int shift_by = ( len - maxwidth );
+! 
+! 	    if ( shift_by > wp->w_wincol )
+! 	    {
+! 		int truncate_shift = shift_by - wp->w_wincol;
+! 		len -= truncate_shift;
+! 		shift_by -= truncate_shift;
+! 	    }
+! 
+! 	    wp->w_wincol -= shift_by;
+! 	    maxwidth += shift_by;
+  	    wp->w_width = maxwidth;
+  	}
+  	if (wp->w_width < len)
+***************
+*** 895,900 ****
+--- 924,930 ----
+  	dict_add_number(dict, "maxheight", wp->w_maxheight);
+  	dict_add_number(dict, "maxwidth", wp->w_maxwidth);
+  	dict_add_number(dict, "zindex", wp->w_zindex);
++ 	dict_add_number(dict, "fixed", wp->w_popup_fixed);
+  
+  	for (i = 0; i < (int)(sizeof(poppos_entries) / sizeof(poppos_entry_T));
+  									   ++i)
+*** ../vim-8.1.1448/src/structs.h	2019-06-01 22:49:23.697685695 +0200
+--- src/structs.h	2019-06-02 14:44:16.118752659 +0200
+***************
+*** 2308,2314 ****
+      int		b_p_fixeol;	/* 'fixendofline' */
+      int		b_p_et;		/* 'expandtab' */
+      int		b_p_et_nobin;	/* b_p_et saved for binary mode */
+!     int	        b_p_et_nopaste; /* b_p_et saved for paste mode */
+      char_u	*b_p_fenc;	/* 'fileencoding' */
+      char_u	*b_p_ff;	/* 'fileformat' */
+      char_u	*b_p_ft;	/* 'filetype' */
+--- 2308,2314 ----
+      int		b_p_fixeol;	/* 'fixendofline' */
+      int		b_p_et;		/* 'expandtab' */
+      int		b_p_et_nobin;	/* b_p_et saved for binary mode */
+!     int		b_p_et_nopaste; /* b_p_et saved for paste mode */
+      char_u	*b_p_fenc;	/* 'fileencoding' */
+      char_u	*b_p_ff;	/* 'fileformat' */
+      char_u	*b_p_ft;	/* 'filetype' */
+***************
+*** 2881,2886 ****
+--- 2881,2887 ----
+  #ifdef FEAT_TEXT_PROP
+      int		w_popup_flags;	    // POPF_ values
+      poppos_T	w_popup_pos;
++     int		w_popup_fixed;	    // do not shift popup to fit on screen
+      int		w_zindex;
+      int		w_minheight;	    // "minheight" for popup window
+      int		w_minwidth;	    // "minwidth" for popup window
+***************
+*** 3038,3045 ****
+      int		w_p_brishift;	    /* additional shift for breakindent */
+      int		w_p_brisbr;	    /* sbr in 'briopt' */
+  #endif
+!     long        w_p_siso;           /* 'sidescrolloff' local value */
+!     long        w_p_so;             /* 'scrolloff' local value */
+  
+      /* transform a pointer to a "onebuf" option into a "allbuf" option */
+  #define GLOBAL_WO(p)	((char *)p + sizeof(winopt_T))
+--- 3039,3046 ----
+      int		w_p_brishift;	    /* additional shift for breakindent */
+      int		w_p_brisbr;	    /* sbr in 'briopt' */
+  #endif
+!     long	w_p_siso;	    /* 'sidescrolloff' local value */
+!     long	w_p_so;		    /* 'scrolloff' local value */
+  
+      /* transform a pointer to a "onebuf" option into a "allbuf" option */
+  #define GLOBAL_WO(p)	((char *)p + sizeof(winopt_T))
+***************
+*** 3471,3477 ****
+      int		js_used;	/* bytes used from js_buf */
+      int		(*js_fill)(struct js_reader *);
+  				/* function to fill the buffer or NULL;
+!                                  * return TRUE when the buffer was filled */
+      void	*js_cookie;	/* can be used by js_fill */
+      int		js_cookie_arg;	/* can be used by js_fill */
+  };
+--- 3472,3478 ----
+      int		js_used;	/* bytes used from js_buf */
+      int		(*js_fill)(struct js_reader *);
+  				/* function to fill the buffer or NULL;
+! 				 * return TRUE when the buffer was filled */
+      void	*js_cookie;	/* can be used by js_fill */
+      int		js_cookie_arg;	/* can be used by js_fill */
+  };
+*** ../vim-8.1.1448/src/testdir/test_popupwin.vim	2019-06-02 14:11:51.865021060 +0200
+--- src/testdir/test_popupwin.vim	2019-06-02 14:23:15.857441117 +0200
+***************
+*** 422,427 ****
+--- 422,428 ----
+      \ 'maxheight': 21,
+      \ 'zindex': 100,
+      \ 'time': 5000,
++     \ 'fixed': 1
+      \})
+    redraw
+    let res = popup_getoptions(winid)
+***************
+*** 432,437 ****
+--- 433,439 ----
+    call assert_equal(20, res.maxwidth)
+    call assert_equal(21, res.maxheight)
+    call assert_equal(100, res.zindex)
++   call assert_equal(1, res.fixed)
+    if has('timers')
+      call assert_equal(5000, res.time)
+    endif
+***************
+*** 447,452 ****
+--- 449,455 ----
+    call assert_equal(0, res.maxwidth)
+    call assert_equal(0, res.maxheight)
+    call assert_equal(50, res.zindex)
++   call assert_equal(0, res.fixed)
+    if has('timers')
+      call assert_equal(0, res.time)
+    endif
+***************
+*** 647,649 ****
+--- 650,832 ----
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupBehind')
+  endfunc
++ 
++ func s:VerifyPosition( p, msg, line, col, width, height )
++   call assert_equal( a:line,   popup_getpos( a:p ).line,   a:msg . ' (l)' )
++   call assert_equal( a:col,    popup_getpos( a:p ).col,    a:msg . ' (c)' )
++   call assert_equal( a:width,  popup_getpos( a:p ).width,  a:msg . ' (w)' )
++   call assert_equal( a:height, popup_getpos( a:p ).height, a:msg . ' (h)' )
++ endfunc
++ 
++ func Test_popup_position_adjust()
++   " Anything placed past 2 cells from of the right of the screen is moved to the
++   " left.
++   "
++   " When wrapping is disabled, we also shift to the left to display on the
++   " screen, unless fixed is set.
++ 
++   " Entries for cases which don't vary based on wrapping.
++   " Format is per tests described below
++   let both_wrap_tests = [
++         \       [ 'a', 5, &columns,        5, &columns - 2, 1, 1 ],
++         \       [ 'b', 5, &columns + 1,    5, &columns - 2, 1, 1 ],
++         \       [ 'c', 5, &columns - 1,    5, &columns - 2, 1, 1 ],
++         \       [ 'd', 5, &columns - 2,    5, &columns - 2, 1, 1 ],
++         \       [ 'e', 5, &columns - 3,    5, &columns - 3, 1, 1 ],
++         \
++         \       [ 'aa', 5, &columns,        5, &columns - 2, 2, 1 ],
++         \       [ 'bb', 5, &columns + 1,    5, &columns - 2, 2, 1 ],
++         \       [ 'cc', 5, &columns - 1,    5, &columns - 2, 2, 1 ],
++         \       [ 'dd', 5, &columns - 2,    5, &columns - 2, 2, 1 ],
++         \       [ 'ee', 5, &columns - 3,    5, &columns - 3, 2, 1 ],
++         \
++         \       [ 'aaa', 5, &columns,        5, &columns - 2, 3, 1 ],
++         \       [ 'bbb', 5, &columns + 1,    5, &columns - 2, 3, 1 ],
++         \       [ 'ccc', 5, &columns - 1,    5, &columns - 2, 3, 1 ],
++         \       [ 'ddd', 5, &columns - 2,    5, &columns - 2, 3, 1 ],
++         \       [ 'eee', 5, &columns - 3,    5, &columns - 3, 3, 1 ],
++         \ ]
++ 
++   " these test groups are dicts with:
++   "  - comment: something to identify the group of tests by
++   "  - options: dict of options to merge with the row/col in tests
++   "  - tests: list of cases. Each one is a list with elements:
++   "     - text
++   "     - row
++   "     - col
++   "     - expected row
++   "     - expected col
++   "     - expected width
++   "     - expected height
++   let tests = [
++         \ {
++         \   'comment': 'left-aligned with wrapping',
++         \   'options': {
++         \     'wrap': 1,
++         \     'pos': 'botleft',
++         \   },
++         \   'tests': both_wrap_tests + [
++         \       [ 'aaaa', 5, &columns,        4, &columns - 2, 3, 2 ],
++         \       [ 'bbbb', 5, &columns + 1,    4, &columns - 2, 3, 2 ],
++         \       [ 'cccc', 5, &columns - 1,    4, &columns - 2, 3, 2 ],
++         \       [ 'dddd', 5, &columns - 2,    4, &columns - 2, 3, 2 ],
++         \       [ 'eeee', 5, &columns - 3,    5, &columns - 3, 4, 1 ],
++         \   ],
++         \ },
++         \ {
++         \   'comment': 'left aligned without wrapping',
++         \   'options': {
++         \     'wrap': 0,
++         \     'pos': 'botleft',
++         \   },
++         \   'tests': both_wrap_tests + [
++         \       [ 'aaaa', 5, &columns,        5, &columns - 3, 4, 1 ],
++         \       [ 'bbbb', 5, &columns + 1,    5, &columns - 3, 4, 1 ],
++         \       [ 'cccc', 5, &columns - 1,    5, &columns - 3, 4, 1 ],
++         \       [ 'dddd', 5, &columns - 2,    5, &columns - 3, 4, 1 ],
++         \       [ 'eeee', 5, &columns - 3,    5, &columns - 3, 4, 1 ],
++         \   ],
++         \ },
++         \ {
++         \   'comment': 'left aligned with fixed position',
++         \   'options': {
++         \     'wrap': 0,
++         \     'fixed': 1,
++         \     'pos': 'botleft',
++         \   },
++         \   'tests': both_wrap_tests + [
++         \       [ 'aaaa', 5, &columns,        5, &columns - 2, 3, 1 ],
++         \       [ 'bbbb', 5, &columns + 1,    5, &columns - 2, 3, 1 ],
++         \       [ 'cccc', 5, &columns - 1,    5, &columns - 2, 3, 1 ],
++         \       [ 'dddd', 5, &columns - 2,    5, &columns - 2, 3, 1 ],
++         \       [ 'eeee', 5, &columns - 3,    5, &columns - 3, 4, 1 ],
++         \   ],
++         \ },
++       \ ]
++ 
++   for test_group in tests
++     for test in test_group.tests
++       let [ text, line, col, e_line, e_col, e_width, e_height ] = test
++       let options = {
++             \ 'line': line,
++             \ 'col': col,
++             \ }
++       call extend( options, test_group.options )
++ 
++       let p = popup_create( text, options )
++ 
++       let msg = string( extend( options, { 'text': text } ) )
++       call s:VerifyPosition( p, msg, e_line, e_col, e_width, e_height )
++       call popup_close( p )
++     endfor
++   endfor
++ 
++   popupclear
++   %bwipe!
++ endfunc
++ 
++ function Test_adjust_left_past_screen_width()
++   " width of screen
++   let X = join(map(range(&columns), {->'X'}), '')
++ 
++   let p = popup_create( X, { 'line': 1, 'col': 1, 'wrap': 0 } )
++   call s:VerifyPosition( p, 'full width topleft', 1, 1, &columns, 1 )
++ 
++   redraw
++   let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
++   call assert_equal(X, line)
++ 
++   call popup_close( p )
++   redraw
++ 
++   " Same if placed on the right hand side
++   let p = popup_create( X, { 'line': 1, 'col': &columns, 'wrap': 0 } )
++   call s:VerifyPosition( p, 'full width topright', 1, 1, &columns, 1 )
++ 
++   redraw
++   let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
++   call assert_equal(X, line)
++ 
++   call popup_close( p )
++   redraw
++ 
++   " Extend so > window width
++   let X .= 'x'
++ 
++   let p = popup_create( X, { 'line': 1, 'col': 1, 'wrap': 0 } )
++   call s:VerifyPosition( p, 'full width +  1 topleft', 1, 1, &columns, 1 )
++ 
++   redraw
++   let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
++   call assert_equal(X[ : -2 ], line)
++ 
++   call popup_close( p )
++   redraw
++ 
++   " Shifted then truncated (the x is not visible)
++   let p = popup_create( X, { 'line': 1, 'col': &columns - 3, 'wrap': 0 } )
++   call s:VerifyPosition( p, 'full width + 1 topright', 1, 1, &columns, 1 )
++ 
++   redraw
++   let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
++   call assert_equal(X[ : -2 ], line)
++ 
++   call popup_close( p )
++   redraw
++ 
++   " Not shifted, just truncated
++   let p = popup_create( X,
++         \ { 'line': 1, 'col': 2, 'wrap': 0, 'fixed': 1 } )
++   call s:VerifyPosition( p, 'full width + 1 fixed', 1, 2, &columns - 1, 1)
++ 
++   redraw
++   let line = join(map(range(1, &columns + 1), 'screenstring(1, v:val)'), '')
++   let e_line = ' ' . X[ 1 : -2 ]
++   call assert_equal(e_line, line)
++ 
++   call popup_close( p )
++   redraw
++ 
++   popupclear
++   %bwipe!
++ endfunction
+*** ../vim-8.1.1448/src/version.c	2019-06-02 14:11:51.865021060 +0200
+--- src/version.c	2019-06-02 14:25:11.832829281 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1449,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+91. It's Saturday afternoon in the middle of May and you
+    are on computer.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,248 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1819
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1819
+Problem:    :pedit does not work with a popup preview window.
+Solution:   Avoid aborting with an error. (fixes #4777)  Also double check
+            that after prepare_tagpreview() the current window is not a
+            popup window.
+Files:	    src/ex_docmd.c, src/popupmenu.c, src/search.c, src/tag.c,
+            src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_previewpopup_6.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_7.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_8.dump
+
+
+*** ../vim-8.1.1818/src/ex_docmd.c	2019-08-04 15:30:12.202919941 +0200
+--- src/ex_docmd.c	2019-08-05 20:28:51.493596761 +0200
+***************
+*** 7083,7089 ****
+      int		need_hide;
+      int		exmode_was = exmode_active;
+  
+!     if (ERROR_IF_POPUP_WINDOW)
+  	return;
+      /*
+       * ":vi" command ends Ex mode.
+--- 7083,7089 ----
+      int		need_hide;
+      int		exmode_was = exmode_active;
+  
+!     if (eap->cmdidx != CMD_pedit && ERROR_IF_POPUP_WINDOW)
+  	return;
+      /*
+       * ":vi" command ends Ex mode.
+***************
+*** 8798,8806 ****
+--- 8798,8808 ----
+  
+      g_do_tagpreview = p_pvh;
+      prepare_tagpreview(TRUE);
++ 
+      keep_help_flag = bt_help(curwin_save->w_buffer);
+      do_exedit(eap, NULL);
+      keep_help_flag = FALSE;
++ 
+      if (curwin != curwin_save && win_valid(curwin_save))
+      {
+  	/* Return cursor to where we were */
+***************
+*** 8808,8813 ****
+--- 8810,8822 ----
+  	redraw_later(VALID);
+  	win_enter(curwin_save, TRUE);
+      }
++ # ifdef FEAT_TEXT_PROP
++     else if (WIN_IS_POPUP(curwin))
++     {
++ 	// can't keep focus in popup window
++ 	win_enter(firstwin, TRUE);
++     }
++ # endif
+      g_do_tagpreview = 0;
+  }
+  #endif
+*** ../vim-8.1.1818/src/search.c	2019-07-23 22:15:21.311518857 +0200
+--- src/search.c	2019-08-05 21:47:54.418987768 +0200
+***************
+*** 5632,5637 ****
+--- 5632,5642 ----
+  		    redraw_later(VALID);
+  		    win_enter(curwin_save, TRUE);
+  		}
++ # ifdef FEAT_TEXT_PROP
++ 		else if (WIN_IS_POPUP(curwin))
++ 		    // can't keep focus in popup window
++ 		    win_enter(firstwin, TRUE);
++ # endif
+  #endif
+  		break;
+  	    }
+*** ../vim-8.1.1818/src/tag.c	2019-08-04 20:42:39.811198885 +0200
+--- src/tag.c	2019-08-05 20:49:39.277741614 +0200
+***************
+*** 3693,3698 ****
+--- 3693,3703 ----
+  	}
+  #endif
+      }
++ #if defined(FEAT_QUICKFIX) && defined(FEAT_TEXT_PROP)
++     if (WIN_IS_POPUP(curwin))
++ 	// something went wrong, still in popup, but it can't have focus
++ 	win_enter(firstwin, TRUE);
++ #endif
+  
+  erret:
+  #if defined(FEAT_QUICKFIX)
+*** ../vim-8.1.1818/src/testdir/test_popupwin.vim	2019-08-04 21:11:48.558856798 +0200
+--- src/testdir/test_popupwin.vim	2019-08-05 21:50:14.718087405 +0200
+***************
+*** 2174,2184 ****
+          \ + ['this is another place']
+          \ + range(29, 40),
+          \ "Xtagfile")
+    let lines =<< trim END
+          set tags=Xtags
+  	call setline(1, [
+  	      \ 'one',
+! 	      \ 'two',
+  	      \ 'three',
+  	      \ 'four',
+  	      \ 'five',
+--- 2174,2188 ----
+          \ + ['this is another place']
+          \ + range(29, 40),
+          \ "Xtagfile")
++   call writefile(range(1,10)
++         \ + ['searched word is here']
++         \ + range(12, 20),
++         \ "Xheader.h")
+    let lines =<< trim END
+          set tags=Xtags
+  	call setline(1, [
+  	      \ 'one',
+! 	      \ '#include "Xheader.h"',
+  	      \ 'three',
+  	      \ 'four',
+  	      \ 'five',
+***************
+*** 2189,2194 ****
+--- 2193,2201 ----
+  	      \ 'this is another word',
+  	      \ 'very long line where the word is also another'])
+          set previewpopup=height:4,width:40
++ 	set path=.
++ 	call ch_logfile('logfile', 'w')
++ 	call ch_log('logfile started')
+    END
+    call writefile(lines, 'XtestPreviewPopup')
+    let buf = RunVimInTerminal('-S XtestPreviewPopup', #{rows: 14})
+***************
+*** 2209,2219 ****
+--- 2216,2240 ----
+  
+    call term_sendkeys(buf, ":cd ..\<CR>:\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_5', {})
++   call term_sendkeys(buf, ":cd testdir\<CR>")
++ 
++   call term_sendkeys(buf, ":pclose\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_6', {})
++ 
++   call term_sendkeys(buf, ":pedit +/theword Xtagfile\<CR>")
++   call term_sendkeys(buf, ":\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_7', {})
++ 
++   call term_sendkeys(buf, ":pclose\<CR>")
++   call term_sendkeys(buf, ":psearch searched\<CR>")
++   call term_sendkeys(buf, ":\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_8', {})
+  
+    call StopVimInTerminal(buf)
+    call delete('Xtags')
+    call delete('Xtagfile')
+    call delete('XtestPreviewPopup')
++   call delete('Xheader.h')
+  endfunc
+  
+  " vim: shiftwidth=2 sts=2
+*** ../vim-8.1.1818/src/testdir/dumps/Test_popupwin_previewpopup_6.dump	2019-08-05 21:51:13.269716943 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_6.dump	2019-08-05 21:05:12.034394822 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |o+0&#ffffff0|n|e| @71
++ |#|i|n|c|l|u|d|e| |"|X|h|e|a|d|e|r|.|h|"| @54
++ |t|h|r|e@1| @69
++ |f|o|u|r| @70
++ |f|i|v|e| @70
++ |s|i|x| @71
++ |s|e|v|e|n| @69
++ |f|i|n|d| |t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @52
++ |n|i|n|e| @70
++ |t|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @54
++ |v|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| >a|n|o|t|h|e|r| @29
++ |~+0#4040ff13&| @73
++ |~| @73
++ |:+0#0000000&|p|c|l|o|s|e| @49|1@1|,|3|9| @8|A|l@1| 
+*** ../vim-8.1.1818/src/testdir/dumps/Test_popupwin_previewpopup_7.dump	2019-08-05 21:51:13.273716918 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_7.dump	2019-08-05 21:05:13.086391016 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |o+0&#ffffff0|n|e| @71
++ |#|i|n|c|l|u|d|e| |"|X|h|e|a|d|e|r|.|h|"| @54
++ |t|h|r|e@1| @69
++ |f|o|u|r| @70
++ |f|i|v|e| @27|╔+0#0000001#ffd7ff255| |X|t|a|g|f|i|l|e| |═@30|X
++ |s+0#0000000#ffffff0|i|x| @28|║+0#0000001#ffd7ff255|2|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |s+0#0000000#ffffff0|e|v|e|n| @26|║+0#0000001#ffd7ff255|t|h|e|w|o|r|d| |i|s| |h|e|r|e| @24| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |f+0#0000000#ffffff0|i|n|d| |t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @9|║+0#0000001#ffd7ff255|2@1| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255
++ |n+0#0000000#ffffff0|i|n|e| @27|║+0#0000001#ffd7ff255|2|3| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |t+0#0000000#ffffff0|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @11|╚+0#0000001#ffd7ff255|═@40|⇲
++ |v+0#0000000#ffffff0|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| >a|n|o|t|h|e|r| @29
++ |~+0#4040ff13&| @73
++ |~| @73
++ |:+0#0000000&| @55|1@1|,|3|9| @8|A|l@1| 
+*** ../vim-8.1.1818/src/testdir/dumps/Test_popupwin_previewpopup_8.dump	2019-08-05 21:51:13.277716894 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_8.dump	2019-08-05 21:50:25.238020626 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |o+0&#ffffff0|n|e| @71
++ |#|i|n|c|l|u|d|e| |"|X|h|e|a|d|e|r|.|h|"| @54
++ |t|h|r|e@1| @69
++ |f|o|u|r| @70
++ |f|i|v|e| @27|╔+0#0000001#ffd7ff255| |X|h|e|a|d|e|r|.|h| |═@29|X
++ |s+0#0000000#ffffff0|i|x| @28|║+0#0000001#ffd7ff255|1+0#e000002&|0| +0#0000001&@37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |s+0#0000000#ffffff0|e|v|e|n| @26|║+0#0000001#ffd7ff255|s|e|a|r|c|h|e|d| |w|o|r|d| |i|s| |h|e|r|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |f+0#0000000#ffffff0|i|n|d| |t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @9|║+0#0000001#ffd7ff255|1+0#e000002&|2| +0#0000001&@37| +0#0000000#0000001|║+0#0000001#ffd7ff255
++ |n+0#0000000#ffffff0|i|n|e| @27|║+0#0000001#ffd7ff255|1+0#e000002&|3| +0#0000001&@37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |t+0#0000000#ffffff0|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @11|╚+0#0000001#ffd7ff255|═@40|⇲
++ |v+0#0000000#ffffff0|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| >a|n|o|t|h|e|r| @29
++ |~+0#4040ff13&| @73
++ |~| @73
++ |:+0#0000000&| @55|1@1|,|3|9| @8|A|l@1| 
+*** ../vim-8.1.1818/src/version.c	2019-08-05 20:18:11.394540719 +0200
+--- src/version.c	2019-08-05 21:50:01.786169607 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1819,
+  /**/
+
+-- 
+How To Keep A Healthy Level Of Insanity:
+11. Specify that your drive-through order is "to go".
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

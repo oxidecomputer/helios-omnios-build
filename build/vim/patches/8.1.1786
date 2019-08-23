@@ -1,0 +1,169 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1786
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1786
+Problem:    Double click in popup scrollbar starts selection.
+Solution:   Ignore the double click.
+Files:	    src/ui.c, src/popupwin.c, src/proto/popupwin.pro
+
+
+*** ../vim-8.1.1785/src/ui.c	2019-07-26 21:01:25.573903976 +0200
+--- src/ui.c	2019-08-01 15:43:19.337891590 +0200
+***************
+*** 1058,1063 ****
+--- 1058,1074 ----
+  clip_start_selection(int col, int row, int repeated_click)
+  {
+      Clipboard_T	*cb = &clip_star;
++ #ifdef FEAT_TEXT_PROP
++     win_T	*wp;
++     int		row_cp = row;
++     int		col_cp = col;
++ 
++     wp = mouse_find_win(&row_cp, &col_cp, FIND_POPUP);
++     if (wp != NULL && WIN_IS_POPUP(wp)
++ 				  && popup_is_in_scrollbar(wp, row_cp, col_cp))
++ 	// click or double click in scrollbar does not start a selection
++ 	return;
++ #endif
+  
+      if (cb->state == SELECT_DONE)
+  	clip_clear_selection(cb);
+***************
+*** 1072,1101 ****
+      cb->origin_row  = (short_u)cb->start.lnum;
+      cb->state	    = SELECT_IN_PROGRESS;
+  #ifdef FEAT_TEXT_PROP
+      {
+! 	win_T	    *wp;
+! 	int	    row_cp = row;
+! 	int	    col_cp = col;
+! 
+! 	wp = mouse_find_win(&row_cp, &col_cp, FIND_POPUP);
+! 	if (wp != NULL && WIN_IS_POPUP(wp))
+! 	{
+! 	    // Click in a popup window restricts selection to that window,
+! 	    // excluding the border.
+! 	    cb->min_col = wp->w_wincol + wp->w_popup_border[3];
+! 	    cb->max_col = wp->w_wincol + popup_width(wp) - 1
+! 						       - wp->w_popup_border[1];
+! 	    cb->min_row = wp->w_winrow + wp->w_popup_border[0];
+! 	    cb->max_row = wp->w_winrow + popup_height(wp) - 1
+! 						       - wp->w_popup_border[2];
+! 	}
+! 	else
+! 	{
+! 	    cb->min_col = 0;
+! 	    cb->max_col = screen_Columns;
+! 	    cb->min_row = 0;
+! 	    cb->max_row = screen_Rows;
+! 	}
+      }
+  #endif
+  
+--- 1083,1105 ----
+      cb->origin_row  = (short_u)cb->start.lnum;
+      cb->state	    = SELECT_IN_PROGRESS;
+  #ifdef FEAT_TEXT_PROP
++     if (wp != NULL && WIN_IS_POPUP(wp))
+      {
+! 	// Click in a popup window restricts selection to that window,
+! 	// excluding the border.
+! 	cb->min_col = wp->w_wincol + wp->w_popup_border[3];
+! 	cb->max_col = wp->w_wincol + popup_width(wp) - 1
+! 						   - wp->w_popup_border[1];
+! 	cb->min_row = wp->w_winrow + wp->w_popup_border[0];
+! 	cb->max_row = wp->w_winrow + popup_height(wp) - 1
+! 						   - wp->w_popup_border[2];
+!     }
+!     else
+!     {
+! 	cb->min_col = 0;
+! 	cb->max_col = screen_Columns;
+! 	cb->min_row = 0;
+! 	cb->max_row = screen_Rows;
+      }
+  #endif
+  
+*** ../vim-8.1.1785/src/popupwin.c	2019-07-30 21:19:21.876063044 +0200
+--- src/popupwin.c	2019-08-01 15:46:12.508172174 +0200
+***************
+*** 305,310 ****
+--- 305,323 ----
+  }
+  
+  /*
++  * Return TRUE if the position is in the popup window scrollbar.
++  */
++     int
++ popup_is_in_scrollbar(win_T *wp, int row, int col)
++ {
++     return wp->w_has_scrollbar
++ 	&& row >= wp->w_popup_border[0]
++ 	&& row < popup_height(wp) - wp->w_popup_border[2]
++ 	&& col == popup_width(wp) - wp->w_popup_border[1] - 1;
++ }
++ 
++ 
++ /*
+   * Handle a click in a popup window, if it is in the scrollbar.
+   */
+      void
+***************
+*** 313,323 ****
+      int	    height = popup_height(wp);
+      int	    old_topline = wp->w_topline;
+  
+!     if (wp->w_has_scrollbar == 0)
+! 	return;
+!     if (row >= wp->w_popup_border[0]
+! 	    && row < height - wp->w_popup_border[2]
+! 	    && col == popup_width(wp) - wp->w_popup_border[1] - 1)
+      {
+  	if (row >= height / 2)
+  	{
+--- 326,332 ----
+      int	    height = popup_height(wp);
+      int	    old_topline = wp->w_topline;
+  
+!     if (popup_is_in_scrollbar(wp, row, col))
+      {
+  	if (row >= height / 2)
+  	{
+*** ../vim-8.1.1785/src/proto/popupwin.pro	2019-07-28 21:42:23.177406571 +0200
+--- src/proto/popupwin.pro	2019-08-01 15:44:13.809328135 +0200
+***************
+*** 4,9 ****
+--- 4,10 ----
+  void popup_start_drag(win_T *wp);
+  void popup_drag(win_T *wp);
+  void popup_set_firstline(win_T *wp);
++ int popup_is_in_scrollbar(win_T *wp, int row, int col);
+  void popup_handle_scrollbar_click(win_T *wp, int row, int col);
+  int popup_height(win_T *wp);
+  int popup_width(win_T *wp);
+*** ../vim-8.1.1785/src/version.c	2019-08-01 14:26:53.196455837 +0200
+--- src/version.c	2019-08-01 15:42:38.078190630 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1786,
+  /**/
+
+-- 
+All good vision statements are created by groups of people with bloated
+bladders who would rather be doing anything else.
+				(Scott Adams - The Dilbert principle)
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

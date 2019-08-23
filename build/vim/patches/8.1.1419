@@ -1,0 +1,195 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1419
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1419
+Problem:    Listener callbacks may be called recursively.
+Solution:   Set "updating_screen" while listener callbacks are invoked.
+Files:	    src/change.c, src/screen.c, src/proto/screen.pro, src/ui.c
+
+
+*** ../vim-8.1.1418/src/change.c	2019-05-28 23:08:12.052648779 +0200
+--- src/change.c	2019-05-29 22:28:20.083214648 +0200
+***************
+*** 376,385 ****
+      linenr_T	start = MAXLNUM;
+      linenr_T	end = 0;
+      linenr_T	added = 0;
+  
+      if (buf->b_recorded_changes == NULL  // nothing changed
+! 	    || buf->b_listener == NULL)  // no listeners
+  	return;
+  
+      argv[0].v_type = VAR_NUMBER;
+      argv[0].vval.v_number = buf->b_fnum; // a:bufnr
+--- 376,393 ----
+      linenr_T	start = MAXLNUM;
+      linenr_T	end = 0;
+      linenr_T	added = 0;
++     int		save_updating_screen = updating_screen;
++     static int	recursive = FALSE;
+  
+      if (buf->b_recorded_changes == NULL  // nothing changed
+! 	    || buf->b_listener == NULL   // no listeners
+! 	    || recursive)		 // already busy
+  	return;
++     recursive = TRUE;
++ 
++     // Block messages on channels from being handled, so that they don't make
++     // text changes here.
++     ++updating_screen;
+  
+      argv[0].v_type = VAR_NUMBER;
+      argv[0].vval.v_number = buf->b_fnum; // a:bufnr
+***************
+*** 418,423 ****
+--- 426,437 ----
+      --textlock;
+      list_unref(buf->b_recorded_changes);
+      buf->b_recorded_changes = NULL;
++ 
++     if (save_updating_screen)
++ 	updating_screen = TRUE;
++     else
++ 	after_updating_screen(TRUE);
++     recursive = FALSE;
+  }
+  #endif
+  
+*** ../vim-8.1.1418/src/screen.c	2019-05-28 23:08:12.076648654 +0200
+--- src/screen.c	2019-05-29 22:19:41.157935812 +0200
+***************
+*** 506,513 ****
+      redraw_win_later(wp, VALID);
+  }
+  
+      void
+! reset_updating_screen(int may_resize_shell UNUSED)
+  {
+      updating_screen = FALSE;
+  #ifdef FEAT_GUI
+--- 506,517 ----
+      redraw_win_later(wp, VALID);
+  }
+  
++ /*
++  * To be called when "updating_screen" was set before and now the postponed
++  * side effects may take place.
++  */
+      void
+! after_updating_screen(int may_resize_shell UNUSED)
+  {
+      updating_screen = FALSE;
+  #ifdef FEAT_GUI
+***************
+*** 803,809 ****
+      FOR_ALL_WINDOWS(wp)
+  	wp->w_buffer->b_mod_set = FALSE;
+  
+!     reset_updating_screen(TRUE);
+  
+      /* Clear or redraw the command line.  Done last, because scrolling may
+       * mess up the command line. */
+--- 807,813 ----
+      FOR_ALL_WINDOWS(wp)
+  	wp->w_buffer->b_mod_set = FALSE;
+  
+!     after_updating_screen(TRUE);
+  
+      /* Clear or redraw the command line.  Done last, because scrolling may
+       * mess up the command line. */
+***************
+*** 886,892 ****
+      end_search_hl();
+  # endif
+  
+!     reset_updating_screen(TRUE);
+  
+  # ifdef FEAT_GUI
+      /* Redraw the cursor and update the scrollbars when all screen updating is
+--- 890,896 ----
+      end_search_hl();
+  # endif
+  
+!     after_updating_screen(TRUE);
+  
+  # ifdef FEAT_GUI
+      /* Redraw the cursor and update the scrollbars when all screen updating is
+*** ../vim-8.1.1418/src/proto/screen.pro	2019-01-25 22:29:54.139821894 +0100
+--- src/proto/screen.pro	2019-05-29 22:19:19.390049606 +0200
+***************
+*** 10,16 ****
+  int redraw_asap(int type);
+  void redraw_after_callback(int call_update_screen);
+  void redrawWinline(win_T *wp, linenr_T lnum);
+! void reset_updating_screen(int may_resize_shell);
+  void update_curbuf(int type);
+  int update_screen(int type_arg);
+  int conceal_cursor_line(win_T *wp);
+--- 10,16 ----
+  int redraw_asap(int type);
+  void redraw_after_callback(int call_update_screen);
+  void redrawWinline(win_T *wp, linenr_T lnum);
+! void after_updating_screen(int may_resize_shell);
+  void update_curbuf(int type);
+  int update_screen(int type_arg);
+  int conceal_cursor_line(win_T *wp);
+***************
+*** 18,24 ****
+  void update_debug_sign(buf_T *buf, linenr_T lnum);
+  void updateWindow(win_T *wp);
+  int screen_get_current_line_off(void);
+! void screen_line(int row, int coloff, int endcol, int clear_width, int rlflag);
+  void rl_mirror(char_u *str);
+  void status_redraw_all(void);
+  void status_redraw_curbuf(void);
+--- 18,24 ----
+  void update_debug_sign(buf_T *buf, linenr_T lnum);
+  void updateWindow(win_T *wp);
+  int screen_get_current_line_off(void);
+! void screen_line(int row, int coloff, int endcol, int clear_width, int flags);
+  void rl_mirror(char_u *str);
+  void status_redraw_all(void);
+  void status_redraw_curbuf(void);
+*** ../vim-8.1.1418/src/ui.c	2019-05-28 23:08:12.080648632 +0200
+--- src/ui.c	2019-05-29 22:17:59.906464725 +0200
+***************
+*** 691,697 ****
+      if (save_updating_screen)
+  	updating_screen = TRUE;
+      else
+! 	reset_updating_screen(FALSE);
+  
+      recursive = FALSE;
+  }
+--- 691,697 ----
+      if (save_updating_screen)
+  	updating_screen = TRUE;
+      else
+! 	after_updating_screen(FALSE);
+  
+      recursive = FALSE;
+  }
+*** ../vim-8.1.1418/src/version.c	2019-05-29 21:44:30.764788713 +0200
+--- src/version.c	2019-05-29 22:23:54.116611053 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1419,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+47. You are so familiar with the WWW that you find the search engines useless.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

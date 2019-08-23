@@ -1,0 +1,2611 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1823
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1823
+Problem:    Command line history code is spread out.
+Solution:   Put the code in a new file. (Yegappan Lakshmanan, closes #4779)
+            Also graduate the +cmdline_hist feature.
+Files:	    Filelist, src/Make_cyg_ming.mak, src/Make_morph.mak,
+            src/Make_mvc.mak, src/Make_vms.mms, src/Makefile, src/README.md,
+            src/cmdhist.c, src/ex_getln.c, src/proto.h, src/proto/cmdhist.pro,
+            src/proto/ex_getln.pro, src/version.c, src/evalfunc.c,
+            src/ex_cmds.c, src/ex_docmd.c, src/misc2.c, src/normal.c,
+            src/ops.c, src/option.c, src/search.c, src/tag.c, src/usercmd.c,
+            src/viminfo.c, src/feature.h, src/globals.h
+
+
+*** ../vim-8.1.1822/Filelist	2019-08-01 14:26:53.192455864 +0200
+--- Filelist	2019-08-06 21:31:18.941877713 +0200
+***************
+*** 23,28 ****
+--- 23,29 ----
+  		src/change.c \
+  		src/channel.c \
+  		src/charset.c \
++ 		src/cmdhist.c \
+  		src/crypt.c \
+  		src/crypt_zip.c \
+  		src/debugger.c \
+*** ../vim-8.1.1822/src/Make_cyg_ming.mak	2019-08-01 14:26:53.192455864 +0200
+--- src/Make_cyg_ming.mak	2019-08-06 21:31:18.941877713 +0200
+***************
+*** 710,715 ****
+--- 710,716 ----
+  	$(OUTDIR)/buffer.o \
+  	$(OUTDIR)/change.o \
+  	$(OUTDIR)/charset.o \
++ 	$(OUTDIR)/cmdhist.o \
+  	$(OUTDIR)/crypt.o \
+  	$(OUTDIR)/crypt_zip.o \
+  	$(OUTDIR)/debugger.o \
+*** ../vim-8.1.1822/src/Make_morph.mak	2019-08-01 14:26:53.192455864 +0200
+--- src/Make_morph.mak	2019-08-06 21:31:18.941877713 +0200
+***************
+*** 30,35 ****
+--- 30,36 ----
+  	buffer.c						\
+  	change.c						\
+  	charset.c						\
++ 	cmdhist.c						\
+  	crypt.c							\
+  	crypt_zip.c						\
+  	debugger.c						\
+*** ../vim-8.1.1822/src/Make_mvc.mak	2019-08-01 14:26:53.192455864 +0200
+--- src/Make_mvc.mak	2019-08-06 21:31:18.941877713 +0200
+***************
+*** 719,724 ****
+--- 719,725 ----
+  	$(OUTDIR)\buffer.obj \
+  	$(OUTDIR)\change.obj \
+  	$(OUTDIR)\charset.obj \
++ 	$(OUTDIR)\cmdhist.obj \
+  	$(OUTDIR)\crypt.obj \
+  	$(OUTDIR)\crypt_zip.obj \
+  	$(OUTDIR)\debugger.obj \
+***************
+*** 1446,1451 ****
+--- 1447,1454 ----
+  
+  $(OUTDIR)/charset.obj:	$(OUTDIR) charset.c  $(INCL)
+  
++ $(OUTDIR)/cmdhist.obj:	$(OUTDIR) cmdhist.c  $(INCL)
++ 
+  $(OUTDIR)/crypt.obj:	$(OUTDIR) crypt.c  $(INCL)
+  
+  $(OUTDIR)/crypt_zip.obj: $(OUTDIR) crypt_zip.c  $(INCL)
+***************
+*** 1747,1752 ****
+--- 1750,1756 ----
+  	proto/buffer.pro \
+  	proto/change.pro \
+  	proto/charset.pro \
++ 	proto/cmdhist.pro \
+  	proto/crypt.pro \
+  	proto/crypt_zip.pro \
+  	proto/debugger.pro \
+*** ../vim-8.1.1822/src/Make_vms.mms	2019-08-01 14:26:53.192455864 +0200
+--- src/Make_vms.mms	2019-08-06 21:31:18.941877713 +0200
+***************
+*** 308,314 ****
+  	   $(PERL_LIB) $(PYTHON_LIB) $(TCL_LIB) $(RUBY_LIB)
+  
+  SRC =	arabic.c autocmd.c beval.c blob.c blowfish.c buffer.c change.c charset.c \
+! 	crypt.c crypt_zip.c debugger.c dict.c diff.c digraph.c edit.c eval.c \
+  	evalfunc.c ex_cmds.c ex_cmds2.c ex_docmd.c ex_eval.c ex_getln.c \
+  	if_cscope.c if_xcmdsrv.c fileio.c findfile.c fold.c getchar.c \
+  	hardcopy.c hashtab.c highlight.c indent.c insexpand.c json.c list.c \
+--- 308,314 ----
+  	   $(PERL_LIB) $(PYTHON_LIB) $(TCL_LIB) $(RUBY_LIB)
+  
+  SRC =	arabic.c autocmd.c beval.c blob.c blowfish.c buffer.c change.c charset.c \
+! 	cmdhist.c crypt.c crypt_zip.c debugger.c dict.c diff.c digraph.c edit.c eval.c \
+  	evalfunc.c ex_cmds.c ex_cmds2.c ex_docmd.c ex_eval.c ex_getln.c \
+  	if_cscope.c if_xcmdsrv.c fileio.c findfile.c fold.c getchar.c \
+  	hardcopy.c hashtab.c highlight.c indent.c insexpand.c json.c list.c \
+***************
+*** 322,328 ****
+   	$(RUBY_SRC) $(HANGULIN_SRC) $(MZSCH_SRC) $(XDIFF_SRC)
+  
+  OBJ = 	arabic.obj autocmd.obj beval.obj blob.obj blowfish.obj buffer.obj change.obj \
+! 	charset.obj crypt.obj crypt_zip.obj debugger.obj dict.obj diff.obj \
+  	digraph.obj edit.obj eval.obj evalfunc.obj ex_cmds.obj ex_cmds2.obj \
+  	ex_docmd.obj ex_eval.obj ex_getln.obj if_cscope.obj if_xcmdsrv.obj \
+  	fileio.obj findfile.obj fold.obj getchar.obj hardcopy.obj hashtab.obj \
+--- 322,328 ----
+   	$(RUBY_SRC) $(HANGULIN_SRC) $(MZSCH_SRC) $(XDIFF_SRC)
+  
+  OBJ = 	arabic.obj autocmd.obj beval.obj blob.obj blowfish.obj buffer.obj change.obj \
+! 	charset.obj cmdhist.obj crypt.obj crypt_zip.obj debugger.obj dict.obj diff.obj \
+  	digraph.obj edit.obj eval.obj evalfunc.obj ex_cmds.obj ex_cmds2.obj \
+  	ex_docmd.obj ex_eval.obj ex_getln.obj if_cscope.obj if_xcmdsrv.obj \
+  	fileio.obj findfile.obj fold.obj getchar.obj hardcopy.obj hashtab.obj \
+***************
+*** 520,525 ****
+--- 520,529 ----
+   ascii.h keymap.h term.h macros.h structs.h regexp.h \
+   gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+   globals.h
++ cmdhist.obj : cmdhist.c vim.h [.auto]config.h feature.h os_unix.h \
++  ascii.h keymap.h term.h macros.h structs.h regexp.h \
++  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
++  globals.h
+  crypt.obj : crypt.c vim.h [.auto]config.h feature.h os_unix.h \
+   ascii.h keymap.h term.h macros.h option.h structs.h regexp.h gui.h \
+   beval.h [.proto]gui_beval.pro alloc.h ex_cmds.h spell.h proto.h \
+*** ../vim-8.1.1822/src/Makefile	2019-08-01 14:26:53.192455864 +0200
+--- src/Makefile	2019-08-06 21:31:18.941877713 +0200
+***************
+*** 1584,1589 ****
+--- 1584,1590 ----
+  	buffer.c \
+  	change.c \
+  	charset.c \
++ 	cmdhist.c \
+  	crypt.c \
+  	crypt_zip.c \
+  	debugger.c \
+***************
+*** 1709,1714 ****
+--- 1710,1716 ----
+  	objects/change.o \
+  	objects/blob.o \
+  	objects/blowfish.o \
++ 	objects/cmdhist.o \
+  	objects/crypt.o \
+  	objects/crypt_zip.o \
+  	objects/debugger.o \
+***************
+*** 1847,1852 ****
+--- 1849,1855 ----
+  	buffer.pro \
+  	change.pro \
+  	charset.pro \
++ 	cmdhist.pro \
+  	crypt.pro \
+  	crypt_zip.pro \
+  	debugger.pro \
+***************
+*** 3004,3009 ****
+--- 3007,3015 ----
+  objects/charset.o: charset.c
+  	$(CCC) -o $@ charset.c
+  
++ objects/cmdhist.o: cmdhist.c
++ 	$(CCC) -o $@ cmdhist.c
++ 
+  objects/crypt.o: crypt.c
+  	$(CCC) -o $@ crypt.c
+  
+***************
+*** 3498,3503 ****
+--- 3504,3513 ----
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+   proto.h globals.h
++ objects/cmdhist.o: cmdhist.c vim.h protodef.h auto/config.h feature.h os_unix.h \
++  auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
++  proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
++  proto.h globals.h
+  objects/crypt.o: crypt.c vim.h protodef.h auto/config.h feature.h os_unix.h \
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+*** ../vim-8.1.1822/src/README.md	2019-08-01 14:26:53.192455864 +0200
+--- src/README.md	2019-08-06 21:31:18.941877713 +0200
+***************
+*** 24,31 ****
+--- 24,33 ----
+  File name       | Description
+  --------------- | -----------
+  autocmd.c	| autocommands
++ blob.c		| blob data type
+  buffer.c	| manipulating buffers (loaded files)
+  change.c	| handling changes to text
++ cmdhist.c	| command-line history
+  debugger.c	| vim script debugger
+  diff.c		| diff mode (vimdiff)
+  eval.c		| expression evaluation
+*** ../vim-8.1.1822/src/cmdhist.c	2019-08-06 21:58:29.660361352 +0200
+--- src/cmdhist.c	2019-08-06 21:44:45.081003213 +0200
+***************
+*** 0 ****
+--- 1,762 ----
++ /* vi:set ts=8 sts=4 sw=4 noet:
++  *
++  * VIM - Vi IMproved	by Bram Moolenaar
++  *
++  * Do ":help uganda"  in Vim to read copying and usage conditions.
++  * Do ":help credits" in Vim to see a list of people who contributed.
++  * See README.txt for an overview of the Vim source code.
++  */
++ 
++ /*
++  * cmdhist.c: Functions for the history of the command-line.
++  */
++ 
++ #include "vim.h"
++ 
++ static histentry_T *(history[HIST_COUNT]) = {NULL, NULL, NULL, NULL, NULL};
++ static int	hisidx[HIST_COUNT] = {-1, -1, -1, -1, -1};  // lastused entry
++ static int	hisnum[HIST_COUNT] = {0, 0, 0, 0, 0};
++ 		    // identifying (unique) number of newest history entry
++ static int	hislen = 0;		// actual length of history tables
++ 
++ /*
++  * Return the length of the history tables
++  */
++     int
++ get_hislen(void)
++ {
++     return hislen;
++ }
++ 
++ /*
++  * Return a pointer to a specified history table
++  */
++     histentry_T *
++ get_histentry(int hist_type)
++ {
++     return history[hist_type];
++ }
++ 
++     void
++ set_histentry(int hist_type, histentry_T *entry)
++ {
++     history[hist_type] = entry;
++ }
++ 
++     int *
++ get_hisidx(int hist_type)
++ {
++     return &hisidx[hist_type];
++ }
++ 
++     int *
++ get_hisnum(int hist_type)
++ {
++     return &hisnum[hist_type];
++ }
++ 
++ /*
++  * Translate a history character to the associated type number.
++  */
++     int
++ hist_char2type(int c)
++ {
++     if (c == ':')
++ 	return HIST_CMD;
++     if (c == '=')
++ 	return HIST_EXPR;
++     if (c == '@')
++ 	return HIST_INPUT;
++     if (c == '>')
++ 	return HIST_DEBUG;
++     return HIST_SEARCH;	    // must be '?' or '/'
++ }
++ 
++ /*
++  * Table of history names.
++  * These names are used in :history and various hist...() functions.
++  * It is sufficient to give the significant prefix of a history name.
++  */
++ 
++ static char *(history_names[]) =
++ {
++     "cmd",
++     "search",
++     "expr",
++     "input",
++     "debug",
++     NULL
++ };
++ 
++ #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
++ /*
++  * Function given to ExpandGeneric() to obtain the possible first
++  * arguments of the ":history command.
++  */
++     char_u *
++ get_history_arg(expand_T *xp UNUSED, int idx)
++ {
++     static char_u compl[2] = { NUL, NUL };
++     char *short_names = ":=@>?/";
++     int short_names_count = (int)STRLEN(short_names);
++     int history_name_count = sizeof(history_names) / sizeof(char *) - 1;
++ 
++     if (idx < short_names_count)
++     {
++ 	compl[0] = (char_u)short_names[idx];
++ 	return compl;
++     }
++     if (idx < short_names_count + history_name_count)
++ 	return (char_u *)history_names[idx - short_names_count];
++     if (idx == short_names_count + history_name_count)
++ 	return (char_u *)"all";
++     return NULL;
++ }
++ #endif
++ 
++ /*
++  * init_history() - Initialize the command line history.
++  * Also used to re-allocate the history when the size changes.
++  */
++     void
++ init_history(void)
++ {
++     int		newlen;	    // new length of history table
++     histentry_T	*temp;
++     int		i;
++     int		j;
++     int		type;
++ 
++     // If size of history table changed, reallocate it
++     newlen = (int)p_hi;
++     if (newlen != hislen)			// history length changed
++     {
++ 	for (type = 0; type < HIST_COUNT; ++type)   // adjust the tables
++ 	{
++ 	    if (newlen)
++ 	    {
++ 		temp = ALLOC_MULT(histentry_T, newlen);
++ 		if (temp == NULL)   // out of memory!
++ 		{
++ 		    if (type == 0)  // first one: just keep the old length
++ 		    {
++ 			newlen = hislen;
++ 			break;
++ 		    }
++ 		    // Already changed one table, now we can only have zero
++ 		    // length for all tables.
++ 		    newlen = 0;
++ 		    type = -1;
++ 		    continue;
++ 		}
++ 	    }
++ 	    else
++ 		temp = NULL;
++ 	    if (newlen == 0 || temp != NULL)
++ 	    {
++ 		if (hisidx[type] < 0)		// there are no entries yet
++ 		{
++ 		    for (i = 0; i < newlen; ++i)
++ 			clear_hist_entry(&temp[i]);
++ 		}
++ 		else if (newlen > hislen)	// array becomes bigger
++ 		{
++ 		    for (i = 0; i <= hisidx[type]; ++i)
++ 			temp[i] = history[type][i];
++ 		    j = i;
++ 		    for ( ; i <= newlen - (hislen - hisidx[type]); ++i)
++ 			clear_hist_entry(&temp[i]);
++ 		    for ( ; j < hislen; ++i, ++j)
++ 			temp[i] = history[type][j];
++ 		}
++ 		else				// array becomes smaller or 0
++ 		{
++ 		    j = hisidx[type];
++ 		    for (i = newlen - 1; ; --i)
++ 		    {
++ 			if (i >= 0)		// copy newest entries
++ 			    temp[i] = history[type][j];
++ 			else			// remove older entries
++ 			    vim_free(history[type][j].hisstr);
++ 			if (--j < 0)
++ 			    j = hislen - 1;
++ 			if (j == hisidx[type])
++ 			    break;
++ 		    }
++ 		    hisidx[type] = newlen - 1;
++ 		}
++ 		vim_free(history[type]);
++ 		history[type] = temp;
++ 	    }
++ 	}
++ 	hislen = newlen;
++     }
++ }
++ 
++     void
++ clear_hist_entry(histentry_T *hisptr)
++ {
++     hisptr->hisnum = 0;
++     hisptr->viminfo = FALSE;
++     hisptr->hisstr = NULL;
++     hisptr->time_set = 0;
++ }
++ 
++ /*
++  * Check if command line 'str' is already in history.
++  * If 'move_to_front' is TRUE, matching entry is moved to end of history.
++  */
++     int
++ in_history(
++     int	    type,
++     char_u  *str,
++     int	    move_to_front,	// Move the entry to the front if it exists
++     int	    sep,
++     int	    writing)		// ignore entries read from viminfo
++ {
++     int	    i;
++     int	    last_i = -1;
++     char_u  *p;
++ 
++     if (hisidx[type] < 0)
++ 	return FALSE;
++     i = hisidx[type];
++     do
++     {
++ 	if (history[type][i].hisstr == NULL)
++ 	    return FALSE;
++ 
++ 	// For search history, check that the separator character matches as
++ 	// well.
++ 	p = history[type][i].hisstr;
++ 	if (STRCMP(str, p) == 0
++ 		&& !(writing && history[type][i].viminfo)
++ 		&& (type != HIST_SEARCH || sep == p[STRLEN(p) + 1]))
++ 	{
++ 	    if (!move_to_front)
++ 		return TRUE;
++ 	    last_i = i;
++ 	    break;
++ 	}
++ 	if (--i < 0)
++ 	    i = hislen - 1;
++     } while (i != hisidx[type]);
++ 
++     if (last_i >= 0)
++     {
++ 	str = history[type][i].hisstr;
++ 	while (i != hisidx[type])
++ 	{
++ 	    if (++i >= hislen)
++ 		i = 0;
++ 	    history[type][last_i] = history[type][i];
++ 	    last_i = i;
++ 	}
++ 	history[type][i].hisnum = ++hisnum[type];
++ 	history[type][i].viminfo = FALSE;
++ 	history[type][i].hisstr = str;
++ 	history[type][i].time_set = vim_time();
++ 	return TRUE;
++     }
++     return FALSE;
++ }
++ 
++ /*
++  * Convert history name (from table above) to its HIST_ equivalent.
++  * When "name" is empty, return "cmd" history.
++  * Returns -1 for unknown history name.
++  */
++     static int
++ get_histtype(char_u *name)
++ {
++     int		i;
++     int		len = (int)STRLEN(name);
++ 
++     // No argument: use current history.
++     if (len == 0)
++ 	return hist_char2type(get_cmdline_firstc());
++ 
++     for (i = 0; history_names[i] != NULL; ++i)
++ 	if (STRNICMP(name, history_names[i], len) == 0)
++ 	    return i;
++ 
++     if (vim_strchr((char_u *)":=@>?/", name[0]) != NULL && name[1] == NUL)
++ 	return hist_char2type(name[0]);
++ 
++     return -1;
++ }
++ 
++ static int	last_maptick = -1;	// last seen maptick
++ 
++ /*
++  * Add the given string to the given history.  If the string is already in the
++  * history then it is moved to the front.  "histype" may be one of he HIST_
++  * values.
++  */
++     void
++ add_to_history(
++     int		histype,
++     char_u	*new_entry,
++     int		in_map,		// consider maptick when inside a mapping
++     int		sep)		// separator character used (search hist)
++ {
++     histentry_T	*hisptr;
++     int		len;
++ 
++     if (hislen == 0)		// no history
++ 	return;
++ 
++     if (cmdmod.keeppatterns && histype == HIST_SEARCH)
++ 	return;
++ 
++     // Searches inside the same mapping overwrite each other, so that only
++     // the last line is kept.  Be careful not to remove a line that was moved
++     // down, only lines that were added.
++     if (histype == HIST_SEARCH && in_map)
++     {
++ 	if (maptick == last_maptick && hisidx[HIST_SEARCH] >= 0)
++ 	{
++ 	    // Current line is from the same mapping, remove it
++ 	    hisptr = &history[HIST_SEARCH][hisidx[HIST_SEARCH]];
++ 	    vim_free(hisptr->hisstr);
++ 	    clear_hist_entry(hisptr);
++ 	    --hisnum[histype];
++ 	    if (--hisidx[HIST_SEARCH] < 0)
++ 		hisidx[HIST_SEARCH] = hislen - 1;
++ 	}
++ 	last_maptick = -1;
++     }
++     if (!in_history(histype, new_entry, TRUE, sep, FALSE))
++     {
++ 	if (++hisidx[histype] == hislen)
++ 	    hisidx[histype] = 0;
++ 	hisptr = &history[histype][hisidx[histype]];
++ 	vim_free(hisptr->hisstr);
++ 
++ 	// Store the separator after the NUL of the string.
++ 	len = (int)STRLEN(new_entry);
++ 	hisptr->hisstr = vim_strnsave(new_entry, len + 2);
++ 	if (hisptr->hisstr != NULL)
++ 	    hisptr->hisstr[len + 1] = sep;
++ 
++ 	hisptr->hisnum = ++hisnum[histype];
++ 	hisptr->viminfo = FALSE;
++ 	hisptr->time_set = vim_time();
++ 	if (histype == HIST_SEARCH && in_map)
++ 	    last_maptick = maptick;
++     }
++ }
++ 
++ #if defined(FEAT_EVAL) || defined(PROTO)
++ 
++ /*
++  * Get identifier of newest history entry.
++  * "histype" may be one of the HIST_ values.
++  */
++     static int
++ get_history_idx(int histype)
++ {
++     if (hislen == 0 || histype < 0 || histype >= HIST_COUNT
++ 		    || hisidx[histype] < 0)
++ 	return -1;
++ 
++     return history[histype][hisidx[histype]].hisnum;
++ }
++ 
++ /*
++  * Calculate history index from a number:
++  *   num > 0: seen as identifying number of a history entry
++  *   num < 0: relative position in history wrt newest entry
++  * "histype" may be one of the HIST_ values.
++  */
++     static int
++ calc_hist_idx(int histype, int num)
++ {
++     int		i;
++     histentry_T	*hist;
++     int		wrapped = FALSE;
++ 
++     if (hislen == 0 || histype < 0 || histype >= HIST_COUNT
++ 		    || (i = hisidx[histype]) < 0 || num == 0)
++ 	return -1;
++ 
++     hist = history[histype];
++     if (num > 0)
++     {
++ 	while (hist[i].hisnum > num)
++ 	    if (--i < 0)
++ 	    {
++ 		if (wrapped)
++ 		    break;
++ 		i += hislen;
++ 		wrapped = TRUE;
++ 	    }
++ 	if (hist[i].hisnum == num && hist[i].hisstr != NULL)
++ 	    return i;
++     }
++     else if (-num <= hislen)
++     {
++ 	i += num + 1;
++ 	if (i < 0)
++ 	    i += hislen;
++ 	if (hist[i].hisstr != NULL)
++ 	    return i;
++     }
++     return -1;
++ }
++ 
++ /*
++  * Get a history entry by its index.
++  * "histype" may be one of the HIST_ values.
++  */
++     static char_u *
++ get_history_entry(int histype, int idx)
++ {
++     idx = calc_hist_idx(histype, idx);
++     if (idx >= 0)
++ 	return history[histype][idx].hisstr;
++     else
++ 	return (char_u *)"";
++ }
++ 
++ /*
++  * Clear all entries of a history.
++  * "histype" may be one of the HIST_ values.
++  */
++     static int
++ clr_history(int histype)
++ {
++     int		i;
++     histentry_T	*hisptr;
++ 
++     if (hislen != 0 && histype >= 0 && histype < HIST_COUNT)
++     {
++ 	hisptr = history[histype];
++ 	for (i = hislen; i--;)
++ 	{
++ 	    vim_free(hisptr->hisstr);
++ 	    clear_hist_entry(hisptr);
++ 	    hisptr++;
++ 	}
++ 	hisidx[histype] = -1;	// mark history as cleared
++ 	hisnum[histype] = 0;	// reset identifier counter
++ 	return OK;
++     }
++     return FAIL;
++ }
++ 
++ /*
++  * Remove all entries matching {str} from a history.
++  * "histype" may be one of the HIST_ values.
++  */
++     static int
++ del_history_entry(int histype, char_u *str)
++ {
++     regmatch_T	regmatch;
++     histentry_T	*hisptr;
++     int		idx;
++     int		i;
++     int		last;
++     int		found = FALSE;
++ 
++     regmatch.regprog = NULL;
++     regmatch.rm_ic = FALSE;	// always match case
++     if (hislen != 0
++ 	    && histype >= 0
++ 	    && histype < HIST_COUNT
++ 	    && *str != NUL
++ 	    && (idx = hisidx[histype]) >= 0
++ 	    && (regmatch.regprog = vim_regcomp(str, RE_MAGIC + RE_STRING))
++ 								      != NULL)
++     {
++ 	i = last = idx;
++ 	do
++ 	{
++ 	    hisptr = &history[histype][i];
++ 	    if (hisptr->hisstr == NULL)
++ 		break;
++ 	    if (vim_regexec(&regmatch, hisptr->hisstr, (colnr_T)0))
++ 	    {
++ 		found = TRUE;
++ 		vim_free(hisptr->hisstr);
++ 		clear_hist_entry(hisptr);
++ 	    }
++ 	    else
++ 	    {
++ 		if (i != last)
++ 		{
++ 		    history[histype][last] = *hisptr;
++ 		    clear_hist_entry(hisptr);
++ 		}
++ 		if (--last < 0)
++ 		    last += hislen;
++ 	    }
++ 	    if (--i < 0)
++ 		i += hislen;
++ 	} while (i != idx);
++ 	if (history[histype][idx].hisstr == NULL)
++ 	    hisidx[histype] = -1;
++     }
++     vim_regfree(regmatch.regprog);
++     return found;
++ }
++ 
++ /*
++  * Remove an indexed entry from a history.
++  * "histype" may be one of the HIST_ values.
++  */
++     static int
++ del_history_idx(int histype, int idx)
++ {
++     int	    i, j;
++ 
++     i = calc_hist_idx(histype, idx);
++     if (i < 0)
++ 	return FALSE;
++     idx = hisidx[histype];
++     vim_free(history[histype][i].hisstr);
++ 
++     // When deleting the last added search string in a mapping, reset
++     // last_maptick, so that the last added search string isn't deleted again.
++     if (histype == HIST_SEARCH && maptick == last_maptick && i == idx)
++ 	last_maptick = -1;
++ 
++     while (i != idx)
++     {
++ 	j = (i + 1) % hislen;
++ 	history[histype][i] = history[histype][j];
++ 	i = j;
++     }
++     clear_hist_entry(&history[histype][i]);
++     if (--i < 0)
++ 	i += hislen;
++     hisidx[histype] = i;
++     return TRUE;
++ }
++ 
++ /*
++  * "histadd()" function
++  */
++     void
++ f_histadd(typval_T *argvars UNUSED, typval_T *rettv)
++ {
++     int		histype;
++     char_u	*str;
++     char_u	buf[NUMBUFLEN];
++ 
++     rettv->vval.v_number = FALSE;
++     if (check_secure())
++ 	return;
++     str = tv_get_string_chk(&argvars[0]);	// NULL on type error
++     histype = str != NULL ? get_histtype(str) : -1;
++     if (histype >= 0)
++     {
++ 	str = tv_get_string_buf(&argvars[1], buf);
++ 	if (*str != NUL)
++ 	{
++ 	    init_history();
++ 	    add_to_history(histype, str, FALSE, NUL);
++ 	    rettv->vval.v_number = TRUE;
++ 	    return;
++ 	}
++     }
++ }
++ 
++ /*
++  * "histdel()" function
++  */
++     void
++ f_histdel(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
++ {
++     int		n;
++     char_u	buf[NUMBUFLEN];
++     char_u	*str;
++ 
++     str = tv_get_string_chk(&argvars[0]);	// NULL on type error
++     if (str == NULL)
++ 	n = 0;
++     else if (argvars[1].v_type == VAR_UNKNOWN)
++ 	// only one argument: clear entire history
++ 	n = clr_history(get_histtype(str));
++     else if (argvars[1].v_type == VAR_NUMBER)
++ 	// index given: remove that entry
++ 	n = del_history_idx(get_histtype(str),
++ 					  (int)tv_get_number(&argvars[1]));
++     else
++ 	// string given: remove all matching entries
++ 	n = del_history_entry(get_histtype(str),
++ 				      tv_get_string_buf(&argvars[1], buf));
++     rettv->vval.v_number = n;
++ }
++ 
++ /*
++  * "histget()" function
++  */
++     void
++ f_histget(typval_T *argvars UNUSED, typval_T *rettv)
++ {
++     int		type;
++     int		idx;
++     char_u	*str;
++ 
++     str = tv_get_string_chk(&argvars[0]);	// NULL on type error
++     if (str == NULL)
++ 	rettv->vval.v_string = NULL;
++     else
++     {
++ 	type = get_histtype(str);
++ 	if (argvars[1].v_type == VAR_UNKNOWN)
++ 	    idx = get_history_idx(type);
++ 	else
++ 	    idx = (int)tv_get_number_chk(&argvars[1], NULL);
++ 						    // -1 on type error
++ 	rettv->vval.v_string = vim_strsave(get_history_entry(type, idx));
++     }
++     rettv->v_type = VAR_STRING;
++ }
++ 
++ /*
++  * "histnr()" function
++  */
++     void
++ f_histnr(typval_T *argvars UNUSED, typval_T *rettv)
++ {
++     int		i;
++ 
++     char_u	*histname = tv_get_string_chk(&argvars[0]);
++ 
++     i = histname == NULL ? HIST_CMD - 1 : get_histtype(histname);
++     if (i >= HIST_CMD && i < HIST_COUNT)
++ 	i = get_history_idx(i);
++     else
++ 	i = -1;
++     rettv->vval.v_number = i;
++ }
++ #endif // FEAT_EVAL
++ 
++ #if defined(FEAT_CRYPT) || defined(PROTO)
++ /*
++  * Very specific function to remove the value in ":set key=val" from the
++  * history.
++  */
++     void
++ remove_key_from_history(void)
++ {
++     char_u	*p;
++     int		i;
++ 
++     i = hisidx[HIST_CMD];
++     if (i < 0)
++ 	return;
++     p = history[HIST_CMD][i].hisstr;
++     if (p != NULL)
++ 	for ( ; *p; ++p)
++ 	    if (STRNCMP(p, "key", 3) == 0 && !isalpha(p[3]))
++ 	    {
++ 		p = vim_strchr(p + 3, '=');
++ 		if (p == NULL)
++ 		    break;
++ 		++p;
++ 		for (i = 0; p[i] && !VIM_ISWHITE(p[i]); ++i)
++ 		    if (p[i] == '\\' && p[i + 1])
++ 			++i;
++ 		STRMOVE(p, p + i);
++ 		--p;
++ 	    }
++ }
++ #endif
++ 
++ /*
++  * :history command - print a history
++  */
++     void
++ ex_history(exarg_T *eap)
++ {
++     histentry_T	*hist;
++     int		histype1 = HIST_CMD;
++     int		histype2 = HIST_CMD;
++     int		hisidx1 = 1;
++     int		hisidx2 = -1;
++     int		idx;
++     int		i, j, k;
++     char_u	*end;
++     char_u	*arg = eap->arg;
++ 
++     if (hislen == 0)
++     {
++ 	msg(_("'history' option is zero"));
++ 	return;
++     }
++ 
++     if (!(VIM_ISDIGIT(*arg) || *arg == '-' || *arg == ','))
++     {
++ 	end = arg;
++ 	while (ASCII_ISALPHA(*end)
++ 		|| vim_strchr((char_u *)":=@>/?", *end) != NULL)
++ 	    end++;
++ 	i = *end;
++ 	*end = NUL;
++ 	histype1 = get_histtype(arg);
++ 	if (histype1 == -1)
++ 	{
++ 	    if (STRNICMP(arg, "all", STRLEN(arg)) == 0)
++ 	    {
++ 		histype1 = 0;
++ 		histype2 = HIST_COUNT-1;
++ 	    }
++ 	    else
++ 	    {
++ 		*end = i;
++ 		emsg(_(e_trailing));
++ 		return;
++ 	    }
++ 	}
++ 	else
++ 	    histype2 = histype1;
++ 	*end = i;
++     }
++     else
++ 	end = arg;
++     if (!get_list_range(&end, &hisidx1, &hisidx2) || *end != NUL)
++     {
++ 	emsg(_(e_trailing));
++ 	return;
++     }
++ 
++     for (; !got_int && histype1 <= histype2; ++histype1)
++     {
++ 	STRCPY(IObuff, "\n      #  ");
++ 	STRCAT(STRCAT(IObuff, history_names[histype1]), " history");
++ 	msg_puts_title((char *)IObuff);
++ 	idx = hisidx[histype1];
++ 	hist = history[histype1];
++ 	j = hisidx1;
++ 	k = hisidx2;
++ 	if (j < 0)
++ 	    j = (-j > hislen) ? 0 : hist[(hislen+j+idx+1) % hislen].hisnum;
++ 	if (k < 0)
++ 	    k = (-k > hislen) ? 0 : hist[(hislen+k+idx+1) % hislen].hisnum;
++ 	if (idx >= 0 && j <= k)
++ 	    for (i = idx + 1; !got_int; ++i)
++ 	    {
++ 		if (i == hislen)
++ 		    i = 0;
++ 		if (hist[i].hisstr != NULL
++ 			&& hist[i].hisnum >= j && hist[i].hisnum <= k)
++ 		{
++ 		    msg_putchar('\n');
++ 		    sprintf((char *)IObuff, "%c%6d  ", i == idx ? '>' : ' ',
++ 							      hist[i].hisnum);
++ 		    if (vim_strsize(hist[i].hisstr) > (int)Columns - 10)
++ 			trunc_string(hist[i].hisstr, IObuff + STRLEN(IObuff),
++ 			     (int)Columns - 10, IOSIZE - (int)STRLEN(IObuff));
++ 		    else
++ 			STRCAT(IObuff, hist[i].hisstr);
++ 		    msg_outtrans(IObuff);
++ 		    out_flush();
++ 		}
++ 		if (i == idx)
++ 		    break;
++ 	    }
++     }
++ }
+*** ../vim-8.1.1822/src/ex_getln.c	2019-08-02 19:52:12.017753693 +0200
+--- src/ex_getln.c	2019-08-06 21:46:55.136260311 +0200
+***************
+*** 59,72 ****
+  				    * the command line */
+  static int	extra_char_shift;
+  
+- #ifdef FEAT_CMDHIST
+- static histentry_T *(history[HIST_COUNT]) = {NULL, NULL, NULL, NULL, NULL};
+- static int	hisidx[HIST_COUNT] = {-1, -1, -1, -1, -1};  /* lastused entry */
+- static int	hisnum[HIST_COUNT] = {0, 0, 0, 0, 0};
+- 		    /* identifying (unique) number of newest history entry */
+- static int	hislen = 0;		/* actual length of history tables */
+- #endif
+- 
+  #ifdef FEAT_RIGHTLEFT
+  static int	cmd_hkmap = 0;	/* Hebrew mapping during command line */
+  #endif
+--- 59,64 ----
+***************
+*** 98,106 ****
+  static int	expand_shellcmd(char_u *filepat, int *num_file, char_u ***file, int flagsarg);
+  static int	ExpandRTDir(char_u *pat, int flags, int *num_file, char_u ***file, char *dirname[]);
+  static int	ExpandPackAddDir(char_u *pat, int *num_file, char_u ***file);
+- # ifdef FEAT_CMDHIST
+- static char_u	*get_history_arg(expand_T *xp, int idx);
+- # endif
+  # if defined(FEAT_EVAL)
+  static int	ExpandUserDefined(expand_T *xp, regmatch_T *regmatch, int *num_file, char_u ***file);
+  static int	ExpandUserList(expand_T *xp, int *num_file, char_u ***file);
+--- 90,95 ----
+***************
+*** 844,854 ****
+      int		j;
+      int		gotesc = FALSE;		/* TRUE when <ESC> just typed */
+      int		do_abbr;		/* when TRUE check for abbr. */
+- #ifdef FEAT_CMDHIST
+      char_u	*lookfor = NULL;	/* string to match */
+      int		hiscnt;			/* current history line in use */
+      int		histype;		/* history type to be used */
+- #endif
+  #ifdef FEAT_SEARCH_EXTRA
+      incsearch_state_T	is_state;
+  #endif
+--- 833,841 ----
+***************
+*** 1004,1014 ****
+      cmdline_type = firstc == NUL ? '-' : firstc;
+      trigger_cmd_autocmd(cmdline_type, EVENT_CMDLINEENTER);
+  
+- #ifdef FEAT_CMDHIST
+      init_history();
+!     hiscnt = hislen;		/* set hiscnt to impossible history value */
+      histype = hist_char2type(firstc);
+- #endif
+  
+  #ifdef FEAT_DIGRAPHS
+      do_digraph(-1);		/* init digraph typeahead */
+--- 991,999 ----
+      cmdline_type = firstc == NUL ? '-' : firstc;
+      trigger_cmd_autocmd(cmdline_type, EVENT_CMDLINEENTER);
+  
+      init_history();
+!     hiscnt = get_hislen();	/* set hiscnt to impossible history value */
+      histype = hist_char2type(firstc);
+  
+  #ifdef FEAT_DIGRAPHS
+      do_digraph(-1);		/* init digraph typeahead */
+***************
+*** 1090,1098 ****
+  		&& !global_busy)
+  	    got_int = FALSE;
+  
+! #ifdef FEAT_CMDHIST
+! 	/* free old command line when finished moving around in the history
+! 	 * list */
+  	if (lookfor != NULL
+  		&& c != K_S_DOWN && c != K_S_UP
+  		&& c != K_DOWN && c != K_UP
+--- 1075,1082 ----
+  		&& !global_busy)
+  	    got_int = FALSE;
+  
+! 	// free old command line when finished moving around in the history
+! 	// list
+  	if (lookfor != NULL
+  		&& c != K_S_DOWN && c != K_S_UP
+  		&& c != K_DOWN && c != K_UP
+***************
+*** 1101,1107 ****
+  		&& c != K_LEFT && c != K_RIGHT
+  		&& (xpc.xp_numfiles > 0 || (c != Ctrl_P && c != Ctrl_N)))
+  	    VIM_CLEAR(lookfor);
+- #endif
+  
+  	/*
+  	 * When there are matching completions to select <S-Tab> works like
+--- 1085,1090 ----
+***************
+*** 2108,2114 ****
+  			break;
+  		    goto cmdline_not_changed;
+  		}
+- #ifdef FEAT_CMDHIST
+  		/* FALLTHROUGH */
+  	case K_UP:
+  	case K_DOWN:
+--- 2091,2096 ----
+***************
+*** 2118,2124 ****
+  	case K_KPAGEUP:
+  	case K_PAGEDOWN:
+  	case K_KPAGEDOWN:
+! 		if (hislen == 0 || firstc == NUL)	/* no history */
+  		    goto cmdline_not_changed;
+  
+  		i = hiscnt;
+--- 2100,2106 ----
+  	case K_KPAGEUP:
+  	case K_PAGEDOWN:
+  	case K_KPAGEDOWN:
+! 		if (get_hislen() == 0 || firstc == NUL)	/* no history */
+  		    goto cmdline_not_changed;
+  
+  		i = hiscnt;
+***************
+*** 2138,2148 ****
+  		    if (c == K_UP|| c == K_S_UP || c == Ctrl_P
+  			    || c == K_PAGEUP || c == K_KPAGEUP)
+  		    {
+! 			if (hiscnt == hislen)	/* first time */
+! 			    hiscnt = hisidx[histype];
+! 			else if (hiscnt == 0 && hisidx[histype] != hislen - 1)
+! 			    hiscnt = hislen - 1;
+! 			else if (hiscnt != hisidx[histype] + 1)
+  			    --hiscnt;
+  			else			/* at top of list */
+  			{
+--- 2120,2130 ----
+  		    if (c == K_UP|| c == K_S_UP || c == Ctrl_P
+  			    || c == K_PAGEUP || c == K_KPAGEUP)
+  		    {
+! 			if (hiscnt == get_hislen())	/* first time */
+! 			    hiscnt = *get_hisidx(histype);
+! 			else if (hiscnt == 0 && *get_hisidx(histype) != get_hislen() - 1)
+! 			    hiscnt = get_hislen() - 1;
+! 			else if (hiscnt != *get_hisidx(histype) + 1)
+  			    --hiscnt;
+  			else			/* at top of list */
+  			{
+***************
+*** 2153,2180 ****
+  		    else    /* one step forwards */
+  		    {
+  			/* on last entry, clear the line */
+! 			if (hiscnt == hisidx[histype])
+  			{
+! 			    hiscnt = hislen;
+  			    break;
+  			}
+  
+  			/* not on a history line, nothing to do */
+! 			if (hiscnt == hislen)
+  			    break;
+! 			if (hiscnt == hislen - 1)   /* wrap around */
+  			    hiscnt = 0;
+  			else
+  			    ++hiscnt;
+  		    }
+! 		    if (hiscnt < 0 || history[histype][hiscnt].hisstr == NULL)
+  		    {
+  			hiscnt = i;
+  			break;
+  		    }
+  		    if ((c != K_UP && c != K_DOWN)
+  			    || hiscnt == i
+! 			    || STRNCMP(history[histype][hiscnt].hisstr,
+  						    lookfor, (size_t)j) == 0)
+  			break;
+  		}
+--- 2135,2162 ----
+  		    else    /* one step forwards */
+  		    {
+  			/* on last entry, clear the line */
+! 			if (hiscnt == *get_hisidx(histype))
+  			{
+! 			    hiscnt = get_hislen();
+  			    break;
+  			}
+  
+  			/* not on a history line, nothing to do */
+! 			if (hiscnt == get_hislen())
+  			    break;
+! 			if (hiscnt == get_hislen() - 1)   /* wrap around */
+  			    hiscnt = 0;
+  			else
+  			    ++hiscnt;
+  		    }
+! 		    if (hiscnt < 0 || get_histentry(histype)[hiscnt].hisstr == NULL)
+  		    {
+  			hiscnt = i;
+  			break;
+  		    }
+  		    if ((c != K_UP && c != K_DOWN)
+  			    || hiscnt == i
+! 			    || STRNCMP(get_histentry(histype)[hiscnt].hisstr,
+  						    lookfor, (size_t)j) == 0)
+  			break;
+  		}
+***************
+*** 2187,2196 ****
+  
+  		    VIM_CLEAR(ccline.cmdbuff);
+  		    xpc.xp_context = EXPAND_NOTHING;
+! 		    if (hiscnt == hislen)
+  			p = lookfor;	/* back to the old one */
+  		    else
+! 			p = history[histype][hiscnt].hisstr;
+  
+  		    if (histype == HIST_SEARCH
+  			    && p != lookfor
+--- 2169,2178 ----
+  
+  		    VIM_CLEAR(ccline.cmdbuff);
+  		    xpc.xp_context = EXPAND_NOTHING;
+! 		    if (hiscnt == get_hislen())
+  			p = lookfor;	/* back to the old one */
+  		    else
+! 			p = get_histentry(histype)[hiscnt].hisstr;
+  
+  		    if (histype == HIST_SEARCH
+  			    && p != lookfor
+***************
+*** 2251,2257 ****
+  		    goto cmdline_changed;
+  		}
+  		beep_flush();
+- #endif
+  		goto cmdline_not_changed;
+  
+  #ifdef FEAT_SEARCH_EXTRA
+--- 2233,2238 ----
+***************
+*** 2419,2425 ****
+  	/*
+  	 * Put line in history buffer (":" and "=" only when it was typed).
+  	 */
+- #ifdef FEAT_CMDHIST
+  	if (ccline.cmdlen && firstc != NUL
+  		&& (some_key_typed || histype == HIST_SEARCH))
+  	{
+--- 2400,2405 ----
+***************
+*** 2431,2437 ****
+  		new_last_cmdline = vim_strsave(ccline.cmdbuff);
+  	    }
+  	}
+- #endif
+  
+  	if (gotesc)
+  	    abandon_cmdline();
+--- 2411,2416 ----
+***************
+*** 5205,5213 ****
+  	    {EXPAND_BEHAVE, get_behave_arg, TRUE, TRUE},
+  	    {EXPAND_MAPCLEAR, get_mapclear_arg, TRUE, TRUE},
+  	    {EXPAND_MESSAGES, get_messages_arg, TRUE, TRUE},
+- #ifdef FEAT_CMDHIST
+  	    {EXPAND_HISTORY, get_history_arg, TRUE, TRUE},
+- #endif
+  	    {EXPAND_USER_COMMANDS, get_user_commands, FALSE, TRUE},
+  	    {EXPAND_USER_ADDR_TYPE, get_user_cmd_addr_type, FALSE, TRUE},
+  	    {EXPAND_USER_CMD_FLAGS, get_user_cmd_flags, FALSE, TRUE},
+--- 5184,5190 ----
+***************
+*** 5871,6402 ****
+  
+  #endif
+  
+- #if defined(FEAT_CMDHIST) || defined(PROTO)
+- 
+- /*********************************
+-  *  Command line history stuff	 *
+-  *********************************/
+- 
+- /*
+-  * Translate a history character to the associated type number.
+-  */
+-     int
+- hist_char2type(int c)
+- {
+-     if (c == ':')
+- 	return HIST_CMD;
+-     if (c == '=')
+- 	return HIST_EXPR;
+-     if (c == '@')
+- 	return HIST_INPUT;
+-     if (c == '>')
+- 	return HIST_DEBUG;
+-     return HIST_SEARCH;	    /* must be '?' or '/' */
+- }
+- 
+- /*
+-  * Table of history names.
+-  * These names are used in :history and various hist...() functions.
+-  * It is sufficient to give the significant prefix of a history name.
+-  */
+- 
+- static char *(history_names[]) =
+- {
+-     "cmd",
+-     "search",
+-     "expr",
+-     "input",
+-     "debug",
+-     NULL
+- };
+- 
+- #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+- /*
+-  * Function given to ExpandGeneric() to obtain the possible first
+-  * arguments of the ":history command.
+-  */
+-     static char_u *
+- get_history_arg(expand_T *xp UNUSED, int idx)
+- {
+-     static char_u compl[2] = { NUL, NUL };
+-     char *short_names = ":=@>?/";
+-     int short_names_count = (int)STRLEN(short_names);
+-     int history_name_count = sizeof(history_names) / sizeof(char *) - 1;
+- 
+-     if (idx < short_names_count)
+-     {
+- 	compl[0] = (char_u)short_names[idx];
+- 	return compl;
+-     }
+-     if (idx < short_names_count + history_name_count)
+- 	return (char_u *)history_names[idx - short_names_count];
+-     if (idx == short_names_count + history_name_count)
+- 	return (char_u *)"all";
+-     return NULL;
+- }
+- #endif
+- 
+- /*
+-  * init_history() - Initialize the command line history.
+-  * Also used to re-allocate the history when the size changes.
+-  */
+-     void
+- init_history(void)
+- {
+-     int		newlen;	    /* new length of history table */
+-     histentry_T	*temp;
+-     int		i;
+-     int		j;
+-     int		type;
+- 
+-     /*
+-      * If size of history table changed, reallocate it
+-      */
+-     newlen = (int)p_hi;
+-     if (newlen != hislen)			/* history length changed */
+-     {
+- 	for (type = 0; type < HIST_COUNT; ++type)   /* adjust the tables */
+- 	{
+- 	    if (newlen)
+- 	    {
+- 		temp = ALLOC_MULT(histentry_T, newlen);
+- 		if (temp == NULL)   /* out of memory! */
+- 		{
+- 		    if (type == 0)  /* first one: just keep the old length */
+- 		    {
+- 			newlen = hislen;
+- 			break;
+- 		    }
+- 		    /* Already changed one table, now we can only have zero
+- 		     * length for all tables. */
+- 		    newlen = 0;
+- 		    type = -1;
+- 		    continue;
+- 		}
+- 	    }
+- 	    else
+- 		temp = NULL;
+- 	    if (newlen == 0 || temp != NULL)
+- 	    {
+- 		if (hisidx[type] < 0)		/* there are no entries yet */
+- 		{
+- 		    for (i = 0; i < newlen; ++i)
+- 			clear_hist_entry(&temp[i]);
+- 		}
+- 		else if (newlen > hislen)	/* array becomes bigger */
+- 		{
+- 		    for (i = 0; i <= hisidx[type]; ++i)
+- 			temp[i] = history[type][i];
+- 		    j = i;
+- 		    for ( ; i <= newlen - (hislen - hisidx[type]); ++i)
+- 			clear_hist_entry(&temp[i]);
+- 		    for ( ; j < hislen; ++i, ++j)
+- 			temp[i] = history[type][j];
+- 		}
+- 		else				/* array becomes smaller or 0 */
+- 		{
+- 		    j = hisidx[type];
+- 		    for (i = newlen - 1; ; --i)
+- 		    {
+- 			if (i >= 0)		/* copy newest entries */
+- 			    temp[i] = history[type][j];
+- 			else			/* remove older entries */
+- 			    vim_free(history[type][j].hisstr);
+- 			if (--j < 0)
+- 			    j = hislen - 1;
+- 			if (j == hisidx[type])
+- 			    break;
+- 		    }
+- 		    hisidx[type] = newlen - 1;
+- 		}
+- 		vim_free(history[type]);
+- 		history[type] = temp;
+- 	    }
+- 	}
+- 	hislen = newlen;
+-     }
+- }
+- 
+-     void
+- clear_hist_entry(histentry_T *hisptr)
+- {
+-     hisptr->hisnum = 0;
+-     hisptr->viminfo = FALSE;
+-     hisptr->hisstr = NULL;
+-     hisptr->time_set = 0;
+- }
+- 
+- /*
+-  * Check if command line 'str' is already in history.
+-  * If 'move_to_front' is TRUE, matching entry is moved to end of history.
+-  */
+-     int
+- in_history(
+-     int	    type,
+-     char_u  *str,
+-     int	    move_to_front,	/* Move the entry to the front if it exists */
+-     int	    sep,
+-     int	    writing)		/* ignore entries read from viminfo */
+- {
+-     int	    i;
+-     int	    last_i = -1;
+-     char_u  *p;
+- 
+-     if (hisidx[type] < 0)
+- 	return FALSE;
+-     i = hisidx[type];
+-     do
+-     {
+- 	if (history[type][i].hisstr == NULL)
+- 	    return FALSE;
+- 
+- 	/* For search history, check that the separator character matches as
+- 	 * well. */
+- 	p = history[type][i].hisstr;
+- 	if (STRCMP(str, p) == 0
+- 		&& !(writing && history[type][i].viminfo)
+- 		&& (type != HIST_SEARCH || sep == p[STRLEN(p) + 1]))
+- 	{
+- 	    if (!move_to_front)
+- 		return TRUE;
+- 	    last_i = i;
+- 	    break;
+- 	}
+- 	if (--i < 0)
+- 	    i = hislen - 1;
+-     } while (i != hisidx[type]);
+- 
+-     if (last_i >= 0)
+-     {
+- 	str = history[type][i].hisstr;
+- 	while (i != hisidx[type])
+- 	{
+- 	    if (++i >= hislen)
+- 		i = 0;
+- 	    history[type][last_i] = history[type][i];
+- 	    last_i = i;
+- 	}
+- 	history[type][i].hisnum = ++hisnum[type];
+- 	history[type][i].viminfo = FALSE;
+- 	history[type][i].hisstr = str;
+- 	history[type][i].time_set = vim_time();
+- 	return TRUE;
+-     }
+-     return FALSE;
+- }
+- 
+- /*
+-  * Convert history name (from table above) to its HIST_ equivalent.
+-  * When "name" is empty, return "cmd" history.
+-  * Returns -1 for unknown history name.
+-  */
+-     int
+- get_histtype(char_u *name)
+- {
+-     int		i;
+-     int		len = (int)STRLEN(name);
+- 
+-     /* No argument: use current history. */
+-     if (len == 0)
+- 	return hist_char2type(ccline.cmdfirstc);
+- 
+-     for (i = 0; history_names[i] != NULL; ++i)
+- 	if (STRNICMP(name, history_names[i], len) == 0)
+- 	    return i;
+- 
+-     if (vim_strchr((char_u *)":=@>?/", name[0]) != NULL && name[1] == NUL)
+- 	return hist_char2type(name[0]);
+- 
+-     return -1;
+- }
+- 
+- static int	last_maptick = -1;	/* last seen maptick */
+- 
+- /*
+-  * Add the given string to the given history.  If the string is already in the
+-  * history then it is moved to the front.  "histype" may be one of he HIST_
+-  * values.
+-  */
+-     void
+- add_to_history(
+-     int		histype,
+-     char_u	*new_entry,
+-     int		in_map,		/* consider maptick when inside a mapping */
+-     int		sep)		/* separator character used (search hist) */
+- {
+-     histentry_T	*hisptr;
+-     int		len;
+- 
+-     if (hislen == 0)		/* no history */
+- 	return;
+- 
+-     if (cmdmod.keeppatterns && histype == HIST_SEARCH)
+- 	return;
+- 
+-     /*
+-      * Searches inside the same mapping overwrite each other, so that only
+-      * the last line is kept.  Be careful not to remove a line that was moved
+-      * down, only lines that were added.
+-      */
+-     if (histype == HIST_SEARCH && in_map)
+-     {
+- 	if (maptick == last_maptick && hisidx[HIST_SEARCH] >= 0)
+- 	{
+- 	    /* Current line is from the same mapping, remove it */
+- 	    hisptr = &history[HIST_SEARCH][hisidx[HIST_SEARCH]];
+- 	    vim_free(hisptr->hisstr);
+- 	    clear_hist_entry(hisptr);
+- 	    --hisnum[histype];
+- 	    if (--hisidx[HIST_SEARCH] < 0)
+- 		hisidx[HIST_SEARCH] = hislen - 1;
+- 	}
+- 	last_maptick = -1;
+-     }
+-     if (!in_history(histype, new_entry, TRUE, sep, FALSE))
+-     {
+- 	if (++hisidx[histype] == hislen)
+- 	    hisidx[histype] = 0;
+- 	hisptr = &history[histype][hisidx[histype]];
+- 	vim_free(hisptr->hisstr);
+- 
+- 	/* Store the separator after the NUL of the string. */
+- 	len = (int)STRLEN(new_entry);
+- 	hisptr->hisstr = vim_strnsave(new_entry, len + 2);
+- 	if (hisptr->hisstr != NULL)
+- 	    hisptr->hisstr[len + 1] = sep;
+- 
+- 	hisptr->hisnum = ++hisnum[histype];
+- 	hisptr->viminfo = FALSE;
+- 	hisptr->time_set = vim_time();
+- 	if (histype == HIST_SEARCH && in_map)
+- 	    last_maptick = maptick;
+-     }
+- }
+- 
+- #if defined(FEAT_EVAL) || defined(PROTO)
+- 
+- /*
+-  * Get identifier of newest history entry.
+-  * "histype" may be one of the HIST_ values.
+-  */
+-     int
+- get_history_idx(int histype)
+- {
+-     if (hislen == 0 || histype < 0 || histype >= HIST_COUNT
+- 		    || hisidx[histype] < 0)
+- 	return -1;
+- 
+-     return history[histype][hisidx[histype]].hisnum;
+- }
+- 
+- /*
+-  * Calculate history index from a number:
+-  *   num > 0: seen as identifying number of a history entry
+-  *   num < 0: relative position in history wrt newest entry
+-  * "histype" may be one of the HIST_ values.
+-  */
+-     static int
+- calc_hist_idx(int histype, int num)
+- {
+-     int		i;
+-     histentry_T	*hist;
+-     int		wrapped = FALSE;
+- 
+-     if (hislen == 0 || histype < 0 || histype >= HIST_COUNT
+- 		    || (i = hisidx[histype]) < 0 || num == 0)
+- 	return -1;
+- 
+-     hist = history[histype];
+-     if (num > 0)
+-     {
+- 	while (hist[i].hisnum > num)
+- 	    if (--i < 0)
+- 	    {
+- 		if (wrapped)
+- 		    break;
+- 		i += hislen;
+- 		wrapped = TRUE;
+- 	    }
+- 	if (hist[i].hisnum == num && hist[i].hisstr != NULL)
+- 	    return i;
+-     }
+-     else if (-num <= hislen)
+-     {
+- 	i += num + 1;
+- 	if (i < 0)
+- 	    i += hislen;
+- 	if (hist[i].hisstr != NULL)
+- 	    return i;
+-     }
+-     return -1;
+- }
+- 
+- /*
+-  * Get a history entry by its index.
+-  * "histype" may be one of the HIST_ values.
+-  */
+-     char_u *
+- get_history_entry(int histype, int idx)
+- {
+-     idx = calc_hist_idx(histype, idx);
+-     if (idx >= 0)
+- 	return history[histype][idx].hisstr;
+-     else
+- 	return (char_u *)"";
+- }
+- 
+- /*
+-  * Clear all entries of a history.
+-  * "histype" may be one of the HIST_ values.
+-  */
+-     int
+- clr_history(int histype)
+- {
+-     int		i;
+-     histentry_T	*hisptr;
+- 
+-     if (hislen != 0 && histype >= 0 && histype < HIST_COUNT)
+-     {
+- 	hisptr = history[histype];
+- 	for (i = hislen; i--;)
+- 	{
+- 	    vim_free(hisptr->hisstr);
+- 	    clear_hist_entry(hisptr);
+- 	    hisptr++;
+- 	}
+- 	hisidx[histype] = -1;	/* mark history as cleared */
+- 	hisnum[histype] = 0;	/* reset identifier counter */
+- 	return OK;
+-     }
+-     return FAIL;
+- }
+- 
+- /*
+-  * Remove all entries matching {str} from a history.
+-  * "histype" may be one of the HIST_ values.
+-  */
+-     int
+- del_history_entry(int histype, char_u *str)
+- {
+-     regmatch_T	regmatch;
+-     histentry_T	*hisptr;
+-     int		idx;
+-     int		i;
+-     int		last;
+-     int		found = FALSE;
+- 
+-     regmatch.regprog = NULL;
+-     regmatch.rm_ic = FALSE;	/* always match case */
+-     if (hislen != 0
+- 	    && histype >= 0
+- 	    && histype < HIST_COUNT
+- 	    && *str != NUL
+- 	    && (idx = hisidx[histype]) >= 0
+- 	    && (regmatch.regprog = vim_regcomp(str, RE_MAGIC + RE_STRING))
+- 								      != NULL)
+-     {
+- 	i = last = idx;
+- 	do
+- 	{
+- 	    hisptr = &history[histype][i];
+- 	    if (hisptr->hisstr == NULL)
+- 		break;
+- 	    if (vim_regexec(&regmatch, hisptr->hisstr, (colnr_T)0))
+- 	    {
+- 		found = TRUE;
+- 		vim_free(hisptr->hisstr);
+- 		clear_hist_entry(hisptr);
+- 	    }
+- 	    else
+- 	    {
+- 		if (i != last)
+- 		{
+- 		    history[histype][last] = *hisptr;
+- 		    clear_hist_entry(hisptr);
+- 		}
+- 		if (--last < 0)
+- 		    last += hislen;
+- 	    }
+- 	    if (--i < 0)
+- 		i += hislen;
+- 	} while (i != idx);
+- 	if (history[histype][idx].hisstr == NULL)
+- 	    hisidx[histype] = -1;
+-     }
+-     vim_regfree(regmatch.regprog);
+-     return found;
+- }
+- 
+- /*
+-  * Remove an indexed entry from a history.
+-  * "histype" may be one of the HIST_ values.
+-  */
+-     int
+- del_history_idx(int histype, int idx)
+- {
+-     int	    i, j;
+- 
+-     i = calc_hist_idx(histype, idx);
+-     if (i < 0)
+- 	return FALSE;
+-     idx = hisidx[histype];
+-     vim_free(history[histype][i].hisstr);
+- 
+-     /* When deleting the last added search string in a mapping, reset
+-      * last_maptick, so that the last added search string isn't deleted again.
+-      */
+-     if (histype == HIST_SEARCH && maptick == last_maptick && i == idx)
+- 	last_maptick = -1;
+- 
+-     while (i != idx)
+-     {
+- 	j = (i + 1) % hislen;
+- 	history[histype][i] = history[histype][j];
+- 	i = j;
+-     }
+-     clear_hist_entry(&history[histype][i]);
+-     if (--i < 0)
+- 	i += hislen;
+-     hisidx[histype] = i;
+-     return TRUE;
+- }
+- 
+- #endif /* FEAT_EVAL */
+- 
+- #if defined(FEAT_CRYPT) || defined(PROTO)
+- /*
+-  * Very specific function to remove the value in ":set key=val" from the
+-  * history.
+-  */
+-     void
+- remove_key_from_history(void)
+- {
+-     char_u	*p;
+-     int		i;
+- 
+-     i = hisidx[HIST_CMD];
+-     if (i < 0)
+- 	return;
+-     p = history[HIST_CMD][i].hisstr;
+-     if (p != NULL)
+- 	for ( ; *p; ++p)
+- 	    if (STRNCMP(p, "key", 3) == 0 && !isalpha(p[3]))
+- 	    {
+- 		p = vim_strchr(p + 3, '=');
+- 		if (p == NULL)
+- 		    break;
+- 		++p;
+- 		for (i = 0; p[i] && !VIM_ISWHITE(p[i]); ++i)
+- 		    if (p[i] == '\\' && p[i + 1])
+- 			++i;
+- 		STRMOVE(p, p + i);
+- 		--p;
+- 	    }
+- }
+- #endif
+- 
+- #endif /* FEAT_CMDHIST */
+- 
+  #if defined(FEAT_EVAL) || defined(FEAT_CMDWIN) || defined(PROTO)
+  /*
+   * Get pointer to the command line info to use. save_ccline() may clear
+--- 5848,5853 ----
+***************
+*** 6498,6504 ****
+  }
+  #endif
+  
+! #if defined(FEAT_QUICKFIX) || defined(FEAT_CMDHIST) || defined(PROTO)
+  /*
+   * Get indices "num1,num2" that specify a range within a list (not a range of
+   * text lines in a buffer!) from a string.  Used for ":history" and ":clist".
+--- 5949,5963 ----
+  }
+  #endif
+  
+! /*
+!  * Return the first character of the current command line.
+!  */
+!     int
+! get_cmdline_firstc(void)
+! {
+!     return ccline.cmdfirstc;
+! }
+! 
+  /*
+   * Get indices "num1,num2" that specify a range within a list (not a range of
+   * text lines in a buffer!) from a string.  Used for ":history" and ":clist".
+***************
+*** 6536,6671 ****
+  	*num2 = *num1;
+      return OK;
+  }
+- #endif
+- 
+- #if defined(FEAT_CMDHIST) || defined(PROTO)
+- /*
+-  * :history command - print a history
+-  */
+-     void
+- ex_history(exarg_T *eap)
+- {
+-     histentry_T	*hist;
+-     int		histype1 = HIST_CMD;
+-     int		histype2 = HIST_CMD;
+-     int		hisidx1 = 1;
+-     int		hisidx2 = -1;
+-     int		idx;
+-     int		i, j, k;
+-     char_u	*end;
+-     char_u	*arg = eap->arg;
+- 
+-     if (hislen == 0)
+-     {
+- 	msg(_("'history' option is zero"));
+- 	return;
+-     }
+- 
+-     if (!(VIM_ISDIGIT(*arg) || *arg == '-' || *arg == ','))
+-     {
+- 	end = arg;
+- 	while (ASCII_ISALPHA(*end)
+- 		|| vim_strchr((char_u *)":=@>/?", *end) != NULL)
+- 	    end++;
+- 	i = *end;
+- 	*end = NUL;
+- 	histype1 = get_histtype(arg);
+- 	if (histype1 == -1)
+- 	{
+- 	    if (STRNICMP(arg, "all", STRLEN(arg)) == 0)
+- 	    {
+- 		histype1 = 0;
+- 		histype2 = HIST_COUNT-1;
+- 	    }
+- 	    else
+- 	    {
+- 		*end = i;
+- 		emsg(_(e_trailing));
+- 		return;
+- 	    }
+- 	}
+- 	else
+- 	    histype2 = histype1;
+- 	*end = i;
+-     }
+-     else
+- 	end = arg;
+-     if (!get_list_range(&end, &hisidx1, &hisidx2) || *end != NUL)
+-     {
+- 	emsg(_(e_trailing));
+- 	return;
+-     }
+- 
+-     for (; !got_int && histype1 <= histype2; ++histype1)
+-     {
+- 	STRCPY(IObuff, "\n      #  ");
+- 	STRCAT(STRCAT(IObuff, history_names[histype1]), " history");
+- 	msg_puts_title((char *)IObuff);
+- 	idx = hisidx[histype1];
+- 	hist = history[histype1];
+- 	j = hisidx1;
+- 	k = hisidx2;
+- 	if (j < 0)
+- 	    j = (-j > hislen) ? 0 : hist[(hislen+j+idx+1) % hislen].hisnum;
+- 	if (k < 0)
+- 	    k = (-k > hislen) ? 0 : hist[(hislen+k+idx+1) % hislen].hisnum;
+- 	if (idx >= 0 && j <= k)
+- 	    for (i = idx + 1; !got_int; ++i)
+- 	    {
+- 		if (i == hislen)
+- 		    i = 0;
+- 		if (hist[i].hisstr != NULL
+- 			&& hist[i].hisnum >= j && hist[i].hisnum <= k)
+- 		{
+- 		    msg_putchar('\n');
+- 		    sprintf((char *)IObuff, "%c%6d  ", i == idx ? '>' : ' ',
+- 							      hist[i].hisnum);
+- 		    if (vim_strsize(hist[i].hisstr) > (int)Columns - 10)
+- 			trunc_string(hist[i].hisstr, IObuff + STRLEN(IObuff),
+- 			     (int)Columns - 10, IOSIZE - (int)STRLEN(IObuff));
+- 		    else
+- 			STRCAT(IObuff, hist[i].hisstr);
+- 		    msg_outtrans(IObuff);
+- 		    out_flush();
+- 		}
+- 		if (i == idx)
+- 		    break;
+- 	    }
+-     }
+- }
+- #endif
+- 
+- #if (defined(FEAT_VIMINFO) && defined(FEAT_CMDHIST)) || defined(PROTO)
+-     int
+- get_hislen(void)
+- {
+-     return hislen;
+- }
+- 
+-     histentry_T *
+- get_histentry(int hist_type)
+- {
+-     return history[hist_type];
+- }
+- 
+-     void
+- set_histentry(int hist_type, histentry_T *entry)
+- {
+-     history[hist_type] = entry;
+- }
+- 
+-     int *
+- get_hisidx(int hist_type)
+- {
+-     return &hisidx[hist_type];
+- }
+- 
+-     int *
+- get_hisnum(int hist_type)
+- {
+-     return &hisnum[hist_type];
+- }
+- #endif
+  
+  #if defined(FEAT_CMDWIN) || defined(PROTO)
+  /*
+--- 5995,6000 ----
+***************
+*** 6774,6794 ****
+  
+      /* Fill the buffer with the history. */
+      init_history();
+!     if (hislen > 0)
+      {
+! 	i = hisidx[histtype];
+  	if (i >= 0)
+  	{
+  	    lnum = 0;
+  	    do
+  	    {
+! 		if (++i == hislen)
+  		    i = 0;
+! 		if (history[histtype][i].hisstr != NULL)
+! 		    ml_append(lnum++, history[histtype][i].hisstr,
+  							   (colnr_T)0, FALSE);
+  	    }
+! 	    while (i != hisidx[histtype]);
+  	}
+      }
+  
+--- 6103,6123 ----
+  
+      /* Fill the buffer with the history. */
+      init_history();
+!     if (get_hislen() > 0)
+      {
+! 	i = *get_hisidx(histtype);
+  	if (i >= 0)
+  	{
+  	    lnum = 0;
+  	    do
+  	    {
+! 		if (++i == get_hislen())
+  		    i = 0;
+! 		if (get_histentry(histtype)[i].hisstr != NULL)
+! 		    ml_append(lnum++, get_histentry(histtype)[i].hisstr,
+  							   (colnr_T)0, FALSE);
+  	    }
+! 	    while (i != *get_hisidx(histtype));
+  	}
+      }
+  
+*** ../vim-8.1.1822/src/proto.h	2019-08-01 14:26:53.196455837 +0200
+--- src/proto.h	2019-08-06 21:51:16.398783394 +0200
+***************
+*** 65,70 ****
+--- 65,71 ----
+  # include "buffer.pro"
+  # include "change.pro"
+  # include "charset.pro"
++ # include "cmdhist.pro"
+  # ifdef FEAT_CSCOPE
+  #  include "if_cscope.pro"
+  # endif
+*** ../vim-8.1.1822/src/proto/cmdhist.pro	2019-08-06 21:58:29.676361265 +0200
+--- src/proto/cmdhist.pro	2019-08-06 21:31:18.945877689 +0200
+***************
+*** 0 ****
+--- 1,19 ----
++ /* cmdhist.c */
++ int get_hislen(void);
++ histentry_T *get_histentry(int hist_type);
++ void set_histentry(int hist_type, histentry_T *entry);
++ int *get_hisidx(int hist_type);
++ int *get_hisnum(int hist_type);
++ int hist_char2type(int c);
++ char_u *get_history_arg(expand_T *xp, int idx);
++ void init_history(void);
++ void clear_hist_entry(histentry_T *hisptr);
++ int in_history(int type, char_u *str, int move_to_front, int sep, int writing);
++ void add_to_history(int histype, char_u *new_entry, int in_map, int sep);
++ void remove_key_from_history(void);
++ void ex_history(exarg_T *eap);
++ void f_histadd(typval_T *argvars, typval_T *rettv);
++ void f_histdel(typval_T *argvars, typval_T *rettv);
++ void f_histget(typval_T *argvars, typval_T *rettv);
++ void f_histnr(typval_T *argvars, typval_T *rettv);
++ /* vim: set ft=c : */
+*** ../vim-8.1.1822/src/proto/ex_getln.pro	2019-07-21 21:51:56.023609378 +0200
+--- src/proto/ex_getln.pro	2019-08-06 21:31:18.945877689 +0200
+***************
+*** 34,61 ****
+  int expand_cmdline(expand_T *xp, char_u *str, int col, int *matchcount, char_u ***matches);
+  int ExpandGeneric(expand_T *xp, regmatch_T *regmatch, int *num_file, char_u ***file, char_u *((*func)(expand_T *, int)), int escaped);
+  void globpath(char_u *path, char_u *file, garray_T *ga, int expand_options);
+- int hist_char2type(int c);
+- void init_history(void);
+- void clear_hist_entry(histentry_T *hisptr);
+- int in_history(int type, char_u *str, int move_to_front, int sep, int writing);
+- int get_histtype(char_u *name);
+- void add_to_history(int histype, char_u *new_entry, int in_map, int sep);
+- int get_history_idx(int histype);
+- char_u *get_history_entry(int histype, int idx);
+- int clr_history(int histype);
+- int del_history_entry(int histype, char_u *str);
+- int del_history_idx(int histype, int idx);
+- void remove_key_from_history(void);
+  char_u *get_cmdline_str(void);
+  int get_cmdline_pos(void);
+  int set_cmdline_pos(int pos);
+  int get_cmdline_type(void);
+  int get_list_range(char_u **str, int *num1, int *num2);
+- void ex_history(exarg_T *eap);
+- int get_hislen(void);
+- histentry_T *get_histentry(int hist_type);
+- void set_histentry(int hist_type, histentry_T *entry);
+- int *get_hisidx(int hist_type);
+- int *get_hisnum(int hist_type);
+  char_u *script_get(exarg_T *eap, char_u *cmd);
+  /* vim: set ft=c : */
+--- 34,44 ----
+  int expand_cmdline(expand_T *xp, char_u *str, int col, int *matchcount, char_u ***matches);
+  int ExpandGeneric(expand_T *xp, regmatch_T *regmatch, int *num_file, char_u ***file, char_u *((*func)(expand_T *, int)), int escaped);
+  void globpath(char_u *path, char_u *file, garray_T *ga, int expand_options);
+  char_u *get_cmdline_str(void);
+  int get_cmdline_pos(void);
+  int set_cmdline_pos(int pos);
+  int get_cmdline_type(void);
++ int get_cmdline_firstc(void);
+  int get_list_range(char_u **str, int *num1, int *num2);
+  char_u *script_get(exarg_T *eap, char_u *cmd);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1822/src/version.c	2019-08-06 21:29:25.742634550 +0200
+--- src/version.c	2019-08-06 21:53:27.862045862 +0200
+***************
+*** 163,173 ****
+  #else
+  	"-cmdline_compl",
+  #endif
+- #ifdef FEAT_CMDHIST
+  	"+cmdline_hist",
+- #else
+- 	"-cmdline_hist",
+- #endif
+  #ifdef FEAT_CMDL_INFO
+  	"+cmdline_info",
+  #else
+--- 163,169 ----
+*** ../vim-8.1.1822/src/evalfunc.c	2019-08-04 21:35:08.035889064 +0200
+--- src/evalfunc.c	2019-08-06 21:45:13.012843105 +0200
+***************
+*** 182,191 ****
+  static void f_has(typval_T *argvars, typval_T *rettv);
+  static void f_haslocaldir(typval_T *argvars, typval_T *rettv);
+  static void f_hasmapto(typval_T *argvars, typval_T *rettv);
+- static void f_histadd(typval_T *argvars, typval_T *rettv);
+- static void f_histdel(typval_T *argvars, typval_T *rettv);
+- static void f_histget(typval_T *argvars, typval_T *rettv);
+- static void f_histnr(typval_T *argvars, typval_T *rettv);
+  static void f_hlID(typval_T *argvars, typval_T *rettv);
+  static void f_hlexists(typval_T *argvars, typval_T *rettv);
+  static void f_hostname(typval_T *argvars, typval_T *rettv);
+--- 182,187 ----
+***************
+*** 6114,6122 ****
+  #ifdef FEAT_CMDL_COMPL
+  	"cmdline_compl",
+  #endif
+- #ifdef FEAT_CMDHIST
+  	"cmdline_hist",
+- #endif
+  #ifdef FEAT_COMMENTS
+  	"comments",
+  #endif
+--- 6110,6116 ----
+***************
+*** 6688,6804 ****
+  }
+  
+  /*
+-  * "histadd()" function
+-  */
+-     static void
+- f_histadd(typval_T *argvars UNUSED, typval_T *rettv)
+- {
+- #ifdef FEAT_CMDHIST
+-     int		histype;
+-     char_u	*str;
+-     char_u	buf[NUMBUFLEN];
+- #endif
+- 
+-     rettv->vval.v_number = FALSE;
+-     if (check_secure())
+- 	return;
+- #ifdef FEAT_CMDHIST
+-     str = tv_get_string_chk(&argvars[0]);	/* NULL on type error */
+-     histype = str != NULL ? get_histtype(str) : -1;
+-     if (histype >= 0)
+-     {
+- 	str = tv_get_string_buf(&argvars[1], buf);
+- 	if (*str != NUL)
+- 	{
+- 	    init_history();
+- 	    add_to_history(histype, str, FALSE, NUL);
+- 	    rettv->vval.v_number = TRUE;
+- 	    return;
+- 	}
+-     }
+- #endif
+- }
+- 
+- /*
+-  * "histdel()" function
+-  */
+-     static void
+- f_histdel(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
+- {
+- #ifdef FEAT_CMDHIST
+-     int		n;
+-     char_u	buf[NUMBUFLEN];
+-     char_u	*str;
+- 
+-     str = tv_get_string_chk(&argvars[0]);	/* NULL on type error */
+-     if (str == NULL)
+- 	n = 0;
+-     else if (argvars[1].v_type == VAR_UNKNOWN)
+- 	/* only one argument: clear entire history */
+- 	n = clr_history(get_histtype(str));
+-     else if (argvars[1].v_type == VAR_NUMBER)
+- 	/* index given: remove that entry */
+- 	n = del_history_idx(get_histtype(str),
+- 					  (int)tv_get_number(&argvars[1]));
+-     else
+- 	/* string given: remove all matching entries */
+- 	n = del_history_entry(get_histtype(str),
+- 				      tv_get_string_buf(&argvars[1], buf));
+-     rettv->vval.v_number = n;
+- #endif
+- }
+- 
+- /*
+-  * "histget()" function
+-  */
+-     static void
+- f_histget(typval_T *argvars UNUSED, typval_T *rettv)
+- {
+- #ifdef FEAT_CMDHIST
+-     int		type;
+-     int		idx;
+-     char_u	*str;
+- 
+-     str = tv_get_string_chk(&argvars[0]);	/* NULL on type error */
+-     if (str == NULL)
+- 	rettv->vval.v_string = NULL;
+-     else
+-     {
+- 	type = get_histtype(str);
+- 	if (argvars[1].v_type == VAR_UNKNOWN)
+- 	    idx = get_history_idx(type);
+- 	else
+- 	    idx = (int)tv_get_number_chk(&argvars[1], NULL);
+- 						    /* -1 on type error */
+- 	rettv->vval.v_string = vim_strsave(get_history_entry(type, idx));
+-     }
+- #else
+-     rettv->vval.v_string = NULL;
+- #endif
+-     rettv->v_type = VAR_STRING;
+- }
+- 
+- /*
+-  * "histnr()" function
+-  */
+-     static void
+- f_histnr(typval_T *argvars UNUSED, typval_T *rettv)
+- {
+-     int		i;
+- 
+- #ifdef FEAT_CMDHIST
+-     char_u	*history = tv_get_string_chk(&argvars[0]);
+- 
+-     i = history == NULL ? HIST_CMD - 1 : get_histtype(history);
+-     if (i >= HIST_CMD && i < HIST_COUNT)
+- 	i = get_history_idx(i);
+-     else
+- #endif
+- 	i = -1;
+-     rettv->vval.v_number = i;
+- }
+- 
+- /*
+   * "highlightID(name)" function
+   */
+      static void
+--- 6682,6687 ----
+*** ../vim-8.1.1822/src/ex_cmds.c	2019-08-04 20:42:39.811198885 +0200
+--- src/ex_cmds.c	2019-08-06 21:45:31.416737783 +0200
+***************
+*** 3900,3909 ****
+  
+  	if (!cmdmod.keeppatterns)
+  	    save_re_pat(RE_SUBST, pat, p_magic);
+! #ifdef FEAT_CMDHIST
+! 	/* put pattern in history */
+  	add_to_history(HIST_SEARCH, pat, TRUE, NUL);
+- #endif
+  
+  	return;
+      }
+--- 3900,3907 ----
+  
+  	if (!cmdmod.keeppatterns)
+  	    save_re_pat(RE_SUBST, pat, p_magic);
+! 	// put pattern in history
+  	add_to_history(HIST_SEARCH, pat, TRUE, NUL);
+  
+  	return;
+      }
+*** ../vim-8.1.1822/src/ex_docmd.c	2019-08-06 21:29:25.742634550 +0200
+--- src/ex_docmd.c	2019-08-06 21:46:08.760524470 +0200
+***************
+*** 356,364 ****
+  # define ex_nbstart		ex_ni
+  #endif
+  
+- #ifndef FEAT_CMDHIST
+- # define ex_history		ex_ni
+- #endif
+  #ifndef FEAT_JUMPLIST
+  # define ex_jumps		ex_ni
+  # define ex_clearjumps		ex_ni
+--- 356,361 ----
+***************
+*** 985,991 ****
+  	if (next_cmdline == NULL)
+  	{
+  	    VIM_CLEAR(cmdline_copy);
+! #ifdef FEAT_CMDHIST
+  	    /*
+  	     * If the command was typed, remember it for the ':' register.
+  	     * Do this AFTER executing the command to make :@: work.
+--- 982,988 ----
+  	if (next_cmdline == NULL)
+  	{
+  	    VIM_CLEAR(cmdline_copy);
+! 
+  	    /*
+  	     * If the command was typed, remember it for the ':' register.
+  	     * Do this AFTER executing the command to make :@: work.
+***************
+*** 997,1003 ****
+  		last_cmdline = new_last_cmdline;
+  		new_last_cmdline = NULL;
+  	    }
+- #endif
+  	}
+  	else
+  	{
+--- 994,999 ----
+***************
+*** 4130,4141 ****
+  	    xp->xp_pattern = arg;
+  	    break;
+  
+- #if defined(FEAT_CMDHIST)
+  	case CMD_history:
+  	    xp->xp_context = EXPAND_HISTORY;
+  	    xp->xp_pattern = arg;
+  	    break;
+- #endif
+  #if defined(FEAT_PROFILE)
+  	case CMD_syntime:
+  	    xp->xp_context = EXPAND_SYNTIME;
+--- 4126,4135 ----
+*** ../vim-8.1.1822/src/misc2.c	2019-07-28 14:15:21.330943640 +0200
+--- src/misc2.c	2019-08-06 21:47:13.108158149 +0200
+***************
+*** 1139,1154 ****
+      vim_regfree(clip_exclude_prog);
+  # endif
+      vim_free(last_cmdline);
+- # ifdef FEAT_CMDHIST
+      vim_free(new_last_cmdline);
+- # endif
+      set_keep_msg(NULL, 0);
+  
+      /* Clear cmdline history. */
+      p_hi = 0;
+- # ifdef FEAT_CMDHIST
+      init_history();
+- # endif
+  # ifdef FEAT_TEXT_PROP
+      clear_global_prop_types();
+  # endif
+--- 1139,1150 ----
+*** ../vim-8.1.1822/src/normal.c	2019-07-27 18:44:53.247184277 +0200
+--- src/normal.c	2019-08-06 21:47:32.756046558 +0200
+***************
+*** 5736,5746 ****
+  		    ? vim_iswordp(mb_prevptr(ml_get_curline(), ptr))
+  		    : vim_iswordc(ptr[-1])))
+  	    STRCAT(buf, "\\>");
+! #ifdef FEAT_CMDHIST
+! 	/* put pattern in search history */
+  	init_history();
+  	add_to_history(HIST_SEARCH, buf, TRUE, NUL);
+! #endif
+  	(void)normal_search(cap, cmdchar == '*' ? '/' : '?', buf, 0);
+      }
+      else
+--- 5736,5746 ----
+  		    ? vim_iswordp(mb_prevptr(ml_get_curline(), ptr))
+  		    : vim_iswordc(ptr[-1])))
+  	    STRCAT(buf, "\\>");
+! 
+! 	// put pattern in search history
+  	init_history();
+  	add_to_history(HIST_SEARCH, buf, TRUE, NUL);
+! 
+  	(void)normal_search(cap, cmdchar == '*' ? '/' : '?', buf, 0);
+      }
+      else
+*** ../vim-8.1.1822/src/ops.c	2019-07-23 22:15:21.307518880 +0200
+--- src/ops.c	2019-08-06 21:47:46.639967750 +0200
+***************
+*** 1233,1239 ****
+      if (regname == '_')
+  	return OK;
+  
+- #ifdef FEAT_CMDHIST
+      // use last command line
+      if (regname == ':')
+      {
+--- 1233,1238 ----
+***************
+*** 1262,1268 ****
+  	}
+  	vim_free(p);
+      }
+- #endif
+  #ifdef FEAT_EVAL
+      else if (regname == '=')
+      {
+--- 1261,1266 ----
+*** ../vim-8.1.1822/src/option.c	2019-08-03 13:29:43.303352770 +0200
+--- src/option.c	2019-08-06 21:48:07.455849701 +0200
+***************
+*** 6745,6755 ****
+      /* 'cryptkey' */
+      else if (gvarp == &p_key)
+      {
+! # if defined(FEAT_CMDHIST)
+! 	/* Make sure the ":set" command doesn't show the new value in the
+! 	 * history. */
+  	remove_key_from_history();
+! # endif
+  	if (STRCMP(curbuf->b_p_key, oldval) != 0)
+  	    /* Need to update the swapfile. */
+  	    ml_set_crypt_key(curbuf, oldval,
+--- 6745,6754 ----
+      /* 'cryptkey' */
+      else if (gvarp == &p_key)
+      {
+! 	// Make sure the ":set" command doesn't show the new value in the
+! 	// history.
+  	remove_key_from_history();
+! 
+  	if (STRCMP(curbuf->b_p_key, oldval) != 0)
+  	    /* Need to update the swapfile. */
+  	    ml_set_crypt_key(curbuf, oldval,
+*** ../vim-8.1.1822/src/search.c	2019-08-05 21:51:36.801568843 +0200
+--- src/search.c	2019-08-06 21:48:17.783791177 +0200
+***************
+*** 143,152 ****
+  	magic = spats[i].magic;
+  	no_smartcase = spats[i].no_scs;
+      }
+- #ifdef FEAT_CMDHIST
+      else if (options & SEARCH_HIS)	/* put new pattern in history */
+  	add_to_history(HIST_SEARCH, pat, TRUE, NUL);
+- #endif
+  
+  #ifdef FEAT_RIGHTLEFT
+      if (mr_pattern_alloced)
+--- 143,150 ----
+*** ../vim-8.1.1822/src/tag.c	2019-08-05 21:51:36.801568843 +0200
+--- src/tag.c	2019-08-06 21:48:49.715610443 +0200
+***************
+*** 3543,3554 ****
+  	    p_ws = TRUE;	/* need 'wrapscan' for backward searches */
+  	    p_ic = FALSE;	/* don't ignore case now */
+  	    p_scs = FALSE;
+- #if 0	/* disabled for now */
+- #ifdef FEAT_CMDHIST
+- 	    /* put pattern in search history */
+- 	    add_to_history(HIST_SEARCH, pbuf + 1, TRUE, pbuf[0]);
+- #endif
+- #endif
+  	    save_lnum = curwin->w_cursor.lnum;
+  	    curwin->w_cursor.lnum = 0;	/* start search before first line */
+  	    if (do_search(NULL, pbuf[0], pbuf + 1, (long)1,
+--- 3543,3548 ----
+*** ../vim-8.1.1822/src/usercmd.c	2019-07-22 21:55:13.891251828 +0200
+--- src/usercmd.c	2019-08-06 21:49:07.071512251 +0200
+***************
+*** 69,77 ****
+      {EXPAND_FUNCTIONS, "function"},
+      {EXPAND_HELP, "help"},
+      {EXPAND_HIGHLIGHT, "highlight"},
+- #if defined(FEAT_CMDHIST)
+      {EXPAND_HISTORY, "history"},
+- #endif
+  #if defined(HAVE_LOCALE_H) || defined(X_LOCALE)
+      {EXPAND_LOCALES, "locale"},
+  #endif
+--- 69,75 ----
+*** ../vim-8.1.1822/src/viminfo.c	2019-07-25 21:58:16.397428518 +0200
+--- src/viminfo.c	2019-08-06 21:49:53.023252813 +0200
+***************
+*** 427,433 ****
+      vim_free(line);
+  }
+  
+- #if defined(FEAT_CMDHIST) || defined(PROTO)
+  /*
+   * Buffers for history read from a viminfo file.  Only valid while reading.
+   */
+--- 427,432 ----
+***************
+*** 913,919 ****
+  	viminfo_hisidx[type] = 0;
+      }
+  }
+- #endif // FEAT_CMDHIST
+  
+      static void
+  write_viminfo_barlines(vir_T *virp, FILE *fp_out)
+--- 912,917 ----
+***************
+*** 2756,2764 ****
+      buf_T	*buf;
+      int		got_encoding = FALSE;
+  
+- #ifdef FEAT_CMDHIST
+      prepare_viminfo_history(forceit ? 9999 : 0, writing);
+- #endif
+  
+      eof = viminfo_readline(virp);
+      while (!eof && virp->vir_line[0] != '>')
+--- 2754,2760 ----
+***************
+*** 2817,2829 ****
+  	    case '?':
+  	    case '=':
+  	    case '@':
+- #ifdef FEAT_CMDHIST
+  		// When history is in bar lines skip the old style history
+  		// lines.
+  		if (virp->vir_version < VIMINFO_VERSION_WITH_HISTORY)
+  		    eof = read_viminfo_history(virp, writing);
+  		else
+- #endif
+  		    eof = viminfo_readline(virp);
+  		break;
+  	    case '-':
+--- 2813,2823 ----
+***************
+*** 2844,2854 ****
+  	}
+      }
+  
+- #ifdef FEAT_CMDHIST
+      // Finish reading history items.
+      if (!writing)
+  	finish_viminfo_history(virp);
+- #endif
+  
+      // Change file names to buffer numbers for fmarks.
+      FOR_ALL_BUFFERS(buf)
+--- 2838,2846 ----
+***************
+*** 2913,2921 ****
+  	fprintf(fp_out, "*encoding=%s\n\n", p_enc);
+  	write_viminfo_search_pattern(fp_out);
+  	write_viminfo_sub_string(fp_out);
+- #ifdef FEAT_CMDHIST
+  	write_viminfo_history(fp_out, merge);
+- #endif
+  	write_viminfo_registers(fp_out);
+  	finish_viminfo_registers();
+  #ifdef FEAT_EVAL
+--- 2905,2911 ----
+*** ../vim-8.1.1822/src/feature.h	2019-08-01 14:26:53.192455864 +0200
+--- src/feature.h	2019-08-06 21:50:39.182992721 +0200
+***************
+*** 102,111 ****
+  
+  /*
+   * +cmdhist		Command line history.
+   */
+- #ifdef FEAT_SMALL
+- # define FEAT_CMDHIST
+- #endif
+  
+  /*
+   * Message history is fixed at 200 message, 20 for the tiny version.
+--- 102,109 ----
+  
+  /*
+   * +cmdhist		Command line history.
++  *			Now always included.
+   */
+  
+  /*
+   * Message history is fixed at 200 message, 20 for the tiny version.
+***************
+*** 123,130 ****
+  # define FEAT_JUMPLIST
+  #endif
+  
+! /* the cmdline-window requires FEAT_CMDHIST */
+! #if defined(FEAT_CMDHIST)
+  # define FEAT_CMDWIN
+  #endif
+  
+--- 121,127 ----
+  # define FEAT_JUMPLIST
+  #endif
+  
+! #if defined(FEAT_SMALL)
+  # define FEAT_CMDWIN
+  #endif
+  
+*** ../vim-8.1.1822/src/globals.h	2019-08-06 21:29:25.742634550 +0200
+--- src/globals.h	2019-08-06 21:51:05.414845123 +0200
+***************
+*** 1097,1105 ****
+  					    // start insert mode soon
+  EXTERN char_u	*last_cmdline INIT(= NULL); // last command line (for ":)
+  EXTERN char_u	*repeat_cmdline INIT(= NULL); // command line for "."
+- #ifdef FEAT_CMDHIST
+  EXTERN char_u	*new_last_cmdline INIT(= NULL);	// new value for last_cmdline
+- #endif
+  EXTERN char_u	*autocmd_fname INIT(= NULL); // fname for <afile> on cmdline
+  EXTERN int	autocmd_fname_full;	     // autocmd_fname is full path
+  EXTERN int	autocmd_bufnr INIT(= 0);     // fnum for <abuf> on cmdline
+--- 1097,1103 ----
+*** ../vim-8.1.1822/src/version.c	2019-08-06 21:29:25.742634550 +0200
+--- src/version.c	2019-08-06 21:53:27.862045862 +0200
+***************
+*** 775,776 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1823,
+  /**/
+
+-- 
+I am also told that there is a logical proof out there somewhere
+that demonstrates that there is no task which duct tape cannot handle.
+					-- Paul Brannan
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

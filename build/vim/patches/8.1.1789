@@ -1,0 +1,215 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1789
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1789
+Problem:    Cannot see file name of preview popup window.
+Solution:   Add the file name as the title.
+Files:	    src/ex_cmds.c, src/popupwin.c, src/proto/popupwin.pro,
+            src/fileio.c,
+            src/testdir/dumps/Test_popupwin_previewpopup_1.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_2.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_3.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_4.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_5.dump
+
+
+*** ../vim-8.1.1788/src/ex_cmds.c	2019-07-28 21:42:23.177406571 +0200
+--- src/ex_cmds.c	2019-08-01 21:44:41.237355581 +0200
+***************
+*** 3172,3177 ****
+--- 3172,3181 ----
+  #ifdef FEAT_TITLE
+  	maketitle();
+  #endif
++ #ifdef FEAT_TEXT_PROP
++ 	if (popup_is_popup(curwin) && curwin->w_p_pvw)
++ 	    popup_set_title(curwin);
++ #endif
+      }
+  
+  #ifdef FEAT_DIFF
+*** ../vim-8.1.1788/src/popupwin.c	2019-08-01 21:09:49.923160274 +0200
+--- src/popupwin.c	2019-08-01 22:39:18.772492062 +0200
+***************
+*** 3198,3201 ****
+--- 3198,3238 ----
+      }
+  }
+  
++ /*
++  * Set the title of the popup window to the file name.
++  */
++     void
++ popup_set_title(win_T *wp)
++ {
++     if (wp->w_buffer->b_fname != NULL)
++     {
++ 	char_u	dirname[MAXPATHL];
++ 	size_t	len;
++ 
++ 	mch_dirname(dirname, MAXPATHL);
++ 	shorten_buf_fname(wp->w_buffer, dirname, FALSE);
++ 
++ 	vim_free(wp->w_popup_title);
++ 	len = STRLEN(wp->w_buffer->b_fname) + 3;
++ 	wp->w_popup_title = alloc((int)len);
++ 	if (wp->w_popup_title != NULL)
++ 	    vim_snprintf((char *)wp->w_popup_title, len, " %s ",
++ 							wp->w_buffer->b_fname);
++ 	redraw_win_later(wp, VALID);
++     }
++ }
++ 
++ /*
++  * If there is a preview window, update the title.
++  * Used after changing directory.
++  */
++     void
++ popup_update_preview_title(void)
++ {
++     win_T *wp = popup_find_preview_window();
++ 
++     if (wp != NULL)
++ 	popup_set_title(wp);
++ }
++ 
+  #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.1788/src/proto/popupwin.pro	2019-08-01 21:25:56.884265796 +0200
+--- src/proto/popupwin.pro	2019-08-01 22:07:02.156850733 +0200
+***************
+*** 47,50 ****
+--- 47,52 ----
+  int popup_is_popup(win_T *wp);
+  int popup_create_preview_window(void);
+  void popup_close_preview(void);
++ void popup_set_title(win_T *wp);
++ void popup_update_preview_title(void);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1788/src/fileio.c	2019-07-31 20:20:56.885711967 +0200
+--- src/fileio.c	2019-08-01 22:05:33.877358143 +0200
+***************
+*** 6101,6106 ****
+--- 6101,6109 ----
+      }
+      status_redraw_all();
+      redraw_tabline = TRUE;
++ #ifdef FEAT_TEXT_PROP
++     popup_update_preview_title();
++ #endif
+  }
+  
+  #if (defined(FEAT_DND) && defined(FEAT_GUI_GTK)) \
+*** ../vim-8.1.1788/src/testdir/dumps/Test_popupwin_previewpopup_1.dump	2019-08-01 21:09:49.923160274 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_1.dump	2019-08-01 22:22:27.303090264 +0200
+***************
+*** 1,5 ****
+  |o+0&#ffffff0|n|e| @71
+! |t|w|o| @1|╔+0#0000001#ffd7ff255|═@40|X| +0#0000000#ffffff0@26
+  |t|h|r|e@1|║+0#0000001#ffd7ff255|2|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+  |f|o|u|r| |║+0#0000001#ffd7ff255|t|h|e|w|o|r|d| |i|s| |h|e|r|e| @24| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+  |f|i|v|e| |║+0#0000001#ffd7ff255|2@1| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+--- 1,5 ----
+  |o+0&#ffffff0|n|e| @71
+! |t|w|o| @1|╔+0#0000001#ffd7ff255| |X|t|a|g|f|i|l|e| |═@30|X| +0#0000000#ffffff0@26
+  |t|h|r|e@1|║+0#0000001#ffd7ff255|2|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+  |f|o|u|r| |║+0#0000001#ffd7ff255|t|h|e|w|o|r|d| |i|s| |h|e|r|e| @24| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+  |f|i|v|e| |║+0#0000001#ffd7ff255|2@1| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
+*** ../vim-8.1.1788/src/testdir/dumps/Test_popupwin_previewpopup_2.dump	2019-08-01 21:09:49.923160274 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_2.dump	2019-08-01 22:24:01.282482890 +0200
+***************
+*** 1,7 ****
+  |o+0&#ffffff0|n|e| @71
+  |t|w|o| @71
+  |t|h|r|e@1| @69
+! |f|o|u|r| @3|╔+0#0000001#ffd7ff255|═@40|X| +0#0000000#ffffff0@23
+  |f|i|v|e| @3|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |s|i|x| @4|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |s|e|v|e|n| @2|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+--- 1,7 ----
+  |o+0&#ffffff0|n|e| @71
+  |t|w|o| @71
+  |t|h|r|e@1| @69
+! |f|o|u|r| @3|╔+0#0000001#ffd7ff255| |X|t|a|g|f|i|l|e| |═@30|X| +0#0000000#ffffff0@23
+  |f|i|v|e| @3|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |s|i|x| @4|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+  |s|e|v|e|n| @2|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
+*** ../vim-8.1.1788/src/testdir/dumps/Test_popupwin_previewpopup_3.dump	2019-08-01 21:09:49.923160274 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_3.dump	2019-08-01 22:24:02.338476053 +0200
+***************
+*** 1,7 ****
+  |o+0&#ffffff0|n|e| @71
+  |t|w|o| @71
+  |t|h|r|e@1| @69
+! |f|o|u|r| @9|╔+0#0000001#ffd7ff255|═@40|X| +0#0000000#ffffff0@17
+  |f|i|v|e| @9|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |s|i|x| @10|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |s|e|v|e|n| @8|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+--- 1,7 ----
+  |o+0&#ffffff0|n|e| @71
+  |t|w|o| @71
+  |t|h|r|e@1| @69
+! |f|o|u|r| @9|╔+0#0000001#ffd7ff255| |X|t|a|g|f|i|l|e| |═@30|X| +0#0000000#ffffff0@17
+  |f|i|v|e| @9|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |s|i|x| @10|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+  |s|e|v|e|n| @8|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@17
+*** ../vim-8.1.1788/src/testdir/dumps/Test_popupwin_previewpopup_4.dump	2019-08-01 21:09:49.923160274 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_4.dump	2019-08-01 22:24:03.402469165 +0200
+***************
+*** 2,8 ****
+  |t|w|o| @71
+  |t|h|r|e@1| @69
+  |f|o|u|r| @70
+! |f|i|v|e| @27|╔+0#0000001#ffd7ff255|═@40|X
+  |s+0#0000000#ffffff0|i|x| @28|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
+  |s+0#0000000#ffffff0|e|v|e|n| @26|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
+  |f+0#0000000#ffffff0|i|n|d| |t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @9|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255
+--- 2,8 ----
+  |t|w|o| @71
+  |t|h|r|e@1| @69
+  |f|o|u|r| @70
+! |f|i|v|e| @27|╔+0#0000001#ffd7ff255| |X|t|a|g|f|i|l|e| |═@30|X
+  |s+0#0000000#ffffff0|i|x| @28|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
+  |s+0#0000000#ffffff0|e|v|e|n| @26|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
+  |f+0#0000000#ffffff0|i|n|d| |t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @9|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255
+*** ../vim-8.1.1788/src/testdir/dumps/Test_popupwin_previewpopup_5.dump	2019-08-01 22:39:45.788314789 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_5.dump	2019-08-01 22:38:23.416855202 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |o+0&#ffffff0|n|e| @71
++ |t|w|o| @71
++ |t|h|r|e@1| @69
++ |f|o|u|r| @70
++ |f|i|v|e| @27|╔+0#0000001#ffd7ff255| |t|e|s|t|d|i|r|/|X|t|a|g|f|i|l|e| |═@22|X
++ |s+0#0000000#ffffff0|i|x| @28|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |s+0#0000000#ffffff0|e|v|e|n| @26|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |f+0#0000000#ffffff0|i|n|d| |t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @9|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255
++ |n+0#0000000#ffffff0|i|n|e| @27|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255
++ |t+0#0000000#ffffff0|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @11|╚+0#0000001#ffd7ff255|═@40|⇲
++ |v+0#0000000#ffffff0|e|r|y| |l|o|n|g| |l|i|n|e| |w|h|e|r|e| |t|h|e| |w|o|r|d| |i|s| |a|l|s|o| >a|n|o|t|h|e|r| @29
++ |~+0#4040ff13&| @73
++ |~| @73
++ |:+0#0000000&| @55|1@1|,|3|9| @8|A|l@1| 
+*** ../vim-8.1.1788/src/version.c	2019-08-01 21:25:56.884265796 +0200
+--- src/version.c	2019-08-01 22:39:53.888261637 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1789,
+  /**/
+
+-- 
+A)bort, R)etry, P)lease don't bother me again
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,497 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1553
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1553
+Problem:    Not easy to change the text in a popup window.
+Solution:   Add popup_settext(). (Ben Jackson, closes #4549)
+            Also display a space for an empty popup.
+Files:	    runtime/doc/popup.txt, src/evalfunc.c, src/popupwin.c,
+            src/proto/popupwin.pro,
+            src/testdir/dumps/Test_popup_settext_01.dump,
+            src/testdir/dumps/Test_popup_settext_02.dump,
+            src/testdir/dumps/Test_popup_settext_03.dump,
+            src/testdir/dumps/Test_popup_settext_04.dump,
+            src/testdir/dumps/Test_popup_settext_05.dump,
+            src/testdir/dumps/Test_popup_settext_06.dump,
+            src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1552/runtime/doc/popup.txt	2019-06-15 21:46:25.948960483 +0200
+--- runtime/doc/popup.txt	2019-06-16 14:50:43.287401074 +0200
+***************
+*** 104,118 ****
+    incomplete cell.
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Use a popup window for the "info" item of completion instead of using a
+!   preview window.
+  - Implement:
+  	popup_filter_menu({id}, {key})
+  	popup_menu({text}, {options})
+  	popup_setoptions({id}, {options})
+- 	flip option
+  	hidden option
+  	tabpage option with number
+  	title option
+  	transparent text property
+  
+  
+--- 104,121 ----
+    incomplete cell.
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Use a popup window for the "info" item of completion instead of using a
+!   preview window.  Ideas in issue #4544.
+!   How to add highlighting?
+! - When the lines do not fit show a scrollbar (like in the popup menu).
+!   Use the mouse wheel for scrolling.
+  - Implement:
+  	popup_filter_menu({id}, {key})
+  	popup_menu({text}, {options})
+  	popup_setoptions({id}, {options})
+  	hidden option
+  	tabpage option with number
+  	title option
++ 	flip option
+  	transparent text property
+  
+  
+***************
+*** 134,139 ****
+--- 137,143 ----
+  	|popup_show()|		show a previously hidden popup
+  	|popup_move()|		change the position and size of a popup
+  	|popup_setoptions()|	override options of a popup
++ 	|popup_settext()|	replace the popup buffer contents
+  
+  Closing popup windows:
+  	|popup_close()|		close one popup
+***************
+*** 330,335 ****
+--- 334,344 ----
+  		{not implemented yet}
+  		Override options in popup {id} with entries in {options}.
+  
++ popup_settext({id}, {text})				*popup_settext()*
++ 		Set the text of the buffer in poup win {id}. {text} is the
++ 		same as supplied to |popup_create()|.
++ 		Does not change the window size or position, other than caused
++ 		by the different text.
+  
+  
+  POPUP BUFFER AND WINDOW					*popup-buffer*
+***************
+*** 365,372 ****
+  
+  POPUP_CREATE() ARGUMENTS				*popup_create-usage*
+  
+! The first argument of |popup_create()| specifies the text to be displayed, and
+! optionally text properties.  It is in one of three forms:
+  - a string
+  - a list of strings
+  - a list of dictionaries, where each dictionary has these entries:
+--- 374,382 ----
+  
+  POPUP_CREATE() ARGUMENTS				*popup_create-usage*
+  
+! The first argument of |popup_create()| (and the second argument to
+! |popup_setttext()|) specifies the text to be displayed, and optionally text
+! properties.  It is in one of three forms:
+  - a string
+  - a list of strings
+  - a list of dictionaries, where each dictionary has these entries:
+***************
+*** 404,410 ****
+  	flip		When TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+  			avoid overlap with the |popupmenu-completion| or
+! 			another popup with a higher "zindex".
+  			{not implemented yet}
+  	maxheight	Maximum height of the contents, excluding border and
+  			padding.
+--- 414,422 ----
+  	flip		When TRUE (the default) and the position is relative
+  			to the cursor, flip to below or above the cursor to
+  			avoid overlap with the |popupmenu-completion| or
+! 			another popup with a higher "zindex".  When there is
+! 			no space above/below the cursor then show the popup to
+! 			the side of the popup or popup menu.
+  			{not implemented yet}
+  	maxheight	Maximum height of the contents, excluding border and
+  			padding.
+***************
+*** 434,440 ****
+  	wrap		TRUE to make the lines wrap (default TRUE).
+  	drag		TRUE to allow the popup to be dragged with the mouse
+  			by grabbing at at the border.  Has no effect if the
+! 			popup does not have a border.
+  	highlight	Highlight group name to use for the text, stored in
+  			the 'wincolor' option.
+  	padding		List with numbers, defining the padding
+--- 446,454 ----
+  	wrap		TRUE to make the lines wrap (default TRUE).
+  	drag		TRUE to allow the popup to be dragged with the mouse
+  			by grabbing at at the border.  Has no effect if the
+! 			popup does not have a border. As soon as dragging
+! 			starts and "pos" is "center" it is changed to
+! 			"topleft".
+  	highlight	Highlight group name to use for the text, stored in
+  			the 'wincolor' option.
+  	padding		List with numbers, defining the padding
+*** ../vim-8.1.1552/src/evalfunc.c	2019-06-15 21:46:25.948960483 +0200
+--- src/evalfunc.c	2019-06-16 14:47:38.592356250 +0200
+***************
+*** 822,827 ****
+--- 822,828 ----
+      {"popup_hide",	1, 1, f_popup_hide},
+      {"popup_move",	2, 2, f_popup_move},
+      {"popup_notification", 2, 2, f_popup_notification},
++     {"popup_settext",	2, 2, f_popup_settext},
+      {"popup_show",	1, 1, f_popup_show},
+  #endif
+  #ifdef FEAT_FLOAT
+*** ../vim-8.1.1552/src/popupwin.c	2019-06-15 22:27:20.566076404 +0200
+--- src/popupwin.c	2019-06-16 15:11:07.341898212 +0200
+***************
+*** 601,608 ****
+  	wp->w_topline = wp->w_buffer->b_ml.ml_line_count;
+  
+      // Compute width based on longest text line and the 'wrap' option.
+      // TODO: more accurate wrapping
+!     wp->w_width = 0;
+      for (lnum = wp->w_topline; lnum <= wp->w_buffer->b_ml.ml_line_count; ++lnum)
+      {
+  	int len = vim_strsize(ml_get_buf(wp->w_buffer, lnum, FALSE));
+--- 601,610 ----
+  	wp->w_topline = wp->w_buffer->b_ml.ml_line_count;
+  
+      // Compute width based on longest text line and the 'wrap' option.
++     // Use a minimum width of one, so that something shows when there is no
++     // text.
+      // TODO: more accurate wrapping
+!     wp->w_width = 1;
+      for (lnum = wp->w_topline; lnum <= wp->w_buffer->b_ml.ml_line_count; ++lnum)
+      {
+  	int len = vim_strsize(ml_get_buf(wp->w_buffer, lnum, FALSE));
+***************
+*** 704,709 ****
+--- 706,753 ----
+  } create_type_T;
+  
+  /*
++  * Make "buf" empty and set the contents to "text".
++  * Used by popup_create() and popup_settext().
++  */
++     static void
++ popup_set_buffer_text(buf_T *buf, typval_T text)
++ {
++     int	    lnum;
++ 
++     // Clear the buffer, then replace the lines.
++     curbuf = buf;
++     for (lnum = buf->b_ml.ml_line_count; lnum > 0; --lnum)
++ 	ml_delete(lnum, FALSE);
++     curbuf = curwin->w_buffer;
++ 
++     // Add text to the buffer.
++     if (text.v_type == VAR_STRING)
++     {
++ 	// just a string
++ 	ml_append_buf(buf, 0, text.vval.v_string, (colnr_T)0, TRUE);
++     }
++     else
++     {
++ 	list_T *l = text.vval.v_list;
++ 
++ 	if (l->lv_len > 0)
++ 	{
++ 	    if (l->lv_first->li_tv.v_type == VAR_STRING)
++ 		// list of strings
++ 		add_popup_strings(buf, l);
++ 	    else
++ 		// list of dictionaries
++ 		add_popup_dicts(buf, l);
++ 	}
++     }
++ 
++     // delete the line that was in the empty buffer
++     curbuf = buf;
++     ml_delete(buf->b_ml.ml_line_count, FALSE);
++     curbuf = curwin->w_buffer;
++ }
++ 
++ /*
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+   */
+***************
+*** 789,819 ****
+  	// TODO: find tab page "nr"
+  	emsg("Not implemented yet");
+  
+!     // Add text to the buffer.
+!     if (argvars[0].v_type == VAR_STRING)
+!     {
+! 	// just a string
+! 	ml_append_buf(buf, 0, argvars[0].vval.v_string, (colnr_T)0, TRUE);
+!     }
+!     else
+!     {
+! 	list_T *l = argvars[0].vval.v_list;
+! 
+! 	if (l->lv_len > 0)
+! 	{
+! 	    if (l->lv_first->li_tv.v_type == VAR_STRING)
+! 		// list of strings
+! 		add_popup_strings(buf, l);
+! 	    else
+! 		// list of dictionaries
+! 		add_popup_dicts(buf, l);
+! 	}
+!     }
+! 
+!     // Delete the line of the empty buffer.
+!     curbuf = buf;
+!     ml_delete(buf->b_ml.ml_line_count, FALSE);
+!     curbuf = curwin->w_buffer;
+  
+      if (type == TYPE_ATCURSOR)
+      {
+--- 833,839 ----
+  	// TODO: find tab page "nr"
+  	emsg("Not implemented yet");
+  
+!     popup_set_buffer_text(buf, argvars[0]);
+  
+      if (type == TYPE_ATCURSOR)
+      {
+***************
+*** 1112,1117 ****
+--- 1132,1153 ----
+      }
+  }
+  
++ /*
++  * popup_settext({id}, {text})
++  */
++     void
++ f_popup_settext(typval_T *argvars, typval_T *rettv UNUSED)
++ {
++     int		id = (int)tv_get_number(&argvars[0]);
++     win_T	*wp = find_popup_win(id);
++ 
++     if (wp != NULL)
++     {
++ 	popup_set_buffer_text(wp->w_buffer, argvars[1]);
++ 	popup_adjust_position(wp);
++     }
++ }
++ 
+      static void
+  popup_free(win_T *wp)
+  {
+*** ../vim-8.1.1552/src/proto/popupwin.pro	2019-06-15 21:46:25.944960493 +0200
+--- src/proto/popupwin.pro	2019-06-16 14:56:00.581879661 +0200
+***************
+*** 14,19 ****
+--- 14,20 ----
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+  void f_popup_hide(typval_T *argvars, typval_T *rettv);
+  void f_popup_show(typval_T *argvars, typval_T *rettv);
++ void f_popup_settext(typval_T *argvars, typval_T *rettv);
+  void popup_close(int id);
+  void popup_close_tabpage(tabpage_T *tp, int id);
+  void close_all_popups(void);
+*** ../vim-8.1.1552/src/testdir/dumps/Test_popup_settext_01.dump	2019-06-16 15:30:40.873331278 +0200
+--- src/testdir/dumps/Test_popup_settext_01.dump	2019-06-16 15:21:01.891406547 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @28|t+0#0000001#ffd7ff255|h|i|s| |i|s| |a| |t|e|x|t| +0#4040ff13#ffffff0@30
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1552/src/testdir/dumps/Test_popup_settext_02.dump	2019-06-16 15:30:40.877331261 +0200
+--- src/testdir/dumps/Test_popup_settext_02.dump	2019-06-16 15:21:02.939403137 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @35| +0#0000001#ffd7ff255| +0#4040ff13#ffffff0@36
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |:+0#0000000&|c|a|l@1| |p|o|p|u|p|_|s|e|t@1|e|x|t|(|p|,| |'@1|)| @30|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1552/src/testdir/dumps/Test_popup_settext_03.dump	2019-06-16 15:30:40.877331261 +0200
+--- src/testdir/dumps/Test_popup_settext_03.dump	2019-06-16 15:21:03.987399724 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @35|a+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@36
++ |~| @35|b+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@36
++ |~| @35|c+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@36
++ |~| @73
++ |~| @73
++ |~| @73
++ |:+0#0000000&|c|a|l@1| |p|o|p|u|p|_|s|e|t@1|e|x|t|(|p|,| |[|'|a|'|,|'|b|'|,|'|c|'|]|)| @19|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1552/src/testdir/dumps/Test_popup_settext_04.dump	2019-06-16 15:30:40.881331248 +0200
+--- src/testdir/dumps/Test_popup_settext_04.dump	2019-06-16 15:21:05.035396311 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @35|a+0#0000001#ffd7ff255| +0#4040ff13#ffffff0@36
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |:+0#0000000&|c|a|l@1| |p|o|p|u|p|_|s|e|t@1|e|x|t|(|p|,| |[|'|a|'|]|)| @27|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1552/src/testdir/dumps/Test_popup_settext_05.dump	2019-06-16 15:30:40.885331232 +0200
+--- src/testdir/dumps/Test_popup_settext_05.dump	2019-06-16 15:25:59.886377587 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @35| +0#0000001#ffd7ff255| +0#4040ff13#ffffff0@36
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |:+0#0000000&|c|a|l@1| |p|o|p|u|p|_|s|e|t@1|e|x|t|(|p|,| |[|]|)| @30|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1552/src/testdir/dumps/Test_popup_settext_06.dump	2019-06-16 15:30:40.889331215 +0200
+--- src/testdir/dumps/Test_popup_settext_06.dump	2019-06-16 15:27:08.034129016 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @33|a+0#0000001#ffd7ff255@3| +0#4040ff13#ffffff0@35
++ |~| @33|b+0#0000001#ffd7ff255@3| +0#4040ff13#ffffff0@35
++ |~| @33|c+0#0000001#ffd7ff255@3| +0#4040ff13#ffffff0@35
++ |~| @73
++ |~| @73
++ |~| @73
++ | +0#0000000&@56|0|,|0|-|1| @8|A|l@1| 
+*** ../vim-8.1.1552/src/testdir/test_popupwin.vim	2019-06-15 22:27:20.566076404 +0200
+--- src/testdir/test_popupwin.vim	2019-06-16 15:29:41.545556404 +0200
+***************
+*** 916,928 ****
+    let winid = popup_create('', {'padding': [2,2,2,2]})
+    redraw
+    let pos = popup_getpos(winid)
+!   call assert_equal(4, pos.width)
+    call assert_equal(5, pos.height)
+  
+    let winid = popup_create([], {'border': []})
+    redraw
+    let pos = popup_getpos(winid)
+!   call assert_equal(2, pos.width)
+    call assert_equal(3, pos.height)
+  endfunc
+  
+--- 916,928 ----
+    let winid = popup_create('', {'padding': [2,2,2,2]})
+    redraw
+    let pos = popup_getpos(winid)
+!   call assert_equal(5, pos.width)
+    call assert_equal(5, pos.height)
+  
+    let winid = popup_create([], {'border': []})
+    redraw
+    let pos = popup_getpos(winid)
+!   call assert_equal(3, pos.width)
+    call assert_equal(3, pos.height)
+  endfunc
+  
+***************
+*** 1231,1233 ****
+--- 1231,1277 ----
+    call StopVimInTerminal(buf)
+    call delete('XtestNotifications')
+  endfunc
++ 
++ function Test_popup_settext()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let lines =<< trim END
++     let opts = {'wrap': 0}
++     let p = popup_create('test', opts)
++     call popup_settext(p, 'this is a text')
++   END
++ 
++   call writefile( lines, 'XtestPopupSetText' )
++   let buf = RunVimInTerminal('-S XtestPopupSetText', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popup_settext_01', {})
++ 
++   " Setting to empty string clears it
++   call term_sendkeys(buf, ":call popup_settext(p, '')\<CR>")
++   call VerifyScreenDump(buf, 'Test_popup_settext_02', {})
++ 
++   " Setting a list
++   call term_sendkeys(buf, ":call popup_settext(p, ['a','b','c'])\<CR>")
++   call VerifyScreenDump(buf, 'Test_popup_settext_03', {})
++ 
++   " Shrinking with a list
++   call term_sendkeys(buf, ":call popup_settext(p, ['a'])\<CR>")
++   call VerifyScreenDump(buf, 'Test_popup_settext_04', {})
++ 
++   " Growing with a list
++   call term_sendkeys(buf, ":call popup_settext(p, ['a','b','c'])\<CR>")
++   call VerifyScreenDump(buf, 'Test_popup_settext_03', {})
++ 
++   " Empty list clears
++   call term_sendkeys(buf, ":call popup_settext(p, [])\<CR>")
++   call VerifyScreenDump(buf, 'Test_popup_settext_05', {})
++ 
++   " Dicts
++   call term_sendkeys(buf, ":call popup_settext(p, [{'text': 'aaaa'}, {'text': 'bbbb'}, {'text': 'cccc'}])\<CR>")
++   call VerifyScreenDump(buf, 'Test_popup_settext_06', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupSetText')
++ endfunction
+*** ../vim-8.1.1552/src/version.c	2019-06-16 13:55:13.892995453 +0200
+--- src/version.c	2019-06-16 14:49:12.471862588 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1553,
+  /**/
+
+-- 
+panic("Foooooooood fight!");
+	-- In the kernel source aha1542.c, after detecting a bad segment list
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,1384 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1826
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1826
+Problem:    Tests use hand coded feature and option checks.
+Solution:   Use the commands from check.vim in more tests.
+Files:	    src/testdir/check.vim, src/testdir/shared.vim,
+            src/testdir/test_autochdir.vim, src/testdir/test_autocmd.vim,
+            src/testdir/test_balloon.vim, src/testdir/test_breakindent.vim,
+            src/testdir/test_bufline.vim, src/testdir/test_cdo.vim,
+            src/testdir/test_channel.vim, src/testdir/test_clientserver.vim,
+            src/testdir/test_conceal.vim, src/testdir/test_cscope.vim,
+            src/testdir/test_debugger.vim, src/testdir/test_filechanged.vim,
+            src/testdir/test_fold.vim, src/testdir/test_functions.vim,
+            src/testdir/test_gui.vim, src/testdir/test_gui_init.vim,
+            src/testdir/test_highlight.vim, src/testdir/test_mapping.vim,
+            src/testdir/test_match.vim, src/testdir/test_memory_usage.vim,
+            src/testdir/test_options.vim, src/testdir/test_paste.vim,
+            src/testdir/test_popup.vim, src/testdir/test_search.vim,
+            src/testdir/test_signals.vim, src/testdir/test_startup.vim,
+            src/testdir/test_syntax.vim, src/testdir/test_termcodes.vim,
+            src/testdir/test_terminal.vim, src/testdir/test_timers.vim,
+            src/testdir/test_vimscript.vim
+
+
+*** ../vim-8.1.1825/src/testdir/check.vim	2019-08-03 22:55:28.871027263 +0200
+--- src/testdir/check.vim	2019-08-07 22:37:04.725596648 +0200
+***************
+*** 22,27 ****
+--- 22,43 ----
+    endif
+  endfunc
+  
++ " Command to check for the presence of an Ex command
++ command -nargs=1 CheckCommand call CheckCommand(<f-args>)
++ func CheckCommand(name)
++   if !exists(':' .. a:name)
++     throw 'Skipped: ' .. a:name .. ' command not supported'
++   endif
++ endfunc
++ 
++ " Command to check for the presence of a shell command
++ command -nargs=1 CheckExecutable call CheckExecutable(<f-args>)
++ func CheckExecutable(name)
++   if !executable(a:name)
++     throw 'Skipped: ' .. a:name .. ' program not executable'
++   endif
++ endfunc
++ 
+  " Command to check for running on MS-Windows
+  command CheckMSWindows call CheckMSWindows()
+  func CheckMSWindows()
+***************
+*** 30,35 ****
+--- 46,59 ----
+    endif
+  endfunc
+  
++ " Command to check for NOT running on MS-Windows
++ command CheckNotMSWindows call CheckNotMSWindows()
++ func CheckNotMSWindows()
++   if has('win32')
++     throw 'Skipped: does not work on MS-Windows'
++   endif
++ endfunc
++ 
+  " Command to check for running on Unix
+  command CheckUnix call CheckUnix()
+  func CheckUnix()
+***************
+*** 54,56 ****
+--- 78,104 ----
+      throw 'Skipped: cannot run Vim in a terminal window'
+    endif
+  endfunc
++ 
++ " Command to check that we can run the GUI
++ command CheckCanRunGui call CheckCanRunGui()
++ func CheckCanRunGui()
++   if !has('gui') || ($DISPLAY == "" && !has('gui_running'))
++     throw 'Skipped: cannot run start the GUI'
++   endif
++ endfunc
++ 
++ " Command to check that we are using the GUI
++ command CheckGui call CheckGui()
++ func CheckGui()
++   if !has('gui_running')
++     throw 'Skipped: only works in the GUI'
++   endif
++ endfunc
++ 
++ " Command to check that not currently using the GUI
++ command CheckNotGui call CheckNotGui()
++ func CheckNotGui()
++   if has('gui_running')
++     throw 'Skipped: only works in the terminal'
++   endif
++ endfunc
+*** ../vim-8.1.1825/src/testdir/shared.vim	2019-07-14 21:54:23.279146889 +0200
+--- src/testdir/shared.vim	2019-08-07 22:36:05.697007632 +0200
+***************
+*** 323,332 ****
+    return 1
+  endfunc
+  
+- func CanRunGui()
+-   return has('gui') && ($DISPLAY != "" || has('gui_running'))
+- endfunc
+- 
+  func WorkingClipboard()
+    if !has('clipboard')
+      return 0
+--- 323,328 ----
+*** ../vim-8.1.1825/src/testdir/test_autochdir.vim	2019-06-06 13:37:56.967789508 +0200
+--- src/testdir/test_autochdir.vim	2019-08-07 21:53:42.816935230 +0200
+***************
+*** 1,8 ****
+  " Test 'autochdir' behavior
+  
+! if !exists("+autochdir")
+!   throw 'Skipped: autochdir feature missing'
+! endif
+  
+  func Test_set_filename()
+    let cwd = getcwd()
+--- 1,7 ----
+  " Test 'autochdir' behavior
+  
+! source check.vim
+! CheckOption autochdir
+  
+  func Test_set_filename()
+    let cwd = getcwd()
+*** ../vim-8.1.1825/src/testdir/test_autocmd.vim	2019-06-15 18:40:11.040368512 +0200
+--- src/testdir/test_autocmd.vim	2019-08-07 21:58:47.911138474 +0200
+***************
+*** 1,6 ****
+--- 1,7 ----
+  " Tests for autocommands
+  
+  source shared.vim
++ source check.vim
+  
+  func s:cleanup_buffers() abort
+    for bnr in range(1, bufnr('$'))
+***************
+*** 1861,1869 ****
+  endfunc
+  
+  func Test_Changed_FirstTime()
+!   if !has('terminal') || has('gui_running')
+!     return
+!   endif
+    " Prepare file for TextChanged event.
+    call writefile([''], 'Xchanged.txt')
+    let buf = term_start([GetVimProg(), '--clean', '-c', 'set noswapfile'], {'term_rows': 3})
+--- 1862,1870 ----
+  endfunc
+  
+  func Test_Changed_FirstTime()
+!   CheckFeature terminal
+!   CheckNotGui
+! 
+    " Prepare file for TextChanged event.
+    call writefile([''], 'Xchanged.txt')
+    let buf = term_start([GetVimProg(), '--clean', '-c', 'set noswapfile'], {'term_rows': 3})
+*** ../vim-8.1.1825/src/testdir/test_balloon.vim	2019-07-05 23:24:39.158501402 +0200
+--- src/testdir/test_balloon.vim	2019-08-07 21:57:39.963530151 +0200
+***************
+*** 1,17 ****
+  " Tests for 'balloonevalterm'.
+  " A few tests only work in the terminal.
+  
+- if has('gui_running')
+-   throw 'Skipped: only work in the terminal'
+- endif
+- 
+  source check.vim
+  CheckFeature balloon_eval_term
+  
+  source screendump.vim
+! if !CanRunVimInTerminal()
+!   throw 'Skipped: cannot make screendumps'
+! endif
+  
+  let s:common_script =<< trim [CODE]
+    call setline(1, ["one one one", "two tXo two", "three three three"])
+--- 1,12 ----
+  " Tests for 'balloonevalterm'.
+  " A few tests only work in the terminal.
+  
+  source check.vim
++ CheckNotGui
+  CheckFeature balloon_eval_term
+  
+  source screendump.vim
+! CheckScreendump
+  
+  let s:common_script =<< trim [CODE]
+    call setline(1, ["one one one", "two tXo two", "three three three"])
+*** ../vim-8.1.1825/src/testdir/test_breakindent.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_breakindent.vim	2019-08-07 22:26:45.202012972 +0200
+***************
+*** 4,12 ****
+  " while the test is run, the breakindent cacheing gets in its way.
+  " It helps to change the tabstop setting and force a redraw (e.g. see
+  " Test_breakindent08())
+! if !exists('+breakindent')
+!   throw 'Skipped: breakindent option not supported'
+! endif
+  
+  source view_util.vim
+  
+--- 4,11 ----
+  " while the test is run, the breakindent cacheing gets in its way.
+  " It helps to change the tabstop setting and force a redraw (e.g. see
+  " Test_breakindent08())
+! source check.vim
+! CheckOption breakindent
+  
+  source view_util.vim
+  
+*** ../vim-8.1.1825/src/testdir/test_bufline.vim	2019-07-27 17:38:55.474964950 +0200
+--- src/testdir/test_bufline.vim	2019-08-07 22:27:15.782715451 +0200
+***************
+*** 2,7 ****
+--- 2,8 ----
+  
+  source shared.vim
+  source screendump.vim
++ source check.vim
+  
+  func Test_setbufline_getbufline()
+    new
+***************
+*** 147,155 ****
+  endfunc
+  
+  func Test_appendbufline_redraw()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+    let lines =<< trim END
+      new foo
+      let winnr=bufwinnr('foo')
+--- 148,155 ----
+  endfunc
+  
+  func Test_appendbufline_redraw()
+!   CheckScreendump
+! 
+    let lines =<< trim END
+      new foo
+      let winnr=bufwinnr('foo')
+*** ../vim-8.1.1825/src/testdir/test_cdo.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_cdo.vim	2019-08-07 22:27:45.891644787 +0200
+***************
+*** 1,8 ****
+  " Tests for the :cdo, :cfdo, :ldo and :lfdo commands
+  
+! if !has('quickfix')
+!   throw 'Skipped: quickfix feature missing'
+! endif
+  
+  " Create the files used by the tests
+  function SetUp()
+--- 1,7 ----
+  " Tests for the :cdo, :cfdo, :ldo and :lfdo commands
+  
+! source check.vim
+! CheckFeature quickfix
+  
+  " Create the files used by the tests
+  function SetUp()
+*** ../vim-8.1.1825/src/testdir/test_channel.vim	2019-07-29 23:03:00.059588351 +0200
+--- src/testdir/test_channel.vim	2019-08-07 22:30:52.500294379 +0200
+***************
+*** 855,863 ****
+  endfunc
+  
+  func Run_pipe_through_sort(all, use_buffer)
+!   if !executable('sort')
+!     throw 'Skipped: sort program not found'
+!   endif
+    let options = {'out_io': 'buffer', 'out_name': 'sortout'}
+    if a:use_buffer
+      split sortin
+--- 855,862 ----
+  endfunc
+  
+  func Run_pipe_through_sort(all, use_buffer)
+!   CheckExecutable sort
+! 
+    let options = {'out_io': 'buffer', 'out_name': 'sortout'}
+    if a:use_buffer
+      split sortin
+***************
+*** 1014,1022 ****
+  endfunc
+  
+  func Test_write_to_buffer_and_scroll()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+    let lines =<< trim END
+        new Xscrollbuffer
+        call setline(1, range(1, 200))
+--- 1013,1020 ----
+  endfunc
+  
+  func Test_write_to_buffer_and_scroll()
+!   CheckScreendump
+! 
+    let lines =<< trim END
+        new Xscrollbuffer
+        call setline(1, range(1, 200))
+***************
+*** 1536,1544 ****
+  endfunc
+  
+  func Test_collapse_buffers()
+!   if !executable('cat')
+!     throw 'Skipped: cat program not found'
+!   endif
+    sp test_channel.vim
+    let g:linecount = line('$')
+    close
+--- 1534,1541 ----
+  endfunc
+  
+  func Test_collapse_buffers()
+!   CheckExecutable cat
+! 
+    sp test_channel.vim
+    let g:linecount = line('$')
+    close
+***************
+*** 1550,1558 ****
+  endfunc
+  
+  func Test_write_to_deleted_buffer()
+!   if !executable('echo')
+!     throw 'Skipped: echo program not found'
+!   endif
+    let job = job_start('echo hello', {'out_io': 'buffer', 'out_name': 'test_buffer', 'out_msg': 0})
+    let bufnr = bufnr('test_buffer')
+    call WaitForAssert({-> assert_equal(['hello'], getbufline(bufnr, 1, '$'))})
+--- 1547,1554 ----
+  endfunc
+  
+  func Test_write_to_deleted_buffer()
+!   CheckExecutable echo
+! 
+    let job = job_start('echo hello', {'out_io': 'buffer', 'out_name': 'test_buffer', 'out_msg': 0})
+    let bufnr = bufnr('test_buffer')
+    call WaitForAssert({-> assert_equal(['hello'], getbufline(bufnr, 1, '$'))})
+***************
+*** 1585,1593 ****
+  endfunc
+  
+  func Test_raw_passes_nul()
+!   if !executable('cat')
+!     throw 'Skipped: cat program not found'
+!   endif
+  
+    " Test lines from the job containing NUL are stored correctly in a buffer.
+    new
+--- 1581,1587 ----
+  endfunc
+  
+  func Test_raw_passes_nul()
+!   CheckExecutable cat
+  
+    " Test lines from the job containing NUL are stored correctly in a buffer.
+    new
+*** ../vim-8.1.1825/src/testdir/test_clientserver.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_clientserver.vim	2019-08-07 22:31:21.772875948 +0200
+***************
+*** 1,8 ****
+  " Tests for the +clientserver feature.
+  
+! if !has('job') || !has('clientserver')
+!   throw 'Skipped: job and/or clientserver feature missing'
+! endif
+  
+  source shared.vim
+  
+--- 1,8 ----
+  " Tests for the +clientserver feature.
+  
+! source check.vim
+! CheckFeature job
+! CheckFeature clientserver
+  
+  source shared.vim
+  
+*** ../vim-8.1.1825/src/testdir/test_conceal.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_conceal.vim	2019-08-07 22:32:02.433627694 +0200
+***************
+*** 1,14 ****
+  " Tests for 'conceal'.
+  " Also see test88.in (should be converted to a test function here).
+  
+! if !has('conceal')
+!   throw 'Skipped: conceal feature missing'
+! endif
+  
+  source screendump.vim
+! if !CanRunVimInTerminal()
+!   throw 'Skipped: cannot make screendumps'
+! endif
+  
+  func Test_conceal_two_windows()
+    let code =<< trim [CODE]
+--- 1,11 ----
+  " Tests for 'conceal'.
+  " Also see test88.in (should be converted to a test function here).
+  
+! source check.vim
+! CheckFeature conceal
+  
+  source screendump.vim
+! CheckScreendump
+  
+  func Test_conceal_two_windows()
+    let code =<< trim [CODE]
+*** ../vim-8.1.1825/src/testdir/test_cscope.vim	2019-06-15 17:57:43.968724059 +0200
+--- src/testdir/test_cscope.vim	2019-08-07 22:32:36.566211758 +0200
+***************
+*** 3,12 ****
+  source check.vim
+  CheckFeature cscope
+  CheckFeature quickfix
+! 
+! if !executable('cscope')
+!   throw 'Skipped: cscope program missing'
+! endif
+  
+  func CscopeSetupOrClean(setup)
+      if a:setup
+--- 3,9 ----
+  source check.vim
+  CheckFeature cscope
+  CheckFeature quickfix
+! CheckExecutable cscope
+  
+  func CscopeSetupOrClean(setup)
+      if a:setup
+*** ../vim-8.1.1825/src/testdir/test_debugger.vim	2019-06-24 00:58:02.908020514 +0200
+--- src/testdir/test_debugger.vim	2019-08-07 22:51:41.873049502 +0200
+***************
+*** 2,7 ****
+--- 2,8 ----
+  
+  source shared.vim
+  source screendump.vim
++ source check.vim
+  
+  " Run a Vim debugger command
+  " If the expected output argument is supplied, then check for it.
+***************
+*** 21,29 ****
+  
+  " Debugger tests
+  func Test_Debugger()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot run Vim in a terminal window'
+!   endif
+  
+    " Create a Vim script with some functions
+    let lines =<< trim END
+--- 22,28 ----
+  
+  " Debugger tests
+  func Test_Debugger()
+!   CheckRunVimInTerminal
+  
+    " Create a Vim script with some functions
+    let lines =<< trim END
+*** ../vim-8.1.1825/src/testdir/test_filechanged.vim	2019-05-24 16:45:57.690428744 +0200
+--- src/testdir/test_filechanged.vim	2019-08-07 22:01:05.094358732 +0200
+***************
+*** 1,9 ****
+  " Tests for when a file was changed outside of Vim.
+  
+  func Test_FileChangedShell_reload()
+!   if !has('unix')
+!     return
+!   endif
+    augroup testreload
+      au FileChangedShell Xchanged_r let g:reason = v:fcs_reason | let v:fcs_choice = 'reload'
+    augroup END
+--- 1,10 ----
+  " Tests for when a file was changed outside of Vim.
+  
++ source check.vim
++ 
+  func Test_FileChangedShell_reload()
+!   CheckUnix
+! 
+    augroup testreload
+      au FileChangedShell Xchanged_r let g:reason = v:fcs_reason | let v:fcs_choice = 'reload'
+    augroup END
+***************
+*** 91,99 ****
+  endfunc
+  
+  func Test_file_changed_dialog()
+!   if !has('unix') || has('gui_running')
+!     return
+!   endif
+    au! FileChangedShell
+  
+    new Xchanged_d
+--- 92,99 ----
+  endfunc
+  
+  func Test_file_changed_dialog()
+!   CheckUnix
+!   CheckNotGui
+    au! FileChangedShell
+  
+    new Xchanged_d
+*** ../vim-8.1.1825/src/testdir/test_fold.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_fold.vim	2019-08-07 22:33:32.603085118 +0200
+***************
+*** 1,5 ****
+--- 1,6 ----
+  " Test for folding
+  
++ source check.vim
+  source view_util.vim
+  source screendump.vim
+  
+***************
+*** 707,715 ****
+  endfunc
+  
+  func Test_folds_with_rnu()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+  
+    call writefile([
+  	\ 'set fdm=marker rnu foldcolumn=2',
+--- 708,714 ----
+  endfunc
+  
+  func Test_folds_with_rnu()
+!   CheckScreendump
+  
+    call writefile([
+  	\ 'set fdm=marker rnu foldcolumn=2',
+*** ../vim-8.1.1825/src/testdir/test_functions.vim	2019-07-24 14:59:42.267465100 +0200
+--- src/testdir/test_functions.vim	2019-08-07 22:02:12.741978804 +0200
+***************
+*** 1,5 ****
+--- 1,6 ----
+  " Tests for various functions.
+  source shared.vim
++ source check.vim
+  
+  " Must be done first, since the alternate buffer must be unset.
+  func Test_00_bufexists()
+***************
+*** 1376,1384 ****
+  
+  " Test confirm({msg} [, {choices} [, {default} [, {type}]]])
+  func Test_confirm()
+!   if !has('unix') || has('gui_running')
+!     return
+!   endif
+  
+    call feedkeys('o', 'L')
+    let a = confirm('Press O to proceed')
+--- 1377,1384 ----
+  
+  " Test confirm({msg} [, {choices} [, {default} [, {type}]]])
+  func Test_confirm()
+!   CheckUnix
+!   CheckNotGui
+  
+    call feedkeys('o', 'L')
+    let a = confirm('Press O to proceed')
+*** ../vim-8.1.1825/src/testdir/test_gui.vim	2019-06-24 00:58:02.908020514 +0200
+--- src/testdir/test_gui.vim	2019-08-07 22:38:06.922140802 +0200
+***************
+*** 1,9 ****
+  " Tests specifically for the GUI
+  
+  source shared.vim
+! if !CanRunGui()
+!   throw 'Skipped: cannot run GUI'
+! endif
+  
+  source setup_gui.vim
+  
+--- 1,8 ----
+  " Tests specifically for the GUI
+  
+  source shared.vim
+! source check.vim
+! CheckCanRunGui
+  
+  source setup_gui.vim
+  
+*** ../vim-8.1.1825/src/testdir/test_gui_init.vim	2019-06-15 17:57:43.972724036 +0200
+--- src/testdir/test_gui_init.vim	2019-08-07 22:38:20.150247290 +0200
+***************
+*** 2,10 ****
+  " startup to take effect at runtime.
+  
+  source shared.vim
+! if !CanRunGui()
+!   throw 'Skipped: cannot run GUI'
+! endif
+  
+  source setup_gui.vim
+  
+--- 2,9 ----
+  " startup to take effect at runtime.
+  
+  source shared.vim
+! source check.vim
+! CheckCanRunGui
+  
+  source setup_gui.vim
+  
+*** ../vim-8.1.1825/src/testdir/test_highlight.vim	2019-07-03 21:40:10.877854768 +0200
+--- src/testdir/test_highlight.vim	2019-08-07 22:40:19.427077880 +0200
+***************
+*** 2,7 ****
+--- 2,8 ----
+  
+  source view_util.vim
+  source screendump.vim
++ source check.vim
+  
+  func Test_highlight()
+    " basic test if ":highlight" doesn't crash
+***************
+*** 532,540 ****
+  endfunc
+  
+  func Test_cursorline_after_yank()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+  
+    call writefile([
+  	\ 'set cul rnu',
+--- 533,539 ----
+  endfunc
+  
+  func Test_cursorline_after_yank()
+!   CheckScreendump
+  
+    call writefile([
+  	\ 'set cul rnu',
+***************
+*** 554,562 ****
+  endfunc
+  
+  func Test_cursorline_with_visualmode()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+  
+    call writefile([
+  	\ 'set cul',
+--- 553,559 ----
+  endfunc
+  
+  func Test_cursorline_with_visualmode()
+!   CheckScreendump
+  
+    call writefile([
+  	\ 'set cul',
+***************
+*** 574,582 ****
+  endfunc
+  
+  func Test_wincolor()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+  
+    let lines =<< trim END
+  	set cursorline cursorcolumn rnu
+--- 571,577 ----
+  endfunc
+  
+  func Test_wincolor()
+!   CheckScreendump
+  
+    let lines =<< trim END
+  	set cursorline cursorcolumn rnu
+*** ../vim-8.1.1825/src/testdir/test_mapping.vim	2019-07-04 14:20:38.180325318 +0200
+--- src/testdir/test_mapping.vim	2019-08-07 22:42:20.307717558 +0200
+***************
+*** 1,6 ****
+--- 1,7 ----
+  " Tests for mappings and abbreviations
+  
+  source shared.vim
++ source check.vim
+  
+  func Test_abbreviation()
+    " abbreviation with 0x80 should work
+***************
+*** 399,405 ****
+  endfunc
+  
+  func Test_error_in_map_expr()
+!   if !has('terminal') || (has('win32') && has('gui_running'))
+      throw 'Skipped: cannot run Vim in a terminal window'
+    endif
+  
+--- 400,408 ----
+  endfunc
+  
+  func Test_error_in_map_expr()
+!   " Unlike CheckRunVimInTerminal this does work in a win32 console
+!   CheckFeature terminal
+!   if has('win32') && has('gui_running')
+      throw 'Skipped: cannot run Vim in a terminal window'
+    endif
+  
+*** ../vim-8.1.1825/src/testdir/test_match.vim	2019-07-24 15:28:02.428878172 +0200
+--- src/testdir/test_match.vim	2019-08-07 22:43:02.535901238 +0200
+***************
+*** 2,7 ****
+--- 2,8 ----
+  " matchaddpos(), matcharg(), matchdelete(), and setmatches().
+  
+  source screendump.vim
++ source check.vim
+  
+  function Test_match()
+    highlight MyGroup1 term=bold ctermbg=red guibg=red
+***************
+*** 267,275 ****
+  endfunc
+  
+  func Test_matchdelete_other_window()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+    let buf = OtherWindowCommon()
+    call term_sendkeys(buf, ":call matchdelete(mid, winid)\<CR>")
+    call VerifyScreenDump(buf, 'Test_matchdelete_1', {})
+--- 268,275 ----
+  endfunc
+  
+  func Test_matchdelete_other_window()
+!   CheckScreendump
+! 
+    let buf = OtherWindowCommon()
+    call term_sendkeys(buf, ":call matchdelete(mid, winid)\<CR>")
+    call VerifyScreenDump(buf, 'Test_matchdelete_1', {})
+*** ../vim-8.1.1825/src/testdir/test_memory_usage.vim	2019-06-24 00:58:02.908020514 +0200
+--- src/testdir/test_memory_usage.vim	2019-08-07 22:05:40.744824902 +0200
+***************
+*** 2,11 ****
+  
+  source check.vim
+  CheckFeature terminal
+  
+- if has('gui_running')
+-   throw 'Skipped: does not work in GUI'
+- endif
+  if execute('version') =~# '-fsanitize=[a-z,]*\<address\>'
+    " Skip tests on Travis CI ASAN build because it's difficult to estimate
+    " memory usage.
+--- 2,9 ----
+  
+  source check.vim
+  CheckFeature terminal
++ CheckNotGui
+  
+  if execute('version') =~# '-fsanitize=[a-z,]*\<address\>'
+    " Skip tests on Travis CI ASAN build because it's difficult to estimate
+    " memory usage.
+*** ../vim-8.1.1825/src/testdir/test_options.vim	2019-07-01 22:05:44.457897080 +0200
+--- src/testdir/test_options.vim	2019-08-07 22:07:36.256191272 +0200
+***************
+*** 1,5 ****
+--- 1,7 ----
+  " Test for options
+  
++ source check.vim
++ 
+  func Test_whichwrap()
+    set whichwrap=b,s
+    call assert_equal('b,s', &whichwrap)
+***************
+*** 296,304 ****
+  
+  " Must be executed before other tests that set 'term'.
+  func Test_000_term_option_verbose()
+!   if has('gui_running')
+!     return
+!   endif
+    let verb_cm = execute('verbose set t_cm')
+    call assert_notmatch('Last set from', verb_cm)
+  
+--- 298,305 ----
+  
+  " Must be executed before other tests that set 'term'.
+  func Test_000_term_option_verbose()
+!   CheckNotGui
+! 
+    let verb_cm = execute('verbose set t_cm')
+    call assert_notmatch('Last set from', verb_cm)
+  
+***************
+*** 310,343 ****
+  endfunc
+  
+  func Test_set_ttytype()
+!   if !has('gui_running') && has('unix')
+!     " Setting 'ttytype' used to cause a double-free when exiting vim and
+!     " when vim is compiled with -DEXITFREE.
+!     set ttytype=ansi
+!     call assert_equal('ansi', &ttytype)
+!     call assert_equal(&ttytype, &term)
+!     set ttytype=xterm
+!     call assert_equal('xterm', &ttytype)
+!     call assert_equal(&ttytype, &term)
+!     " "set ttytype=" gives E522 instead of E529
+!     " in travis on some builds. Why?  Catch both for now
+!     try
+!       set ttytype=
+!       call assert_report('set ttytype= did not fail')
+!     catch /E529\|E522/
+!     endtry
+! 
+!     " Some systems accept any terminal name and return dumb settings,
+!     " check for failure of finding the entry and for missing 'cm' entry.
+!     try
+!       set ttytype=xxx
+!       call assert_report('set ttytype=xxx did not fail')
+!     catch /E522\|E437/
+!     endtry
+  
+!     set ttytype&
+!     call assert_equal(&ttytype, &term)
+!   endif
+  endfunc
+  
+  func Test_set_all()
+--- 311,345 ----
+  endfunc
+  
+  func Test_set_ttytype()
+!   CheckUnix
+!   CheckNotGui
+  
+!   " Setting 'ttytype' used to cause a double-free when exiting vim and
+!   " when vim is compiled with -DEXITFREE.
+!   set ttytype=ansi
+!   call assert_equal('ansi', &ttytype)
+!   call assert_equal(&ttytype, &term)
+!   set ttytype=xterm
+!   call assert_equal('xterm', &ttytype)
+!   call assert_equal(&ttytype, &term)
+!   " "set ttytype=" gives E522 instead of E529
+!   " in travis on some builds. Why?  Catch both for now
+!   try
+!     set ttytype=
+!     call assert_report('set ttytype= did not fail')
+!   catch /E529\|E522/
+!   endtry
+! 
+!   " Some systems accept any terminal name and return dumb settings,
+!   " check for failure of finding the entry and for missing 'cm' entry.
+!   try
+!     set ttytype=xxx
+!     call assert_report('set ttytype=xxx did not fail')
+!   catch /E522\|E437/
+!   endtry
+! 
+!   set ttytype&
+!   call assert_equal(&ttytype, &term)
+  endfunc
+  
+  func Test_set_all()
+*** ../vim-8.1.1825/src/testdir/test_paste.vim	2019-06-15 17:57:43.972724036 +0200
+--- src/testdir/test_paste.vim	2019-08-07 22:08:58.651741809 +0200
+***************
+*** 1,12 ****
+  " Tests for bracketed paste and other forms of pasting.
+  
+  " Bracketed paste only works with "xterm".  Not in GUI or Windows console.
+! if has('win32')
+!   throw 'Skipped: does not work on MS-Windows'
+! endif
+! if has('gui_running')
+!   throw 'Skipped: does not work in the GUI'
+! endif
+  set term=xterm
+  
+  source shared.vim
+--- 1,10 ----
+  " Tests for bracketed paste and other forms of pasting.
+  
+  " Bracketed paste only works with "xterm".  Not in GUI or Windows console.
+! source check.vim
+! CheckNotMSWindows
+! CheckNotGui
+! 
+  set term=xterm
+  
+  source shared.vim
+*** ../vim-8.1.1825/src/testdir/test_popup.vim	2019-06-24 00:58:02.908020514 +0200
+--- src/testdir/test_popup.vim	2019-08-07 22:13:40.466215906 +0200
+***************
+*** 2,7 ****
+--- 2,8 ----
+  
+  source shared.vim
+  source screendump.vim
++ source check.vim
+  
+  let g:months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+  let g:setting = ''
+***************
+*** 663,671 ****
+  endfunc
+  
+  func Test_popup_and_window_resize()
+!   if !has('terminal') || has('gui_running')
+!     return
+!   endif
+    let h = winheight(0)
+    if h < 15
+      return
+--- 664,672 ----
+  endfunc
+  
+  func Test_popup_and_window_resize()
+!   CheckFeature terminal
+!   CheckNotGui
+! 
+    let h = winheight(0)
+    if h < 15
+      return
+***************
+*** 918,926 ****
+  endfunc
+  
+  func Test_menu_only_exists_in_terminal()
+!   if !exists(':tlmenu') || has('gui_running')
+!     return
+!   endif
+    tlnoremenu  &Edit.&Paste<Tab>"+gP  <C-W>"+
+    aunmenu *
+    try
+--- 919,927 ----
+  endfunc
+  
+  func Test_menu_only_exists_in_terminal()
+!   CheckCommand tlmenu
+!   CheckNotGui
+! 
+    tlnoremenu  &Edit.&Paste<Tab>"+gP  <C-W>"+
+    aunmenu *
+    try
+*** ../vim-8.1.1825/src/testdir/test_search.vim	2019-07-16 21:38:48.101430996 +0200
+--- src/testdir/test_search.vim	2019-08-07 22:25:39.822361763 +0200
+***************
+*** 2,7 ****
+--- 2,8 ----
+  
+  source shared.vim
+  source screendump.vim
++ source check.vim
+  
+  func Test_search_cmdline()
+    if !exists('+incsearch')
+***************
+*** 575,586 ****
+  func Test_search_cmdline8()
+    " Highlighting is cleared in all windows
+    " since hls applies to all windows
+!   if !exists('+incsearch') || !has('terminal') || has('gui_running') || winwidth(0) < 30
+!     return
+!   endif
+    if has("win32")
+      throw "Skipped: Bug with sending <ESC> to terminal window not fixed yet"
+    endif
+    let h = winheight(0)
+    if h < 3
+      return
+--- 576,588 ----
+  func Test_search_cmdline8()
+    " Highlighting is cleared in all windows
+    " since hls applies to all windows
+!   CheckOption incsearch
+!   CheckFeature terminal
+!   CheckNotGui
+    if has("win32")
+      throw "Skipped: Bug with sending <ESC> to terminal window not fixed yet"
+    endif
++ 
+    let h = winheight(0)
+    if h < 3
+      return
+***************
+*** 702,710 ****
+  endfunc
+  
+  func Test_search_cmdline_incsearch_highlight_attr()
+!   if !exists('+incsearch') || !has('terminal') || has('gui_running')
+!     return
+!   endif
+    let h = winheight(0)
+    if h < 3
+      return
+--- 704,713 ----
+  endfunc
+  
+  func Test_search_cmdline_incsearch_highlight_attr()
+!   CheckOption incsearch
+!   CheckFeature terminal
+!   CheckNotGui
+! 
+    let h = winheight(0)
+    if h < 3
+      return
+*** ../vim-8.1.1825/src/testdir/test_signals.vim	2019-06-15 17:57:43.976724009 +0200
+--- src/testdir/test_signals.vim	2019-08-07 22:14:58.389796172 +0200
+***************
+*** 1,8 ****
+  " Test signal handling.
+  
+! if !has('unix')
+!   throw 'Skipped: not on Unix'
+! endif
+  
+  source shared.vim
+  
+--- 1,7 ----
+  " Test signal handling.
+  
+! source check.vim
+! CheckUnix
+  
+  source shared.vim
+  
+***************
+*** 14,21 ****
+  
+  " Test signal WINCH (window resize signal)
+  func Test_signal_WINCH()
+!   if has('gui_running') || !HasSignal('WINCH')
+!     return
+    endif
+  
+    " We do not actually want to change the size of the terminal.
+--- 13,21 ----
+  
+  " Test signal WINCH (window resize signal)
+  func Test_signal_WINCH()
+!   CheckNotGui
+!   if !HasSignal('WINCH')
+!     throw 'Skipped: WINCH signal not supported'
+    endif
+  
+    " We do not actually want to change the size of the terminal.
+*** ../vim-8.1.1825/src/testdir/test_startup.vim	2019-06-25 04:12:12.312665250 +0200
+--- src/testdir/test_startup.vim	2019-08-07 22:17:00.621139167 +0200
+***************
+*** 2,7 ****
+--- 2,8 ----
+  
+  source shared.vim
+  source screendump.vim
++ source check.vim
+  
+  " Check that loading startup.vim works.
+  func Test_startup_script()
+***************
+*** 262,271 ****
+  
+  " Test the -V[N] argument to set the 'verbose' option to [N]
+  func Test_V_arg()
+!   if has('gui_running')
+!     " Can't catch the output of gvim.
+!     return
+!   endif
+    let out = system(GetVimCommand() . ' --clean -es -X -V0 -c "set verbose?" -cq')
+    call assert_equal("  verbose=0\n", out)
+  
+--- 263,271 ----
+  
+  " Test the -V[N] argument to set the 'verbose' option to [N]
+  func Test_V_arg()
+!   " Can't catch the output of gvim.
+!   CheckNotGui
+! 
+    let out = system(GetVimCommand() . ' --clean -es -X -V0 -c "set verbose?" -cq')
+    call assert_equal("  verbose=0\n", out)
+  
+***************
+*** 395,404 ****
+  endfunc
+  
+  func Test_invalid_args()
+!   if !has('unix') || has('gui_running')
+!     " can't get output of Vim.
+!     return
+!   endif
+  
+    for opt in ['-Y', '--does-not-exist']
+      let out = split(system(GetVimCommand() .. ' ' .. opt), "\n")
+--- 395,403 ----
+  endfunc
+  
+  func Test_invalid_args()
+!   " must be able to get the output of Vim.
+!   CheckUnix
+!   CheckNotGui
+  
+    for opt in ['-Y', '--does-not-exist']
+      let out = split(system(GetVimCommand() .. ' ' .. opt), "\n")
+***************
+*** 599,608 ****
+  endfunc
+  
+  func Test_silent_ex_mode()
+!   if !has('unix') || has('gui_running')
+!     " can't get output of Vim.
+!     return
+!   endif
+  
+    " This caused an ml_get error.
+    let out = system(GetVimCommand() . '-u NONE -es -c''set verbose=1|h|exe "%norm\<c-y>\<c-d>"'' -c cq')
+--- 598,606 ----
+  endfunc
+  
+  func Test_silent_ex_mode()
+!   " must be able to get the output of Vim.
+!   CheckUnix
+!   CheckNotGui
+  
+    " This caused an ml_get error.
+    let out = system(GetVimCommand() . '-u NONE -es -c''set verbose=1|h|exe "%norm\<c-y>\<c-d>"'' -c cq')
+***************
+*** 610,619 ****
+  endfunc
+  
+  func Test_default_term()
+!   if !has('unix') || has('gui_running')
+!     " can't get output of Vim.
+!     return
+!   endif
+  
+    let save_term = $TERM
+    let $TERM = 'unknownxxx'
+--- 608,616 ----
+  endfunc
+  
+  func Test_default_term()
+!   " must be able to get the output of Vim.
+!   CheckUnix
+!   CheckNotGui
+  
+    let save_term = $TERM
+    let $TERM = 'unknownxxx'
+***************
+*** 649,658 ****
+  endfunc
+  
+  func Test_issue_3969()
+!   if has('gui_running')
+!     " Can't catch the output of gvim.
+!     return
+!   endif
+    " Check that message is not truncated.
+    let out = system(GetVimCommand() . ' -es -X -V1 -c "echon ''hello''" -cq')
+    call assert_equal('hello', out)
+--- 646,654 ----
+  endfunc
+  
+  func Test_issue_3969()
+!   " Can't catch the output of gvim.
+!   CheckNotGui
+! 
+    " Check that message is not truncated.
+    let out = system(GetVimCommand() . ' -es -X -V1 -c "echon ''hello''" -cq')
+    call assert_equal('hello', out)
+*** ../vim-8.1.1825/src/testdir/test_syntax.vim	2019-08-04 17:35:49.331707782 +0200
+--- src/testdir/test_syntax.vim	2019-08-07 22:17:18.113045287 +0200
+***************
+*** 413,421 ****
+  endfunc
+  
+  func Test_bg_detection()
+!   if has('gui_running')
+!     return
+!   endif
+    " auto-detection of &bg, make sure sure it isn't set anywhere before
+    " this test
+    hi Normal ctermbg=0
+--- 413,420 ----
+  endfunc
+  
+  func Test_bg_detection()
+!   CheckNotGui
+! 
+    " auto-detection of &bg, make sure sure it isn't set anywhere before
+    " this test
+    hi Normal ctermbg=0
+*** ../vim-8.1.1825/src/testdir/test_termcodes.vim	2019-06-15 17:57:43.976724009 +0200
+--- src/testdir/test_termcodes.vim	2019-08-07 22:17:51.984863557 +0200
+***************
+*** 1,12 ****
+  " Tests for decoding escape sequences sent by the terminal.
+  
+  " This only works for Unix in a terminal
+! if has('gui_running')
+!   throw 'Skipped: does not work in the GUI'
+! endif
+! if !has('unix')
+!   throw 'Skipped: not on Unix'
+! endif
+  
+  source shared.vim
+  
+--- 1,9 ----
+  " Tests for decoding escape sequences sent by the terminal.
+  
+  " This only works for Unix in a terminal
+! source check.vim
+! CheckNotGui
+! CheckUnix
+  
+  source shared.vim
+  
+*** ../vim-8.1.1825/src/testdir/test_terminal.vim	2019-07-04 22:32:35.584865850 +0200
+--- src/testdir/test_terminal.vim	2019-08-07 22:37:16.565706002 +0200
+***************
+*** 1788,1796 ****
+  
+  " must be nearly the last, we can't go back from GUI to terminal
+  func Test_zz1_terminal_in_gui()
+!   if !CanRunGui()
+!     return
+!   endif
+  
+    " Ignore the "failed to create input context" error.
+    call test_ignore_error('E285:')
+--- 1788,1794 ----
+  
+  " must be nearly the last, we can't go back from GUI to terminal
+  func Test_zz1_terminal_in_gui()
+!   CheckCanRunGui
+  
+    " Ignore the "failed to create input context" error.
+    call test_ignore_error('E285:')
+***************
+*** 1810,1818 ****
+  endfunc
+  
+  func Test_zz2_terminal_guioptions_bang()
+!   if !has('gui_running')
+!     return
+!   endif
+    set guioptions+=!
+  
+    let filename = 'Xtestscript'
+--- 1808,1814 ----
+  endfunc
+  
+  func Test_zz2_terminal_guioptions_bang()
+!   CheckGui
+    set guioptions+=!
+  
+    let filename = 'Xtestscript'
+*** ../vim-8.1.1825/src/testdir/test_timers.vim	2019-07-04 14:20:38.180325318 +0200
+--- src/testdir/test_timers.vim	2019-08-07 22:19:45.892253132 +0200
+***************
+*** 239,247 ****
+  endfunc
+  
+  func Test_peek_and_get_char()
+!   if !has('unix') && !has('gui_running')
+!     return
+!   endif
+    call timer_start(0, 'FeedAndPeek')
+    let intr = timer_start(100, 'Interrupt')
+    let c = getchar()
+--- 239,247 ----
+  endfunc
+  
+  func Test_peek_and_get_char()
+!   CheckUnix
+!   CheckGui
+! 
+    call timer_start(0, 'FeedAndPeek')
+    let intr = timer_start(100, 'Interrupt')
+    let c = getchar()
+***************
+*** 251,258 ****
+  
+  func Test_getchar_zero()
+    if has('win32') && !has('gui_running')
+!     " Console: no low-level input
+!     return
+    endif
+  
+    " Measure the elapsed time to avoid a hang when it fails.
+--- 251,257 ----
+  
+  func Test_getchar_zero()
+    if has('win32') && !has('gui_running')
+!     throw 'Skipped: cannot get low-level input'
+    endif
+  
+    " Measure the elapsed time to avoid a hang when it fails.
+*** ../vim-8.1.1825/src/testdir/test_vimscript.vim	2019-07-04 14:57:09.592696683 +0200
+--- src/testdir/test_vimscript.vim	2019-08-07 22:20:47.427923788 +0200
+***************
+*** 1,6 ****
+--- 1,8 ----
+  " Test various aspects of the Vim script language.
+  " Most of this was formerly in test49.
+  
++ source check.vim
++ 
+  "-------------------------------------------------------------------------------
+  " Test environment							    {{{1
+  "-------------------------------------------------------------------------------
+***************
+*** 1677,1686 ****
+  endfunc
+  
+  func Test_function_defined_line()
+!     if has('gui_running')
+!         " Can't catch the output of gvim.
+!         return
+!     endif
+  
+      let lines =<< trim [CODE]
+      " F1
+--- 1679,1685 ----
+  endfunc
+  
+  func Test_function_defined_line()
+!     CheckNotGui
+  
+      let lines =<< trim [CODE]
+      " F1
+*** ../vim-8.1.1825/src/version.c	2019-08-07 21:42:20.868526970 +0200
+--- src/version.c	2019-08-07 22:47:10.740660315 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1826,
+  /**/
+
+-- 
+"You know, it's at times like this when I'm trapped in a Vogon airlock with
+a man from Betelgeuse and about to die of asphyxiation in deep space that I
+really wish I'd listened to what my mother told me when I was young!"
+"Why, what did she tell you?"
+"I don't know, I didn't listen!"
+		-- Arthur Dent and Ford Prefect in Douglas Adams'
+		   "The Hitchhiker's Guide to the Galaxy"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

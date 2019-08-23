@@ -1,0 +1,115 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1518
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1518
+Problem:    Crash when setting 'columns' while a popup is visible.
+Solution:   Recompute all positions when clearing the screen. (closes #4467)
+Files:	    src/screen.c, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_04a.dump
+
+
+*** ../vim-8.1.1517/src/screen.c	2019-06-10 21:23:52.359724140 +0200
+--- src/screen.c	2019-06-11 21:50:53.119941815 +0200
+***************
+*** 1029,1037 ****
+      win_T	*wp;
+      short	*mask;
+      int		line, col;
+  
+!     if (popup_mask_tab != curtab)
+  	popup_mask_refresh = TRUE;
+      if (!popup_mask_refresh)
+      {
+  	// Check if any buffer has changed.
+--- 1029,1044 ----
+      win_T	*wp;
+      short	*mask;
+      int		line, col;
++     int		redraw_all = FALSE;
+  
+!     // Need to recompute when switching tabs.
+!     // Also recompute when the type is CLEAR or NOT_VALID, something basic
+!     // (such as the screen size) must have changed.
+!     if (popup_mask_tab != curtab || type >= NOT_VALID)
+!     {
+  	popup_mask_refresh = TRUE;
++ 	redraw_all = TRUE;
++     }
+      if (!popup_mask_refresh)
+      {
+  	// Check if any buffer has changed.
+***************
+*** 1070,1076 ****
+  	popup_visible = TRUE;
+  
+  	// Recompute the position if the text changed.
+! 	if (wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
+  	// the width and height are for the inside, add the padding and
+--- 1077,1084 ----
+  	popup_visible = TRUE;
+  
+  	// Recompute the position if the text changed.
+! 	if (redraw_all
+! 		|| wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
+  	// the width and height are for the inside, add the padding and
+*** ../vim-8.1.1517/src/testdir/test_popupwin.vim	2019-06-10 13:10:45.374588250 +0200
+--- src/testdir/test_popupwin.vim	2019-06-11 21:46:49.205223699 +0200
+***************
+*** 41,46 ****
+--- 41,52 ----
+    call term_sendkeys(buf, ":quit!\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_04', {})
+  
++   " set 'columns' to a small value, size must be recomputed
++   call term_sendkeys(buf, ":let cols = &columns\<CR>")
++   call term_sendkeys(buf, ":set columns=12\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_04a', {})
++   call term_sendkeys(buf, ":let &columns = cols\<CR>")
++ 
+    " resize popup, show empty line at bottom
+    call term_sendkeys(buf, ":call popup_move(popupwin, {'minwidth': 15, 'maxwidth': 25, 'minheight': 3, 'maxheight': 5})\<CR>")
+    call term_sendkeys(buf, ":redraw\<CR>")
+*** ../vim-8.1.1517/src/testdir/dumps/Test_popupwin_04a.dump	2019-06-11 21:55:03.398640407 +0200
+--- src/testdir/dumps/Test_popupwin_04a.dump	2019-06-11 21:47:30.625004794 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ > +0&#ffffff0@11
++ |~+0#4040ff13&| @10
++ |~| @10
++ |~| @6|o+0#0000001#ffd7ff255|t|h|e
++ |~+0#4040ff13#ffffff0| @6|r+0#0000001#ffd7ff255| |t|a
++ |~+0#4040ff13#ffffff0| @6|b+0#0000001#ffd7ff255| @2
++ |~+0#4040ff13#ffffff0| @6|a+0#0000001#ffd7ff255| |c+0#ff404010&|o
++ |~+0#4040ff13#ffffff0| @6|m+0#ff404010#ffd7ff255@1|e|n
++ |~+0#4040ff13#ffffff0| @6|t+0#ff404010#ffd7ff255| +0#0000001&|l|i
++ | +0#0000000#ffffff0@5|0|,|n+0#0000001#ffd7ff255|e| @1
+*** ../vim-8.1.1517/src/version.c	2019-06-10 21:23:52.363724122 +0200
+--- src/version.c	2019-06-11 21:48:36.568657384 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1518,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+153. You find yourself staring at your "inbox" waiting for new e-mail
+     to arrive.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

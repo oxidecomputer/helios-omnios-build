@@ -1,0 +1,1025 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1800
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1800
+Problem:    Function call functions have too many arguments.
+Solution:   Pass values in a funcexe_T struct.
+Files:	    src/eval.c, src/structs.h, src/userfunc.c, src/proto/userfunc.pro,
+            src/list.c, src/regexp.c, src/terminal.c, src/change.c,
+            src/ex_cmds2.c, src/popupwin.c, src/channel.c
+
+
+*** ../vim-8.1.1799/src/eval.c	2019-07-28 14:15:21.326943663 +0200
+--- src/eval.c	2019-08-03 18:15:31.773597611 +0200
+***************
+*** 765,780 ****
+  eval_expr_typval(typval_T *expr, typval_T *argv, int argc, typval_T *rettv)
+  {
+      char_u	*s;
+-     int		dummy;
+      char_u	buf[NUMBUFLEN];
+  
+      if (expr->v_type == VAR_FUNC)
+      {
+  	s = expr->vval.v_string;
+  	if (s == NULL || *s == NUL)
+  	    return FAIL;
+! 	if (call_func(s, -1, rettv, argc, argv, NULL,
+! 				     0L, 0L, &dummy, TRUE, NULL, NULL) == FAIL)
+  	    return FAIL;
+      }
+      else if (expr->v_type == VAR_PARTIAL)
+--- 765,781 ----
+  eval_expr_typval(typval_T *expr, typval_T *argv, int argc, typval_T *rettv)
+  {
+      char_u	*s;
+      char_u	buf[NUMBUFLEN];
++     funcexe_T	funcexe;
+  
+      if (expr->v_type == VAR_FUNC)
+      {
+  	s = expr->vval.v_string;
+  	if (s == NULL || *s == NUL)
+  	    return FAIL;
+! 	vim_memset(&funcexe, 0, sizeof(funcexe));
+! 	funcexe.evaluate = TRUE;
+! 	if (call_func(s, -1, rettv, argc, argv, &funcexe) == FAIL)
+  	    return FAIL;
+      }
+      else if (expr->v_type == VAR_PARTIAL)
+***************
+*** 784,791 ****
+  	s = partial_name(partial);
+  	if (s == NULL || *s == NUL)
+  	    return FAIL;
+! 	if (call_func(s, -1, rettv, argc, argv, NULL,
+! 				  0L, 0L, &dummy, TRUE, partial, NULL) == FAIL)
+  	    return FAIL;
+      }
+      else
+--- 785,794 ----
+  	s = partial_name(partial);
+  	if (s == NULL || *s == NUL)
+  	    return FAIL;
+! 	vim_memset(&funcexe, 0, sizeof(funcexe));
+! 	funcexe.evaluate = TRUE;
+! 	funcexe.partial = partial;
+! 	if (call_func(s, -1, rettv, argc, argv, &funcexe) == FAIL)
+  	    return FAIL;
+      }
+      else
+***************
+*** 1092,1104 ****
+      typval_T	*argv,
+      typval_T	*rettv)
+  {
+-     int		doesrange;
+      int		ret;
+  
+      rettv->v_type = VAR_UNKNOWN;		/* clear_tv() uses this */
+!     ret = call_func(func, -1, rettv, argc, argv, NULL,
+! 		    curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+! 		    &doesrange, TRUE, NULL, NULL);
+      if (ret == FAIL)
+  	clear_tv(rettv);
+  
+--- 1095,1109 ----
+      typval_T	*argv,
+      typval_T	*rettv)
+  {
+      int		ret;
++     funcexe_T	funcexe;
+  
+      rettv->v_type = VAR_UNKNOWN;		/* clear_tv() uses this */
+!     vim_memset(&funcexe, 0, sizeof(funcexe));
+!     funcexe.firstline = curwin->w_cursor.lnum;
+!     funcexe.lastline = curwin->w_cursor.lnum;
+!     funcexe.evaluate = TRUE;
+!     ret = call_func(func, -1, rettv, argc, argv, &funcexe);
+      if (ret == FAIL)
+  	clear_tv(rettv);
+  
+***************
+*** 4681,4690 ****
+  		if (s == NULL)
+  		    ret = FAIL;
+  		else
+! 		    /* Invoke the function. */
+! 		    ret = get_func_tv(s, len, rettv, arg,
+! 			      curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+! 			      &len, evaluate, partial, NULL);
+  		vim_free(s);
+  
+  		/* If evaluate is FALSE rettv->v_type was not set in
+--- 4686,4704 ----
+  		if (s == NULL)
+  		    ret = FAIL;
+  		else
+! 		{
+! 		    funcexe_T funcexe;
+! 
+! 		    // Invoke the function.
+! 		    funcexe.argv_func = NULL;
+! 		    funcexe.firstline = curwin->w_cursor.lnum;
+! 		    funcexe.lastline = curwin->w_cursor.lnum;
+! 		    funcexe.doesrange = &len;
+! 		    funcexe.evaluate = evaluate;
+! 		    funcexe.partial = partial;
+! 		    funcexe.selfdict = NULL;
+! 		    ret = get_func_tv(s, len, rettv, arg, &funcexe);
+! 		}
+  		vim_free(s);
+  
+  		/* If evaluate is FALSE rettv->v_type was not set in
+***************
+*** 7359,7365 ****
+      int		ret = OK;
+      dict_T	*selfdict = NULL;
+      char_u	*s;
+-     int		len;
+      typval_T	functv;
+  
+      // "." is ".name" lookup when we found a dict or when evaluating and
+--- 7373,7378 ----
+***************
+*** 7377,7382 ****
+--- 7390,7396 ----
+  	if (**arg == '(')
+  	{
+  	    partial_T	*pt = NULL;
++ 	    funcexe_T	funcexe;
+  
+  	    /* need to copy the funcref so that we can clear rettv */
+  	    if (evaluate)
+***************
+*** 7395,7403 ****
+  	    }
+  	    else
+  		s = (char_u *)"";
+! 	    ret = get_func_tv(s, -1, rettv, arg,
+! 			curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+! 			&len, evaluate, pt, selfdict);
+  
+  	    /* Clear the funcref afterwards, so that deleting it while
+  	     * evaluating the arguments is possible (see test55). */
+--- 7409,7423 ----
+  	    }
+  	    else
+  		s = (char_u *)"";
+! 
+! 	    funcexe.argv_func = NULL;
+! 	    funcexe.firstline = curwin->w_cursor.lnum;
+! 	    funcexe.lastline = curwin->w_cursor.lnum;
+! 	    funcexe.doesrange = NULL;
+! 	    funcexe.evaluate = evaluate;
+! 	    funcexe.partial = pt;
+! 	    funcexe.selfdict = selfdict;
+! 	    ret = get_func_tv(s, -1, rettv, arg, &funcexe);
+  
+  	    /* Clear the funcref afterwards, so that deleting it while
+  	     * evaluating the arguments is possible (see test55). */
+*** ../vim-8.1.1799/src/structs.h	2019-08-01 21:09:49.923160274 +0200
+--- src/structs.h	2019-08-03 17:55:24.025093731 +0200
+***************
+*** 1517,1522 ****
+--- 1517,1538 ----
+  				// "func"
+  };
+  
++ // Struct passed between functions dealing with function call execution.
++ //
++ // "argv_func", when not NULL, can be used to fill in arguments only when the
++ // invoked function uses them.  It is called like this:
++ //   new_argcount = argv_func(current_argcount, argv, called_func_argcount)
++ //
++ typedef struct {
++     int		(* argv_func)(int, typval_T *, int);
++     linenr_T	firstline;	// first line of range
++     linenr_T	lastline;	// last line of range
++     int		*doesrange;	// if not NULL: return: function handled range
++     int		evaluate;	// actually evaluate expressions
++     partial_T	*partial;	// for extra arguments
++     dict_T	*selfdict;	// Dictionary for "self"
++ } funcexe_T;
++ 
+  /*
+   * Struct used by trans_function_name()
+   */
+*** ../vim-8.1.1799/src/userfunc.c	2019-07-21 23:04:14.079123854 +0200
+--- src/userfunc.c	2019-08-03 18:02:29.590546494 +0200
+***************
+*** 432,443 ****
+      int		len,		// length of "name" or -1 to use strlen()
+      typval_T	*rettv,
+      char_u	**arg,		// argument, pointing to the '('
+!     linenr_T	firstline,	// first line of range
+!     linenr_T	lastline,	// last line of range
+!     int		*doesrange,	// return: function handled range
+!     int		evaluate,
+!     partial_T	*partial,	// for extra arguments
+!     dict_T	*selfdict)	// Dictionary for "self"
+  {
+      char_u	*argp;
+      int		ret = OK;
+--- 432,438 ----
+      int		len,		// length of "name" or -1 to use strlen()
+      typval_T	*rettv,
+      char_u	**arg,		// argument, pointing to the '('
+!     funcexe_T	*funcexe)	// various values
+  {
+      char_u	*argp;
+      int		ret = OK;
+***************
+*** 448,459 ****
+       * Get the arguments.
+       */
+      argp = *arg;
+!     while (argcount < MAX_FUNC_ARGS - (partial == NULL ? 0 : partial->pt_argc))
+      {
+  	argp = skipwhite(argp + 1);	    /* skip the '(' or ',' */
+  	if (*argp == ')' || *argp == ',' || *argp == NUL)
+  	    break;
+! 	if (eval1(&argp, &argvars[argcount], evaluate) == FAIL)
+  	{
+  	    ret = FAIL;
+  	    break;
+--- 443,455 ----
+       * Get the arguments.
+       */
+      argp = *arg;
+!     while (argcount < MAX_FUNC_ARGS - (funcexe->partial == NULL ? 0
+! 						  : funcexe->partial->pt_argc))
+      {
+  	argp = skipwhite(argp + 1);	    /* skip the '(' or ',' */
+  	if (*argp == ')' || *argp == ',' || *argp == NUL)
+  	    break;
+! 	if (eval1(&argp, &argvars[argcount], funcexe->evaluate) == FAIL)
+  	{
+  	    ret = FAIL;
+  	    break;
+***************
+*** 483,490 ****
+  								  &argvars[i];
+  	}
+  
+! 	ret = call_func(name, len, rettv, argcount, argvars, NULL,
+! 		 firstline, lastline, doesrange, evaluate, partial, selfdict);
+  
+  	funcargs.ga_len -= i;
+      }
+--- 479,485 ----
+  								  &argvars[i];
+  	}
+  
+! 	ret = call_func(name, len, rettv, argcount, argvars, funcexe);
+  
+  	funcargs.ga_len -= i;
+      }
+***************
+*** 1416,1422 ****
+      listitem_T	*item;
+      typval_T	argv[MAX_FUNC_ARGS + 1];
+      int		argc = 0;
+-     int		dummy;
+      int		r = 0;
+  
+      for (item = args->vval.v_list->lv_first; item != NULL;
+--- 1411,1416 ----
+***************
+*** 1434,1442 ****
+      }
+  
+      if (item == NULL)
+! 	r = call_func(name, -1, rettv, argc, argv, NULL,
+! 				 curwin->w_cursor.lnum, curwin->w_cursor.lnum,
+! 					     &dummy, TRUE, partial, selfdict);
+  
+      /* Free the arguments. */
+      while (argc > 0)
+--- 1428,1445 ----
+      }
+  
+      if (item == NULL)
+!     {
+! 	funcexe_T funcexe;
+! 
+! 	funcexe.argv_func = NULL;
+! 	funcexe.firstline = curwin->w_cursor.lnum;
+! 	funcexe.lastline = curwin->w_cursor.lnum;
+! 	funcexe.doesrange = NULL;
+! 	funcexe.evaluate = TRUE;
+! 	funcexe.partial = partial;
+! 	funcexe.selfdict = selfdict;
+! 	r = call_func(name, -1, rettv, argc, argv, &funcexe);
+!     }
+  
+      /* Free the arguments. */
+      while (argc > 0)
+***************
+*** 1454,1481 ****
+      int		len,		// length of "name" or -1 to use strlen()
+      typval_T	*rettv,		// return value goes here
+      int		argcount,	// number of "argvars"
+!     typval_T	*argvars,	// vars for arguments, must have "argcount"
+  				// PLUS ONE elements!
+-     int		(* argv_func)(int, typval_T *, int),
+- 				// function to fill in argvars
+-     linenr_T	firstline,	// first line of range
+-     linenr_T	lastline,	// last line of range
+-     int		*doesrange,	// return: function handled range
+-     int		evaluate,
+-     dict_T	*selfdict)	// Dictionary for "self"
+  {
+      return call_func(callback->cb_name, len, rettv, argcount, argvars,
+! 	    argv_func, firstline, lastline, doesrange, evaluate,
+! 	    callback->cb_partial, selfdict);
+  }
+  
+  /*
+   * Call a function with its resolved parameters
+   *
+-  * "argv_func", when not NULL, can be used to fill in arguments only when the
+-  * invoked function uses them.  It is called like this:
+-  *   new_argcount = argv_func(current_argcount, argv, called_func_argcount)
+-  *
+   * Return FAIL when the function can't be called,  OK otherwise.
+   * Also returns OK when an error was encountered while executing the function.
+   */
+--- 1457,1477 ----
+      int		len,		// length of "name" or -1 to use strlen()
+      typval_T	*rettv,		// return value goes here
+      int		argcount,	// number of "argvars"
+!     typval_T	*argvars)	// vars for arguments, must have "argcount"
+  				// PLUS ONE elements!
+  {
++     funcexe_T	funcexe;
++ 
++     vim_memset(&funcexe, 0, sizeof(funcexe));
++     funcexe.evaluate = TRUE;
++     funcexe.partial = callback->cb_partial;
+      return call_func(callback->cb_name, len, rettv, argcount, argvars,
+! 								     &funcexe);
+  }
+  
+  /*
+   * Call a function with its resolved parameters
+   *
+   * Return FAIL when the function can't be called,  OK otherwise.
+   * Also returns OK when an error was encountered while executing the function.
+   */
+***************
+*** 1487,1500 ****
+      int		argcount_in,	// number of "argvars"
+      typval_T	*argvars_in,	// vars for arguments, must have "argcount"
+  				// PLUS ONE elements!
+!     int		(* argv_func)(int, typval_T *, int),
+! 				// function to fill in argvars
+!     linenr_T	firstline,	// first line of range
+!     linenr_T	lastline,	// last line of range
+!     int		*doesrange,	// return: function handled range
+!     int		evaluate,
+!     partial_T	*partial,	// optional, can be NULL
+!     dict_T	*selfdict_in)	// Dictionary for "self"
+  {
+      int		ret = FAIL;
+      int		error = ERROR_NONE;
+--- 1483,1489 ----
+      int		argcount_in,	// number of "argvars"
+      typval_T	*argvars_in,	// vars for arguments, must have "argcount"
+  				// PLUS ONE elements!
+!     funcexe_T	*funcexe)	// more arguments
+  {
+      int		ret = FAIL;
+      int		error = ERROR_NONE;
+***************
+*** 1506,1514 ****
+      char_u	*name;
+      int		argcount = argcount_in;
+      typval_T	*argvars = argvars_in;
+!     dict_T	*selfdict = selfdict_in;
+      typval_T	argv[MAX_FUNC_ARGS + 1]; /* used when "partial" is not NULL */
+      int		argv_clear = 0;
+  
+      // Make a copy of the name, if it comes from a funcref variable it could
+      // be changed or deleted in the called function.
+--- 1495,1504 ----
+      char_u	*name;
+      int		argcount = argcount_in;
+      typval_T	*argvars = argvars_in;
+!     dict_T	*selfdict = funcexe->selfdict;
+      typval_T	argv[MAX_FUNC_ARGS + 1]; /* used when "partial" is not NULL */
+      int		argv_clear = 0;
++     partial_T	*partial = funcexe->partial;
+  
+      // Make a copy of the name, if it comes from a funcref variable it could
+      // be changed or deleted in the called function.
+***************
+*** 1518,1532 ****
+  
+      fname = fname_trans_sid(name, fname_buf, &tofree, &error);
+  
+!     *doesrange = FALSE;
+  
+      if (partial != NULL)
+      {
+  	/* When the function has a partial with a dict and there is a dict
+  	 * argument, use the dict argument.  That is backwards compatible.
+  	 * When the dict was bound explicitly use the one from the partial. */
+! 	if (partial->pt_dict != NULL
+! 		&& (selfdict_in == NULL || !partial->pt_auto))
+  	    selfdict = partial->pt_dict;
+  	if (error == ERROR_NONE && partial->pt_argc > 0)
+  	{
+--- 1508,1522 ----
+  
+      fname = fname_trans_sid(name, fname_buf, &tofree, &error);
+  
+!     if (funcexe->doesrange != NULL)
+! 	*funcexe->doesrange = FALSE;
+  
+      if (partial != NULL)
+      {
+  	/* When the function has a partial with a dict and there is a dict
+  	 * argument, use the dict argument.  That is backwards compatible.
+  	 * When the dict was bound explicitly use the one from the partial. */
+! 	if (partial->pt_dict != NULL && (selfdict == NULL || !partial->pt_auto))
+  	    selfdict = partial->pt_dict;
+  	if (error == ERROR_NONE && partial->pt_argc > 0)
+  	{
+***************
+*** 1542,1548 ****
+      /*
+       * Execute the function if executing and no errors were detected.
+       */
+!     if (!evaluate)
+      {
+  	// Not evaluating, which means the return value is unknown.  This
+  	// matters for giving error messages.
+--- 1532,1538 ----
+      /*
+       * Execute the function if executing and no errors were detected.
+       */
+!     if (!funcexe->evaluate)
+      {
+  	// Not evaluating, which means the return value is unknown.  This
+  	// matters for giving error messages.
+***************
+*** 1590,1600 ****
+  		error = ERROR_DELETED;
+  	    else if (fp != NULL)
+  	    {
+! 		if (argv_func != NULL)
+! 		    argcount = argv_func(argcount, argvars, fp->uf_args.ga_len);
+  
+! 		if (fp->uf_flags & FC_RANGE)
+! 		    *doesrange = TRUE;
+  		if (argcount < fp->uf_args.ga_len - fp->uf_def_args.ga_len)
+  		    error = ERROR_TOOFEW;
+  		else if (!fp->uf_varargs && argcount > fp->uf_args.ga_len)
+--- 1580,1591 ----
+  		error = ERROR_DELETED;
+  	    else if (fp != NULL)
+  	    {
+! 		if (funcexe->argv_func != NULL)
+! 		    argcount = funcexe->argv_func(argcount, argvars,
+! 							   fp->uf_args.ga_len);
+  
+! 		if (fp->uf_flags & FC_RANGE && funcexe->doesrange != NULL)
+! 		    *funcexe->doesrange = TRUE;
+  		if (argcount < fp->uf_args.ga_len - fp->uf_def_args.ga_len)
+  		    error = ERROR_TOOFEW;
+  		else if (!fp->uf_varargs && argcount > fp->uf_args.ga_len)
+***************
+*** 1621,1627 ****
+  		    }
+  		    ++fp->uf_calls;
+  		    call_user_func(fp, argcount, argvars, rettv,
+! 					       firstline, lastline,
+  				  (fp->uf_flags & FC_DICT) ? selfdict : NULL);
+  		    if (--fp->uf_calls <= 0 && fp->uf_refcount <= 0)
+  			/* Function was unreferenced while being used, free it
+--- 1612,1618 ----
+  		    }
+  		    ++fp->uf_calls;
+  		    call_user_func(fp, argcount, argvars, rettv,
+! 					 funcexe->firstline, funcexe->lastline,
+  				  (fp->uf_flags & FC_DICT) ? selfdict : NULL);
+  		    if (--fp->uf_calls <= 0 && fp->uf_refcount <= 0)
+  			/* Function was unreferenced while being used, free it
+***************
+*** 3112,3117 ****
+--- 3103,3110 ----
+  	lnum = eap->line1;
+      for ( ; lnum <= eap->line2; ++lnum)
+      {
++ 	funcexe_T funcexe;
++ 
+  	if (!eap->skip && eap->addr_count > 0)
+  	{
+  	    if (lnum > curbuf->b_ml.ml_line_count)
+***************
+*** 3126,3134 ****
+  	    curwin->w_cursor.coladd = 0;
+  	}
+  	arg = startarg;
+! 	if (get_func_tv(name, -1, &rettv, &arg,
+! 		    eap->line1, eap->line2, &doesrange,
+! 				   !eap->skip, partial, fudi.fd_dict) == FAIL)
+  	{
+  	    failed = TRUE;
+  	    break;
+--- 3119,3133 ----
+  	    curwin->w_cursor.coladd = 0;
+  	}
+  	arg = startarg;
+! 
+! 	funcexe.argv_func = NULL;
+! 	funcexe.firstline = eap->line1;
+! 	funcexe.lastline = eap->line2;
+! 	funcexe.doesrange = &doesrange;
+! 	funcexe.evaluate = !eap->skip;
+! 	funcexe.partial = partial;
+! 	funcexe.selfdict = fudi.fd_dict;
+! 	if (get_func_tv(name, -1, &rettv, &arg, &funcexe) == FAIL)
+  	{
+  	    failed = TRUE;
+  	    break;
+*** ../vim-8.1.1799/src/proto/userfunc.pro	2019-07-14 15:48:35.245984506 +0200
+--- src/proto/userfunc.pro	2019-08-03 17:58:59.927796597 +0200
+***************
+*** 3,17 ****
+  hashtab_T *func_tbl_get(void);
+  int get_lambda_tv(char_u **arg, typval_T *rettv, int evaluate);
+  char_u *deref_func_name(char_u *name, int *lenp, partial_T **partialp, int no_autoload);
+! int get_func_tv(char_u *name, int len, typval_T *rettv, char_u **arg, linenr_T firstline, linenr_T lastline, int *doesrange, int evaluate, partial_T *partial, dict_T *selfdict);
+  ufunc_T *find_func(char_u *name);
+  void save_funccal(funccal_entry_T *entry);
+  void restore_funccal(void);
+  funccall_T *get_current_funccal(void);
+  void free_all_functions(void);
+  int func_call(char_u *name, typval_T *args, partial_T *partial, dict_T *selfdict, typval_T *rettv);
+! int call_callback(callback_T *callback, int len, typval_T *rettv, int argcount, typval_T *argvars, int (*argv_func)(int, typval_T *, int), linenr_T firstline, linenr_T lastline, int *doesrange, int evaluate, dict_T *selfdict);
+! int call_func(char_u *funcname, int len, typval_T *rettv, int argcount_in, typval_T *argvars_in, int (*argv_func)(int, typval_T *, int), linenr_T firstline, linenr_T lastline, int *doesrange, int evaluate, partial_T *partial, dict_T *selfdict_in);
+  char_u *trans_function_name(char_u **pp, int skip, int flags, funcdict_T *fdp, partial_T **partial);
+  void ex_function(exarg_T *eap);
+  int eval_fname_script(char_u *p);
+--- 3,17 ----
+  hashtab_T *func_tbl_get(void);
+  int get_lambda_tv(char_u **arg, typval_T *rettv, int evaluate);
+  char_u *deref_func_name(char_u *name, int *lenp, partial_T **partialp, int no_autoload);
+! int get_func_tv(char_u *name, int len, typval_T *rettv, char_u **arg, funcexe_T *funcexe);
+  ufunc_T *find_func(char_u *name);
+  void save_funccal(funccal_entry_T *entry);
+  void restore_funccal(void);
+  funccall_T *get_current_funccal(void);
+  void free_all_functions(void);
+  int func_call(char_u *name, typval_T *args, partial_T *partial, dict_T *selfdict, typval_T *rettv);
+! int call_callback(callback_T *callback, int len, typval_T *rettv, int argcount, typval_T *argvars);
+! int call_func(char_u *funcname, int len, typval_T *rettv, int argcount_in, typval_T *argvars_in, funcexe_T *funcexe);
+  char_u *trans_function_name(char_u **pp, int skip, int flags, funcdict_T *fdp, partial_T **partial);
+  void ex_function(exarg_T *eap);
+  int eval_fname_script(char_u *p);
+*** ../vim-8.1.1799/src/list.c	2019-07-27 23:12:08.667924110 +0200
+--- src/list.c	2019-08-03 18:00:57.203096431 +0200
+***************
+*** 1284,1292 ****
+      int		res;
+      typval_T	rettv;
+      typval_T	argv[3];
+-     int		dummy;
+      char_u	*func_name;
+      partial_T	*partial = sortinfo->item_compare_partial;
+  
+      /* shortcut after failure in previous call; compare all items equal */
+      if (sortinfo->item_compare_func_err)
+--- 1284,1292 ----
+      int		res;
+      typval_T	rettv;
+      typval_T	argv[3];
+      char_u	*func_name;
+      partial_T	*partial = sortinfo->item_compare_partial;
++     funcexe_T	funcexe;
+  
+      /* shortcut after failure in previous call; compare all items equal */
+      if (sortinfo->item_compare_func_err)
+***************
+*** 1306,1313 ****
+      copy_tv(&si2->item->li_tv, &argv[1]);
+  
+      rettv.v_type = VAR_UNKNOWN;		/* clear_tv() uses this */
+!     res = call_func(func_name, -1, &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE,
+! 				 partial, sortinfo->item_compare_selfdict);
+      clear_tv(&argv[0]);
+      clear_tv(&argv[1]);
+  
+--- 1306,1316 ----
+      copy_tv(&si2->item->li_tv, &argv[1]);
+  
+      rettv.v_type = VAR_UNKNOWN;		/* clear_tv() uses this */
+!     vim_memset(&funcexe, 0, sizeof(funcexe));
+!     funcexe.evaluate = TRUE;
+!     funcexe.partial = partial;
+!     funcexe.selfdict = sortinfo->item_compare_selfdict;
+!     res = call_func(func_name, -1, &rettv, 2, argv, &funcexe);
+      clear_tv(&argv[0]);
+      clear_tv(&argv[1]);
+  
+*** ../vim-8.1.1799/src/regexp.c	2019-07-20 18:56:02.912744893 +0200
+--- src/regexp.c	2019-08-03 17:57:17.084412944 +0200
+***************
+*** 7416,7446 ****
+  	    if (expr != NULL)
+  	    {
+  		typval_T	argv[2];
+- 		int		dummy;
+  		char_u		buf[NUMBUFLEN];
+  		typval_T	rettv;
+  		staticList10_T	matchList;
+  
+  		rettv.v_type = VAR_STRING;
+  		rettv.vval.v_string = NULL;
+  		argv[0].v_type = VAR_LIST;
+  		argv[0].vval.v_list = &matchList.sl_list;
+  		matchList.sl_list.lv_len = 0;
+  		if (expr->v_type == VAR_FUNC)
+  		{
+  		    s = expr->vval.v_string;
+! 		    call_func(s, -1, &rettv,
+! 				    1, argv, fill_submatch_list,
+! 					 0L, 0L, &dummy, TRUE, NULL, NULL);
+  		}
+  		else if (expr->v_type == VAR_PARTIAL)
+  		{
+  		    partial_T   *partial = expr->vval.v_partial;
+  
+  		    s = partial_name(partial);
+! 		    call_func(s, -1, &rettv,
+! 				    1, argv, fill_submatch_list,
+! 				      0L, 0L, &dummy, TRUE, partial, NULL);
+  		}
+  		if (matchList.sl_list.lv_len > 0)
+  		    /* fill_submatch_list() was called */
+--- 7416,7446 ----
+  	    if (expr != NULL)
+  	    {
+  		typval_T	argv[2];
+  		char_u		buf[NUMBUFLEN];
+  		typval_T	rettv;
+  		staticList10_T	matchList;
++ 		funcexe_T	funcexe;
+  
+  		rettv.v_type = VAR_STRING;
+  		rettv.vval.v_string = NULL;
+  		argv[0].v_type = VAR_LIST;
+  		argv[0].vval.v_list = &matchList.sl_list;
+  		matchList.sl_list.lv_len = 0;
++ 		vim_memset(&funcexe, 0, sizeof(funcexe));
++ 		funcexe.argv_func = fill_submatch_list;
++ 		funcexe.evaluate = TRUE;
+  		if (expr->v_type == VAR_FUNC)
+  		{
+  		    s = expr->vval.v_string;
+! 		    call_func(s, -1, &rettv, 1, argv, &funcexe);
+  		}
+  		else if (expr->v_type == VAR_PARTIAL)
+  		{
+  		    partial_T   *partial = expr->vval.v_partial;
+  
+  		    s = partial_name(partial);
+! 		    funcexe.partial = partial;
+! 		    call_func(s, -1, &rettv, 1, argv, &funcexe);
+  		}
+  		if (matchList.sl_list.lv_len > 0)
+  		    /* fill_submatch_list() was called */
+*** ../vim-8.1.1799/src/terminal.c	2019-06-25 06:50:26.904412884 +0200
+--- src/terminal.c	2019-08-03 17:57:51.348207309 +0200
+***************
+*** 3772,3778 ****
+      char_u	*func;
+      typval_T	argvars[2];
+      typval_T	rettv;
+!     int		doesrange;
+  
+      if (item->li_next == NULL)
+      {
+--- 3772,3778 ----
+      char_u	*func;
+      typval_T	argvars[2];
+      typval_T	rettv;
+!     funcexe_T	funcexe;
+  
+      if (item->li_next == NULL)
+      {
+***************
+*** 3790,3800 ****
+      argvars[0].v_type = VAR_NUMBER;
+      argvars[0].vval.v_number = term->tl_buffer->b_fnum;
+      argvars[1] = item->li_next->li_tv;
+!     if (call_func(func, -1, &rettv,
+! 		2, argvars, /* argv_func */ NULL,
+! 		/* firstline */ 1, /* lastline */ 1,
+! 		&doesrange, /* evaluate */ TRUE,
+! 		/* partial */ NULL, /* selfdict */ NULL) == OK)
+      {
+  	clear_tv(&rettv);
+  	ch_log(channel, "Function %s called", func);
+--- 3790,3800 ----
+      argvars[0].v_type = VAR_NUMBER;
+      argvars[0].vval.v_number = term->tl_buffer->b_fnum;
+      argvars[1] = item->li_next->li_tv;
+!     vim_memset(&funcexe, 0, sizeof(funcexe));
+!     funcexe.firstline = 1L;
+!     funcexe.lastline = 1L;
+!     funcexe.evaluate = TRUE;
+!     if (call_func(func, -1, &rettv, 2, argvars, &funcexe) == OK)
+      {
+  	clear_tv(&rettv);
+  	ch_log(channel, "Function %s called", func);
+*** ../vim-8.1.1799/src/change.c	2019-07-17 22:00:15.591219445 +0200
+--- src/change.c	2019-08-03 17:36:34.548081092 +0200
+***************
+*** 341,347 ****
+  {
+      listener_T	*lnr;
+      typval_T	rettv;
+-     int		dummy;
+      typval_T	argv[6];
+      listitem_T	*li;
+      linenr_T	start = MAXLNUM;
+--- 341,346 ----
+***************
+*** 389,396 ****
+  
+      for (lnr = buf->b_listener; lnr != NULL; lnr = lnr->lr_next)
+      {
+! 	call_callback(&lnr->lr_callback, -1, &rettv,
+! 				    5, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+  	clear_tv(&rettv);
+      }
+  
+--- 388,394 ----
+  
+      for (lnr = buf->b_listener; lnr != NULL; lnr = lnr->lr_next)
+      {
+! 	call_callback(&lnr->lr_callback, -1, &rettv, 5, argv);
+  	clear_tv(&rettv);
+      }
+  
+*** ../vim-8.1.1799/src/ex_cmds2.c	2019-08-03 13:29:43.307352753 +0200
+--- src/ex_cmds2.c	2019-08-03 17:37:07.103899558 +0200
+***************
+*** 110,124 ****
+  timer_callback(timer_T *timer)
+  {
+      typval_T	rettv;
+-     int		dummy;
+      typval_T	argv[2];
+  
+      argv[0].v_type = VAR_NUMBER;
+      argv[0].vval.v_number = (varnumber_T)timer->tr_id;
+      argv[1].v_type = VAR_UNKNOWN;
+  
+!     call_callback(&timer->tr_callback, -1,
+! 			&rettv, 1, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+      clear_tv(&rettv);
+  }
+  
+--- 110,122 ----
+  timer_callback(timer_T *timer)
+  {
+      typval_T	rettv;
+      typval_T	argv[2];
+  
+      argv[0].v_type = VAR_NUMBER;
+      argv[0].vval.v_number = (varnumber_T)timer->tr_id;
+      argv[1].v_type = VAR_UNKNOWN;
+  
+!     call_callback(&timer->tr_callback, -1, &rettv, 1, argv);
+      clear_tv(&rettv);
+  }
+  
+*** ../vim-8.1.1799/src/popupwin.c	2019-08-03 16:18:03.429654593 +0200
+--- src/popupwin.c	2019-08-03 17:37:16.227848622 +0200
+***************
+*** 1673,1679 ****
+  invoke_popup_callback(win_T *wp, typval_T *result)
+  {
+      typval_T	rettv;
+-     int		dummy;
+      typval_T	argv[3];
+  
+      argv[0].v_type = VAR_NUMBER;
+--- 1673,1678 ----
+***************
+*** 1689,1696 ****
+  
+      argv[2].v_type = VAR_UNKNOWN;
+  
+!     call_callback(&wp->w_close_cb, -1,
+! 			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+      if (result != NULL)
+  	clear_tv(&argv[1]);
+      clear_tv(&rettv);
+--- 1688,1694 ----
+  
+      argv[2].v_type = VAR_UNKNOWN;
+  
+!     call_callback(&wp->w_close_cb, -1, &rettv, 2, argv);
+      if (result != NULL)
+  	clear_tv(&argv[1]);
+      clear_tv(&rettv);
+***************
+*** 2455,2461 ****
+  {
+      int		res;
+      typval_T	rettv;
+-     int		dummy;
+      typval_T	argv[3];
+      char_u	buf[NUMBUFLEN];
+      linenr_T	old_lnum = wp->w_cursor.lnum;
+--- 2453,2458 ----
+***************
+*** 2481,2488 ****
+      argv[2].v_type = VAR_UNKNOWN;
+  
+      // NOTE: The callback might close the popup, thus make "wp" invalid.
+!     call_callback(&wp->w_filter_cb, -1,
+! 			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+      if (win_valid_popup(wp) && old_lnum != wp->w_cursor.lnum)
+  	popup_highlight_curline(wp);
+  
+--- 2478,2484 ----
+      argv[2].v_type = VAR_UNKNOWN;
+  
+      // NOTE: The callback might close the popup, thus make "wp" invalid.
+!     call_callback(&wp->w_filter_cb, -1, &rettv, 2, argv);
+      if (win_valid_popup(wp) && old_lnum != wp->w_cursor.lnum)
+  	popup_highlight_curline(wp);
+  
+*** ../vim-8.1.1799/src/channel.c	2019-07-29 22:10:04.309414434 +0200
+--- src/channel.c	2019-08-03 17:37:00.847934457 +0200
+***************
+*** 1633,1639 ****
+  invoke_callback(channel_T *channel, callback_T *callback, typval_T *argv)
+  {
+      typval_T	rettv;
+-     int		dummy;
+  
+      if (safe_to_invoke_callback == 0)
+  	iemsg("INTERNAL: Invoking callback when it is not safe");
+--- 1633,1638 ----
+***************
+*** 1641,1648 ****
+      argv[0].v_type = VAR_CHANNEL;
+      argv[0].vval.v_channel = channel;
+  
+!     call_callback(callback, -1, &rettv, 2, argv, NULL,
+! 						   0L, 0L, &dummy, TRUE, NULL);
+      clear_tv(&rettv);
+      channel_need_redraw = TRUE;
+  }
+--- 1640,1646 ----
+      argv[0].v_type = VAR_CHANNEL;
+      argv[0].vval.v_channel = channel;
+  
+!     call_callback(callback, -1, &rettv, 2, argv);
+      clear_tv(&rettv);
+      channel_need_redraw = TRUE;
+  }
+***************
+*** 3029,3035 ****
+  	{
+  	      typval_T	argv[1];
+  	      typval_T	rettv;
+- 	      int		dummy;
+  
+  	      /* Increment the refcount to avoid the channel being freed
+  	       * halfway. */
+--- 3027,3032 ----
+***************
+*** 3038,3045 ****
+  					 (char *)channel->ch_close_cb.cb_name);
+  	      argv[0].v_type = VAR_CHANNEL;
+  	      argv[0].vval.v_channel = channel;
+! 	      call_callback(&channel->ch_close_cb, -1,
+! 			   &rettv, 1, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+  	      clear_tv(&rettv);
+  	      channel_need_redraw = TRUE;
+  
+--- 3035,3041 ----
+  					 (char *)channel->ch_close_cb.cb_name);
+  	      argv[0].v_type = VAR_CHANNEL;
+  	      argv[0].vval.v_channel = channel;
+! 	      call_callback(&channel->ch_close_cb, -1, &rettv, 1, argv);
+  	      clear_tv(&rettv);
+  	      channel_need_redraw = TRUE;
+  
+***************
+*** 5541,5547 ****
+      {
+  	typval_T	argv[3];
+  	typval_T	rettv;
+- 	int		dummy;
+  
+  	/* Invoke the exit callback. Make sure the refcount is > 0. */
+  	ch_log(job->jv_channel, "Invoking exit callback %s",
+--- 5537,5542 ----
+***************
+*** 5551,5558 ****
+  	argv[0].vval.v_job = job;
+  	argv[1].v_type = VAR_NUMBER;
+  	argv[1].vval.v_number = job->jv_exitval;
+! 	call_callback(&job->jv_exit_cb, -1,
+! 			    &rettv, 2, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+  	clear_tv(&rettv);
+  	--job->jv_refcount;
+  	channel_need_redraw = TRUE;
+--- 5546,5552 ----
+  	argv[0].vval.v_job = job;
+  	argv[1].v_type = VAR_NUMBER;
+  	argv[1].vval.v_number = job->jv_exitval;
+! 	call_callback(&job->jv_exit_cb, -1, &rettv, 2, argv);
+  	clear_tv(&rettv);
+  	--job->jv_refcount;
+  	channel_need_redraw = TRUE;
+***************
+*** 6036,6042 ****
+  invoke_prompt_callback(void)
+  {
+      typval_T	rettv;
+-     int		dummy;
+      typval_T	argv[2];
+      char_u	*text;
+      char_u	*prompt;
+--- 6030,6035 ----
+***************
+*** 6059,6066 ****
+      argv[0].vval.v_string = vim_strsave(text);
+      argv[1].v_type = VAR_UNKNOWN;
+  
+!     call_callback(&curbuf->b_prompt_callback, -1,
+! 	      &rettv, 1, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+      clear_tv(&argv[0]);
+      clear_tv(&rettv);
+  }
+--- 6052,6058 ----
+      argv[0].vval.v_string = vim_strsave(text);
+      argv[1].v_type = VAR_UNKNOWN;
+  
+!     call_callback(&curbuf->b_prompt_callback, -1, &rettv, 1, argv);
+      clear_tv(&argv[0]);
+      clear_tv(&rettv);
+  }
+***************
+*** 6072,6078 ****
+  invoke_prompt_interrupt(void)
+  {
+      typval_T	rettv;
+-     int		dummy;
+      typval_T	argv[1];
+  
+      if (curbuf->b_prompt_interrupt.cb_name == NULL
+--- 6064,6069 ----
+***************
+*** 6081,6088 ****
+      argv[0].v_type = VAR_UNKNOWN;
+  
+      got_int = FALSE; // don't skip executing commands
+!     call_callback(&curbuf->b_prompt_interrupt, -1,
+! 	      &rettv, 0, argv, NULL, 0L, 0L, &dummy, TRUE, NULL);
+      clear_tv(&rettv);
+      return TRUE;
+  }
+--- 6072,6078 ----
+      argv[0].v_type = VAR_UNKNOWN;
+  
+      got_int = FALSE; // don't skip executing commands
+!     call_callback(&curbuf->b_prompt_interrupt, -1, &rettv, 0, argv);
+      clear_tv(&rettv);
+      return TRUE;
+  }
+*** ../vim-8.1.1799/src/version.c	2019-08-03 16:18:03.429654593 +0200
+--- src/version.c	2019-08-03 18:16:54.736764388 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1800,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+18. Your wife drapes a blond wig over your monitor to remind you of what she
+    looks like.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

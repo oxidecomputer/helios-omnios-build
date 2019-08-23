@@ -1,0 +1,165 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1710
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1710
+Problem:    Coverity found dead code.
+Solution:   Remove merging of listener changes.
+Files:	    src/change.c
+
+
+*** ../vim-8.1.1709/src/change.c	2019-07-13 13:02:59.295619066 +0200
+--- src/change.c	2019-07-17 21:58:23.731719352 +0200
+***************
+*** 155,173 ****
+  static long next_listener_id = 0;
+  
+  /*
+!  * Check if the change at "lnum" / "col" is above or overlaps with an existing
+!  * changed. If above then flush changes and invoke listeners.
+!  * If "merge" is TRUE do the merge.
+   * Returns TRUE if the change was merged.
+   */
+      static int
+  check_recorded_changes(
+  	buf_T		*buf,
+  	linenr_T	lnum,
+- 	colnr_T		col,
+  	linenr_T	lnume,
+! 	long		xtra,
+! 	int		merge)
+  {
+      if (buf->b_recorded_changes != NULL && xtra != 0)
+      {
+--- 155,170 ----
+  static long next_listener_id = 0;
+  
+  /*
+!  * Check if the change at "lnum" is above or overlaps with an existing
+!  * change. If above then flush changes and invoke listeners.
+   * Returns TRUE if the change was merged.
+   */
+      static int
+  check_recorded_changes(
+  	buf_T		*buf,
+  	linenr_T	lnum,
+  	linenr_T	lnume,
+! 	long		xtra)
+  {
+      if (buf->b_recorded_changes != NULL && xtra != 0)
+      {
+***************
+*** 182,223 ****
+  				      li->li_tv.vval.v_dict, (char_u *)"lnum");
+  	    prev_lnume = (linenr_T)dict_get_number(
+  				       li->li_tv.vval.v_dict, (char_u *)"end");
+! 	    if (prev_lnum >= lnum || prev_lnum > lnume
+! 		    || (prev_lnume >= lnum && xtra != 0))
+  	    {
+! 		if (li->li_next == NULL && lnum == prev_lnum
+! 			&& xtra == 0
+! 			&& col + 1 == (colnr_T)dict_get_number(
+! 				      li->li_tv.vval.v_dict, (char_u *)"col"))
+! 		{
+! 		    if (merge)
+! 		    {
+! 			dictitem_T	*di;
+! 
+! 			// Same start point and nothing is following, entries
+! 			// can be merged.
+! 			di = dict_find(li->li_tv.vval.v_dict,
+! 							  (char_u *)"end", -1);
+! 			if (di != NULL)
+! 			{
+! 			    prev_lnum = tv_get_number(&di->di_tv);
+! 			    if (lnume > prev_lnum)
+! 				di->di_tv.vval.v_number = lnume;
+! 			}
+! 			di = dict_find(li->li_tv.vval.v_dict,
+! 							(char_u *)"added", -1);
+! 			if (di != NULL)
+! 			    di->di_tv.vval.v_number += xtra;
+! 			return TRUE;
+! 		    }
+! 		}
+! 		else
+! 		{
+! 		    // the current change is going to make the line number in
+! 		    // the older change invalid, flush now
+! 		    invoke_listeners(curbuf);
+! 		    break;
+! 		}
+  	    }
+  	}
+      }
+--- 179,190 ----
+  				      li->li_tv.vval.v_dict, (char_u *)"lnum");
+  	    prev_lnume = (linenr_T)dict_get_number(
+  				       li->li_tv.vval.v_dict, (char_u *)"end");
+! 	    if (prev_lnum >= lnum || prev_lnum > lnume || prev_lnume >= lnum)
+  	    {
+! 		// the current change is going to make the line number in
+! 		// the older change invalid, flush now
+! 		invoke_listeners(curbuf);
+! 		break;
+  	    }
+  	}
+      }
+***************
+*** 242,248 ****
+  
+      // If the new change is going to change the line numbers in already listed
+      // changes, then flush.
+!     if (check_recorded_changes(curbuf, lnum, col, lnume, xtra, TRUE))
+  	return;
+  
+      if (curbuf->b_recorded_changes == NULL)
+--- 209,215 ----
+  
+      // If the new change is going to change the line numbers in already listed
+      // changes, then flush.
+!     if (check_recorded_changes(curbuf, lnum, lnume, xtra))
+  	return;
+  
+      if (curbuf->b_recorded_changes == NULL)
+***************
+*** 362,368 ****
+      void
+  may_invoke_listeners(buf_T *buf, linenr_T lnum, linenr_T lnume, int added)
+  {
+!     check_recorded_changes(buf, lnum, 0, lnume, added, FALSE);
+  }
+  
+  /*
+--- 329,335 ----
+      void
+  may_invoke_listeners(buf_T *buf, linenr_T lnum, linenr_T lnume, int added)
+  {
+!     check_recorded_changes(buf, lnum, lnume, added);
+  }
+  
+  /*
+*** ../vim-8.1.1709/src/version.c	2019-07-17 21:37:28.576734130 +0200
+--- src/version.c	2019-07-17 21:59:06.019530710 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1710,
+  /**/
+
+-- 
+Citizens are not allowed to attend a movie house or theater nor ride in a
+public streetcar within at least four hours after eating garlic.
+		[real standing law in Indiana, United States of America]
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

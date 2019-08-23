@@ -1,0 +1,205 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1623
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1623
+Problem:    Display wrong with signs in narrow number column.
+Solution:   Increase the numbercolumn width if needed. (Yegappan Lakshmanan,
+            closes #4606)
+Files:	    src/option.c, src/screen.c, src/sign.c, src/testdir/test_signs.vim
+
+
+*** ../vim-8.1.1622/src/option.c	2019-07-01 22:05:44.457897080 +0200
+--- src/option.c	2019-07-04 11:52:52.319287679 +0200
+***************
+*** 7454,7464 ****
+  #endif /* FEAT_INS_EXPAND */
+  
+  #ifdef FEAT_SIGNS
+!     /* 'signcolumn' */
+      else if (varp == &curwin->w_p_scl)
+      {
+  	if (check_opt_strings(*varp, p_scl_values, FALSE) != OK)
+  	    errmsg = e_invarg;
+      }
+  #endif
+  
+--- 7454,7470 ----
+  #endif /* FEAT_INS_EXPAND */
+  
+  #ifdef FEAT_SIGNS
+!     // 'signcolumn'
+      else if (varp == &curwin->w_p_scl)
+      {
+  	if (check_opt_strings(*varp, p_scl_values, FALSE) != OK)
+  	    errmsg = e_invarg;
++ 	// When changing the 'signcolumn' to or from 'number', recompute the
++ 	// width of the number column if 'number' or 'relativenumber' is set.
++ 	if (((*oldval == 'n' && *(oldval + 1) == 'u')
++ 		|| (*curwin->w_p_scl == 'n' && *(curwin->w_p_scl + 1) =='u'))
++ 		&& (curwin->w_p_nu || curwin->w_p_rnu))
++ 	    curwin->w_nrwidth_line_count = 0;
+      }
+  #endif
+  
+*** ../vim-8.1.1622/src/screen.c	2019-07-01 22:05:44.457897080 +0200
+--- src/screen.c	2019-07-04 11:50:07.820184623 +0200
+***************
+*** 11333,11338 ****
+--- 11333,11346 ----
+      if (n < wp->w_p_nuw - 1)
+  	n = wp->w_p_nuw - 1;
+  
++ # ifdef FEAT_SIGNS
++     // If 'signcolumn' is set to 'number' and there is a sign to display, then
++     // the minimal width for the number column is 2.
++     if (n < 2 && (wp->w_buffer->b_signlist != NULL)
++ 	    && (*wp->w_p_scl == 'n' && *(wp->w_p_scl + 1) == 'u'))
++ 	n = 2;
++ # endif
++ 
+      wp->w_nrwidth_width = n;
+      wp->w_nuw_cached = wp->w_p_nuw;
+      return n;
+*** ../vim-8.1.1622/src/sign.c	2019-06-29 07:56:26.042876840 +0200
+--- src/sign.c	2019-07-04 11:57:52.069208579 +0200
+***************
+*** 1008,1013 ****
+--- 1008,1027 ----
+  	semsg(_("E155: Unknown sign: %s"), name);
+  }
+  
++     static void
++ may_force_numberwidth_recompute(buf_T *buf, int unplace)
++ {
++     tabpage_T	*tp;
++     win_T		*wp;
++ 
++     FOR_ALL_TAB_WINDOWS(tp, wp)
++ 	if (wp->w_buffer == buf
++ 		&& (wp->w_p_nu || wp->w_p_rnu)
++ 		&& (unplace || wp->w_nrwidth_width < 2)
++ 		&& (*wp->w_p_scl == 'n' && *(wp->w_p_scl + 1) == 'u'))
++ 	    wp->w_nrwidth_line_count = 0;
++ }
++ 
+  /*
+   * Place a sign at the specified file location or update a sign.
+   */
+***************
+*** 1045,1051 ****
+--- 1059,1071 ----
+  	// ":sign place {id} file={fname}": change sign type
+  	lnum = buf_change_sign_type(buf, *sign_id, sign_group, sp->sn_typenr);
+      if (lnum > 0)
++     {
+  	redraw_buf_line_later(buf, lnum);
++ 
++ 	// When displaying signs in the 'number' column, if the width of the
++ 	// number column is less than 2, then force recomputing the width.
++ 	may_force_numberwidth_recompute(buf, FALSE);
++     }
+      else
+      {
+  	semsg(_("E885: Not possible to change sign %s"), sign_name);
+***************
+*** 1080,1085 ****
+--- 1100,1111 ----
+  	    return FAIL;
+      }
+  
++     // When all the signs in a buffer are removed, force recomputing the
++     // number column width (if enabled) in all the windows displaying the
++     // buffer if 'signcolumn' is set to 'number' in that window.
++     if (buf->b_signlist == NULL)
++ 	may_force_numberwidth_recompute(buf, TRUE);
++ 
+      return OK;
+  }
+  
+*** ../vim-8.1.1622/src/testdir/test_signs.vim	2019-06-19 16:31:18.034746591 +0200
+--- src/testdir/test_signs.vim	2019-07-04 11:50:07.820184623 +0200
+***************
+*** 1788,1793 ****
+--- 1788,1843 ----
+    redraw!
+    call assert_equal("=>  1 01234", s:ScreenLine(1, 1, 11))
+  
++   " Test displaying signs in the number column with width 1
++   call sign_unplace('*')
++   call append(1, "abcde")
++   call append(2, "01234")
++   " Enable number column with width 1
++   set number numberwidth=1 signcolumn=auto
++   redraw!
++   call assert_equal("3 01234", s:ScreenLine(3, 1, 7))
++   " Place a sign and make sure number column width remains the same
++   sign place 20 line=2 name=sign1
++   redraw!
++   call assert_equal("=>2 abcde", s:ScreenLine(2, 1, 9))
++   call assert_equal("  3 01234", s:ScreenLine(3, 1, 9))
++   " Set 'signcolumn' to 'number', make sure the number column width increases
++   set signcolumn=number
++   redraw!
++   call assert_equal("=> abcde", s:ScreenLine(2, 1, 8))
++   call assert_equal(" 3 01234", s:ScreenLine(3, 1, 8))
++   " Set 'signcolumn' to 'auto', make sure the number column width is 1.
++   set signcolumn=auto
++   redraw!
++   call assert_equal("=>2 abcde", s:ScreenLine(2, 1, 9))
++   call assert_equal("  3 01234", s:ScreenLine(3, 1, 9))
++   " Set 'signcolumn' to 'number', make sure the number column width is 2.
++   set signcolumn=number
++   redraw!
++   call assert_equal("=> abcde", s:ScreenLine(2, 1, 8))
++   call assert_equal(" 3 01234", s:ScreenLine(3, 1, 8))
++   " Disable 'number' column
++   set nonumber
++   redraw!
++   call assert_equal("=>abcde", s:ScreenLine(2, 1, 7))
++   call assert_equal("  01234", s:ScreenLine(3, 1, 7))
++   " Enable 'number' column
++   set number
++   redraw!
++   call assert_equal("=> abcde", s:ScreenLine(2, 1, 8))
++   call assert_equal(" 3 01234", s:ScreenLine(3, 1, 8))
++   " Remove the sign and make sure the width of the number column is 1.
++   call sign_unplace('', {'id' : 20})
++   redraw!
++   call assert_equal("3 01234", s:ScreenLine(3, 1, 7))
++   " When the first sign is placed with 'signcolumn' set to number, verify that
++   " the number column width increases
++   sign place 30 line=1 name=sign1
++   redraw!
++   call assert_equal("=> 01234", s:ScreenLine(1, 1, 8))
++   call assert_equal(" 2 abcde", s:ScreenLine(2, 1, 8))
++ 
++   sign unplace * group=*
+    sign undefine sign1
+    set signcolumn&
+    set number&
+*** ../vim-8.1.1622/src/version.c	2019-07-03 23:20:14.821113721 +0200
+--- src/version.c	2019-07-04 11:58:54.716704101 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1623,
+  /**/
+
+-- 
+Luxury. We used to have to get out of the lake at three o'clock in the 
+morning, clean the lake, eat a handful of hot gravel, go to work at the 
+mill every day for tuppence a month, come home, and Dad would beat us 
+around the head and neck with a broken bottle, if we were LUCKY!
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

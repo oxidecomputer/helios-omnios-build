@@ -1,0 +1,123 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1473
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1473
+Problem:    New resolve() implementation causes problem for plugins.
+Solution:   Only resolve a resparse point after checking it is needed. (Ken
+            Takata, closes #4492)
+Files:	    src/os_mswin.c, src/testdir/test_functions.vim
+
+
+*** ../vim-8.1.1472/src/os_mswin.c	2019-05-29 20:36:51.502509469 +0200
+--- src/os_mswin.c	2019-06-06 12:21:08.278897691 +0200
+***************
+*** 1753,1758 ****
+--- 1753,1791 ----
+  	DWORD	nFileSystemNameSize);
+  static pfnGetVolumeInformationByHandleW pGetVolumeInformationByHandleW = NULL;
+  
++ # define is_path_sep(c)	    ((c) == L'\\' || (c) == L'/')
++ 
++     static int
++ is_reparse_point_included(LPCWSTR fname)
++ {
++     LPCWSTR	p = fname, q;
++     WCHAR	buf[MAX_PATH];
++     DWORD	attr;
++ 
++     if (isalpha(p[0]) && p[1] == L':' && is_path_sep(p[2]))
++ 	p += 3;
++     else if (is_path_sep(p[0]) && is_path_sep(p[1]))
++ 	p += 2;
++ 
++     while (*p != L'\0')
++     {
++ 	q = wcspbrk(p, L"\\/");
++ 	if (q == NULL)
++ 	    p = q = fname + wcslen(fname);
++ 	else
++ 	    p = q + 1;
++ 	if (q - fname >= MAX_PATH)
++ 	    return FALSE;
++ 	wcsncpy(buf, fname, q - fname);
++ 	buf[q - fname] = L'\0';
++ 	attr = GetFileAttributesW(buf);
++ 	if (attr != INVALID_FILE_ATTRIBUTES
++ 		&& (attr & FILE_ATTRIBUTE_REPARSE_POINT) != 0)
++ 	    return TRUE;
++     }
++     return FALSE;
++ }
++ 
+      static char_u *
+  resolve_reparse_point(char_u *fname)
+  {
+***************
+*** 1787,1792 ****
+--- 1820,1831 ----
+      if (p == NULL)
+  	goto fail;
+  
++     if (!is_reparse_point_included(p))
++     {
++ 	vim_free(p);
++ 	goto fail;
++     }
++ 
+      h = CreateFileW(p, 0, 0, NULL, OPEN_EXISTING,
+  	    FILE_FLAG_BACKUP_SEMANTICS, NULL);
+      vim_free(p);
+*** ../vim-8.1.1472/src/testdir/test_functions.vim	2019-05-29 20:36:51.502509469 +0200
+--- src/testdir/test_functions.vim	2019-06-06 12:21:08.278897691 +0200
+***************
+*** 276,281 ****
+--- 276,282 ----
+    " test for symbolic link to a file
+    new Xfile
+    wq
++   call assert_equal('Xfile', resolve('Xfile'))
+    silent !mklink Xlink Xfile
+    if !v:shell_error
+      call assert_equal(s:normalize_fname(getcwd() . '\Xfile'), s:normalize_fname(resolve('./Xlink')))
+***************
+*** 333,343 ****
+--- 334,347 ----
+  
+    " test for reparse point
+    call mkdir('Xdir')
++   call assert_equal('Xdir', resolve('Xdir'))
+    silent !mklink /D Xdirlink Xdir
+    if !v:shell_error
+      w Xdir/text.txt
++     call assert_equal('Xdir/text.txt', resolve('Xdir/text.txt'))
+      call assert_equal(s:normalize_fname(getcwd() . '\Xdir\text.txt'), s:normalize_fname(resolve('Xdirlink\text.txt')))
+      call assert_equal(s:normalize_fname(getcwd() . '\Xdir'), s:normalize_fname(resolve('Xdirlink')))
++     call delete('Xdirlink')
+    else
+      echomsg 'skipped test for reparse point'
+    endif
+*** ../vim-8.1.1472/src/version.c	2019-06-06 11:59:15.512182778 +0200
+--- src/version.c	2019-06-06 12:21:30.774807116 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1473,
+  /**/
+
+-- 
+From "know your smileys":
+ C=}>;*{)) Drunk, devilish chef with a toupee in an updraft,
+	   a mustache, and a double chin
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

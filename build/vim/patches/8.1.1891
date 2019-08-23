@@ -1,0 +1,2405 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1891
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1891
+Problem:    Functions used in one file are global.
+Solution:   Add "static". (Yegappan Lakshmanan, closes #4840)
+Files:	    src/autocmd.c, src/buffer.c, src/change.c, src/channel.c,
+            src/charset.c, src/dict.c, src/digraph.c, src/eval.c,
+            src/ex_cmds.c, src/ex_eval.c, src/fileio.c, src/findfile.c,
+            src/getchar.c, src/gui.c, src/indent.c, src/json.c, src/list.c,
+            src/mark.c, src/menu.c, src/message.c, src/misc1.c, src/misc2.c,
+            src/ops.c, src/option.c, src/popupwin.c, src/profiler.c,
+            src/proto/autocmd.pro, src/proto/buffer.pro, src/proto/change.pro,
+            src/proto/channel.pro, src/proto/charset.pro, src/proto/dict.pro,
+            src/proto/eval.pro, src/proto/ex_cmds.pro, src/proto/ex_eval.pro,
+            src/proto/fileio.pro, src/proto/findfile.pro,
+            src/proto/getchar.pro, src/proto/gui.pro, src/proto/indent.pro,
+            src/proto/json.pro, src/proto/list.pro, src/proto/mark.pro,
+            src/proto/menu.pro, src/proto/message.pro, src/proto/misc1.pro,
+            src/proto/misc2.pro, src/proto/ops.pro, src/proto/option.pro,
+            src/proto/popupwin.pro, src/proto/profiler.pro,
+            src/proto/quickfix.pro, src/proto/spell.pro, src/proto/term.pro,
+            src/proto/textprop.pro, src/proto/ui.pro, src/proto/undo.pro,
+            src/proto/window.pro, src/quickfix.c, src/regexp.c, src/spell.c,
+            src/term.c, src/textprop.c, src/ui.c, src/undo.c, src/window.c
+
+
+
+*** ../vim-8.1.1890/src/autocmd.c	2019-08-18 22:25:54.657448030 +0200
+--- src/autocmd.c	2019-08-20 20:10:52.547622018 +0200
+***************
+*** 1659,1665 ****
+  /*
+   * Return TRUE when there is a CursorHold autocommand defined.
+   */
+!     int
+  has_cursorhold(void)
+  {
+      return (first_autopat[(int)(get_real_state() == NORMAL_BUSY
+--- 1659,1665 ----
+  /*
+   * Return TRUE when there is a CursorHold autocommand defined.
+   */
+!     static int
+  has_cursorhold(void)
+  {
+      return (first_autopat[(int)(get_real_state() == NORMAL_BUSY
+*** ../vim-8.1.1890/src/buffer.c	2019-08-18 22:25:54.657448030 +0200
+--- src/buffer.c	2019-08-20 20:10:52.551621998 +0200
+***************
+*** 27,32 ****
+--- 27,34 ----
+  
+  #include "vim.h"
+  
++ static void	enter_buffer(buf_T *buf);
++ static void	buflist_getfpos(void);
+  static char_u	*buflist_match(regmatch_T *rmp, buf_T *buf, int ignore_case);
+  static char_u	*fname_match(regmatch_T *rmp, char_u *name, int ignore_case);
+  #ifdef UNIX
+***************
+*** 43,48 ****
+--- 45,54 ----
+  static void	free_buffer(buf_T *);
+  static void	free_buffer_stuff(buf_T *buf, int free_options);
+  static void	clear_wininfo(buf_T *buf);
++ #if defined(FEAT_JOB_CHANNEL) \
++ 	|| defined(FEAT_PYTHON) || defined(FEAT_PYTHON3)
++ static int	find_win_for_buf(buf_T *buf, win_T **wp, tabpage_T **tp);
++ #endif
+  
+  #ifdef UNIX
+  # define dev_T dev_t
+***************
+*** 1705,1711 ****
+   * Old curbuf must have been abandoned already!  This also means "curbuf" may
+   * be pointing to freed memory.
+   */
+!     void
+  enter_buffer(buf_T *buf)
+  {
+      /* Copy buffer and window local option values.  Not for a help buffer. */
+--- 1711,1717 ----
+   * Old curbuf must have been abandoned already!  This also means "curbuf" may
+   * be pointing to freed memory.
+   */
+!     static void
+  enter_buffer(buf_T *buf)
+  {
+      /* Copy buffer and window local option values.  Not for a help buffer. */
+***************
+*** 2355,2361 ****
+  /*
+   * go to the last know line number for the current buffer
+   */
+!     void
+  buflist_getfpos(void)
+  {
+      pos_T	*fpos;
+--- 2361,2367 ----
+  /*
+   * go to the last know line number for the current buffer
+   */
+!     static void
+  buflist_getfpos(void)
+  {
+      pos_T	*fpos;
+***************
+*** 5465,5471 ****
+   * If found OK is returned and "wp" and "tp" are set to the window and tabpage.
+   * If not found FAIL is returned.
+   */
+!     int
+  find_win_for_buf(
+      buf_T     *buf,
+      win_T     **wp,
+--- 5471,5477 ----
+   * If found OK is returned and "wp" and "tp" are set to the window and tabpage.
+   * If not found FAIL is returned.
+   */
+!     static int
+  find_win_for_buf(
+      buf_T     *buf,
+      win_T     **wp,
+*** ../vim-8.1.1890/src/change.c	2019-08-03 18:17:07.684638594 +0200
+--- src/change.c	2019-08-20 20:10:52.551621998 +0200
+***************
+*** 666,672 ****
+   * Like changed_bytes() but also adjust text properties for "added" bytes.
+   * When "added" is negative text was deleted.
+   */
+!     void
+  inserted_bytes(linenr_T lnum, colnr_T col, int added UNUSED)
+  {
+  #ifdef FEAT_TEXT_PROP
+--- 666,672 ----
+   * Like changed_bytes() but also adjust text properties for "added" bytes.
+   * When "added" is negative text was deleted.
+   */
+!     static void
+  inserted_bytes(linenr_T lnum, colnr_T col, int added UNUSED)
+  {
+  #ifdef FEAT_TEXT_PROP
+*** ../vim-8.1.1890/src/channel.c	2019-08-03 18:17:07.684638594 +0200
+--- src/channel.c	2019-08-20 20:10:52.551621998 +0200
+***************
+*** 55,60 ****
+--- 55,68 ----
+  #endif
+  
+  static void channel_read(channel_T *channel, ch_part_T part, char *func);
++ # if defined(MSWIN) || defined(FEAT_GUI_X11) || defined(FEAT_GUI_GTK)
++ static channel_T *channel_fd2channel(sock_T fd, ch_part_T *partp);
++ # endif
++ static ch_mode_T channel_get_mode(channel_T *channel, ch_part_T part);
++ static int channel_get_timeout(channel_T *channel, ch_part_T part);
++ static ch_part_T channel_part_send(channel_T *channel);
++ static ch_part_T channel_part_read(channel_T *channel);
++ static void free_job_options(jobopt_T *opt);
+  
+  /* Whether a redraw is needed for appending a line to a buffer. */
+  static int channel_need_redraw = FALSE;
+***************
+*** 1175,1181 ****
+  /*
+   * Implements ch_open().
+   */
+!     channel_T *
+  channel_open_func(typval_T *argvars)
+  {
+      char_u	*address;
+--- 1183,1189 ----
+  /*
+   * Implements ch_open().
+   */
+!     static channel_T *
+  channel_open_func(typval_T *argvars)
+  {
+      char_u	*address;
+***************
+*** 1348,1354 ****
+  /*
+   * Set the callback for "channel"/"part" for the response with "id".
+   */
+!     void
+  channel_set_req_callback(
+  	channel_T   *channel,
+  	ch_part_T   part,
+--- 1356,1362 ----
+  /*
+   * Set the callback for "channel"/"part" for the response with "id".
+   */
+!     static void
+  channel_set_req_callback(
+  	channel_T   *channel,
+  	ch_part_T   part,
+***************
+*** 2848,2854 ****
+  /*
+   * Return TRUE if "channel" has JSON or other typeahead.
+   */
+!     int
+  channel_has_readahead(channel_T *channel, ch_part_T part)
+  {
+      ch_mode_T	ch_mode = channel->ch_part[part].ch_mode;
+--- 2856,2862 ----
+  /*
+   * Return TRUE if "channel" has JSON or other typeahead.
+   */
+!     static int
+  channel_has_readahead(channel_T *channel, ch_part_T part)
+  {
+      ch_mode_T	ch_mode = channel->ch_part[part].ch_mode;
+***************
+*** 2959,2965 ****
+      dict_add_number(dict, namebuf, chanpart->ch_timeout);
+  }
+  
+!     void
+  channel_info(channel_T *channel, dict_T *dict)
+  {
+      dict_add_number(dict, "id", channel->ch_id);
+--- 2967,2973 ----
+      dict_add_number(dict, namebuf, chanpart->ch_timeout);
+  }
+  
+!     static void
+  channel_info(channel_T *channel, dict_T *dict)
+  {
+      dict_add_number(dict, "id", channel->ch_id);
+***************
+*** 3067,3073 ****
+  /*
+   * Close the "in" part channel "channel".
+   */
+!     void
+  channel_close_in(channel_T *channel)
+  {
+      ch_close_part(channel, PART_IN);
+--- 3075,3081 ----
+  /*
+   * Close the "in" part channel "channel".
+   */
+!     static void
+  channel_close_in(channel_T *channel)
+  {
+      ch_close_part(channel, PART_IN);
+***************
+*** 3676,3682 ****
+  /*
+   * Common for ch_read() and ch_readraw().
+   */
+!     void
+  common_channel_read(typval_T *argvars, typval_T *rettv, int raw, int blob)
+  {
+      channel_T	*channel;
+--- 3684,3690 ----
+  /*
+   * Common for ch_read() and ch_readraw().
+   */
+!     static void
+  common_channel_read(typval_T *argvars, typval_T *rettv, int raw, int blob)
+  {
+      channel_T	*channel;
+***************
+*** 3762,3768 ****
+   * Lookup the channel from the socket.  Set "partp" to the fd index.
+   * Returns NULL when the socket isn't found.
+   */
+!     channel_T *
+  channel_fd2channel(sock_T fd, ch_part_T *partp)
+  {
+      channel_T	*channel;
+--- 3770,3776 ----
+   * Lookup the channel from the socket.  Set "partp" to the fd index.
+   * Returns NULL when the socket isn't found.
+   */
+!     static channel_T *
+  channel_fd2channel(sock_T fd, ch_part_T *partp)
+  {
+      channel_T	*channel;
+***************
+*** 4092,4098 ****
+  /*
+   * common for "ch_evalexpr()" and "ch_sendexpr()"
+   */
+!     void
+  ch_expr_common(typval_T *argvars, typval_T *rettv, int eval)
+  {
+      char_u	*text;
+--- 4100,4106 ----
+  /*
+   * common for "ch_evalexpr()" and "ch_sendexpr()"
+   */
+!     static void
+  ch_expr_common(typval_T *argvars, typval_T *rettv, int eval)
+  {
+      char_u	*text;
+***************
+*** 4154,4160 ****
+  /*
+   * common for "ch_evalraw()" and "ch_sendraw()"
+   */
+!     void
+  ch_raw_common(typval_T *argvars, typval_T *rettv, int eval)
+  {
+      char_u	buf[NUMBUFLEN];
+--- 4162,4168 ----
+  /*
+   * common for "ch_evalraw()" and "ch_sendraw()"
+   */
+!     static void
+  ch_raw_common(typval_T *argvars, typval_T *rettv, int eval)
+  {
+      char_u	buf[NUMBUFLEN];
+***************
+*** 4540,4546 ****
+  /*
+   * Return the "part" to write to for "channel".
+   */
+!     ch_part_T
+  channel_part_send(channel_T *channel)
+  {
+      if (channel->CH_SOCK_FD == INVALID_FD)
+--- 4548,4554 ----
+  /*
+   * Return the "part" to write to for "channel".
+   */
+!     static ch_part_T
+  channel_part_send(channel_T *channel)
+  {
+      if (channel->CH_SOCK_FD == INVALID_FD)
+***************
+*** 4551,4557 ****
+  /*
+   * Return the default "part" to read from for "channel".
+   */
+!     ch_part_T
+  channel_part_read(channel_T *channel)
+  {
+      if (channel->CH_SOCK_FD == INVALID_FD)
+--- 4559,4565 ----
+  /*
+   * Return the default "part" to read from for "channel".
+   */
+!     static ch_part_T
+  channel_part_read(channel_T *channel)
+  {
+      if (channel->CH_SOCK_FD == INVALID_FD)
+***************
+*** 4563,4569 ****
+   * Return the mode of "channel"/"part"
+   * If "channel" is invalid returns MODE_JSON.
+   */
+!     ch_mode_T
+  channel_get_mode(channel_T *channel, ch_part_T part)
+  {
+      if (channel == NULL)
+--- 4571,4577 ----
+   * Return the mode of "channel"/"part"
+   * If "channel" is invalid returns MODE_JSON.
+   */
+!     static ch_mode_T
+  channel_get_mode(channel_T *channel, ch_part_T part)
+  {
+      if (channel == NULL)
+***************
+*** 4574,4580 ****
+  /*
+   * Return the timeout of "channel"/"part"
+   */
+!     int
+  channel_get_timeout(channel_T *channel, ch_part_T part)
+  {
+      return channel->ch_part[part].ch_timeout;
+--- 4582,4588 ----
+  /*
+   * Return the timeout of "channel"/"part"
+   */
+!     static int
+  channel_get_timeout(channel_T *channel, ch_part_T part)
+  {
+      return channel->ch_part[part].ch_timeout;
+***************
+*** 4638,4644 ****
+  /*
+   * Free any members of a jobopt_T.
+   */
+!     void
+  free_job_options(jobopt_T *opt)
+  {
+      if (opt->jo_callback.cb_partial != NULL)
+--- 4646,4652 ----
+  /*
+   * Free any members of a jobopt_T.
+   */
+!     static void
+  free_job_options(jobopt_T *opt)
+  {
+      if (opt->jo_callback.cb_partial != NULL)
+***************
+*** 5309,5315 ****
+      }
+  }
+  
+! job_T *jobs_to_free = NULL;
+  
+  /*
+   * Put "job" in a list to be freed later, when it's no longer referenced.
+--- 5317,5323 ----
+      }
+  }
+  
+! static job_T *jobs_to_free = NULL;
+  
+  /*
+   * Put "job" in a list to be freed later, when it's no longer referenced.
+*** ../vim-8.1.1890/src/charset.c	2019-05-27 22:01:36.867921015 +0200
+--- src/charset.c	2019-08-20 20:10:52.551621998 +0200
+***************
+*** 35,40 ****
+--- 35,42 ----
+  #define CT_ID_CHAR	0x20	/* flag: set for ID chars */
+  #define CT_FNAME_CHAR	0x40	/* flag: set for file name chars */
+  
++ static int in_win_border(win_T *wp, colnr_T vcol);
++ 
+  /*
+   * Fill g_chartab[].  Also fills curbuf->b_chartab[] with flags for keyword
+   * characters for current buffer.
+***************
+*** 1174,1180 ****
+   * Return TRUE if virtual column "vcol" is in the rightmost column of window
+   * "wp".
+   */
+!     int
+  in_win_border(win_T *wp, colnr_T vcol)
+  {
+      int		width1;		/* width of first line (after line number) */
+--- 1176,1182 ----
+   * Return TRUE if virtual column "vcol" is in the rightmost column of window
+   * "wp".
+   */
+!     static int
+  in_win_border(win_T *wp, colnr_T vcol)
+  {
+      int		width1;		/* width of first line (after line number) */
+*** ../vim-8.1.1890/src/dict.c	2019-08-07 21:42:20.864526991 +0200
+--- src/dict.c	2019-08-20 20:10:52.551621998 +0200
+***************
+*** 957,963 ****
+   * "what" == 1: list of values
+   * "what" == 2: list of items
+   */
+!     void
+  dict_list(typval_T *argvars, typval_T *rettv, int what)
+  {
+      list_T	*l2;
+--- 957,963 ----
+   * "what" == 1: list of values
+   * "what" == 2: list of items
+   */
+!     static void
+  dict_list(typval_T *argvars, typval_T *rettv, int what)
+  {
+      list_T	*l2;
+*** ../vim-8.1.1890/src/digraph.c	2019-06-25 04:12:12.304665282 +0200
+--- src/digraph.c	2019-08-20 20:10:52.551621998 +0200
+***************
+*** 2180,2186 ****
+  			       wrong, in which case we messed up ScreenLines */
+  }
+  
+! struct dg_header_entry {
+      int	    dg_start;
+      char    *dg_header;
+  } header_table[] = {
+--- 2180,2186 ----
+  			       wrong, in which case we messed up ScreenLines */
+  }
+  
+! static struct dg_header_entry {
+      int	    dg_start;
+      char    *dg_header;
+  } header_table[] = {
+*** ../vim-8.1.1890/src/eval.c	2019-08-18 22:25:54.657448030 +0200
+--- src/eval.c	2019-08-20 20:10:52.551621998 +0200
+***************
+*** 248,254 ****
+  static int free_unref_items(int copyID);
+  static int get_env_tv(char_u **arg, typval_T *rettv, int evaluate);
+  static int get_env_len(char_u **arg);
+! static char_u * make_expanded_name(char_u *in_start, char_u *expr_start, char_u *expr_end, char_u *in_end);
+  static void check_vars(char_u *name, int len);
+  static typval_T *alloc_string_tv(char_u *string);
+  static void delete_var(hashtab_T *ht, hashitem_T *hi);
+--- 248,256 ----
+  static int free_unref_items(int copyID);
+  static int get_env_tv(char_u **arg, typval_T *rettv, int evaluate);
+  static int get_env_len(char_u **arg);
+! static int get_name_len(char_u **arg, char_u **alias, int evaluate, int verbose);
+! static char_u *make_expanded_name(char_u *in_start, char_u *expr_start, char_u *expr_end, char_u *in_end);
+! static int get_var_tv(char_u *name, int len, typval_T *rettv, dictitem_T **dip, int verbose, int no_autoload);
+  static void check_vars(char_u *name, int len);
+  static typval_T *alloc_string_tv(char_u *string);
+  static void delete_var(hashtab_T *ht, hashitem_T *hi);
+***************
+*** 6924,6930 ****
+   * If the name contains 'magic' {}'s, expand them and return the
+   * expanded name in an allocated string via 'alias' - caller must free.
+   */
+!     int
+  get_name_len(
+      char_u	**arg,
+      char_u	**alias,
+--- 6926,6932 ----
+   * If the name contains 'magic' {}'s, expand them and return the
+   * expanded name in an allocated string via 'alias' - caller must free.
+   */
+!     static int
+  get_name_len(
+      char_u	**arg,
+      char_u	**alias,
+***************
+*** 7453,7459 ****
+   * Get the value of internal variable "name".
+   * Return OK or FAIL.  If OK is returned "rettv" must be cleared.
+   */
+!     int
+  get_var_tv(
+      char_u	*name,
+      int		len,		/* length of "name" */
+--- 7455,7461 ----
+   * Get the value of internal variable "name".
+   * Return OK or FAIL.  If OK is returned "rettv" must be cleared.
+   */
+!     static int
+  get_var_tv(
+      char_u	*name,
+      int		len,		/* length of "name" */
+***************
+*** 8014,8020 ****
+   * Turn a typeval into a string.  Similar to tv_get_string_buf() but uses
+   * string() on Dict, List, etc.
+   */
+!     char_u *
+  tv_stringify(typval_T *varp, char_u *buf)
+  {
+      if (varp->v_type == VAR_LIST
+--- 8016,8022 ----
+   * Turn a typeval into a string.  Similar to tv_get_string_buf() but uses
+   * string() on Dict, List, etc.
+   */
+!     static char_u *
+  tv_stringify(typval_T *varp, char_u *buf)
+  {
+      if (varp->v_type == VAR_LIST
+*** ../vim-8.1.1890/src/ex_cmds.c	2019-08-18 15:24:23.197608923 +0200
+--- src/ex_cmds.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 20,26 ****
+  
+  static int linelen(int *has_tab);
+  static void do_filter(linenr_T line1, linenr_T line2, exarg_T *eap, char_u *cmd, int do_in, int do_out);
+! 
+  static int check_readonly(int *forceit, buf_T *buf);
+  static void delbuf_msg(char_u *name);
+  static int help_compare(const void *s1, const void *s2);
+--- 20,26 ----
+  
+  static int linelen(int *has_tab);
+  static void do_filter(linenr_T line1, linenr_T line2, exarg_T *eap, char_u *cmd, int do_in, int do_out);
+! static int not_writing(void);
+  static int check_readonly(int *forceit, buf_T *buf);
+  static void delbuf_msg(char_u *name);
+  static int help_compare(const void *s1, const void *s2);
+***************
+*** 2456,2462 ****
+   * Check the 'write' option.
+   * Return TRUE and give a message when it's not set.
+   */
+!     int
+  not_writing(void)
+  {
+      if (p_write)
+--- 2456,2462 ----
+   * Check the 'write' option.
+   * Return TRUE and give a message when it's not set.
+   */
+!     static int
+  not_writing(void)
+  {
+      if (p_write)
+*** ../vim-8.1.1890/src/ex_eval.c	2019-08-04 15:03:33.367303750 +0200
+--- src/ex_eval.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 839,845 ****
+   * If something pending in a finally clause is resumed at the ":endtry", report
+   * it if required by the 'verbose' option or when debugging.
+   */
+!     void
+  report_resume_pending(int pending, void *value)
+  {
+      if (p_verbose >= 14 || debug_break_level > 0)
+--- 839,845 ----
+   * If something pending in a finally clause is resumed at the ":endtry", report
+   * it if required by the 'verbose' option or when debugging.
+   */
+!     static void
+  report_resume_pending(int pending, void *value)
+  {
+      if (p_verbose >= 14 || debug_break_level > 0)
+***************
+*** 856,862 ****
+   * If something pending in a finally clause is discarded, report it if required
+   * by the 'verbose' option or when debugging.
+   */
+!     void
+  report_discard_pending(int pending, void *value)
+  {
+      if (p_verbose >= 14 || debug_break_level > 0)
+--- 856,862 ----
+   * If something pending in a finally clause is discarded, report it if required
+   * by the 'verbose' option or when debugging.
+   */
+!     static void
+  report_discard_pending(int pending, void *value)
+  {
+      if (p_verbose >= 14 || debug_break_level > 0)
+*** ../vim-8.1.1890/src/fileio.c	2019-08-13 00:18:20.557854599 +0200
+--- src/fileio.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 111,117 ****
+  #endif
+  static char *e_auchangedbuf = N_("E812: Autocommands changed buffer or buffer name");
+  
+!     void
+  filemess(
+      buf_T	*buf,
+      char_u	*name,
+--- 111,117 ----
+  #endif
+  static char *e_auchangedbuf = N_("E812: Autocommands changed buffer or buffer name");
+  
+!     static void
+  filemess(
+      buf_T	*buf,
+      char_u	*name,
+*** ../vim-8.1.1890/src/findfile.c	2019-05-28 23:08:12.060648736 +0200
+--- src/findfile.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 188,193 ****
+--- 188,194 ----
+  #else
+  static int ff_check_visited(ff_visited_T **, char_u *);
+  #endif
++ static void vim_findfile_free_visited(void *search_ctx_arg);
+  static void vim_findfile_free_visited_list(ff_visited_list_hdr_T **list_headp);
+  static void ff_free_visited_list(ff_visited_T *vl);
+  static ff_visited_list_hdr_T* ff_get_visited_list(char_u *, ff_visited_list_hdr_T **list_headp);
+***************
+*** 1186,1192 ****
+   * Free the list of lists of visited files and directories
+   * Can handle it if the passed search_context is NULL;
+   */
+!     void
+  vim_findfile_free_visited(void *search_ctx_arg)
+  {
+      ff_search_ctx_T *search_ctx;
+--- 1187,1193 ----
+   * Free the list of lists of visited files and directories
+   * Can handle it if the passed search_context is NULL;
+   */
+!     static void
+  vim_findfile_free_visited(void *search_ctx_arg)
+  {
+      ff_search_ctx_T *search_ctx;
+*** ../vim-8.1.1890/src/getchar.c	2019-08-08 20:49:10.767344321 +0200
+--- src/getchar.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 91,97 ****
+--- 91,99 ----
+  static int	read_readbuf(buffheader_T *buf, int advance);
+  static void	init_typebuf(void);
+  static void	may_sync_undo(void);
++ static void	free_typebuf(void);
+  static void	closescript(void);
++ static void	updatescript(int c);
+  static int	vgetorpeek(int);
+  static int	inchar(char_u *buf, int maxlen, long wait_time);
+  
+***************
+*** 1263,1269 ****
+   * Make "typebuf" empty and allocate new buffers.
+   * Returns FAIL when out of memory.
+   */
+!     int
+  alloc_typebuf(void)
+  {
+      typebuf.tb_buf = alloc(TYPELEN_INIT);
+--- 1265,1271 ----
+   * Make "typebuf" empty and allocate new buffers.
+   * Returns FAIL when out of memory.
+   */
+!     static int
+  alloc_typebuf(void)
+  {
+      typebuf.tb_buf = alloc(TYPELEN_INIT);
+***************
+*** 1287,1293 ****
+  /*
+   * Free the buffers of "typebuf".
+   */
+!     void
+  free_typebuf(void)
+  {
+      if (typebuf.tb_buf == typebuf_init)
+--- 1289,1295 ----
+  /*
+   * Free the buffers of "typebuf".
+   */
+!     static void
+  free_typebuf(void)
+  {
+      if (typebuf.tb_buf == typebuf_init)
+***************
+*** 1511,1517 ****
+   * All the changed memfiles are synced if c == 0 or when the number of typed
+   * characters reaches 'updatecount' and 'updatecount' is non-zero.
+   */
+!     void
+  updatescript(int c)
+  {
+      static int	    count = 0;
+--- 1513,1519 ----
+   * All the changed memfiles are synced if c == 0 or when the number of typed
+   * characters reaches 'updatecount' and 'updatecount' is non-zero.
+   */
+!     static void
+  updatescript(int c)
+  {
+      static int	    count = 0;
+*** ../vim-8.1.1890/src/gui.c	2019-07-16 20:12:41.461172432 +0200
+--- src/gui.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 17,26 ****
+--- 17,29 ----
+  static void set_guifontwide(char_u *font_name);
+  #endif
+  static void gui_check_pos(void);
++ static void gui_reset_scroll_region(void);
+  static void gui_outstr(char_u *, int);
+  static int gui_screenchar(int off, int flags, guicolor_T fg, guicolor_T bg, int back);
++ static int gui_outstr_nowrap(char_u *s, int len, int flags, guicolor_T fg, guicolor_T bg, int back);
+  static void gui_delete_lines(int row, int count);
+  static void gui_insert_lines(int row, int count);
++ static int gui_xy2colrow(int x, int y, int *colp);
+  #if defined(FEAT_GUI_TABLINE) || defined(PROTO)
+  static int gui_has_tabline(void);
+  #endif
+***************
+*** 1050,1056 ****
+      return OK;
+  }
+  
+!     void
+  gui_set_cursor(int row, int col)
+  {
+      gui.row = row;
+--- 1053,1059 ----
+      return OK;
+  }
+  
+!     static void
+  gui_set_cursor(int row, int col)
+  {
+      gui.row = row;
+***************
+*** 1713,1719 ****
+  /*
+   * Make scroll region cover whole screen.
+   */
+!     void
+  gui_reset_scroll_region(void)
+  {
+      gui.scroll_region_top = 0;
+--- 1716,1722 ----
+  /*
+   * Make scroll region cover whole screen.
+   */
+!     static void
+  gui_reset_scroll_region(void)
+  {
+      gui.scroll_region_top = 0;
+***************
+*** 1722,1728 ****
+      gui.scroll_region_right = gui.num_cols - 1;
+  }
+  
+!     void
+  gui_start_highlight(int mask)
+  {
+      if (mask > HL_ALL)		    /* highlight code */
+--- 1725,1731 ----
+      gui.scroll_region_right = gui.num_cols - 1;
+  }
+  
+!     static void
+  gui_start_highlight(int mask)
+  {
+      if (mask > HL_ALL)		    /* highlight code */
+***************
+*** 2227,2233 ****
+   * Returns OK, unless "back" is non-zero and using the bold trick, then return
+   * FAIL (the caller should start drawing "back" chars back).
+   */
+!     int
+  gui_outstr_nowrap(
+      char_u	*s,
+      int		len,
+--- 2230,2236 ----
+   * Returns OK, unless "back" is non-zero and using the bold trick, then return
+   * FAIL (the caller should start drawing "back" chars back).
+   */
+!     static int
+  gui_outstr_nowrap(
+      char_u	*s,
+      int		len,
+***************
+*** 3380,3386 ****
+   * Corrects for multi-byte character.
+   * returns column in "*colp" and row as return value;
+   */
+!     int
+  gui_xy2colrow(int x, int y, int *colp)
+  {
+      int		col = check_col(X_2_COL(x));
+--- 3383,3389 ----
+   * Corrects for multi-byte character.
+   * returns column in "*colp" and row as return value;
+   */
+!     static int
+  gui_xy2colrow(int x, int y, int *colp)
+  {
+      int		col = check_col(X_2_COL(x));
+*** ../vim-8.1.1890/src/indent.c	2019-05-24 18:48:36.762128482 +0200
+--- src/indent.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 15,20 ****
+--- 15,23 ----
+  
+  #if defined(FEAT_CINDENT) || defined(FEAT_SMARTINDENT)
+  
++ static int cin_iscase(char_u *s, int strict);
++ static int cin_isscopedecl(char_u *s);
++ 
+  /*
+   * Return TRUE if the string "line" starts with a word from 'cinwords'.
+   */
+***************
+*** 408,414 ****
+   * Recognize a label: "label:".
+   * Note: curwin->w_cursor must be where we are looking for the label.
+   */
+!     int
+  cin_islabel(void)		// XXX
+  {
+      char_u	*s;
+--- 411,417 ----
+   * Recognize a label: "label:".
+   * Note: curwin->w_cursor must be where we are looking for the label.
+   */
+!     static int
+  cin_islabel(void)		// XXX
+  {
+      char_u	*s;
+***************
+*** 507,513 ****
+  /*
+   * Recognize a switch label: "case .*:" or "default:".
+   */
+!      int
+  cin_iscase(
+      char_u *s,
+      int strict) // Allow relaxed check of case statement for JS
+--- 510,516 ----
+  /*
+   * Recognize a switch label: "case .*:" or "default:".
+   */
+!      static int
+  cin_iscase(
+      char_u *s,
+      int strict) // Allow relaxed check of case statement for JS
+***************
+*** 560,566 ****
+  /*
+   * Recognize a "public/private/protected" scope declaration label.
+   */
+!     int
+  cin_isscopedecl(char_u *s)
+  {
+      int		i;
+--- 563,569 ----
+  /*
+   * Recognize a "public/private/protected" scope declaration label.
+   */
+!     static int
+  cin_isscopedecl(char_u *s)
+  {
+      int		i;
+*** ../vim-8.1.1890/src/json.c	2019-07-22 23:16:28.939443646 +0200
+--- src/json.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 1056,1062 ****
+   * "options" can be JSON_JS or zero;
+   * Return FAIL if not the whole message was consumed.
+   */
+!     int
+  json_decode_all(js_read_T *reader, typval_T *res, int options)
+  {
+      int ret;
+--- 1056,1062 ----
+   * "options" can be JSON_JS or zero;
+   * Return FAIL if not the whole message was consumed.
+   */
+!     static int
+  json_decode_all(js_read_T *reader, typval_T *res, int options)
+  {
+      int ret;
+*** ../vim-8.1.1890/src/list.c	2019-08-03 18:17:07.680638632 +0200
+--- src/list.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 53,59 ****
+   * Just before removing an item from a list: advance watchers to the next
+   * item.
+   */
+!     void
+  list_fix_watch(list_T *l, listitem_T *item)
+  {
+      listwatch_T	*lw;
+--- 53,59 ----
+   * Just before removing an item from a list: advance watchers to the next
+   * item.
+   */
+!     static void
+  list_fix_watch(list_T *l, listitem_T *item)
+  {
+      listwatch_T	*lw;
+*** ../vim-8.1.1890/src/mark.c	2019-07-22 20:18:22.338308949 +0200
+--- src/mark.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 26,31 ****
+--- 26,32 ----
+   */
+  static xfmark_T namedfm[NMARKS + EXTRA_MARKS];		/* marks with file nr */
+  
++ static void fname2fnum(xfmark_T *fm);
+  static void fmarks_check_one(xfmark_T *fm, char_u *name, buf_T *buf);
+  static char_u *mark_line(pos_T *mp, int lead_len);
+  static void show_one_mark(int, char_u *, pos_T *, char_u *, int current);
+***************
+*** 509,515 ****
+   * This is used for marks obtained from the .viminfo file.  It's postponed
+   * until the mark is used to avoid a long startup delay.
+   */
+!     void
+  fname2fnum(xfmark_T *fm)
+  {
+      char_u	*p;
+--- 510,516 ----
+   * This is used for marks obtained from the .viminfo file.  It's postponed
+   * until the mark is used to avoid a long startup delay.
+   */
+!     static void
+  fname2fnum(xfmark_T *fm)
+  {
+      char_u	*p;
+*** ../vim-8.1.1890/src/menu.c	2019-08-18 22:25:54.665447991 +0200
+--- src/menu.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 29,34 ****
+--- 29,35 ----
+  static void free_menu_string(vimmenu_T *, int);
+  static int show_menus(char_u *, int);
+  static void show_menus_recursive(vimmenu_T *, int, int);
++ static char_u *menu_name_skip(char_u *name);
+  static int menu_name_equal(char_u *name, vimmenu_T *menu);
+  static int menu_namecmp(char_u *name, char_u *mname);
+  static int get_menu_cmd_modes(char_u *, int, int *, int *);
+***************
+*** 1557,1563 ****
+   * element.  Any \ and ^Vs are removed from the current element.
+   * "name" may be modified.
+   */
+!     char_u *
+  menu_name_skip(char_u *name)
+  {
+      char_u  *p;
+--- 1558,1564 ----
+   * element.  Any \ and ^Vs are removed from the current element.
+   * "name" may be modified.
+   */
+!     static char_u *
+  menu_name_skip(char_u *name)
+  {
+      char_u  *p;
+*** ../vim-8.1.1890/src/message.c	2019-07-04 17:35:01.115169990 +0200
+--- src/message.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 28,33 ****
+--- 28,34 ----
+  static void msg_puts_printf(char_u *str, int maxlen);
+  static int do_more_prompt(int typed_char);
+  static void msg_screen_putchar(int c, int attr);
++ static void msg_moremsg(int full);
+  static int  msg_check_screen(void);
+  static void redir_write(char_u *s, int maxlen);
+  #ifdef FEAT_CON_DIALOG
+***************
+*** 35,40 ****
+--- 36,42 ----
+  static int	confirm_msg_used = FALSE;	/* displaying confirm_msg */
+  static char_u	*confirm_msg = NULL;		/* ":confirm" message */
+  static char_u	*confirm_msg_tail;		/* tail of confirm_msg */
++ static void display_confirm_msg(void);
+  #endif
+  #ifdef FEAT_JOB_CHANNEL
+  static int emsg_to_channel_log = FALSE;
+***************
+*** 513,519 ****
+   * If "msg" is in 'debug': do error message but without side effects.
+   * If "emsg_skip" is set: never do error messages.
+   */
+!     int
+  emsg_not_now(void)
+  {
+      if ((emsg_off > 0 && vim_strchr(p_debug, 'm') == NULL
+--- 515,521 ----
+   * If "msg" is in 'debug': do error message but without side effects.
+   * If "emsg_skip" is set: never do error messages.
+   */
+!     static int
+  emsg_not_now(void)
+  {
+      if ((emsg_off > 0 && vim_strchr(p_debug, 'm') == NULL
+***************
+*** 1930,1942 ****
+   * part in the middle and replace it with "..." when necessary.
+   * Does not handle multi-byte characters!
+   */
+!     void
+! msg_outtrans_long_attr(char_u *longstr, int attr)
+! {
+!     msg_outtrans_long_len_attr(longstr, (int)STRLEN(longstr), attr);
+! }
+! 
+!     void
+  msg_outtrans_long_len_attr(char_u *longstr, int len, int attr)
+  {
+      int		slen = len;
+--- 1932,1938 ----
+   * part in the middle and replace it with "..." when necessary.
+   * Does not handle multi-byte characters!
+   */
+!     static void
+  msg_outtrans_long_len_attr(char_u *longstr, int len, int attr)
+  {
+      int		slen = len;
+***************
+*** 1952,1957 ****
+--- 1948,1959 ----
+      msg_outtrans_len_attr(longstr + len - slen, slen, attr);
+  }
+  
++     void
++ msg_outtrans_long_attr(char_u *longstr, int attr)
++ {
++     msg_outtrans_long_len_attr(longstr, (int)STRLEN(longstr), attr);
++ }
++ 
+  /*
+   * Basic function for writing a message with highlight attributes.
+   */
+***************
+*** 3141,3147 ****
+      }
+  }
+  
+!     void
+  msg_moremsg(int full)
+  {
+      int		attr;
+--- 3143,3149 ----
+      }
+  }
+  
+!     static void
+  msg_moremsg(int full)
+  {
+      int		attr;
+***************
+*** 3882,3888 ****
+  /*
+   * Display the ":confirm" message.  Also called when screen resized.
+   */
+!     void
+  display_confirm_msg(void)
+  {
+      /* avoid that 'q' at the more prompt truncates the message here */
+--- 3884,3890 ----
+  /*
+   * Display the ":confirm" message.  Also called when screen resized.
+   */
+!     static void
+  display_confirm_msg(void)
+  {
+      /* avoid that 'q' at the more prompt truncates the message here */
+*** ../vim-8.1.1890/src/misc1.c	2019-08-18 22:25:54.665447991 +0200
+--- src/misc1.c	2019-08-20 20:10:52.555621979 +0200
+***************
+*** 3082,3088 ****
+      return new_fname;
+  }
+  
+!     void
+  prepare_to_exit(void)
+  {
+  #if defined(SIGHUP) && defined(SIG_IGN)
+--- 3082,3088 ----
+      return new_fname;
+  }
+  
+!     static void
+  prepare_to_exit(void)
+  {
+  #if defined(SIGHUP) && defined(SIG_IGN)
+*** ../vim-8.1.1890/src/misc2.c	2019-08-18 22:25:54.665447991 +0200
+--- src/misc2.c	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 2530,2536 ****
+   * Return the modifier mask bit (MOD_MASK_*) which corresponds to the given
+   * modifier name ('S' for Shift, 'C' for Ctrl etc).
+   */
+!     int
+  name_to_mod_mask(int c)
+  {
+      int	    i;
+--- 2530,2536 ----
+   * Return the modifier mask bit (MOD_MASK_*) which corresponds to the given
+   * modifier name ('S' for Shift, 'C' for Ctrl etc).
+   */
+!     static int
+  name_to_mod_mask(int c)
+  {
+      int	    i;
+*** ../vim-8.1.1890/src/ops.c	2019-08-06 21:59:37.759982504 +0200
+--- src/ops.c	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 65,70 ****
+--- 65,73 ----
+  static void	copy_yank_reg(yankreg_T *reg);
+  static void	may_set_selection(void);
+  #endif
++ #if defined(FEAT_SMARTINDENT) || defined(FEAT_CINDENT)
++ static int	preprocs_left(void);
++ #endif
+  static void	dis_msg(char_u *p, int skip_esc);
+  static void	block_prep(oparg_T *oap, struct block_def *, linenr_T, int);
+  static int	do_addsub(int op_type, pos_T *pos, int length, linenr_T Prenum1);
+***************
+*** 830,836 ****
+  /*
+   * Get the '=' register expression itself, without evaluating it.
+   */
+!     char_u *
+  get_expr_line_src(void)
+  {
+      if (expr_line == NULL)
+--- 833,839 ----
+  /*
+   * Get the '=' register expression itself, without evaluating it.
+   */
+!     static char_u *
+  get_expr_line_src(void)
+  {
+      if (expr_line == NULL)
+***************
+*** 4088,4094 ****
+  /*
+   * Return TRUE if lines starting with '#' should be left aligned.
+   */
+!     int
+  preprocs_left(void)
+  {
+      return
+--- 4091,4097 ----
+  /*
+   * Return TRUE if lines starting with '#' should be left aligned.
+   */
+!     static int
+  preprocs_left(void)
+  {
+      return
+*** ../vim-8.1.1890/src/option.c	2019-08-18 22:25:54.665447991 +0200
+--- src/option.c	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 3277,3282 ****
+--- 3277,3285 ----
+  static void set_string_option_global(int opt_idx, char_u **varp);
+  static char *did_set_string_option(int opt_idx, char_u **varp, int new_value_alloced, char_u *oldval, char *errbuf, int opt_flags, int *value_checked);
+  static char *set_chars_option(char_u **varp);
++ #ifdef FEAT_STL_OPT
++ static char *check_stl_option(char_u *s);
++ #endif
+  #ifdef FEAT_CLIPBOARD
+  static char *check_clipboard_option(void);
+  #endif
+***************
+*** 3301,3306 ****
+--- 3304,3310 ----
+  static int  istermoption(struct vimoption *);
+  static char_u *get_varp_scope(struct vimoption *p, int opt_flags);
+  static char_u *get_varp(struct vimoption *);
++ static void check_win_options(win_T *win);
+  static void option_value2string(struct vimoption *, int opt_flags);
+  static void check_winopt(winopt_T *wop);
+  static int wc_use_keyname(char_u *varp, long *wcp);
+***************
+*** 8246,8252 ****
+   * Check validity of options with the 'statusline' format.
+   * Return error message or NULL.
+   */
+!     char *
+  check_stl_option(char_u *s)
+  {
+      int		itemcnt = 0;
+--- 8250,8256 ----
+   * Check validity of options with the 'statusline' format.
+   * Return error message or NULL.
+   */
+!     static char *
+  check_stl_option(char_u *s)
+  {
+      int		itemcnt = 0;
+***************
+*** 11430,11436 ****
+  /*
+   * Check string options in a window for a NULL value.
+   */
+!     void
+  check_win_options(win_T *win)
+  {
+      check_winopt(&win->w_onebuf_opt);
+--- 11434,11440 ----
+  /*
+   * Check string options in a window for a NULL value.
+   */
+!     static void
+  check_win_options(win_T *win)
+  {
+      check_winopt(&win->w_onebuf_opt);
+***************
+*** 13341,13361 ****
+  }
+  
+  /*
+-  * Idem, using the first non-black in the current line.
+-  */
+-     long
+- get_sw_value_indent(buf_T *buf)
+- {
+-     pos_T pos = curwin->w_cursor;
+- 
+-     pos.col = getwhitecols_curline();
+-     return get_sw_value_pos(buf, &pos);
+- }
+- 
+- /*
+   * Idem, using "pos".
+   */
+!     long
+  get_sw_value_pos(buf_T *buf, pos_T *pos)
+  {
+      pos_T save_cursor = curwin->w_cursor;
+--- 13345,13353 ----
+  }
+  
+  /*
+   * Idem, using "pos".
+   */
+!     static long
+  get_sw_value_pos(buf_T *buf, pos_T *pos)
+  {
+      pos_T save_cursor = curwin->w_cursor;
+***************
+*** 13368,13373 ****
+--- 13360,13377 ----
+  }
+  
+  /*
++  * Idem, using the first non-black in the current line.
++  */
++     long
++ get_sw_value_indent(buf_T *buf)
++ {
++     pos_T pos = curwin->w_cursor;
++ 
++     pos.col = getwhitecols_curline();
++     return get_sw_value_pos(buf, &pos);
++ }
++ 
++ /*
+   * Idem, using virtual column "col".
+   */
+      long
+*** ../vim-8.1.1890/src/popupwin.c	2019-08-18 16:34:42.915429659 +0200
+--- src/popupwin.c	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 28,33 ****
+--- 28,35 ----
+      {"center", POPPOS_CENTER}
+  };
+  
++ static void popup_adjust_position(win_T *wp);
++ 
+  /*
+   * Get option value for "key", which is "line" or "col".
+   * Handles "cursor+N" and "cursor-N".
+***************
+*** 982,988 ****
+  /*
+   * Adjust the position and size of the popup to fit on the screen.
+   */
+!     void
+  popup_adjust_position(win_T *wp)
+  {
+      linenr_T	lnum;
+--- 984,990 ----
+  /*
+   * Adjust the position and size of the popup to fit on the screen.
+   */
+!     static void
+  popup_adjust_position(win_T *wp)
+  {
+      linenr_T	lnum;
+*** ../vim-8.1.1890/src/profiler.c	2019-07-14 15:48:35.241984533 +0200
+--- src/profiler.c	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 249,255 ****
+  /*
+   * Get the current waittime.
+   */
+!     void
+  profile_get_wait(proftime_T *tm)
+  {
+      *tm = prof_wait_time;
+--- 249,255 ----
+  /*
+   * Get the current waittime.
+   */
+!     static void
+  profile_get_wait(proftime_T *tm)
+  {
+      *tm = prof_wait_time;
+***************
+*** 270,276 ****
+  /*
+   * Return TRUE if "tm1" and "tm2" are equal.
+   */
+!     int
+  profile_equal(proftime_T *tm1, proftime_T *tm2)
+  {
+  # ifdef MSWIN
+--- 270,276 ----
+  /*
+   * Return TRUE if "tm1" and "tm2" are equal.
+   */
+!     static int
+  profile_equal(proftime_T *tm1, proftime_T *tm2)
+  {
+  # ifdef MSWIN
+*** ../vim-8.1.1890/src/proto/autocmd.pro	2019-06-25 04:12:12.312665250 +0200
+--- src/proto/autocmd.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 15,21 ****
+  int apply_autocmds(event_T event, char_u *fname, char_u *fname_io, int force, buf_T *buf);
+  int apply_autocmds_exarg(event_T event, char_u *fname, char_u *fname_io, int force, buf_T *buf, exarg_T *eap);
+  int apply_autocmds_retval(event_T event, char_u *fname, char_u *fname_io, int force, buf_T *buf, int *retval);
+- int has_cursorhold(void);
+  int trigger_cursorhold(void);
+  int has_cursormoved(void);
+  int has_cursormovedI(void);
+--- 15,20 ----
+*** ../vim-8.1.1890/src/proto/buffer.pro	2019-08-17 14:38:35.647786228 +0200
+--- src/proto/buffer.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 12,18 ****
+  char *do_bufdel(int command, char_u *arg, int addr_count, int start_bnr, int end_bnr, int forceit);
+  int do_buffer(int action, int start, int dir, int count, int forceit);
+  void set_curbuf(buf_T *buf, int action);
+- void enter_buffer(buf_T *buf);
+  void do_autochdir(void);
+  void no_write_message(void);
+  void no_write_message_nobang(buf_T *buf);
+--- 12,17 ----
+***************
+*** 20,26 ****
+  buf_T *buflist_new(char_u *ffname_arg, char_u *sfname_arg, linenr_T lnum, int flags);
+  void free_buf_options(buf_T *buf, int free_p_ff);
+  int buflist_getfile(int n, linenr_T lnum, int options, int forceit);
+- void buflist_getfpos(void);
+  buf_T *buflist_findname_exp(char_u *fname);
+  buf_T *buflist_findname(char_u *ffname);
+  int buflist_findpat(char_u *pattern, char_u *pattern_end, int unlisted, int diffmode, int curtab_only);
+--- 19,24 ----
+***************
+*** 68,74 ****
+  char_u *buf_spname(buf_T *buf);
+  void switch_to_win_for_buf(buf_T *buf, win_T **save_curwinp, tabpage_T **save_curtabp, bufref_T *save_curbuf);
+  void restore_win_for_buf(win_T *save_curwin, tabpage_T *save_curtab, bufref_T *save_curbuf);
+- int find_win_for_buf(buf_T *buf, win_T **wp, tabpage_T **tp);
+  void set_buflisted(int on);
+  int buf_contents_changed(buf_T *buf);
+  void wipe_buffer(buf_T *buf, int aucmd);
+--- 66,71 ----
+*** ../vim-8.1.1890/src/proto/change.pro	2019-06-08 18:07:17.744161734 +0200
+--- src/proto/change.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 8,14 ****
+  void may_invoke_listeners(buf_T *buf, linenr_T lnum, linenr_T lnume, int added);
+  void invoke_listeners(buf_T *buf);
+  void changed_bytes(linenr_T lnum, colnr_T col);
+- void inserted_bytes(linenr_T lnum, colnr_T col, int added);
+  void appended_lines(linenr_T lnum, long count);
+  void appended_lines_mark(linenr_T lnum, long count);
+  void deleted_lines(linenr_T lnum, long count);
+--- 8,13 ----
+*** ../vim-8.1.1890/src/proto/channel.pro	2019-06-24 00:43:31.459691842 +0200
+--- src/proto/channel.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 8,17 ****
+  void free_unused_channels(int copyID, int mask);
+  void channel_gui_register_all(void);
+  channel_T *channel_open(char *hostname, int port_in, int waittime, void (*nb_close_cb)(void));
+- channel_T *channel_open_func(typval_T *argvars);
+  void channel_set_pipes(channel_T *channel, sock_T in, sock_T out, sock_T err);
+  void channel_set_job(channel_T *channel, job_T *job, jobopt_T *options);
+- void channel_set_req_callback(channel_T *channel, ch_part_T part, callback_T *callback, int id);
+  void channel_buffer_free(buf_T *buf);
+  void channel_write_any_lines(void);
+  void channel_write_new_lines(buf_T *buf);
+--- 8,15 ----
+***************
+*** 22,42 ****
+  int channel_collapse(channel_T *channel, ch_part_T part, int want_nl);
+  int channel_can_write_to(channel_T *channel);
+  int channel_is_open(channel_T *channel);
+- int channel_has_readahead(channel_T *channel, ch_part_T part);
+  char *channel_status(channel_T *channel, int req_part);
+- void channel_info(channel_T *channel, dict_T *dict);
+  void channel_close(channel_T *channel, int invoke_close_cb);
+- void channel_close_in(channel_T *channel);
+  void channel_clear(channel_T *channel);
+  void channel_free_all(void);
+- void common_channel_read(typval_T *argvars, typval_T *rettv, int raw, int blob);
+- channel_T *channel_fd2channel(sock_T fd, ch_part_T *partp);
+  void channel_handle_events(int only_keep_open);
+  int channel_any_keep_open(void);
+  void channel_set_nonblock(channel_T *channel, ch_part_T part);
+  int channel_send(channel_T *channel, ch_part_T part, char_u *buf_arg, int len_arg, char *fun);
+- void ch_expr_common(typval_T *argvars, typval_T *rettv, int eval);
+- void ch_raw_common(typval_T *argvars, typval_T *rettv, int eval);
+  int channel_poll_setup(int nfd_in, void *fds_in, int *towait);
+  int channel_poll_check(int ret_in, void *fds_in);
+  int channel_select_setup(int maxfd_in, void *rfds_in, void *wfds_in, struct timeval *tv, struct timeval **tvp);
+--- 20,33 ----
+***************
+*** 44,55 ****
+  int channel_parse_messages(void);
+  int channel_any_readahead(void);
+  int set_ref_in_channel(int copyID);
+- ch_part_T channel_part_send(channel_T *channel);
+- ch_part_T channel_part_read(channel_T *channel);
+- ch_mode_T channel_get_mode(channel_T *channel, ch_part_T part);
+- int channel_get_timeout(channel_T *channel, ch_part_T part);
+  void clear_job_options(jobopt_T *opt);
+- void free_job_options(jobopt_T *opt);
+  int get_job_options(typval_T *tv, jobopt_T *opt, int supported, int supported2);
+  void job_free_all(void);
+  int job_any_running(void);
+--- 35,41 ----
+*** ../vim-8.1.1890/src/proto/charset.pro	2019-05-19 19:59:30.164255569 +0200
+--- src/proto/charset.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 29,35 ****
+  int lbr_chartabsize(char_u *line, unsigned char *s, colnr_T col);
+  int lbr_chartabsize_adv(char_u *line, char_u **s, colnr_T col);
+  int win_lbr_chartabsize(win_T *wp, char_u *line, char_u *s, colnr_T col, int *headp);
+- int in_win_border(win_T *wp, colnr_T vcol);
+  void getvcol(win_T *wp, pos_T *pos, colnr_T *start, colnr_T *cursor, colnr_T *end);
+  colnr_T getvcol_nolist(pos_T *posp);
+  void getvvcol(win_T *wp, pos_T *pos, colnr_T *start, colnr_T *cursor, colnr_T *end);
+--- 29,34 ----
+*** ../vim-8.1.1890/src/proto/dict.pro	2019-07-27 23:12:08.667924110 +0200
+--- src/proto/dict.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 32,38 ****
+  void dict_extend(dict_T *d1, dict_T *d2, char_u *action);
+  dictitem_T *dict_lookup(hashitem_T *hi);
+  int dict_equal(dict_T *d1, dict_T *d2, int ic, int recursive);
+- void dict_list(typval_T *argvars, typval_T *rettv, int what);
+  void f_items(typval_T *argvars, typval_T *rettv);
+  void f_keys(typval_T *argvars, typval_T *rettv);
+  void f_values(typval_T *argvars, typval_T *rettv);
+--- 32,37 ----
+*** ../vim-8.1.1890/src/proto/eval.pro	2019-08-17 21:04:12.806190044 +0200
+--- src/proto/eval.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 63,69 ****
+  pos_T *var2fpos(typval_T *varp, int dollar_lnum, int *fnum);
+  int list2fpos(typval_T *arg, pos_T *posp, int *fnump, colnr_T *curswantp);
+  int get_id_len(char_u **arg);
+- int get_name_len(char_u **arg, char_u **alias, int evaluate, int verbose);
+  char_u *find_name_end(char_u *arg, char_u **expr_start, char_u **expr_end, int flags);
+  int eval_isnamec(int c);
+  int eval_isnamec1(int c);
+--- 63,68 ----
+***************
+*** 84,90 ****
+  char_u *v_exception(char_u *oldval);
+  char_u *v_throwpoint(char_u *oldval);
+  char_u *set_cmdarg(exarg_T *eap, char_u *oldarg);
+- int get_var_tv(char_u *name, int len, typval_T *rettv, dictitem_T **dip, int verbose, int no_autoload);
+  int handle_subscript(char_u **arg, typval_T *rettv, int evaluate, int verbose, char_u *start_leader, char_u **end_leaderp);
+  typval_T *alloc_tv(void);
+  void free_tv(typval_T *varp);
+--- 83,88 ----
+***************
+*** 97,103 ****
+  char_u *tv_get_string_buf(typval_T *varp, char_u *buf);
+  char_u *tv_get_string_chk(typval_T *varp);
+  char_u *tv_get_string_buf_chk(typval_T *varp, char_u *buf);
+- char_u *tv_stringify(typval_T *varp, char_u *buf);
+  dictitem_T *find_var(char_u *name, hashtab_T **htp, int no_autoload);
+  dictitem_T *find_var_in_ht(hashtab_T *ht, int htname, char_u *varname, int no_autoload);
+  hashtab_T *find_var_ht(char_u *name, char_u **varname);
+--- 95,100 ----
+*** ../vim-8.1.1890/src/proto/ex_cmds.pro	2019-08-18 15:24:23.197608923 +0200
+--- src/proto/ex_cmds.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 22,28 ****
+  int check_overwrite(exarg_T *eap, buf_T *buf, char_u *fname, char_u *ffname, int other);
+  void ex_wnext(exarg_T *eap);
+  void do_wqall(exarg_T *eap);
+- int not_writing(void);
+  int getfile(int fnum, char_u *ffname_arg, char_u *sfname_arg, int setpm, linenr_T lnum, int forceit);
+  int do_ecmd(int fnum, char_u *ffname, char_u *sfname, exarg_T *eap, linenr_T newlnum, int flags, win_T *oldwin);
+  void ex_append(exarg_T *eap);
+--- 22,27 ----
+*** ../vim-8.1.1890/src/proto/ex_eval.pro	2019-08-04 15:03:33.367303750 +0200
+--- src/proto/ex_eval.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 10,17 ****
+  char *get_exception_string(void *value, except_type_T type, char_u *cmdname, int *should_free);
+  void discard_current_exception(void);
+  void report_make_pending(int pending, void *value);
+- void report_resume_pending(int pending, void *value);
+- void report_discard_pending(int pending, void *value);
+  void ex_eval(exarg_T *eap);
+  void ex_if(exarg_T *eap);
+  void ex_endif(exarg_T *eap);
+--- 10,15 ----
+*** ../vim-8.1.1890/src/proto/fileio.pro	2019-05-24 14:14:10.260307596 +0200
+--- src/proto/fileio.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 1,5 ****
+  /* fileio.c */
+- void filemess(buf_T *buf, char_u *name, char_u *s, int attr);
+  int readfile(char_u *fname, char_u *sfname, linenr_T from, linenr_T lines_to_skip, linenr_T lines_to_read, exarg_T *eap, int flags);
+  int is_dev_fd_file(char_u *fname);
+  int prep_exarg(exarg_T *eap, buf_T *buf);
+--- 1,4 ----
+*** ../vim-8.1.1890/src/proto/findfile.pro	2019-03-31 19:40:03.818129110 +0200
+--- src/proto/findfile.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 3,9 ****
+  char_u *vim_findfile_stopdir(char_u *buf);
+  void vim_findfile_cleanup(void *ctx);
+  char_u *vim_findfile(void *search_ctx_arg);
+- void vim_findfile_free_visited(void *search_ctx_arg);
+  char_u *find_file_in_path(char_u *ptr, int len, int options, int first, char_u *rel_fname);
+  void free_findfile(void);
+  char_u *find_directory_in_path(char_u *ptr, int len, int options, char_u *rel_fname);
+--- 3,8 ----
+*** ../vim-8.1.1890/src/proto/getchar.pro	2019-08-01 14:26:53.196455837 +0200
+--- src/proto/getchar.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 30,37 ****
+  int typebuf_typed(void);
+  int typebuf_maplen(void);
+  void del_typebuf(int len, int offset);
+- int alloc_typebuf(void);
+- void free_typebuf(void);
+  int save_typebuf(void);
+  void save_typeahead(tasave_T *tp);
+  void restore_typeahead(tasave_T *tp);
+--- 30,35 ----
+***************
+*** 39,45 ****
+  void close_all_scripts(void);
+  int using_script(void);
+  void before_blocking(void);
+- void updatescript(int c);
+  int vgetc(void);
+  int safe_vgetc(void);
+  int plain_vgetc(void);
+--- 37,42 ----
+*** ../vim-8.1.1890/src/proto/gui.pro	2019-04-28 19:46:17.034060084 +0200
+--- src/proto/gui.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 7,13 ****
+  void gui_shell_closed(void);
+  int gui_init_font(char_u *font_list, int fontset);
+  int gui_get_wide_font(void);
+- void gui_set_cursor(int row, int col);
+  void gui_update_cursor(int force, int clear_selection);
+  void gui_position_menu(void);
+  int gui_get_base_width(void);
+--- 7,12 ----
+***************
+*** 17,24 ****
+  int gui_get_shellsize(void);
+  void gui_set_shellsize(int mustset, int fit_to_display, int direction);
+  void gui_new_shellsize(void);
+- void gui_reset_scroll_region(void);
+- void gui_start_highlight(int mask);
+  void gui_stop_highlight(int mask);
+  void gui_clear_block(int row1, int col1, int row2, int col2);
+  void gui_update_cursor_later(void);
+--- 16,21 ----
+***************
+*** 28,41 ****
+  void gui_disable_flush(void);
+  void gui_enable_flush(void);
+  void gui_may_flush(void);
+- int gui_outstr_nowrap(char_u *s, int len, int flags, guicolor_T fg, guicolor_T bg, int back);
+  void gui_undraw_cursor(void);
+  void gui_redraw(int x, int y, int w, int h);
+  int gui_redraw_block(int row1, int col1, int row2, int col2, int flags);
+  int gui_wait_for_chars(long wtime, int tb_change_cnt);
+  int gui_inchar(char_u *buf, int maxlen, long wtime, int tb_change_cnt);
+  void gui_send_mouse_event(int button, int x, int y, int repeated_click, int_u modifiers);
+- int gui_xy2colrow(int x, int y, int *colp);
+  void gui_menu_cb(vimmenu_T *menu);
+  void gui_init_which_components(char_u *oldval);
+  int gui_use_tabline(void);
+--- 25,36 ----
+*** ../vim-8.1.1890/src/proto/indent.pro	2019-01-31 13:47:51.126632619 +0100
+--- src/proto/indent.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 2,10 ****
+  int cin_is_cinword(char_u *line);
+  pos_T *find_start_comment(int ind_maxcomment);
+  int cindent_on(void);
+- int cin_islabel(void);
+- int cin_iscase(char_u *s, int strict);
+- int cin_isscopedecl(char_u *s);
+  void parse_cino(buf_T *buf);
+  int get_c_indent(void);
+  int get_expr_indent(void);
+--- 2,7 ----
+*** ../vim-8.1.1890/src/proto/json.pro	2019-07-22 23:03:53.322360395 +0200
+--- src/proto/json.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 1,7 ****
+  /* json.c */
+  char_u *json_encode(typval_T *val, int options);
+  char_u *json_encode_nr_expr(int nr, typval_T *val, int options);
+- int json_decode_all(js_read_T *reader, typval_T *res, int options);
+  int json_decode(js_read_T *reader, typval_T *res, int options);
+  int json_find_end(js_read_T *reader, int options);
+  void f_js_decode(typval_T *argvars, typval_T *rettv);
+--- 1,6 ----
+*** ../vim-8.1.1890/src/proto/list.pro	2019-07-27 23:12:08.667924110 +0200
+--- src/proto/list.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 1,7 ****
+  /* list.c */
+  void list_add_watch(list_T *l, listwatch_T *lw);
+  void list_rem_watch(list_T *l, listwatch_T *lwrem);
+- void list_fix_watch(list_T *l, listitem_T *item);
+  list_T *list_alloc(void);
+  list_T *list_alloc_id(alloc_id_T id);
+  int rettv_list_alloc(typval_T *rettv);
+--- 1,6 ----
+*** ../vim-8.1.1890/src/proto/mark.pro	2019-07-22 20:18:22.338308949 +0200
+--- src/proto/mark.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 9,15 ****
+  pos_T *getmark(int c, int changefile);
+  pos_T *getmark_buf_fnum(buf_T *buf, int c, int changefile, int *fnum);
+  pos_T *getnextmark(pos_T *startpos, int dir, int begin_line);
+- void fname2fnum(xfmark_T *fm);
+  void fmarks_check_names(buf_T *buf);
+  int check_mark(pos_T *pos);
+  void clrallmarks(buf_T *buf);
+--- 9,14 ----
+*** ../vim-8.1.1890/src/proto/menu.pro	2018-10-19 22:35:04.889189955 +0200
+--- src/proto/menu.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 5,11 ****
+  char_u *set_context_in_menu_cmd(expand_T *xp, char_u *cmd, char_u *arg, int forceit);
+  char_u *get_menu_name(expand_T *xp, int idx);
+  char_u *get_menu_names(expand_T *xp, int idx);
+- char_u *menu_name_skip(char_u *name);
+  int get_menu_index(vimmenu_T *menu, int state);
+  int menu_is_menubar(char_u *name);
+  int menu_is_popup(char_u *name);
+--- 5,10 ----
+*** ../vim-8.1.1890/src/proto/message.pro	2019-04-24 23:08:20.078079973 +0200
+--- src/proto/message.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 7,13 ****
+  void trunc_string(char_u *s, char_u *buf, int room_in, int buflen);
+  void reset_last_sourcing(void);
+  void msg_source(int attr);
+- int emsg_not_now(void);
+  void ignore_error_for_testing(char_u *error);
+  void do_perror(char *msg);
+  int emsg(char *s);
+--- 7,12 ----
+***************
+*** 43,49 ****
+  void msg_puts(char *s);
+  void msg_puts_title(char *s);
+  void msg_outtrans_long_attr(char_u *longstr, int attr);
+- void msg_outtrans_long_len_attr(char_u *longstr, int len, int attr);
+  void msg_puts_attr(char *s, int attr);
+  int message_filtered(char_u *msg);
+  void may_clear_sb_text(void);
+--- 42,47 ----
+***************
+*** 55,61 ****
+  int msg_use_printf(void);
+  void mch_errmsg(char *str);
+  void mch_msg(char *str);
+- void msg_moremsg(int full);
+  void repeat_message(void);
+  void msg_clr_eos(void);
+  void msg_clr_eos_force(void);
+--- 53,58 ----
+***************
+*** 73,79 ****
+  void give_warning2(char_u *message, char_u *a1, int hl);
+  void msg_advance(int col);
+  int do_dialog(int type, char_u *title, char_u *message, char_u *buttons, int dfltbutton, char_u *textfield, int ex_cmd);
+- void display_confirm_msg(void);
+  int vim_dialog_yesno(int type, char_u *title, char_u *message, int dflt);
+  int vim_dialog_yesnocancel(int type, char_u *title, char_u *message, int dflt);
+  int vim_dialog_yesnoallcancel(int type, char_u *title, char_u *message, int dflt);
+--- 70,75 ----
+*** ../vim-8.1.1890/src/proto/misc1.pro	2019-05-23 21:35:44.455922641 +0200
+--- src/proto/misc1.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 60,66 ****
+  char_u *concat_str(char_u *str1, char_u *str2);
+  void add_pathsep(char_u *p);
+  char_u *FullName_save(char_u *fname, int force);
+- void prepare_to_exit(void);
+  void preserve_exit(void);
+  int vim_fexists(char_u *fname);
+  void line_breakcheck(void);
+--- 60,65 ----
+*** ../vim-8.1.1890/src/proto/misc2.pro	2019-07-28 14:15:21.330943640 +0200
+--- src/proto/misc2.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 64,70 ****
+  void ga_concat(garray_T *gap, char_u *s);
+  void ga_append(garray_T *gap, int c);
+  void append_ga_line(garray_T *gap);
+- int name_to_mod_mask(int c);
+  int simplify_key(int key, int *modifiers);
+  int handle_x_keys(int key);
+  char_u *get_special_key_name(int c, int modifiers);
+--- 64,69 ----
+*** ../vim-8.1.1890/src/proto/ops.pro	2019-07-23 22:15:21.307518880 +0200
+--- src/proto/ops.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 14,20 ****
+  int get_expr_register(void);
+  void set_expr_line(char_u *new_line);
+  char_u *get_expr_line(void);
+- char_u *get_expr_line_src(void);
+  int valid_yank_reg(int regname, int writing);
+  int get_yank_register(int regname, int writing);
+  int may_get_selection(int regname);
+--- 14,19 ----
+***************
+*** 42,48 ****
+  int op_yank(oparg_T *oap, int deleting, int mess);
+  void do_put(int regname, int dir, long count, int flags);
+  void adjust_cursor_eol(void);
+- int preprocs_left(void);
+  int get_register_name(int num);
+  void ex_display(exarg_T *eap);
+  char_u *skip_comment(char_u *line, int process, int include_space, int *is_comment);
+--- 41,46 ----
+*** ../vim-8.1.1890/src/proto/option.pro	2019-07-23 22:15:21.307518880 +0200
+--- src/proto/option.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 24,30 ****
+  void set_string_option_direct_in_buf(buf_T *buf, char_u *name, int opt_idx, char_u *val, int opt_flags, int set_sid);
+  int valid_spellang(char_u *val);
+  char *check_colorcolumn(win_T *wp);
+- char *check_stl_option(char_u *s);
+  void set_term_option_sctx_idx(char *name, int opt_idx);
+  int get_option_value(char_u *name, long *numval, char_u **stringval, int opt_flags);
+  int get_option_value_strict(char_u *name, long *numval, char_u **stringval, int opt_type, void *from);
+--- 24,29 ----
+***************
+*** 44,50 ****
+  char_u *get_equalprg(void);
+  void win_copy_options(win_T *wp_from, win_T *wp_to);
+  void copy_winopt(winopt_T *from, winopt_T *to);
+- void check_win_options(win_T *win);
+  void clear_winopt(winopt_T *wop);
+  void buf_copy_options(buf_T *buf, int flags);
+  void reset_modifiable(void);
+--- 43,48 ----
+***************
+*** 75,81 ****
+  int tabstop_first(int *ts);
+  long get_sw_value(buf_T *buf);
+  long get_sw_value_indent(buf_T *buf);
+- long get_sw_value_pos(buf_T *buf, pos_T *pos);
+  long get_sw_value_col(buf_T *buf, colnr_T col);
+  long get_sts_value(void);
+  long get_scrolloff_value(void);
+--- 73,78 ----
+*** ../vim-8.1.1890/src/proto/popupwin.pro	2019-08-18 16:34:42.915429659 +0200
+--- src/proto/popupwin.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 9,15 ****
+  int popup_height(win_T *wp);
+  int popup_width(win_T *wp);
+  int popup_extra_width(win_T *wp);
+- void popup_adjust_position(win_T *wp);
+  int parse_previewpopup(win_T *wp);
+  int parse_completepopup(win_T *wp);
+  void popup_set_wantpos_cursor(win_T *wp, int width);
+--- 9,14 ----
+*** ../vim-8.1.1890/src/proto/profiler.pro	2019-07-14 15:48:35.245984506 +0200
+--- src/proto/profiler.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 10,18 ****
+  void profile_divide(proftime_T *tm, int count, proftime_T *tm2);
+  void profile_add(proftime_T *tm, proftime_T *tm2);
+  void profile_self(proftime_T *self, proftime_T *total, proftime_T *children);
+- void profile_get_wait(proftime_T *tm);
+  void profile_sub_wait(proftime_T *tm, proftime_T *tma);
+- int profile_equal(proftime_T *tm1, proftime_T *tm2);
+  int profile_cmp(const proftime_T *tm1, const proftime_T *tm2);
+  void ex_profile(exarg_T *eap);
+  char_u *get_profile_name(expand_T *xp, int idx);
+--- 10,16 ----
+*** ../vim-8.1.1890/src/proto/quickfix.pro	2019-05-04 15:05:24.927269310 +0200
+--- src/proto/quickfix.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 5,11 ****
+  void check_quickfix_busy(void);
+  void copy_loclist_stack(win_T *from, win_T *to);
+  void qf_jump(qf_info_T *qi, int dir, int errornr, int forceit);
+- void qf_jump_newwin(qf_info_T *qi, int dir, int errornr, int forceit, int newwin);
+  void qf_list(exarg_T *eap);
+  void qf_age(exarg_T *eap);
+  void qf_history(exarg_T *eap);
+--- 5,10 ----
+*** ../vim-8.1.1890/src/proto/spell.pro	2019-01-13 23:38:33.407773189 +0100
+--- src/proto/spell.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 19,25 ****
+  void close_spellbuf(buf_T *buf);
+  void clear_spell_chartab(spelltab_T *sp);
+  void init_spell_chartab(void);
+- int spell_iswordp_nmw(char_u *p, win_T *wp);
+  int spell_casefold(char_u *str, int len, char_u *buf, int buflen);
+  int spell_check_sps(void);
+  void spell_suggest(int count);
+--- 19,24 ----
+*** ../vim-8.1.1890/src/proto/term.pro	2019-05-03 15:13:53.758898729 +0200
+--- src/proto/term.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 1,5 ****
+  /* term.c */
+- guicolor_T termgui_mch_get_color(char_u *name);
+  guicolor_T termgui_get_color(char_u *name);
+  guicolor_T termgui_mch_get_rgb(guicolor_T color);
+  int set_termname(char_u *term);
+--- 1,4 ----
+***************
+*** 65,77 ****
+  void add_termcode(char_u *name, char_u *string, int flags);
+  char_u *find_termcode(char_u *name);
+  char_u *get_termcode(int i);
+- void del_termcode(char_u *name);
+  void set_mouse_topline(win_T *wp);
+  int check_termcode(int max_offset, char_u *buf, int bufsize, int *buflen);
+  void term_get_fg_color(char_u *r, char_u *g, char_u *b);
+  void term_get_bg_color(char_u *r, char_u *g, char_u *b);
+  char_u *replace_termcodes(char_u *from, char_u **bufp, int from_part, int do_lt, int special);
+- int find_term_bykeys(char_u *src);
+  void show_termcodes(void);
+  int show_one_termcode(char_u *name, char_u *code, int printit);
+  char_u *translate_mapping(char_u *str);
+--- 64,74 ----
+*** ../vim-8.1.1890/src/proto/textprop.pro	2019-05-26 23:32:03.175678045 +0200
+--- src/proto/textprop.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 6,12 ****
+  void f_prop_clear(typval_T *argvars, typval_T *rettv);
+  void f_prop_list(typval_T *argvars, typval_T *rettv);
+  void f_prop_remove(typval_T *argvars, typval_T *rettv);
+- void prop_type_set(typval_T *argvars, int add);
+  void f_prop_type_add(typval_T *argvars, typval_T *rettv);
+  void f_prop_type_change(typval_T *argvars, typval_T *rettv);
+  void f_prop_type_delete(typval_T *argvars, typval_T *rettv);
+--- 6,11 ----
+*** ../vim-8.1.1890/src/proto/ui.pro	2019-07-26 21:01:25.573903976 +0200
+--- src/proto/ui.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 32,39 ****
+  void clip_may_clear_selection(int row1, int row2);
+  void clip_scroll_selection(int rows);
+  void clip_copy_modeless_selection(int both);
+- int clip_gen_own_selection(Clipboard_T *cbd);
+- void clip_gen_lose_selection(Clipboard_T *cbd);
+  void clip_gen_set_selection(Clipboard_T *cbd);
+  void clip_gen_request_selection(Clipboard_T *cbd);
+  int clip_gen_owner_exists(Clipboard_T *cbd);
+--- 32,37 ----
+***************
+*** 61,67 ****
+  void clip_x11_lose_selection(Widget myShell, Clipboard_T *cbd);
+  int clip_x11_own_selection(Widget myShell, Clipboard_T *cbd);
+  void clip_x11_set_selection(Clipboard_T *cbd);
+- int clip_x11_owner_exists(Clipboard_T *cbd);
+  void yank_cut_buffer0(Display *dpy, Clipboard_T *cbd);
+  int jump_to_mouse(int flags, int *inclusive, int which_button);
+  int mouse_comp_pos(win_T *win, int *rowp, int *colp, linenr_T *lnump, int *plines_cache);
+--- 59,64 ----
+*** ../vim-8.1.1890/src/proto/undo.pro	2019-03-25 22:21:21.557069182 +0100
+--- src/proto/undo.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 20,26 ****
+  void u_find_first_changed(void);
+  void u_update_save_nr(buf_T *buf);
+  void u_clearall(buf_T *buf);
+- void u_saveline(linenr_T lnum);
+  void u_clearline(void);
+  void u_undoline(void);
+  void u_blockfree(buf_T *buf);
+--- 20,25 ----
+*** ../vim-8.1.1890/src/proto/window.pro	2019-08-09 14:56:19.556349956 +0200
+--- src/proto/window.pro	2019-08-20 20:10:52.559621959 +0200
+***************
+*** 18,31 ****
+  win_T *winframe_remove(win_T *win, int *dirp, tabpage_T *tp);
+  void close_others(int message, int forceit);
+  void curwin_init(void);
+- void win_init_empty(win_T *wp);
+  int win_alloc_first(void);
+  win_T *win_alloc_popup_win(void);
+  void win_init_popup_win(win_T *wp, buf_T *buf);
+  void win_init_size(void);
+  void free_tabpage(tabpage_T *tp);
+  int win_new_tabpage(int after);
+- int may_open_tabpage(void);
+  int make_tabpages(int maxcount);
+  int valid_tabpage(tabpage_T *tpc);
+  int valid_tabpage_win(tabpage_T *tpc);
+--- 18,29 ----
+***************
+*** 44,52 ****
+  void win_enter(win_T *wp, int undo_sync);
+  win_T *buf_jump_open_win(buf_T *buf);
+  win_T *buf_jump_open_tab(buf_T *buf);
+- int win_unlisted(win_T *wp);
+  void win_free_popup(win_T *win);
+- void win_append(win_T *after, win_T *wp);
+  void win_remove(win_T *wp, tabpage_T *tp);
+  int win_alloc_lines(win_T *wp);
+  void win_free_lsize(win_T *wp);
+--- 42,48 ----
+*** ../vim-8.1.1890/src/quickfix.c	2019-06-15 21:56:13.679314611 +0200
+--- src/quickfix.c	2019-08-20 20:10:52.563621939 +0200
+***************
+*** 167,172 ****
+--- 167,173 ----
+  static char_u	*qf_push_dir(char_u *, struct dir_stack_T **, int is_file_stack);
+  static char_u	*qf_pop_dir(struct dir_stack_T **);
+  static char_u	*qf_guess_filepath(qf_list_T *qfl, char_u *);
++ static void	qf_jump_newwin(qf_info_T *qi, int dir, int errornr, int forceit, int newwin);
+  static void	qf_fmt_text(char_u *text, char_u *buf, int bufsize);
+  static int	qf_win_pos_update(qf_info_T *qi, int old_qf_index);
+  static win_T	*qf_find_win(qf_info_T *qi);
+***************
+*** 3363,3369 ****
+   * If 'forceit' is TRUE, then can discard changes to the current buffer.
+   * If 'newwin' is TRUE, then open the file in a new window.
+   */
+!     void
+  qf_jump_newwin(qf_info_T	*qi,
+  	int		dir,
+  	int		errornr,
+--- 3364,3370 ----
+   * If 'forceit' is TRUE, then can discard changes to the current buffer.
+   * If 'newwin' is TRUE, then open the file in a new window.
+   */
+!     static void
+  qf_jump_newwin(qf_info_T	*qi,
+  	int		dir,
+  	int		errornr,
+*** ../vim-8.1.1890/src/regexp.c	2019-08-08 20:49:10.771344293 +0200
+--- src/regexp.c	2019-08-20 20:10:52.563621939 +0200
+***************
+*** 751,757 ****
+  /*
+   * Table for equivalence class "c". (IBM-1047)
+   */
+! char *EQUIVAL_CLASS_C[16] = {
+      "A\x62\x63\x64\x65\x66\x67",
+      "C\x68",
+      "E\x71\x72\x73\x74",
+--- 751,757 ----
+  /*
+   * Table for equivalence class "c". (IBM-1047)
+   */
+! static char *EQUIVAL_CLASS_C[16] = {
+      "A\x62\x63\x64\x65\x66\x67",
+      "C\x68",
+      "E\x71\x72\x73\x74",
+***************
+*** 3436,3442 ****
+  static int	regrepeat(char_u *p, long maxcount);
+  
+  #ifdef DEBUG
+! int		regnarrate = 0;
+  #endif
+  
+  /*
+--- 3436,3442 ----
+  static int	regrepeat(char_u *p, long maxcount);
+  
+  #ifdef DEBUG
+! static int		regnarrate = 0;
+  #endif
+  
+  /*
+*** ../vim-8.1.1890/src/spell.c	2019-08-06 22:47:57.108635796 +0200
+--- src/spell.c	2019-08-20 20:10:52.563621939 +0200
+***************
+*** 338,343 ****
+--- 338,344 ----
+  static void clear_midword(win_T *buf);
+  static void use_midword(slang_T *lp, win_T *buf);
+  static int find_region(char_u *rp, char_u *region);
++ static int spell_iswordp_nmw(char_u *p, win_T *wp);
+  static int check_need_cap(linenr_T lnum, colnr_T col);
+  static void spell_find_suggest(char_u *badptr, int badlen, suginfo_T *su, int maxcount, int banbadword, int need_cap, int interactive);
+  #ifdef FEAT_EVAL
+***************
+*** 3052,3058 ****
+   * Return TRUE if "p" points to a word character.
+   * Unlike spell_iswordp() this doesn't check for "midword" characters.
+   */
+!     int
+  spell_iswordp_nmw(char_u *p, win_T *wp)
+  {
+      int		c;
+--- 3053,3059 ----
+   * Return TRUE if "p" points to a word character.
+   * Unlike spell_iswordp() this doesn't check for "midword" characters.
+   */
+!     static int
+  spell_iswordp_nmw(char_u *p, win_T *wp)
+  {
+      int		c;
+*** ../vim-8.1.1890/src/term.c	2019-08-18 22:25:54.665447991 +0200
+--- src/term.c	2019-08-20 20:10:52.563621939 +0200
+***************
+*** 87,93 ****
+--- 87,95 ----
+  		|| defined(FEAT_MOUSE_GPM) || defined(FEAT_SYSMOUSE)))
+  static int get_bytes_from_buf(char_u *, char_u *, int);
+  #endif
++ static void del_termcode(char_u *name);
+  static void del_termcode_idx(int idx);
++ static int find_term_bykeys(char_u *src);
+  static int term_is_builtin(char_u *name);
+  static int term_7to8bit(char_u *p);
+  
+***************
+*** 1367,1373 ****
+  };	/* end of builtin_termcaps */
+  
+  #if defined(FEAT_TERMGUICOLORS) || defined(PROTO)
+!     guicolor_T
+  termgui_mch_get_color(char_u *name)
+  {
+      return gui_get_color_cmn(name);
+--- 1369,1375 ----
+  };	/* end of builtin_termcaps */
+  
+  #if defined(FEAT_TERMGUICOLORS) || defined(PROTO)
+!     static guicolor_T
+  termgui_mch_get_color(char_u *name)
+  {
+      return gui_get_color_cmn(name);
+***************
+*** 4307,4313 ****
+      return &termcodes[i].name[0];
+  }
+  
+!     void
+  del_termcode(char_u *name)
+  {
+      int	    i;
+--- 4309,4315 ----
+      return &termcodes[i].name[0];
+  }
+  
+!     static void
+  del_termcode(char_u *name)
+  {
+      int	    i;
+***************
+*** 6364,6370 ****
+   * Find a termcode with keys 'src' (must be NUL terminated).
+   * Return the index in termcodes[], or -1 if not found.
+   */
+!     int
+  find_term_bykeys(char_u *src)
+  {
+      int		i;
+--- 6366,6372 ----
+   * Find a termcode with keys 'src' (must be NUL terminated).
+   * Return the index in termcodes[], or -1 if not found.
+   */
+!     static int
+  find_term_bykeys(char_u *src)
+  {
+      int		i;
+*** ../vim-8.1.1890/src/textprop.c	2019-08-13 22:27:27.750277607 +0200
+--- src/textprop.c	2019-08-20 20:10:52.563621939 +0200
+***************
+*** 668,674 ****
+  /*
+   * Common for f_prop_type_add() and f_prop_type_change().
+   */
+!     void
+  prop_type_set(typval_T *argvars, int add)
+  {
+      char_u	*name;
+--- 668,674 ----
+  /*
+   * Common for f_prop_type_add() and f_prop_type_change().
+   */
+!     static void
+  prop_type_set(typval_T *argvars, int add)
+  {
+      char_u	*name;
+*** ../vim-8.1.1890/src/ui.c	2019-08-17 19:10:49.636938826 +0200
+--- src/ui.c	2019-08-20 20:10:52.563621939 +0200
+***************
+*** 720,725 ****
+--- 720,731 ----
+  
+  #if defined(FEAT_CLIPBOARD) || defined(PROTO)
+  
++ static void clip_gen_lose_selection(Clipboard_T *cbd);
++ static int clip_gen_own_selection(Clipboard_T *cbd);
++ #if defined(FEAT_X11) && defined(FEAT_XCLIPBOARD) && defined(USE_SYSTEM)
++ static int clip_x11_owner_exists(Clipboard_T *cbd);
++ #endif
++ 
+  /*
+   * Selection stuff using Visual mode, for cutting and pasting text to other
+   * windows.
+***************
+*** 1840,1846 ****
+      }
+  }
+  
+!     int
+  clip_gen_own_selection(Clipboard_T *cbd)
+  {
+  #ifdef FEAT_XCLIPBOARD
+--- 1846,1852 ----
+      }
+  }
+  
+!     static int
+  clip_gen_own_selection(Clipboard_T *cbd)
+  {
+  #ifdef FEAT_XCLIPBOARD
+***************
+*** 1855,1861 ****
+  #endif
+  }
+  
+!     void
+  clip_gen_lose_selection(Clipboard_T *cbd)
+  {
+  #ifdef FEAT_XCLIPBOARD
+--- 1861,1867 ----
+  #endif
+  }
+  
+!     static void
+  clip_gen_lose_selection(Clipboard_T *cbd)
+  {
+  #ifdef FEAT_XCLIPBOARD
+***************
+*** 2846,2852 ****
+  
+  #if (defined(FEAT_X11) && defined(FEAT_XCLIPBOARD) && defined(USE_SYSTEM)) \
+  	|| defined(PROTO)
+!     int
+  clip_x11_owner_exists(Clipboard_T *cbd)
+  {
+      return XGetSelectionOwner(X_DISPLAY, cbd->sel_atom) != None;
+--- 2852,2858 ----
+  
+  #if (defined(FEAT_X11) && defined(FEAT_XCLIPBOARD) && defined(USE_SYSTEM)) \
+  	|| defined(PROTO)
+!     static int
+  clip_x11_owner_exists(Clipboard_T *cbd)
+  {
+      return XGetSelectionOwner(X_DISPLAY, cbd->sel_atom) != None;
+*** ../vim-8.1.1890/src/undo.c	2019-08-04 18:55:32.172860444 +0200
+--- src/undo.c	2019-08-20 20:10:52.563621939 +0200
+***************
+*** 123,128 ****
+--- 123,129 ----
+  static void serialize_visualinfo(bufinfo_T *bi, visualinfo_T *info);
+  static void unserialize_visualinfo(bufinfo_T *bi, visualinfo_T *info);
+  #endif
++ static void u_saveline(linenr_T lnum);
+  
+  #define U_ALLOC_LINE(size) lalloc(size, FALSE)
+  
+***************
+*** 3435,3441 ****
+  /*
+   * Save the line "lnum" for the "U" command.
+   */
+!     void
+  u_saveline(linenr_T lnum)
+  {
+      if (lnum == curbuf->b_u_line_lnum)	    /* line is already saved */
+--- 3436,3442 ----
+  /*
+   * Save the line "lnum" for the "U" command.
+   */
+!     static void
+  u_saveline(linenr_T lnum)
+  {
+      if (lnum == curbuf->b_u_line_lnum)	    /* line is already saved */
+*** ../vim-8.1.1890/src/window.c	2019-08-09 14:56:19.556349956 +0200
+--- src/window.c	2019-08-20 20:10:52.563621939 +0200
+***************
+*** 39,46 ****
+--- 39,49 ----
+  static void enter_tabpage(tabpage_T *tp, buf_T *old_curbuf, int trigger_enter_autocmds, int trigger_leave_autocmds);
+  static void frame_fix_height(win_T *wp);
+  static int frame_minheight(frame_T *topfrp, win_T *next_curwin);
++ static int may_open_tabpage(void);
+  static void win_enter_ext(win_T *wp, int undo_sync, int no_curwin, int trigger_new_autocmds, int trigger_enter_autocmds, int trigger_leave_autocmds);
+  static void win_free(win_T *wp, tabpage_T *tp);
++ static int win_unlisted(win_T *wp);
++ static void win_append(win_T *after, win_T *wp);
+  static void frame_append(frame_T *after, frame_T *frp);
+  static void frame_insert(frame_T *before, frame_T *frp);
+  static void frame_remove(frame_T *frp);
+***************
+*** 3541,3557 ****
+  	emsg(_("E445: Other window contains changes"));
+  }
+  
+! /*
+!  * Init the current window "curwin".
+!  * Called when a new file is being edited.
+!  */
+!     void
+! curwin_init(void)
+! {
+!     win_init_empty(curwin);
+! }
+! 
+!     void
+  win_init_empty(win_T *wp)
+  {
+      redraw_win_later(wp, NOT_VALID);
+--- 3544,3550 ----
+  	emsg(_("E445: Other window contains changes"));
+  }
+  
+!     static void
+  win_init_empty(win_T *wp)
+  {
+      redraw_win_later(wp, NOT_VALID);
+***************
+*** 3574,3579 ****
+--- 3567,3582 ----
+  }
+  
+  /*
++  * Init the current window "curwin".
++  * Called when a new file is being edited.
++  */
++     void
++ curwin_init(void)
++ {
++     win_init_empty(curwin);
++ }
++ 
++ /*
+   * Allocate the first window and put an empty buffer in it.
+   * Called from main().
+   * Return FAIL when something goes wrong (out of memory).
+***************
+*** 3861,3867 ****
+   * like with ":split".
+   * Returns OK if a new tab page was created, FAIL otherwise.
+   */
+!     int
+  may_open_tabpage(void)
+  {
+      int		n = (cmdmod.tab == 0) ? postponed_split_tab : cmdmod.tab;
+--- 3864,3870 ----
+   * like with ":split".
+   * Returns OK if a new tab page was created, FAIL otherwise.
+   */
+!     static int
+  may_open_tabpage(void)
+  {
+      int		n = (cmdmod.tab == 0) ? postponed_split_tab : cmdmod.tab;
+***************
+*** 4952,4958 ****
+   * Return TRUE if "wp" is not in the list of windows: the autocmd window or a
+   * popup window.
+   */
+!     int
+  win_unlisted(win_T *wp)
+  {
+      return wp == aucmd_win || WIN_IS_POPUP(wp);
+--- 4955,4961 ----
+   * Return TRUE if "wp" is not in the list of windows: the autocmd window or a
+   * popup window.
+   */
+!     static int
+  win_unlisted(win_T *wp)
+  {
+      return wp == aucmd_win || WIN_IS_POPUP(wp);
+***************
+*** 4982,4988 ****
+  /*
+   * Append window "wp" in the window list after window "after".
+   */
+!     void
+  win_append(win_T *after, win_T *wp)
+  {
+      win_T	*before;
+--- 4985,4991 ----
+  /*
+   * Append window "wp" in the window list after window "after".
+   */
+!     static void
+  win_append(win_T *after, win_T *wp)
+  {
+      win_T	*before;
+*** ../vim-8.1.1890/src/version.c	2019-08-19 22:48:27.173038748 +0200
+--- src/version.c	2019-08-20 20:11:54.759324158 +0200
+***************
+*** 767,768 ****
+--- 767,770 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1891,
+  /**/
+
+-- 
+You can't have everything.  Where would you put it?
+		-- Steven Wright
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,261 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1904
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1904
+Problem:    Cannot have an info popup align with the popup menu.
+Solution:   Add the "align" item to 'completepopup'.
+Files:	    src/popupwin.c, src/popupmnu.c, src/vim.h,
+            runtime/doc/insert.txt, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_infopopup_align_1.dump,
+            src/testdir/dumps/Test_popupwin_infopopup_align_2.dump,
+            src/testdir/dumps/Test_popupwin_infopopup_align_3.dump
+
+
+*** ../vim-8.1.1903/src/popupwin.c	2019-08-21 15:13:24.565040301 +0200
+--- src/popupwin.c	2019-08-21 16:51:04.765684207 +0200
+***************
+*** 1300,1305 ****
+--- 1300,1308 ----
+  #endif
+  	p_pvp;
+  
++     if (wp != NULL)
++ 	wp->w_popup_flags &= ~POPF_INFO_MENU;
++ 
+      for ( ; *p != NUL; p += (*p == ',' ? 1 : 0))
+      {
+  	char_u	*e, *dig;
+***************
+*** 1368,1373 ****
+--- 1371,1387 ----
+  		    wp->w_popup_close = POPCLOSE_NONE;
+  	    }
+  	}
++ 	else if (STRNCMP(s, "align:", 6) == 0)
++ 	{
++ 	    char_u	*arg = s + 6;
++ 	    int		item = STRNCMP(arg, "item", 4) == 0 && arg + 4 == p;
++ 	    int		menu = STRNCMP(arg, "menu", 4) == 0 && arg + 4 == p;
++ 
++ 	    if (!menu && !item)
++ 		return FAIL;
++ 	    if (wp != NULL && menu)
++ 		wp->w_popup_flags |= POPF_INFO_MENU;
++ 	}
+  	else
+  	    return FAIL;
+      }
+*** ../vim-8.1.1903/src/popupmnu.c	2019-08-21 15:30:41.883967057 +0200
+--- src/popupmnu.c	2019-08-21 17:05:44.009814742 +0200
+***************
+*** 745,762 ****
+  		if (use_popup)
+  		{
+  		    int col = pum_col + pum_width + 1;
+! 		    int row = pum_row + pum_selected - pum_first + 1;
+  
+  		    if (Columns - col < 20 && Columns - col < pum_col)
+  		    {
+  			col = pum_col - 1;
+  			curwin->w_popup_pos = POPPOS_TOPRIGHT;
+  			curwin->w_maxwidth = pum_col - 1;
+  		    }
+  		    else
+  			curwin->w_maxwidth = Columns - col + 1;
+  		    curwin->w_maxwidth -= popup_extra_width(curwin);
+  		    row -= popup_top_extra(curwin);
+  		    popup_set_wantpos_rowcol(curwin, row, col);
+  		}
+  # endif
+--- 745,782 ----
+  		if (use_popup)
+  		{
+  		    int col = pum_col + pum_width + 1;
+! 		    int row = pum_row;
+! 		    int botpos = POPPOS_BOTLEFT;
+  
++ 		    curwin->w_popup_pos = POPPOS_TOPLEFT;
+  		    if (Columns - col < 20 && Columns - col < pum_col)
+  		    {
+  			col = pum_col - 1;
+  			curwin->w_popup_pos = POPPOS_TOPRIGHT;
++ 			botpos = POPPOS_BOTRIGHT;
+  			curwin->w_maxwidth = pum_col - 1;
+  		    }
+  		    else
+  			curwin->w_maxwidth = Columns - col + 1;
+  		    curwin->w_maxwidth -= popup_extra_width(curwin);
++ 
+  		    row -= popup_top_extra(curwin);
++ 		    if (curwin->w_popup_flags & POPF_INFO_MENU)
++ 		    {
++ 			if (pum_row < pum_win_row)
++ 			{
++ 			    // menu above cursor line, align with bottom
++ 			    row += pum_height;
++ 			    curwin->w_popup_pos = botpos;
++ 			}
++ 			else
++ 			    // menu below cursor line, align with top
++ 			    row += 1;
++ 		    }
++ 		    else
++ 			// align with the selected item
++ 			row += pum_selected - pum_first + 1;
++ 
+  		    popup_set_wantpos_rowcol(curwin, row, col);
+  		}
+  # endif
+*** ../vim-8.1.1903/src/vim.h	2019-08-21 14:36:29.395376065 +0200
+--- src/vim.h	2019-08-21 15:44:14.387917447 +0200
+***************
+*** 623,628 ****
+--- 623,629 ----
+  #define POPF_RESIZE	0x40	// popup can be resized by dragging
+  #define POPF_MAPPING	0x80	// mapping keys
+  #define POPF_INFO	0x100	// used for info of popup menu
++ #define POPF_INFO_MENU	0x200	// align info popup with popup menu
+  
+  #ifdef FEAT_TEXT_PROP
+  # define WIN_IS_POPUP(wp) ((wp)->w_popup_flags != 0)
+*** ../vim-8.1.1903/runtime/doc/insert.txt	2019-08-21 14:36:29.395376065 +0200
+--- runtime/doc/insert.txt	2019-08-21 14:46:31.528827507 +0200
+***************
+*** 1126,1134 ****
+--- 1124,1139 ----
+  	height		maximum height of the popup
+  	width		maximum width of the popup
+  	highlight	highlight group of the popup (default is Pmenu)
++ 	align		"item" (default) or "menu"
++ 	border		"on" (default) or "off"
+  Example: >
+  	:set completepopup=height:10,width:60,highlight:InfoPopup
+  
++ When the "align" value is "item then the popup is positioned close to the
++ selected item.  Changing the selection will also move the popup.  When "align"
++ is "menu" then the popup is aligned with the top of the menu if the menu is
++ below the text, and the bottom of the menu otherwise.
++ 
+  The "kind" item uses a single letter to indicate the kind of completion.  This
+  may be used to show the completion differently (different color or icon).
+  Currently these types can be used:
+*** ../vim-8.1.1903/src/testdir/test_popupwin.vim	2019-08-21 15:13:24.565040301 +0200
+--- src/testdir/test_popupwin.vim	2019-08-21 17:18:16.373932789 +0200
+***************
+*** 2292,2295 ****
+--- 2292,2324 ----
+    call delete('XtestInfoPopupNb')
+  endfunc
+  
++ func Test_popupmenu_info_align_menu()
++   CheckScreendump
++ 
++   let lines = Get_popupmenu_lines()
++   call add(lines, 'set completepopup=height:4,border:off,align:menu')
++   call writefile(lines, 'XtestInfoPopupNb')
++ 
++   let buf = RunVimInTerminal('-S XtestInfoPopupNb', #{rows: 14})
++   call term_wait(buf, 50)
++ 
++   call term_sendkeys(buf, "A\<C-X>\<C-U>")
++   call term_sendkeys(buf, "\<C-N>")
++   call term_sendkeys(buf, "\<C-N>")
++   call term_sendkeys(buf, "\<C-N>")
++   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_align_1', {})
++ 
++   call term_sendkeys(buf, "test text test text test\<C-X>\<C-U>")
++   call term_sendkeys(buf, "\<C-N>")
++   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_align_2', {})
++ 
++   call term_sendkeys(buf, "\<Esc>")
++   call term_sendkeys(buf, ":call setline(2, ['x']->repeat(10))\<CR>")
++   call term_sendkeys(buf, "Gotest text test text\<C-X>\<C-U>")
++   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_align_3', {})
++ 
++   call StopVimInTerminal(buf)
++   call delete('XtestInfoPopupNb')
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2
+*** ../vim-8.1.1903/src/testdir/dumps/Test_popupwin_infopopup_align_1.dump	2019-08-21 17:20:54.677156120 +0200
+--- src/testdir/dumps/Test_popupwin_infopopup_align_1.dump	2019-08-21 17:11:19.552062876 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |t+0&#ffffff0|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t@1|h|a|t|w|o|r|d> @40
++ |~+0#4040ff13&| @23| +0#0000001#ffd7ff255|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| | +0&#e0e0e08|t|h|a|t| |w|o|r|d| |i|s| |c|o@1|l| | +0#4040ff13#ffffff0@8
++ |~| @23| +0#0000001#ffd7ff255|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @23| +0#0000001#ffd7ff255|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @23| +0#0000001#e0e0e08|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |m+0#00e0003&|a|t|c|h| |4| |o|f| |4| +0#0000000&@26
+*** ../vim-8.1.1903/src/testdir/dumps/Test_popupwin_infopopup_align_2.dump	2019-08-21 17:20:54.681156101 +0200
+--- src/testdir/dumps/Test_popupwin_infopopup_align_2.dump	2019-08-21 17:13:53.467257793 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |t+0&#ffffff0|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t@1|h|a|t|w|o|r|d|t|e|s|t| |t|e|x|t| |t|e|s|t| |a|n|o|t|h|e|r|w|o|r|d> @14
++ |~+0#4040ff13&| @9| +0#0000001#e0e0e08|o|t|h|e|r| |w|o|r|d|s| |a|r|e| @20| +0&#ffd7ff255|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@4
++ |~| @9| +0#0000001#e0e0e08|c|o@1|l|e|r| |t|h|a|n| |t|h|i|s| |a|n|d| |s|o|m|e| |m|o|r|e| |t|e|x|t| @1|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@4
++ |~| @9| +0#0000001#e0e0e08|t|o| |m|a|k|e| |w|r|a|p| @23| +0&#ffd7ff255|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@4
++ |~| @46| +0#0000001#ffd7ff255|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@4
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |m+0#00e0003&|a|t|c|h| |2| |o|f| |4| +0#0000000&@26
+*** ../vim-8.1.1903/src/testdir/dumps/Test_popupwin_infopopup_align_3.dump	2019-08-21 17:20:54.681156101 +0200
+--- src/testdir/dumps/Test_popupwin_infopopup_align_3.dump	2019-08-21 17:18:28.641872128 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |t+0&#ffffff0|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t@1|h|a|t|w|o|r|d|t|e|s|t| |t|e|x|t| |t|e|s|t| |a|n|o|t|h|e|r|w|o|r|d| @14
++ |x| @73
++ |x| @73
++ |x| @73
++ |x| @73
++ |x| @73
++ |x| @73
++ |x| @7| +0#0000001#e0e0e08|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffffff0@43
++ |x| @7| +0#0000001#ffd7ff255|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffffff0@43
++ |x| @7| +0#0000001#ffd7ff255|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffffff0@43
++ |x| @7| +0#0000001#ffd7ff255|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0&#e0e0e08|w|o|r|d|s| |a|r|e| |c|o@1|l| | +0#0000000#ffffff0@27
++ |t|e|s|t| |t|e|x|t| |a|w|o|r|d> @59
++ |~+0#4040ff13&| @73
++ |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |m+0#00e0003&|a|t|c|h| |1| |o|f| |4| +0#0000000&@26
+*** ../vim-8.1.1903/src/version.c	2019-08-21 15:30:41.883967057 +0200
+--- src/version.c	2019-08-21 17:19:46.581488694 +0200
+***************
+*** 763,764 ****
+--- 763,766 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1904,
+  /**/
+
+-- 
+I AM THANKFUL...
+...for a lawn that needs mowing, windows that need cleaning
+and gutters that need fixing because it means I have a home.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

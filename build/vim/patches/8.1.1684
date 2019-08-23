@@ -1,0 +1,2144 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1684
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1684
+Problem:    Profiling functionality is spread out.
+Solution:   Put profiling functionality in profiling.c. (Yegappan Lakshmanan,
+            closes #4666)
+Files:	    Filelist, src/Make_cyg_ming.mak, src/Make_dice.mak,
+            src/Make_manx.mak, src/Make_morph.mak, src/Make_mvc.mak,
+            src/Make_sas.mak, src/Make_vms.mms, src/Makefile, src/README.md,
+            src/ex_cmds2.c, src/globals.h, src/profiler.c, src/proto.h,
+            src/proto/ex_cmds2.pro, src/proto/profiler.pro,
+            src/proto/userfunc.pro, src/structs.h, src/userfunc.c
+
+
+*** ../vim-8.1.1683/Filelist	2019-06-23 00:49:50.985715087 +0200
+--- Filelist	2019-07-13 22:50:02.576542510 +0200
+***************
+*** 80,85 ****
+--- 80,86 ----
+  		src/option.h \
+  		src/popupmnu.c \
+  		src/popupwin.c \
++ 		src/profiler.c \
+  		src/quickfix.c \
+  		src/regexp.c \
+  		src/regexp_nfa.c \
+*** ../vim-8.1.1683/src/Make_cyg_ming.mak	2019-07-11 22:04:14.817346617 +0200
+--- src/Make_cyg_ming.mak	2019-07-13 22:50:02.576542510 +0200
+***************
+*** 752,757 ****
+--- 752,758 ----
+  	$(OUTDIR)/pathdef.o \
+  	$(OUTDIR)/popupmnu.o \
+  	$(OUTDIR)/popupwin.o \
++ 	$(OUTDIR)/profiler.o \
+  	$(OUTDIR)/quickfix.o \
+  	$(OUTDIR)/regexp.o \
+  	$(OUTDIR)/screen.o \
+*** ../vim-8.1.1683/src/Make_dice.mak	2019-05-11 17:03:55.170019762 +0200
+--- src/Make_dice.mak	2019-07-13 22:50:02.576542510 +0200
+***************
+*** 71,76 ****
+--- 71,77 ----
+  	option.c \
+  	os_amiga.c \
+  	popupmnu.c \
++ 	profiler.c \
+  	quickfix.c \
+  	regexp.c \
+  	screen.c \
+***************
+*** 134,139 ****
+--- 135,141 ----
+  	o/option.o \
+  	o/os_amiga.o \
+  	o/popupmnu.o \
++ 	o/profiler.o \
+  	o/quickfix.o \
+  	o/regexp.o \
+  	o/screen.o \
+***************
+*** 266,271 ****
+--- 268,275 ----
+  
+  o/popupmnu.o:	popupmnu.c  $(SYMS)
+  
++ o/profiler.o:	profiler.c  $(SYMS)
++ 
+  o/quickfix.o:	quickfix.c  $(SYMS)
+  
+  o/regexp.o:	regexp.c  $(SYMS) regexp.h
+*** ../vim-8.1.1683/src/Make_manx.mak	2019-05-11 17:03:55.170019762 +0200
+--- src/Make_manx.mak	2019-07-13 22:50:02.576542510 +0200
+***************
+*** 81,86 ****
+--- 81,87 ----
+  	option.c \
+  	os_amiga.c \
+  	popupmnu.c \
++ 	profiler.c \
+  	quickfix.c \
+  	regexp.c \
+  	screen.c \
+***************
+*** 146,151 ****
+--- 147,153 ----
+  	obj/option.o \
+  	obj/os_amiga.o \
+  	obj/popupmnu.o \
++ 	obj/profiler.o \
+  	obj/quickfix.o \
+  	obj/regexp.o \
+  	obj/screen.o \
+***************
+*** 209,214 ****
+--- 211,217 ----
+  	proto/option.pro \
+  	proto/os_amiga.pro \
+  	proto/popupmnu.pro \
++ 	proto/profiler.pro \
+  	proto/quickfix.pro \
+  	proto/regexp.pro \
+  	proto/screen.pro \
+***************
+*** 410,415 ****
+--- 413,421 ----
+  obj/popupmnu.o:	popupmnu.c
+  	$(CCSYM) $@ popupmnu.c
+  
++ obj/profiler.o:	profiler.c
++ 	$(CCSYM) $@ profiler.c
++ 
+  obj/quickfix.o:	quickfix.c
+  	$(CCSYM) $@ quickfix.c
+  
+*** ../vim-8.1.1683/src/Make_morph.mak	2019-05-11 17:03:55.170019762 +0200
+--- src/Make_morph.mak	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 69,74 ****
+--- 69,75 ----
+  	option.c						\
+  	os_amiga.c						\
+  	popupmnu.c						\
++ 	profiler.c						\
+  	quickfix.c						\
+  	regexp.c						\
+  	screen.c						\
+*** ../vim-8.1.1683/src/Make_mvc.mak	2019-06-21 17:36:03.914009953 +0200
+--- src/Make_mvc.mak	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 761,766 ****
+--- 761,767 ----
+  	$(OUTDIR)\pathdef.obj \
+  	$(OUTDIR)\popupmnu.obj \
+  	$(OUTDIR)\popupwin.obj \
++ 	$(OUTDIR)\profiler.obj \
+  	$(OUTDIR)\quickfix.obj \
+  	$(OUTDIR)\regexp.obj \
+  	$(OUTDIR)\screen.obj \
+***************
+*** 1595,1600 ****
+--- 1596,1603 ----
+  
+  $(OUTDIR)/popupwin.obj:	$(OUTDIR) popupwin.c  $(INCL)
+  
++ $(OUTDIR)/profiler.obj:	$(OUTDIR) profiler.c  $(INCL)
++ 
+  $(OUTDIR)/quickfix.obj:	$(OUTDIR) quickfix.c  $(INCL)
+  
+  $(OUTDIR)/regexp.obj:	$(OUTDIR) regexp.c regexp_nfa.c  $(INCL)
+***************
+*** 1763,1768 ****
+--- 1766,1772 ----
+  	proto/os_win32.pro \
+  	proto/popupmnu.pro \
+  	proto/popupwin.pro \
++ 	proto/profiler.pro \
+  	proto/quickfix.pro \
+  	proto/regexp.pro \
+  	proto/screen.pro \
+*** ../vim-8.1.1683/src/Make_sas.mak	2019-05-11 17:03:55.170019762 +0200
+--- src/Make_sas.mak	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 134,139 ****
+--- 134,140 ----
+  	option.c \
+  	os_amiga.c \
+  	popupmnu.c \
++ 	profiler.c \
+  	quickfix.c \
+  	regexp.c \
+  	screen.c \
+***************
+*** 198,203 ****
+--- 199,205 ----
+  	option.o \
+  	os_amiga.o \
+  	popupmnu.o \
++ 	profiler.o \
+  	quickfix.o \
+  	regexp.o \
+  	screen.o \
+***************
+*** 262,267 ****
+--- 264,270 ----
+  	proto/option.pro \
+  	proto/os_amiga.pro \
+  	proto/popupmnu.pro \
++ 	proto/profiler.pro \
+  	proto/quickfix.pro \
+  	proto/regexp.pro \
+  	proto/screen.pro \
+***************
+*** 425,430 ****
+--- 428,435 ----
+  proto/os_amiga.pro:	os_amiga.c
+  popupmnu.o:		popupmnu.c
+  proto/popupmnu.pro:	popupmnu.c
++ profiler.o:		profiler.c
++ proto/profiler.pro:	profiler.c
+  quickfix.o:		quickfix.c
+  proto/quickfix.pro:	quickfix.c
+  regexp.o:		regexp.c
+*** ../vim-8.1.1683/src/Make_vms.mms	2019-05-25 19:51:03.772408479 +0200
+--- src/Make_vms.mms	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 313,322 ****
+  	if_cscope.c if_xcmdsrv.c fileio.c findfile.c fold.c getchar.c \
+  	hardcopy.c hashtab.c indent.c insexpand.c json.c list.c main.c mark.c \
+  	menu.c mbyte.c memfile.c memline.c message.c misc1.c misc2.c move.c \
+! 	normal.c ops.c option.c popupmnu.c popupwin.c, quickfix.c regexp.c search.c \
+! 	sha256.c sign.c spell.c spellfile.c syntax.c tag.c term.c termlib.c \
+! 	textprop.c ui.c undo.c usercmd.c userfunc.c version.c screen.c \
+! 	window.c os_unix.c os_vms.c pathdef.c \
+  	$(GUI_SRC) $(PERL_SRC) $(PYTHON_SRC) $(TCL_SRC) \
+   	$(RUBY_SRC) $(HANGULIN_SRC) $(MZSCH_SRC) $(XDIFF_SRC)
+  
+--- 313,322 ----
+  	if_cscope.c if_xcmdsrv.c fileio.c findfile.c fold.c getchar.c \
+  	hardcopy.c hashtab.c indent.c insexpand.c json.c list.c main.c mark.c \
+  	menu.c mbyte.c memfile.c memline.c message.c misc1.c misc2.c move.c \
+! 	normal.c ops.c option.c popupmnu.c popupwin.c profiler.c quickfix.c \
+! 	regexp.c search.c sha256.c sign.c spell.c spellfile.c syntax.c tag.c \
+! 	term.c termlib.c textprop.c ui.c undo.c usercmd.c userfunc.c \
+! 	version.c screen.c window.c os_unix.c os_vms.c pathdef.c \
+  	$(GUI_SRC) $(PERL_SRC) $(PYTHON_SRC) $(TCL_SRC) \
+   	$(RUBY_SRC) $(HANGULIN_SRC) $(MZSCH_SRC) $(XDIFF_SRC)
+  
+***************
+*** 327,337 ****
+  	fileio.obj findfile.obj fold.obj getchar.obj hardcopy.obj hashtab.obj \
+  	indent.obj insexpand.obj json.obj list.obj main.obj mark.obj \
+  	menu.obj memfile.obj memline.obj message.obj misc1.obj misc2.obj \
+! 	move.obj mbyte.obj normal.obj ops.obj option.obj popupmnu.obj popupwin.obj\
+! 	quickfix.obj regexp.obj search.obj sha256.obj sign.obj spell.obj \
+! 	spellfile.obj syntax.obj tag.obj term.obj termlib.obj textprop.obj \
+! 	ui.obj undo.obj usercmd.obj userfunc.obj screen.obj version.obj \
+! 	window.obj os_unix.obj os_vms.obj pathdef.obj if_mzsch.obj \
+  	$(GUI_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(TCL_OBJ) \
+   	$(RUBY_OBJ) $(HANGULIN_OBJ) $(MZSCH_OBJ) $(XDIFF_OBJ)
+  
+--- 327,338 ----
+  	fileio.obj findfile.obj fold.obj getchar.obj hardcopy.obj hashtab.obj \
+  	indent.obj insexpand.obj json.obj list.obj main.obj mark.obj \
+  	menu.obj memfile.obj memline.obj message.obj misc1.obj misc2.obj \
+! 	move.obj mbyte.obj normal.obj ops.obj option.obj popupmnu.obj \
+! 	popupwin.obj profiler.obj quickfix.obj regexp.obj search.obj \
+! 	sha256.obj sign.obj spell.obj spellfile.obj syntax.obj tag.obj \
+! 	term.obj termlib.obj textprop.obj ui.obj undo.obj usercmd.obj \
+! 	userfunc.obj screen.obj version.obj window.obj os_unix.obj os_vms.obj \
+! 	pathdef.obj if_mzsch.obj \
+  	$(GUI_OBJ) $(PERL_OBJ) $(PYTHON_OBJ) $(TCL_OBJ) \
+   	$(RUBY_OBJ) $(HANGULIN_OBJ) $(MZSCH_OBJ) $(XDIFF_OBJ)
+  
+***************
+*** 692,697 ****
+--- 693,702 ----
+   ascii.h keymap.h term.h macros.h structs.h regexp.h \
+   gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+   globals.h
++ profiler.obj : profiler.c vim.h [.auto]config.h feature.h os_unix.h \
++  ascii.h keymap.h term.h macros.h structs.h regexp.h \
++  gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
++  globals.h
+  quickfix.obj : quickfix.c vim.h [.auto]config.h feature.h os_unix.h \
+   ascii.h keymap.h term.h macros.h structs.h regexp.h \
+   gui.h beval.h [.proto]gui_beval.pro option.h ex_cmds.h proto.h \
+*** ../vim-8.1.1683/src/Makefile	2019-06-14 20:40:55.062496423 +0200
+--- src/Makefile	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 521,526 ****
+--- 521,527 ----
+  # gpm - For mouse support on Linux console via gpm
+  # Uncomment this when you do not want to include gpm support, even
+  # though you have gpm libraries and includes.
++ # For Debian/Ubuntu gpm support requires the libgpm-dev package.
+  #CONF_OPT_GPM = --disable-gpm
+  
+  # sysmouse - For mouse support on FreeBSD and DragonFly console via sysmouse
+***************
+*** 1626,1631 ****
+--- 1627,1633 ----
+  	auto/pathdef.c \
+  	popupmnu.c \
+  	popupwin.c \
++ 	profiler.c \
+  	pty.c \
+  	quickfix.c \
+  	regexp.c \
+***************
+*** 1742,1747 ****
+--- 1744,1750 ----
+  	objects/pathdef.o \
+  	objects/popupmnu.o \
+  	objects/popupwin.o \
++ 	objects/profiler.o \
+  	objects/pty.o \
+  	objects/quickfix.o \
+  	objects/regexp.o \
+***************
+*** 1883,1888 ****
+--- 1886,1892 ----
+  	os_unix.pro \
+  	popupmnu.pro \
+  	popupwin.pro \
++ 	profiler.pro \
+  	pty.pro \
+  	quickfix.pro \
+  	regexp.pro \
+***************
+*** 3222,3227 ****
+--- 3226,3234 ----
+  objects/popupwin.o: popupwin.c
+  	$(CCC) -o $@ popupwin.c
+  
++ objects/profiler.o: profiler.c
++ 	$(CCC) -o $@ profiler.c
++ 
+  objects/pty.o: pty.c
+  	$(CCC) -o $@ pty.c
+  
+***************
+*** 3633,3638 ****
+--- 3640,3649 ----
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+   proto.h globals.h
++ objects/profiler.o: profiler.c vim.h protodef.h auto/config.h feature.h os_unix.h \
++  auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
++  proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
++  proto.h globals.h
+  objects/pty.o: pty.c vim.h protodef.h auto/config.h feature.h os_unix.h \
+   auto/osdef.h ascii.h keymap.h term.h macros.h option.h beval.h \
+   proto/gui_beval.pro structs.h regexp.h gui.h alloc.h ex_cmds.h spell.h \
+*** ../vim-8.1.1683/src/README.md	2019-05-11 17:03:55.170019762 +0200
+--- src/README.md	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 44,56 ****
+  message.c	| (error) messages
+  ops.c		| handling operators ("d", "y", "p")
+  option.c	| options
+  quickfix.c	| quickfix commands (":make", ":cn")
+  regexp.c	| pattern matching
+  screen.c	| updating the windows
+  search.c	| pattern searching
+  sign.c		| signs
+  spell.c		| spell checking
+! syntax.c	|  syntax and other highlighting
+  tag.c		| tags
+  term.c		| terminal handling, termcap codes
+  undo.c		| undo and redo
+--- 44,57 ----
+  message.c	| (error) messages
+  ops.c		| handling operators ("d", "y", "p")
+  option.c	| options
++ profiler.c	| vim script profiler
+  quickfix.c	| quickfix commands (":make", ":cn")
+  regexp.c	| pattern matching
+  screen.c	| updating the windows
+  search.c	| pattern searching
+  sign.c		| signs
+  spell.c		| spell checking
+! syntax.c	| syntax and other highlighting
+  tag.c		| tags
+  term.c		| terminal handling, termcap codes
+  undo.c		| undo and redo
+*** ../vim-8.1.1683/src/ex_cmds2.c	2019-07-04 14:57:09.588696702 +0200
+--- src/ex_cmds2.c	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 16,230 ****
+  
+  static void	cmd_source(char_u *fname, exarg_T *eap);
+  
+- #ifdef FEAT_EVAL
+- /* Growarray to store info about already sourced scripts.
+-  * For Unix also store the dev/ino, so that we don't have to stat() each
+-  * script when going through the list. */
+- typedef struct scriptitem_S
+- {
+-     char_u	*sn_name;
+- # ifdef UNIX
+-     int		sn_dev_valid;
+-     dev_t	sn_dev;
+-     ino_t	sn_ino;
+- # endif
+- # ifdef FEAT_PROFILE
+-     int		sn_prof_on;	/* TRUE when script is/was profiled */
+-     int		sn_pr_force;	/* forceit: profile functions in this script */
+-     proftime_T	sn_pr_child;	/* time set when going into first child */
+-     int		sn_pr_nest;	/* nesting for sn_pr_child */
+-     /* profiling the script as a whole */
+-     int		sn_pr_count;	/* nr of times sourced */
+-     proftime_T	sn_pr_total;	/* time spent in script + children */
+-     proftime_T	sn_pr_self;	/* time spent in script itself */
+-     proftime_T	sn_pr_start;	/* time at script start */
+-     proftime_T	sn_pr_children; /* time in children after script start */
+-     /* profiling the script per line */
+-     garray_T	sn_prl_ga;	/* things stored for every line */
+-     proftime_T	sn_prl_start;	/* start time for current line */
+-     proftime_T	sn_prl_children; /* time spent in children for this line */
+-     proftime_T	sn_prl_wait;	/* wait start time for current line */
+-     int		sn_prl_idx;	/* index of line being timed; -1 if none */
+-     int		sn_prl_execed;	/* line being timed was executed */
+- # endif
+- } scriptitem_T;
+- 
+- static garray_T script_items = {0, 0, sizeof(scriptitem_T), 4, NULL};
+- #define SCRIPT_ITEM(id) (((scriptitem_T *)script_items.ga_data)[(id) - 1])
+- 
+- # ifdef FEAT_PROFILE
+- /* Struct used in sn_prl_ga for every line of a script. */
+- typedef struct sn_prl_S
+- {
+-     int		snp_count;	/* nr of times line was executed */
+-     proftime_T	sn_prl_total;	/* time spent in a line + children */
+-     proftime_T	sn_prl_self;	/* time spent in a line itself */
+- } sn_prl_T;
+- 
+- #  define PRL_ITEM(si, idx)	(((sn_prl_T *)(si)->sn_prl_ga.ga_data)[(idx)])
+- # endif
+- #endif
+- 
+  #if defined(FEAT_EVAL) || defined(PROTO)
+- # if defined(FEAT_PROFILE) || defined(FEAT_RELTIME) || defined(PROTO)
+- /*
+-  * Store the current time in "tm".
+-  */
+-     void
+- profile_start(proftime_T *tm)
+- {
+- # ifdef MSWIN
+-     QueryPerformanceCounter(tm);
+- # else
+-     gettimeofday(tm, NULL);
+- # endif
+- }
+- 
+- /*
+-  * Compute the elapsed time from "tm" till now and store in "tm".
+-  */
+-     void
+- profile_end(proftime_T *tm)
+- {
+-     proftime_T now;
+- 
+- # ifdef MSWIN
+-     QueryPerformanceCounter(&now);
+-     tm->QuadPart = now.QuadPart - tm->QuadPart;
+- # else
+-     gettimeofday(&now, NULL);
+-     tm->tv_usec = now.tv_usec - tm->tv_usec;
+-     tm->tv_sec = now.tv_sec - tm->tv_sec;
+-     if (tm->tv_usec < 0)
+-     {
+- 	tm->tv_usec += 1000000;
+- 	--tm->tv_sec;
+-     }
+- # endif
+- }
+- 
+- /*
+-  * Subtract the time "tm2" from "tm".
+-  */
+-     void
+- profile_sub(proftime_T *tm, proftime_T *tm2)
+- {
+- # ifdef MSWIN
+-     tm->QuadPart -= tm2->QuadPart;
+- # else
+-     tm->tv_usec -= tm2->tv_usec;
+-     tm->tv_sec -= tm2->tv_sec;
+-     if (tm->tv_usec < 0)
+-     {
+- 	tm->tv_usec += 1000000;
+- 	--tm->tv_sec;
+-     }
+- # endif
+- }
+- 
+- /*
+-  * Return a string that represents the time in "tm".
+-  * Uses a static buffer!
+-  */
+-     char *
+- profile_msg(proftime_T *tm)
+- {
+-     static char buf[50];
+- 
+- # ifdef MSWIN
+-     LARGE_INTEGER   fr;
+- 
+-     QueryPerformanceFrequency(&fr);
+-     sprintf(buf, "%10.6lf", (double)tm->QuadPart / (double)fr.QuadPart);
+- # else
+-     sprintf(buf, "%3ld.%06ld", (long)tm->tv_sec, (long)tm->tv_usec);
+- # endif
+-     return buf;
+- }
+- 
+- # if defined(FEAT_FLOAT) || defined(PROTO)
+- /*
+-  * Return a float that represents the time in "tm".
+-  */
+-     float_T
+- profile_float(proftime_T *tm)
+- {
+- #  ifdef MSWIN
+-     LARGE_INTEGER   fr;
+- 
+-     QueryPerformanceFrequency(&fr);
+-     return (float_T)tm->QuadPart / (float_T)fr.QuadPart;
+- #  else
+-     return (float_T)tm->tv_sec + (float_T)tm->tv_usec / 1000000.0;
+- #  endif
+- }
+- # endif
+- 
+- /*
+-  * Put the time "msec" past now in "tm".
+-  */
+-     void
+- profile_setlimit(long msec, proftime_T *tm)
+- {
+-     if (msec <= 0)   /* no limit */
+- 	profile_zero(tm);
+-     else
+-     {
+- # ifdef MSWIN
+- 	LARGE_INTEGER   fr;
+- 
+- 	QueryPerformanceCounter(tm);
+- 	QueryPerformanceFrequency(&fr);
+- 	tm->QuadPart += (LONGLONG)((double)msec / 1000.0 * (double)fr.QuadPart);
+- # else
+- 	long	    usec;
+- 
+- 	gettimeofday(tm, NULL);
+- 	usec = (long)tm->tv_usec + (long)msec * 1000;
+- 	tm->tv_usec = usec % 1000000L;
+- 	tm->tv_sec += usec / 1000000L;
+- # endif
+-     }
+- }
+- 
+- /*
+-  * Return TRUE if the current time is past "tm".
+-  */
+-     int
+- profile_passed_limit(proftime_T *tm)
+- {
+-     proftime_T	now;
+- 
+- # ifdef MSWIN
+-     if (tm->QuadPart == 0)  /* timer was not set */
+- 	return FALSE;
+-     QueryPerformanceCounter(&now);
+-     return (now.QuadPart > tm->QuadPart);
+- # else
+-     if (tm->tv_sec == 0)    /* timer was not set */
+- 	return FALSE;
+-     gettimeofday(&now, NULL);
+-     return (now.tv_sec > tm->tv_sec
+- 	    || (now.tv_sec == tm->tv_sec && now.tv_usec > tm->tv_usec));
+- # endif
+- }
+- 
+- /*
+-  * Set the time in "tm" to zero.
+-  */
+-     void
+- profile_zero(proftime_T *tm)
+- {
+- # ifdef MSWIN
+-     tm->QuadPart = 0;
+- # else
+-     tm->tv_usec = 0;
+-     tm->tv_sec = 0;
+- # endif
+- }
+- 
+- # endif  /* FEAT_PROFILE || FEAT_RELTIME */
+- 
+  # if defined(FEAT_TIMERS) || defined(PROTO)
+  static timer_T	*first_timer = NULL;
+  static long	last_timer_id = 0;
+--- 16,22 ----
+***************
+*** 603,872 ****
+  #  endif
+  # endif
+  
+- #if defined(FEAT_SYN_HL) && defined(FEAT_RELTIME) && defined(FEAT_FLOAT) && defined(FEAT_PROFILE)
+- # if defined(HAVE_MATH_H)
+- #  include <math.h>
+- # endif
+- 
+- /*
+-  * Divide the time "tm" by "count" and store in "tm2".
+-  */
+-     void
+- profile_divide(proftime_T *tm, int count, proftime_T *tm2)
+- {
+-     if (count == 0)
+- 	profile_zero(tm2);
+-     else
+-     {
+- # ifdef MSWIN
+- 	tm2->QuadPart = tm->QuadPart / count;
+- # else
+- 	double usec = (tm->tv_sec * 1000000.0 + tm->tv_usec) / count;
+- 
+- 	tm2->tv_sec = floor(usec / 1000000.0);
+- 	tm2->tv_usec = vim_round(usec - (tm2->tv_sec * 1000000.0));
+- # endif
+-     }
+- }
+- #endif
+- 
+  # if defined(FEAT_PROFILE) || defined(PROTO)
+  /*
+-  * Functions for profiling.
+-  */
+- static void script_dump_profile(FILE *fd);
+- static proftime_T prof_wait_time;
+- 
+- /*
+-  * Add the time "tm2" to "tm".
+-  */
+-     void
+- profile_add(proftime_T *tm, proftime_T *tm2)
+- {
+- # ifdef MSWIN
+-     tm->QuadPart += tm2->QuadPart;
+- # else
+-     tm->tv_usec += tm2->tv_usec;
+-     tm->tv_sec += tm2->tv_sec;
+-     if (tm->tv_usec >= 1000000)
+-     {
+- 	tm->tv_usec -= 1000000;
+- 	++tm->tv_sec;
+-     }
+- # endif
+- }
+- 
+- /*
+-  * Add the "self" time from the total time and the children's time.
+-  */
+-     void
+- profile_self(proftime_T *self, proftime_T *total, proftime_T *children)
+- {
+-     /* Check that the result won't be negative.  Can happen with recursive
+-      * calls. */
+- #ifdef MSWIN
+-     if (total->QuadPart <= children->QuadPart)
+- 	return;
+- #else
+-     if (total->tv_sec < children->tv_sec
+- 	    || (total->tv_sec == children->tv_sec
+- 		&& total->tv_usec <= children->tv_usec))
+- 	return;
+- #endif
+-     profile_add(self, total);
+-     profile_sub(self, children);
+- }
+- 
+- /*
+-  * Get the current waittime.
+-  */
+-     void
+- profile_get_wait(proftime_T *tm)
+- {
+-     *tm = prof_wait_time;
+- }
+- 
+- /*
+-  * Subtract the passed waittime since "tm" from "tma".
+-  */
+-     void
+- profile_sub_wait(proftime_T *tm, proftime_T *tma)
+- {
+-     proftime_T tm3 = prof_wait_time;
+- 
+-     profile_sub(&tm3, tm);
+-     profile_sub(tma, &tm3);
+- }
+- 
+- /*
+-  * Return TRUE if "tm1" and "tm2" are equal.
+-  */
+-     int
+- profile_equal(proftime_T *tm1, proftime_T *tm2)
+- {
+- # ifdef MSWIN
+-     return (tm1->QuadPart == tm2->QuadPart);
+- # else
+-     return (tm1->tv_usec == tm2->tv_usec && tm1->tv_sec == tm2->tv_sec);
+- # endif
+- }
+- 
+- /*
+-  * Return <0, 0 or >0 if "tm1" < "tm2", "tm1" == "tm2" or "tm1" > "tm2"
+-  */
+-     int
+- profile_cmp(const proftime_T *tm1, const proftime_T *tm2)
+- {
+- # ifdef MSWIN
+-     return (int)(tm2->QuadPart - tm1->QuadPart);
+- # else
+-     if (tm1->tv_sec == tm2->tv_sec)
+- 	return tm2->tv_usec - tm1->tv_usec;
+-     return tm2->tv_sec - tm1->tv_sec;
+- # endif
+- }
+- 
+- static char_u	*profile_fname = NULL;
+- static proftime_T pause_time;
+- 
+- /*
+-  * ":profile cmd args"
+-  */
+-     void
+- ex_profile(exarg_T *eap)
+- {
+-     char_u	*e;
+-     int		len;
+- 
+-     e = skiptowhite(eap->arg);
+-     len = (int)(e - eap->arg);
+-     e = skipwhite(e);
+- 
+-     if (len == 5 && STRNCMP(eap->arg, "start", 5) == 0 && *e != NUL)
+-     {
+- 	vim_free(profile_fname);
+- 	profile_fname = expand_env_save_opt(e, TRUE);
+- 	do_profiling = PROF_YES;
+- 	profile_zero(&prof_wait_time);
+- 	set_vim_var_nr(VV_PROFILING, 1L);
+-     }
+-     else if (do_profiling == PROF_NONE)
+- 	emsg(_("E750: First use \":profile start {fname}\""));
+-     else if (STRCMP(eap->arg, "pause") == 0)
+-     {
+- 	if (do_profiling == PROF_YES)
+- 	    profile_start(&pause_time);
+- 	do_profiling = PROF_PAUSED;
+-     }
+-     else if (STRCMP(eap->arg, "continue") == 0)
+-     {
+- 	if (do_profiling == PROF_PAUSED)
+- 	{
+- 	    profile_end(&pause_time);
+- 	    profile_add(&prof_wait_time, &pause_time);
+- 	}
+- 	do_profiling = PROF_YES;
+-     }
+-     else
+-     {
+- 	/* The rest is similar to ":breakadd". */
+- 	ex_breakadd(eap);
+-     }
+- }
+- 
+- /* Command line expansion for :profile. */
+- static enum
+- {
+-     PEXP_SUBCMD,	/* expand :profile sub-commands */
+-     PEXP_FUNC		/* expand :profile func {funcname} */
+- } pexpand_what;
+- 
+- static char *pexpand_cmds[] = {
+- 			"start",
+- #define PROFCMD_START	0
+- 			"pause",
+- #define PROFCMD_PAUSE	1
+- 			"continue",
+- #define PROFCMD_CONTINUE 2
+- 			"func",
+- #define PROFCMD_FUNC	3
+- 			"file",
+- #define PROFCMD_FILE	4
+- 			NULL
+- #define PROFCMD_LAST	5
+- };
+- 
+- /*
+-  * Function given to ExpandGeneric() to obtain the profile command
+-  * specific expansion.
+-  */
+-     char_u *
+- get_profile_name(expand_T *xp UNUSED, int idx)
+- {
+-     switch (pexpand_what)
+-     {
+-     case PEXP_SUBCMD:
+- 	return (char_u *)pexpand_cmds[idx];
+-     /* case PEXP_FUNC: TODO */
+-     default:
+- 	return NULL;
+-     }
+- }
+- 
+- /*
+-  * Handle command line completion for :profile command.
+-  */
+-     void
+- set_context_in_profile_cmd(expand_T *xp, char_u *arg)
+- {
+-     char_u	*end_subcmd;
+- 
+-     /* Default: expand subcommands. */
+-     xp->xp_context = EXPAND_PROFILE;
+-     pexpand_what = PEXP_SUBCMD;
+-     xp->xp_pattern = arg;
+- 
+-     end_subcmd = skiptowhite(arg);
+-     if (*end_subcmd == NUL)
+- 	return;
+- 
+-     if (end_subcmd - arg == 5 && STRNCMP(arg, "start", 5) == 0)
+-     {
+- 	xp->xp_context = EXPAND_FILES;
+- 	xp->xp_pattern = skipwhite(end_subcmd);
+- 	return;
+-     }
+- 
+-     /* TODO: expand function names after "func" */
+-     xp->xp_context = EXPAND_NOTHING;
+- }
+- 
+- /*
+-  * Dump the profiling info.
+-  */
+-     void
+- profile_dump(void)
+- {
+-     FILE	*fd;
+- 
+-     if (profile_fname != NULL)
+-     {
+- 	fd = mch_fopen((char *)profile_fname, "w");
+- 	if (fd == NULL)
+- 	    semsg(_(e_notopen), profile_fname);
+- 	else
+- 	{
+- 	    script_dump_profile(fd);
+- 	    func_dump_profile(fd);
+- 	    fclose(fd);
+- 	}
+-     }
+- }
+- 
+- /*
+   * Start profiling script "fp".
+   */
+!     static void
+  script_do_profile(scriptitem_T *si)
+  {
+      si->sn_pr_count = 0;
+--- 395,405 ----
+  #  endif
+  # endif
+  
+  # if defined(FEAT_PROFILE) || defined(PROTO)
+  /*
+   * Start profiling script "fp".
+   */
+!     void
+  script_do_profile(scriptitem_T *si)
+  {
+      si->sn_pr_count = 0;
+***************
+*** 918,948 ****
+      }
+  }
+  
+- static proftime_T inchar_time;
+- 
+- /*
+-  * Called when starting to wait for the user to type a character.
+-  */
+-     void
+- prof_inchar_enter(void)
+- {
+-     profile_start(&inchar_time);
+- }
+- 
+- /*
+-  * Called when finished waiting for the user to type a character.
+-  */
+-     void
+- prof_inchar_exit(void)
+- {
+-     profile_end(&inchar_time);
+-     profile_add(&prof_wait_time, &inchar_time);
+- }
+- 
+  /*
+   * Dump the profiling results for all scripts in file "fd".
+   */
+!     static void
+  script_dump_profile(FILE *fd)
+  {
+      int		    id;
+--- 451,460 ----
+      }
+  }
+  
+  /*
+   * Dump the profiling results for all scripts in file "fd".
+   */
+!     void
+  script_dump_profile(FILE *fd)
+  {
+      int		    id;
+***************
+*** 1016,1034 ****
+  	}
+      }
+  }
+- 
+- /*
+-  * Return TRUE when a function defined in the current script should be
+-  * profiled.
+-  */
+-     int
+- prof_def_func(void)
+- {
+-     if (current_sctx.sc_sid > 0)
+- 	return SCRIPT_ITEM(current_sctx.sc_sid).sn_pr_force;
+-     return FALSE;
+- }
+- 
+  # endif
+  #endif
+  
+--- 528,533 ----
+*** ../vim-8.1.1683/src/globals.h	2019-07-08 21:57:26.291708275 +0200
+--- src/globals.h	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 252,257 ****
+--- 252,260 ----
+  # ifdef FEAT_PROFILE
+  EXTERN int	do_profiling INIT(= PROF_NONE);	/* PROF_ values */
+  # endif
++ EXTERN garray_T script_items INIT(= {0 COMMA 0 COMMA sizeof(scriptitem_T) COMMA 4 COMMA NULL});
++ #define SCRIPT_ITEM(id) (((scriptitem_T *)script_items.ga_data)[(id) - 1])
++ #define FUNCLINE(fp, j)	((char_u **)(fp->uf_lines.ga_data))[j]
+  
+  /*
+   * The exception currently being thrown.  Used to pass an exception to
+*** ../vim-8.1.1683/src/profiler.c	2019-07-13 22:58:14.438313696 +0200
+--- src/profiler.c	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 0 ****
+--- 1,679 ----
++ /* vi:set ts=8 sts=4 sw=4 noet:
++  *
++  * VIM - Vi IMproved	by Bram Moolenaar
++  *
++  * Do ":help uganda"  in Vim to read copying and usage conditions.
++  * Do ":help credits" in Vim to see a list of people who contributed.
++  * See README.txt for an overview of the Vim source code.
++  */
++ 
++ /*
++  * profiler.c: vim script profiler
++  */
++ 
++ #include "vim.h"
++ 
++ #if defined(FEAT_EVAL) || defined(PROTO)
++ # if defined(FEAT_PROFILE) || defined(FEAT_RELTIME) || defined(PROTO)
++ /*
++  * Store the current time in "tm".
++  */
++     void
++ profile_start(proftime_T *tm)
++ {
++ # ifdef MSWIN
++     QueryPerformanceCounter(tm);
++ # else
++     gettimeofday(tm, NULL);
++ # endif
++ }
++ 
++ /*
++  * Compute the elapsed time from "tm" till now and store in "tm".
++  */
++     void
++ profile_end(proftime_T *tm)
++ {
++     proftime_T now;
++ 
++ # ifdef MSWIN
++     QueryPerformanceCounter(&now);
++     tm->QuadPart = now.QuadPart - tm->QuadPart;
++ # else
++     gettimeofday(&now, NULL);
++     tm->tv_usec = now.tv_usec - tm->tv_usec;
++     tm->tv_sec = now.tv_sec - tm->tv_sec;
++     if (tm->tv_usec < 0)
++     {
++ 	tm->tv_usec += 1000000;
++ 	--tm->tv_sec;
++     }
++ # endif
++ }
++ 
++ /*
++  * Subtract the time "tm2" from "tm".
++  */
++     void
++ profile_sub(proftime_T *tm, proftime_T *tm2)
++ {
++ # ifdef MSWIN
++     tm->QuadPart -= tm2->QuadPart;
++ # else
++     tm->tv_usec -= tm2->tv_usec;
++     tm->tv_sec -= tm2->tv_sec;
++     if (tm->tv_usec < 0)
++     {
++ 	tm->tv_usec += 1000000;
++ 	--tm->tv_sec;
++     }
++ # endif
++ }
++ 
++ /*
++  * Return a string that represents the time in "tm".
++  * Uses a static buffer!
++  */
++     char *
++ profile_msg(proftime_T *tm)
++ {
++     static char buf[50];
++ 
++ # ifdef MSWIN
++     LARGE_INTEGER   fr;
++ 
++     QueryPerformanceFrequency(&fr);
++     sprintf(buf, "%10.6lf", (double)tm->QuadPart / (double)fr.QuadPart);
++ # else
++     sprintf(buf, "%3ld.%06ld", (long)tm->tv_sec, (long)tm->tv_usec);
++ # endif
++     return buf;
++ }
++ 
++ # if defined(FEAT_FLOAT) || defined(PROTO)
++ /*
++  * Return a float that represents the time in "tm".
++  */
++     float_T
++ profile_float(proftime_T *tm)
++ {
++ #  ifdef MSWIN
++     LARGE_INTEGER   fr;
++ 
++     QueryPerformanceFrequency(&fr);
++     return (float_T)tm->QuadPart / (float_T)fr.QuadPart;
++ #  else
++     return (float_T)tm->tv_sec + (float_T)tm->tv_usec / 1000000.0;
++ #  endif
++ }
++ # endif
++ 
++ /*
++  * Put the time "msec" past now in "tm".
++  */
++     void
++ profile_setlimit(long msec, proftime_T *tm)
++ {
++     if (msec <= 0)   /* no limit */
++ 	profile_zero(tm);
++     else
++     {
++ # ifdef MSWIN
++ 	LARGE_INTEGER   fr;
++ 
++ 	QueryPerformanceCounter(tm);
++ 	QueryPerformanceFrequency(&fr);
++ 	tm->QuadPart += (LONGLONG)((double)msec / 1000.0 * (double)fr.QuadPart);
++ # else
++ 	long	    usec;
++ 
++ 	gettimeofday(tm, NULL);
++ 	usec = (long)tm->tv_usec + (long)msec * 1000;
++ 	tm->tv_usec = usec % 1000000L;
++ 	tm->tv_sec += usec / 1000000L;
++ # endif
++     }
++ }
++ 
++ /*
++  * Return TRUE if the current time is past "tm".
++  */
++     int
++ profile_passed_limit(proftime_T *tm)
++ {
++     proftime_T	now;
++ 
++ # ifdef MSWIN
++     if (tm->QuadPart == 0)  /* timer was not set */
++ 	return FALSE;
++     QueryPerformanceCounter(&now);
++     return (now.QuadPart > tm->QuadPart);
++ # else
++     if (tm->tv_sec == 0)    /* timer was not set */
++ 	return FALSE;
++     gettimeofday(&now, NULL);
++     return (now.tv_sec > tm->tv_sec
++ 	    || (now.tv_sec == tm->tv_sec && now.tv_usec > tm->tv_usec));
++ # endif
++ }
++ 
++ /*
++  * Set the time in "tm" to zero.
++  */
++     void
++ profile_zero(proftime_T *tm)
++ {
++ # ifdef MSWIN
++     tm->QuadPart = 0;
++ # else
++     tm->tv_usec = 0;
++     tm->tv_sec = 0;
++ # endif
++ }
++ 
++ # endif  /* FEAT_PROFILE || FEAT_RELTIME */
++ 
++ #if defined(FEAT_SYN_HL) && defined(FEAT_RELTIME) && defined(FEAT_FLOAT) && defined(FEAT_PROFILE)
++ # if defined(HAVE_MATH_H)
++ #  include <math.h>
++ # endif
++ 
++ /*
++  * Divide the time "tm" by "count" and store in "tm2".
++  */
++     void
++ profile_divide(proftime_T *tm, int count, proftime_T *tm2)
++ {
++     if (count == 0)
++ 	profile_zero(tm2);
++     else
++     {
++ # ifdef MSWIN
++ 	tm2->QuadPart = tm->QuadPart / count;
++ # else
++ 	double usec = (tm->tv_sec * 1000000.0 + tm->tv_usec) / count;
++ 
++ 	tm2->tv_sec = floor(usec / 1000000.0);
++ 	tm2->tv_usec = vim_round(usec - (tm2->tv_sec * 1000000.0));
++ # endif
++     }
++ }
++ #endif
++ 
++ # if defined(FEAT_PROFILE) || defined(PROTO)
++ /*
++  * Functions for profiling.
++  */
++ static proftime_T prof_wait_time;
++ 
++ /*
++  * Add the time "tm2" to "tm".
++  */
++     void
++ profile_add(proftime_T *tm, proftime_T *tm2)
++ {
++ # ifdef MSWIN
++     tm->QuadPart += tm2->QuadPart;
++ # else
++     tm->tv_usec += tm2->tv_usec;
++     tm->tv_sec += tm2->tv_sec;
++     if (tm->tv_usec >= 1000000)
++     {
++ 	tm->tv_usec -= 1000000;
++ 	++tm->tv_sec;
++     }
++ # endif
++ }
++ 
++ /*
++  * Add the "self" time from the total time and the children's time.
++  */
++     void
++ profile_self(proftime_T *self, proftime_T *total, proftime_T *children)
++ {
++     /* Check that the result won't be negative.  Can happen with recursive
++      * calls. */
++ #ifdef MSWIN
++     if (total->QuadPart <= children->QuadPart)
++ 	return;
++ #else
++     if (total->tv_sec < children->tv_sec
++ 	    || (total->tv_sec == children->tv_sec
++ 		&& total->tv_usec <= children->tv_usec))
++ 	return;
++ #endif
++     profile_add(self, total);
++     profile_sub(self, children);
++ }
++ 
++ /*
++  * Get the current waittime.
++  */
++     void
++ profile_get_wait(proftime_T *tm)
++ {
++     *tm = prof_wait_time;
++ }
++ 
++ /*
++  * Subtract the passed waittime since "tm" from "tma".
++  */
++     void
++ profile_sub_wait(proftime_T *tm, proftime_T *tma)
++ {
++     proftime_T tm3 = prof_wait_time;
++ 
++     profile_sub(&tm3, tm);
++     profile_sub(tma, &tm3);
++ }
++ 
++ /*
++  * Return TRUE if "tm1" and "tm2" are equal.
++  */
++     int
++ profile_equal(proftime_T *tm1, proftime_T *tm2)
++ {
++ # ifdef MSWIN
++     return (tm1->QuadPart == tm2->QuadPart);
++ # else
++     return (tm1->tv_usec == tm2->tv_usec && tm1->tv_sec == tm2->tv_sec);
++ # endif
++ }
++ 
++ /*
++  * Return <0, 0 or >0 if "tm1" < "tm2", "tm1" == "tm2" or "tm1" > "tm2"
++  */
++     int
++ profile_cmp(const proftime_T *tm1, const proftime_T *tm2)
++ {
++ # ifdef MSWIN
++     return (int)(tm2->QuadPart - tm1->QuadPart);
++ # else
++     if (tm1->tv_sec == tm2->tv_sec)
++ 	return tm2->tv_usec - tm1->tv_usec;
++     return tm2->tv_sec - tm1->tv_sec;
++ # endif
++ }
++ 
++ static char_u	*profile_fname = NULL;
++ static proftime_T pause_time;
++ 
++ /*
++  * ":profile cmd args"
++  */
++     void
++ ex_profile(exarg_T *eap)
++ {
++     char_u	*e;
++     int		len;
++ 
++     e = skiptowhite(eap->arg);
++     len = (int)(e - eap->arg);
++     e = skipwhite(e);
++ 
++     if (len == 5 && STRNCMP(eap->arg, "start", 5) == 0 && *e != NUL)
++     {
++ 	vim_free(profile_fname);
++ 	profile_fname = expand_env_save_opt(e, TRUE);
++ 	do_profiling = PROF_YES;
++ 	profile_zero(&prof_wait_time);
++ 	set_vim_var_nr(VV_PROFILING, 1L);
++     }
++     else if (do_profiling == PROF_NONE)
++ 	emsg(_("E750: First use \":profile start {fname}\""));
++     else if (STRCMP(eap->arg, "pause") == 0)
++     {
++ 	if (do_profiling == PROF_YES)
++ 	    profile_start(&pause_time);
++ 	do_profiling = PROF_PAUSED;
++     }
++     else if (STRCMP(eap->arg, "continue") == 0)
++     {
++ 	if (do_profiling == PROF_PAUSED)
++ 	{
++ 	    profile_end(&pause_time);
++ 	    profile_add(&prof_wait_time, &pause_time);
++ 	}
++ 	do_profiling = PROF_YES;
++     }
++     else
++     {
++ 	/* The rest is similar to ":breakadd". */
++ 	ex_breakadd(eap);
++     }
++ }
++ 
++ /* Command line expansion for :profile. */
++ static enum
++ {
++     PEXP_SUBCMD,	/* expand :profile sub-commands */
++     PEXP_FUNC		/* expand :profile func {funcname} */
++ } pexpand_what;
++ 
++ static char *pexpand_cmds[] = {
++ 			"start",
++ #define PROFCMD_START	0
++ 			"pause",
++ #define PROFCMD_PAUSE	1
++ 			"continue",
++ #define PROFCMD_CONTINUE 2
++ 			"func",
++ #define PROFCMD_FUNC	3
++ 			"file",
++ #define PROFCMD_FILE	4
++ 			NULL
++ #define PROFCMD_LAST	5
++ };
++ 
++ /*
++  * Function given to ExpandGeneric() to obtain the profile command
++  * specific expansion.
++  */
++     char_u *
++ get_profile_name(expand_T *xp UNUSED, int idx)
++ {
++     switch (pexpand_what)
++     {
++     case PEXP_SUBCMD:
++ 	return (char_u *)pexpand_cmds[idx];
++     /* case PEXP_FUNC: TODO */
++     default:
++ 	return NULL;
++     }
++ }
++ 
++ /*
++  * Handle command line completion for :profile command.
++  */
++     void
++ set_context_in_profile_cmd(expand_T *xp, char_u *arg)
++ {
++     char_u	*end_subcmd;
++ 
++     /* Default: expand subcommands. */
++     xp->xp_context = EXPAND_PROFILE;
++     pexpand_what = PEXP_SUBCMD;
++     xp->xp_pattern = arg;
++ 
++     end_subcmd = skiptowhite(arg);
++     if (*end_subcmd == NUL)
++ 	return;
++ 
++     if (end_subcmd - arg == 5 && STRNCMP(arg, "start", 5) == 0)
++     {
++ 	xp->xp_context = EXPAND_FILES;
++ 	xp->xp_pattern = skipwhite(end_subcmd);
++ 	return;
++     }
++ 
++     /* TODO: expand function names after "func" */
++     xp->xp_context = EXPAND_NOTHING;
++ }
++ 
++ /*
++  * Dump the profiling info.
++  */
++     void
++ profile_dump(void)
++ {
++     FILE	*fd;
++ 
++     if (profile_fname != NULL)
++     {
++ 	fd = mch_fopen((char *)profile_fname, "w");
++ 	if (fd == NULL)
++ 	    semsg(_(e_notopen), profile_fname);
++ 	else
++ 	{
++ 	    script_dump_profile(fd);
++ 	    func_dump_profile(fd);
++ 	    fclose(fd);
++ 	}
++     }
++ }
++ 
++ static proftime_T inchar_time;
++ 
++ /*
++  * Called when starting to wait for the user to type a character.
++  */
++     void
++ prof_inchar_enter(void)
++ {
++     profile_start(&inchar_time);
++ }
++ 
++ /*
++  * Called when finished waiting for the user to type a character.
++  */
++     void
++ prof_inchar_exit(void)
++ {
++     profile_end(&inchar_time);
++     profile_add(&prof_wait_time, &inchar_time);
++ }
++ 
++ 
++ /*
++  * Return TRUE when a function defined in the current script should be
++  * profiled.
++  */
++     int
++ prof_def_func(void)
++ {
++     if (current_sctx.sc_sid > 0)
++ 	return SCRIPT_ITEM(current_sctx.sc_sid).sn_pr_force;
++     return FALSE;
++ }
++ 
++     void
++ prof_sort_list(
++     FILE	*fd,
++     ufunc_T	**sorttab,
++     int		st_len,
++     char	*title,
++     int		prefer_self)	/* when equal print only self time */
++ {
++     int		i;
++     ufunc_T	*fp;
++ 
++     fprintf(fd, "FUNCTIONS SORTED ON %s TIME\n", title);
++     fprintf(fd, "count  total (s)   self (s)  function\n");
++     for (i = 0; i < 20 && i < st_len; ++i)
++     {
++ 	fp = sorttab[i];
++ 	prof_func_line(fd, fp->uf_tm_count, &fp->uf_tm_total, &fp->uf_tm_self,
++ 								 prefer_self);
++ 	if (fp->uf_name[0] == K_SPECIAL)
++ 	    fprintf(fd, " <SNR>%s()\n", fp->uf_name + 3);
++ 	else
++ 	    fprintf(fd, " %s()\n", fp->uf_name);
++     }
++     fprintf(fd, "\n");
++ }
++ 
++ /*
++  * Print the count and times for one function or function line.
++  */
++     void
++ prof_func_line(
++     FILE	*fd,
++     int		count,
++     proftime_T	*total,
++     proftime_T	*self,
++     int		prefer_self)	/* when equal print only self time */
++ {
++     if (count > 0)
++     {
++ 	fprintf(fd, "%5d ", count);
++ 	if (prefer_self && profile_equal(total, self))
++ 	    fprintf(fd, "           ");
++ 	else
++ 	    fprintf(fd, "%s ", profile_msg(total));
++ 	if (!prefer_self && profile_equal(total, self))
++ 	    fprintf(fd, "           ");
++ 	else
++ 	    fprintf(fd, "%s ", profile_msg(self));
++     }
++     else
++ 	fprintf(fd, "                            ");
++ }
++ 
++ /*
++  * Compare function for total time sorting.
++  */
++     int
++ prof_total_cmp(const void *s1, const void *s2)
++ {
++     ufunc_T	*p1, *p2;
++ 
++     p1 = *(ufunc_T **)s1;
++     p2 = *(ufunc_T **)s2;
++     return profile_cmp(&p1->uf_tm_total, &p2->uf_tm_total);
++ }
++ 
++ /*
++  * Compare function for self time sorting.
++  */
++     int
++ prof_self_cmp(const void *s1, const void *s2)
++ {
++     ufunc_T	*p1, *p2;
++ 
++     p1 = *(ufunc_T **)s1;
++     p2 = *(ufunc_T **)s2;
++     return profile_cmp(&p1->uf_tm_self, &p2->uf_tm_self);
++ }
++ 
++ /*
++  * Start profiling function "fp".
++  */
++     void
++ func_do_profile(ufunc_T *fp)
++ {
++     int		len = fp->uf_lines.ga_len;
++ 
++     if (!fp->uf_prof_initialized)
++     {
++ 	if (len == 0)
++ 	    len = 1;  /* avoid getting error for allocating zero bytes */
++ 	fp->uf_tm_count = 0;
++ 	profile_zero(&fp->uf_tm_self);
++ 	profile_zero(&fp->uf_tm_total);
++ 	if (fp->uf_tml_count == NULL)
++ 	    fp->uf_tml_count = ALLOC_CLEAR_MULT(int, len);
++ 	if (fp->uf_tml_total == NULL)
++ 	    fp->uf_tml_total = ALLOC_CLEAR_MULT(proftime_T, len);
++ 	if (fp->uf_tml_self == NULL)
++ 	    fp->uf_tml_self = ALLOC_CLEAR_MULT(proftime_T, len);
++ 	fp->uf_tml_idx = -1;
++ 	if (fp->uf_tml_count == NULL || fp->uf_tml_total == NULL
++ 						    || fp->uf_tml_self == NULL)
++ 	    return;	    /* out of memory */
++ 	fp->uf_prof_initialized = TRUE;
++     }
++ 
++     fp->uf_profiling = TRUE;
++ }
++ 
++ /*
++  * Prepare profiling for entering a child or something else that is not
++  * counted for the script/function itself.
++  * Should always be called in pair with prof_child_exit().
++  */
++     void
++ prof_child_enter(
++     proftime_T *tm)	/* place to store waittime */
++ {
++     funccall_T *fc = get_current_funccal();
++ 
++     if (fc != NULL && fc->func->uf_profiling)
++ 	profile_start(&fc->prof_child);
++     script_prof_save(tm);
++ }
++ 
++ /*
++  * Take care of time spent in a child.
++  * Should always be called after prof_child_enter().
++  */
++     void
++ prof_child_exit(
++     proftime_T *tm)	/* where waittime was stored */
++ {
++     funccall_T *fc = get_current_funccal();
++ 
++     if (fc != NULL && fc->func->uf_profiling)
++     {
++ 	profile_end(&fc->prof_child);
++ 	profile_sub_wait(tm, &fc->prof_child); /* don't count waiting time */
++ 	profile_add(&fc->func->uf_tm_children, &fc->prof_child);
++ 	profile_add(&fc->func->uf_tml_children, &fc->prof_child);
++     }
++     script_prof_restore(tm);
++ }
++ 
++ /*
++  * Called when starting to read a function line.
++  * "sourcing_lnum" must be correct!
++  * When skipping lines it may not actually be executed, but we won't find out
++  * until later and we need to store the time now.
++  */
++     void
++ func_line_start(void *cookie)
++ {
++     funccall_T	*fcp = (funccall_T *)cookie;
++     ufunc_T	*fp = fcp->func;
++ 
++     if (fp->uf_profiling && sourcing_lnum >= 1
++ 				      && sourcing_lnum <= fp->uf_lines.ga_len)
++     {
++ 	fp->uf_tml_idx = sourcing_lnum - 1;
++ 	/* Skip continuation lines. */
++ 	while (fp->uf_tml_idx > 0 && FUNCLINE(fp, fp->uf_tml_idx) == NULL)
++ 	    --fp->uf_tml_idx;
++ 	fp->uf_tml_execed = FALSE;
++ 	profile_start(&fp->uf_tml_start);
++ 	profile_zero(&fp->uf_tml_children);
++ 	profile_get_wait(&fp->uf_tml_wait);
++     }
++ }
++ 
++ /*
++  * Called when actually executing a function line.
++  */
++     void
++ func_line_exec(void *cookie)
++ {
++     funccall_T	*fcp = (funccall_T *)cookie;
++     ufunc_T	*fp = fcp->func;
++ 
++     if (fp->uf_profiling && fp->uf_tml_idx >= 0)
++ 	fp->uf_tml_execed = TRUE;
++ }
++ 
++ /*
++  * Called when done with a function line.
++  */
++     void
++ func_line_end(void *cookie)
++ {
++     funccall_T	*fcp = (funccall_T *)cookie;
++     ufunc_T	*fp = fcp->func;
++ 
++     if (fp->uf_profiling && fp->uf_tml_idx >= 0)
++     {
++ 	if (fp->uf_tml_execed)
++ 	{
++ 	    ++fp->uf_tml_count[fp->uf_tml_idx];
++ 	    profile_end(&fp->uf_tml_start);
++ 	    profile_sub_wait(&fp->uf_tml_wait, &fp->uf_tml_start);
++ 	    profile_add(&fp->uf_tml_total[fp->uf_tml_idx], &fp->uf_tml_start);
++ 	    profile_self(&fp->uf_tml_self[fp->uf_tml_idx], &fp->uf_tml_start,
++ 							&fp->uf_tml_children);
++ 	}
++ 	fp->uf_tml_idx = -1;
++     }
++ }
++ # endif /* FEAT_PROFILE */
++ 
++ #endif
+*** ../vim-8.1.1683/src/proto.h	2019-07-10 22:21:42.823475293 +0200
+--- src/proto.h	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 171,176 ****
+--- 171,179 ----
+  # include "ops.pro"
+  # include "option.pro"
+  # include "popupmnu.pro"
++ # if defined(FEAT_PROFILE) || defined(FEAT_RELTIME)
++ # include "profiler.pro"
++ # endif
+  # ifdef FEAT_QUICKFIX
+  #  include "quickfix.pro"
+  # endif
+*** ../vim-8.1.1683/src/proto/ex_cmds2.pro	2019-07-04 14:57:09.588696702 +0200
+--- src/proto/ex_cmds2.pro	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 1,12 ****
+  /* ex_cmds2.c */
+- void profile_start(proftime_T *tm);
+- void profile_end(proftime_T *tm);
+- void profile_sub(proftime_T *tm, proftime_T *tm2);
+- char *profile_msg(proftime_T *tm);
+- float_T profile_float(proftime_T *tm);
+- void profile_setlimit(long msec, proftime_T *tm);
+- int profile_passed_limit(proftime_T *tm);
+- void profile_zero(proftime_T *tm);
+  long proftime_time_left(proftime_T *due, proftime_T *now);
+  timer_T *create_timer(long msec, int repeat);
+  long check_due_timer(void);
+--- 1,4 ----
+***************
+*** 17,38 ****
+  void add_timer_info_all(typval_T *rettv);
+  int set_ref_in_timer(int copyID);
+  void timer_free_all(void);
+! void profile_divide(proftime_T *tm, int count, proftime_T *tm2);
+! void profile_add(proftime_T *tm, proftime_T *tm2);
+! void profile_self(proftime_T *self, proftime_T *total, proftime_T *children);
+! void profile_get_wait(proftime_T *tm);
+! void profile_sub_wait(proftime_T *tm, proftime_T *tma);
+! int profile_equal(proftime_T *tm1, proftime_T *tm2);
+! int profile_cmp(const proftime_T *tm1, const proftime_T *tm2);
+! void ex_profile(exarg_T *eap);
+! char_u *get_profile_name(expand_T *xp, int idx);
+! void set_context_in_profile_cmd(expand_T *xp, char_u *arg);
+! void profile_dump(void);
+  void script_prof_save(proftime_T *tm);
+  void script_prof_restore(proftime_T *tm);
+! void prof_inchar_enter(void);
+! void prof_inchar_exit(void);
+! int prof_def_func(void);
+  int autowrite(buf_T *buf, int forceit);
+  void autowrite_all(void);
+  int check_changed(buf_T *buf, int flags);
+--- 9,18 ----
+  void add_timer_info_all(typval_T *rettv);
+  int set_ref_in_timer(int copyID);
+  void timer_free_all(void);
+! void script_do_profile(scriptitem_T *si);
+  void script_prof_save(proftime_T *tm);
+  void script_prof_restore(proftime_T *tm);
+! void script_dump_profile(FILE *fd);
+  int autowrite(buf_T *buf, int forceit);
+  void autowrite_all(void);
+  int check_changed(buf_T *buf, int flags);
+*** ../vim-8.1.1683/src/proto/profiler.pro	2019-07-13 22:58:14.446313658 +0200
+--- src/proto/profiler.pro	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 0 ****
+--- 1,34 ----
++ /* profiler.c */
++ void profile_start(proftime_T *tm);
++ void profile_end(proftime_T *tm);
++ void profile_sub(proftime_T *tm, proftime_T *tm2);
++ char *profile_msg(proftime_T *tm);
++ float_T profile_float(proftime_T *tm);
++ void profile_setlimit(long msec, proftime_T *tm);
++ int profile_passed_limit(proftime_T *tm);
++ void profile_zero(proftime_T *tm);
++ void profile_divide(proftime_T *tm, int count, proftime_T *tm2);
++ void profile_add(proftime_T *tm, proftime_T *tm2);
++ void profile_self(proftime_T *self, proftime_T *total, proftime_T *children);
++ void profile_get_wait(proftime_T *tm);
++ void profile_sub_wait(proftime_T *tm, proftime_T *tma);
++ int profile_equal(proftime_T *tm1, proftime_T *tm2);
++ int profile_cmp(const proftime_T *tm1, const proftime_T *tm2);
++ void ex_profile(exarg_T *eap);
++ char_u *get_profile_name(expand_T *xp, int idx);
++ void set_context_in_profile_cmd(expand_T *xp, char_u *arg);
++ void profile_dump(void);
++ void prof_inchar_enter(void);
++ void prof_inchar_exit(void);
++ int prof_def_func(void);
++ void prof_sort_list(FILE *fd, ufunc_T **sorttab, int st_len, char *title, int prefer_self);
++ void prof_func_line(FILE *fd, int count, proftime_T *total, proftime_T *self, int prefer_self);
++ int prof_total_cmp(const void *s1, const void *s2);
++ int prof_self_cmp(const void *s1, const void *s2);
++ void func_do_profile(ufunc_T *fp);
++ void prof_child_enter(proftime_T *tm);
++ void prof_child_exit(proftime_T *tm);
++ void func_line_start(void *cookie);
++ void func_line_exec(void *cookie);
++ void func_line_end(void *cookie);
++ /* vim: set ft=c : */
+*** ../vim-8.1.1683/src/proto/userfunc.pro	2019-06-25 04:12:12.312665250 +0200
+--- src/proto/userfunc.pro	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 6,11 ****
+--- 6,12 ----
+  ufunc_T *find_func(char_u *name);
+  void save_funccal(funccal_entry_T *entry);
+  void restore_funccal(void);
++ funccall_T * get_current_funccal(void);
+  void free_all_functions(void);
+  int func_call(char_u *name, typval_T *args, partial_T *partial, dict_T *selfdict, typval_T *rettv);
+  int call_callback(callback_T *callback, int len, typval_T *rettv, int argcount, typval_T *argvars, int (*argv_func)(int, typval_T *, int), linenr_T firstline, linenr_T lastline, int *doesrange, int evaluate, dict_T *selfdict);
+***************
+*** 17,24 ****
+  int function_exists(char_u *name, int no_deref);
+  char_u *get_expanded_name(char_u *name, int check);
+  void func_dump_profile(FILE *fd);
+- void prof_child_enter(proftime_T *tm);
+- void prof_child_exit(proftime_T *tm);
+  char_u *get_user_func_name(expand_T *xp, int idx);
+  void ex_delfunction(exarg_T *eap);
+  void func_unref(char_u *name);
+--- 18,23 ----
+*** ../vim-8.1.1683/src/structs.h	2019-07-07 18:38:29.945436375 +0200
+--- src/structs.h	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 1518,1523 ****
+--- 1518,1566 ----
+      funccal_entry_T *next;
+  };
+  
++ /* Growarray to store info about already sourced scripts.
++  * For Unix also store the dev/ino, so that we don't have to stat() each
++  * script when going through the list. */
++ typedef struct scriptitem_S
++ {
++     char_u	*sn_name;
++ # ifdef UNIX
++     int		sn_dev_valid;
++     dev_t	sn_dev;
++     ino_t	sn_ino;
++ # endif
++ # ifdef FEAT_PROFILE
++     int		sn_prof_on;	/* TRUE when script is/was profiled */
++     int		sn_pr_force;	/* forceit: profile functions in this script */
++     proftime_T	sn_pr_child;	/* time set when going into first child */
++     int		sn_pr_nest;	/* nesting for sn_pr_child */
++     /* profiling the script as a whole */
++     int		sn_pr_count;	/* nr of times sourced */
++     proftime_T	sn_pr_total;	/* time spent in script + children */
++     proftime_T	sn_pr_self;	/* time spent in script itself */
++     proftime_T	sn_pr_start;	/* time at script start */
++     proftime_T	sn_pr_children; /* time in children after script start */
++     /* profiling the script per line */
++     garray_T	sn_prl_ga;	/* things stored for every line */
++     proftime_T	sn_prl_start;	/* start time for current line */
++     proftime_T	sn_prl_children; /* time spent in children for this line */
++     proftime_T	sn_prl_wait;	/* wait start time for current line */
++     int		sn_prl_idx;	/* index of line being timed; -1 if none */
++     int		sn_prl_execed;	/* line being timed was executed */
++ # endif
++ } scriptitem_T;
++ 
++ # ifdef FEAT_PROFILE
++ /* Struct used in sn_prl_ga for every line of a script. */
++ typedef struct sn_prl_S
++ {
++     int		snp_count;	/* nr of times line was executed */
++     proftime_T	sn_prl_total;	/* time spent in a line + children */
++     proftime_T	sn_prl_self;	/* time spent in a line itself */
++ } sn_prl_T;
++ 
++ #  define PRL_ITEM(si, idx)	(((sn_prl_T *)(si)->sn_prl_ga.ga_data)[(idx)])
++ # endif
+  #else
+  // dummy typedefs for use in function prototypes
+  typedef struct
+***************
+*** 1527,1537 ****
+--- 1570,1588 ----
+  typedef struct
+  {
+      int	    dummy;
++ } funccall_T;
++ typedef struct
++ {
++     int	    dummy;
+  } funcdict_T;
+  typedef struct
+  {
+      int	    dummy;
+  } funccal_entry_T;
++ typedef struct
++ {
++     int	    dummy;
++ } scriptitem_T;
+  #endif
+  
+  struct partial_S
+*** ../vim-8.1.1683/src/userfunc.c	2019-07-04 14:57:09.592696683 +0200
+--- src/userfunc.c	2019-07-13 22:50:02.580542493 +0200
+***************
+*** 29,35 ****
+  #define HI2UF(hi)     HIKEY2UF((hi)->hi_key)
+  
+  #define FUNCARG(fp, j)	((char_u **)(fp->uf_args.ga_data))[j]
+- #define FUNCLINE(fp, j)	((char_u **)(fp->uf_lines.ga_data))[j]
+  
+  /*
+   * All user-defined functions are found in this hashtable.
+--- 29,34 ----
+***************
+*** 51,63 ****
+  static char *e_funcref = N_("E718: Funcref required");
+  static char *e_nofunc = N_("E130: Unknown function: %s");
+  
+- #ifdef FEAT_PROFILE
+- static void func_do_profile(ufunc_T *fp);
+- static void prof_sort_list(FILE *fd, ufunc_T **sorttab, int st_len, char *title, int prefer_self);
+- static void prof_func_line(FILE *fd, int count, proftime_T *total, proftime_T *self, int prefer_self);
+- static int prof_total_cmp(const void *s1, const void *s2);
+- static int prof_self_cmp(const void *s1, const void *s2);
+- #endif
+  static void funccal_unref(funccall_T *fc, ufunc_T *fp, int force);
+  
+      void
+--- 50,55 ----
+***************
+*** 1312,1317 ****
+--- 1304,1315 ----
+      }
+  }
+  
++     funccall_T *
++ get_current_funccal(void)
++ {
++     return current_funccal;
++ }
++ 
+  #if defined(EXITFREE) || defined(PROTO)
+      void
+  free_all_functions(void)
+***************
+*** 2762,2797 ****
+  #endif
+  
+  #if defined(FEAT_PROFILE) || defined(PROTO)
+- /*
+-  * Start profiling function "fp".
+-  */
+-     static void
+- func_do_profile(ufunc_T *fp)
+- {
+-     int		len = fp->uf_lines.ga_len;
+- 
+-     if (!fp->uf_prof_initialized)
+-     {
+- 	if (len == 0)
+- 	    len = 1;  /* avoid getting error for allocating zero bytes */
+- 	fp->uf_tm_count = 0;
+- 	profile_zero(&fp->uf_tm_self);
+- 	profile_zero(&fp->uf_tm_total);
+- 	if (fp->uf_tml_count == NULL)
+- 	    fp->uf_tml_count = ALLOC_CLEAR_MULT(int, len);
+- 	if (fp->uf_tml_total == NULL)
+- 	    fp->uf_tml_total = ALLOC_CLEAR_MULT(proftime_T, len);
+- 	if (fp->uf_tml_self == NULL)
+- 	    fp->uf_tml_self = ALLOC_CLEAR_MULT(proftime_T, len);
+- 	fp->uf_tml_idx = -1;
+- 	if (fp->uf_tml_count == NULL || fp->uf_tml_total == NULL
+- 						    || fp->uf_tml_self == NULL)
+- 	    return;	    /* out of memory */
+- 	fp->uf_prof_initialized = TRUE;
+-     }
+- 
+-     fp->uf_profiling = TRUE;
+- }
+  
+  /*
+   * Dump the profiling results for all functions in file "fd".
+--- 2760,2765 ----
+***************
+*** 2871,2991 ****
+      vim_free(sorttab);
+  }
+  
+-     static void
+- prof_sort_list(
+-     FILE	*fd,
+-     ufunc_T	**sorttab,
+-     int		st_len,
+-     char	*title,
+-     int		prefer_self)	/* when equal print only self time */
+- {
+-     int		i;
+-     ufunc_T	*fp;
+- 
+-     fprintf(fd, "FUNCTIONS SORTED ON %s TIME\n", title);
+-     fprintf(fd, "count  total (s)   self (s)  function\n");
+-     for (i = 0; i < 20 && i < st_len; ++i)
+-     {
+- 	fp = sorttab[i];
+- 	prof_func_line(fd, fp->uf_tm_count, &fp->uf_tm_total, &fp->uf_tm_self,
+- 								 prefer_self);
+- 	if (fp->uf_name[0] == K_SPECIAL)
+- 	    fprintf(fd, " <SNR>%s()\n", fp->uf_name + 3);
+- 	else
+- 	    fprintf(fd, " %s()\n", fp->uf_name);
+-     }
+-     fprintf(fd, "\n");
+- }
+- 
+- /*
+-  * Print the count and times for one function or function line.
+-  */
+-     static void
+- prof_func_line(
+-     FILE	*fd,
+-     int		count,
+-     proftime_T	*total,
+-     proftime_T	*self,
+-     int		prefer_self)	/* when equal print only self time */
+- {
+-     if (count > 0)
+-     {
+- 	fprintf(fd, "%5d ", count);
+- 	if (prefer_self && profile_equal(total, self))
+- 	    fprintf(fd, "           ");
+- 	else
+- 	    fprintf(fd, "%s ", profile_msg(total));
+- 	if (!prefer_self && profile_equal(total, self))
+- 	    fprintf(fd, "           ");
+- 	else
+- 	    fprintf(fd, "%s ", profile_msg(self));
+-     }
+-     else
+- 	fprintf(fd, "                            ");
+- }
+- 
+- /*
+-  * Compare function for total time sorting.
+-  */
+-     static int
+- prof_total_cmp(const void *s1, const void *s2)
+- {
+-     ufunc_T	*p1, *p2;
+- 
+-     p1 = *(ufunc_T **)s1;
+-     p2 = *(ufunc_T **)s2;
+-     return profile_cmp(&p1->uf_tm_total, &p2->uf_tm_total);
+- }
+- 
+- /*
+-  * Compare function for self time sorting.
+-  */
+-     static int
+- prof_self_cmp(const void *s1, const void *s2)
+- {
+-     ufunc_T	*p1, *p2;
+- 
+-     p1 = *(ufunc_T **)s1;
+-     p2 = *(ufunc_T **)s2;
+-     return profile_cmp(&p1->uf_tm_self, &p2->uf_tm_self);
+- }
+- 
+- /*
+-  * Prepare profiling for entering a child or something else that is not
+-  * counted for the script/function itself.
+-  * Should always be called in pair with prof_child_exit().
+-  */
+-     void
+- prof_child_enter(
+-     proftime_T *tm)	/* place to store waittime */
+- {
+-     funccall_T *fc = current_funccal;
+- 
+-     if (fc != NULL && fc->func->uf_profiling)
+- 	profile_start(&fc->prof_child);
+-     script_prof_save(tm);
+- }
+- 
+- /*
+-  * Take care of time spent in a child.
+-  * Should always be called after prof_child_enter().
+-  */
+-     void
+- prof_child_exit(
+-     proftime_T *tm)	/* where waittime was stored */
+- {
+-     funccall_T *fc = current_funccal;
+- 
+-     if (fc != NULL && fc->func->uf_profiling)
+-     {
+- 	profile_end(&fc->prof_child);
+- 	profile_sub_wait(tm, &fc->prof_child); /* don't count waiting time */
+- 	profile_add(&fc->func->uf_tm_children, &fc->prof_child);
+- 	profile_add(&fc->func->uf_tml_children, &fc->prof_child);
+-     }
+-     script_prof_restore(tm);
+- }
+- 
+  #endif /* FEAT_PROFILE */
+  
+  #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+--- 2839,2844 ----
+***************
+*** 3574,3644 ****
+      return retval;
+  }
+  
+- #if defined(FEAT_PROFILE) || defined(PROTO)
+- /*
+-  * Called when starting to read a function line.
+-  * "sourcing_lnum" must be correct!
+-  * When skipping lines it may not actually be executed, but we won't find out
+-  * until later and we need to store the time now.
+-  */
+-     void
+- func_line_start(void *cookie)
+- {
+-     funccall_T	*fcp = (funccall_T *)cookie;
+-     ufunc_T	*fp = fcp->func;
+- 
+-     if (fp->uf_profiling && sourcing_lnum >= 1
+- 				      && sourcing_lnum <= fp->uf_lines.ga_len)
+-     {
+- 	fp->uf_tml_idx = sourcing_lnum - 1;
+- 	/* Skip continuation lines. */
+- 	while (fp->uf_tml_idx > 0 && FUNCLINE(fp, fp->uf_tml_idx) == NULL)
+- 	    --fp->uf_tml_idx;
+- 	fp->uf_tml_execed = FALSE;
+- 	profile_start(&fp->uf_tml_start);
+- 	profile_zero(&fp->uf_tml_children);
+- 	profile_get_wait(&fp->uf_tml_wait);
+-     }
+- }
+- 
+- /*
+-  * Called when actually executing a function line.
+-  */
+-     void
+- func_line_exec(void *cookie)
+- {
+-     funccall_T	*fcp = (funccall_T *)cookie;
+-     ufunc_T	*fp = fcp->func;
+- 
+-     if (fp->uf_profiling && fp->uf_tml_idx >= 0)
+- 	fp->uf_tml_execed = TRUE;
+- }
+- 
+- /*
+-  * Called when done with a function line.
+-  */
+-     void
+- func_line_end(void *cookie)
+- {
+-     funccall_T	*fcp = (funccall_T *)cookie;
+-     ufunc_T	*fp = fcp->func;
+- 
+-     if (fp->uf_profiling && fp->uf_tml_idx >= 0)
+-     {
+- 	if (fp->uf_tml_execed)
+- 	{
+- 	    ++fp->uf_tml_count[fp->uf_tml_idx];
+- 	    profile_end(&fp->uf_tml_start);
+- 	    profile_sub_wait(&fp->uf_tml_wait, &fp->uf_tml_start);
+- 	    profile_add(&fp->uf_tml_total[fp->uf_tml_idx], &fp->uf_tml_start);
+- 	    profile_self(&fp->uf_tml_self[fp->uf_tml_idx], &fp->uf_tml_start,
+- 							&fp->uf_tml_children);
+- 	}
+- 	fp->uf_tml_idx = -1;
+-     }
+- }
+- #endif
+- 
+  /*
+   * Return TRUE if the currently active function should be ended, because a
+   * return was encountered or an error occurred.  Used inside a ":while".
+--- 3427,3432 ----
+*** ../vim-8.1.1683/src/version.c	2019-07-13 22:46:05.245628567 +0200
+--- src/version.c	2019-07-13 22:51:30.228143562 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1684,
+  /**/
+
+-- 
+Q: How do you tell the difference between a female cat and a male cat?
+A: You ask it a question and if HE answers, it's a male but, if SHE
+   answers, it's a female.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

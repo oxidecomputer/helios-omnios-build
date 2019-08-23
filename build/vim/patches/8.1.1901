@@ -1,0 +1,2911 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1901
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1901
+Problem:    The +insert_expand feature is not always available.
+Solution:   Graduate the +insert_expand feature.
+Files:	    src/feature.h, src/autocmd.c, src/buffer.c, src/change.c,
+            src/charset.c, src/edit.c, src/evalfunc.c, src/ex_cmds.c,
+            src/ex_getln.c, src/getchar.c, src/gui.c, src/highlight.c,
+            src/indent.c, src/insexpand.c, src/misc2.c, src/move.c,
+            src/option.c, src/popupmnu.c, src/screen.c, src/search.c,
+            src/spell.c, src/tag.c, src/term.c, src/userfunc.c, src/version.c,
+            src/globals.h, src/option.h, src/proto.h, src/structs.h,
+            src/vim.h, runtime/doc/change.txt, runtime/doc/index.txt,
+            runtime/doc/insert.txt, runtime/doc/options.txt
+
+
+*** ../vim-8.1.1900/src/feature.h	2019-08-18 22:25:54.661448011 +0200
+--- src/feature.h	2019-08-21 14:20:48.131165202 +0200
+***************
+*** 106,111 ****
+--- 106,112 ----
+   * +user_commands	Allow the user to define his own commands.
+   * +multi_byte		Generic multi-byte character handling.
+   * +cmdline_compl	completion of mappings/abbreviations in cmdline mode.
++  * +insert_expand	CTRL-N/CTRL-P/CTRL-X in insert mode.
+   *
+   * Obsolete:
+   * +tag_old_static	Old style static tags: "file:tag  file  ..".
+***************
+*** 170,183 ****
+  # define FEAT_KEYMAP
+  #endif
+  
+- /*
+-  * +insert_expand	CTRL-N/CTRL-P/CTRL-X in insert mode. Takes about
+-  *			4Kbyte of code.
+-  */
+- #ifdef FEAT_NORMAL
+- # define FEAT_INS_EXPAND
+- #endif
+- 
+  #ifdef FEAT_NORMAL
+  # define VIM_BACKTICK		/* internal backtick expansion */
+  #endif
+--- 171,176 ----
+***************
+*** 343,349 ****
+  /*
+   *			Insert mode completion with 'completefunc'.
+   */
+! #if defined(FEAT_INS_EXPAND) && defined(FEAT_EVAL)
+  # define FEAT_COMPL_FUNC
+  #endif
+  
+--- 336,342 ----
+  /*
+   *			Insert mode completion with 'completefunc'.
+   */
+! #if defined(FEAT_EVAL)
+  # define FEAT_COMPL_FUNC
+  #endif
+  
+***************
+*** 621,627 ****
+  /*
+   * popup menu in a terminal
+   */
+! #if defined(FEAT_MENU) && !defined(ALWAYS_USE_GUI) && defined(FEAT_INS_EXPAND)
+  # define FEAT_TERM_POPUP_MENU
+  #endif
+  
+--- 614,620 ----
+  /*
+   * popup menu in a terminal
+   */
+! #if defined(FEAT_MENU) && !defined(ALWAYS_USE_GUI)
+  # define FEAT_TERM_POPUP_MENU
+  #endif
+  
+*** ../vim-8.1.1900/src/autocmd.c	2019-08-20 20:13:40.318821992 +0200
+--- src/autocmd.c	2019-08-21 14:05:28.894978631 +0200
+***************
+*** 1678,1687 ****
+  	    && has_cursorhold()
+  	    && reg_recording == 0
+  	    && typebuf.tb_len == 0
+! #ifdef FEAT_INS_EXPAND
+! 	    && !ins_compl_active()
+! #endif
+! 	    )
+      {
+  	state = get_real_state();
+  	if (state == NORMAL_BUSY || (state & INSERT) != 0)
+--- 1678,1684 ----
+  	    && has_cursorhold()
+  	    && reg_recording == 0
+  	    && typebuf.tb_len == 0
+! 	    && !ins_compl_active())
+      {
+  	state = get_real_state();
+  	if (state == NORMAL_BUSY || (state & INSERT) != 0)
+***************
+*** 1726,1732 ****
+      return (first_autopat[(int)EVENT_TEXTCHANGEDI] != NULL);
+  }
+  
+- #if defined(FEAT_INS_EXPAND) || defined(PROTO)
+  /*
+   * Return TRUE when there is a TextChangedP autocommand defined.
+   */
+--- 1723,1728 ----
+***************
+*** 1735,1741 ****
+  {
+      return (first_autopat[(int)EVENT_TEXTCHANGEDP] != NULL);
+  }
+- #endif
+  
+  /*
+   * Return TRUE when there is an InsertCharPre autocommand defined.
+--- 1731,1736 ----
+***************
+*** 2044,2052 ****
+      if (!autocmd_busy)
+      {
+  	save_search_patterns();
+- #ifdef FEAT_INS_EXPAND
+  	if (!ins_compl_active())
+- #endif
+  	{
+  	    saveRedobuff(&save_redo);
+  	    did_save_redobuff = TRUE;
+--- 2039,2045 ----
+*** ../vim-8.1.1900/src/buffer.c	2019-08-20 22:58:33.124026286 +0200
+--- src/buffer.c	2019-08-21 14:05:48.314894120 +0200
+***************
+*** 310,318 ****
+      /* Set last_changedtick to avoid triggering a TextChanged autocommand right
+       * after it was added. */
+      curbuf->b_last_changedtick = CHANGEDTICK(curbuf);
+- #ifdef FEAT_INS_EXPAND
+      curbuf->b_last_changedtick_pum = CHANGEDTICK(curbuf);
+- #endif
+  
+      /* require "!" to overwrite the file, because it wasn't read completely */
+  #ifdef FEAT_EVAL
+--- 310,316 ----
+***************
+*** 2228,2236 ****
+  #if defined(FEAT_CINDENT) || defined(FEAT_SMARTINDENT)
+      clear_string_option(&buf->b_p_cinw);
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      clear_string_option(&buf->b_p_cpt);
+- #endif
+  #ifdef FEAT_COMPL_FUNC
+      clear_string_option(&buf->b_p_cfu);
+      clear_string_option(&buf->b_p_ofu);
+--- 2226,2232 ----
+***************
+*** 2247,2256 ****
+  #ifdef FEAT_EVAL
+      clear_string_option(&buf->b_p_tfu);
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      clear_string_option(&buf->b_p_dict);
+      clear_string_option(&buf->b_p_tsr);
+- #endif
+  #ifdef FEAT_TEXTOBJ
+      clear_string_option(&buf->b_p_qe);
+  #endif
+--- 2243,2250 ----
+*** ../vim-8.1.1900/src/change.c	2019-08-20 20:13:40.318821992 +0200
+--- src/change.c	2019-08-21 14:07:01.002577483 +0200
+***************
+*** 1008,1017 ****
+      // show the match for right parens and braces.
+      if (p_sm && (State & INSERT)
+  	    && msg_silent == 0
+! #ifdef FEAT_INS_EXPAND
+! 	    && !ins_compl_active()
+! #endif
+!        )
+      {
+  	if (has_mbyte)
+  	    showmatch(mb_ptr2char(buf));
+--- 1008,1014 ----
+      // show the match for right parens and braces.
+      if (p_sm && (State & INSERT)
+  	    && msg_silent == 0
+! 	    && !ins_compl_active())
+      {
+  	if (has_mbyte)
+  	    showmatch(mb_ptr2char(buf));
+*** ../vim-8.1.1900/src/charset.c	2019-08-20 20:13:40.322821973 +0200
+--- src/charset.c	2019-08-21 14:07:30.658448163 +0200
+***************
+*** 314,321 ****
+      }
+  }
+  
+- #if defined(FEAT_EVAL) || defined(FEAT_TITLE) || defined(FEAT_INS_EXPAND) \
+- 	|| defined(PROTO)
+  /*
+   * Translate a string into allocated memory, replacing special chars with
+   * printable chars.  Returns NULL when out of memory.
+--- 314,319 ----
+***************
+*** 382,390 ****
+      }
+      return res;
+  }
+- #endif
+  
+- #if defined(FEAT_SYN_HL) || defined(FEAT_INS_EXPAND) || defined(PROTO)
+  /*
+   * Convert the string "str[orglen]" to do ignore-case comparing.  Uses the
+   * current locale.
+--- 380,386 ----
+***************
+*** 495,501 ****
+  	return (char_u *)ga.ga_data;
+      return buf;
+  }
+- #endif
+  
+  /*
+   * Catch 22: g_chartab[] can't be initialized before the options are
+--- 491,496 ----
+***************
+*** 2015,2020 ****
+--- 2010,2016 ----
+  
+  /*
+   * backslash_halve() plus save the result in allocated memory.
++  * However, returns "p" when out of memory.
+   */
+      char_u *
+  backslash_halve_save(char_u *p)
+*** ../vim-8.1.1900/src/edit.c	2019-08-18 19:23:41.525729980 +0200
+--- src/edit.c	2019-08-21 14:10:21.869700311 +0200
+***************
+*** 18,28 ****
+  #define BACKSPACE_WORD_NOT_SPACE    3
+  #define BACKSPACE_LINE		    4
+  
+- #ifdef FEAT_INS_EXPAND
+  /* Set when doing something for completion that may call edit() recursively,
+   * which is not allowed. */
+  static int	compl_busy = FALSE;
+- #endif /* FEAT_INS_EXPAND */
+  
+  
+  static void ins_ctrl_v(void);
+--- 18,26 ----
+***************
+*** 194,200 ****
+  	return FALSE;
+      }
+  
+- #ifdef FEAT_INS_EXPAND
+      /* Don't allow recursive insert mode when busy with completion. */
+      if (ins_compl_active() || compl_busy || pum_visible())
+      {
+--- 192,197 ----
+***************
+*** 202,208 ****
+  	return FALSE;
+      }
+      ins_compl_clear();	    /* clear stuff for CTRL-X mode */
+- #endif
+  
+      /*
+       * Trigger InsertEnter autocommands.  Do not do this for "r<CR>" or "grx".
+--- 199,204 ----
+***************
+*** 462,472 ****
+  	if (update_Insstart_orig)
+  	    Insstart_orig = Insstart;
+  
+! 	if (stop_insert_mode
+! #ifdef FEAT_INS_EXPAND
+! 		&& !pum_visible()
+! #endif
+! 		)
+  	{
+  	    /* ":stopinsert" used or 'insertmode' reset */
+  	    count = 0;
+--- 458,464 ----
+  	if (update_Insstart_orig)
+  	    Insstart_orig = Insstart;
+  
+! 	if (stop_insert_mode && !pum_visible())
+  	{
+  	    /* ":stopinsert" used or 'insertmode' reset */
+  	    count = 0;
+***************
+*** 631,637 ****
+  	    c = hkmap(c);		/* Hebrew mode mapping */
+  #endif
+  
+- #ifdef FEAT_INS_EXPAND
+  	/*
+  	 * Special handling of keys while the popup menu is visible or wanted
+  	 * and the cursor is still in the completed word.  Only when there is
+--- 623,628 ----
+***************
+*** 701,707 ****
+  	ins_compl_init_get_longest();
+  	if (ins_compl_prep(c))
+  	    continue;
+- #endif
+  
+  	/* CTRL-\ CTRL-N goes to Normal mode,
+  	 * CTRL-\ CTRL-G goes to mode selected with 'insertmode',
+--- 692,697 ----
+***************
+*** 740,749 ****
+  	c = do_digraph(c);
+  #endif
+  
+- #ifdef FEAT_INS_EXPAND
+  	if ((c == Ctrl_V || c == Ctrl_Q) && ctrl_x_mode_cmdline())
+  	    goto docomplete;
+- #endif
+  	if (c == Ctrl_V || c == Ctrl_Q)
+  	{
+  	    ins_ctrl_v();
+--- 730,737 ----
+***************
+*** 752,762 ****
+  	}
+  
+  #ifdef FEAT_CINDENT
+! 	if (cindent_on()
+! # ifdef FEAT_INS_EXPAND
+! 		&& ctrl_x_mode_none()
+! # endif
+! 	   )
+  	{
+  	    /* A key name preceded by a bang means this key is not to be
+  	     * inserted.  Skip ahead to the re-indenting below.
+--- 740,746 ----
+  	}
+  
+  #ifdef FEAT_CINDENT
+! 	if (cindent_on() && ctrl_x_mode_none())
+  	{
+  	    /* A key name preceded by a bang means this key is not to be
+  	     * inserted.  Skip ahead to the re-indenting below.
+***************
+*** 950,970 ****
+  #endif
+  
+  	case Ctrl_D:	/* Make indent one shiftwidth smaller. */
+! #if defined(FEAT_INS_EXPAND) && defined(FEAT_FIND_ID)
+  	    if (ctrl_x_mode_path_defines())
+  		goto docomplete;
+  #endif
+  	    /* FALLTHROUGH */
+  
+  	case Ctrl_T:	/* Make indent one shiftwidth greater. */
+- # ifdef FEAT_INS_EXPAND
+  	    if (c == Ctrl_T && ctrl_x_mode_thesaurus())
+  	    {
+  		if (has_compl_option(FALSE))
+  		    goto docomplete;
+  		break;
+  	    }
+! # endif
+  	    ins_shift(c, lastc);
+  	    auto_format(FALSE, TRUE);
+  	    inserted_space = FALSE;
+--- 934,953 ----
+  #endif
+  
+  	case Ctrl_D:	/* Make indent one shiftwidth smaller. */
+! #if defined(FEAT_FIND_ID)
+  	    if (ctrl_x_mode_path_defines())
+  		goto docomplete;
+  #endif
+  	    /* FALLTHROUGH */
+  
+  	case Ctrl_T:	/* Make indent one shiftwidth greater. */
+  	    if (c == Ctrl_T && ctrl_x_mode_thesaurus())
+  	    {
+  		if (has_compl_option(FALSE))
+  		    goto docomplete;
+  		break;
+  	    }
+! 
+  	    ins_shift(c, lastc);
+  	    auto_format(FALSE, TRUE);
+  	    inserted_space = FALSE;
+***************
+*** 1131,1140 ****
+  	    break;
+  
+  	case K_UP:	/* <Up> */
+- #ifdef FEAT_INS_EXPAND
+  	    if (pum_visible())
+  		goto docomplete;
+- #endif
+  	    if (mod_mask & MOD_MASK_SHIFT)
+  		ins_pageup();
+  	    else
+--- 1114,1121 ----
+***************
+*** 1144,1161 ****
+  	case K_S_UP:	/* <S-Up> */
+  	case K_PAGEUP:
+  	case K_KPAGEUP:
+- #ifdef FEAT_INS_EXPAND
+  	    if (pum_visible())
+  		goto docomplete;
+- #endif
+  	    ins_pageup();
+  	    break;
+  
+  	case K_DOWN:	/* <Down> */
+- #ifdef FEAT_INS_EXPAND
+  	    if (pum_visible())
+  		goto docomplete;
+- #endif
+  	    if (mod_mask & MOD_MASK_SHIFT)
+  		ins_pagedown();
+  	    else
+--- 1125,1138 ----
+***************
+*** 1165,1174 ****
+  	case K_S_DOWN:	/* <S-Down> */
+  	case K_PAGEDOWN:
+  	case K_KPAGEDOWN:
+- #ifdef FEAT_INS_EXPAND
+  	    if (pum_visible())
+  		goto docomplete;
+- #endif
+  	    ins_pagedown();
+  	    break;
+  
+--- 1142,1149 ----
+***************
+*** 1183,1189 ****
+  	    /* FALLTHROUGH */
+  
+  	case TAB:	/* TAB or Complete patterns along path */
+! #if defined(FEAT_INS_EXPAND) && defined(FEAT_FIND_ID)
+  	    if (ctrl_x_mode_path_patterns())
+  		goto docomplete;
+  #endif
+--- 1158,1164 ----
+  	    /* FALLTHROUGH */
+  
+  	case TAB:	/* TAB or Complete patterns along path */
+! #if defined(FEAT_FIND_ID)
+  	    if (ctrl_x_mode_path_patterns())
+  		goto docomplete;
+  #endif
+***************
+*** 1235,1259 ****
+  	    inserted_space = FALSE;
+  	    break;
+  
+- #if defined(FEAT_DIGRAPHS) || defined(FEAT_INS_EXPAND)
+  	case Ctrl_K:	    /* digraph or keyword completion */
+- # ifdef FEAT_INS_EXPAND
+  	    if (ctrl_x_mode_dictionary())
+  	    {
+  		if (has_compl_option(TRUE))
+  		    goto docomplete;
+  		break;
+  	    }
+! # endif
+! # ifdef FEAT_DIGRAPHS
+  	    c = ins_digraph();
+  	    if (c == NUL)
+  		break;
+- # endif
+- 	    goto normalchar;
+  #endif
+  
+- #ifdef FEAT_INS_EXPAND
+  	case Ctrl_X:	/* Enter CTRL-X mode */
+  	    ins_ctrl_x();
+  	    break;
+--- 1210,1229 ----
+  	    inserted_space = FALSE;
+  	    break;
+  
+  	case Ctrl_K:	    /* digraph or keyword completion */
+  	    if (ctrl_x_mode_dictionary())
+  	    {
+  		if (has_compl_option(TRUE))
+  		    goto docomplete;
+  		break;
+  	    }
+! #ifdef FEAT_DIGRAPHS
+  	    c = ins_digraph();
+  	    if (c == NUL)
+  		break;
+  #endif
++ 	    goto normalchar;
+  
+  	case Ctrl_X:	/* Enter CTRL-X mode */
+  	    ins_ctrl_x();
+  	    break;
+***************
+*** 1273,1284 ****
+  	    if (!ctrl_x_mode_spell())
+  		goto normalchar;
+  	    goto docomplete;
+- #endif
+  
+  	case Ctrl_L:	/* Whole line completion after ^X */
+- #ifdef FEAT_INS_EXPAND
+  	    if (!ctrl_x_mode_whole_line())
+- #endif
+  	    {
+  		/* CTRL-L with 'insertmode' set: Leave Insert mode */
+  		if (p_im)
+--- 1243,1251 ----
+***************
+*** 1289,1295 ****
+  		}
+  		goto normalchar;
+  	    }
+- #ifdef FEAT_INS_EXPAND
+  	    /* FALLTHROUGH */
+  
+  	case Ctrl_P:	/* Do previous/next pattern completion */
+--- 1256,1261 ----
+***************
+*** 1313,1319 ****
+  #endif
+  	    compl_busy = FALSE;
+  	    break;
+- #endif /* FEAT_INS_EXPAND */
+  
+  	case Ctrl_Y:	/* copy from previous line or scroll down */
+  	case Ctrl_E:	/* copy from next line	   or scroll up */
+--- 1279,1284 ----
+***************
+*** 1419,1429 ****
+  	    inserted_space = FALSE;
+  
+  #ifdef FEAT_CINDENT
+! 	if (can_cindent && cindent_on()
+! # ifdef FEAT_INS_EXPAND
+! 		&& ctrl_x_mode_normal()
+! # endif
+! 	   )
+  	{
+  force_cindent:
+  	    /*
+--- 1384,1390 ----
+  	    inserted_space = FALSE;
+  
+  #ifdef FEAT_CINDENT
+! 	if (can_cindent && cindent_on() && ctrl_x_mode_normal())
+  	{
+  force_cindent:
+  	    /*
+***************
+*** 1478,1487 ****
+  # endif
+  		)
+  	    && !EQUAL_POS(last_cursormoved, curwin->w_cursor)
+! # ifdef FEAT_INS_EXPAND
+! 	    && !pum_visible()
+! # endif
+!        )
+      {
+  # ifdef FEAT_SYN_HL
+  	/* Need to update the screen first, to make sure syntax
+--- 1439,1445 ----
+  # endif
+  		)
+  	    && !EQUAL_POS(last_cursormoved, curwin->w_cursor)
+! 	    && !pum_visible())
+      {
+  # ifdef FEAT_SYN_HL
+  	/* Need to update the screen first, to make sure syntax
+***************
+*** 1516,1525 ****
+      /* Trigger TextChangedI if b_changedtick differs. */
+      if (ready && has_textchangedI()
+  	    && curbuf->b_last_changedtick != CHANGEDTICK(curbuf)
+! #ifdef FEAT_INS_EXPAND
+! 	    && !pum_visible()
+! #endif
+! 	    )
+      {
+  	aco_save_T	aco;
+  	varnumber_T	tick = CHANGEDTICK(curbuf);
+--- 1474,1480 ----
+      /* Trigger TextChangedI if b_changedtick differs. */
+      if (ready && has_textchangedI()
+  	    && curbuf->b_last_changedtick != CHANGEDTICK(curbuf)
+! 	    && !pum_visible())
+      {
+  	aco_save_T	aco;
+  	varnumber_T	tick = CHANGEDTICK(curbuf);
+***************
+*** 1534,1540 ****
+  					(linenr_T)(curwin->w_cursor.lnum + 1));
+      }
+  
+- #ifdef FEAT_INS_EXPAND
+      /* Trigger TextChangedP if b_changedtick differs. When the popupmenu closes
+       * TextChangedI will need to trigger for backwards compatibility, thus use
+       * different b_last_changedtick* variables. */
+--- 1489,1494 ----
+***************
+*** 1554,1560 ****
+  	    u_save(curwin->w_cursor.lnum,
+  					(linenr_T)(curwin->w_cursor.lnum + 1));
+      }
+- #endif
+  
+  #if defined(FEAT_CONCEAL)
+      if ((conceal_update_lines
+--- 1508,1513 ----
+***************
+*** 4328,4337 ****
+  {
+      int		c;
+  
+! #ifdef FEAT_INS_EXPAND
+!     /* Right after CTRL-X the cursor will be after the ruler. */
+      setcursor();
+- #endif
+  
+      /*
+       * Don't map the second key. This also prevents the mode message to be
+--- 4281,4288 ----
+  {
+      int		c;
+  
+!     // Right after CTRL-X the cursor will be after the ruler.
+      setcursor();
+  
+      /*
+       * Don't map the second key. This also prevents the mode message to be
+***************
+*** 5253,5261 ****
+  {
+      pos_T	tpos;
+      win_T	*old_curwin = curwin, *wp;
+- # ifdef FEAT_INS_EXPAND
+      int		did_scroll = FALSE;
+- # endif
+  
+      tpos = curwin->w_cursor;
+  
+--- 5204,5210 ----
+***************
+*** 5276,5285 ****
+      if (curwin == old_curwin)
+  	undisplay_dollar();
+  
+- # ifdef FEAT_INS_EXPAND
+      /* Don't scroll the window in which completion is being done. */
+      if (!pum_visible() || curwin != old_curwin)
+- # endif
+      {
+  	if (dir == MSCR_DOWN || dir == MSCR_UP)
+  	{
+--- 5225,5232 ----
+***************
+*** 5306,5314 ****
+  	    gui_do_horiz_scroll(val, TRUE);
+  	}
+  #endif
+- # ifdef FEAT_INS_EXPAND
+  	did_scroll = TRUE;
+- # endif
+      }
+  
+      curwin->w_redr_status = TRUE;
+--- 5253,5259 ----
+***************
+*** 5316,5322 ****
+      curwin = old_curwin;
+      curbuf = curwin->w_buffer;
+  
+- # ifdef FEAT_INS_EXPAND
+      /* The popup menu may overlay the window, need to redraw it.
+       * TODO: Would be more efficient to only redraw the windows that are
+       * overlapped by the popup menu. */
+--- 5261,5266 ----
+***************
+*** 5325,5331 ****
+  	redraw_all_later(NOT_VALID);
+  	ins_compl_show_pum();
+      }
+- # endif
+  
+      if (!EQUAL_POS(curwin->w_cursor, tpos))
+      {
+--- 5269,5274 ----
+***************
+*** 6256,6262 ****
+  {
+      int	    c = tc;
+  
+- #ifdef FEAT_INS_EXPAND
+      if (ctrl_x_mode_scroll())
+      {
+  	if (c == Ctrl_Y)
+--- 6199,6204 ----
+***************
+*** 6266,6272 ****
+  	redraw_later(VALID);
+      }
+      else
+- #endif
+      {
+  	c = ins_copychar(curwin->w_cursor.lnum + (c == Ctrl_Y ? -1 : 1));
+  	if (c != NUL)
+--- 6208,6213 ----
+*** ../vim-8.1.1900/src/evalfunc.c	2019-08-18 23:01:33.725885954 +0200
+--- src/evalfunc.c	2019-08-21 14:10:54.713556632 +0200
+***************
+*** 499,510 ****
+      {"cindent",		1, 1, 0,	  f_cindent},
+      {"clearmatches",	0, 1, 0,	  f_clearmatches},
+      {"col",		1, 1, 0,	  f_col},
+- #if defined(FEAT_INS_EXPAND)
+      {"complete",	2, 2, 0,	  f_complete},
+      {"complete_add",	1, 1, 0,	  f_complete_add},
+      {"complete_check",	0, 0, 0,	  f_complete_check},
+      {"complete_info",	0, 1, 0,	  f_complete_info},
+- #endif
+      {"confirm",		1, 4, 0,	  f_confirm},
+      {"copy",		1, 1, FEARG_1,	  f_copy},
+  #ifdef FEAT_FLOAT
+--- 499,508 ----
+***************
+*** 5951,5959 ****
+  #if defined(HAVE_ICONV_H) && defined(USE_ICONV)
+  	"iconv",
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  	"insert_expand",
+- #endif
+  #ifdef FEAT_JOB_CHANNEL
+  	"job",
+  #endif
+--- 5949,5955 ----
+***************
+*** 7638,7649 ****
+  		buf[0] = 'R';
+  	    else
+  		buf[0] = 'i';
+- #ifdef FEAT_INS_EXPAND
+  	    if (ins_compl_active())
+  		buf[1] = 'c';
+  	    else if (ctrl_x_mode_not_defined_yet())
+  		buf[1] = 'x';
+- #endif
+  	}
+      }
+      else if ((State & CMDLINE) || exmode_active)
+--- 7634,7643 ----
+***************
+*** 7886,7894 ****
+  {
+      if (rettv_dict_alloc(rettv) != OK)
+  	return;
+- #ifdef FEAT_INS_EXPAND
+      pum_set_event_info(rettv->vval.v_dict);
+- #endif
+  }
+  
+  /*
+--- 7880,7886 ----
+***************
+*** 7897,7906 ****
+      static void
+  f_pumvisible(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
+  {
+- #ifdef FEAT_INS_EXPAND
+      if (pum_visible())
+  	rettv->vval.v_number = 1;
+- #endif
+  }
+  
+  #ifdef FEAT_PYTHON3
+--- 7889,7896 ----
+*** ../vim-8.1.1900/src/ex_cmds.c	2019-08-20 20:13:40.322821973 +0200
+--- src/ex_cmds.c	2019-08-21 14:11:09.785490690 +0200
+***************
+*** 4391,4402 ****
+  			    subflags.do_ask = FALSE;
+  			    break;
+  			}
+- #ifdef FEAT_INS_EXPAND
+  			if (typed == Ctrl_E)
+  			    scrollup_clamp();
+  			else if (typed == Ctrl_Y)
+  			    scrolldown_clamp();
+- #endif
+  		    }
+  		    State = save_State;
+  #ifdef FEAT_MOUSE
+--- 4391,4400 ----
+*** ../vim-8.1.1900/src/ex_getln.c	2019-08-18 22:25:54.661448011 +0200
+--- src/ex_getln.c	2019-08-21 14:11:20.717442850 +0200
+***************
+*** 4040,4050 ****
+      /* Don't execute autocommands while creating the window. */
+      block_autocmds();
+  
+- #if defined(FEAT_INS_EXPAND)
+      // When using completion in Insert mode with <C-R>=<C-F> one can open the
+      // command line window, but we don't want the popup menu then.
+      pum_undisplay();
+- #endif
+  
+      /* don't use a new tab page */
+      cmdmod.tab = 0;
+--- 4040,4048 ----
+*** ../vim-8.1.1900/src/getchar.c	2019-08-20 20:13:40.326821952 +0200
+--- src/getchar.c	2019-08-21 14:11:47.561325345 +0200
+***************
+*** 1481,1487 ****
+  }
+  #endif
+  
+- #if defined(FEAT_INS_EXPAND) || defined(PROTO)
+  /*
+   * Return TRUE when reading keys from a script file.
+   */
+--- 1481,1486 ----
+***************
+*** 1490,1496 ****
+  {
+      return scriptin[curscript] != NULL;
+  }
+- #endif
+  
+  /*
+   * This function is called just before doing a blocking wait.  Thus after
+--- 1489,1494 ----
+***************
+*** 1866,1872 ****
+  }
+  #endif
+  
+- #if defined(FEAT_INS_EXPAND) || defined(FEAT_EVAL) || defined(PROTO)
+  /*
+   * Check if any character is available, also half an escape sequence.
+   * Trick: when no typeahead found, but there is something in the typeahead
+--- 1864,1869 ----
+***************
+*** 1882,1888 ****
+  	c = ESC;
+      return c;
+  }
+- #endif
+  
+  /*
+   * Call vpeekc() without causing anything to be mapped.
+--- 1879,1884 ----
+***************
+*** 1963,1974 ****
+  	    && !(State == HITRETURN && (tb_c1 == CAR || tb_c1 == ' '))
+  	    && State != ASKMORE
+  	    && State != CONFIRM
+- #ifdef FEAT_INS_EXPAND
+  	    && !((ctrl_x_mode_not_default() && vim_is_ctrl_x_key(tb_c1))
+  		    || ((compl_cont_status & CONT_LOCAL)
+! 			&& (tb_c1 == Ctrl_N || tb_c1 == Ctrl_P)))
+! #endif
+! 	    )
+      {
+  #ifdef FEAT_LANGMAP
+  	if (tb_c1 == K_SPECIAL)
+--- 1959,1967 ----
+  	    && !(State == HITRETURN && (tb_c1 == CAR || tb_c1 == ' '))
+  	    && State != ASKMORE
+  	    && State != CONFIRM
+  	    && !((ctrl_x_mode_not_default() && vim_is_ctrl_x_key(tb_c1))
+  		    || ((compl_cont_status & CONT_LOCAL)
+! 			&& (tb_c1 == Ctrl_N || tb_c1 == Ctrl_P))))
+      {
+  #ifdef FEAT_LANGMAP
+  	if (tb_c1 == K_SPECIAL)
+*** ../vim-8.1.1900/src/gui.c	2019-08-20 20:13:40.326821952 +0200
+--- src/gui.c	2019-08-21 14:12:05.781245567 +0200
+***************
+*** 4019,4030 ****
+      if (dont_scroll)
+  	return;
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      /* Disallow scrolling the current window when the completion popup menu is
+       * visible. */
+      if ((sb->wp == NULL || sb->wp == curwin) && pum_visible())
+  	return;
+- #endif
+  
+  #ifdef FEAT_RIGHTLEFT
+      if (sb->wp == NULL && curwin->w_p_rl)
+--- 4019,4028 ----
+***************
+*** 4485,4497 ****
+      {
+  	int type = VALID;
+  
+- #ifdef FEAT_INS_EXPAND
+  	if (pum_visible())
+  	{
+  	    type = NOT_VALID;
+  	    wp->w_lines_valid = 0;
+  	}
+! #endif
+  	/* Don't set must_redraw here, it may cause the popup menu to
+  	 * disappear when losing focus after a scrollbar drag. */
+  	if (wp->w_redr_type < type)
+--- 4483,4494 ----
+      {
+  	int type = VALID;
+  
+  	if (pum_visible())
+  	{
+  	    type = NOT_VALID;
+  	    wp->w_lines_valid = 0;
+  	}
+! 
+  	/* Don't set must_redraw here, it may cause the popup menu to
+  	 * disappear when losing focus after a scrollbar drag. */
+  	if (wp->w_redr_type < type)
+***************
+*** 4501,4511 ****
+  	mch_enable_flush();
+      }
+  
+- #ifdef FEAT_INS_EXPAND
+      /* May need to redraw the popup menu. */
+      if (pum_visible())
+  	pum_redraw();
+- #endif
+  
+      return (wp == curwin && !EQUAL_POS(curwin->w_cursor, old_cursor));
+  }
+--- 4498,4506 ----
+*** ../vim-8.1.1900/src/highlight.c	2019-08-20 22:58:33.124026286 +0200
+--- src/highlight.c	2019-08-21 14:12:31.821131535 +0200
+***************
+*** 140,149 ****
+      CENT("DiffText term=reverse cterm=bold ctermbg=Red",
+  	 "DiffText term=reverse cterm=bold ctermbg=Red gui=bold guibg=Red"),
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      CENT("PmenuSbar ctermbg=Grey",
+  	 "PmenuSbar ctermbg=Grey guibg=Grey"),
+- #endif
+      CENT("TabLineSel term=bold cterm=bold",
+  	 "TabLineSel term=bold cterm=bold gui=bold"),
+      CENT("TabLineFill term=reverse cterm=reverse",
+--- 140,147 ----
+***************
+*** 181,194 ****
+      CENT("SpellLocal term=underline ctermbg=Cyan",
+  	 "SpellLocal term=underline ctermbg=Cyan guisp=DarkCyan gui=undercurl"),
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      CENT("PmenuThumb ctermbg=Black",
+  	 "PmenuThumb ctermbg=Black guibg=Black"),
+      CENT("Pmenu ctermbg=LightMagenta ctermfg=Black",
+  	 "Pmenu ctermbg=LightMagenta ctermfg=Black guibg=LightMagenta"),
+      CENT("PmenuSel ctermbg=LightGrey ctermfg=Black",
+  	 "PmenuSel ctermbg=LightGrey ctermfg=Black guibg=Grey"),
+- #endif
+      CENT("SpecialKey term=bold ctermfg=DarkBlue",
+  	 "SpecialKey term=bold ctermfg=DarkBlue guifg=Blue"),
+      CENT("Title term=bold ctermfg=DarkMagenta",
+--- 179,190 ----
+***************
+*** 276,289 ****
+      CENT("SpellLocal term=underline ctermbg=Cyan",
+  	 "SpellLocal term=underline ctermbg=Cyan guisp=Cyan gui=undercurl"),
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      CENT("PmenuThumb ctermbg=White",
+  	 "PmenuThumb ctermbg=White guibg=White"),
+      CENT("Pmenu ctermbg=Magenta ctermfg=Black",
+  	 "Pmenu ctermbg=Magenta ctermfg=Black guibg=Magenta"),
+      CENT("PmenuSel ctermbg=Black ctermfg=DarkGrey",
+  	 "PmenuSel ctermbg=Black ctermfg=DarkGrey guibg=DarkGrey"),
+- #endif
+      CENT("Title term=bold ctermfg=LightMagenta",
+  	 "Title term=bold ctermfg=LightMagenta gui=bold guifg=Magenta"),
+      CENT("WarningMsg term=standout ctermfg=LightRed",
+--- 272,283 ----
+*** ../vim-8.1.1900/src/indent.c	2019-08-20 20:13:40.326821952 +0200
+--- src/indent.c	2019-08-21 14:12:47.681062054 +0200
+***************
+*** 4110,4116 ****
+  	    {
+  		int		match = FALSE;
+  
+- #ifdef FEAT_INS_EXPAND
+  		if (keytyped == KEY_COMPLETE)
+  		{
+  		    char_u	*s;
+--- 4110,4115 ----
+***************
+*** 4140,4146 ****
+  			match = TRUE;
+  		}
+  		else
+- #endif
+  		    // TODO: multi-byte
+  		    if (keytyped == (int)p[-1] || (icase && keytyped < 256
+  			 && TOLOWER_LOC(keytyped) == TOLOWER_LOC((int)p[-1])))
+--- 4139,4144 ----
+*** ../vim-8.1.1900/src/insexpand.c	2019-08-18 19:23:41.525729980 +0200
+--- src/insexpand.c	2019-08-21 14:13:33.628860756 +0200
+***************
+*** 13,19 ****
+  
+  #include "vim.h"
+  
+- #ifdef FEAT_INS_EXPAND
+  /*
+   * Definitions used for CTRL-X submode.
+   * Note: If you change CTRL-X submode, you must also maintain ctrl_x_msgs[] and
+--- 13,18 ----
+***************
+*** 209,222 ****
+  static int  ins_compl_key2count(int c);
+  static void show_pum(int prev_w_wrow, int prev_w_leftcol);
+  static unsigned  quote_meta(char_u *dest, char_u *str, int len);
+- #endif // FEAT_INS_EXPAND
+  
+  #ifdef FEAT_SPELL
+  static void spell_back_to_badword(void);
+  static int  spell_bad_len = 0;	// length of located bad word
+  #endif
+  
+- #if defined(FEAT_INS_EXPAND) || defined(PROTO)
+  /*
+   * CTRL-X pressed in Insert mode.
+   */
+--- 208,219 ----
+***************
+*** 288,296 ****
+  has_compl_option(int dict_opt)
+  {
+      if (dict_opt ? (*curbuf->b_p_dict == NUL && *p_dict == NUL
+! # ifdef FEAT_SPELL
+  							&& !curwin->w_p_spell
+! # endif
+  							)
+  		 : (*curbuf->b_p_tsr == NUL && *p_tsr == NUL))
+      {
+--- 285,293 ----
+  has_compl_option(int dict_opt)
+  {
+      if (dict_opt ? (*curbuf->b_p_dict == NUL && *p_dict == NUL
+! #ifdef FEAT_SPELL
+  							&& !curwin->w_p_spell
+! #endif
+  							)
+  		 : (*curbuf->b_p_tsr == NUL && *p_tsr == NUL))
+      {
+***************
+*** 4154,4168 ****
+      return m;
+  }
+  
+! # if defined(EXITFREE) || defined(PROTO)
+      void
+  free_insexpand_stuff(void)
+  {
+      VIM_CLEAR(compl_orig_text);
+  }
+! # endif
+  
+! # ifdef FEAT_SPELL
+  /*
+   * Called when starting CTRL_X_SPELL mode: Move backwards to a previous badly
+   * spelled word, if there is one.
+--- 4151,4165 ----
+      return m;
+  }
+  
+! #if defined(EXITFREE) || defined(PROTO)
+      void
+  free_insexpand_stuff(void)
+  {
+      VIM_CLEAR(compl_orig_text);
+  }
+! #endif
+  
+! #ifdef FEAT_SPELL
+  /*
+   * Called when starting CTRL_X_SPELL mode: Move backwards to a previous badly
+   * spelled word, if there is one.
+***************
+*** 4176,4181 ****
+      if (curwin->w_cursor.col != tpos.col)
+  	start_arrow(&tpos);
+  }
+! # endif
+! 
+! #endif // FEAT_INS_EXPAND
+--- 4173,4176 ----
+      if (curwin->w_cursor.col != tpos.col)
+  	start_arrow(&tpos);
+  }
+! #endif
+*** ../vim-8.1.1900/src/misc2.c	2019-08-21 13:06:50.915041078 +0200
+--- src/misc2.c	2019-08-21 14:13:53.612773168 +0200
+***************
+*** 1065,1071 ****
+      spell_free_all();
+  # endif
+  
+! # if defined(FEAT_INS_EXPAND) && defined(FEAT_BEVAL_TERM)
+      ui_remove_balloon();
+  # endif
+  
+--- 1065,1071 ----
+      spell_free_all();
+  # endif
+  
+! # if defined(FEAT_BEVAL_TERM)
+      ui_remove_balloon();
+  # endif
+  
+***************
+*** 1117,1125 ****
+      free_search_patterns();
+      free_old_sub();
+      free_last_insert();
+- # if defined(FEAT_INS_EXPAND)
+      free_insexpand_stuff();
+- # endif
+      free_prev_shellcmd();
+      free_regexp_stuff();
+      free_tag_stuff();
+--- 1117,1123 ----
+*** ../vim-8.1.1900/src/move.c	2019-07-07 18:27:52.365277132 +0200
+--- src/move.c	2019-08-21 14:14:26.368629562 +0200
+***************
+*** 136,145 ****
+  #endif
+  		)
+  	    && (wp->w_valid & VALID_CROW) == 0
+! #ifdef FEAT_INS_EXPAND
+! 	    && !pum_visible()
+! #endif
+! 	    )
+      {
+  	if (wp->w_p_rnu)
+  	    // win_line() will redraw the number column only.
+--- 136,142 ----
+  #endif
+  		)
+  	    && (wp->w_valid & VALID_CROW) == 0
+! 	    && !pum_visible())
+      {
+  	if (wp->w_p_rnu)
+  	    // win_line() will redraw the number column only.
+***************
+*** 816,826 ****
+  	getvvcol(wp, &wp->w_cursor, NULL, &(wp->w_virtcol), NULL);
+  	wp->w_valid |= VALID_VIRTCOL;
+  #ifdef FEAT_SYN_HL
+! 	if (wp->w_p_cuc
+! # ifdef FEAT_INS_EXPAND
+! 		&& !pum_visible()
+! # endif
+! 		)
+  	    redraw_win_later(wp, SOME_VALID);
+  #endif
+      }
+--- 813,819 ----
+  	getvvcol(wp, &wp->w_cursor, NULL, &(wp->w_virtcol), NULL);
+  	wp->w_valid |= VALID_VIRTCOL;
+  #ifdef FEAT_SYN_HL
+! 	if (wp->w_p_cuc && !pum_visible())
+  	    redraw_win_later(wp, SOME_VALID);
+  #endif
+      }
+***************
+*** 1179,1188 ****
+  #ifdef FEAT_SYN_HL
+      /* Redraw when w_virtcol changes and 'cursorcolumn' is set */
+      if (curwin->w_p_cuc && (curwin->w_valid & VALID_VIRTCOL) == 0
+! # ifdef FEAT_INS_EXPAND
+! 	    && !pum_visible()
+! # endif
+! 	)
+  	redraw_later(SOME_VALID);
+  #endif
+  
+--- 1172,1178 ----
+  #ifdef FEAT_SYN_HL
+      /* Redraw when w_virtcol changes and 'cursorcolumn' is set */
+      if (curwin->w_p_cuc && (curwin->w_valid & VALID_VIRTCOL) == 0
+! 	    && !pum_visible())
+  	redraw_later(SOME_VALID);
+  #endif
+  
+***************
+*** 1515,1521 ****
+  }
+  #endif
+  
+- #if defined(FEAT_INS_EXPAND) || defined(PROTO)
+  /*
+   * Scroll the screen one line down, but don't do it if it would move the
+   * cursor off the screen.
+--- 1505,1510 ----
+***************
+*** 1634,1640 ****
+  	curwin->w_valid &= ~(VALID_WROW|VALID_CROW|VALID_BOTLINE);
+      }
+  }
+- #endif /* FEAT_INS_EXPAND */
+  
+  /*
+   * Add one line above "lp->lnum".  This can be a filler line, a closed fold or
+--- 1623,1628 ----
+*** ../vim-8.1.1900/src/option.c	2019-08-20 21:11:43.180949125 +0200
+--- src/option.c	2019-08-21 14:29:15.453174347 +0200
+***************
+*** 83,93 ****
+  #ifdef FEAT_COMMENTS
+  # define PV_COM		OPT_BUF(BV_COM)
+  #endif
+! #ifdef FEAT_INS_EXPAND
+! # define PV_CPT		OPT_BUF(BV_CPT)
+! # define PV_DICT	OPT_BOTH(OPT_BUF(BV_DICT))
+! # define PV_TSR		OPT_BOTH(OPT_BUF(BV_TSR))
+! #endif
+  #define PV_CSL		OPT_BUF(BV_CSL)
+  #ifdef FEAT_COMPL_FUNC
+  # define PV_CFU		OPT_BUF(BV_CFU)
+--- 83,91 ----
+  #ifdef FEAT_COMMENTS
+  # define PV_COM		OPT_BUF(BV_COM)
+  #endif
+! #define PV_CPT		OPT_BUF(BV_CPT)
+! #define PV_DICT	OPT_BOTH(OPT_BUF(BV_DICT))
+! #define PV_TSR		OPT_BOTH(OPT_BUF(BV_TSR))
+  #define PV_CSL		OPT_BUF(BV_CSL)
+  #ifdef FEAT_COMPL_FUNC
+  # define PV_CFU		OPT_BUF(BV_CFU)
+***************
+*** 301,309 ****
+  #ifdef FEAT_FOLDING
+  static char_u	*p_cms;
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  static char_u	*p_cpt;
+- #endif
+  #ifdef FEAT_COMPL_FUNC
+  static char_u	*p_cfu;
+  static char_u	*p_ofu;
+--- 299,305 ----
+***************
+*** 850,862 ****
+  			    (char_u *)&p_cp, PV_NONE,
+  			    {(char_u *)TRUE, (char_u *)FALSE} SCTX_INIT},
+      {"complete",    "cpt",  P_STRING|P_ALLOCED|P_VI_DEF|P_ONECOMMA|P_NODUP,
+- #ifdef FEAT_INS_EXPAND
+  			    (char_u *)&p_cpt, PV_CPT,
+  			    {(char_u *)".,w,b,u,t,i", (char_u *)0L}
+- #else
+- 			    (char_u *)NULL, PV_NONE,
+- 			    {(char_u *)0L, (char_u *)0L}
+- #endif
+  			    SCTX_INIT},
+      {"concealcursor","cocu", P_STRING|P_ALLOCED|P_RWIN|P_VI_DEF,
+  #ifdef FEAT_CONCEAL
+--- 846,853 ----
+***************
+*** 885,897 ****
+  #endif
+  			    SCTX_INIT},
+      {"completeopt",   "cot",  P_STRING|P_VI_DEF|P_ONECOMMA|P_NODUP,
+- #ifdef FEAT_INS_EXPAND
+  			    (char_u *)&p_cot, PV_NONE,
+  			    {(char_u *)"menu,preview", (char_u *)0L}
+- #else
+- 			    (char_u *)NULL, PV_NONE,
+- 			    {(char_u *)0L, (char_u *)0L}
+- #endif
+  			    SCTX_INIT},
+      {"completepopup", "cpp", P_STRING|P_VI_DEF|P_COMMA|P_NODUP,
+  #if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+--- 876,883 ----
+***************
+*** 903,909 ****
+  #endif
+  			    SCTX_INIT},
+      {"completeslash",   "csl",  P_STRING|P_VI_DEF|P_VIM,
+! #if defined(FEAT_INS_EXPAND) && defined(BACKSLASH_IN_FILENAME)
+  			    (char_u *)&p_csl, PV_CSL,
+  			    {(char_u *)"", (char_u *)0L}
+  #else
+--- 889,895 ----
+  #endif
+  			    SCTX_INIT},
+      {"completeslash",   "csl",  P_STRING|P_VI_DEF|P_VIM,
+! #if defined(BACKSLASH_IN_FILENAME)
+  			    (char_u *)&p_csl, PV_CSL,
+  			    {(char_u *)"", (char_u *)0L}
+  #else
+***************
+*** 1023,1033 ****
+  			    (char_u *)&p_deco, PV_NONE,
+  			    {(char_u *)FALSE, (char_u *)0L} SCTX_INIT},
+      {"dictionary",  "dict", P_STRING|P_EXPAND|P_VI_DEF|P_ONECOMMA|P_NODUP|P_NDNAME,
+- #ifdef FEAT_INS_EXPAND
+  			    (char_u *)&p_dict, PV_DICT,
+- #else
+- 			    (char_u *)NULL, PV_NONE,
+- #endif
+  			    {(char_u *)"", (char_u *)0L} SCTX_INIT},
+      {"diff",	    NULL,   P_BOOL|P_VI_DEF|P_RWIN|P_NOGLOB,
+  #ifdef FEAT_DIFF
+--- 1009,1015 ----
+***************
+*** 2198,2215 ****
+  			    (char_u *)&p_prompt, PV_NONE,
+  			    {(char_u *)TRUE, (char_u *)0L} SCTX_INIT},
+      {"pumheight",   "ph",   P_NUM|P_VI_DEF,
+- #ifdef FEAT_INS_EXPAND
+  			    (char_u *)&p_ph, PV_NONE,
+- #else
+- 			    (char_u *)NULL, PV_NONE,
+- #endif
+  			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
+      {"pumwidth",    "pw",   P_NUM|P_VI_DEF,
+- #ifdef FEAT_INS_EXPAND
+  			    (char_u *)&p_pw, PV_NONE,
+- #else
+- 			    (char_u *)NULL, PV_NONE,
+- #endif
+  			    {(char_u *)15L, (char_u *)15L} SCTX_INIT},
+      {"pythonthreedll",  NULL,   P_STRING|P_EXPAND|P_VI_DEF|P_SECURE,
+  #if defined(DYNAMIC_PYTHON3)
+--- 2180,2189 ----
+***************
+*** 2796,2806 ****
+  			    (char_u *)&p_tw, PV_TW,
+  			    {(char_u *)0L, (char_u *)0L} SCTX_INIT},
+      {"thesaurus",   "tsr",  P_STRING|P_EXPAND|P_VI_DEF|P_ONECOMMA|P_NODUP|P_NDNAME,
+- #ifdef FEAT_INS_EXPAND
+  			    (char_u *)&p_tsr, PV_TSR,
+- #else
+- 			    (char_u *)NULL, PV_NONE,
+- #endif
+  			    {(char_u *)"", (char_u *)0L} SCTX_INIT},
+      {"tildeop",	    "top",  P_BOOL|P_VI_DEF|P_VIM,
+  			    (char_u *)&p_to, PV_NONE,
+--- 2770,2776 ----
+***************
+*** 3248,3258 ****
+  				NULL};
+  static char *(p_fcl_values[]) = {"all", NULL};
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  static char *(p_cot_values[]) = {"menu", "menuone", "longest", "preview", "popup", "noinsert", "noselect", NULL};
+! # ifdef BACKSLASH_IN_FILENAME
+  static char *(p_csl_values[]) = {"slash", "backslash", NULL};
+- # endif
+  #endif
+  #ifdef FEAT_SIGNS
+  static char *(p_scl_values[]) = {"yes", "no", "auto", "number", NULL};
+--- 3218,3226 ----
+  				NULL};
+  static char *(p_fcl_values[]) = {"all", NULL};
+  #endif
+  static char *(p_cot_values[]) = {"menu", "menuone", "longest", "preview", "popup", "noinsert", "noselect", NULL};
+! #ifdef BACKSLASH_IN_FILENAME
+  static char *(p_csl_values[]) = {"slash", "backslash", NULL};
+  #endif
+  #ifdef FEAT_SIGNS
+  static char *(p_scl_values[]) = {"yes", "no", "auto", "number", NULL};
+***************
+*** 5794,5802 ****
+  #if defined(FEAT_SMARTINDENT) || defined(FEAT_CINDENT)
+      check_string_option(&buf->b_p_cinw);
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      check_string_option(&buf->b_p_cpt);
+- #endif
+  #ifdef FEAT_COMPL_FUNC
+      check_string_option(&buf->b_p_cfu);
+      check_string_option(&buf->b_p_ofu);
+--- 5762,5768 ----
+***************
+*** 5816,5825 ****
+      check_string_option(&buf->b_p_path);
+      check_string_option(&buf->b_p_tags);
+      check_string_option(&buf->b_p_tc);
+- #ifdef FEAT_INS_EXPAND
+      check_string_option(&buf->b_p_dict);
+      check_string_option(&buf->b_p_tsr);
+- #endif
+  #ifdef FEAT_LISP
+      check_string_option(&buf->b_p_lw);
+  #endif
+--- 5782,5789 ----
+***************
+*** 7381,7387 ****
+      }
+  #endif
+  
+- #ifdef FEAT_INS_EXPAND
+      /* check if it is a valid value for 'complete' -- Acevedo */
+      else if (gvarp == &p_cpt)
+      {
+--- 7345,7350 ----
+***************
+*** 7434,7440 ****
+  	    completeopt_was_set();
+      }
+  
+! # ifdef BACKSLASH_IN_FILENAME
+      // 'completeslash'
+      else if (gvarp == &p_csl)
+      {
+--- 7397,7403 ----
+  	    completeopt_was_set();
+      }
+  
+! #ifdef BACKSLASH_IN_FILENAME
+      // 'completeslash'
+      else if (gvarp == &p_csl)
+      {
+***************
+*** 7442,7449 ****
+  		|| check_opt_strings(curbuf->b_p_csl, p_csl_values, FALSE) != OK)
+  	    errmsg = e_invarg;
+      }
+! # endif
+! #endif // FEAT_INS_EXPAND
+  
+  #ifdef FEAT_SIGNS
+      // 'signcolumn'
+--- 7405,7411 ----
+  		|| check_opt_strings(curbuf->b_p_csl, p_csl_values, FALSE) != OK)
+  	    errmsg = e_invarg;
+      }
+! #endif
+  
+  #ifdef FEAT_SIGNS
+      // 'signcolumn'
+***************
+*** 10959,10972 ****
+  	    clear_string_option(&buf->b_p_inc);
+  	    break;
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  	case PV_DICT:
+  	    clear_string_option(&buf->b_p_dict);
+  	    break;
+  	case PV_TSR:
+  	    clear_string_option(&buf->b_p_tsr);
+  	    break;
+- #endif
+  	case PV_FP:
+  	    clear_string_option(&buf->b_p_fp);
+  	    break;
+--- 10921,10932 ----
+***************
+*** 11045,11054 ****
+  	    case PV_DEF:  return (char_u *)&(curbuf->b_p_def);
+  	    case PV_INC:  return (char_u *)&(curbuf->b_p_inc);
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  	    case PV_DICT: return (char_u *)&(curbuf->b_p_dict);
+  	    case PV_TSR:  return (char_u *)&(curbuf->b_p_tsr);
+- #endif
+  #if defined(FEAT_BEVAL) && defined(FEAT_EVAL)
+  	    case PV_BEXPR: return (char_u *)&(curbuf->b_p_bexpr);
+  #endif
+--- 11005,11012 ----
+***************
+*** 11109,11120 ****
+  	case PV_INC:	return *curbuf->b_p_inc != NUL
+  				    ? (char_u *)&(curbuf->b_p_inc) : p->var;
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  	case PV_DICT:	return *curbuf->b_p_dict != NUL
+  				    ? (char_u *)&(curbuf->b_p_dict) : p->var;
+  	case PV_TSR:	return *curbuf->b_p_tsr != NUL
+  				    ? (char_u *)&(curbuf->b_p_tsr) : p->var;
+- #endif
+  	case PV_FP:	return *curbuf->b_p_fp != NUL
+  				    ? (char_u *)&(curbuf->b_p_fp) : p->var;
+  #ifdef FEAT_QUICKFIX
+--- 11067,11076 ----
+***************
+*** 11229,11239 ****
+  #ifdef FEAT_FOLDING
+  	case PV_CMS:	return (char_u *)&(curbuf->b_p_cms);
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  	case PV_CPT:	return (char_u *)&(curbuf->b_p_cpt);
+! # ifdef BACKSLASH_IN_FILENAME
+  	case PV_CSL:	return (char_u *)&(curbuf->b_p_csl);
+- # endif
+  #endif
+  #ifdef FEAT_COMPL_FUNC
+  	case PV_CFU:	return (char_u *)&(curbuf->b_p_cfu);
+--- 11185,11193 ----
+  #ifdef FEAT_FOLDING
+  	case PV_CMS:	return (char_u *)&(curbuf->b_p_cms);
+  #endif
+  	case PV_CPT:	return (char_u *)&(curbuf->b_p_cpt);
+! #ifdef BACKSLASH_IN_FILENAME
+  	case PV_CSL:	return (char_u *)&(curbuf->b_p_csl);
+  #endif
+  #ifdef FEAT_COMPL_FUNC
+  	case PV_CFU:	return (char_u *)&(curbuf->b_p_cfu);
+***************
+*** 11626,11636 ****
+  	    buf->b_p_ml_nobin = p_ml_nobin;
+  	    buf->b_p_inf = p_inf;
+  	    buf->b_p_swf = cmdmod.noswapfile ? FALSE : p_swf;
+- #ifdef FEAT_INS_EXPAND
+  	    buf->b_p_cpt = vim_strsave(p_cpt);
+! # ifdef BACKSLASH_IN_FILENAME
+  	    buf->b_p_csl = vim_strsave(p_csl);
+- # endif
+  #endif
+  #ifdef FEAT_COMPL_FUNC
+  	    buf->b_p_cfu = vim_strsave(p_cfu);
+--- 11580,11588 ----
+  	    buf->b_p_ml_nobin = p_ml_nobin;
+  	    buf->b_p_inf = p_inf;
+  	    buf->b_p_swf = cmdmod.noswapfile ? FALSE : p_swf;
+  	    buf->b_p_cpt = vim_strsave(p_cpt);
+! #ifdef BACKSLASH_IN_FILENAME
+  	    buf->b_p_csl = vim_strsave(p_csl);
+  #endif
+  #ifdef FEAT_COMPL_FUNC
+  	    buf->b_p_cfu = vim_strsave(p_cfu);
+***************
+*** 11741,11750 ****
+  	    buf->b_p_inex = vim_strsave(p_inex);
+  # endif
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  	    buf->b_p_dict = empty_option;
+  	    buf->b_p_tsr = empty_option;
+- #endif
+  #ifdef FEAT_TEXTOBJ
+  	    buf->b_p_qe = vim_strsave(p_qe);
+  #endif
+--- 11693,11700 ----
+*** ../vim-8.1.1900/src/popupmnu.c	2019-08-20 23:14:11.832090682 +0200
+--- src/popupmnu.c	2019-08-21 14:17:16.451922947 +0200
+***************
+*** 12,19 ****
+   */
+  #include "vim.h"
+  
+- #if defined(FEAT_INS_EXPAND) || defined(PROTO)
+- 
+  static pumitem_T *pum_array = NULL;	/* items of displayed pum */
+  static int pum_size;			/* nr of items in "pum_array" */
+  static int pum_selected;		/* index of selected item or -1 */
+--- 12,17 ----
+***************
+*** 902,912 ****
+  	}
+  #endif
+      }
+! # if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+      if (!has_info)
+  	// close any popup info window
+  	popup_close_preview(TRUE);
+! # endif
+  
+      if (!resized)
+  	pum_redraw();
+--- 900,910 ----
+  	}
+  #endif
+      }
+! #if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+      if (!has_info)
+  	// close any popup info window
+  	popup_close_preview(TRUE);
+! #endif
+  
+      if (!resized)
+  	pum_redraw();
+***************
+*** 924,930 ****
+      redraw_all_later(NOT_VALID);
+      redraw_tabline = TRUE;
+      status_redraw_all();
+! # if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+      // close any popup info window
+      popup_close_preview(TRUE);
+  #endif
+--- 922,928 ----
+      redraw_all_later(NOT_VALID);
+      redraw_tabline = TRUE;
+      status_redraw_all();
+! #if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+      // close any popup info window
+      popup_close_preview(TRUE);
+  #endif
+***************
+*** 1013,1019 ****
+      dict_add_special(dict, "scrollbar", pum_scrollbar ? VVAL_TRUE : VVAL_FALSE);
+  }
+  
+! # if defined(FEAT_BEVAL_TERM) || defined(FEAT_TERM_POPUP_MENU) || defined(PROTO)
+      static void
+  pum_position_at_mouse(int min_width)
+  {
+--- 1011,1017 ----
+      dict_add_special(dict, "scrollbar", pum_scrollbar ? VVAL_TRUE : VVAL_FALSE);
+  }
+  
+! #if defined(FEAT_BEVAL_TERM) || defined(FEAT_TERM_POPUP_MENU) || defined(PROTO)
+      static void
+  pum_position_at_mouse(int min_width)
+  {
+***************
+*** 1051,1064 ****
+      pum_window = NULL;
+  }
+  
+! # endif
+  
+! # if defined(FEAT_BEVAL_TERM) || defined(PROTO)
+  static pumitem_T *balloon_array = NULL;
+  static int balloon_arraysize;
+  
+! #define BALLOON_MIN_WIDTH 50
+! #define BALLOON_MIN_HEIGHT 10
+  
+  typedef struct {
+      char_u	*start;
+--- 1049,1062 ----
+      pum_window = NULL;
+  }
+  
+! #endif
+  
+! #if defined(FEAT_BEVAL_TERM) || defined(PROTO)
+  static pumitem_T *balloon_array = NULL;
+  static int balloon_arraysize;
+  
+! # define BALLOON_MIN_WIDTH 50
+! # define BALLOON_MIN_HEIGHT 10
+  
+  typedef struct {
+      char_u	*start;
+***************
+*** 1275,1283 ****
+      // cell.
+      ui_remove_balloon();
+  }
+! # endif
+  
+! # if defined(FEAT_TERM_POPUP_MENU) || defined(PROTO)
+  /*
+   * Select the pum entry at the mouse position.
+   */
+--- 1273,1281 ----
+      // cell.
+      ui_remove_balloon();
+  }
+! #endif
+  
+! #if defined(FEAT_TERM_POPUP_MENU) || defined(PROTO)
+  /*
+   * Select the pum entry at the mouse position.
+   */
+***************
+*** 1321,1329 ****
+      vimmenu_T   *mp;
+      int		idx = 0;
+      pumitem_T	*array;
+! #ifdef FEAT_BEVAL_TERM
+      int		save_bevalterm = p_bevalterm;
+! #endif
+      int		mode;
+  
+      pum_undisplay();
+--- 1319,1327 ----
+      vimmenu_T   *mp;
+      int		idx = 0;
+      pumitem_T	*array;
+! # ifdef FEAT_BEVAL_TERM
+      int		save_bevalterm = p_bevalterm;
+! # endif
+      int		mode;
+  
+      pum_undisplay();
+***************
+*** 1361,1370 ****
+  
+      pum_selected = -1;
+      pum_first = 0;
+! #  ifdef FEAT_BEVAL_TERM
+      p_bevalterm = TRUE;  /* track mouse movement */
+      mch_setmouse(TRUE);
+! #  endif
+  
+      for (;;)
+      {
+--- 1359,1368 ----
+  
+      pum_selected = -1;
+      pum_first = 0;
+! # ifdef FEAT_BEVAL_TERM
+      p_bevalterm = TRUE;  /* track mouse movement */
+      mch_setmouse(TRUE);
+! # endif
+  
+      for (;;)
+      {
+***************
+*** 1434,1443 ****
+  
+      vim_free(array);
+      pum_undisplay();
+! #  ifdef FEAT_BEVAL_TERM
+      p_bevalterm = save_bevalterm;
+      mch_setmouse(TRUE);
+! #  endif
+  }
+  
+      void
+--- 1432,1441 ----
+  
+      vim_free(array);
+      pum_undisplay();
+! # ifdef FEAT_BEVAL_TERM
+      p_bevalterm = save_bevalterm;
+      mch_setmouse(TRUE);
+! # endif
+  }
+  
+      void
+***************
+*** 1457,1462 ****
+      if (menu != NULL)
+  	pum_show_popupmenu(menu);
+  }
+- # endif
+- 
+  #endif
+--- 1455,1458 ----
+*** ../vim-8.1.1900/src/screen.c	2019-08-18 16:34:42.915429659 +0200
+--- src/screen.c	2019-08-21 14:18:16.491714524 +0200
+***************
+*** 785,794 ****
+  #if defined(FEAT_SEARCH_EXTRA)
+      end_search_hl();
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      /* May need to redraw the popup menu. */
+      pum_may_redraw();
+- #endif
+  
+      /* Reset b_mod_set flags.  Going through all windows is probably faster
+       * than going through all buffers (there could be many buffers). */
+--- 785,792 ----
+***************
+*** 6877,6888 ****
+  	redraw_cmdline = TRUE;
+      }
+      else if (!redrawing()
+- #ifdef FEAT_INS_EXPAND
+  	    // don't update status line when popup menu is visible and may be
+  	    // drawn over it, unless it will be redrawn later
+! 	    || (!ignore_pum && pum_visible())
+! #endif
+! 	    )
+      {
+  	/* Don't redraw right now, do it later. */
+  	wp->w_redr_status = TRUE;
+--- 6875,6883 ----
+  	redraw_cmdline = TRUE;
+      }
+      else if (!redrawing()
+  	    // don't update status line when popup menu is visible and may be
+  	    // drawn over it, unless it will be redrawn later
+! 	    || (!ignore_pum && pum_visible()))
+      {
+  	/* Don't redraw right now, do it later. */
+  	wp->w_redr_status = TRUE;
+***************
+*** 7968,7983 ****
+      if (row >= screen_Rows || col >= screen_Columns)
+  	return;
+  
+- #ifdef FEAT_INS_EXPAND
+      // Skip if under the popup menu.
+      // Popup windows with zindex higher than POPUPMENU_ZINDEX go on top.
+      if (pum_under_menu(row, col)
+! # ifdef FEAT_TEXT_PROP
+  	    && screen_zindex <= POPUPMENU_ZINDEX
+! # endif
+  	    )
+  	return;
+- #endif
+  #ifdef FEAT_TEXT_PROP
+      if (blocked_by_popup(row, col))
+  	return;
+--- 7963,7976 ----
+      if (row >= screen_Rows || col >= screen_Columns)
+  	return;
+  
+      // Skip if under the popup menu.
+      // Popup windows with zindex higher than POPUPMENU_ZINDEX go on top.
+      if (pum_under_menu(row, col)
+! #ifdef FEAT_TEXT_PROP
+  	    && screen_zindex <= POPUPMENU_ZINDEX
+! #endif
+  	    )
+  	return;
+  #ifdef FEAT_TEXT_PROP
+      if (blocked_by_popup(row, col))
+  	return;
+***************
+*** 9953,9961 ****
+      int		do_mode;
+      int		attr;
+      int		nwr_save;
+- #ifdef FEAT_INS_EXPAND
+      int		sub_attr;
+- #endif
+  
+      do_mode = ((p_smd && msg_silent == 0)
+  	    && ((State & INSERT)
+--- 9946,9952 ----
+***************
+*** 10010,10016 ****
+  		}
+  	    }
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  	    /* CTRL-X in Insert mode */
+  	    if (edit_submode != NULL && !shortmess(SHM_COMPLETIONMENU))
+  	    {
+--- 10001,10006 ----
+***************
+*** 10041,10047 ****
+  		}
+  	    }
+  	    else
+- #endif
+  	    {
+  		if (State & VREPLACE_FLAG)
+  		    msg_puts_attr(_(" VREPLACE"), attr);
+--- 10031,10036 ----
+***************
+*** 10106,10115 ****
+  	    need_clear = TRUE;
+  	}
+  	if (reg_recording != 0
+! #ifdef FEAT_INS_EXPAND
+! 		&& edit_submode == NULL	    /* otherwise it gets too long */
+! #endif
+! 		)
+  	{
+  	    recording_mode(attr);
+  	    need_clear = TRUE;
+--- 10095,10101 ----
+  	    need_clear = TRUE;
+  	}
+  	if (reg_recording != 0
+! 		&& edit_submode == NULL)    // otherwise it gets too long
+  	{
+  	    recording_mode(attr);
+  	    need_clear = TRUE;
+***************
+*** 10566,10579 ****
+  {
+      if (!always && !redrawing())
+  	return;
+- #ifdef FEAT_INS_EXPAND
+      if (pum_visible())
+      {
+  	/* Don't redraw right now, do it later. */
+  	curwin->w_redr_status = TRUE;
+  	return;
+      }
+- #endif
+  #if defined(FEAT_STL_OPT)
+      if ((*p_stl != NUL || *curwin->w_p_stl != NUL) && curwin->w_status_height)
+  	redraw_custom_statusline(curwin);
+--- 10552,10563 ----
+***************
+*** 10626,10634 ****
+      if (wp->w_cursor.lnum > wp->w_buffer->b_ml.ml_line_count)
+  	return;
+  
+! #ifdef FEAT_INS_EXPAND
+!     /* Don't draw the ruler while doing insert-completion, it might overwrite
+!      * the (long) mode message. */
+      if (wp == lastwin && lastwin->w_status_height == 0)
+  	if (edit_submode != NULL)
+  	    return;
+--- 10610,10617 ----
+      if (wp->w_cursor.lnum > wp->w_buffer->b_ml.ml_line_count)
+  	return;
+  
+!     // Don't draw the ruler while doing insert-completion, it might overwrite
+!     // the (long) mode message.
+      if (wp == lastwin && lastwin->w_status_height == 0)
+  	if (edit_submode != NULL)
+  	    return;
+***************
+*** 10636,10642 ****
+      // Except when the popup menu will be redrawn anyway.
+      if (!ignore_pum && pum_visible())
+  	return;
+- #endif
+  
+  #ifdef FEAT_STL_OPT
+      if (*p_ruf)
+--- 10619,10624 ----
+*** ../vim-8.1.1900/src/search.c	2019-08-18 15:24:23.197608923 +0200
+--- src/search.c	2019-08-21 14:19:24.827470697 +0200
+***************
+*** 399,408 ****
+      int		ic = ic_in;
+  
+      if (ic && !no_smartcase && scs
+! #ifdef FEAT_INS_EXPAND
+! 			     && !(ctrl_x_mode_not_default() && curbuf->b_p_inf)
+! #endif
+! 								    )
+  	ic = !pat_has_uppercase(pat);
+      no_smartcase = FALSE;
+  
+--- 399,405 ----
+      int		ic = ic_in;
+  
+      if (ic && !no_smartcase && scs
+! 			    && !(ctrl_x_mode_not_default() && curbuf->b_p_inf))
+  	ic = !pat_has_uppercase(pat);
+      no_smartcase = FALSE;
+  
+***************
+*** 1614,1620 ****
+      return retval;
+  }
+  
+- #if defined(FEAT_INS_EXPAND) || defined(PROTO)
+  /*
+   * search_for_exact_line(buf, pos, dir, pat)
+   *
+--- 1611,1616 ----
+***************
+*** 1693,1699 ****
+      }
+      return FAIL;
+  }
+- #endif /* FEAT_INS_EXPAND */
+  
+  /*
+   * Character Searches
+--- 1689,1694 ----
+***************
+*** 5092,5103 ****
+  	return;
+  
+      if (type != CHECK_PATH && type != FIND_DEFINE
+- #ifdef FEAT_INS_EXPAND
+  	/* when CONT_SOL is set compare "ptr" with the beginning of the line
+  	 * is faster than quote_meta/regcomp/regexec "ptr" -- Acevedo */
+! 	    && !(compl_cont_status & CONT_SOL)
+! #endif
+!        )
+      {
+  	pat = alloc(len + 5);
+  	if (pat == NULL)
+--- 5087,5095 ----
+  	return;
+  
+      if (type != CHECK_PATH && type != FIND_DEFINE
+  	/* when CONT_SOL is set compare "ptr" with the beginning of the line
+  	 * is faster than quote_meta/regcomp/regexec "ptr" -- Acevedo */
+! 	    && !(compl_cont_status & CONT_SOL))
+      {
+  	pat = alloc(len + 5);
+  	if (pat == NULL)
+***************
+*** 5323,5329 ****
+  		    files[depth].name = curr_fname = new_fname;
+  		    files[depth].lnum = 0;
+  		    files[depth].matched = FALSE;
+- #ifdef FEAT_INS_EXPAND
+  		    if (action == ACTION_EXPAND)
+  		    {
+  			msg_hist_off = TRUE;	/* reset in msg_trunc_attr() */
+--- 5315,5320 ----
+***************
+*** 5332,5340 ****
+  				(char *)new_fname);
+  			msg_trunc_attr((char *)IObuff, TRUE, HL_ATTR(HLF_R));
+  		    }
+! 		    else
+! #endif
+! 			 if (p_verbose >= 5)
+  		    {
+  			verbose_enter();
+  			smsg(_("Searching included file %s"),
+--- 5323,5329 ----
+  				(char *)new_fname);
+  			msg_trunc_attr((char *)IObuff, TRUE, HL_ATTR(HLF_R));
+  		    }
+! 		    else if (p_verbose >= 5)
+  		    {
+  			verbose_enter();
+  			smsg(_("Searching included file %s"),
+***************
+*** 5373,5383 ****
+  	     */
+  	    if (def_regmatch.regprog == NULL || define_matched)
+  	    {
+! 		if (define_matched
+! #ifdef FEAT_INS_EXPAND
+! 			|| (compl_cont_status & CONT_SOL)
+! #endif
+! 		    )
+  		{
+  		    /* compare the first "len" chars from "ptr" */
+  		    startp = skipwhite(p);
+--- 5362,5368 ----
+  	     */
+  	    if (def_regmatch.regprog == NULL || define_matched)
+  	    {
+! 		if (define_matched || (compl_cont_status & CONT_SOL))
+  		{
+  		    /* compare the first "len" chars from "ptr" */
+  		    startp = skipwhite(p);
+***************
+*** 5442,5448 ****
+  	}
+  	if (matched)
+  	{
+- #ifdef FEAT_INS_EXPAND
+  	    if (action == ACTION_EXPAND)
+  	    {
+  		int	cont_s_ipos = FALSE;
+--- 5427,5432 ----
+***************
+*** 5524,5532 ****
+  		else if (add_r == FAIL)
+  		    break;
+  	    }
+! 	    else
+! #endif
+! 		 if (action == ACTION_SHOW_ALL)
+  	    {
+  		found = TRUE;
+  		if (!did_show)
+--- 5508,5514 ----
+  		else if (add_r == FAIL)
+  		    break;
+  	    }
+! 	    else if (action == ACTION_SHOW_ALL)
+  	    {
+  		found = TRUE;
+  		if (!did_show)
+***************
+*** 5638,5666 ****
+  #endif
+  		break;
+  	    }
+- #ifdef FEAT_INS_EXPAND
+  exit_matched:
+- #endif
+  	    matched = FALSE;
+  	    /* look for other matches in the rest of the line if we
+  	     * are not at the end of it already */
+  	    if (def_regmatch.regprog == NULL
+- #ifdef FEAT_INS_EXPAND
+  		    && action == ACTION_EXPAND
+  		    && !(compl_cont_status & CONT_SOL)
+- #endif
+  		    && *startp != NUL
+  		    && *(p = startp + MB_PTR2LEN(startp)) != NUL)
+  		goto search_line;
+  	}
+  	line_breakcheck();
+- #ifdef FEAT_INS_EXPAND
+  	if (action == ACTION_EXPAND)
+  	    ins_compl_check_keys(30, FALSE);
+  	if (got_int || ins_compl_interrupted())
+- #else
+- 	if (got_int)
+- #endif
+  	    break;
+  
+  	/*
+--- 5620,5640 ----
+***************
+*** 5721,5737 ****
+  		msg(_("No included files"));
+  	}
+      }
+!     else if (!found
+! #ifdef FEAT_INS_EXPAND
+! 		    && action != ACTION_EXPAND
+! #endif
+! 						)
+      {
+- #ifdef FEAT_INS_EXPAND
+  	if (got_int || ins_compl_interrupted())
+- #else
+- 	if (got_int)
+- #endif
+  	    emsg(_(e_interr));
+  	else if (type == FIND_DEFINE)
+  	    emsg(_("E388: Couldn't find definition"));
+--- 5695,5703 ----
+  		msg(_("No included files"));
+  	}
+      }
+!     else if (!found && action != ACTION_EXPAND)
+      {
+  	if (got_int || ins_compl_interrupted())
+  	    emsg(_(e_interr));
+  	else if (type == FIND_DEFINE)
+  	    emsg(_("E388: Couldn't find definition"));
+*** ../vim-8.1.1900/src/spell.c	2019-08-20 20:13:40.334821916 +0200
+--- src/spell.c	2019-08-21 14:19:37.923423232 +0200
+***************
+*** 8763,8769 ****
+      return p;
+  }
+  
+- #if defined(FEAT_INS_EXPAND) || defined(PROTO)
+  /*
+   * For Insert mode completion CTRL-X s:
+   * Find start of the word in front of column "startcol".
+--- 8763,8768 ----
+***************
+*** 8833,8838 ****
+      *matchp = ga.ga_data;
+      return ga.ga_len;
+  }
+- #endif
+  
+  #endif  /* FEAT_SPELL */
+--- 8832,8836 ----
+*** ../vim-8.1.1900/src/tag.c	2019-08-18 22:25:54.665447991 +0200
+--- src/tag.c	2019-08-21 14:19:52.223371177 +0200
+***************
+*** 1901,1913 ****
+  	    else
+  #endif
+  		fast_breakcheck();
+- #ifdef FEAT_INS_EXPAND
+  	    if ((flags & TAG_INS_COMP))	/* Double brackets for gcc */
+  		ins_compl_check_keys(30, FALSE);
+  	    if (got_int || ins_compl_interrupted())
+- #else
+- 	    if (got_int)
+- #endif
+  	    {
+  		stop_searching = TRUE;
+  		break;
+--- 1901,1909 ----
+*** ../vim-8.1.1900/src/term.c	2019-08-20 20:13:40.334821916 +0200
+--- src/term.c	2019-08-21 14:20:03.671329285 +0200
+***************
+*** 3505,3517 ****
+  	    else
+  	    {
+  		update_topline();
+- #if defined(FEAT_INS_EXPAND)
+  		if (pum_visible())
+  		{
+  		    redraw_later(NOT_VALID);
+  		    ins_compl_show_pum();
+  		}
+- #endif
+  		update_screen(NOT_VALID);
+  		if (redrawing())
+  		    setcursor();
+--- 3505,3515 ----
+*** ../vim-8.1.1900/src/userfunc.c	2019-08-18 22:25:54.669447972 +0200
+--- src/userfunc.c	2019-08-21 14:20:14.147290824 +0200
+***************
+*** 1614,1622 ****
+  		     * redo buffer.
+  		     */
+  		    save_search_patterns();
+- #ifdef FEAT_INS_EXPAND
+  		    if (!ins_compl_active())
+- #endif
+  		    {
+  			saveRedobuff(&save_redo);
+  			did_save_redo = TRUE;
+--- 1614,1620 ----
+*** ../vim-8.1.1900/src/version.c	2019-08-21 13:45:12.728075572 +0200
+--- src/version.c	2019-08-21 14:33:49.900042873 +0200
+***************
+*** 300,310 ****
+  #else
+  	"-iconv",
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  	"+insert_expand",
+- #else
+- 	"-insert_expand",
+- #endif
+  #ifdef FEAT_JOB_CHANNEL
+  	"+job",
+  #else
+--- 300,306 ----
+*** ../vim-8.1.1900/src/globals.h	2019-08-18 22:25:54.669447972 +0200
+--- src/globals.h	2019-08-21 14:22:10.870854159 +0200
+***************
+*** 129,135 ****
+   */
+  EXTERN colnr_T	dollar_vcol INIT(= -1);
+  
+- #ifdef FEAT_INS_EXPAND
+  /*
+   * Variables for Insert mode completion.
+   */
+--- 129,134 ----
+***************
+*** 150,156 ****
+  				// word-wise expansion, not set for ^X^L
+  # define CONT_LOCAL	32	// for ctrl_x_mode 0, ^X^P/^X^N do a local
+  				// expansion, (eg use complete=.)
+! #endif
+  
+  /*
+   * Functions for putting characters in the command line,
+--- 149,159 ----
+  				// word-wise expansion, not set for ^X^L
+  # define CONT_LOCAL	32	// for ctrl_x_mode 0, ^X^P/^X^N do a local
+  				// expansion, (eg use complete=.)
+! 
+! EXTERN char_u	*edit_submode INIT(= NULL); // msg for CTRL-X submode
+! EXTERN char_u	*edit_submode_pre INIT(= NULL); // prepended to edit_submode
+! EXTERN char_u	*edit_submode_extra INIT(= NULL);// appended to edit_submode
+! EXTERN hlf_T	edit_submode_highl;	// highl. method for extra info
+  
+  /*
+   * Functions for putting characters in the command line,
+***************
+*** 987,998 ****
+  					// to call u_sync()
+  EXTERN int	ins_at_eol INIT(= FALSE); // put cursor after eol when
+  					  // restarting edit after CTRL-O
+- #ifdef FEAT_INS_EXPAND
+- EXTERN char_u	*edit_submode INIT(= NULL); // msg for CTRL-X submode
+- EXTERN char_u	*edit_submode_pre INIT(= NULL); // prepended to edit_submode
+- EXTERN char_u	*edit_submode_extra INIT(= NULL);// appended to edit_submode
+- EXTERN hlf_T	edit_submode_highl;	// highl. method for extra info
+- #endif
+  
+  EXTERN int	no_abbr INIT(= TRUE);	// TRUE when no abbreviations loaded
+  
+--- 990,995 ----
+***************
+*** 1532,1540 ****
+  EXTERN char e_opendisp[]	INIT(= N_("E233: cannot open display"));
+  #endif
+  EXTERN char e_outofmem[]	INIT(= N_("E41: Out of memory!"));
+! #ifdef FEAT_INS_EXPAND
+! EXTERN char e_patnotf[]	INIT(= N_("Pattern not found"));
+! #endif
+  EXTERN char e_patnotf2[]	INIT(= N_("E486: Pattern not found: %s"));
+  EXTERN char e_positive[]	INIT(= N_("E487: Argument must be positive"));
+  #if defined(UNIX) || defined(FEAT_SESSION)
+--- 1529,1535 ----
+  EXTERN char e_opendisp[]	INIT(= N_("E233: cannot open display"));
+  #endif
+  EXTERN char e_outofmem[]	INIT(= N_("E41: Out of memory!"));
+! EXTERN char e_patnotf[]		INIT(= N_("Pattern not found"));
+  EXTERN char e_patnotf2[]	INIT(= N_("E486: Pattern not found: %s"));
+  EXTERN char e_positive[]	INIT(= N_("E487: Argument must be positive"));
+  #if defined(UNIX) || defined(FEAT_SESSION)
+***************
+*** 1609,1616 ****
+  
+  EXTERN char e_invalpat[]	INIT(= N_("E682: Invalid search pattern or delimiter"));
+  EXTERN char e_bufloaded[]	INIT(= N_("E139: File is loaded in another buffer"));
+! #if defined(FEAT_SYN_HL) || \
+! 	(defined(FEAT_INS_EXPAND) && defined(FEAT_COMPL_FUNC))
+  EXTERN char e_notset[]	INIT(= N_("E764: Option '%s' is not set"));
+  #endif
+  #ifndef FEAT_CLIPBOARD
+--- 1604,1610 ----
+  
+  EXTERN char e_invalpat[]	INIT(= N_("E682: Invalid search pattern or delimiter"));
+  EXTERN char e_bufloaded[]	INIT(= N_("E139: File is loaded in another buffer"));
+! #if defined(FEAT_SYN_HL) || defined(FEAT_COMPL_FUNC)
+  EXTERN char e_notset[]	INIT(= N_("E764: Option '%s' is not set"));
+  #endif
+  #ifndef FEAT_CLIPBOARD
+*** ../vim-8.1.1900/src/option.h	2019-08-20 21:11:43.180949125 +0200
+--- src/option.h	2019-08-21 14:22:33.634767410 +0200
+***************
+*** 410,423 ****
+  EXTERN int	p_confirm;	// 'confirm'
+  #endif
+  EXTERN int	p_cp;		// 'compatible'
+- #ifdef FEAT_INS_EXPAND
+  EXTERN char_u	*p_cot;		// 'completeopt'
+! # ifdef BACKSLASH_IN_FILENAME
+  EXTERN char_u	*p_csl;		// 'completeslash'
+! # endif
+  EXTERN long	p_ph;		// 'pumheight'
+  EXTERN long	p_pw;		// 'pumwidth'
+- #endif
+  EXTERN char_u	*p_cpo;		// 'cpoptions'
+  #ifdef FEAT_CSCOPE
+  EXTERN char_u	*p_csprg;	// 'cscopeprg'
+--- 410,421 ----
+  EXTERN int	p_confirm;	// 'confirm'
+  #endif
+  EXTERN int	p_cp;		// 'compatible'
+  EXTERN char_u	*p_cot;		// 'completeopt'
+! #ifdef BACKSLASH_IN_FILENAME
+  EXTERN char_u	*p_csl;		// 'completeslash'
+! #endif
+  EXTERN long	p_ph;		// 'pumheight'
+  EXTERN long	p_pw;		// 'pumwidth'
+  EXTERN char_u	*p_cpo;		// 'cpoptions'
+  #ifdef FEAT_CSCOPE
+  EXTERN char_u	*p_csprg;	// 'cscopeprg'
+***************
+*** 443,451 ****
+  EXTERN char_u	*p_dex;		// 'diffexpr'
+  # endif
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  EXTERN char_u	*p_dict;	// 'dictionary'
+- #endif
+  #ifdef FEAT_DIGRAPHS
+  EXTERN int	p_dg;		// 'digraph'
+  #endif
+--- 441,447 ----
+***************
+*** 849,857 ****
+  EXTERN char_u	*p_titleold;	// 'titleold'
+  EXTERN char_u	*p_titlestring;	// 'titlestring'
+  #endif
+- #ifdef FEAT_INS_EXPAND
+  EXTERN char_u	*p_tsr;		// 'thesaurus'
+- #endif
+  EXTERN int	p_ttimeout;	// 'ttimeout'
+  EXTERN long	p_ttm;		// 'ttimeoutlen'
+  EXTERN int	p_tbi;		// 'ttybuiltin'
+--- 845,851 ----
+***************
+*** 996,1006 ****
+  #ifdef FEAT_COMMENTS
+      , BV_COM
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      , BV_CPT
+      , BV_DICT
+      , BV_TSR
+- #endif
+  #ifdef BACKSLASH_IN_FILENAME
+      , BV_CSL
+  #endif
+--- 990,998 ----
+*** ../vim-8.1.1900/src/proto.h	2019-08-18 21:43:52.138401489 +0200
+--- src/proto.h	2019-08-21 14:22:45.770720969 +0200
+***************
+*** 94,102 ****
+  # include "hashtab.pro"
+  # include "highlight.pro"
+  # include "indent.pro"
+- # ifdef FEAT_INS_EXPAND
+  # include "insexpand.pro"
+- # endif
+  # include "json.pro"
+  # include "list.pro"
+  # include "blob.pro"
+--- 94,100 ----
+*** ../vim-8.1.1900/src/structs.h	2019-08-18 22:25:54.669447972 +0200
+--- src/structs.h	2019-08-21 14:23:09.978627923 +0200
+***************
+*** 2278,2287 ****
+  
+      varnumber_T	b_last_changedtick; // b:changedtick when TextChanged or
+  				    // TextChangedI was last triggered.
+- #ifdef FEAT_INS_EXPAND
+      varnumber_T	b_last_changedtick_pum; // b:changedtick when TextChangedP was
+  					// last triggered.
+- #endif
+  
+      int		b_saving;	// Set to TRUE if we are in the middle of
+  				// saving the buffer.
+--- 2278,2285 ----
+***************
+*** 2376,2384 ****
+      linenr_T	b_u_line_lnum;	// line number of line in u_line
+      colnr_T	b_u_line_colnr;	// optional column number
+  
+- #ifdef FEAT_INS_EXPAND
+      int		b_scanned;	// ^N/^P have scanned this buffer
+- #endif
+  
+      // flags for use of ":lmap" and IM control
+      long	b_p_iminsert;	// input mode for insert
+--- 2374,2380 ----
+***************
+*** 2436,2444 ****
+  #ifdef FEAT_FOLDING
+      char_u	*b_p_cms;	// 'commentstring'
+  #endif
+- #ifdef FEAT_INS_EXPAND
+      char_u	*b_p_cpt;	// 'complete'
+- #endif
+  #ifdef BACKSLASH_IN_FILENAME
+      char_u	*b_p_csl;	// 'completeslash'
+  #endif
+--- 2432,2438 ----
+***************
+*** 2545,2554 ****
+      char_u	*b_p_tags;	// 'tags' local value
+      char_u	*b_p_tc;	// 'tagcase' local value
+      unsigned	b_tc_flags;     // flags for 'tagcase'
+- #ifdef FEAT_INS_EXPAND
+      char_u	*b_p_dict;	// 'dictionary' local value
+      char_u	*b_p_tsr;	// 'thesaurus' local value
+- #endif
+      long	b_p_ul;		// 'undolevels' local value
+  #ifdef FEAT_PERSISTENT_UNDO
+      int		b_p_udf;	// 'undofile'
+--- 2539,2546 ----
+*** ../vim-8.1.1900/src/vim.h	2019-08-18 15:24:23.201608907 +0200
+--- src/vim.h	2019-08-21 14:23:25.818566754 +0200
+***************
+*** 848,856 ****
+  #define ACTION_GOTO	2
+  #define ACTION_SPLIT	3
+  #define ACTION_SHOW_ALL	4
+! #ifdef FEAT_INS_EXPAND
+! # define ACTION_EXPAND	5
+! #endif
+  
+  #ifdef FEAT_SYN_HL
+  # define SST_MIN_ENTRIES 150	/* minimal size for state stack array */
+--- 848,854 ----
+  #define ACTION_GOTO	2
+  #define ACTION_SPLIT	3
+  #define ACTION_SHOW_ALL	4
+! #define ACTION_EXPAND	5
+  
+  #ifdef FEAT_SYN_HL
+  # define SST_MIN_ENTRIES 150	/* minimal size for state stack array */
+*** ../vim-8.1.1900/runtime/doc/change.txt	2019-05-05 18:11:46.308590707 +0200
+--- runtime/doc/change.txt	2019-08-21 14:25:03.014187316 +0200
+***************
+*** 695,704 ****
+  	    <Esc>   to quit substituting
+  	    'a'	    to substitute this and all remaining matches
+  	    'q'	    to quit substituting
+! 	    CTRL-E  to scroll the screen up {not available when compiled
+! 		       without the |+insert_expand| feature}
+! 	    CTRL-Y  to scroll the screen down {not available when compiled
+! 		       without the |+insert_expand| feature}
+  	If the 'edcompatible' option is on, Vim remembers the [c] flag and
+  	toggles it each time you use it, but resets it when you give a new
+  	search pattern.
+--- 691,698 ----
+  	    <Esc>   to quit substituting
+  	    'a'	    to substitute this and all remaining matches
+  	    'q'	    to quit substituting
+! 	    CTRL-E  to scroll the screen up
+! 	    CTRL-Y  to scroll the screen down
+  	If the 'edcompatible' option is on, Vim remembers the [c] flag and
+  	toggles it each time you use it, but resets it when you give a new
+  	search pattern.
+*** ../vim-8.1.1900/runtime/doc/index.txt	2019-05-09 18:59:27.224463628 +0200
+--- runtime/doc/index.txt	2019-08-21 14:26:29.193845430 +0200
+***************
+*** 166,172 ****
+  |i_CTRL-X_CTRL-V|	CTRL-X CTRL-V	complete like in : command line
+  |i_CTRL-X_CTRL-]|	CTRL-X CTRL-]	complete tags
+  |i_CTRL-X_s|		CTRL-X s	spelling suggestions
+- {not available when compiled without the |+insert_expand| feature}
+  
+  commands in completion mode (see |popupmenu-keys|)
+  
+--- 166,171 ----
+***************
+*** 1241,1246 ****
+--- 1240,1246 ----
+  |:compiler|	:comp[iler]	do settings for a specific compiler
+  |:continue|	:con[tinue]	go back to :while
+  |:confirm|	:conf[irm]	prompt user when confirmation required
++ |:const|	:cons[t]	create a variable as a constant
+  |:copen|	:cope[n]	open quickfix window
+  |:cprevious|	:cp[revious]	go to previous error
+  |:cpfile|	:cpf[ile]	go to last error in previous file
+***************
+*** 1591,1596 ****
+--- 1591,1597 ----
+  |:spelldump|	:spelld[ump]	split window and fill with all correct words
+  |:spellgood|	:spe[llgood]	add good word for spelling
+  |:spellinfo|	:spelli[nfo]	show info about loaded spell files
++ |:spellrare|	:spellra[re]	add rare word for spelling
+  |:spellrepall|	:spellr[epall]	replace all bad words like last |z=|
+  |:spellundo|	:spellu[ndo]	remove good or bad word
+  |:spellwrong|	:spellw[rong]	add spelling mistake
+*** ../vim-8.1.1900/runtime/doc/insert.txt	2019-08-18 16:34:42.911429683 +0200
+--- runtime/doc/insert.txt	2019-08-21 14:27:05.741699106 +0200
+***************
+*** 302,309 ****
+  
+  						*i_CTRL-X* *insert_expand*
+  CTRL-X enters a sub-mode where several commands can be used.  Most of these
+! commands do keyword completion; see |ins-completion|.  These are not available
+! when Vim was compiled without the |+insert_expand| feature.
+  
+  Two commands can be used to scroll the window up or down, without exiting
+  insert mode:
+--- 300,306 ----
+  
+  						*i_CTRL-X* *insert_expand*
+  CTRL-X enters a sub-mode where several commands can be used.  Most of these
+! commands do keyword completion; see |ins-completion|.
+  
+  Two commands can be used to scroll the window up or down, without exiting
+  insert mode:
+***************
+*** 611,619 ****
+  keyword or line that has been typed.  This is useful if you are using
+  complicated keywords (e.g., function names with capitals and underscores).
+  
+- These commands are not available when the |+insert_expand| feature was
+- disabled at compile time.
+- 
+  Completion can be done for:
+  
+  1. Whole lines						|i_CTRL-X_CTRL-L|
+--- 608,613 ----
+*** ../vim-8.1.1900/runtime/doc/options.txt	2019-08-18 16:34:42.911429683 +0200
+--- runtime/doc/options.txt	2019-08-21 14:28:22.065391295 +0200
+***************
+*** 1440,1447 ****
+  						*'cedit'*
+  'cedit'			string	(Vi default: "", Vim default: CTRL-F)
+  			global
+- 			{not available when compiled without the |+vertsplit|
+- 			feature}
+  	The key used in Command-line Mode to open the command-line window.
+  	The default is CTRL-F when 'compatible' is off.
+  	Only non-printable keys are allowed.
+--- 1440,1445 ----
+***************
+*** 1644,1651 ****
+  						*'cmdwinheight'* *'cwh'*
+  'cmdwinheight' 'cwh'	number	(default 7)
+  			global
+- 			{not available when compiled without the |+vertsplit|
+- 			feature}
+  	Number of screen lines to use for the command-line window. |cmdwin|
+  
+  						*'colorcolumn'* *'cc'*
+--- 1642,1647 ----
+***************
+*** 1870,1876 ****
+  'completefunc' 'cfu'	string	(default: empty)
+  			local to buffer
+  			{not available when compiled without the |+eval|
+! 			or |+insert_expand| features}
+  	This option specifies a function to be used for Insert mode completion
+  	with CTRL-X CTRL-U. |i_CTRL-X_CTRL-U|
+  	See |complete-functions| for an explanation of how the function is
+--- 1866,1872 ----
+  'completefunc' 'cfu'	string	(default: empty)
+  			local to buffer
+  			{not available when compiled without the |+eval|
+! 			feature}
+  	This option specifies a function to be used for Insert mode completion
+  	with CTRL-X CTRL-U. |i_CTRL-X_CTRL-U|
+  	See |complete-functions| for an explanation of how the function is
+***************
+*** 1896,1903 ****
+  						*'completeopt'* *'cot'*
+  'completeopt' 'cot'	string	(default: "menu,preview")
+  			global
+- 			{not available when compiled without the
+- 			|+insert_expand| feature}
+  	A comma separated list of options for Insert mode completion
+  	|ins-completion|.  The supported values are:
+  
+--- 1892,1897 ----
+***************
+*** 2739,2746 ****
+  						*'eadirection'* *'ead'*
+  'eadirection' 'ead'	string	(default "both")
+  			global
+- 			{not available when compiled without the |+vertsplit|
+- 			feature}
+  	Tells when the 'equalalways' option applies:
+  		ver	vertically, width of windows is not affected
+  		hor	horizontally, height of windows is not affected
+--- 2733,2738 ----
+***************
+*** 3176,3183 ****
+  						*'fillchars'* *'fcs'*
+  'fillchars' 'fcs'	string	(default "vert:|,fold:-")
+  			global
+! 			{not available when compiled without the |+windows|
+! 			and |+folding| features}
+  	Characters to fill the statuslines and vertical separators.
+  	It is a comma separated list of items:
+  
+--- 3168,3175 ----
+  						*'fillchars'* *'fcs'*
+  'fillchars' 'fcs'	string	(default "vert:|,fold:-")
+  			global
+! 			{not available when compiled without the |+folding|
+! 			feature}
+  	Characters to fill the statuslines and vertical separators.
+  	It is a comma separated list of items:
+  
+***************
+*** 3813,3820 ****
+  						*'guitablabel'* *'gtl'*
+  'guitablabel' 'gtl'	string	(default empty)
+  			global
+! 			{only available when compiled with GUI enabled and
+! 			with the |+windows| feature}
+  	When nonempty describes the text to use in a label of the GUI tab
+  	pages line.  When empty and when the result is empty Vim will use a
+  	default label.  See |setting-guitablabel| for more info.
+--- 3805,3811 ----
+  						*'guitablabel'* *'gtl'*
+  'guitablabel' 'gtl'	string	(default empty)
+  			global
+! 			{only available when compiled with GUI enabled}
+  	When nonempty describes the text to use in a label of the GUI tab
+  	pages line.  When empty and when the result is empty Vim will use a
+  	default label.  See |setting-guitablabel| for more info.
+***************
+*** 3832,3839 ****
+  						*'guitabtooltip'* *'gtt'*
+  'guitabtooltip' 'gtt'	string	(default empty)
+  			global
+! 			{only available when compiled with GUI enabled and
+! 			with the |+windows| feature}
+  	When nonempty describes the text to use in a tooltip for the GUI tab
+  	pages line.  When empty Vim will use a default tooltip.
+  	This option is otherwise just like 'guitablabel' above.
+--- 3823,3829 ----
+  						*'guitabtooltip'* *'gtt'*
+  'guitabtooltip' 'gtt'	string	(default empty)
+  			global
+! 			{only available when compiled with GUI enabled}
+  	When nonempty describes the text to use in a tooltip for the GUI tab
+  	pages line.  When empty Vim will use a default tooltip.
+  	This option is otherwise just like 'guitablabel' above.
+***************
+*** 3858,3865 ****
+  						*'helpheight'* *'hh'*
+  'helpheight' 'hh'	number	(default 20)
+  			global
+- 			{not available when compiled without the |+windows|
+- 			feature}
+  	Minimal initial height of the help window when it is opened with the
+  	":help" command.  The initial height of the help window is half of the
+  	current window, or (when the 'ea' option is on) the same as other
+--- 3848,3853 ----
+***************
+*** 5243,5250 ****
+  
+  	In the "popup" model the right mouse button produces a pop-up menu.
+  	You need to define this first, see |popup-menu|.
+- 	In a terminal the popup menu works if Vim is compiled with the
+- 	|+insert_expand| option.
+  
+  	Note that you can further refine the meaning of buttons with mappings.
+  	See |gui-mouse-mapping|.  But mappings are NOT used for modeless
+--- 5231,5236 ----
+***************
+*** 5429,5435 ****
+  'omnifunc' 'ofu'	string	(default: empty)
+  			local to buffer
+  			{not available when compiled without the |+eval|
+! 			or |+insert_expand| features}
+  	This option specifies a function to be used for Insert mode omni
+  	completion with CTRL-X CTRL-O. |i_CTRL-X_CTRL-O|
+  	See |complete-functions| for an explanation of how the function is
+--- 5415,5421 ----
+  'omnifunc' 'ofu'	string	(default: empty)
+  			local to buffer
+  			{not available when compiled without the |+eval|
+! 			feature}
+  	This option specifies a function to be used for Insert mode omni
+  	completion with CTRL-X CTRL-O. |i_CTRL-X_CTRL-O|
+  	See |complete-functions| for an explanation of how the function is
+***************
+*** 5658,5665 ****
+  					*'previewheight'* *'pvh'*
+  'previewheight' 'pvh'	number (default 12)
+  			global
+! 			{not available when compiled without the |+windows| or
+! 			|+quickfix| features}
+  	Default height for a preview window.  Used for |:ptag| and associated
+  	commands.  Used for |CTRL-W_}| when no count is given.  Not used when
+  	'previewpopup' is set.
+--- 5644,5651 ----
+  					*'previewheight'* *'pvh'*
+  'previewheight' 'pvh'	number (default 12)
+  			global
+! 			{not available when compiled without the |+quickfix|
+! 			feature}
+  	Default height for a preview window.  Used for |:ptag| and associated
+  	commands.  Used for |CTRL-W_}| when no count is given.  Not used when
+  	'previewpopup' is set.
+***************
+*** 5759,5766 ****
+  						*'pumheight'* *'ph'*
+  'pumheight' 'ph'	number	(default 0)
+  			global
+- 			{not available when compiled without the
+- 			|+insert_expand| feature}
+  	Determines the maximum number of items to show in the popup menu for
+  	Insert mode completion.  When zero as much space as available is used.
+  	|ins-completion-menu|.
+--- 5745,5750 ----
+***************
+*** 5768,5775 ****
+  						*'pumwidth'* *'pw'*
+  'pumwidth' 'pw'		number	(default 15)
+  			global
+- 			{not available when compiled without the
+- 			|+insert_expand| feature}
+  	Determines the minimum width to use for the popup menu for Insert mode
+  	completion.  |ins-completion-menu|.
+  
+--- 5752,5757 ----
+***************
+*** 6797,6804 ****
+  						*'showtabline'* *'stal'*
+  'showtabline' 'stal'	number	(default 1)
+  			global
+- 			{not available when compiled without the |+windows|
+- 			feature}
+  	The value of this option specifies when the line with tab page labels
+  	will be displayed:
+  		0: never
+--- 6779,6784 ----
+***************
+*** 7095,7110 ****
+  			*'splitbelow'* *'sb'* *'nosplitbelow'* *'nosb'*
+  'splitbelow' 'sb'	boolean	(default off)
+  			global
+- 			{not available when compiled without the |+windows|
+- 			feature}
+  	When on, splitting a window will put the new window below the current
+  	one. |:split|
+  
+  			*'splitright'* *'spr'* *'nosplitright'* *'nospr'*
+  'splitright' 'spr'	boolean	(default off)
+  			global
+- 			{not available when compiled without the |+vertsplit|
+- 			feature}
+  	When on, splitting a window will put the new window right of the
+  	current one. |:vsplit|
+  
+--- 7075,7086 ----
+***************
+*** 7419,7426 ****
+  						*'tabline'* *'tal'*
+  'tabline' 'tal'		string	(default empty)
+  			global
+- 			{not available when compiled without the |+windows|
+- 			feature}
+  	When nonempty, this option determines the content of the tab pages
+  	line at the top of the Vim window.  When empty Vim will use a default
+  	tab pages line.  See |setting-tabline| for more info.
+--- 7395,7400 ----
+***************
+*** 7446,7453 ****
+  						*'tabpagemax'* *'tpm'*
+  'tabpagemax' 'tpm'	number	(default 10)
+  			global
+- 			{not available when compiled without the |+windows|
+- 			feature}
+  	Maximum number of tab pages to be opened by the |-p| command line
+  	argument or the ":tab all" command. |tabpage|
+  
+--- 7420,7425 ----
+***************
+*** 8118,8124 ****
+  	already.
+  	Additionally, if vim is compiled with the |+termresponse| feature and
+  	|t_RV| is set to the escape sequence to request the xterm version
+! 	number, more intelligent detection process runs.
+  	The "xterm2" value will be set if the xterm version is reported to be
+  	from 95 to 276.  The "sgr" value will be set if Vim detects Mac
+  	Terminal.app, iTerm2 or mintty, and when the xterm version is 277 or
+--- 8090,8096 ----
+  	already.
+  	Additionally, if vim is compiled with the |+termresponse| feature and
+  	|t_RV| is set to the escape sequence to request the xterm version
+! 	number, more intelligent detection is done.
+  	The "xterm2" value will be set if the xterm version is reported to be
+  	from 95 to 276.  The "sgr" value will be set if Vim detects Mac
+  	Terminal.app, iTerm2 or mintty, and when the xterm version is 277 or
+***************
+*** 8757,8764 ****
+  						*'winheight'* *'wh'* *E591*
+  'winheight' 'wh'	number	(default 1)
+  			global
+- 			{not available when compiled without the |+windows|
+- 			feature}
+  	Minimal number of lines for the current window.  This is not a hard
+  	minimum, Vim will use fewer lines if there is not enough room.  If the
+  	focus goes to a window that is smaller, its size is increased, at the
+--- 8729,8734 ----
+***************
+*** 8779,8786 ****
+  			*'winfixheight'* *'wfh'* *'nowinfixheight'* *'nowfh'*
+  'winfixheight' 'wfh'	boolean	(default off)
+  			local to window
+- 			{not available when compiled without the |+windows|
+- 			feature}
+  	Keep the window height when windows are opened or closed and
+  	'equalalways' is set.  Also for |CTRL-W_=|.  Set by default for the
+  	|preview-window| and |quickfix-window|.
+--- 8749,8754 ----
+***************
+*** 8789,8796 ****
+  			*'winfixwidth'* *'wfw'* *'nowinfixwidth'* *'nowfw'*
+  'winfixwidth' 'wfw'	boolean	(default off)
+  			local to window
+- 			{not available when compiled without the |+windows|
+- 			feature}
+  	Keep the window width when windows are opened or closed and
+  	'equalalways' is set.  Also for |CTRL-W_=|.
+  	The width may be changed anyway when running out of room.
+--- 8757,8762 ----
+***************
+*** 8798,8805 ****
+  						*'winminheight'* *'wmh'*
+  'winminheight' 'wmh'	number	(default 1)
+  			global
+- 			{not available when compiled without the |+windows|
+- 			feature}
+  	The minimal height of a window, when it's not the current window.
+  	This is a hard minimum, windows will never become smaller.
+  	When set to zero, windows may be "squashed" to zero lines (i.e. just a
+--- 8764,8769 ----
+***************
+*** 8813,8820 ****
+  						*'winminwidth'* *'wmw'*
+  'winminwidth' 'wmw'	number	(default 1)
+  			global
+- 			{not available when compiled without the |+vertsplit|
+- 			feature}
+  	The minimal width of a window, when it's not the current window.
+  	This is a hard minimum, windows will never become smaller.
+  	When set to zero, windows may be "squashed" to zero columns (i.e. just
+--- 8777,8782 ----
+***************
+*** 8842,8849 ****
+  						*'winwidth'* *'wiw'* *E592*
+  'winwidth' 'wiw'	number	(default 20)
+  			global
+- 			{not available when compiled without the |+vertsplit|
+- 			feature}
+  	Minimal number of columns for the current window.  This is not a hard
+  	minimum, Vim will use fewer columns if there is not enough room.  If
+  	the current window is smaller, its size is increased, at the cost of
+--- 8804,8809 ----
+*** ../vim-8.1.1900/src/version.c	2019-08-21 13:45:12.728075572 +0200
+--- src/version.c	2019-08-21 14:33:49.900042873 +0200
+***************
+*** 767,768 ****
+--- 763,766 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1901,
+  /**/
+
+-- 
+I AM THANKFUL...
+...for the clothes that fit a little too snug because it
+means I have more than enough to eat.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

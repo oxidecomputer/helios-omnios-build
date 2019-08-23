@@ -1,0 +1,171 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1890
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1890
+Problem:    Ml_get error when deleting fold marker.
+Solution:   Check that the line number is not below the last line.  Adjust the
+            fold when deleting the empty line.  (Christian Brabandt,
+            closes #4834)
+Files:	    src/fold.c, src/normal.c, src/testdir/test_fold.vim
+
+
+*** ../vim-8.1.1889/src/fold.c	2019-05-24 18:48:36.758128504 +0200
+--- src/fold.c	2019-08-19 22:45:28.109905405 +0200
+***************
+*** 1813,1819 ****
+  /*
+   * Delete marker "marker[markerlen]" at the end of line "lnum".
+   * Delete 'commentstring' if it matches.
+!  * If the marker is not found, there is no error message.  Could a missing
+   * close-marker.
+   */
+      static void
+--- 1813,1819 ----
+  /*
+   * Delete marker "marker[markerlen]" at the end of line "lnum".
+   * Delete 'commentstring' if it matches.
+!  * If the marker is not found, there is no error message.  Could be a missing
+   * close-marker.
+   */
+      static void
+***************
+*** 1826,1831 ****
+--- 1826,1834 ----
+      char_u	*cms = curbuf->b_p_cms;
+      char_u	*cms2;
+  
++     // end marker may be missing and fold extends below the last line
++     if (lnum > curbuf->b_ml.ml_line_count)
++ 	return;
+      line = ml_get(lnum);
+      for (p = line; *p != NUL; ++p)
+  	if (STRNCMP(p, marker, markerlen) == 0)
+***************
+*** 2733,2748 ****
+       * lvl >= level: fold continues below "bot"
+       */
+  
+!     /* Current fold at least extends until lnum. */
+      if (fp->fd_len < flp->lnum - fp->fd_top)
+      {
+  	fp->fd_len = flp->lnum - fp->fd_top;
+  	fp->fd_small = MAYBE;
+  	fold_changed = TRUE;
+      }
+  
+!     /* Delete contained folds from the end of the last one found until where
+!      * we stopped looking. */
+      foldRemove(&fp->fd_nested, startlnum2 - fp->fd_top,
+  						  flp->lnum - 1 - fp->fd_top);
+  
+--- 2736,2754 ----
+       * lvl >= level: fold continues below "bot"
+       */
+  
+!     // Current fold at least extends until lnum.
+      if (fp->fd_len < flp->lnum - fp->fd_top)
+      {
+  	fp->fd_len = flp->lnum - fp->fd_top;
+  	fp->fd_small = MAYBE;
+  	fold_changed = TRUE;
+      }
++     else if (fp->fd_top + fp->fd_len > linecount)
++ 	// running into the end of the buffer (deleted last line)
++ 	fp->fd_len = linecount - fp->fd_top + 1;
+  
+!     // Delete contained folds from the end of the last one found until where
+!     // we stopped looking.
+      foldRemove(&fp->fd_nested, startlnum2 - fp->fd_top,
+  						  flp->lnum - 1 - fp->fd_top);
+  
+*** ../vim-8.1.1889/src/normal.c	2019-08-16 21:54:23.684691636 +0200
+--- src/normal.c	2019-08-19 22:32:40.609555744 +0200
+***************
+*** 9346,9358 ****
+  		reg1 = get_register(regname, TRUE);
+  	    }
+  
+! 	    /* Now delete the selected text. */
+  	    cap->cmdchar = 'd';
+  	    cap->nchar = NUL;
+  	    cap->oap->regname = NUL;
+  	    nv_operator(cap);
+  	    do_pending_operator(cap, 0, FALSE);
+  	    empty = (curbuf->b_ml.ml_flags & ML_EMPTY);
+  
+  	    /* delete PUT_LINE_BACKWARD; */
+  	    cap->oap->regname = regname;
+--- 9346,9360 ----
+  		reg1 = get_register(regname, TRUE);
+  	    }
+  
+! 	    // Now delete the selected text. Avoid messages here.
+  	    cap->cmdchar = 'd';
+  	    cap->nchar = NUL;
+  	    cap->oap->regname = NUL;
++ 	    ++msg_silent;
+  	    nv_operator(cap);
+  	    do_pending_operator(cap, 0, FALSE);
+  	    empty = (curbuf->b_ml.ml_flags & ML_EMPTY);
++ 	    --msg_silent;
+  
+  	    /* delete PUT_LINE_BACKWARD; */
+  	    cap->oap->regname = regname;
+***************
+*** 9407,9412 ****
+--- 9409,9415 ----
+  	if (empty && *ml_get(curbuf->b_ml.ml_line_count) == NUL)
+  	{
+  	    ml_delete(curbuf->b_ml.ml_line_count, TRUE);
++ 	    deleted_lines(curbuf->b_ml.ml_line_count + 1, 1);
+  
+  	    /* If the cursor was in that line, move it to the end of the last
+  	     * line. */
+*** ../vim-8.1.1889/src/testdir/test_fold.vim	2019-08-07 23:07:03.960858821 +0200
+--- src/testdir/test_fold.vim	2019-08-19 22:47:04.293440257 +0200
+***************
+*** 741,743 ****
+--- 741,759 ----
+    set foldmethod&
+    bwipe!
+  endfunc
++ 
++ func Test_fold_delete_with_marker()
++   new
++   call setline(1, ['func Func() {{{1', 'endfunc'])
++   1,2yank
++   new
++   set fdm=marker
++   call setline(1, 'x')
++   normal! Vp
++   normal! zd
++   call assert_equal(['func Func() ', 'endfunc'], getline(1, '$'))
++ 
++   set fdm&
++   bwipe!
++   bwipe!
++ endfunc
+*** ../vim-8.1.1889/src/version.c	2019-08-19 20:08:12.044411941 +0200
+--- src/version.c	2019-08-19 22:47:31.957306318 +0200
+***************
+*** 767,768 ****
+--- 767,770 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1890,
+  /**/
+
+-- 
+From "know your smileys":
+ :q	vi user saying, "How do I get out of this damn emacs editor?"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

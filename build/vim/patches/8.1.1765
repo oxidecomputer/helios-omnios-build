@@ -1,0 +1,166 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1765
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1765
+Problem:    get(func, dict, def) does not work properly.
+Solution:   Handle NULL dict better. (Takuya Fujiwara, closes #4734)
+Files:	    src/evalfunc.c, src/testdir/test_getvar.vim,
+            src/testdir/test_partial.vim
+
+
+*** ../vim-8.1.1764/src/evalfunc.c	2019-07-27 23:12:08.667924110 +0200
+--- src/evalfunc.c	2019-07-28 13:09:05.389658887 +0200
+***************
+*** 4197,4202 ****
+--- 4197,4203 ----
+      dictitem_T	*di;
+      dict_T	*d;
+      typval_T	*tv = NULL;
++     int		what_is_dict = FALSE;
+  
+      if (argvars[0].v_type == VAR_BLOB)
+      {
+***************
+*** 4270,4276 ****
+  		}
+  	    }
+  	    else if (STRCMP(what, "dict") == 0)
+! 		rettv_dict_set(rettv, pt->pt_dict);
+  	    else if (STRCMP(what, "args") == 0)
+  	    {
+  		rettv->v_type = VAR_LIST;
+--- 4271,4281 ----
+  		}
+  	    }
+  	    else if (STRCMP(what, "dict") == 0)
+! 	    {
+! 		what_is_dict = TRUE;
+! 		if (pt->pt_dict != NULL)
+! 		    rettv_dict_set(rettv, pt->pt_dict);
+! 	    }
+  	    else if (STRCMP(what, "args") == 0)
+  	    {
+  		rettv->v_type = VAR_LIST;
+***************
+*** 4284,4290 ****
+  	    }
+  	    else
+  		semsg(_(e_invarg2), what);
+! 	    return;
+  	}
+      }
+      else
+--- 4289,4299 ----
+  	    }
+  	    else
+  		semsg(_(e_invarg2), what);
+! 
+! 	    // When {what} == "dict" and pt->pt_dict == NULL, evaluate the
+! 	    // third argument
+! 	    if (!what_is_dict)
+! 		return;
+  	}
+      }
+      else
+*** ../vim-8.1.1764/src/testdir/test_getvar.vim	2017-09-29 21:08:40.000000000 +0200
+--- src/testdir/test_getvar.vim	2019-07-28 13:16:58.879346317 +0200
+***************
+*** 1,4 ****
+! " Tests for getwinvar(), gettabvar() and gettabwinvar().
+  func Test_var()
+    " Use strings to test for memory leaks.  First, check that in an empty
+    " window, gettabvar() returns the correct value
+--- 1,5 ----
+! " Tests for getwinvar(), gettabvar(), gettabwinvar() and get().
+! 
+  func Test_var()
+    " Use strings to test for memory leaks.  First, check that in an empty
+    " window, gettabvar() returns the correct value
+***************
+*** 102,104 ****
+--- 103,146 ----
+    close
+    redrawstatus!
+  endfunc
++ 
++ " Test get() function using default value.
++ 
++ " get({dict}, {key} [, {default}])
++ func Test_get_dict()
++   let d = {'foo': 42}
++   call assert_equal(42, get(d, 'foo', 99))
++   call assert_equal(999, get(d, 'bar', 999))
++ endfunc
++ 
++ " get({list}, {idx} [, {default}])
++ func Test_get_list()
++   let l = [1,2,3]
++   call assert_equal(1, get(l, 0, 999))
++   call assert_equal(3, get(l, -1, 999))
++   call assert_equal(999, get(l, 3, 999))
++ endfunc
++ 
++ " get({blob}, {idx} [, {default}]) - in test_blob.vim
++ 
++ " get({lambda}, {what} [, {default}])
++ func Test_get_lambda()
++   let l:L = {-> 42}
++   call assert_match('^<lambda>', get(l:L, 'name'))
++   call assert_equal(l:L, get(l:L, 'func'))
++   call assert_equal({'lambda has': 'no dict'}, get(l:L, 'dict', {'lambda has': 'no dict'}))
++   call assert_equal(0, get(l:L, 'dict'))
++   call assert_equal([], get(l:L, 'args'))
++ endfunc
++ 
++ " get({func}, {what} [, {default}])
++ func Test_get_func()
++   let l:F = function('tr')
++   call assert_equal('tr', get(l:F, 'name'))
++   call assert_equal(l:F, get(l:F, 'func'))
++   call assert_equal({'func has': 'no dict'}, get(l:F, 'dict', {'func has': 'no dict'}))
++   call assert_equal(0, get(l:F, 'dict'))
++   call assert_equal([], get(l:F, 'args'))
++ endfunc
++ 
++ " get({partial}, {what} [, {default}]) - in test_partial.vim
+*** ../vim-8.1.1764/src/testdir/test_partial.vim	2019-01-09 23:00:58.001176090 +0100
+--- src/testdir/test_partial.vim	2019-07-28 13:16:47.167365153 +0200
+***************
+*** 320,325 ****
+--- 320,330 ----
+    call assert_equal('MyDictFunc', get(Func, 'name'))
+    call assert_equal([], get(Func, 'args'))
+    call assert_true(empty( get(Func, 'dict')))
++ 
++   let P = function('substitute', ['hello there', 'there'])
++   let dict = {'partial has': 'no dict'}
++   call assert_equal(dict, get(P, 'dict', dict))
++   call assert_equal(0, get(l:P, 'dict'))
+  endfunc
+  
+  func Test_compare_partials()
+*** ../vim-8.1.1764/src/version.c	2019-07-27 23:27:48.758769385 +0200
+--- src/version.c	2019-07-28 13:07:36.138102379 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1765,
+  /**/
+
+-- 
+If you had to identify, in one word, the reason why the
+human race has not achieved, and never will achieve, its
+full potential, that word would be "meetings."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

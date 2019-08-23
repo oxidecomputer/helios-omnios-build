@@ -1,0 +1,115 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1752
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1752
+Problem:    Resizing hashtable is inefficient.
+Solution:   Avoid resizing when the final size is predictable.
+Files:	    src/hashtab.c, src/proto/hashtab.pro, src/popupwin.c
+
+
+*** ../vim-8.1.1751/src/hashtab.c	2019-05-28 23:08:12.064648717 +0200
+--- src/hashtab.c	2019-07-26 21:25:53.451603269 +0200
+***************
+*** 286,292 ****
+      ++ht->ht_locked;
+  }
+  
+- #if 0	    /* currently not used */
+  /*
+   * Lock a hashtable at the specified number of entries.
+   * Caller must make sure no more than "size" entries will be added.
+--- 286,291 ----
+***************
+*** 298,304 ****
+      (void)hash_may_resize(ht, size);
+      ++ht->ht_locked;
+  }
+- #endif
+  
+  /*
+   * Unlock a hashtable: allow ht_array changes again.
+--- 297,302 ----
+***************
+*** 368,377 ****
+      }
+      else
+      {
+! 	/* Use specified size. */
+! 	if ((long_u)minitems < ht->ht_used)	/* just in case... */
+  	    minitems = (int)ht->ht_used;
+! 	minsize = minitems * 3 / 2;	/* array is up to 2/3 full */
+      }
+  
+      newsize = HT_INIT_SIZE;
+--- 366,375 ----
+      }
+      else
+      {
+! 	// Use specified size.
+! 	if ((long_u)minitems < ht->ht_used)	// just in case...
+  	    minitems = (int)ht->ht_used;
+! 	minsize = (minitems * 3 + 1) / 2;	// array is up to 2/3 full
+      }
+  
+      newsize = HT_INIT_SIZE;
+*** ../vim-8.1.1751/src/proto/hashtab.pro	2018-05-17 13:52:37.000000000 +0200
+--- src/proto/hashtab.pro	2019-07-26 21:09:05.712288509 +0200
+***************
+*** 9,14 ****
+--- 9,15 ----
+  int hash_add_item(hashtab_T *ht, hashitem_T *hi, char_u *key, hash_T hash);
+  void hash_remove(hashtab_T *ht, hashitem_T *hi);
+  void hash_lock(hashtab_T *ht);
++ void hash_lock_size(hashtab_T *ht, int size);
+  void hash_unlock(hashtab_T *ht);
+  hash_T hash_hash(char_u *key);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1751/src/popupwin.c	2019-07-26 21:01:25.573903976 +0200
+--- src/popupwin.c	2019-07-26 21:20:33.701164636 +0200
+***************
+*** 2032,2038 ****
+--- 2032,2040 ----
+  	top_extra = popup_top_extra(wp);
+  	left_extra = wp->w_popup_border[3] + wp->w_popup_padding[3];
+  
++ 	// we know how much space we need, avoid resizing halfway
+  	dict = rettv->vval.v_dict;
++ 	hash_lock_size(&dict->dv_hashtab, 11);
+  
+  	dict_add_number(dict, "line", wp->w_winrow + 1);
+  	dict_add_number(dict, "col", wp->w_wincol + 1);
+***************
+*** 2050,2055 ****
+--- 2052,2059 ----
+  	dict_add_number(dict, "firstline", wp->w_topline);
+  	dict_add_number(dict, "visible",
+  		      win_valid(wp) && (wp->w_popup_flags & POPF_HIDDEN) == 0);
++ 
++ 	hash_unlock(&dict->dv_hashtab);
+      }
+  }
+  /*
+*** ../vim-8.1.1751/src/version.c	2019-07-26 21:01:25.573903976 +0200
+--- src/version.c	2019-07-26 21:25:01.995856863 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1752,
+  /**/
+
+-- 
+ARTHUR: What are you going to do. bleed on me?
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

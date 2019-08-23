@@ -1,0 +1,143 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1843
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1843
+Problem:    Might be freeing memory that was not allocated.
+Solution:   Have next_fenc() set the fenc_alloced flag. (closes #4804)
+Files:	    src/fileio.c
+
+
+*** ../vim-8.1.1842/src/fileio.c	2019-08-01 22:40:27.068043894 +0200
+--- src/fileio.c	2019-08-13 00:13:23.102719925 +0200
+***************
+*** 27,33 ****
+  /* Is there any system that doesn't have access()? */
+  #define USE_MCH_ACCESS
+  
+! static char_u *next_fenc(char_u **pp);
+  #ifdef FEAT_EVAL
+  static char_u *readfile_charconvert(char_u *fname, char_u *fenc, int *fdp);
+  #endif
+--- 27,33 ----
+  /* Is there any system that doesn't have access()? */
+  #define USE_MCH_ACCESS
+  
+! static char_u *next_fenc(char_u **pp, int *alloced);
+  #ifdef FEAT_EVAL
+  static char_u *readfile_charconvert(char_u *fname, char_u *fenc, int *fdp);
+  #endif
+***************
+*** 890,897 ****
+      else
+      {
+  	fenc_next = p_fencs;		/* try items in 'fileencodings' */
+! 	fenc = next_fenc(&fenc_next);
+! 	fenc_alloced = TRUE;
+      }
+  
+      /*
+--- 890,896 ----
+      else
+      {
+  	fenc_next = p_fencs;		/* try items in 'fileencodings' */
+! 	fenc = next_fenc(&fenc_next, &fenc_alloced);
+      }
+  
+      /*
+***************
+*** 994,1001 ****
+  		vim_free(fenc);
+  	    if (fenc_next != NULL)
+  	    {
+! 		fenc = next_fenc(&fenc_next);
+! 		fenc_alloced = (fenc_next != NULL);
+  	    }
+  	    else
+  	    {
+--- 993,999 ----
+  		vim_free(fenc);
+  	    if (fenc_next != NULL)
+  	    {
+! 		fenc = next_fenc(&fenc_next, &fenc_alloced);
+  	    }
+  	    else
+  	    {
+***************
+*** 2761,2774 ****
+   * "pp" points to fenc_next.  It's advanced to the next item.
+   * When there are no more items, an empty string is returned and *pp is set to
+   * NULL.
+!  * When *pp is not set to NULL, the result is in allocated memory.
+   */
+      static char_u *
+! next_fenc(char_u **pp)
+  {
+      char_u	*p;
+      char_u	*r;
+  
+      if (**pp == NUL)
+      {
+  	*pp = NULL;
+--- 2759,2774 ----
+   * "pp" points to fenc_next.  It's advanced to the next item.
+   * When there are no more items, an empty string is returned and *pp is set to
+   * NULL.
+!  * When *pp is not set to NULL, the result is in allocated memory and "alloced"
+!  * is set to TRUE.
+   */
+      static char_u *
+! next_fenc(char_u **pp, int *alloced)
+  {
+      char_u	*p;
+      char_u	*r;
+  
++     *alloced = FALSE;
+      if (**pp == NUL)
+      {
+  	*pp = NULL;
+***************
+*** 2791,2798 ****
+  	    r = p;
+  	}
+      }
+!     if (r == NULL)	/* out of memory */
+      {
+  	r = (char_u *)"";
+  	*pp = NULL;
+      }
+--- 2791,2801 ----
+  	    r = p;
+  	}
+      }
+!     if (r != NULL)
+! 	*alloced = TRUE;
+!     else
+      {
++ 	// out of memory
+  	r = (char_u *)"";
+  	*pp = NULL;
+      }
+*** ../vim-8.1.1842/src/version.c	2019-08-12 23:56:15.995320789 +0200
+--- src/version.c	2019-08-13 00:12:57.178782622 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1843,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+47. You are so familiar with the WWW that you find the search engines useless.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

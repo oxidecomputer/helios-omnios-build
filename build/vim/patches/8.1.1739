@@ -1,0 +1,127 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1739
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1739
+Problem:    Deleted match highlighting not updated in other window.
+Solution:   Mark the window for refresh. (closes #4720)  Also fix that
+            ambi-width check clears with wrong attributes.
+Files:	    src/term.c, src/highlight.c, src/testdir/test_match.vim,
+            src/testdir/dumps/Test_matchdelete_1.dump
+
+
+*** ../vim-8.1.1738/src/term.c	2019-07-12 15:37:09.250799642 +0200
+--- src/term.c	2019-07-24 13:57:06.526595709 +0200
+***************
+*** 3718,3723 ****
+--- 3718,3724 ----
+  
+  	/* This overwrites a few characters on the screen, a redraw is needed
+  	 * after this. Clear them out for now. */
++ 	screen_stop_highlight();
+  	term_windgoto(1, 0);
+  	out_str((char_u *)"  ");
+  	term_windgoto(0, 0);
+*** ../vim-8.1.1738/src/highlight.c	2019-07-22 23:16:28.939443646 +0200
+--- src/highlight.c	2019-07-24 14:24:48.655264063 +0200
+***************
+*** 3912,3918 ****
+  	rtype = VALID;
+      }
+      vim_free(cur);
+!     redraw_later(rtype);
+      return 0;
+  }
+  
+--- 3912,3918 ----
+  	rtype = VALID;
+      }
+      vim_free(cur);
+!     redraw_win_later(wp, rtype);
+      return 0;
+  }
+  
+*** ../vim-8.1.1738/src/testdir/test_match.vim	2019-03-30 18:10:57.649082383 +0100
+--- src/testdir/test_match.vim	2019-07-24 14:05:56.604304336 +0200
+***************
+*** 1,6 ****
+--- 1,8 ----
+  " Test for :match, :2match, :3match, clearmatches(), getmatches(), matchadd(),
+  " matchaddpos(), matcharg(), matchdelete(), and setmatches().
+  
++ source screendump.vim
++ 
+  function Test_match()
+    highlight MyGroup1 term=bold ctermbg=red guibg=red
+    highlight MyGroup2 term=italic ctermbg=green guibg=green
+***************
+*** 251,254 ****
+--- 253,278 ----
+    set hlsearch&
+  endfunc
+  
++ func Test_matchdelete_other_window()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   let lines =<< trim END
++     call setline(1, 'Hello Vim world')
++     let mid = matchadd('Error', 'world', 1)
++     let winid = win_getid()
++     new
++   END
++   call writefile(lines, 'XscriptMatchDelete')
++   let buf = RunVimInTerminal('-S XscriptMatchDelete', #{rows: 12})
++   call term_wait(buf)
++   call term_sendkeys(buf, ":call matchdelete(mid, winid)\<CR>")
++   call VerifyScreenDump(buf, 'Test_matchdelete_1', {})
++ 
++   call StopVimInTerminal(buf)
++   call delete('XscriptMatchDelete')
++ endfunc
++ 
++ 
+  " vim: shiftwidth=2 sts=2 expandtab
+*** ../vim-8.1.1738/src/testdir/dumps/Test_matchdelete_1.dump	2019-07-24 14:24:00.827766218 +0200
+--- src/testdir/dumps/Test_matchdelete_1.dump	2019-07-24 14:04:46.268608381 +0200
+***************
+*** 0 ****
+--- 1,12 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+3#0000000&|N|o| |N|a|m|e|]| @47|0|,|0|-|1| @9|A|l@1
++ |H+0&&|e|l@1|o| |V|i|m| |w|o|r|l|d| @59
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|1|,|1| @11|A|l@1
++ |:+0&&|c|a|l@1| |m|a|t|c|h|d|e|l|e|t|e|(|m|i|d|,| |w|i|n|i|d|)| @45
+*** ../vim-8.1.1738/src/version.c	2019-07-24 13:08:26.111204138 +0200
+--- src/version.c	2019-07-24 14:24:08.695682426 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1739,
+  /**/
+
+-- 
+FIRST SOLDIER:  So they wouldn't be able to bring a coconut back anyway.
+SECOND SOLDIER: Wait a minute! Suppose two swallows carried it together?
+FIRST SOLDIER:  No, they'd have to have it on a line.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

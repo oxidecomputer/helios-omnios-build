@@ -1,0 +1,600 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1609
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1609
+Problem:    The user cannot easily close a popup window.
+Solution:   Add the "close" property. (mostly by Masato Nishihata,
+            closes #4601)
+Files:	    runtime/doc/popup.txt, src/popupwin.c, src/proto/popupwin.pro,
+            src/structs.h, src/testdir/dumps/Test_popupwin_close_01.dump,
+            src/testdir/dumps/Test_popupwin_close_02.dump,
+            src/testdir/dumps/Test_popupwin_close_03.dump,
+            src/testdir/test_popupwin.vim, src/ui.c
+
+
+*** ../vim-8.1.1608/runtime/doc/popup.txt	2019-06-29 07:36:05.348264881 +0200
+--- runtime/doc/popup.txt	2019-06-30 17:52:15.530029809 +0200
+***************
+*** 68,79 ****
+  
+  By default the 'wrap' option is set, so that no text disappears.  Otherwise,
+  if there is not enough space then the window is shifted left in order to
+! display more text. This can be disabled with the "fixed" property. Also
+! disabled when right-aligned.
+  
+  Vim tries to show the popup in the location you specify.  In some cases, e.g.
+  when the popup would go outside of the Vim window, it will show it somewhere
+! else.  E.g. if you use `popup_atcursor()` the popup normally shows just above
+  the current cursor position, but if the cursor is close to the top of the Vim
+  window it will be placed below the cursor position.
+  
+--- 68,79 ----
+  
+  By default the 'wrap' option is set, so that no text disappears.  Otherwise,
+  if there is not enough space then the window is shifted left in order to
+! display more text.  When right-aligned the window is shifted right to display
+! more text.  The shifting can be disabled with the "fixed" property.
+  
+  Vim tries to show the popup in the location you specify.  In some cases, e.g.
+  when the popup would go outside of the Vim window, it will show it somewhere
+! nearby.  E.g. if you use `popup_atcursor()` the popup normally shows just above
+  the current cursor position, but if the cursor is close to the top of the Vim
+  window it will be placed below the cursor position.
+  
+***************
+*** 85,90 ****
+--- 85,102 ----
+  that it is in.
+  
+  
++ CLOSING THE POPUP WINDOW			*popup-close*
++ 
++ Normally the plugin that created the popup window is also in charge of closing
++ it.  If somehow a popup hangs around, you can close all of them with: >
++ 	call popup_clear()
++ Some popups, such as notifications, close after a specified time.  This can be
++ set with the "time" property on `popup_create()`.
++ Otherwise, a popup can be closed by clicking on the X in the top-right corner
++ or by clicking anywhere inside the popup.  This must be enabled with the
++ "close" property.  It is set by default for notifications.
++ 
++ 
+  TODO:
+  - Currently 'buftype' is set to "popup", but all the specifics are on the
+    window.  Can we use a "normal" buffer and put the type on the window? (#4595)
+***************
+*** 350,362 ****
+  				\ 'drag': 1,
+  				\ 'highlight': 'WarningMsg',
+  				\ 'border': [],
+  				\ 'padding': [0,1,0,1],
+  				\ })
+  <		The PopupNotification highlight group is used instead of
+  		WarningMsg if it is defined.
+  
+! 		This popup should only be used with the |+timers| feature,
+! 		otherwise it will not disappear.
+  
+  		The position will be adjusted to avoid overlap with other
+  		notifications.
+--- 362,375 ----
+  				\ 'drag': 1,
+  				\ 'highlight': 'WarningMsg',
+  				\ 'border': [],
++ 				\ 'close': 'click',
+  				\ 'padding': [0,1,0,1],
+  				\ })
+  <		The PopupNotification highlight group is used instead of
+  		WarningMsg if it is defined.
+  
+! 		Without the |+timers| feature the poup will not disappear
+! 		automatically, the user has to click in it.
+  
+  		The position will be adjusted to avoid overlap with other
+  		notifications.
+***************
+*** 371,395 ****
+  popup_setoptions({id}, {options})			*popup_setoptions()*
+  		Override options in popup {id} with entries in {options}.
+  		These options can be set:
+! 			flip
+! 			firstline
+! 			title
+! 			wrap
+  			drag
+  			highlight
+  			padding
+- 			border
+- 			borderhighlight
+- 			borderchars
+  			scrollbar
+  			scrollbarhighlight
+  			thumbhighlight
+- 			zindex
+- 			mask
+  			time
+! 			moved
+! 			filter
+! 			callback
+  		The options from |popup_move()| can also be used.
+  		For "hidden" use |popup_hide()| and |popup_show()|.
+  		"tabpage" cannot be changed.
+--- 384,409 ----
+  popup_setoptions({id}, {options})			*popup_setoptions()*
+  		Override options in popup {id} with entries in {options}.
+  		These options can be set:
+! 			border
+! 			borderchars
+! 			borderhighlight
+! 			callback
+! 			close
+  			drag
++ 			filter
++ 			firstline
++ 			flip
+  			highlight
++ 			mask
++ 			moved
+  			padding
+  			scrollbar
+  			scrollbarhighlight
+  			thumbhighlight
+  			time
+! 			title
+! 			wrap
+! 			zindex
+  		The options from |popup_move()| can also be used.
+  		For "hidden" use |popup_hide()| and |popup_show()|.
+  		"tabpage" cannot be changed.
+***************
+*** 509,514 ****
+--- 523,536 ----
+  			popup does not have a border. As soon as dragging
+  			starts and "pos" is "center" it is changed to
+  			"topleft".
++ 	close		When "button" an X is displayed in the top-right, on
++ 			top of any border, padding or text.  When clicked on
++ 			the X the popup will close.  Any callback is invoked
++ 			with the value -2.
++ 			When "click" any mouse click in the popup will close
++ 			it.
++ 			When "none" (the default) mouse clicks do not close
++ 			the popup window.
+  	highlight	Highlight group name to use for the text, stored in
+  			the 'wincolor' option.
+  	padding		List with numbers, defining the padding
+*** ../vim-8.1.1608/src/popupwin.c	2019-06-29 07:36:05.344264899 +0200
+--- src/popupwin.c	2019-06-30 17:06:06.879437783 +0200
+***************
+*** 180,185 ****
+--- 180,196 ----
+  	    || (col == popup_width(wp) - 1 && wp->w_popup_border[1] > 0);
+  }
+  
++ /*
++  * Return TRUE if "row"/"col" is on the "X" button of the popup.
++  * The values are relative to the top-left corner.
++  * Caller should check w_popup_close is POPCLOSE_BUTTON.
++  */
++     int
++ popup_on_X_button(win_T *wp, int row, int col)
++ {
++     return row == 0 && col == popup_width(wp) - 1;
++ }
++ 
+  // Values set when dragging a popup window starts.
+  static int drag_start_row;
+  static int drag_start_col;
+***************
+*** 384,389 ****
+--- 395,424 ----
+      if (di != NULL)
+  	wp->w_popup_drag = dict_get_number(dict, (char_u *)"drag");
+  
++     di = dict_find(dict, (char_u *)"close", -1);
++     if (di != NULL)
++     {
++ 	int ok = TRUE;
++ 
++ 	if (di->di_tv.v_type == VAR_STRING && di->di_tv.vval.v_string != NULL)
++ 	{
++ 	    char_u  *s = di->di_tv.vval.v_string;
++ 
++ 	    if (STRCMP(s, "none") == 0)
++ 		wp->w_popup_close = POPCLOSE_NONE;
++ 	    else if (STRCMP(s, "button") == 0)
++ 		wp->w_popup_close = POPCLOSE_BUTTON;
++ 	    else if (STRCMP(s, "click") == 0)
++ 		wp->w_popup_close = POPCLOSE_CLICK;
++ 	    else
++ 		ok = FALSE;
++ 	}
++ 	else
++ 	    ok = FALSE;
++ 	if (!ok)
++ 	    semsg(_(e_invargNval), "close", tv_get_string(&di->di_tv));
++     }
++ 
+      str = dict_get_string(dict, (char_u *)"highlight", FALSE);
+      if (str != NULL)
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+***************
+*** 1072,1077 ****
+--- 1107,1113 ----
+  
+      // set default values
+      wp->w_zindex = POPUPWIN_DEFAULT_ZINDEX;
++     wp->w_popup_close = POPCLOSE_NONE;
+  
+      if (type == TYPE_NOTIFICATION)
+      {
+***************
+*** 1106,1111 ****
+--- 1142,1148 ----
+  	wp->w_zindex = POPUPWIN_NOTIFICATION_ZINDEX;
+  	wp->w_minwidth = 20;
+  	wp->w_popup_drag = 1;
++ 	wp->w_popup_close = POPCLOSE_CLICK;
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+  	wp->w_popup_padding[1] = 1;
+***************
+*** 1242,1247 ****
+--- 1279,1297 ----
+  }
+  
+  /*
++  * Close popup "wp" because of a mouse click.
++  */
++     void
++ popup_close_for_mouse_click(win_T *wp)
++ {
++     typval_T res;
++ 
++     res.v_type = VAR_NUMBER;
++     res.vval.v_number = -2;
++     popup_close_and_callback(wp, &res);
++ }
++ 
++ /*
+   * In a filter: check if the typed key is a mouse event that is used for
+   * dragging the popup.
+   */
+***************
+*** 1816,1821 ****
+--- 1866,1875 ----
+  		break;
+  	    }
+  
++ 	dict_add_string(dict, "close", (char_u *)(
++ 		    wp->w_popup_close == POPCLOSE_BUTTON ? "button"
++ 		    : wp->w_popup_close == POPCLOSE_CLICK ? "click" : "none"));
++ 
+  # if defined(FEAT_TIMERS)
+  	dict_add_number(dict, "time", wp->w_popup_timer != NULL
+  				 ?  (long)wp->w_popup_timer->tr_interval : 0L);
+***************
+*** 2434,2439 ****
+--- 2488,2501 ----
+  	    }
+  	}
+  
++ 	if (wp->w_popup_close == POPCLOSE_BUTTON)
++ 	{
++ 	    // close button goes on top of anything at the top-right corner
++ 	    buf[mb_char2bytes('X', buf)] = NUL;
++ 	    screen_puts(buf, wp->w_winrow, wp->w_wincol + total_width - 1,
++ 		      wp->w_popup_border[0] > 0 ? border_attr[0] : popup_attr);
++ 	}
++ 
+  	update_popup_transparent(wp, 0);
+  
+  	// Back to the normal zindex.
+*** ../vim-8.1.1608/src/proto/popupwin.pro	2019-06-29 07:36:05.344264899 +0200
+--- src/proto/popupwin.pro	2019-06-30 16:51:56.219611093 +0200
+***************
+*** 1,5 ****
+--- 1,6 ----
+  /* popupwin.c */
+  int popup_on_border(win_T *wp, int row, int col);
++ int popup_on_X_button(win_T *wp, int row, int col);
+  void popup_start_drag(win_T *wp);
+  void popup_drag(win_T *wp);
+  void popup_set_firstline(win_T *wp);
+***************
+*** 10,15 ****
+--- 11,17 ----
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
++ void popup_close_for_mouse_click(win_T *wp);
+  void f_popup_filter_menu(typval_T *argvars, typval_T *rettv);
+  void f_popup_filter_yesno(typval_T *argvars, typval_T *rettv);
+  void f_popup_dialog(typval_T *argvars, typval_T *rettv);
+*** ../vim-8.1.1608/src/structs.h	2019-06-29 07:36:05.344264899 +0200
+--- src/structs.h	2019-06-30 16:28:53.556570747 +0200
+***************
+*** 1996,2001 ****
+--- 1996,2007 ----
+      POPPOS_CENTER
+  } poppos_T;
+  
++ typedef enum {
++     POPCLOSE_NONE,
++     POPCLOSE_BUTTON,
++     POPCLOSE_CLICK
++ } popclose_T;
++ 
+  # define POPUPWIN_DEFAULT_ZINDEX	 50
+  # define POPUPMENU_ZINDEX		100
+  # define POPUPWIN_DIALOG_ZINDEX		200
+***************
+*** 2920,2925 ****
+--- 2926,2932 ----
+      colnr_T	w_popup_mincol;	    // close popup if cursor before this col
+      colnr_T	w_popup_maxcol;	    // close popup if cursor after this col
+      int		w_popup_drag;	    // allow moving the popup with the mouse
++     popclose_T	w_popup_close;	    // allow closing the popup with the mouse
+      list_T	*w_popup_mask;	    // list of lists for "mask"
+  
+  # if defined(FEAT_TIMERS)
+*** ../vim-8.1.1608/src/testdir/dumps/Test_popupwin_close_01.dump	2019-06-30 18:04:17.921800526 +0200
+--- src/testdir/dumps/Test_popupwin_close_01.dump	2019-06-30 16:55:02.930809606 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >╔+0#0000001#ffd7ff255|═@5|X| +0#0000000#ffffff0@66
++ |║+0#0000001#ffd7ff255|f|o@1|b|a|r|║| +0#0000000#ffffff0@66
++ |╚+0#0000001#ffd7ff255|═@5|╝| +0#0000000#ffffff0@5|n+0#0000001#ffd7ff255|o|t|i|f|i|c|a|t|i|o|n| +0#0000000#ffffff0@48
++ |4| @73
++ |5| |n+0#0000001#ffd7ff255|o| |b|o|r|d|e|r| |h|e|r|X| +0#0000000#ffffff0@5| +0#0000001#ffd7ff255@12|X| +0#0000000#ffffff0@38
++ |6| @20| +0#0000001#ffd7ff255|o|n|l|y| |p|a|d@1|i|n|g| | +0#0000000#ffffff0@38
++ |7| @20| +0#0000001#ffd7ff255@13| +0#0000000#ffffff0@38
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1608/src/testdir/dumps/Test_popupwin_close_02.dump	2019-06-30 18:04:17.925800500 +0200
+--- src/testdir/dumps/Test_popupwin_close_02.dump	2019-06-30 16:55:03.974805143 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @12|n+0#0000001#ffd7ff255|o|t|i|f|i|c|a|t|i|o|n| +0#0000000#ffffff0@48
++ |4| @73
++ |5| |n+0#0000001#ffd7ff255|o| |b|o|r|d|e|r| |h|e|r|X| +0#0000000#ffffff0@5| +0#0000001#ffd7ff255@12|X| +0#0000000#ffffff0@38
++ |6| @20| +0#0000001#ffd7ff255|o|n|l|y| |p|a|d@1|i|n|g| | +0#0000000#ffffff0@38
++ |7| @20| +0#0000001#ffd7ff255@13| +0#0000000#ffffff0@38
++ |8| @73
++ |9| @73
++ |:|c|a|l@1| |C|l|o|s|e|W|i|t|h|X|(|)| @38|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1608/src/testdir/dumps/Test_popupwin_close_03.dump	2019-06-30 18:04:17.929800474 +0200
+--- src/testdir/dumps/Test_popupwin_close_03.dump	2019-06-30 17:01:51.288832194 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @73
++ |2| @73
++ |3| @73
++ |4| @73
++ |5| |n+0#0000001#ffd7ff255|o| |b|o|r|d|e|r| |h|e|r|X| +0#0000000#ffffff0@5| +0#0000001#ffd7ff255@12|X| +0#0000000#ffffff0@38
++ |6| @20| +0#0000001#ffd7ff255|o|n|l|y| |p|a|d@1|i|n|g| | +0#0000000#ffffff0@38
++ |7| @20| +0#0000001#ffd7ff255@13| +0#0000000#ffffff0@38
++ |8| @73
++ |9| @73
++ |P|o|p|u|p| |c|l|o|s|e|d| |w|i|t|h| |-|2| @36|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1608/src/testdir/test_popupwin.vim	2019-06-28 21:55:44.597350995 +0200
+--- src/testdir/test_popupwin.vim	2019-06-30 17:01:41.528883648 +0200
+***************
+*** 365,370 ****
+--- 365,427 ----
+    call delete('XtestPopupDrag')
+  endfunc
+  
++ func Test_popup_close_with_mouse()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++   let lines =<< trim END
++ 	call setline(1, range(1, 20))
++ 	" With border, can click on X
++ 	let winid = popup_create('foobar', {
++ 	      \ 'close': 'button',
++ 	      \ 'border': [],
++ 	      \ 'line': 1,
++ 	      \ 'col': 1,
++ 	      \ })
++ 	func CloseMsg(id, result)
++ 	  echomsg 'Popup closed with ' .. a:result
++ 	endfunc
++ 	let winid = popup_create('notification', {
++ 	      \ 'close': 'click',
++ 	      \ 'line': 3,
++ 	      \ 'col': 15,
++ 	      \ 'callback': 'CloseMsg',
++ 	      \ })
++ 	let winid = popup_create('no border here', {
++ 	      \ 'close': 'button',
++ 	      \ 'line': 5,
++ 	      \ 'col': 3,
++ 	      \ })
++ 	let winid = popup_create('only padding', {
++ 	      \ 'close': 'button',
++ 	      \ 'padding': [],
++ 	      \ 'line': 5,
++ 	      \ 'col': 23,
++ 	      \ })
++ 	func CloseWithX()
++ 	  call feedkeys("\<F3>\<LeftMouse>\<LeftRelease>", "xt")
++ 	endfunc
++ 	map <silent> <F3> :call test_setmouse(1, len('foobar') + 2)<CR>
++ 	func CloseWithClick()
++ 	  call feedkeys("\<F4>\<LeftMouse>\<LeftRelease>", "xt")
++ 	endfunc
++ 	map <silent> <F4> :call test_setmouse(3, 17)<CR>
++   END
++   call writefile(lines, 'XtestPopupClose')
++   let buf = RunVimInTerminal('-S XtestPopupClose', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_close_01', {})
++ 
++   call term_sendkeys(buf, ":call CloseWithX()\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_close_02', {})
++ 
++   call term_sendkeys(buf, ":call CloseWithClick()\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_close_03', {})
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestPopupClose')
++ endfunction
++ 
+  func Test_popup_with_mask()
+    if !CanRunVimInTerminal()
+      throw 'Skipped: cannot make screendumps'
+***************
+*** 1436,1442 ****
+--- 1493,1507 ----
+      func ScrollDown()
+        call feedkeys("\<F3>\<ScrollWheelDown>", "xt")
+      endfunc
++     func ClickTop()
++       call feedkeys("\<F4>\<LeftMouse>", "xt")
++     endfunc
++     func ClickBot()
++       call feedkeys("\<F5>\<LeftMouse>", "xt")
++     endfunc
+      map <silent> <F3> :call test_setmouse(5, 36)<CR>
++     map <silent> <F4> :call test_setmouse(4, 42)<CR>
++     map <silent> <F5> :call test_setmouse(7, 42)<CR>
+    END
+    call writefile(lines, 'XtestPopupScroll')
+    let buf = RunVimInTerminal('-S XtestPopupScroll', {'rows': 10})
+***************
+*** 1464,1469 ****
+--- 1529,1542 ----
+    call term_sendkeys(buf, ":call ScrollDown()\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_scroll_7', {})
+  
++   call term_sendkeys(buf, ":call ClickTop()\<CR>")
++   sleep 100m
++   call term_sendkeys(buf, ":call ClickTop()\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_scroll_8', {})
++ 
++   call term_sendkeys(buf, ":call ClickBot()\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_scroll_9', {})
++ 
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupScroll')
+*** ../vim-8.1.1608/src/ui.c	2019-06-29 07:36:05.348264881 +0200
+--- src/ui.c	2019-06-30 17:32:34.971446422 +0200
+***************
+*** 2929,2934 ****
+--- 2929,2935 ----
+  #endif
+  #ifdef FEAT_TEXT_PROP
+      static int   in_popup_win = FALSE;
++     static win_T *click_in_popup_win = NULL;
+  #endif
+      static int	prev_row = -1;
+      static int	prev_col = -1;
+***************
+*** 2957,2963 ****
+--- 2958,2968 ----
+  	dragwin = NULL;
+  	did_drag = FALSE;
+  #ifdef FEAT_TEXT_PROP
++ 	if (click_in_popup_win != NULL && popup_dragwin == NULL)
++ 	    popup_close_for_mouse_click(click_in_popup_win);
++ 
+  	popup_dragwin = NULL;
++ 	click_in_popup_win = NULL;
+  #endif
+      }
+  
+***************
+*** 3001,3006 ****
+--- 3006,3012 ----
+  	// Continue a modeless selection in a popup window or dragging it.
+  	if (in_popup_win)
+  	{
++ 	    click_in_popup_win = NULL;  // don't close it on release
+  	    if (popup_dragwin != NULL)
+  	    {
+  		// dragging a popup window
+***************
+*** 3050,3062 ****
+  	{
+  	    on_sep_line = 0;
+  	    in_popup_win = TRUE;
+! 	    if (wp->w_popup_drag && popup_on_border(wp, row, col))
+  	    {
+  		popup_dragwin = wp;
+  		popup_start_drag(wp);
+  		return IN_UNKNOWN;
+  	    }
+! 	    if (which_button == MOUSE_LEFT)
+  		// If the click is in the scrollbar, may scroll up/down.
+  		popup_handle_scrollbar_click(wp, row, col);
+  # ifdef FEAT_CLIPBOARD
+--- 3056,3082 ----
+  	{
+  	    on_sep_line = 0;
+  	    in_popup_win = TRUE;
+! 	    if (wp->w_popup_close == POPCLOSE_BUTTON
+! 		    && which_button == MOUSE_LEFT
+! 		    && popup_on_X_button(wp, row, col))
+! 	    {
+! 		popup_close_for_mouse_click(wp);
+! 		return IN_UNKNOWN;
+! 	    }
+! 	    else if (wp->w_popup_drag && popup_on_border(wp, row, col))
+  	    {
+  		popup_dragwin = wp;
+  		popup_start_drag(wp);
+  		return IN_UNKNOWN;
+  	    }
+! 	    // Only close on release, otherwise it's not possible to drag or do
+! 	    // modeless selection.
+! 	    else if (wp->w_popup_close == POPCLOSE_CLICK
+! 		    && which_button == MOUSE_LEFT)
+! 	    {
+! 		click_in_popup_win = wp;
+! 	    }
+! 	    else if (which_button == MOUSE_LEFT)
+  		// If the click is in the scrollbar, may scroll up/down.
+  		popup_handle_scrollbar_click(wp, row, col);
+  # ifdef FEAT_CLIPBOARD
+***************
+*** 3244,3249 ****
+--- 3264,3270 ----
+  		return IN_UNKNOWN;
+  	    }
+  	    // continue a modeless selection in a popup window
++ 	    click_in_popup_win = NULL;
+  	    return IN_OTHER_WIN;
+  	}
+  #endif
+*** ../vim-8.1.1608/src/version.c	2019-06-29 07:56:26.042876840 +0200
+--- src/version.c	2019-06-30 16:57:13.942221615 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1609,
+  /**/
+
+-- 
+Linux is just like a wigwam: no Windows, no Gates and an Apache inside.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

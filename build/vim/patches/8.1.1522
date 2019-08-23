@@ -1,0 +1,805 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1522
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1522
+Problem:    Popup_notification() not implemented yet.
+Solution:   Implement it.
+Files:	    src/popupwin.c, src/proto/popupwin.pro, src/evalfunc.c, 
+            src/structs.h, src/testdir/test_popupwin.vim,
+            runtime/doc/popup.txt
+            src/testdir/dumps/Test_popupwin_notify_01.dump,
+            src/testdir/dumps/Test_popupwin_notify_02.dump
+
+
+*** ../vim-8.1.1521/src/popupwin.c	2019-06-12 20:21:57.733817549 +0200
+--- src/popupwin.c	2019-06-12 22:25:29.992567802 +0200
+***************
+*** 110,116 ****
+  {
+      dictitem_T	*di;
+  
+-     vim_memset(array, 0, sizeof(int) * 4);
+      di = dict_find(dict, (char_u *)name, -1);
+      if (di != NULL)
+      {
+--- 110,115 ----
+***************
+*** 165,170 ****
+--- 164,189 ----
+      }
+  }
+  
++ 
++ #if defined(FEAT_TIMERS)
++     static void
++ popup_add_timeout(win_T *wp, int time)
++ {
++     char_u	    cbbuf[50];
++     char_u	    *ptr = cbbuf;
++     typval_T	    tv;
++ 
++     vim_snprintf((char *)cbbuf, sizeof(cbbuf),
++ 				       "{_ -> popup_close(%d)}", wp->w_id);
++     if (get_lambda_tv(&ptr, &tv, TRUE) == OK)
++     {
++ 	wp->w_popup_timer = create_timer(time, 0);
++ 	wp->w_popup_timer->tr_callback = get_callback(&tv);
++ 	clear_tv(&tv);
++     }
++ }
++ #endif
++ 
+  /*
+   * Go through the options in "dict" and apply them to buffer "buf" displayed in
+   * popup window "wp".
+***************
+*** 184,214 ****
+  
+      get_pos_options(wp, dict);
+  
+!     wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
+!     if (wp->w_zindex < 1)
+! 	wp->w_zindex = POPUPWIN_DEFAULT_ZINDEX;
+!     if (wp->w_zindex > 32000)
+! 	wp->w_zindex = 32000;
+  
+! # if defined(FEAT_TIMERS)
+      // Add timer to close the popup after some time.
+      nr = dict_get_number(dict, (char_u *)"time");
+      if (nr > 0)
+!     {
+! 	char_u	    cbbuf[50];
+! 	char_u	    *ptr = cbbuf;
+! 	typval_T    tv;
+! 
+! 	vim_snprintf((char *)cbbuf, sizeof(cbbuf),
+! 					   "{_ -> popup_close(%d)}", wp->w_id);
+! 	if (get_lambda_tv(&ptr, &tv, TRUE) == OK)
+! 	{
+! 	    wp->w_popup_timer = create_timer(nr, 0);
+! 	    wp->w_popup_timer->tr_callback = get_callback(&tv);
+! 	    clear_tv(&tv);
+! 	}
+!     }
+! # endif
+  
+      // Option values resulting in setting an option.
+      str = dict_get_string(dict, (char_u *)"highlight", FALSE);
+--- 203,224 ----
+  
+      get_pos_options(wp, dict);
+  
+!     di = dict_find(dict, (char_u *)"zindex", -1);
+!     if (di != NULL)
+!     {
+! 	wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
+! 	if (wp->w_zindex < 1)
+! 	    wp->w_zindex = POPUPWIN_DEFAULT_ZINDEX;
+! 	if (wp->w_zindex > 32000)
+! 	    wp->w_zindex = 32000;
+!     }
+  
+! #if defined(FEAT_TIMERS)
+      // Add timer to close the popup after some time.
+      nr = dict_get_number(dict, (char_u *)"time");
+      if (nr > 0)
+! 	popup_add_timeout(wp, nr);
+! #endif
+  
+      // Option values resulting in setting an option.
+      str = dict_get_string(dict, (char_u *)"highlight", FALSE);
+***************
+*** 601,607 ****
+  typedef enum
+  {
+      TYPE_NORMAL,
+!     TYPE_ATCURSOR
+  } create_type_T;
+  
+  /*
+--- 611,618 ----
+  typedef enum
+  {
+      TYPE_NORMAL,
+!     TYPE_ATCURSOR,
+!     TYPE_NOTIFICATION
+  } create_type_T;
+  
+  /*
+***************
+*** 659,665 ****
+      // Avoid that 'buftype' is reset when this buffer is entered.
+      buf->b_p_initialized = TRUE;
+  
+!     nr = (int)dict_get_number(d, (char_u *)"tab");
+      if (nr == 0)
+      {
+  	// popup on current tab
+--- 670,682 ----
+      // Avoid that 'buftype' is reset when this buffer is entered.
+      buf->b_p_initialized = TRUE;
+  
+!     if (dict_find(d, (char_u *)"tab", -1) != NULL)
+! 	nr = (int)dict_get_number(d, (char_u *)"tab");
+!     else if (type == TYPE_NOTIFICATION)
+! 	nr = -1;  // notifications are global by default
+!     else
+! 	nr = 0;
+! 
+      if (nr == 0)
+      {
+  	// popup on current tab
+***************
+*** 668,676 ****
+      }
+      else if (nr < 0)
+      {
+! 	// global popup
+! 	wp->w_next = first_popupwin;
+! 	first_popupwin = wp;
+      }
+      else
+  	// TODO: find tab page "nr"
+--- 685,702 ----
+      }
+      else if (nr < 0)
+      {
+! 	win_T *prev = first_popupwin;
+! 
+! 	// Global popup: add at the end, so that it gets displayed on top of
+! 	// older ones with the same zindex. Matters for notifications.
+! 	if (first_popupwin == NULL)
+! 	    first_popupwin = wp;
+! 	else
+! 	{
+! 	    while (prev->w_next != NULL)
+! 		prev = prev->w_next;
+! 	    prev->w_next = wp;
+! 	}
+      }
+      else
+  	// TODO: find tab page "nr"
+***************
+*** 720,728 ****
+--- 746,797 ----
+      // set default values
+      wp->w_zindex = POPUPWIN_DEFAULT_ZINDEX;
+  
++     if (type == TYPE_NOTIFICATION)
++     {
++ 	win_T  *twp, *nextwin;
++ 	int	height = buf->b_ml.ml_line_count + 3;
++ 	int	i;
++ 
++ 	// Try to not overlap with another global popup.  Guess we need 3
++ 	// more screen lines than buffer lines.
++ 	wp->w_wantline = 1;
++ 	for (twp = first_popupwin; twp != NULL; twp = nextwin)
++ 	{
++ 	    nextwin = twp->w_next;
++ 	    if (twp != wp
++ 		    && twp->w_zindex == POPUPWIN_NOTIFICATION_ZINDEX
++ 		    && twp->w_winrow <= wp->w_wantline - 1 + height
++ 		    && twp->w_winrow + popup_height(twp) > wp->w_wantline - 1)
++ 	    {
++ 		// move to below this popup and restart the loop to check for
++ 		// overlap with other popups
++ 		wp->w_wantline = twp->w_winrow + popup_height(twp) + 1;
++ 		nextwin = first_popupwin;
++ 	    }
++ 	}
++ 	if (wp->w_wantline + height > Rows)
++ 	{
++ 	    // can't avoid overlap, put on top in the hope that message goes
++ 	    // away soon.
++ 	    wp->w_wantline = 1;
++ 	}
++ 
++ 	wp->w_wantcol = 10;
++ 	wp->w_zindex = POPUPWIN_NOTIFICATION_ZINDEX;
++ 	for (i = 0; i < 4; ++i)
++ 	    wp->w_popup_border[i] = 1;
++ 	wp->w_popup_padding[1] = 1;
++ 	wp->w_popup_padding[3] = 1;
++ 	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
++ 				(char_u *)"WarningMsg", OPT_FREE|OPT_LOCAL, 0);
++     }
++ 
+      // Deal with options.
+      apply_options(wp, buf, argvars[1].vval.v_dict);
+  
++     if (type == TYPE_NOTIFICATION && wp->w_popup_timer == NULL)
++ 	popup_add_timeout(wp, 3000);
++ 
+      popup_adjust_position(wp);
+  
+      wp->w_vsep_width = 0;
+***************
+*** 759,764 ****
+--- 828,842 ----
+  }
+  
+  /*
++  * popup_notification({text}, {options})
++  */
++     void
++ f_popup_notification(typval_T *argvars, typval_T *rettv)
++ {
++     popup_create(argvars, rettv, TYPE_NOTIFICATION);
++ }
++ 
++ /*
+   * Find the popup window with window-ID "id".
+   * If the popup window does not exist NULL is returned.
+   * If the window is not a popup window, and error message is given.
+***************
+*** 1017,1024 ****
+  
+  	dict_add_number(dict, "line", wp->w_winrow + 1);
+  	dict_add_number(dict, "col", wp->w_wincol + 1);
+! 	dict_add_number(dict, "width", wp->w_width + left_extra + wp->w_popup_border[1] + wp->w_popup_padding[1]);
+! 	dict_add_number(dict, "height", wp->w_height + top_extra + wp->w_popup_border[2] + wp->w_popup_padding[2]);
+  
+  	dict_add_number(dict, "core_line", wp->w_winrow + 1 + top_extra);
+  	dict_add_number(dict, "core_col", wp->w_wincol + 1 + left_extra);
+--- 1095,1104 ----
+  
+  	dict_add_number(dict, "line", wp->w_winrow + 1);
+  	dict_add_number(dict, "col", wp->w_wincol + 1);
+! 	dict_add_number(dict, "width", wp->w_width + left_extra
+! 			     + wp->w_popup_border[1] + wp->w_popup_padding[1]);
+! 	dict_add_number(dict, "height", wp->w_height + top_extra
+! 			     + wp->w_popup_border[2] + wp->w_popup_padding[2]);
+  
+  	dict_add_number(dict, "core_line", wp->w_winrow + 1 + top_extra);
+  	dict_add_number(dict, "core_col", wp->w_wincol + 1 + left_extra);
+*** ../vim-8.1.1521/src/proto/popupwin.pro	2019-06-12 20:21:57.733817549 +0200
+--- src/proto/popupwin.pro	2019-06-12 21:24:09.048700695 +0200
+***************
+*** 5,10 ****
+--- 5,11 ----
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
++ void f_popup_notification(typval_T *argvars, typval_T *rettv);
+  int popup_any_visible(void);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+  void f_popup_hide(typval_T *argvars, typval_T *rettv);
+*** ../vim-8.1.1521/src/evalfunc.c	2019-06-12 20:21:57.737817533 +0200
+--- src/evalfunc.c	2019-06-12 21:24:35.456577649 +0200
+***************
+*** 819,824 ****
+--- 819,825 ----
+      {"popup_getpos",	1, 1, f_popup_getpos},
+      {"popup_hide",	1, 1, f_popup_hide},
+      {"popup_move",	2, 2, f_popup_move},
++     {"popup_notification", 2, 2, f_popup_notification},
+      {"popup_show",	1, 1, f_popup_show},
+  #endif
+  #ifdef FEAT_FLOAT
+*** ../vim-8.1.1521/src/structs.h	2019-06-12 20:21:57.737817533 +0200
+--- src/structs.h	2019-06-12 21:31:47.966565113 +0200
+***************
+*** 1992,1999 ****
+      POPPOS_CENTER
+  } poppos_T;
+  
+! # define POPUPWIN_DEFAULT_ZINDEX    50
+! # define POPUPMENU_ZINDEX	    100
+  #endif
+  
+  /*
+--- 1992,2000 ----
+      POPPOS_CENTER
+  } poppos_T;
+  
+! # define POPUPWIN_DEFAULT_ZINDEX	 50
+! # define POPUPMENU_ZINDEX		100
+! # define POPUPWIN_NOTIFICATION_ZINDEX   200
+  #endif
+  
+  /*
+*** ../vim-8.1.1521/src/testdir/test_popupwin.vim	2019-06-12 21:06:28.473676521 +0200
+--- src/testdir/test_popupwin.vim	2019-06-12 22:23:54.869003129 +0200
+***************
+*** 428,434 ****
+  
+  func Test_popup_time()
+    if !has('timers')
+!     return
+    endif
+    topleft vnew
+    call setline(1, 'hello')
+--- 428,434 ----
+  
+  func Test_popup_time()
+    if !has('timers')
+!     throw 'Skipped, timer feature not supported'
+    endif
+    topleft vnew
+    call setline(1, 'hello')
+***************
+*** 1086,1088 ****
+--- 1086,1114 ----
+    bwipe!
+    call test_override('ALL', 0)
+  endfunc
++ 
++ func Test_notifications()
++   if !has('timers')
++     throw 'Skipped, timer feature not supported'
++   endif
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++ 
++   call writefile([
++ 	\ "call setline(1, range(1, 20))",
++ 	\ "hi Notification ctermbg=lightblue",
++ 	\ "call popup_notification('first notification', {})",
++ 	\], 'XtestNotifications')
++   let buf = RunVimInTerminal('-S XtestNotifications', {'rows': 10})
++   call VerifyScreenDump(buf, 'Test_popupwin_notify_01', {})
++ 
++   " second one goes below the first one
++   call term_sendkeys(buf, ":call popup_notification('another important notification', {'highlight': 'Notification'})\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_notify_02', {})
++ 
++ 
++   " clean up
++   call StopVimInTerminal(buf)
++   call delete('XtestNotifications')
++ endfunc
+*** ../vim-8.1.1521/runtime/doc/popup.txt	2019-06-10 13:10:45.374588250 +0200
+--- runtime/doc/popup.txt	2019-06-12 22:39:15.244812805 +0200
+***************
+*** 6,12 ****
+  
+  Displaying text in floating window.			*popup* *popup-window*
+  
+! THIS IS UNDER DESIGN - ANYTHING MAY STILL CHANGE  
+  
+  1. Introduction			|popup-intro|
+  2. Functions			|popup-functions|
+--- 6,12 ----
+  
+  Displaying text in floating window.			*popup* *popup-window*
+  
+! THIS IS UNDER DESIGN - ANYTHING MAY STILL CHANGE
+  
+  1. Introduction			|popup-intro|
+  2. Functions			|popup-functions|
+***************
+*** 36,42 ****
+  	hi MyPopupColor ctermbg=lightblue guibg=lightblue
+  	call setwinvar(winid, '&wincolor', 'MyPopupColor')
+  
+! 'hlsearch' and match highlighting are not displayed in a popup window.
+  
+  A popup window has a window-ID like other windows, but behaves differently.
+  The size can be up to the whole Vim window and it overlaps other windows.
+--- 36,42 ----
+  	hi MyPopupColor ctermbg=lightblue guibg=lightblue
+  	call setwinvar(winid, '&wincolor', 'MyPopupColor')
+  
+! 'hlsearch' highlighting is not displayed in a popup window.
+  
+  A popup window has a window-ID like other windows, but behaves differently.
+  The size can be up to the whole Vim window and it overlaps other windows.
+***************
+*** 63,69 ****
+  
+  The width of the window is normally equal to the longest line in the buffer.
+  It can be limited with the "maxwidth" property.  You can use spaces to
+! increase the width or the "minwidth" property.
+  
+  By default the 'wrap' option is set, so that no text disappears.  Otherwise,
+  if there is not enough space then the window is shifted left in order to
+--- 63,69 ----
+  
+  The width of the window is normally equal to the longest line in the buffer.
+  It can be limited with the "maxwidth" property.  You can use spaces to
+! increase the width or use the "minwidth" property.
+  
+  By default the 'wrap' option is set, so that no text disappears.  Otherwise,
+  if there is not enough space then the window is shifted left in order to
+***************
+*** 76,112 ****
+  the current cursor position, but if the cursor is close to the top of the Vim
+  window it will be placed below the cursor position.
+  
+  
+  
+- TODO:
+- 
+- Scrolling: When the screen scrolls up for output of an Ex command, what
+- happens with popups?
+- 1. Stay where they are.  Problem: listed text may go behind and can't be read.
+- 2. Scroll with the page.  What if they get updated?  Either postpone, or take
+-    the scroll offset into account.
+- Probably 2. is the best choice.
+  
+  
+  IMPLEMENTATION:
+- - buffers remain after popup was deleted.
+- - do not redraw whole window when popup was changed, mark affected lines for
+-   redraw.
+  - Why does 'nrformats' leak from the popup window buffer???
+! - Add 'balloonpopup': instead of showing text, let the callback open a balloon
+!   and return the window ID.   The popup will then be closed when the mouse
+!   moves, except when it moves inside the popup.
+  - For the "moved" property also include mouse movement?
+  - Make redrawing more efficient and avoid flicker:
+      - put popup menu also put in popup_mask?
+-     - Use changes in popup_mask to decide what windows and range of lines to
+-       redraw?
+- - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+-   Use NOT_IN_POPUP_WINDOW for more commands.
+  - Invoke filter with character before mapping?
+  - Figure out the size and position better.
+      if wrapping splits a double-wide character
+      if wrapping inserts indent
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Implement all the unimplemented options and features.
+  
+--- 76,110 ----
+  the current cursor position, but if the cursor is close to the top of the Vim
+  window it will be placed below the cursor position.
+  
++ When the screen scrolls up for output of an Ex command, popups move too, so
++ that they will not cover the output.
+  
++ The current cursor position is displayed even when it is under a popup window.
++ That way you can still see where it is, even though you cannot see the text
++ that it is in.
+  
+  
+  
+  IMPLEMENTATION:
+  - Why does 'nrformats' leak from the popup window buffer???
+! - Option to set first line to display (useful for a preview window)
+! - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+!   Use NOT_IN_POPUP_WINDOW for more commands.
+! - Add 'balloonpopup': instead of showing text, let the callback open a popup
+!   window and return the window ID.   The popup will then be closed when the
+!   mouse moves, except when it moves inside the popup.
+  - For the "moved" property also include mouse movement?
++ - When selecting text in the popup with modeless selection, do not select
++   outside of the popup and don't select the border or padding.
++ - Allow the user to drag the popup window when the "dragging" property is set.
+  - Make redrawing more efficient and avoid flicker:
+      - put popup menu also put in popup_mask?
+  - Invoke filter with character before mapping?
+  - Figure out the size and position better.
+      if wrapping splits a double-wide character
+      if wrapping inserts indent
++ - When drawing on top half a double-wide character, display ">" or "<" in the
++   incomplete cell.
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Implement all the unimplemented options and features.
+  
+***************
+*** 114,122 ****
+  ==============================================================================
+  2. Functions						*popup-functions*
+  
+! THIS IS UNDER DESIGN - ANYTHING MAY STILL CHANGE  
+  
+! [functions to be moved to eval.txt later, keep overview of functions here]
+  
+  popup_atcursor({text}, {options})			 *popup_atcursor()*
+  		Show the {text} above the cursor, and close it when the cursor
+--- 112,147 ----
+  ==============================================================================
+  2. Functions						*popup-functions*
+  
+! THIS IS UNDER DESIGN - ANYTHING MAY STILL CHANGE
+  
+! Creating a popup window:
+! 	|popup_create()|	centered in the screen
+! 	|popup_atcursor()|	just above the cursor position, closes when
+! 				the cursor moves away
+! 	|popup_notifiation()|	show a notification for three seconds
+! 	|popup_dialog()|	centered with padding and border
+! 	|popup_menu()|		prompt for selecting an item from a list
+! 
+! Manipulating a popup window:
+! 	|popup_hide()|		hide a popup temporarily
+! 	|popup_show()|		show a previously hidden popup
+! 	|popup_move()|		change the position and size of a popup
+! 	|popup_setoptions()|	override options of a popup
+! 
+! Closing popup windows:
+! 	|popup_close()|		close one popup
+! 	|popup_clear()|		close all popups
+! 
+! Filter functions:
+! 	|popup_filter_menu()|	select from a list of items
+! 	|popup_filter_yesno()|	blocks until 'y' or 'n' is pressed
+! 
+! Other:
+! 	|popup_getoptions()|	get current options for a popup
+! 	|popup_getpos()|	get actual position and size of a popup
+! 
+! 
+! [functions to be moved to eval.txt later]
+  
+  popup_atcursor({text}, {options})			 *popup_atcursor()*
+  		Show the {text} above the cursor, and close it when the cursor
+***************
+*** 164,170 ****
+  
+  
+  popup_dialog({text}, {options})				*popup_dialog()*
+! 	  	{not implemented yet}
+  		Just like |popup_create()| but with these default options: >
+  			call popup_create({text}, {
+  				\ 'pos': 'center',
+--- 189,195 ----
+  
+  
+  popup_dialog({text}, {options})				*popup_dialog()*
+! 		{not implemented yet}
+  		Just like |popup_create()| but with these default options: >
+  			call popup_create({text}, {
+  				\ 'pos': 'center',
+***************
+*** 172,182 ****
+  				\ 'border': [],
+  				\ 'padding': [],
+  				\})
+! <		Use {options} to change the properties.
+  
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
+! 	  	{not implemented yet}
+  		Filter that can be used for a popup. It handles the cursor
+  		keys to move the selected index in the popup. Space and Enter
+  		can be used to select an item.  Invokes the "callback" of the
+--- 197,208 ----
+  				\ 'border': [],
+  				\ 'padding': [],
+  				\})
+! <		Use {options} to change the properties. E.g. add a 'filter'
+! 		option with value 'popup_filter_yesno'.
+  
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
+! 		{not implemented yet}
+  		Filter that can be used for a popup. It handles the cursor
+  		keys to move the selected index in the popup. Space and Enter
+  		can be used to select an item.  Invokes the "callback" of the
+***************
+*** 185,196 ****
+  
+  
+  popup_filter_yesno({id}, {key})				*popup_filter_yesno()*
+! 	  	{not implemented yet}
+  		Filter that can be used for a popup. It handles only the keys
+  		'y', 'Y' and 'n' or 'N'.  Invokes the "callback" of the
+  		popup menu with the 1 for 'y' or 'Y' and zero for 'n' or 'N'
+  		as the second argument.  Pressing Esc and CTRL-C works like
+! 		pressing 'n'.
+  
+  
+  popup_getoptions({id})					*popup_getoptions()*
+--- 211,222 ----
+  
+  
+  popup_filter_yesno({id}, {key})				*popup_filter_yesno()*
+! 		{not implemented yet}
+  		Filter that can be used for a popup. It handles only the keys
+  		'y', 'Y' and 'n' or 'N'.  Invokes the "callback" of the
+  		popup menu with the 1 for 'y' or 'Y' and zero for 'n' or 'N'
+  		as the second argument.  Pressing Esc and CTRL-C works like
+! 		pressing 'n'.  Other keys are ignored.
+  
+  
+  popup_getoptions({id})					*popup_getoptions()*
+***************
+*** 216,222 ****
+  		    core_line	screen line of the text box
+  		    core_width	width of the text box in screen cells
+  		    core_height	height of the text box in screen cells
+! 		    visible 	one if the popup is displayed, zero if hidden
+  		Note that these are the actual screen positions.  They differ
+  		from the values in `popup_getoptions()` for the sizing and
+  		positioning mechanism applied.
+--- 242,248 ----
+  		    core_line	screen line of the text box
+  		    core_width	width of the text box in screen cells
+  		    core_height	height of the text box in screen cells
+! 		    visible	one if the popup is displayed, zero if hidden
+  		Note that these are the actual screen positions.  They differ
+  		from the values in `popup_getoptions()` for the sizing and
+  		positioning mechanism applied.
+***************
+*** 235,241 ****
+  
+  
+  popup_menu({text}, {options})				 *popup_menu()*
+! 	  	{not implemented yet}
+  		Show the {text} near the cursor, handle selecting one of the
+  		items with cursorkeys, and close it an item is selected with
+  		Space or Enter. {text} should have multiple lines to make this
+--- 261,267 ----
+  
+  
+  popup_menu({text}, {options})				 *popup_menu()*
+! 		{not implemented yet}
+  		Show the {text} near the cursor, handle selecting one of the
+  		items with cursorkeys, and close it an item is selected with
+  		Space or Enter. {text} should have multiple lines to make this
+***************
+*** 260,266 ****
+  
+  
+  popup_notification({text}, {options})			 *popup_notification()*
+- 	  	{not implemented yet}
+  		Show the {text} for 3 seconds at the top of the Vim window.
+  		This works like: >
+  			call popup_create({text}, {
+--- 286,291 ----
+***************
+*** 271,278 ****
+  				\ 'zindex': 200,
+  				\ 'highlight': 'WarningMsg',
+  				\ 'border': [],
+  				\ })
+! <		Use {options} to change the properties.
+  
+  
+  popup_show({id})						*popup_show()*
+--- 296,306 ----
+  				\ 'zindex': 200,
+  				\ 'highlight': 'WarningMsg',
+  				\ 'border': [],
++ 				\ 'padding': [0,1,0,1],
+  				\ })
+! <		The position will be adjusted to avoid overlap with other
+! 		notifications.
+! 		Use {options} to change the properties.
+  
+  
+  popup_show({id})						*popup_show()*
+***************
+*** 281,287 ****
+  
+  
+  popup_setoptions({id}, {options})			*popup_setoptions()*
+! 	  	{not implemented yet}
+  		Override options in popup {id} with entries in {options}.
+  
+  
+--- 309,315 ----
+  
+  
+  popup_setoptions({id}, {options})			*popup_setoptions()*
+! 		{not implemented yet}
+  		Override options in popup {id} with entries in {options}.
+  
+  
+***************
+*** 292,298 ****
+  window.  The buffer is always associated with the popup window and
+  manipulation is restricted:
+  - the buffer has no name
+! - 'buftype' is "popup" 
+  - 'swapfile' is off
+  - 'bufhidden' is "hide"
+  - 'buflisted' is off
+--- 320,326 ----
+  window.  The buffer is always associated with the popup window and
+  manipulation is restricted:
+  - the buffer has no name
+! - 'buftype' is "popup"
+  - 'swapfile' is off
+  - 'bufhidden' is "hide"
+  - 'buflisted' is off
+***************
+*** 424,430 ****
+  			  {start} or after {end}
+  			The popup also closes if the cursor moves to another
+  			line or to another window.
+! 	filter		A callback that can filter typed characters, see 
+  			|popup-filter|.
+  	callback	A callback that is called when the popup closes, e.g.
+  			when using |popup_filter_menu()|, see |popup-callback|.
+--- 452,458 ----
+  			  {start} or after {end}
+  			The popup also closes if the cursor moves to another
+  			line or to another window.
+! 	filter		A callback that can filter typed characters, see
+  			|popup-filter|.
+  	callback	A callback that is called when the popup closes, e.g.
+  			when using |popup_filter_menu()|, see |popup-callback|.
+***************
+*** 486,492 ****
+  	    return 1
+  	  endif
+  	  return 0
+!   	endfunc
+  
+  Currently the key is what results after any mapping.  This may change...
+  
+--- 514,520 ----
+  	    return 1
+  	  endif
+  	  return 0
+! 	endfunc
+  
+  Currently the key is what results after any mapping.  This may change...
+  
+*** ../vim-8.1.1521/src/testdir/dumps/Test_popupwin_notify_01.dump	2019-06-12 22:39:54.960632720 +0200
+--- src/testdir/dumps/Test_popupwin_notify_01.dump	2019-06-12 22:27:31.776011519 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @7|╔+0#e000002&|═@19|╗| +0#0000000&@43
++ |2| @7|║+0#e000002&| |f|i|r|s|t| |n|o|t|i|f|i|c|a|t|i|o|n| |║| +0#0000000&@43
++ |3| @7|╚+0#e000002&|═@19|╝| +0#0000000&@43
++ |4| @73
++ |5| @73
++ |6| @73
++ |7| @73
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1521/src/testdir/dumps/Test_popupwin_notify_02.dump	2019-06-12 22:39:54.964632703 +0200
+--- src/testdir/dumps/Test_popupwin_notify_02.dump	2019-06-12 22:28:10.167836390 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0| @7|╔+0#e000002&|═@19|╗| +0#0000000&@43
++ |2| @7|║+0#e000002&| |f|i|r|s|t| |n|o|t|i|f|i|c|a|t|i|o|n| |║| +0#0000000&@43
++ |3| @7|╚+0#e000002&|═@19|╝| +0#0000000&@43
++ |4| @7|╔+0&#5fd7ff255|═@31|╗| +0&#ffffff0@31
++ |5| @7|║+0&#5fd7ff255| |a|n|o|t|h|e|r| |i|m|p|o|r|t|a|n|t| |n|o|t|i|f|i|c|a|t|i|o|n| |║| +0&#ffffff0@31
++ |6| @7|╚+0&#5fd7ff255|═@31|╝| +0&#ffffff0@31
++ |7| @73
++ |8| @73
++ |9| @73
++ @57|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1521/src/version.c	2019-06-12 21:06:28.473676521 +0200
+--- src/version.c	2019-06-12 21:22:00.469299881 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1522,
+  /**/
+
+-- 
+If you feel lonely, try schizophrenia.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

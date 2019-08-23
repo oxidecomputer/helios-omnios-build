@@ -1,0 +1,285 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1733
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1733
+Problem:    The man ftplugin leaves an empty buffer behind.
+Solution:   Don't make new window and edit, use split. (Jason Franklin)
+Files:	    runtime/ftplugin/man.vim, src/testdir/test_man.vim
+
+
+*** ../vim-8.1.1732/runtime/ftplugin/man.vim	2018-05-03 20:03:04.000000000 +0200
+--- runtime/ftplugin/man.vim	2019-07-22 22:03:08.152579705 +0200
+***************
+*** 1,7 ****
+  " Vim filetype plugin file
+  " Language:	man
+  " Maintainer:	SungHyun Nam <goweol@gmail.com>
+! " Last Change: 	2018 May 2
+  
+  " To make the ":Man" command available before editing a manual page, source
+  " this script from your startup vimrc file.
+--- 1,8 ----
+  " Vim filetype plugin file
+  " Language:	man
+  " Maintainer:	SungHyun Nam <goweol@gmail.com>
+! " Last Change: 	2019 Jul 22
+! "		(fix by Jason Franklin)
+  
+  " To make the ":Man" command available before editing a manual page, source
+  " this script from your startup vimrc file.
+***************
+*** 14,45 ****
+      finish
+    endif
+    let b:did_ftplugin = 1
+  
+    " allow dot and dash in manual page name.
+    setlocal iskeyword+=\.,-
+  
+    " Add mappings, unless the user didn't want this.
+    if !exists("no_plugin_maps") && !exists("no_man_maps")
+      if !hasmapto('<Plug>ManBS')
+        nmap <buffer> <LocalLeader>h <Plug>ManBS
+      endif
+      nnoremap <buffer> <Plug>ManBS :%s/.\b//g<CR>:setl nomod<CR>''
+  
+      nnoremap <buffer> <c-]> :call <SID>PreGetPage(v:count)<CR>
+      nnoremap <buffer> <c-t> :call <SID>PopPage()<CR>
+      nnoremap <buffer> <silent> q :q<CR>
+    endif
+  
+    if exists('g:ft_man_folding_enable') && (g:ft_man_folding_enable == 1)
+      setlocal foldmethod=indent foldnestmax=1 foldenable
+    endif
+  
+-   let b:undo_ftplugin = "setlocal iskeyword<"
+- 
+  endif
+  
+  if exists(":Man") != 2
+!   com -nargs=+ -complete=shellcmd Man call s:GetPage(<f-args>)
+    nmap <Leader>K :call <SID>PreGetPage(0)<CR>
+    nmap <Plug>ManPreGetPage :call <SID>PreGetPage(0)<CR>
+  endif
+--- 15,61 ----
+      finish
+    endif
+    let b:did_ftplugin = 1
++ endif
++ 
++ let s:cpo_save = &cpo
++ set cpo-=C
+  
++ if &filetype == "man"
+    " allow dot and dash in manual page name.
+    setlocal iskeyword+=\.,-
++   let b:undo_ftplugin = "setlocal iskeyword<"
+  
+    " Add mappings, unless the user didn't want this.
+    if !exists("no_plugin_maps") && !exists("no_man_maps")
+      if !hasmapto('<Plug>ManBS')
+        nmap <buffer> <LocalLeader>h <Plug>ManBS
++       let b:undo_ftplugin = b:undo_ftplugin
++ 	    \ . '|silent! nunmap <buffer> <LocalLeader>h'
+      endif
+      nnoremap <buffer> <Plug>ManBS :%s/.\b//g<CR>:setl nomod<CR>''
+  
+      nnoremap <buffer> <c-]> :call <SID>PreGetPage(v:count)<CR>
+      nnoremap <buffer> <c-t> :call <SID>PopPage()<CR>
+      nnoremap <buffer> <silent> q :q<CR>
++ 
++     " Add undo commands for the maps
++     let b:undo_ftplugin = b:undo_ftplugin
++ 	  \ . '|silent! nunmap <buffer> <Plug>ManBS'
++ 	  \ . '|silent! nunmap <buffer> <c-]>'
++ 	  \ . '|silent! nunmap <buffer> <c-t>'
++ 	  \ . '|silent! nunmap <buffer> q'
+    endif
+  
+    if exists('g:ft_man_folding_enable') && (g:ft_man_folding_enable == 1)
+      setlocal foldmethod=indent foldnestmax=1 foldenable
++     let b:undo_ftplugin = b:undo_ftplugin
++ 	  \ . '|silent! setl fdm< fdn< fen<'
+    endif
+  
+  endif
+  
+  if exists(":Man") != 2
+!   com -nargs=+ -complete=shellcmd Man call s:GetPage(<q-mods>, <f-args>)
+    nmap <Leader>K :call <SID>PreGetPage(0)<CR>
+    nmap <Plug>ManPreGetPage :call <SID>PreGetPage(0)<CR>
+  endif
+***************
+*** 100,106 ****
+    return 1
+  endfunc
+  
+! func <SID>GetPage(...)
+    if a:0 >= 2
+      let sect = a:1
+      let page = a:2
+--- 116,122 ----
+    return 1
+  endfunc
+  
+! func <SID>GetPage(cmdmods, ...)
+    if a:0 >= 2
+      let sect = a:1
+      let page = a:2
+***************
+*** 128,133 ****
+--- 144,151 ----
+    exec "let s:man_tag_col_".s:man_tag_depth." = ".col(".")
+    let s:man_tag_depth = s:man_tag_depth + 1
+  
++   let open_cmd = 'edit'
++ 
+    " Use an existing "man" window if it exists, otherwise open a new one.
+    if &filetype != "man"
+      let thiswin = winnr()
+***************
+*** 146,165 ****
+      endif
+      if &filetype != "man"
+        if exists("g:ft_man_open_mode")
+!         if g:ft_man_open_mode == "vert"
+!           vnew
+!         elseif g:ft_man_open_mode == "tab"
+!           tabnew
+          else
+!           new
+          endif
+        else
+!         new
+        endif
+        setl nonu fdc=0
+      endif
+    endif
+!   silent exec "edit $HOME/".page.".".sect."~"
+    " Avoid warning for editing the dummy file twice
+    setl buftype=nofile noswapfile
+  
+--- 164,185 ----
+      endif
+      if &filetype != "man"
+        if exists("g:ft_man_open_mode")
+!         if g:ft_man_open_mode == 'vert'
+! 	  let open_cmd = 'vsplit'
+!         elseif g:ft_man_open_mode == 'tab'
+! 	  let open_cmd = 'tabedit'
+          else
+! 	  let open_cmd = 'split'
+          endif
+        else
+! 	let open_cmd = a:cmdmods . ' split'
+        endif
+        setl nonu fdc=0
+      endif
+    endif
+! 
+!   silent execute open_cmd . " $HOME/" . page . '.' . sect . '~'
+! 
+    " Avoid warning for editing the dummy file twice
+    setl buftype=nofile noswapfile
+  
+***************
+*** 187,196 ****
+      let $MANWIDTH = ''
+    endif
+    " Remove blank lines from top and bottom.
+!   while getline(1) =~ '^\s*$'
+      silent keepj norm! ggdd
+    endwhile
+!   while getline('$') =~ '^\s*$'
+      silent keepj norm! Gdd
+    endwhile
+    1
+--- 207,216 ----
+      let $MANWIDTH = ''
+    endif
+    " Remove blank lines from top and bottom.
+!   while line('$') > 1 && getline(1) =~ '^\s*$'
+      silent keepj norm! ggdd
+    endwhile
+!   while line('$') > 1 && getline('$') =~ '^\s*$'
+      silent keepj norm! Gdd
+    endwhile
+    1
+***************
+*** 218,221 ****
+--- 238,244 ----
+  
+  endif
+  
++ let &cpo = s:cpo_save
++ unlet s:cpo_save
++ 
+  " vim: set sw=2 ts=8 noet:
+*** ../vim-8.1.1732/src/testdir/test_man.vim	2016-07-23 15:27:51.000000000 +0200
+--- src/testdir/test_man.vim	2019-07-22 22:03:51.976322696 +0200
+***************
+*** 46,51 ****
+--- 46,53 ----
+    call assert_equal(2, tabpagenr('$'))
+    call assert_equal(2, tabpagenr())
+    q
++ 
++   unlet g:ft_man_open_mode
+  endfunction
+  
+  function Test_nomodifiable()
+***************
+*** 58,60 ****
+--- 60,88 ----
+    call assert_false(&l:modifiable)
+    q
+  endfunction
++ 
++ function Test_buffer_count_hidden()
++   %bw!
++   set hidden
++ 
++   call assert_equal(1, len(getbufinfo()))
++ 
++   let wincnt = winnr('$')
++   Man vim
++   if wincnt == winnr('$')
++     " Vim manual page cannot be found.
++     return
++   endif
++ 
++   call assert_equal(1, len(getbufinfo({'buflisted':1})))
++   call assert_equal(2, len(getbufinfo()))
++   q
++ 
++   Man vim
++ 
++   call assert_equal(1, len(getbufinfo({'buflisted':1})))
++   call assert_equal(2, len(getbufinfo()))
++   q
++ 
++   set hidden&
++ endfunction
+*** ../vim-8.1.1732/src/version.c	2019-07-22 21:55:13.895251807 +0200
+--- src/version.c	2019-07-22 22:06:07.931518782 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1733,
+  /**/
+
+-- 
+How come wrong numbers are never busy?
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

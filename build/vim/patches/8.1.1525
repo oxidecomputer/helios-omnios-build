@@ -1,0 +1,437 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1525
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1525
+Problem:    Cannot move a popup window with the mouse.
+Solution:   Add the "drag" property and make it possible to drag a popup
+            window by its border.
+Files:	    src/popupwin.c, src/proto/popupwin.pro, src/structs.h, src/ui.c,
+            src/window.c, src/proto/window.pro
+            
+
+*** ../vim-8.1.1524/src/popupwin.c	2019-06-12 23:39:42.257782258 +0200
+--- src/popupwin.c	2019-06-13 23:37:35.076367924 +0200
+***************
+*** 164,169 ****
+--- 164,231 ----
+      }
+  }
+  
++ /*
++  * Return TRUE if "row"/"col" is on the border of the popup.
++  * The values are relative to the top-left corner.
++  */
++     int
++ popup_on_border(win_T *wp, int row, int col)
++ {
++     return (row == 0 && wp->w_popup_border[0] > 0)
++ 	    || (row == popup_height(wp) - 1 && wp->w_popup_border[2] > 0)
++ 	    || (col == 0 && wp->w_popup_border[3] > 0)
++ 	    || (col == popup_width(wp) - 1 && wp->w_popup_border[1] > 0);
++ }
++ 
++ // Values set when dragging a popup window starts.
++ static int drag_start_row;
++ static int drag_start_col;
++ static int drag_start_wantline;
++ static int drag_start_wantcol;
++ 
++ /*
++  * Mouse down on border of popup window: start dragging it.
++  * Uses mouse_col and mouse_row.
++  */
++     void
++ popup_start_drag(win_T *wp)
++ {
++     drag_start_row = mouse_row;
++     drag_start_col = mouse_col;
++     // TODO: handle using different corner
++     if (wp->w_wantline == 0)
++ 	drag_start_wantline = wp->w_winrow + 1;
++     else
++ 	drag_start_wantline = wp->w_wantline;
++     if (wp->w_wantcol == 0)
++ 	drag_start_wantcol = wp->w_wincol + 1;
++     else
++ 	drag_start_wantcol = wp->w_wantcol;
++ }
++ 
++ /*
++  * Mouse moved while dragging a popup window: adjust the window popup position.
++  */
++     void
++ popup_drag(win_T *wp)
++ {
++     // The popup may be closed before dragging stops.
++     if (!win_valid_popup(wp))
++ 	return;
++ 
++     wp->w_wantline = drag_start_wantline + (mouse_row - drag_start_row);
++     if (wp->w_wantline < 1)
++ 	wp->w_wantline = 1;
++     if (wp->w_wantline > Rows)
++ 	wp->w_wantline = Rows;
++     wp->w_wantcol = drag_start_wantcol + (mouse_col - drag_start_col);
++     if (wp->w_wantcol < 1)
++ 	wp->w_wantcol = 1;
++     if (wp->w_wantcol > Columns)
++ 	wp->w_wantcol = Columns;
++ 
++     popup_adjust_position(wp);
++ }
+  
+  #if defined(FEAT_TIMERS)
+      static void
+***************
+*** 237,242 ****
+--- 299,306 ----
+  	wp->w_p_wrap = nr != 0;
+      }
+  
++     wp->w_popup_drag = dict_get_number(dict, (char_u *)"drag");
++ 
+      di = dict_find(dict, (char_u *)"callback", -1);
+      if (di != NULL)
+      {
+***************
+*** 798,803 ****
+--- 862,868 ----
+  	wp->w_popup_padding[3] = 1;
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+  				(char_u *)"WarningMsg", OPT_FREE|OPT_LOCAL, 0);
++ 	wp->w_popup_drag = 1;
+      }
+  
+      // Deal with options.
+*** ../vim-8.1.1524/src/proto/popupwin.pro	2019-06-12 22:42:05.020146044 +0200
+--- src/proto/popupwin.pro	2019-06-13 23:37:06.268412649 +0200
+***************
+*** 1,4 ****
+--- 1,7 ----
+  /* popupwin.c */
++ int popup_on_border(win_T *wp, int row, int col);
++ void popup_start_drag(win_T *wp);
++ void popup_drag(win_T *wp);
+  int popup_height(win_T *wp);
+  int popup_width(win_T *wp);
+  void popup_adjust_position(win_T *wp);
+*** ../vim-8.1.1524/src/structs.h	2019-06-12 23:39:42.257782258 +0200
+--- src/structs.h	2019-06-13 22:39:25.140271838 +0200
+***************
+*** 2909,2914 ****
+--- 2909,2915 ----
+      linenr_T	w_popup_lnum;	    // close popup if cursor not on this line
+      colnr_T	w_popup_mincol;	    // close popup if cursor before this col
+      colnr_T	w_popup_maxcol;	    // close popup if cursor after this col
++     int		w_popup_drag;	    // allow moving the popup with the mouse
+  
+  # if defined(FEAT_TIMERS)
+      timer_T	*w_popup_timer;	    // timer for closing popup window
+*** ../vim-8.1.1524/src/ui.c	2019-06-12 20:21:57.733817549 +0200
+--- src/ui.c	2019-06-13 23:50:28.438277531 +0200
+***************
+*** 1002,1008 ****
+  
+  /*
+   * Start, continue or end a modeless selection.  Used when editing the
+!  * command-line and in the cmdline window.
+   */
+      void
+  clip_modeless(int button, int is_click, int is_drag)
+--- 1002,1008 ----
+  
+  /*
+   * Start, continue or end a modeless selection.  Used when editing the
+!  * command-line, in the cmdline window and when the mouse is in a popup window.
+   */
+      void
+  clip_modeless(int button, int is_click, int is_drag)
+***************
+*** 2841,2847 ****
+      static int  in_winbar = FALSE;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+!     static int  in_popup_win = FALSE;
+  #endif
+      static int	prev_row = -1;
+      static int	prev_col = -1;
+--- 2841,2848 ----
+      static int  in_winbar = FALSE;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+!     static int   in_popup_win = FALSE;
+!     static win_T *popup_dragwin = NULL;
+  #endif
+      static int	prev_row = -1;
+      static int	prev_col = -1;
+***************
+*** 2869,2874 ****
+--- 2870,2878 ----
+  	    flags &= ~(MOUSE_FOCUS | MOUSE_DID_MOVE);
+  	dragwin = NULL;
+  	did_drag = FALSE;
++ #ifdef FEAT_TEXT_PROP
++ 	popup_dragwin = NULL;
++ #endif
+      }
+  
+      if ((flags & MOUSE_DID_MOVE)
+***************
+*** 2910,2916 ****
+--- 2914,2928 ----
+  #ifdef FEAT_TEXT_PROP
+  	// Continue a modeless selection in a popup window.
+  	if (in_popup_win)
++ 	{
++ 	    if (popup_dragwin != NULL)
++ 	    {
++ 		// dragging a popup window
++ 		popup_drag(popup_dragwin);
++ 		return IN_UNKNOWN;
++ 	    }
+  	    return IN_OTHER_WIN;
++ 	}
+  #endif
+  	return IN_BUFFER;
+      }
+***************
+*** 2936,2964 ****
+  
+      if (!(flags & MOUSE_FOCUS))
+      {
+! 	if (row < 0 || col < 0)			/* check if it makes sense */
+  	    return IN_UNKNOWN;
+  
+! 	/* find the window where the row is in */
+  	wp = mouse_find_win(&row, &col, FIND_POPUP);
+  	if (wp == NULL)
+  	    return IN_UNKNOWN;
+  	dragwin = NULL;
+  
+  #ifdef FEAT_TEXT_PROP
+! 	// Click in a popup window may start modeless selection, but not much
+! 	// else.
+  	if (bt_popup(wp->w_buffer))
+  	{
+  	    on_sep_line = 0;
+  	    in_popup_win = TRUE;
+  # ifdef FEAT_CLIPBOARD
+  	    return IN_OTHER_WIN;
+  # else
+  	    return IN_UNKNOWN;
+  # endif
+  	}
+! 	    in_popup_win = FALSE;
+  #endif
+  #ifdef FEAT_MENU
+  	if (row == -1)
+--- 2948,2983 ----
+  
+      if (!(flags & MOUSE_FOCUS))
+      {
+! 	if (row < 0 || col < 0)			// check if it makes sense
+  	    return IN_UNKNOWN;
+  
+! 	// find the window where the row is in
+  	wp = mouse_find_win(&row, &col, FIND_POPUP);
+  	if (wp == NULL)
+  	    return IN_UNKNOWN;
+  	dragwin = NULL;
+  
+  #ifdef FEAT_TEXT_PROP
+! 	// Click in a popup window may start dragging or modeless selection,
+! 	// but not much else.
+  	if (bt_popup(wp->w_buffer))
+  	{
+  	    on_sep_line = 0;
+  	    in_popup_win = TRUE;
++ 	    if (wp->w_popup_drag && popup_on_border(wp, row, col))
++ 	    {
++ 		popup_dragwin = wp;
++ 		popup_start_drag(wp);
++ 		return IN_UNKNOWN;
++ 	    }
+  # ifdef FEAT_CLIPBOARD
+  	    return IN_OTHER_WIN;
+  # else
+  	    return IN_UNKNOWN;
+  # endif
+  	}
+! 	in_popup_win = FALSE;
+! 	popup_dragwin = NULL;
+  #endif
+  #ifdef FEAT_MENU
+  	if (row == -1)
+***************
+*** 3127,3135 ****
+  	    return IN_OTHER_WIN;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+- 	// Continue a modeless selection in a popup window.
+  	if (in_popup_win)
+  	    return IN_OTHER_WIN;
+  #endif
+  
+  	row -= W_WINROW(curwin);
+--- 3146,3162 ----
+  	    return IN_OTHER_WIN;
+  #endif
+  #ifdef FEAT_TEXT_PROP
+  	if (in_popup_win)
++ 	{
++ 	    if (popup_dragwin != NULL)
++ 	    {
++ 		// dragging a popup window
++ 		popup_drag(popup_dragwin);
++ 		return IN_UNKNOWN;
++ 	    }
++ 	    // continue a modeless selection in a popup window
+  	    return IN_OTHER_WIN;
++ 	}
+  #endif
+  
+  	row -= W_WINROW(curwin);
+*** ../vim-8.1.1524/src/window.c	2019-06-12 21:06:28.473676521 +0200
+--- src/window.c	2019-06-13 23:13:56.002551351 +0200
+***************
+*** 1371,1377 ****
+  /*
+   * Return TRUE if "win" is a global popup or a popup in the current tab page.
+   */
+!     static int
+  win_valid_popup(win_T *win UNUSED)
+  {
+  #ifdef FEAT_TEXT_PROP
+--- 1371,1377 ----
+  /*
+   * Return TRUE if "win" is a global popup or a popup in the current tab page.
+   */
+!     int
+  win_valid_popup(win_T *win UNUSED)
+  {
+  #ifdef FEAT_TEXT_PROP
+*** ../vim-8.1.1524/src/proto/window.pro	2019-05-30 17:29:34.767666654 +0200
+--- src/proto/window.pro	2019-06-13 23:14:09.622484918 +0200
+***************
+*** 3,8 ****
+--- 3,9 ----
+  void get_wincmd_addr_type(char_u *arg, exarg_T *eap);
+  int win_split(int size, int flags);
+  int win_split_ins(int size, int flags, win_T *new_wp, int dir);
++ int win_valid_popup(win_T *win);
+  int win_valid(win_T *win);
+  int win_valid_any_tab(win_T *win);
+  int win_count(void);
+*** ../vim-8.1.1524/runtime/doc/popup.txt	2019-06-12 23:39:42.257782258 +0200
+--- runtime/doc/popup.txt	2019-06-13 23:55:29.469228483 +0200
+***************
+*** 95,101 ****
+  - For the "moved" property also include mouse movement?
+  - When selecting text in the popup with modeless selection, do not select
+    outside of the popup and don't select the border or padding.
+! - Allow the user to drag the popup window when the "dragging" property is set.
+  - Make redrawing more efficient and avoid flicker:
+      - put popup menu also put in popup_mask?
+  - Invoke filter with character before mapping?
+--- 95,101 ----
+  - For the "moved" property also include mouse movement?
+  - When selecting text in the popup with modeless selection, do not select
+    outside of the popup and don't select the border or padding.
+! - Add test for dragging the popup window.
+  - Make redrawing more efficient and avoid flicker:
+      - put popup menu also put in popup_mask?
+  - Invoke filter with character before mapping?
+***************
+*** 277,283 ****
+  
+  
+  popup_move({id}, {options})					*popup_move()*
+! 		Move popup {id} to the position speficied with {options}.
+  		{options} may contain the items from |popup_create()| that
+  		specify the popup position: "line", "col", "pos", "maxheight",
+  		"minheight", "maxwidth" and "minwidth".
+--- 277,283 ----
+  
+  
+  popup_move({id}, {options})					*popup_move()*
+! 		Move popup {id} to the position specified with {options}.
+  		{options} may contain the items from |popup_create()| that
+  		specify the popup position: "line", "col", "pos", "maxheight",
+  		"minheight", "maxwidth" and "minwidth".
+***************
+*** 293,298 ****
+--- 293,299 ----
+  				\ 'time': 3000,
+  				\ 'tab': -1,
+  				\ 'zindex': 200,
++ 				\ 'drag': 1,
+  				\ 'highlight': 'WarningMsg',
+  				\ 'border': [],
+  				\ 'padding': [0,1,0,1],
+***************
+*** 409,417 ****
+  			{only -1 and 0 are implemented}
+  	title		Text to be displayed above the first item in the
+  			popup, on top of any border.  If there is no top
+! 			border on line of padding is added to put the title on.
+  			{not implemented yet}
+  	wrap		TRUE to make the lines wrap (default TRUE).
+  	highlight	Highlight group name to use for the text, stored in
+  			the 'wincolor' option.
+  	padding		List with numbers, defining the padding
+--- 410,422 ----
+  			{only -1 and 0 are implemented}
+  	title		Text to be displayed above the first item in the
+  			popup, on top of any border.  If there is no top
+! 			border one line of padding is added to put the title
+! 			on.
+  			{not implemented yet}
+  	wrap		TRUE to make the lines wrap (default TRUE).
++ 	drag		TRUE to allow the popup to be dragged with the mouse
++ 			by grabbing at at the border.  Has no effect if the
++ 			popup does not have a border.
+  	highlight	Highlight group name to use for the text, stored in
+  			the 'wincolor' option.
+  	padding		List with numbers, defining the padding
+***************
+*** 442,448 ****
+  			By default a double line is used all around when
+  			'encoding' is "utf-8", otherwise ASCII characters are
+  			used.
+! 	zindex		Priority for the popup, default 50.  Mininum value is
+  			1, maximum value is 32000.
+  	time		Time in milliseconds after which the popup will close.
+  			When omitted |popup_close()| must be used.
+--- 447,453 ----
+  			By default a double line is used all around when
+  			'encoding' is "utf-8", otherwise ASCII characters are
+  			used.
+! 	zindex		Priority for the popup, default 50.  Minimum value is
+  			1, maximum value is 32000.
+  	time		Time in milliseconds after which the popup will close.
+  			When omitted |popup_close()| must be used.
+*** ../vim-8.1.1524/src/version.c	2019-06-13 22:19:04.537918178 +0200
+--- src/version.c	2019-06-13 23:53:58.005553947 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1525,
+  /**/
+
+-- 
+In Joseph Heller's novel "Catch-22", the main character tries to get out of a
+war by proving he is crazy.  But the mere fact he wants to get out of the war
+only shows he isn't crazy -- creating the original "Catch-22".
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

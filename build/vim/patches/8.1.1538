@@ -1,0 +1,198 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1538
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1538
+Problem:    Cannot specify highlighting for notifications.
+Solution:   Use the PopupNotification group if it exists. Add a minimal width
+            to notifications.
+Files:	    runtime/doc/popup.txt, src/popupwin.c,
+            src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_notify_01.dump,
+            src/testdir/dumps/Test_popupwin_notify_02.dump
+
+
+*** ../vim-8.1.1537/runtime/doc/popup.txt	2019-06-15 14:14:28.180766242 +0200
+--- runtime/doc/popup.txt	2019-06-15 14:18:07.115914256 +0200
+***************
+*** 1,4 ****
+! *popup.txt*  For Vim version 8.1.  Last change: 2019 May 21
+  
+  
+  		  VIM REFERENCE MANUAL    by Bram Moolenaar
+--- 1,4 ----
+! *popup.txt*  For Vim version 8.1.  Last change: 2019 Jun 15
+  
+  
+  		  VIM REFERENCE MANUAL    by Bram Moolenaar
+***************
+*** 93,100 ****
+  - Add 'balloonpopup': instead of showing text, let the callback open a popup
+    window and return the window ID.   The popup will then be closed when the
+    mouse moves, except when it moves inside the popup.
+- - For notifications use the PopupNotification highlight group, fall back to
+-   WarningMsg if it isn't defined.
+  - For the "moved" property also include mouse movement?
+  - Make redrawing more efficient and avoid flicker:
+      - put popup menu also put in popup_mask?
+--- 93,98 ----
+***************
+*** 300,305 ****
+--- 298,304 ----
+  			call popup_create({text}, {
+  				\ 'line': 1,
+  				\ 'col': 10,
++ 				\ 'minwidth': 20,
+  				\ 'time': 3000,
+  				\ 'tabpage': -1,
+  				\ 'zindex': 200,
+***************
+*** 308,313 ****
+--- 307,314 ----
+  				\ 'border': [],
+  				\ 'padding': [0,1,0,1],
+  				\ })
++ <		The PopupNotification highlight group is used instead of
++ 		WarningMsg if it is defined.
+  <		The position will be adjusted to avoid overlap with other
+  		notifications.
+  		Use {options} to change the properties.
+*** ../vim-8.1.1537/src/popupwin.c	2019-06-15 14:14:28.180766242 +0200
+--- src/popupwin.c	2019-06-15 14:21:40.162049979 +0200
+***************
+*** 258,264 ****
+      dictitem_T	*di;
+      int		i;
+  
+!     wp->w_minwidth = dict_get_number(dict, (char_u *)"minwidth");
+      wp->w_minheight = dict_get_number(dict, (char_u *)"minheight");
+      wp->w_maxwidth = dict_get_number(dict, (char_u *)"maxwidth");
+      wp->w_maxheight = dict_get_number(dict, (char_u *)"maxheight");
+--- 258,266 ----
+      dictitem_T	*di;
+      int		i;
+  
+!     di = dict_find(dict, (char_u *)"minwidth", -1);
+!     if (di != NULL)
+! 	wp->w_minwidth = dict_get_number(dict, (char_u *)"minwidth");
+      wp->w_minheight = dict_get_number(dict, (char_u *)"minheight");
+      wp->w_maxwidth = dict_get_number(dict, (char_u *)"maxwidth");
+      wp->w_maxheight = dict_get_number(dict, (char_u *)"maxheight");
+***************
+*** 856,868 ****
+  
+  	wp->w_wantcol = 10;
+  	wp->w_zindex = POPUPWIN_NOTIFICATION_ZINDEX;
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+  	wp->w_popup_padding[1] = 1;
+  	wp->w_popup_padding[3] = 1;
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+! 				(char_u *)"WarningMsg", OPT_FREE|OPT_LOCAL, 0);
+! 	wp->w_popup_drag = 1;
+      }
+  
+      // Deal with options.
+--- 858,874 ----
+  
+  	wp->w_wantcol = 10;
+  	wp->w_zindex = POPUPWIN_NOTIFICATION_ZINDEX;
++ 	wp->w_minwidth = 20;
++ 	wp->w_popup_drag = 1;
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+  	wp->w_popup_padding[1] = 1;
+  	wp->w_popup_padding[3] = 1;
++ 
++ 	nr = syn_name2id((char_u *)"PopupNotification");
+  	set_string_option_direct_in_win(wp, (char_u *)"wincolor", -1,
+! 		(char_u *)(nr == 0 ? "WarningMsg" : "PopupNotification"),
+! 		OPT_FREE|OPT_LOCAL, 0);
+      }
+  
+      // Deal with options.
+*** ../vim-8.1.1537/src/testdir/test_popupwin.vim	2019-06-15 14:14:28.180766242 +0200
+--- src/testdir/test_popupwin.vim	2019-06-15 14:25:23.300428753 +0200
+***************
+*** 1191,1197 ****
+    call VerifyScreenDump(buf, 'Test_popupwin_notify_01', {})
+  
+    " second one goes below the first one
+!   call term_sendkeys(buf, ":call popup_notification('another important notification', {'highlight': 'Notification'})\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_notify_02', {})
+  
+  
+--- 1191,1198 ----
+    call VerifyScreenDump(buf, 'Test_popupwin_notify_01', {})
+  
+    " second one goes below the first one
+!   call term_sendkeys(buf, ":hi link PopupNotification Notification\<CR>")
+!   call term_sendkeys(buf, ":call popup_notification('another important notification', {})\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_notify_02', {})
+  
+  
+*** ../vim-8.1.1537/src/testdir/dumps/Test_popupwin_notify_01.dump	2019-06-12 22:42:05.020146044 +0200
+--- src/testdir/dumps/Test_popupwin_notify_01.dump	2019-06-15 14:25:30.136383062 +0200
+***************
+*** 1,6 ****
+! >1+0&#ffffff0| @7|╔+0#e000002&|═@19|╗| +0#0000000&@43
+! |2| @7|║+0#e000002&| |f|i|r|s|t| |n|o|t|i|f|i|c|a|t|i|o|n| |║| +0#0000000&@43
+! |3| @7|╚+0#e000002&|═@19|╝| +0#0000000&@43
+  |4| @73
+  |5| @73
+  |6| @73
+--- 1,6 ----
+! >1+0&#ffffff0| @7|╔+0#e000002&|═@21|╗| +0#0000000&@41
+! |2| @7|║+0#e000002&| |f|i|r|s|t| |n|o|t|i|f|i|c|a|t|i|o|n| @2|║| +0#0000000&@41
+! |3| @7|╚+0#e000002&|═@21|╝| +0#0000000&@41
+  |4| @73
+  |5| @73
+  |6| @73
+*** ../vim-8.1.1537/src/testdir/dumps/Test_popupwin_notify_02.dump	2019-06-12 22:42:05.020146044 +0200
+--- src/testdir/dumps/Test_popupwin_notify_02.dump	2019-06-15 14:26:35.859953696 +0200
+***************
+*** 1,10 ****
+! >1+0&#ffffff0| @7|╔+0#e000002&|═@19|╗| +0#0000000&@43
+! |2| @7|║+0#e000002&| |f|i|r|s|t| |n|o|t|i|f|i|c|a|t|i|o|n| |║| +0#0000000&@43
+! |3| @7|╚+0#e000002&|═@19|╝| +0#0000000&@43
+  |4| @7|╔+0&#5fd7ff255|═@31|╗| +0&#ffffff0@31
+  |5| @7|║+0&#5fd7ff255| |a|n|o|t|h|e|r| |i|m|p|o|r|t|a|n|t| |n|o|t|i|f|i|c|a|t|i|o|n| |║| +0&#ffffff0@31
+  |6| @7|╚+0&#5fd7ff255|═@31|╝| +0&#ffffff0@31
+  |7| @73
+  |8| @73
+  |9| @73
+! @57|1|,|1| @10|T|o|p| 
+--- 1,10 ----
+! >1+0&#ffffff0| @7|╔+0#e000002&|═@21|╗| +0#0000000&@41
+! |2| @7|║+0#e000002&| |f|i|r|s|t| |n|o|t|i|f|i|c|a|t|i|o|n| @2|║| +0#0000000&@41
+! |3| @7|╚+0#e000002&|═@21|╝| +0#0000000&@41
+  |4| @7|╔+0&#5fd7ff255|═@31|╗| +0&#ffffff0@31
+  |5| @7|║+0&#5fd7ff255| |a|n|o|t|h|e|r| |i|m|p|o|r|t|a|n|t| |n|o|t|i|f|i|c|a|t|i|o|n| |║| +0&#ffffff0@31
+  |6| @7|╚+0&#5fd7ff255|═@31|╝| +0&#ffffff0@31
+  |7| @73
+  |8| @73
+  |9| @73
+! |:|c|a|l@1| |p|o|p|u|p|_|n|o|t|i|f|i|c|a|t|i|o|n|(|'|a|n|o|t|h|e|r| |i|m|p|o|r|t|a|n|t| |n|o|t|i|f|i|c|a|t|i|o|n|'|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1537/src/version.c	2019-06-15 14:14:28.184766229 +0200
+--- src/version.c	2019-06-15 14:28:41.627175858 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1538,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+183. You move your coffeemaker next to your computer.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,939 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1581
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1581
+Problem:    Shared functions for testing are disorganised.
+Solution:   Group finctions in script files. (Ozaki Kiichi, closes #4573)
+Files:	    Filelist, src/testdir/screendump.vim, src/testdir/shared.vim,
+            src/testdir/term_util.vim, src/testdir/test_mksession.vim,
+            src/testdir/test_suspend.vim, src/testdir/test_terminal.vim,
+            src/testdir/test_timers.vim, src/testdir/view_util.vim
+
+
+*** ../vim-8.1.1580/Filelist	2019-06-15 17:57:43.968724059 +0200
+--- Filelist	2019-06-23 00:33:50.085413348 +0200
+***************
+*** 124,129 ****
+--- 124,130 ----
+  		src/testdir/shared.vim \
+  		src/testdir/screendump.vim \
+  		src/testdir/view_util.vim \
++ 		src/testdir/term_util.vim \
+  		src/testdir/setup.vim \
+  		src/testdir/gui_init.vim \
+  		src/testdir/setup_gui.vim \
+*** ../vim-8.1.1580/src/testdir/screendump.vim	2019-06-16 16:14:16.754801347 +0200
+--- src/testdir/screendump.vim	2019-06-23 00:38:53.252256375 +0200
+***************
+*** 1,105 ****
+  " Functions shared by tests making screen dumps.
+  
+  " Only load this script once.
+! if exists('*CanRunVimInTerminal')
+    finish
+  endif
+  
+! " For most tests we need to be able to run terminal Vim with 256 colors.  On
+! " MS-Windows the console only has 16 colors and the GUI can't run in a
+! " terminal.
+! func CanRunVimInTerminal()
+!   return has('terminal') && !has('win32')
+! endfunc
+  
+  " Skip the rest if there is no terminal feature at all.
+  if !has('terminal')
+    finish
+  endif
+  
+- source shared.vim
+- 
+- " Run Vim with "arguments" in a new terminal window.
+- " By default uses a size of 20 lines and 75 columns.
+- " Returns the buffer number of the terminal.
+- "
+- " Options is a dictionary, these items are recognized:
+- " "rows" - height of the terminal window (max. 20)
+- " "cols" - width of the terminal window (max. 78)
+- " "statusoff" - number of lines the status is offset from default
+- func RunVimInTerminal(arguments, options)
+-   " If Vim doesn't exit a swap file remains, causing other tests to fail.
+-   " Remove it here.
+-   call delete(".swp")
+- 
+-   if exists('$COLORFGBG')
+-     " Clear $COLORFGBG to avoid 'background' being set to "dark", which will
+-     " only be corrected if the response to t_RB is received, which may be too
+-     " late.
+-     let $COLORFGBG = ''
+-   endif
+- 
+-   " Make a horizontal and vertical split, so that we can get exactly the right
+-   " size terminal window.  Works only when the current window is full width.
+-   call assert_equal(&columns, winwidth(0))
+-   split
+-   vsplit
+- 
+-   " Always do this with 256 colors and a light background.
+-   set t_Co=256 background=light
+-   hi Normal ctermfg=NONE ctermbg=NONE
+- 
+-   " Make the window 20 lines high and 75 columns, unless told otherwise.
+-   let rows = get(a:options, 'rows', 20)
+-   let cols = get(a:options, 'cols', 75)
+-   let statusoff = get(a:options, 'statusoff', 1)
+- 
+-   let cmd = GetVimCommandClean()
+- 
+-   " Add -v to have gvim run in the terminal (if possible)
+-   let cmd .= ' -v ' . a:arguments
+-   let buf = term_start(cmd, {
+- 	\ 'curwin': 1,
+- 	\ 'term_rows': rows,
+- 	\ 'term_cols': cols,
+- 	\ })
+-   if &termwinsize == ''
+-     " in the GUI we may end up with a different size, try to set it.
+-     if term_getsize(buf) != [rows, cols]
+-       call term_setsize(buf, rows, cols)
+-     endif
+-     call assert_equal([rows, cols], term_getsize(buf))
+-   else
+-     let rows = term_getsize(buf)[0]
+-     let cols = term_getsize(buf)[1]
+-   endif
+- 
+-   " Wait for "All" or "Top" of the ruler to be shown in the last line or in
+-   " the status line of the last window. This can be quite slow (e.g. when
+-   " using valgrind).
+-   " If it fails then show the terminal contents for debugging.
+-   try
+-     call WaitFor({-> len(term_getline(buf, rows)) >= cols - 1 || len(term_getline(buf, rows - statusoff)) >= cols - 1})
+-   catch /timed out after/
+-     let lines = map(range(1, rows), {key, val -> term_getline(buf, val)})
+-     call assert_report('RunVimInTerminal() failed, screen contents: ' . join(lines, "<NL>"))
+-   endtry
+- 
+-   return buf
+- endfunc
+- 
+- " Stop a Vim running in terminal buffer "buf".
+- func StopVimInTerminal(buf)
+-   call assert_equal("running", term_getstatus(a:buf))
+- 
+-   " CTRL-O : works both in Normal mode and Insert mode to start a command line.
+-   " In Command-line it's inserted, the CTRL-U removes it again.
+-   call term_sendkeys(a:buf, "\<C-O>:\<C-U>qa!\<cr>")
+- 
+-   call WaitForAssert({-> assert_equal("finished", term_getstatus(a:buf))})
+-   only!
+- endfunc
+- 
+  " Verify that Vim running in terminal buffer "buf" matches the screen dump.
+  " "options" is passed to term_dumpwrite().
+  " The file name used is "dumps/{filename}.dump".
+--- 1,18 ----
+  " Functions shared by tests making screen dumps.
+  
+  " Only load this script once.
+! if exists('*VerifyScreenDump')
+    finish
+  endif
+  
+! source shared.vim
+! source term_util.vim
+  
+  " Skip the rest if there is no terminal feature at all.
+  if !has('terminal')
+    finish
+  endif
+  
+  " Verify that Vim running in terminal buffer "buf" matches the screen dump.
+  " "options" is passed to term_dumpwrite().
+  " The file name used is "dumps/{filename}.dump".
+*** ../vim-8.1.1580/src/testdir/shared.vim	2019-06-13 22:19:04.533918194 +0200
+--- src/testdir/shared.vim	2019-06-23 00:37:51.412493489 +0200
+***************
+*** 1,10 ****
+  " Functions shared by several tests.
+  
+  " Only load this script once.
+! if exists('*WaitFor')
+    finish
+  endif
+  
+  " Get the name of the Python executable.
+  " Also keeps it in s:python.
+  func PythonProg()
+--- 1,12 ----
+  " Functions shared by several tests.
+  
+  " Only load this script once.
+! if exists('*PythonProg')
+    finish
+  endif
+  
++ source view_util.vim
++ 
+  " Get the name of the Python executable.
+  " Also keeps it in s:python.
+  func PythonProg()
+***************
+*** 327,357 ****
+    endif
+    return 1
+  endfunc
+- 
+- " Get line "lnum" as displayed on the screen.
+- " Trailing white space is trimmed.
+- func Screenline(lnum)
+-   let chars = []
+-   for c in range(1, winwidth(0))
+-     call add(chars, nr2char(screenchar(a:lnum, c)))
+-   endfor
+-   let line = join(chars, '')
+-   return matchstr(line, '^.\{-}\ze\s*$')
+- endfunc
+- 
+- " Stops the shell running in terminal "buf".
+- func Stop_shell_in_terminal(buf)
+-   call term_sendkeys(a:buf, "exit\r")
+-   let job = term_getjob(a:buf)
+-   call WaitFor({-> job_status(job) == "dead"})
+- endfunc
+- 
+- " Gets the text of a terminal line, using term_scrape()
+- func Get_terminal_text(bufnr, row)
+-   let list = term_scrape(a:bufnr, a:row)
+-   let text = ''
+-   for item in list
+-     let text .= item.chars
+-   endfor
+-   return text
+- endfunc
+--- 329,331 ----
+*** ../vim-8.1.1580/src/testdir/term_util.vim	2019-06-23 00:49:28.789801219 +0200
+--- src/testdir/term_util.vim	2019-06-23 00:36:30.612802557 +0200
+***************
+*** 0 ****
+--- 1,106 ----
++ " Functions about terminal shared by several tests
++ 
++ " Only load this script once.
++ if exists('*CanRunVimInTerminal')
++   finish
++ endif
++ 
++ " For most tests we need to be able to run terminal Vim with 256 colors.  On
++ " MS-Windows the console only has 16 colors and the GUI can't run in a
++ " terminal.
++ func CanRunVimInTerminal()
++   return has('terminal') && !has('win32')
++ endfunc
++ 
++ " Skip the rest if there is no terminal feature at all.
++ if !has('terminal')
++   finish
++ endif
++ 
++ " Stops the shell running in terminal "buf".
++ func StopShellInTerminal(buf)
++   call term_sendkeys(a:buf, "exit\r")
++   let job = term_getjob(a:buf)
++   call WaitFor({-> job_status(job) == "dead"})
++ endfunc
++ 
++ " Run Vim with "arguments" in a new terminal window.
++ " By default uses a size of 20 lines and 75 columns.
++ " Returns the buffer number of the terminal.
++ "
++ " Options is a dictionary, these items are recognized:
++ " "rows" - height of the terminal window (max. 20)
++ " "cols" - width of the terminal window (max. 78)
++ " "statusoff" - number of lines the status is offset from default
++ func RunVimInTerminal(arguments, options)
++   " If Vim doesn't exit a swap file remains, causing other tests to fail.
++   " Remove it here.
++   call delete(".swp")
++ 
++   if exists('$COLORFGBG')
++     " Clear $COLORFGBG to avoid 'background' being set to "dark", which will
++     " only be corrected if the response to t_RB is received, which may be too
++     " late.
++     let $COLORFGBG = ''
++   endif
++ 
++   " Make a horizontal and vertical split, so that we can get exactly the right
++   " size terminal window.  Works only when the current window is full width.
++   call assert_equal(&columns, winwidth(0))
++   split
++   vsplit
++ 
++   " Always do this with 256 colors and a light background.
++   set t_Co=256 background=light
++   hi Normal ctermfg=NONE ctermbg=NONE
++ 
++   " Make the window 20 lines high and 75 columns, unless told otherwise.
++   let rows = get(a:options, 'rows', 20)
++   let cols = get(a:options, 'cols', 75)
++   let statusoff = get(a:options, 'statusoff', 1)
++ 
++   let cmd = GetVimCommandClean()
++ 
++   " Add -v to have gvim run in the terminal (if possible)
++   let cmd .= ' -v ' . a:arguments
++   let buf = term_start(cmd, {
++ 	\ 'curwin': 1,
++ 	\ 'term_rows': rows,
++ 	\ 'term_cols': cols,
++ 	\ })
++   if &termwinsize == ''
++     " in the GUI we may end up with a different size, try to set it.
++     if term_getsize(buf) != [rows, cols]
++       call term_setsize(buf, rows, cols)
++     endif
++     call assert_equal([rows, cols], term_getsize(buf))
++   else
++     let rows = term_getsize(buf)[0]
++     let cols = term_getsize(buf)[1]
++   endif
++ 
++   " Wait for "All" or "Top" of the ruler to be shown in the last line or in
++   " the status line of the last window. This can be quite slow (e.g. when
++   " using valgrind).
++   " If it fails then show the terminal contents for debugging.
++   try
++     call WaitFor({-> len(term_getline(buf, rows)) >= cols - 1 || len(term_getline(buf, rows - statusoff)) >= cols - 1})
++   catch /timed out after/
++     let lines = map(range(1, rows), {key, val -> term_getline(buf, val)})
++     call assert_report('RunVimInTerminal() failed, screen contents: ' . join(lines, "<NL>"))
++   endtry
++ 
++   return buf
++ endfunc
++ 
++ " Stop a Vim running in terminal buffer "buf".
++ func StopVimInTerminal(buf)
++   call assert_equal("running", term_getstatus(a:buf))
++ 
++   " CTRL-O : works both in Normal mode and Insert mode to start a command line.
++   " In Command-line it's inserted, the CTRL-U removes it again.
++   call term_sendkeys(a:buf, "\<C-O>:\<C-U>qa!\<cr>")
++ 
++   call WaitForAssert({-> assert_equal("finished", term_getstatus(a:buf))})
++   only!
++ endfunc
+*** ../vim-8.1.1580/src/testdir/test_mksession.vim	2019-06-15 17:57:43.972724036 +0200
+--- src/testdir/test_mksession.vim	2019-06-23 00:42:11.031495289 +0200
+***************
+*** 7,12 ****
+--- 7,13 ----
+  CheckFeature mksession
+  
+  source shared.vim
++ source term_util.vim
+  
+  func Test_mksession()
+    tabnew
+***************
+*** 338,344 ****
+    endfor
+    call assert_match('terminal ++curwin ++cols=\d\+ ++rows=\d\+\s*.*$', term_cmd)
+  
+!   call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+--- 339,345 ----
+    endfor
+    call assert_match('terminal ++curwin ++cols=\d\+ ++rows=\d\+\s*.*$', term_cmd)
+  
+!   call StopShellInTerminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+***************
+*** 353,359 ****
+      endif
+    endfor
+  
+!   call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+--- 354,360 ----
+      endif
+    endfor
+  
+!   call StopShellInTerminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+***************
+*** 368,374 ****
+      endif
+    endfor
+  
+!   call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+--- 369,375 ----
+      endif
+    endfor
+  
+!   call StopShellInTerminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+***************
+*** 384,390 ****
+      endif
+    endfor
+  
+!   call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+--- 385,391 ----
+      endif
+    endfor
+  
+!   call StopShellInTerminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+***************
+*** 400,406 ****
+      endif
+    endfor
+  
+!   call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+    set sessionoptions&
+  endfunc
+--- 401,407 ----
+      endif
+    endfor
+  
+!   call StopShellInTerminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+    set sessionoptions&
+  endfunc
+***************
+*** 418,424 ****
+    endfor
+    call assert_match('terminal ++curwin ++cols=\d\+ ++rows=\d\+.*other', term_cmd)
+  
+!   call Stop_shell_in_terminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+--- 419,425 ----
+    endfor
+    call assert_match('terminal ++curwin ++cols=\d\+ ++rows=\d\+.*other', term_cmd)
+  
+!   call StopShellInTerminal(bufnr('%'))
+    call delete('Xtest_mks.out')
+  endfunc
+  
+*** ../vim-8.1.1580/src/testdir/test_suspend.vim	2019-04-14 14:31:07.040828452 +0200
+--- src/testdir/test_suspend.vim	2019-06-23 00:42:41.503377715 +0200
+***************
+*** 1,6 ****
+--- 1,7 ----
+  " Test :suspend
+  
+  source shared.vim
++ source term_util.vim
+  
+  func CheckSuspended(buf, fileExists)
+    call WaitForAssert({-> assert_match('[$#] $', term_getline(a:buf, '.'))})
+***************
+*** 53,59 ****
+    " Quit gracefully to dump coverage information.
+    call term_sendkeys(buf, ":qall!\<CR>")
+    call term_wait(buf)
+!   call Stop_shell_in_terminal(buf)
+  
+    exe buf . 'bwipe!'
+    call delete('Xfoo')
+--- 54,60 ----
+    " Quit gracefully to dump coverage information.
+    call term_sendkeys(buf, ":qall!\<CR>")
+    call term_wait(buf)
+!   call StopShellInTerminal(buf)
+  
+    exe buf . 'bwipe!'
+    call delete('Xfoo')
+*** ../vim-8.1.1580/src/testdir/test_terminal.vim	2019-06-15 17:57:43.976724009 +0200
+--- src/testdir/test_terminal.vim	2019-06-23 00:33:50.085413348 +0200
+***************
+*** 52,58 ****
+    call assert_notmatch('%[^\n]*running]', execute('ls F'))
+    call assert_notmatch('%[^\n]*running]', execute('ls ?'))
+  
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    call assert_equal('n', mode())
+    call assert_match('%aF[^\n]*finished]', execute('ls'))
+--- 52,58 ----
+    call assert_notmatch('%[^\n]*running]', execute('ls F'))
+    call assert_notmatch('%[^\n]*running]', execute('ls ?'))
+  
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    call assert_equal('n', mode())
+    call assert_match('%aF[^\n]*finished]', execute('ls'))
+***************
+*** 70,76 ****
+  
+  func Test_terminal_make_change()
+    let buf = Run_shell_in_terminal({})
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+  
+    setlocal modifiable
+--- 70,76 ----
+  
+  func Test_terminal_make_change()
+    let buf = Run_shell_in_terminal({})
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+  
+    setlocal modifiable
+***************
+*** 134,140 ****
+    call assert_true(buflisted(buf))
+  
+    exe 'split ' . buf . 'buf'
+!   call Stop_shell_in_terminal(buf)
+    exe buf . 'bwipe'
+  
+    unlet g:job
+--- 134,140 ----
+    call assert_true(buflisted(buf))
+  
+    exe 'split ' . buf . 'buf'
+!   call StopShellInTerminal(buf)
+    exe buf . 'bwipe'
+  
+    unlet g:job
+***************
+*** 310,316 ****
+    let lines = line('$')
+    call assert_inrange(91, 100, lines)
+  
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+    set termwinscroll&
+--- 310,316 ----
+    let lines = line('$')
+    call assert_inrange(91, 100, lines)
+  
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+    set termwinscroll&
+***************
+*** 487,493 ****
+    call assert_equal(2, winnr('$'))
+    " Wait for the shell to display a prompt
+    call WaitForAssert({-> assert_notequal('', term_getline(buf, 1))})
+!   call Stop_shell_in_terminal(buf)
+    call WaitForAssert({-> assert_equal(1, winnr('$'))}, waittime)
+  
+    " shell terminal that does not close automatically
+--- 487,493 ----
+    call assert_equal(2, winnr('$'))
+    " Wait for the shell to display a prompt
+    call WaitForAssert({-> assert_notequal('', term_getline(buf, 1))})
+!   call StopShellInTerminal(buf)
+    call WaitForAssert({-> assert_equal(1, winnr('$'))}, waittime)
+  
+    " shell terminal that does not close automatically
+***************
+*** 496,502 ****
+    call assert_equal(2, winnr('$'))
+    " Wait for the shell to display a prompt
+    call WaitForAssert({-> assert_notequal('', term_getline(buf, 1))})
+!   call Stop_shell_in_terminal(buf)
+    call assert_equal(2, winnr('$'))
+    quit
+    call assert_equal(1, winnr('$'))
+--- 496,502 ----
+    call assert_equal(2, winnr('$'))
+    " Wait for the shell to display a prompt
+    call WaitForAssert({-> assert_notequal('', term_getline(buf, 1))})
+!   call StopShellInTerminal(buf)
+    call assert_equal(2, winnr('$'))
+    quit
+    call assert_equal(1, winnr('$'))
+***************
+*** 602,608 ****
+      call term_sendkeys(buf, "echo $" . a:name . "\r")
+    endif
+    call term_wait(buf)
+!   call Stop_shell_in_terminal(buf)
+    call WaitForAssert({-> assert_equal(a:value, getline(2))})
+  
+    exe buf . 'bwipe'
+--- 602,608 ----
+      call term_sendkeys(buf, "echo $" . a:name . "\r")
+    endif
+    call term_wait(buf)
+!   call StopShellInTerminal(buf)
+    call WaitForAssert({-> assert_equal(a:value, getline(2))})
+  
+    exe buf . 'bwipe'
+***************
+*** 619,625 ****
+      call term_sendkeys(buf, "echo $TESTENV\r")
+    endif
+    call term_wait(buf)
+!   call Stop_shell_in_terminal(buf)
+    call WaitForAssert({-> assert_equal('correct', getline(2))})
+  
+    exe buf . 'bwipe'
+--- 619,625 ----
+      call term_sendkeys(buf, "echo $TESTENV\r")
+    endif
+    call term_wait(buf)
+!   call StopShellInTerminal(buf)
+    call WaitForAssert({-> assert_equal('correct', getline(2))})
+  
+    exe buf . 'bwipe'
+***************
+*** 661,667 ****
+    call assert_match('done', line)
+  
+    let g:job = term_getjob(buf)
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    unlet g:job
+    bwipe
+--- 661,667 ----
+    call assert_match('done', line)
+  
+    let g:job = term_getjob(buf)
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    unlet g:job
+    bwipe
+***************
+*** 816,822 ****
+    endif
+  
+    call term_sendkeys(buf, "\r")
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+  
+    tunmap 123
+--- 816,822 ----
+    endif
+  
+    call term_sendkeys(buf, "\r")
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+  
+    tunmap 123
+***************
+*** 834,840 ****
+  func Test_terminal_wall()
+    let buf = Run_shell_in_terminal({})
+    wall
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+    unlet g:job
+--- 834,840 ----
+  func Test_terminal_wall()
+    let buf = Run_shell_in_terminal({})
+    wall
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+    unlet g:job
+***************
+*** 843,849 ****
+  func Test_terminal_wqall()
+    let buf = Run_shell_in_terminal({})
+    call assert_fails('wqall', 'E948')
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+    unlet g:job
+--- 843,849 ----
+  func Test_terminal_wqall()
+    let buf = Run_shell_in_terminal({})
+    call assert_fails('wqall', 'E948')
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+    unlet g:job
+***************
+*** 969,975 ****
+    " End "cat" gently.
+    call term_sendkeys(buf, "\<CR>\<C-D>")
+  
+!   call Stop_shell_in_terminal(buf)
+    exe buf . 'bwipe'
+    unlet g:job
+  endfunc
+--- 969,975 ----
+    " End "cat" gently.
+    call term_sendkeys(buf, "\<CR>\<C-D>")
+  
+!   call StopShellInTerminal(buf)
+    exe buf . 'bwipe'
+    unlet g:job
+  endfunc
+***************
+*** 1448,1454 ****
+  
+    let buf = Run_shell_in_terminal({})
+    call assert_equal(colors, term_getansicolors(buf))
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+  
+    exe buf . 'bwipe'
+--- 1448,1454 ----
+  
+    let buf = Run_shell_in_terminal({})
+    call assert_equal(colors, term_getansicolors(buf))
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+  
+    exe buf . 'bwipe'
+***************
+*** 1469,1475 ****
+    let g:terminal_ansi_colors = reverse(copy(s:test_colors))
+    let buf = Run_shell_in_terminal({})
+    call assert_equal(g:terminal_ansi_colors, term_getansicolors(buf))
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+  
+    exe buf . 'bwipe'
+--- 1469,1475 ----
+    let g:terminal_ansi_colors = reverse(copy(s:test_colors))
+    let buf = Run_shell_in_terminal({})
+    call assert_equal(g:terminal_ansi_colors, term_getansicolors(buf))
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+  
+    exe buf . 'bwipe'
+***************
+*** 1499,1505 ****
+    let colors[4] = 'Invalid'
+    call assert_fails('call term_setansicolors(buf, colors)', 'E474:')
+  
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  endfunc
+--- 1499,1505 ----
+    let colors[4] = 'Invalid'
+    call assert_fails('call term_setansicolors(buf, colors)', 'E474:')
+  
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  endfunc
+***************
+*** 1599,1605 ****
+    let buf = Run_shell_in_terminal({})
+    let win = bufwinid(buf)
+    call assert_equal([winheight(win), winwidth(win)], term_getsize(buf))
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+--- 1599,1605 ----
+    let buf = Run_shell_in_terminal({})
+    let win = bufwinid(buf)
+    call assert_equal([winheight(win), winwidth(win)], term_getsize(buf))
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+***************
+*** 1607,1613 ****
+    let buf = Run_shell_in_terminal({})
+    let win = bufwinid(buf)
+    call assert_equal([7, winwidth(win)], term_getsize(buf))
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+--- 1607,1613 ----
+    let buf = Run_shell_in_terminal({})
+    let win = bufwinid(buf)
+    call assert_equal([7, winwidth(win)], term_getsize(buf))
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+***************
+*** 1615,1621 ****
+    let buf = Run_shell_in_terminal({})
+    let win = bufwinid(buf)
+    call assert_equal([winheight(win), 33], term_getsize(buf))
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+--- 1615,1621 ----
+    let buf = Run_shell_in_terminal({})
+    let win = bufwinid(buf)
+    call assert_equal([winheight(win), 33], term_getsize(buf))
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+***************
+*** 1645,1651 ****
+    call assert_equal(7, winheight(win))
+    call assert_equal(30, winwidth(win))
+  
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+--- 1645,1651 ----
+    call assert_equal(7, winheight(win))
+    call assert_equal(30, winwidth(win))
+  
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+***************
+*** 1653,1659 ****
+    let buf = Run_shell_in_terminal({})
+    let win = bufwinid(buf)
+    call assert_equal([winheight(win), winwidth(win)], term_getsize(buf))
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+--- 1653,1659 ----
+    let buf = Run_shell_in_terminal({})
+    let win = bufwinid(buf)
+    call assert_equal([winheight(win), winwidth(win)], term_getsize(buf))
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+    exe buf . 'bwipe'
+  
+***************
+*** 1791,1797 ****
+  
+    call assert_equal(1, winnr('$'))
+    let buf = Run_shell_in_terminal({'term_finish': 'close'})
+!   call Stop_shell_in_terminal(buf)
+    call term_wait(buf)
+  
+    " closing window wipes out the terminal buffer a with finished job
+--- 1791,1797 ----
+  
+    call assert_equal(1, winnr('$'))
+    let buf = Run_shell_in_terminal({'term_finish': 'close'})
+!   call StopShellInTerminal(buf)
+    call term_wait(buf)
+  
+    " closing window wipes out the terminal buffer a with finished job
+***************
+*** 1972,1978 ****
+    call WaitForAssert({-> assert_equal([0, 3],
+    \ [term_getcursor(buf)[2].blink, term_getcursor(buf)[2].shape])})
+  
+!   call Stop_shell_in_terminal(buf)
+  endfunc
+  
+  func Test_term_gettitle()
+--- 1972,1978 ----
+    call WaitForAssert({-> assert_equal([0, 3],
+    \ [term_getcursor(buf)[2].blink, term_getcursor(buf)[2].shape])})
+  
+!   call StopShellInTerminal(buf)
+  endfunc
+  
+  func Test_term_gettitle()
+*** ../vim-8.1.1580/src/testdir/test_timers.vim	2019-06-22 01:40:38.169537422 +0200
+--- src/testdir/test_timers.vim	2019-06-23 00:40:58.155776133 +0200
+***************
+*** 4,10 ****
+  CheckFeature timers
+  
+  source shared.vim
+! source screendump.vim
+  
+  func MyHandler(timer)
+    let g:val += 1
+--- 4,10 ----
+  CheckFeature timers
+  
+  source shared.vim
+! source term_util.vim
+  
+  func MyHandler(timer)
+    let g:val += 1
+*** ../vim-8.1.1580/src/testdir/view_util.vim	2019-03-30 15:44:14.023783571 +0100
+--- src/testdir/view_util.vim	2019-06-23 00:33:50.085413348 +0200
+***************
+*** 1,10 ****
+  " Functions about view shared by several tests
+  
+  " Only load this script once.
+! if exists('*ScreenLines')
+    finish
+  endif
+  
+  " Get text on the screen, including composing characters.
+  " ScreenLines(lnum, width) or
+  " ScreenLines([start, end], width)
+--- 1,21 ----
+  " Functions about view shared by several tests
+  
+  " Only load this script once.
+! if exists('*Screenline')
+    finish
+  endif
+  
++ " Get line "lnum" as displayed on the screen.
++ " Trailing white space is trimmed.
++ func Screenline(lnum)
++   let chars = []
++   for c in range(1, winwidth(0))
++     call add(chars, nr2char(screenchar(a:lnum, c)))
++   endfor
++   let line = join(chars, '')
++   return matchstr(line, '^.\{-}\ze\s*$')
++ endfunc
++ 
+  " Get text on the screen, including composing characters.
+  " ScreenLines(lnum, width) or
+  " ScreenLines([start, end], width)
+*** ../vim-8.1.1580/src/version.c	2019-06-23 00:15:02.581534910 +0200
+--- src/version.c	2019-06-23 00:48:48.009959437 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1581,
+  /**/
+
+-- 
+If VIM were a woman, I'd marry her.  Slim, organized, helpful
+and beautiful; what's not to like?     --David A. Rogers
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

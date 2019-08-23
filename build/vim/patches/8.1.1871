@@ -1,0 +1,168 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1871
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1871 (after 8.1.1866)
+Problem:    Modeless selection in GUI still not correct.
+Solution:   Fix max_col.
+Files:	    src/ui.c
+
+
+*** ../vim-8.1.1870/src/ui.c	2019-08-16 23:09:08.018393334 +0200
+--- src/ui.c	2019-08-17 16:03:39.505575237 +0200
+***************
+*** 1098,1105 ****
+  	// Click in a popup window restricts selection to that window,
+  	// excluding the border.
+  	cb->min_col = wp->w_wincol + wp->w_popup_border[3];
+! 	cb->max_col = wp->w_wincol + popup_width(wp) - 1
+! 						   - wp->w_popup_border[1];
+  	cb->min_row = wp->w_winrow + wp->w_popup_border[0];
+  	cb->max_row = wp->w_winrow + popup_height(wp) - 1
+  						   - wp->w_popup_border[2];
+--- 1098,1106 ----
+  	// Click in a popup window restricts selection to that window,
+  	// excluding the border.
+  	cb->min_col = wp->w_wincol + wp->w_popup_border[3];
+! 	cb->max_col = wp->w_wincol + popup_width(wp) - wp->w_popup_border[1];
+! 	if (cb->max_col > screen_Columns)
+! 	    cb->max_col = screen_Columns;
+  	cb->min_row = wp->w_winrow + wp->w_popup_border[0];
+  	cb->max_row = wp->w_winrow + popup_height(wp) - 1
+  						   - wp->w_popup_border[2];
+***************
+*** 1440,1446 ****
+      int		max_col;
+  
+  #ifdef FEAT_TEXT_PROP
+!     max_col = cbd->max_col;
+  #else
+      max_col = Columns - 1;
+  #endif
+--- 1441,1447 ----
+      int		max_col;
+  
+  #ifdef FEAT_TEXT_PROP
+!     max_col = cbd->max_col - 1;
+  #else
+      max_col = Columns - 1;
+  #endif
+***************
+*** 1519,1526 ****
+  	width -= cbd->min_col - col;
+  	col = cbd->min_col;
+      }
+!     if (width > cbd->max_col - col + 1)
+! 	width = cbd->max_col - col + 1;
+      if (row < cbd->min_row)
+      {
+  	height -= cbd->min_row - row;
+--- 1520,1527 ----
+  	width -= cbd->min_col - col;
+  	col = cbd->min_col;
+      }
+!     if (width > cbd->max_col - col)
+! 	width = cbd->max_col - col;
+      if (row < cbd->min_row)
+      {
+  	height -= cbd->min_row - row;
+***************
+*** 1581,1588 ****
+  #ifdef FEAT_TEXT_PROP
+      if (col1 < clip_star.min_col)
+  	col1 = clip_star.min_col;
+!     if (col2 > clip_star.max_col + 1)
+! 	col2 = clip_star.max_col + 1;
+      if (row1 < clip_star.min_row)
+  	row1 = clip_star.min_row;
+      if (row2 > clip_star.max_row)
+--- 1582,1589 ----
+  #ifdef FEAT_TEXT_PROP
+      if (col1 < clip_star.min_col)
+  	col1 = clip_star.min_col;
+!     if (col2 > clip_star.max_col)
+! 	col2 = clip_star.max_col;
+      if (row1 < clip_star.min_row)
+  	row1 = clip_star.min_row;
+      if (row2 > clip_star.max_row)
+***************
+*** 1619,1637 ****
+  
+  	if (row == row2)
+  	    end_col = col2;
+- #ifdef FEAT_TEXT_PROP
+- 	else if (clip_star.max_col < Columns)
+- 	    end_col = clip_star.max_col + 1;
+- #endif
+  	else
+  	    end_col = Columns;
+  
+  	line_end_col = clip_get_line_end(&clip_star, row);
+  
+  	/* See if we need to nuke some trailing whitespace */
+  	if (end_col >=
+  #ifdef FEAT_TEXT_PROP
+! 		clip_star.max_col + 1
+  #else
+  		Columns
+  #endif
+--- 1620,1638 ----
+  
+  	if (row == row2)
+  	    end_col = col2;
+  	else
++ #ifdef FEAT_TEXT_PROP
++ 	    end_col = clip_star.max_col;
++ #else
+  	    end_col = Columns;
++ #endif
+  
+  	line_end_col = clip_get_line_end(&clip_star, row);
+  
+  	/* See if we need to nuke some trailing whitespace */
+  	if (end_col >=
+  #ifdef FEAT_TEXT_PROP
+! 		clip_star.max_col
+  #else
+  		Columns
+  #endif
+***************
+*** 1797,1803 ****
+  	return 0;
+      for (i =
+  #ifdef FEAT_TEXT_PROP
+! 	    cbd->max_col >= screen_Columns ? screen_Columns : cbd->max_col + 1;
+  #else
+  	    screen_Columns;
+  #endif
+--- 1798,1804 ----
+  	return 0;
+      for (i =
+  #ifdef FEAT_TEXT_PROP
+! 	    cbd->max_col;
+  #else
+  	    screen_Columns;
+  #endif
+*** ../vim-8.1.1870/src/version.c	2019-08-17 15:07:56.919054146 +0200
+--- src/version.c	2019-08-17 16:15:12.473597803 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1871,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+82. AT&T names you Customer of the Month for the third consecutive time.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

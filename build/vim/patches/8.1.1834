@@ -1,0 +1,330 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1834
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1834
+Problem:    Cannot use a lambda as a method.
+Solution:   Implement ->{lambda}(). (closes #4768)
+Files:	    runtime/doc/eval.txt, src/eval.c, src/testdir/test_method.vim
+
+
+*** ../vim-8.1.1833/runtime/doc/eval.txt	2019-08-08 21:09:56.587423863 +0200
+--- runtime/doc/eval.txt	2019-08-09 22:39:48.024154436 +0200
+***************
+*** 1217,1223 ****
+  When expr8 is a |Funcref| type variable, invoke the function it refers to.
+  
+  
+! expr8->name([args])	method call			*method*
+  
+  For methods that are also available as global functions this is the same as: >
+  	name(expr8 [, args])
+--- 1217,1224 ----
+  When expr8 is a |Funcref| type variable, invoke the function it refers to.
+  
+  
+! expr8->name([args])	method call			*method* *->*
+! expr8->{lambda}([args])
+  
+  For methods that are also available as global functions this is the same as: >
+  	name(expr8 [, args])
+***************
+*** 1227,1232 ****
+--- 1228,1236 ----
+  next method: >
+  	mylist->filter(filterexpr)->map(mapexpr)->sort()->join()
+  <
++ Example of using a lambda: >
++ 	GetPercentage->{x -> x * 100}()->printf('%d%%')
++ 
+  							*E274*
+  "->name(" must not contain white space.  There can be white space before the
+  "->" and after the "(", thus you can split the lines like this: >
+*** ../vim-8.1.1833/src/eval.c	2019-08-08 21:09:56.587423863 +0200
+--- src/eval.c	2019-08-09 22:42:11.163517331 +0200
+***************
+*** 32,37 ****
+--- 32,38 ----
+  #ifdef FEAT_FLOAT
+  static char *e_float_as_string = N_("E806: using Float as a String");
+  #endif
++ static char *e_nowhitespace = N_("E274: No white space allowed before parenthesis");
+  
+  #define NAMESPACE_CHAR	(char_u *)"abglstvw"
+  
+***************
+*** 3693,3699 ****
+  	vim_memset(&funcexe, 0, sizeof(funcexe));
+  	funcexe.firstline = curwin->w_cursor.lnum;
+  	funcexe.lastline = curwin->w_cursor.lnum;
+- 	funcexe.doesrange = &len;
+  	funcexe.evaluate = evaluate;
+  	funcexe.partial = partial;
+  	funcexe.basetv = basetv;
+--- 3694,3699 ----
+***************
+*** 4822,4827 ****
+--- 4822,4916 ----
+  }
+  
+  /*
++  * Call the function referred to in "rettv".
++  */
++     static int
++ call_func_rettv(
++ 	char_u	    **arg,
++ 	typval_T    *rettv,
++ 	int	    evaluate,
++ 	dict_T	    *selfdict,
++ 	typval_T    *basetv)
++ {
++     partial_T	*pt = NULL;
++     funcexe_T	funcexe;
++     typval_T	functv;
++     char_u	*s;
++     int		ret;
++ 
++     // need to copy the funcref so that we can clear rettv
++     if (evaluate)
++     {
++ 	functv = *rettv;
++ 	rettv->v_type = VAR_UNKNOWN;
++ 
++ 	/* Invoke the function.  Recursive! */
++ 	if (functv.v_type == VAR_PARTIAL)
++ 	{
++ 	    pt = functv.vval.v_partial;
++ 	    s = partial_name(pt);
++ 	}
++ 	else
++ 	    s = functv.vval.v_string;
++     }
++     else
++ 	s = (char_u *)"";
++ 
++     vim_memset(&funcexe, 0, sizeof(funcexe));
++     funcexe.firstline = curwin->w_cursor.lnum;
++     funcexe.lastline = curwin->w_cursor.lnum;
++     funcexe.evaluate = evaluate;
++     funcexe.partial = pt;
++     funcexe.selfdict = selfdict;
++     funcexe.basetv = basetv;
++     ret = get_func_tv(s, -1, rettv, arg, &funcexe);
++ 
++     /* Clear the funcref afterwards, so that deleting it while
++      * evaluating the arguments is possible (see test55). */
++     if (evaluate)
++ 	clear_tv(&functv);
++ 
++     return ret;
++ }
++ 
++ /*
++  * Evaluate "->method()".
++  * "*arg" points to the '-'.
++  * Returns FAIL or OK. "*arg" is advanced to after the ')'.
++  */
++     static int
++ eval_lambda(
++     char_u	**arg,
++     typval_T	*rettv,
++     int		evaluate,
++     int		verbose)	/* give error messages */
++ {
++     typval_T	base = *rettv;
++     int		ret;
++ 
++     // Skip over the ->.
++     *arg += 2;
++     rettv->v_type = VAR_UNKNOWN;
++ 
++     ret = get_lambda_tv(arg, rettv, evaluate);
++     if (ret == NOTDONE)
++ 	return FAIL;
++     else if (**arg != '(')
++     {
++ 	if (verbose)
++ 	{
++ 	    if (*skipwhite(*arg) == '(')
++ 		semsg(_(e_nowhitespace));
++ 	    else
++ 		semsg(_(e_missingparen), "lambda");
++ 	}
++ 	clear_tv(rettv);
++ 	return FAIL;
++     }
++     return call_func_rettv(arg, rettv, evaluate, NULL, &base);
++ }
++ 
++ /*
+   * Evaluate "->method()".
+   * "*arg" points to the '-'.
+   * Returns FAIL or OK. "*arg" is advanced to after the ')'.
+***************
+*** 4865,4879 ****
+  	else if (VIM_ISWHITE((*arg)[-1]))
+  	{
+  	    if (verbose)
+! 		semsg(_("E274: No white space allowed before parenthesis"));
+  	    ret = FAIL;
+  	}
+  	else
+  	    ret = eval_func(arg, name, len, rettv, evaluate, &base);
+      }
+  
+!     /* Clear the funcref afterwards, so that deleting it while
+!      * evaluating the arguments is possible (see test55). */
+      if (evaluate)
+  	clear_tv(&base);
+  
+--- 4954,4968 ----
+  	else if (VIM_ISWHITE((*arg)[-1]))
+  	{
+  	    if (verbose)
+! 		semsg(_(e_nowhitespace));
+  	    ret = FAIL;
+  	}
+  	else
+  	    ret = eval_func(arg, name, len, rettv, evaluate, &base);
+      }
+  
+!     // Clear the funcref afterwards, so that deleting it while
+!     // evaluating the arguments is possible (see test55).
+      if (evaluate)
+  	clear_tv(&base);
+  
+***************
+*** 7455,7462 ****
+  {
+      int		ret = OK;
+      dict_T	*selfdict = NULL;
+-     char_u	*s;
+-     typval_T	functv;
+  
+      // "." is ".name" lookup when we found a dict or when evaluating and
+      // scriptversion is at least 2, where string concatenation is "..".
+--- 7544,7549 ----
+***************
+*** 7473,7515 ****
+      {
+  	if (**arg == '(')
+  	{
+! 	    partial_T	*pt = NULL;
+! 	    funcexe_T	funcexe;
+! 
+! 	    /* need to copy the funcref so that we can clear rettv */
+! 	    if (evaluate)
+! 	    {
+! 		functv = *rettv;
+! 		rettv->v_type = VAR_UNKNOWN;
+! 
+! 		/* Invoke the function.  Recursive! */
+! 		if (functv.v_type == VAR_PARTIAL)
+! 		{
+! 		    pt = functv.vval.v_partial;
+! 		    s = partial_name(pt);
+! 		}
+! 		else
+! 		    s = functv.vval.v_string;
+! 	    }
+! 	    else
+! 		s = (char_u *)"";
+! 
+! 	    vim_memset(&funcexe, 0, sizeof(funcexe));
+! 	    funcexe.firstline = curwin->w_cursor.lnum;
+! 	    funcexe.lastline = curwin->w_cursor.lnum;
+! 	    funcexe.evaluate = evaluate;
+! 	    funcexe.partial = pt;
+! 	    funcexe.selfdict = selfdict;
+! 	    ret = get_func_tv(s, -1, rettv, arg, &funcexe);
+! 
+! 	    /* Clear the funcref afterwards, so that deleting it while
+! 	     * evaluating the arguments is possible (see test55). */
+! 	    if (evaluate)
+! 		clear_tv(&functv);
+  
+! 	    /* Stop the expression evaluation when immediately aborting on
+! 	     * error, or when an interrupt occurred or an exception was thrown
+! 	     * but not caught. */
+  	    if (aborting())
+  	    {
+  		if (ret == OK)
+--- 7560,7570 ----
+      {
+  	if (**arg == '(')
+  	{
+! 	    ret = call_func_rettv(arg, rettv, evaluate, selfdict, NULL);
+  
+! 	    // Stop the expression evaluation when immediately aborting on
+! 	    // error, or when an interrupt occurred or an exception was thrown
+! 	    // but not caught.
+  	    if (aborting())
+  	    {
+  		if (ret == OK)
+***************
+*** 7521,7531 ****
+  	}
+  	else if (**arg == '-')
+  	{
+! 	    if (eval_method(arg, rettv, evaluate, verbose) == FAIL)
+! 	    {
+! 		clear_tv(rettv);
+! 		ret = FAIL;
+! 	    }
+  	}
+  	else /* **arg == '[' || **arg == '.' */
+  	{
+--- 7576,7587 ----
+  	}
+  	else if (**arg == '-')
+  	{
+! 	    if ((*arg)[2] == '{')
+! 		// expr->{lambda}()
+! 		ret = eval_lambda(arg, rettv, evaluate, verbose);
+! 	    else
+! 		// expr->name()
+! 		ret = eval_method(arg, rettv, evaluate, verbose);
+  	}
+  	else /* **arg == '[' || **arg == '.' */
+  	{
+*** ../vim-8.1.1833/src/testdir/test_method.vim	2019-08-08 21:09:56.587423863 +0200
+--- src/testdir/test_method.vim	2019-08-09 22:30:44.738539549 +0200
+***************
+*** 122,124 ****
+--- 122,134 ----
+    call assert_fails('eval [1, 2, 3]->sort ()', 'E274:')
+    call assert_fails('eval [1, 2, 3]-> sort ()', 'E260:')
+  endfunc
++ 
++ func Test_method_lambda()
++   eval "text"->{x -> x .. " extended"}()->assert_equal('text extended')
++   eval "text"->{x, y -> x .. " extended " .. y}('more')->assert_equal('text extended more')
++ 
++   call assert_fails('eval "text"->{x -> x .. " extended"} ()', 'E274:')
++ 
++   " todo: lambda accepts more arguments than it consumes
++   " call assert_fails('eval "text"->{x -> x .. " extended"}("more")', 'E99:')
++ endfunc
+*** ../vim-8.1.1833/src/version.c	2019-08-09 17:00:58.600643013 +0200
+--- src/version.c	2019-08-09 22:43:21.755202348 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1834,
+  /**/
+
+-- 
+You have the right to remain silent. Anything you say will be
+misquoted, then used against you.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

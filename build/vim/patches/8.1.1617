@@ -1,0 +1,658 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1617
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1617
+Problem:    No test for popup window with mask and position fixed.
+Solution:   Add a couple of screenshots.  Fix deteced problems.
+Files:	    src/popupwin.c, src/structs.h, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_mask_1.dump,
+            src/testdir/dumps/Test_popupwin_mask_2.dump,
+            src/testdir/dumps/Test_popupwin_mask_3.dump,
+            src/testdir/dumps/Test_popupwin_mask_4.dump
+
+
+*** ../vim-8.1.1616/src/popupwin.c	2019-07-01 22:20:57.200052881 +0200
+--- src/popupwin.c	2019-07-02 23:12:45.060607518 +0200
+***************
+*** 700,738 ****
+  }
+  
+  /*
+   * Return the height of popup window "wp", including border and padding.
+   */
+      int
+  popup_height(win_T *wp)
+  {
+      return wp->w_height
+! 	+ wp->w_popup_padding[0] + wp->w_popup_border[0]
+  	+ wp->w_popup_padding[2] + wp->w_popup_border[2];
+  }
+  
+  /*
+!  * Return the width of popup window "wp", including border and padding.
+   */
+      int
+  popup_width(win_T *wp)
+  {
+!     return wp->w_width
+  	+ wp->w_popup_padding[3] + wp->w_popup_border[3]
+  	+ wp->w_popup_padding[1] + wp->w_popup_border[1]
+! 	+ wp->w_has_scrollbar;
+! }
+! 
+! /*
+!  * Get the padding plus border at the top, adjusted to 1 if there is a title.
+!  */
+!     static int
+! popup_top_extra(win_T *wp)
+! {
+!     int	extra = wp->w_popup_border[0] + wp->w_popup_padding[0];
+! 
+!     if (extra == 0 && wp->w_popup_title != NULL && *wp->w_popup_title != NUL)
+! 	return 1;
+!     return extra;
+  }
+  
+  /*
+--- 700,740 ----
+  }
+  
+  /*
++  * Get the padding plus border at the top, adjusted to 1 if there is a title.
++  */
++     static int
++ popup_top_extra(win_T *wp)
++ {
++     int	extra = wp->w_popup_border[0] + wp->w_popup_padding[0];
++ 
++     if (extra == 0 && wp->w_popup_title != NULL && *wp->w_popup_title != NUL)
++ 	return 1;
++     return extra;
++ }
++ 
++ /*
+   * Return the height of popup window "wp", including border and padding.
+   */
+      int
+  popup_height(win_T *wp)
+  {
+      return wp->w_height
+! 	+ popup_top_extra(wp)
+  	+ wp->w_popup_padding[2] + wp->w_popup_border[2];
+  }
+  
+  /*
+!  * Return the width of popup window "wp", including border, padding and
+!  * scrollbar.
+   */
+      int
+  popup_width(win_T *wp)
+  {
+!     return wp->w_width + wp->w_leftcol
+  	+ wp->w_popup_padding[3] + wp->w_popup_border[3]
+  	+ wp->w_popup_padding[1] + wp->w_popup_border[1]
+! 	+ wp->w_has_scrollbar
+! 	+ wp->w_popup_rightoff;
+  }
+  
+  /*
+***************
+*** 744,749 ****
+--- 746,752 ----
+      linenr_T	lnum;
+      int		wrapped = 0;
+      int		maxwidth;
++     int		maxspace;
+      int		center_vert = FALSE;
+      int		center_hor = FALSE;
+      int		allow_adjust_left = !wp->w_popup_fixed;
+***************
+*** 758,768 ****
+--- 761,774 ----
+      int		org_width = wp->w_width;
+      int		org_height = wp->w_height;
+      int		org_leftcol = wp->w_leftcol;
++     int		org_leftoff = wp->w_popup_leftoff;
+      int		minwidth;
+  
+      wp->w_winrow = 0;
+      wp->w_wincol = 0;
+      wp->w_leftcol = 0;
++     wp->w_popup_leftoff = 0;
++     wp->w_popup_rightoff = 0;
+      if (wp->w_popup_pos == POPPOS_CENTER)
+      {
+  	// center after computing the size
+***************
+*** 795,801 ****
+      // When centering or right aligned, use maximum width.
+      // When left aligned use the space available, but shift to the left when we
+      // hit the right of the screen.
+!     maxwidth = Columns - wp->w_wincol - left_extra;
+      if (wp->w_maxwidth > 0 && maxwidth > wp->w_maxwidth)
+      {
+  	allow_adjust_left = FALSE;
+--- 801,808 ----
+      // When centering or right aligned, use maximum width.
+      // When left aligned use the space available, but shift to the left when we
+      // hit the right of the screen.
+!     maxspace = Columns - wp->w_wincol - left_extra;
+!     maxwidth = maxspace;
+      if (wp->w_maxwidth > 0 && maxwidth > wp->w_maxwidth)
+      {
+  	allow_adjust_left = FALSE;
+***************
+*** 868,874 ****
+--- 875,886 ----
+      if (minwidth > 0 && wp->w_width < minwidth)
+  	wp->w_width = minwidth;
+      if (wp->w_width > maxwidth)
++     {
++ 	if (wp->w_width > maxspace)
++ 	    // some columns cut off on the right
++ 	    wp->w_popup_rightoff = wp->w_width - maxspace;
+  	wp->w_width = maxwidth;
++     }
+      if (center_hor)
+      {
+  	wp->w_wincol = (Columns - wp->w_width - extra_width) / 2;
+***************
+*** 887,895 ****
+  	else if (wp->w_popup_fixed)
+  	{
+  	    // "col" specifies the right edge, but popup doesn't fit, skip some
+! 	    // columns when displaying the window.
+! 	    wp->w_leftcol = -leftoff;
+! 	    wp->w_width += leftoff;
+  	    if (wp->w_width < 0)
+  		wp->w_width = 0;
+  	}
+--- 899,910 ----
+  	else if (wp->w_popup_fixed)
+  	{
+  	    // "col" specifies the right edge, but popup doesn't fit, skip some
+! 	    // columns when displaying the window, minus left border and
+! 	    // padding.
+! 	    if (-leftoff > left_extra)
+! 		wp->w_leftcol = -leftoff - left_extra;
+! 	    wp->w_width -= wp->w_leftcol;
+! 	    wp->w_popup_leftoff = -leftoff;
+  	    if (wp->w_width < 0)
+  		wp->w_width = 0;
+  	}
+***************
+*** 928,933 ****
+--- 943,949 ----
+      if (org_winrow != wp->w_winrow
+  	    || org_wincol != wp->w_wincol
+  	    || org_leftcol != wp->w_leftcol
++ 	    || org_leftoff != wp->w_popup_leftoff
+  	    || org_width != wp->w_width
+  	    || org_height != wp->w_height)
+      {
+***************
+*** 2066,2072 ****
+      static int
+  popup_masked(win_T *wp, int screencol, int screenline)
+  {
+!     int		col = screencol - wp->w_wincol + 1 + wp->w_leftcol;
+      int		line = screenline - wp->w_winrow + 1;
+      listitem_T	*lio, *li;
+      int		width, height;
+--- 2082,2088 ----
+      static int
+  popup_masked(win_T *wp, int screencol, int screenline)
+  {
+!     int		col = screencol - wp->w_wincol + 1 + wp->w_popup_leftoff;
+      int		line = screenline - wp->w_winrow + 1;
+      listitem_T	*lio, *li;
+      int		width, height;
+***************
+*** 2145,2154 ****
+  		linee = height + linee + 1;
+  
+  	    --cols;
+! 	    cols -= wp->w_leftcol;
+  	    if (cols < 0)
+  		cols = 0;
+! 	    cole -= wp->w_leftcol;
+  	    --lines;
+  	    if (lines < 0)
+  		lines = 0;
+--- 2161,2170 ----
+  		linee = height + linee + 1;
+  
+  	    --cols;
+! 	    cols -= wp->w_popup_leftoff;
+  	    if (cols < 0)
+  		cols = 0;
+! 	    cole -= wp->w_popup_leftoff;
+  	    --lines;
+  	    if (lines < 0)
+  		lines = 0;
+***************
+*** 2215,2222 ****
+      popup_reset_handled();
+      while ((wp = find_next_popup(TRUE)) != NULL)
+      {
+! 	int height = popup_height(wp);
+! 	int width = popup_width(wp);
+  
+  	popup_visible = TRUE;
+  
+--- 2231,2238 ----
+      popup_reset_handled();
+      while ((wp = find_next_popup(TRUE)) != NULL)
+      {
+! 	int height;
+! 	int width;
+  
+  	popup_visible = TRUE;
+  
+***************
+*** 2225,2230 ****
+--- 2241,2248 ----
+  		|| wp->w_popup_last_changedtick != CHANGEDTICK(wp->w_buffer))
+  	    popup_adjust_position(wp);
+  
++ 	height = popup_height(wp);
++ 	width = popup_width(wp) - wp->w_popup_leftoff;
+  	for (line = wp->w_winrow;
+  		line < wp->w_winrow + height && line < screen_Rows; ++line)
+  	    for (col = wp->w_wincol;
+***************
+*** 2310,2316 ****
+  {
+      win_T   *wp;
+      int	    top_off;
+!     int	    left_off;
+      int	    total_width;
+      int	    total_height;
+      int	    top_padding;
+--- 2328,2334 ----
+  {
+      win_T   *wp;
+      int	    top_off;
+!     int	    left_extra;
+      int	    total_width;
+      int	    total_height;
+      int	    top_padding;
+***************
+*** 2319,2324 ****
+--- 2337,2344 ----
+      int	    border_char[8];
+      char_u  buf[MB_MAXBYTES];
+      int	    row;
++     int	    padcol = 0;
++     int	    padwidth = 0;
+      int	    i;
+      int	    sb_thumb_top = 0;
+      int	    sb_thumb_height = 0;
+***************
+*** 2342,2363 ****
+  	// adjust w_winrow and w_wincol for border and padding, since
+  	// win_update() doesn't handle them.
+  	top_off = popup_top_extra(wp);
+! 	left_off = wp->w_popup_padding[3] + wp->w_popup_border[3];
+  	wp->w_winrow += top_off;
+! 	wp->w_wincol += left_off;
+  
+  	// Draw the popup text, unless it's off screen.
+  	if (wp->w_winrow < screen_Rows && wp->w_wincol < screen_Columns)
+  	    win_update(wp);
+  
+  	wp->w_winrow -= top_off;
+! 	wp->w_wincol -= left_off;
+  
+! 	total_width = wp->w_popup_border[3] + wp->w_popup_padding[3]
+! 		+ wp->w_width + wp->w_popup_padding[1] + wp->w_popup_border[1]
+! 		+ wp->w_has_scrollbar;
+! 	total_height = popup_top_extra(wp)
+! 		+ wp->w_height + wp->w_popup_padding[2] + wp->w_popup_border[2];
+  	popup_attr = get_wcr_attr(wp);
+  
+  	// We can only use these line drawing characters when 'encoding' is
+--- 2362,2383 ----
+  	// adjust w_winrow and w_wincol for border and padding, since
+  	// win_update() doesn't handle them.
+  	top_off = popup_top_extra(wp);
+! 	left_extra = wp->w_popup_padding[3] + wp->w_popup_border[3]
+! 							 - wp->w_popup_leftoff;
+! 	if (wp->w_wincol + left_extra < 0)
+! 	    left_extra = -wp->w_wincol;
+  	wp->w_winrow += top_off;
+! 	wp->w_wincol += left_extra;
+  
+  	// Draw the popup text, unless it's off screen.
+  	if (wp->w_winrow < screen_Rows && wp->w_wincol < screen_Columns)
+  	    win_update(wp);
+  
+  	wp->w_winrow -= top_off;
+! 	wp->w_wincol -= left_extra;
+  
+! 	total_width = popup_width(wp);
+! 	total_height = popup_height(wp);
+  	popup_attr = get_wcr_attr(wp);
+  
+  	// We can only use these line drawing characters when 'encoding' is
+***************
+*** 2409,2422 ****
+  	else if (wp->w_popup_padding[0] == 0 && popup_top_extra(wp) > 0)
+  	    top_padding = 1;
+  
+  	if (top_padding > 0)
+  	{
+  	    // top padding
+  	    row = wp->w_winrow + wp->w_popup_border[0];
+! 	    screen_fill(row, row + top_padding,
+! 		    wp->w_wincol + wp->w_popup_border[3],
+! 		    wp->w_wincol + total_width - wp->w_popup_border[1]
+! 							- wp->w_has_scrollbar,
+  							 ' ', ' ', popup_attr);
+  	}
+  
+--- 2429,2450 ----
+  	else if (wp->w_popup_padding[0] == 0 && popup_top_extra(wp) > 0)
+  	    top_padding = 1;
+  
++ 	if (top_padding > 0 || wp->w_popup_padding[2] > 0)
++ 	{
++ 	    padcol = wp->w_wincol - wp->w_popup_leftoff + wp->w_popup_border[3];
++ 	    padwidth = wp->w_wincol + total_width - wp->w_popup_border[1]
++ 							 - wp->w_has_scrollbar;
++ 	    if (padcol < 0)
++ 	    {
++ 		padwidth += padcol;
++ 		padcol = 0;
++ 	    }
++ 	}
+  	if (top_padding > 0)
+  	{
+  	    // top padding
+  	    row = wp->w_winrow + wp->w_popup_border[0];
+! 	    screen_fill(row, row + top_padding, padcol, padwidth,
+  							 ' ', ' ', popup_attr);
+  	}
+  
+***************
+*** 2450,2467 ****
+  	for (i = wp->w_popup_border[0];
+  				 i < total_height - wp->w_popup_border[2]; ++i)
+  	{
+  	    row = wp->w_winrow + i;
+  
+  	    // left border
+! 	    if (wp->w_popup_border[3] > 0)
+  	    {
+  		buf[mb_char2bytes(border_char[3], buf)] = NUL;
+! 		screen_puts(buf, row, wp->w_wincol, border_attr[3]);
+  	    }
+- 	    // left padding
+- 	    if (wp->w_popup_padding[3] > 0)
+- 		screen_puts(get_spaces(wp->w_popup_padding[3]), row,
+- 			wp->w_wincol + wp->w_popup_border[3], popup_attr);
+  	    // scrollbar
+  	    if (wp->w_has_scrollbar)
+  	    {
+--- 2478,2512 ----
+  	for (i = wp->w_popup_border[0];
+  				 i < total_height - wp->w_popup_border[2]; ++i)
+  	{
++ 	    int	pad_left;
++ 	    int col = wp->w_wincol - wp->w_popup_leftoff;
++ 	    // left and right padding only needed next to the body
++ 	    int do_padding =
++ 		    i >= wp->w_popup_border[0] + wp->w_popup_padding[0]
++ 		    && i < total_height - wp->w_popup_border[2]
++ 						 - wp->w_popup_padding[2];
++ 
+  	    row = wp->w_winrow + i;
+  
+  	    // left border
+! 	    if (wp->w_popup_border[3] > 0 && col >= 0)
+  	    {
+  		buf[mb_char2bytes(border_char[3], buf)] = NUL;
+! 		screen_puts(buf, row, col, border_attr[3]);
+! 	    }
+! 	    if (do_padding && wp->w_popup_padding[3] > 0)
+! 	    {
+! 		// left padding
+! 		col += wp->w_popup_border[3];
+! 		pad_left = wp->w_popup_padding[3];
+! 		if (col < 0)
+! 		{
+! 		    pad_left += col;
+! 		    col = 0;
+! 		}
+! 		if (pad_left > 0)
+! 		    screen_puts(get_spaces(pad_left), row, col, popup_attr);
+  	    }
+  	    // scrollbar
+  	    if (wp->w_has_scrollbar)
+  	    {
+***************
+*** 2485,2494 ****
+  			       wp->w_wincol + total_width - 1, border_attr[1]);
+  	    }
+  	    // right padding
+! 	    if (wp->w_popup_padding[1] > 0)
+  		screen_puts(get_spaces(wp->w_popup_padding[1]), row,
+! 			wp->w_wincol + wp->w_popup_border[3]
+! 			   + wp->w_popup_padding[3] + wp->w_width, popup_attr);
+  	}
+  
+  	if (wp->w_popup_padding[2] > 0)
+--- 2530,2541 ----
+  			       wp->w_wincol + total_width - 1, border_attr[1]);
+  	    }
+  	    // right padding
+! 	    if (do_padding && wp->w_popup_padding[1] > 0)
+  		screen_puts(get_spaces(wp->w_popup_padding[1]), row,
+! 			wp->w_wincol - wp->w_popup_leftoff
+! 			+ wp->w_popup_border[3]
+! 			+ wp->w_popup_padding[3] + wp->w_width + wp->w_leftcol,
+! 			popup_attr);
+  	}
+  
+  	if (wp->w_popup_padding[2] > 0)
+***************
+*** 2497,2505 ****
+  	    row = wp->w_winrow + wp->w_popup_border[0]
+  				       + wp->w_popup_padding[0] + wp->w_height;
+  	    screen_fill(row, row + wp->w_popup_padding[2],
+! 		    wp->w_wincol + wp->w_popup_border[3],
+! 		    wp->w_wincol + total_width - wp->w_popup_border[1],
+! 							 ' ', ' ', popup_attr);
+  	}
+  
+  	if (wp->w_popup_border[2] > 0)
+--- 2544,2550 ----
+  	    row = wp->w_winrow + wp->w_popup_border[0]
+  				       + wp->w_popup_padding[0] + wp->w_height;
+  	    screen_fill(row, row + wp->w_popup_padding[2],
+! 				       padcol, padwidth, ' ', ' ', popup_attr);
+  	}
+  
+  	if (wp->w_popup_border[2] > 0)
+*** ../vim-8.1.1616/src/structs.h	2019-06-30 18:04:53.793559360 +0200
+--- src/structs.h	2019-07-02 22:48:26.996682488 +0200
+***************
+*** 2916,2921 ****
+--- 2916,2924 ----
+      int		w_popup_border[4];  // popup border top/right/bot/left
+      char_u	*w_border_highlight[4];  // popup border highlight
+      int		w_border_char[8];   // popup border characters
++ 
++     int		w_popup_leftoff;    // columns left of the screen
++     int		w_popup_rightoff;   // columns right of the screen
+      varnumber_T	w_popup_last_changedtick; // b:changedtick when position was
+  					  // computed
+      callback_T	w_close_cb;	    // popup close callback
+***************
+*** 2927,2934 ****
+      colnr_T	w_popup_maxcol;	    // close popup if cursor after this col
+      int		w_popup_drag;	    // allow moving the popup with the mouse
+      popclose_T	w_popup_close;	    // allow closing the popup with the mouse
+-     list_T	*w_popup_mask;	    // list of lists for "mask"
+  
+  # if defined(FEAT_TIMERS)
+      timer_T	*w_popup_timer;	    // timer for closing popup window
+  # endif
+--- 2930,2937 ----
+      colnr_T	w_popup_maxcol;	    // close popup if cursor after this col
+      int		w_popup_drag;	    // allow moving the popup with the mouse
+      popclose_T	w_popup_close;	    // allow closing the popup with the mouse
+  
++     list_T	*w_popup_mask;	    // list of lists for "mask"
+  # if defined(FEAT_TIMERS)
+      timer_T	*w_popup_timer;	    // timer for closing popup window
+  # endif
+*** ../vim-8.1.1616/src/testdir/test_popupwin.vim	2019-07-01 22:20:57.200052881 +0200
+--- src/testdir/test_popupwin.vim	2019-07-01 23:35:55.914053399 +0200
+***************
+*** 427,433 ****
+      throw 'Skipped: cannot make screendumps'
+    endif
+    let lines =<< trim END
+! 	call setline(1, repeat([join(range(1, 40), '')], 10))
+  	hi PopupColor ctermbg=lightgrey
+  	let winid = popup_create([
+  	    \ 'some text',
+--- 427,433 ----
+      throw 'Skipped: cannot make screendumps'
+    endif
+    let lines =<< trim END
+! 	call setline(1, repeat([join(range(1, 42), '')], 10))
+  	hi PopupColor ctermbg=lightgrey
+  	let winid = popup_create([
+  	    \ 'some text',
+***************
+*** 435,440 ****
+--- 435,442 ----
+  	    \], {
+  	    \ 'line': 2,
+  	    \ 'col': 10,
++ 	    \ 'wrap': 0,
++ 	    \ 'fixed': 1,
+  	    \ 'zindex': 90,
+  	    \ 'padding': [],
+  	    \ 'highlight': 'PopupColor',
+***************
+*** 454,459 ****
+--- 456,467 ----
+    call term_sendkeys(buf, ":call popup_move(winid, {'col': 11, 'line': 3})\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_mask_2', {})
+  
++   call term_sendkeys(buf, ":call popup_move(winid, {'col': 65, 'line': 3})\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_mask_3', {})
++ 
++   call term_sendkeys(buf, ":call popup_move(winid, {'pos': 'topright', 'col': 12, 'line': 3})\<CR>")
++   call VerifyScreenDump(buf, 'Test_popupwin_mask_4', {})
++ 
+    " clean up
+    call StopVimInTerminal(buf)
+    call delete('XtestPopupMask')
+*** ../vim-8.1.1616/src/testdir/dumps/Test_popupwin_mask_1.dump	2019-06-23 00:15:02.581534910 +0200
+--- src/testdir/dumps/Test_popupwin_mask_1.dump	2019-07-01 23:36:11.125955248 +0200
+***************
+*** 1,10 ****
+! >1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08@12|1+0&#ffffff0|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9| +0&#e0e0e08|s|o|m|e| |1+0&#ffffff0|3|x+0#0000001#ffd7ff255|t+0#0000000#e0e0e08| @3|x+0#0000001#ffd7ff255@2|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9| +0&#e0e0e08|0+0&#ffffff0|1@1|t+0&#e0e0e08|h|1+0&#ffffff0|3|y+0#0000001#ffd7ff255|l+0#0000000#e0e0e08|i|n|e| |y+0#0000001#ffd7ff255@2|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9| +0&#e0e0e08@8|4+0&#ffffff0|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! @57|1|,|1| @10|T|o|p| 
+--- 1,10 ----
+! >1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08@12|1+0&#ffffff0|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9| +0&#e0e0e08|s|o|m|e| |1+0&#ffffff0|3|x+0#0000001#ffd7ff255|t+0#0000000#e0e0e08| @3|x+0#0000001#ffd7ff255@2|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9| +0&#e0e0e08|0+0&#ffffff0|1@1|t+0&#e0e0e08|h|1+0&#ffffff0|3|y+0#0000001#ffd7ff255|l+0#0000000#e0e0e08|i|n|e| |y+0#0000001#ffd7ff255@2|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9| +0&#e0e0e08@8|4+0&#ffffff0|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! | @56|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1616/src/testdir/dumps/Test_popupwin_mask_2.dump	2019-06-23 00:15:02.581534910 +0200
+--- src/testdir/dumps/Test_popupwin_mask_2.dump	2019-07-01 23:36:12.181948435 +0200
+***************
+*** 1,10 ****
+! >1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1|0| +0&#e0e0e08@12|x+0#0000001#ffd7ff255@1|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08|s|o|m|e| |3+0&#ffffff0|y+0#0000001#ffd7ff255@1|t+0#0000000#e0e0e08| @3|y+0#0000001#ffd7ff255@1|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08|1+0&#ffffff0@2|t+0&#e0e0e08|h|3+0&#ffffff0|1|4|l+0&#e0e0e08|i|n|e| |7+0&#ffffff0|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08@8|1+0&#ffffff0|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0| @3
+  |:|c|a|l@1| |p|o|p|u|p|_|m|o|v|e|(|w|i|n|i|d|,| |{|'|c|o|l|'|:| |1@1|,| |'|l|i|n|e|'|:| |3|}|)| @9|1|,|1| @10|T|o|p| 
+--- 1,10 ----
+! >1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1|0| +0&#e0e0e08@12|x+0#0000001#ffd7ff255@1|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08|s|o|m|e| |3+0&#ffffff0|y+0#0000001#ffd7ff255@1|t+0#0000000#e0e0e08| @3|y+0#0000001#ffd7ff255@1|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08|1+0&#ffffff0@2|t+0&#e0e0e08|h|3+0&#ffffff0|1|4|l+0&#e0e0e08|i|n|e| |7+0&#ffffff0|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1| +0&#e0e0e08@8|1+0&#ffffff0|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+! |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
+  |:|c|a|l@1| |p|o|p|u|p|_|m|o|v|e|(|w|i|n|i|d|,| |{|'|c|o|l|'|:| |1@1|,| |'|l|i|n|e|'|:| |3|}|)| @9|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1616/src/testdir/dumps/Test_popupwin_mask_3.dump	2019-07-02 23:10:21.677353470 +0200
+--- src/testdir/dumps/Test_popupwin_mask_3.dump	2019-07-02 22:57:46.357898542 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|x+0#0000001#ffd7ff255@8|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7| +0&#e0e0e08@9
++ |1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|y+0#0000001#ffd7ff255@8|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3| +0&#e0e0e08|s|o|m|e| |0+0&#ffffff0|4|1|t+0&#e0e0e08| 
++ |1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3| +0&#e0e0e08|3+0&#ffffff0|8|3|t+0&#e0e0e08|h|0+0&#ffffff0|4|1|l+0&#e0e0e08|i
++ |1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3| +0&#e0e0e08@8|4+0&#ffffff0|2
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |:|c|a|l@1| |p|o|p|u|p|_|m|o|v|e|(|w|i|n|i|d|,| |{|'|c|o|l|'|:| |6|5|,| |'|l|i|n|e|'|:| |3|}|)| @9|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1616/src/testdir/dumps/Test_popupwin_mask_4.dump	2019-07-02 23:10:21.681353449 +0200
+--- src/testdir/dumps/Test_popupwin_mask_4.dump	2019-07-02 22:35:29.872773312 +0200
+***************
+*** 0 ****
+--- 1,10 ----
++ >1+0&#ffffff0|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ | +0&#e0e0e08@11|1+0&#ffffff0@1|2|1|3|x+0#0000001#ffd7ff255@8|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |o+0&#e0e0e08|m|e| |5+0&#ffffff0|6|7|t+0&#e0e0e08| @3|1+0&#ffffff0@1|2|1|3|y+0#0000001#ffd7ff255@8|8+0#0000000#ffffff0|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |1|2|t+0&#e0e0e08|h|5+0&#ffffff0|6|7|l+0&#e0e0e08|i|n|e| |1+0&#ffffff0@1|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ | +0&#e0e0e08@6|8+0&#ffffff0|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |1|2|3|4|5|6|7|8|9|1|0|1@2|2|1|3|1|4|1|5|1|6|1|7|1|8|1|9|2|0|2|1|2@2|3|2|4|2|5|2|6|2|7|2|8|2|9|3|0|3|1|3|2|3@2|4|3|5|3|6|3|7|3|8|3|9|4|0|4|1|4|2
++ |:|c|a|l@1| |p|o|p|u|p|_|m|o|v|e|(|w|i|n|i|d|,| |{|'|p|o|s|'|:| |'|t|o|p|r|i|g|h|t|'|,| |'|c|o|l|'|:| |1|2|,| |'|l|1|,|1| @10|T|o|p| 
+*** ../vim-8.1.1616/src/version.c	2019-07-01 22:28:17.025168434 +0200
+--- src/version.c	2019-07-02 23:09:54.281498460 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1617,
+  /**/
+
+-- 
+"Never be afraid to tell the world who you are."
+                                        -- Anonymous
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

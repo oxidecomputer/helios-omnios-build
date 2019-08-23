@@ -1,0 +1,484 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1574
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1574
+Problem:    Tabpage option not yet implemented for popup window.
+Solution:   Implement tabpage option, also for popup_getoptions().
+Files:	    runtime/doc/popup.txt, src/popupwin.c,
+            src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1573/runtime/doc/popup.txt	2019-06-16 22:54:10.649908500 +0200
+--- runtime/doc/popup.txt	2019-06-20 02:24:45.961316827 +0200
+***************
+*** 88,99 ****
+--- 88,104 ----
+  
+  TODO:
+  - Why does 'nrformats' leak from the popup window buffer???
++ - When the lines do not fit show a scrollbar (like in the popup menu).
++   Use the mouse wheel for scrolling.
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+    Use ERROR_IF_POPUP_WINDOW for more commands.
+  - Add 'balloonpopup': instead of showing text, let the callback open a popup
+    window and return the window ID.   The popup will then be closed when the
+    mouse moves, except when it moves inside the popup.
+  - For the "moved" property also include mouse movement?
++ - Can the buffer be re-used, to avoid using up lots of buffer numbers?
++ - Have an option to attach the popup to a text position, like text properties
++   do. (#4560)
+  - Make redrawing more efficient and avoid flicker:
+      - put popup menu also put in popup_mask?
+  - Invoke filter with character before mapping?
+***************
+*** 102,118 ****
+      if wrapping inserts indent
+  - When drawing on top half a double-wide character, display ">" or "<" in the
+    incomplete cell.
+- - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Use a popup window for the "info" item of completion instead of using a
+    preview window.  Ideas in issue #4544.
+    How to add highlighting?
+- - When the lines do not fit show a scrollbar (like in the popup menu).
+-   Use the mouse wheel for scrolling.
+  - Implement:
+- 	tabpage option with number
+  	flip option
+! 	transparent text property
+! 
+  
+  ==============================================================================
+  2. Functions						*popup-functions*
+--- 107,118 ----
+      if wrapping inserts indent
+  - When drawing on top half a double-wide character, display ">" or "<" in the
+    incomplete cell.
+  - Use a popup window for the "info" item of completion instead of using a
+    preview window.  Ideas in issue #4544.
+    How to add highlighting?
+  - Implement:
+  	flip option
+! 	transparent area, to minimize covering text.  Define rectangles?
+  
+  ==============================================================================
+  2. Functions						*popup-functions*
+***************
+*** 123,129 ****
+  	|popup_create()|	centered in the screen
+  	|popup_atcursor()|	just above the cursor position, closes when
+  				the cursor moves away
+! 	|popup_notifiation()|	show a notification for three seconds
+  	|popup_dialog()|	centered with padding and border
+  	|popup_menu()|		prompt for selecting an item from a list
+  
+--- 123,129 ----
+  	|popup_create()|	centered in the screen
+  	|popup_atcursor()|	just above the cursor position, closes when
+  				the cursor moves away
+! 	|popup_notification()|	show a notification for three seconds
+  	|popup_dialog()|	centered with padding and border
+  	|popup_menu()|		prompt for selecting an item from a list
+  
+***************
+*** 163,169 ****
+  
+  							*popup_clear()*
+  popup_clear()	Emergency solution to a misbehaving plugin: close all popup
+! 		windows.
+  
+  
+  popup_close({id} [, {result}])				*popup_close()*
+--- 163,169 ----
+  
+  							*popup_clear()*
+  popup_clear()	Emergency solution to a misbehaving plugin: close all popup
+! 		windows for the current tab and global popups.
+  
+  
+  popup_close({id} [, {result}])				*popup_close()*
+***************
+*** 216,222 ****
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
+  		Filter that can be used for a popup. These keys can be used:
+! 		    j <Down>	select item below
+  		    k <Up>		select item above
+  		    <Space> <Enter>	accept current selection
+  		    x Esc CTRL-C	cancel the menu
+--- 216,222 ----
+  
+  popup_filter_menu({id}, {key})				*popup_filter_menu()*
+  		Filter that can be used for a popup. These keys can be used:
+! 		    j <Down>		select item below
+  		    k <Up>		select item above
+  		    <Space> <Enter>	accept current selection
+  		    x Esc CTRL-C	cancel the menu
+***************
+*** 230,235 ****
+--- 230,238 ----
+  		the second argument.  The first entry has index one.
+  		Cancelling the menu invokes the callback with -1.
+  
++ 		To add shortcut keys, see the example here:
++ 		|popup_menu-shortcut-example|
++ 
+  
+  popup_filter_yesno({id}, {key})				*popup_filter_yesno()*
+  		Filter that can be used for a popup. It handles only the keys
+***************
+*** 238,243 ****
+--- 241,247 ----
+  		as the second argument.  Pressing Esc and 'x' works like
+  		pressing 'n'.  CTRL-C invokes the callback with -1.  Other
+  		keys are ignored.
++ 		See the example here: |popup_dialog-example|
+  
+  
+  popup_getoptions({id})					*popup_getoptions()*
+***************
+*** 253,258 ****
+--- 257,266 ----
+  
+  		"borderhighlight" is not included when all values are empty.
+  
++ 		"tabpage" will be -1 for a global popup, zero for a popup on
++ 		the current tabpage and a positive number for a popup on
++ 		another tabpage.
++ 
+  		If popup window {id} is not found an empty Dict is returned.
+  
+  
+***************
+*** 390,396 ****
+  - 'bufhidden' is "hide"
+  - 'buflisted' is off
+  - 'undolevels' is -1: no undo at all
+! - all other buffer-local and window_local options are set to their Vim default
+    value.
+  
+  It is possible to change the specifically mentioned options, but anything
+--- 398,404 ----
+  - 'bufhidden' is "hide"
+  - 'buflisted' is off
+  - 'undolevels' is -1: no undo at all
+! - all other buffer-local and window-local options are set to their Vim default
+    value.
+  
+  It is possible to change the specifically mentioned options, but anything
+***************
+*** 474,481 ****
+  			When 0 (the default): display the popup on the current
+  			tab page.
+  			Otherwise the number of the tab page the popup is
+! 			displayed on; when invalid the current tab page is used.
+! 			{only -1 and 0 are implemented}
+  	title		Text to be displayed above the first item in the
+  			popup, on top of any border.  If there is no top
+  			border one line of padding is added to put the title
+--- 482,489 ----
+  			When 0 (the default): display the popup on the current
+  			tab page.
+  			Otherwise the number of the tab page the popup is
+! 			displayed on; when invalid the popup is not created
+! 			and an error is given. *E996*
+  	title		Text to be displayed above the first item in the
+  			popup, on top of any border.  If there is no top
+  			border one line of padding is added to put the title
+***************
+*** 515,522 ****
+  			When the list has two characters the first is used for
+  			the border lines, the second for the corners.
+  			By default a double line is used all around when
+! 			'encoding' is "utf-8", otherwise ASCII characters are
+! 			used.
+  	zindex		Priority for the popup, default 50.  Minimum value is
+  			1, maximum value is 32000.
+  	time		Time in milliseconds after which the popup will close.
+--- 523,530 ----
+  			When the list has two characters the first is used for
+  			the border lines, the second for the corners.
+  			By default a double line is used all around when
+! 			'encoding' is "utf-8" and 'ambiwidth' is "single,
+! 			otherwise ASCII characters are used.
+  	zindex		Priority for the popup, default 50.  Minimum value is
+  			1, maximum value is 32000.
+  	time		Time in milliseconds after which the popup will close.
+***************
+*** 628,634 ****
+  3. Examples						*popup-examples*
+  
+  TODO
+! 
+  Prompt the user to press y/Y or n/N: >
+  
+  	func MyDialogHandler(id, result)
+--- 636,642 ----
+  3. Examples						*popup-examples*
+  
+  TODO
+! 					*popup_dialog-example*
+  Prompt the user to press y/Y or n/N: >
+  
+  	func MyDialogHandler(id, result)
+***************
+*** 637,646 ****
+  	   endif
+  	endfunc
+  
+! 	call popup_create(['Continue? y/n'], {
+  		\ 'filter': 'popup_filter_yesno',
+  		\ 'callback': 'MyDialogHandler',
+  		\ })
+  <
+  
+   vim:tw=78:ts=8:noet:ft=help:norl:
+--- 645,681 ----
+  	   endif
+  	endfunc
+  
+! 	call popup_dialog('Continue? y/n', {
+  		\ 'filter': 'popup_filter_yesno',
+  		\ 'callback': 'MyDialogHandler',
+  		\ })
+  <
++ 					*popup_menu-shortcut-example*
++ Extend popup_filter_menu() with shortcut keys: >
++ 
++ 	call popup_menu('Save', 'Cancel', 'Discard'], {
++ 		\ 'filter': 'MyMenuFilter',
++ 		\ 'callback': 'MyMenuHandler',
++ 		\ })
++ 
++ 	func MyMenuFilter(id, key)
++ 	  " Handle shortcuts
++ 	  if a:key == 'S'
++ 	     call popup_close(a:id, 1)
++ 	     return 1
++ 	  endif
++ 	  if a:key == 'C'
++ 	     call popup_close(a:id, 2)
++ 	     return 1
++ 	  endif
++ 	  if a:key == 'D'
++ 	     call popup_close(a:id, 3)
++ 	     return 1
++ 	  endif
++ 
++ 	  " No shortcut, pass to generic filter
++ 	  return popup_filter_menu(a:id, a:key)
++ 	endfunc
++ <
+  
+   vim:tw=78:ts=8:noet:ft=help:norl:
+*** ../vim-8.1.1573/src/popupwin.c	2019-06-17 20:05:29.566879965 +0200
+--- src/popupwin.c	2019-06-20 02:30:40.040118382 +0200
+***************
+*** 827,837 ****
+      static win_T *
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+  {
+!     win_T   *wp;
+!     buf_T   *buf;
+!     dict_T  *d;
+!     int	    nr;
+!     int	    i;
+  
+      // Check arguments look OK.
+      if (!(argvars[0].v_type == VAR_STRING && argvars[0].vval.v_string != NULL)
+--- 827,839 ----
+      static win_T *
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+  {
+!     win_T	*wp;
+!     tabpage_T	*tp = NULL;
+!     int		tabnr;
+!     buf_T	*buf;
+!     dict_T	*d;
+!     int		nr;
+!     int		i;
+  
+      // Check arguments look OK.
+      if (!(argvars[0].v_type == VAR_STRING && argvars[0].vval.v_string != NULL)
+***************
+*** 847,852 ****
+--- 849,870 ----
+      }
+      d = argvars[1].vval.v_dict;
+  
++     if (dict_find(d, (char_u *)"tabpage", -1) != NULL)
++ 	tabnr = (int)dict_get_number(d, (char_u *)"tabpage");
++     else if (type == TYPE_NOTIFICATION)
++ 	tabnr = -1;  // notifications are global by default
++     else
++ 	tabnr = 0;
++     if (tabnr > 0)
++     {
++ 	tp = find_tabpage(tabnr);
++ 	if (tp == NULL)
++ 	{
++ 	    semsg(_("E996: Tabpage not found: %d"), tabnr);
++ 	    return NULL;
++ 	}
++     }
++ 
+      // Create the window and buffer.
+      wp = win_alloc_popup_win();
+      if (wp == NULL)
+***************
+*** 875,894 ****
+      // Avoid that 'buftype' is reset when this buffer is entered.
+      buf->b_p_initialized = TRUE;
+  
+!     if (dict_find(d, (char_u *)"tabpage", -1) != NULL)
+! 	nr = (int)dict_get_number(d, (char_u *)"tabpage");
+!     else if (type == TYPE_NOTIFICATION)
+! 	nr = -1;  // notifications are global by default
+!     else
+! 	nr = 0;
+! 
+!     if (nr == 0)
+      {
+  	// popup on current tab page
+  	wp->w_next = curtab->tp_first_popupwin;
+  	curtab->tp_first_popupwin = wp;
+      }
+!     else if (nr < 0)
+      {
+  	win_T *prev = first_popupwin;
+  
+--- 893,911 ----
+      // Avoid that 'buftype' is reset when this buffer is entered.
+      buf->b_p_initialized = TRUE;
+  
+!     if (tp != NULL)
+!     {
+! 	// popup on specified tab page
+! 	wp->w_next = tp->tp_first_popupwin;
+! 	tp->tp_first_popupwin = wp;
+!     }
+!     else if (tabnr == 0)
+      {
+  	// popup on current tab page
+  	wp->w_next = curtab->tp_first_popupwin;
+  	curtab->tp_first_popupwin = wp;
+      }
+!     else // (tabnr < 0)
+      {
+  	win_T *prev = first_popupwin;
+  
+***************
+*** 903,911 ****
+  	    prev->w_next = wp;
+  	}
+      }
+-     else
+- 	// TODO: find tab page "nr"
+- 	emsg("Not implemented yet");
+  
+      popup_set_buffer_text(buf, argvars[0]);
+  
+--- 920,925 ----
+***************
+*** 1592,1597 ****
+--- 1606,1612 ----
+      dict_T	*dict;
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
++     tabpage_T	*tp;
+      int		i;
+  
+      if (rettv_dict_alloc(rettv) == OK)
+***************
+*** 1614,1619 ****
+--- 1629,1653 ----
+  	dict_add_number(dict, "drag", wp->w_popup_drag);
+  	dict_add_string(dict, "highlight", wp->w_p_wcr);
+  
++ 	// find the tabpage that holds this popup
++ 	i = 1;
++ 	FOR_ALL_TABPAGES(tp)
++ 	{
++ 	    win_T *p;
++ 
++ 	     for (p = tp->tp_first_popupwin; p != NULL; p = wp->w_next)
++ 		 if (p->w_id == id)
++ 		     break;
++ 	     if (p != NULL)
++ 		 break;
++ 	     ++i;
++ 	}
++ 	if (tp == NULL)
++ 	    i = -1;  // must be global
++ 	else if (tp == curtab)
++ 	    i = 0;
++ 	dict_add_number(dict, "tabpage", i);
++ 
+  	get_padding_border(dict, wp->w_popup_padding, "padding");
+  	get_padding_border(dict, wp->w_popup_border, "border");
+  	get_borderhighlight(dict, wp);
+*** ../vim-8.1.1573/src/testdir/test_popupwin.vim	2019-06-17 20:05:29.570879949 +0200
+--- src/testdir/test_popupwin.vim	2019-06-20 02:12:37.651794573 +0200
+***************
+*** 398,405 ****
+--- 398,407 ----
+    let winid = popup_create("text", {})
+    let bufnr = winbufnr(winid)
+    call assert_equal(1, popup_getpos(winid).visible)
++   call assert_equal(0, popup_getoptions(winid).tabpage)
+    tabnew
+    call assert_equal(0, popup_getpos(winid).visible)
++   call assert_equal(1, popup_getoptions(winid).tabpage)
+    quit
+    call assert_equal(1, popup_getpos(winid).visible)
+  
+***************
+*** 411,421 ****
+--- 413,435 ----
+    " global popup is visible in any tab
+    let winid = popup_create("text", {'tabpage': -1})
+    call assert_equal(1, popup_getpos(winid).visible)
++   call assert_equal(-1, popup_getoptions(winid).tabpage)
+    tabnew
+    call assert_equal(1, popup_getpos(winid).visible)
++   call assert_equal(-1, popup_getoptions(winid).tabpage)
+    quit
+    call assert_equal(1, popup_getpos(winid).visible)
+    call popup_clear()
++ 
++   " create popup in other tab
++   tabnew
++   let winid = popup_create("text", {'tabpage': 1})
++   call assert_equal(0, popup_getpos(winid).visible)
++   call assert_equal(1, popup_getoptions(winid).tabpage)
++   quit
++   call assert_equal(1, popup_getpos(winid).visible)
++   call assert_equal(0, popup_getoptions(winid).tabpage)
++   call popup_clear()
+  endfunc
+  
+  func Test_popup_valid_arguments()
+*** ../vim-8.1.1573/src/version.c	2019-06-19 18:15:43.884526445 +0200
+--- src/version.c	2019-06-20 02:15:49.211018170 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1574,
+  /**/
+
+-- 
+"Women marry men hoping they will change. Men marry women hoping
+they will not. So each is inevitably disappointed."
+ - Einstein
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

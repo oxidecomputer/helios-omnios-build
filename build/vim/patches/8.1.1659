@@ -1,0 +1,185 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1659
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1659
+Problem:    Popup window "mousemoved" values not correct.
+Solution:   Convert text column to mouse column.
+Files:	    src/popupwin.c, runtime/doc/popup.txt
+
+
+*** ../vim-8.1.1658/src/popupwin.c	2019-07-10 16:14:58.201679033 +0200
+--- src/popupwin.c	2019-07-10 21:50:45.355961911 +0200
+***************
+*** 184,197 ****
+      static void
+  set_mousemoved_columns(win_T *wp, int flags)
+  {
+      char_u	*text;
+      int		col;
+  
+      if (find_word_under_cursor(mouse_row, mouse_col, TRUE, flags,
+! 					 NULL, NULL, &text, NULL, &col) == OK)
+      {
+! 	wp->w_popup_mouse_mincol = col;
+! 	wp->w_popup_mouse_maxcol = col + STRLEN(text) - 1;
+  	vim_free(text);
+      }
+  }
+--- 184,207 ----
+      static void
+  set_mousemoved_columns(win_T *wp, int flags)
+  {
++     win_T	*textwp;
+      char_u	*text;
+      int		col;
++     pos_T	pos;
++     colnr_T	mcol;
+  
+      if (find_word_under_cursor(mouse_row, mouse_col, TRUE, flags,
+! 				  &textwp, &pos.lnum, &text, NULL, &col) == OK)
+      {
+! 	// convert text column to mouse column
+! 	pos.col = col;
+! 	pos.coladd = 0;
+! 	getvcol(textwp, &pos, &mcol, NULL, NULL);
+! 	wp->w_popup_mouse_mincol = mcol;
+! 
+! 	pos.col = col + STRLEN(text) - 1;
+! 	getvcol(textwp, &pos, NULL, NULL, &mcol);
+! 	wp->w_popup_mouse_maxcol = mcol;
+  	vim_free(text);
+      }
+  }
+*** ../vim-8.1.1658/runtime/doc/popup.txt	2019-07-07 18:27:52.369277108 +0200
+--- runtime/doc/popup.txt	2019-07-10 21:52:43.535443675 +0200
+***************
+*** 192,198 ****
+  		  let pos = screenpos(v:beval_winnr, v:beval_lnum, v:beval_col)
+  		  call popup_create({what}, {
+  			\ 'pos': 'botleft',
+! 			\ 'line': pos.lnum - 1,
+  			\ 'col': pos.col,
+  			\ 'mousemoved': 'WORD',
+  			\ })
+--- 192,198 ----
+  		  let pos = screenpos(v:beval_winnr, v:beval_lnum, v:beval_col)
+  		  call popup_create({what}, {
+  			\ 'pos': 'botleft',
+! 			\ 'line': pos.row - 1,
+  			\ 'col': pos.col,
+  			\ 'mousemoved': 'WORD',
+  			\ })
+***************
+*** 762,799 ****
+  	set ballooneval balloonevalterm
+  	set balloonexpr=BalloonExpr()
+  	let s:winid = 0
+  
+  	func BalloonExpr()
+! 	  if s:winid
+  	    call popup_close(s:winid)
+- 	    let s:winid = 0
+  	  endif
+! 	  let s:winid = popup_beval([bufname(v:beval_bufnr), v:beval_text], {})
+  	  return ''
+  	endfunc
+  <
+  If the text has to be obtained asynchronously return an empty string from the
+  expression function and call popup_beval() once the text is available.  In
+! this example similated with a timer callback: >
+  
+  	set ballooneval balloonevalterm
+  	set balloonexpr=BalloonExpr()
+  	let s:winid = 0
+  
+  	func BalloonExpr()
+! 	  if s:winid
+  	    call popup_close(s:winid)
+  	    let s:winid = 0
+  	  endif
+  	  " simulate an asynchronous loopup for the text to display
+! 	  let s:balloonFile = bufname(v:beval_bufnr)
+! 	  let s:balloonWord = v:beval_text
+  	  call timer_start(100, 'ShowPopup')
+  	  return ''
+  	endfunc
+  
+  	func ShowPopup(id)
+! 	  let s:winid = popup_beval([s:balloonFile, s:balloonWord], {})
+  	endfunc
+  <
+  
+--- 762,810 ----
+  	set ballooneval balloonevalterm
+  	set balloonexpr=BalloonExpr()
+  	let s:winid = 0
++ 	let s:last_text = ''
+  
+  	func BalloonExpr()
+! 	  if s:winid && popup_getpos(s:winid) != {}
+! 	    " previous popup window still shows
+! 	    if v:beval_text == s:last_text
+! 	      " Still the same text, keep the existing popup
+! 	      return ''
+! 	    endif
+  	    call popup_close(s:winid)
+  	  endif
+! 	  let s:winid = popup_beval(v:beval_text, {'mousemoved': 'word'})
+! 	  let s:last_text = v:beval_text
+  	  return ''
+  	endfunc
+  <
+  If the text has to be obtained asynchronously return an empty string from the
+  expression function and call popup_beval() once the text is available.  In
+! this example simulated with a timer callback: >
+  
+  	set ballooneval balloonevalterm
+  	set balloonexpr=BalloonExpr()
+  	let s:winid = 0
++ 	let s:balloonText = ''
+  
+  	func BalloonExpr()
+! 	  if s:winid && popup_getpos(s:winid) != {}
+! 	    " previous popup window still shows
+! 	    if  v:beval_text == s:balloonText
+! 	      " Still the same text, keep the existing popup
+! 	      return ''
+! 	    endif
+  	    call popup_close(s:winid)
+  	    let s:winid = 0
+  	  endif
+  	  " simulate an asynchronous loopup for the text to display
+! 	  let s:balloonText = v:beval_text
+  	  call timer_start(100, 'ShowPopup')
+  	  return ''
+  	endfunc
+  
+  	func ShowPopup(id)
+! 	  let s:winid = popup_beval(s:balloonText, {'mousemoved': 'word'})
+  	endfunc
+  <
+  
+*** ../vim-8.1.1658/src/version.c	2019-07-10 16:14:58.201679033 +0200
+--- src/version.c	2019-07-10 21:53:53.339131436 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1659,
+  /**/
+
+-- 
+"It's so simple to be wise.  Just think of something stupid to say
+and then don't say it."        -- Sam Levenson
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

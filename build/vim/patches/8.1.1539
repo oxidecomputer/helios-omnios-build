@@ -1,0 +1,950 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1539
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1539
+Problem:    Not easy to define a variable and lock it.
+Solution:   Add ":const".
+Files:	    runtime/doc/eval.txt, src/eval.c, src/ex_cmdidxs.h, src/ex_cmds.h,
+	    src/proto/eval.pro, src/testdir/Make_all.mak,
+            src/testdir/test_const.vim
+
+
+*** ../vim-8.1.1538/runtime/doc/eval.txt	2019-06-14 14:39:44.553975948 +0200
+--- runtime/doc/eval.txt	2019-06-15 15:28:41.781334766 +0200
+***************
+*** 11596,11603 ****
+  			No error message is given for a non-existing
+  			variable, also without !.
+  			If the system does not support deleting an environment
+! 			variable, it is made emtpy.
+  
+  :lockv[ar][!] [depth] {name} ...			*:lockvar* *:lockv*
+  			Lock the internal variable {name}.  Locking means that
+  			it can no longer be changed (until it is unlocked).
+--- 11596,11626 ----
+  			No error message is given for a non-existing
+  			variable, also without !.
+  			If the system does not support deleting an environment
+! 			variable, it is made empty.
+  
++ 						*:cons* *:const* *E996*
++ :cons[t] {var-name} = {expr1}
++ :cons[t] [{name1}, {name2}, ...] = {expr1}
++ :cons[t] [{name1}, {name2}, ...] .= {expr1}
++ :cons[t] [{name}, ..., ; {lastname}] = {expr1}
++ :cons[t] {var-name} =<< [trim] {marker}
++ text...
++ text...
++ {marker}
++ 			Similar to |:let|, but additionally lock the variable
++ 			after setting the value.  This is the same as locking
++ 			the variable with |:lockvar| just after |:let|, thus: >
++ 				:const x = 1
++ <			is equivalent to: >
++ 				:let x = 1
++ 				:lockvar 1 x
++ <			This is useful if you want to make sure the variable
++ 			is not modified.
++ 							*E995*
++ 			|:const| does not allow to for changing a variable. >
++ 				:let x = 1
++ 				:const x = 2  " Error!
++ <
+  :lockv[ar][!] [depth] {name} ...			*:lockvar* *:lockv*
+  			Lock the internal variable {name}.  Locking means that
+  			it can no longer be changed (until it is unlocked).
+*** ../vim-8.1.1538/src/eval.c	2019-06-14 14:39:44.553975948 +0200
+--- src/eval.c	2019-06-15 15:42:11.467153821 +0200
+***************
+*** 28,33 ****
+--- 28,34 ----
+  static char *e_dictrange = N_("E719: Cannot use [:] with a Dictionary");
+  static char *e_letwrong = N_("E734: Wrong variable type for %s=");
+  static char *e_illvar = N_("E461: Illegal variable name: %s");
++ static char *e_cannot_mod = N_("E995: Cannot modify existing variable");
+  #ifdef FEAT_FLOAT
+  static char *e_float_as_string = N_("E806: using Float as a String");
+  #endif
+***************
+*** 212,218 ****
+  static dictitem_T	vimvars_var;		/* variable used for v: */
+  #define vimvarht  vimvardict.dv_hashtab
+  
+! static int ex_let_vars(char_u *arg, typval_T *tv, int copy, int semicolon, int var_count, char_u *nextchars);
+  static char_u *skip_var_list(char_u *arg, int *var_count, int *semicolon);
+  static char_u *skip_var_one(char_u *arg);
+  static void list_glob_vars(int *first);
+--- 213,220 ----
+  static dictitem_T	vimvars_var;		/* variable used for v: */
+  #define vimvarht  vimvardict.dv_hashtab
+  
+! static void ex_let_const(exarg_T *eap, int is_const);
+! static int ex_let_vars(char_u *arg, typval_T *tv, int copy, int semicolon, int var_count, int is_const, char_u *nextchars);
+  static char_u *skip_var_list(char_u *arg, int *var_count, int *semicolon);
+  static char_u *skip_var_one(char_u *arg);
+  static void list_glob_vars(int *first);
+***************
+*** 222,229 ****
+  static void list_vim_vars(int *first);
+  static void list_script_vars(int *first);
+  static char_u *list_arg_vars(exarg_T *eap, char_u *arg, int *first);
+! static char_u *ex_let_one(char_u *arg, typval_T *tv, int copy, char_u *endchars, char_u *op);
+! static void set_var_lval(lval_T *lp, char_u *endp, typval_T *rettv, int copy, char_u *op);
+  static int tv_op(typval_T *tv1, typval_T *tv2, char_u  *op);
+  static void ex_unletlock(exarg_T *eap, char_u *argstart, int deep);
+  static int do_unlet_var(lval_T *lp, char_u *name_end, int forceit);
+--- 224,231 ----
+  static void list_vim_vars(int *first);
+  static void list_script_vars(int *first);
+  static char_u *list_arg_vars(exarg_T *eap, char_u *arg, int *first);
+! static char_u *ex_let_one(char_u *arg, typval_T *tv, int copy, int is_const, char_u *endchars, char_u *op);
+! static void set_var_lval(lval_T *lp, char_u *endp, typval_T *rettv, int copy, int is_const, char_u *op);
+  static int tv_op(typval_T *tv1, typval_T *tv2, char_u  *op);
+  static void ex_unletlock(exarg_T *eap, char_u *argstart, int deep);
+  static int do_unlet_var(lval_T *lp, char_u *name_end, int forceit);
+***************
+*** 248,253 ****
+--- 250,256 ----
+  static void delete_var(hashtab_T *ht, hashitem_T *hi);
+  static void list_one_var(dictitem_T *v, char *prefix, int *first);
+  static void list_one_var_a(char *prefix, char_u *name, int type, char_u *string, int *first);
++ static void set_var_const(char_u *name, typval_T *tv, int copy, int is_const);
+  static int tv_check_lock(typval_T *tv, char_u *name, int use_gettext);
+  static char_u *find_option_end(char_u **arg, int *opt_flags);
+  
+***************
+*** 526,534 ****
+      tv.v_type = VAR_STRING;
+      tv.vval.v_string = (char_u *)"";
+      if (append)
+! 	set_var_lval(redir_lval, redir_endp, &tv, TRUE, (char_u *)".");
+      else
+! 	set_var_lval(redir_lval, redir_endp, &tv, TRUE, (char_u *)"=");
+      clear_lval(redir_lval);
+      err = did_emsg;
+      did_emsg |= save_emsg;
+--- 529,537 ----
+      tv.v_type = VAR_STRING;
+      tv.vval.v_string = (char_u *)"";
+      if (append)
+! 	set_var_lval(redir_lval, redir_endp, &tv, TRUE, FALSE, (char_u *)".");
+      else
+! 	set_var_lval(redir_lval, redir_endp, &tv, TRUE, FALSE, (char_u *)"=");
+      clear_lval(redir_lval);
+      err = did_emsg;
+      did_emsg |= save_emsg;
+***************
+*** 601,607 ****
+  	    redir_endp = get_lval(redir_varname, NULL, redir_lval,
+  					FALSE, FALSE, 0, FNE_CHECK_START);
+  	    if (redir_endp != NULL && redir_lval->ll_name != NULL)
+! 		set_var_lval(redir_lval, redir_endp, &tv, FALSE, (char_u *)".");
+  	    clear_lval(redir_lval);
+  	}
+  
+--- 604,611 ----
+  	    redir_endp = get_lval(redir_varname, NULL, redir_lval,
+  					FALSE, FALSE, 0, FNE_CHECK_START);
+  	    if (redir_endp != NULL && redir_lval->ll_name != NULL)
+! 		set_var_lval(redir_lval, redir_endp, &tv, FALSE, FALSE,
+! 								(char_u *)".");
+  	    clear_lval(redir_lval);
+  	}
+  
+***************
+*** 1338,1343 ****
+--- 1342,1365 ----
+      void
+  ex_let(exarg_T *eap)
+  {
++     ex_let_const(eap, FALSE);
++ }
++ 
++ /*
++  * ":const"			list all variable values
++  * ":const var1 var2"		list variable values
++  * ":const var = expr"		assignment command.
++  * ":const [var1, var2] = expr"	unpack list.
++  */
++     void
++ ex_const(exarg_T *eap)
++ {
++     ex_let_const(eap, TRUE);
++ }
++ 
++     static void
++ ex_let_const(exarg_T *eap, int is_const)
++ {
+      char_u	*arg = eap->arg;
+      char_u	*expr = NULL;
+      typval_T	rettv;
+***************
+*** 1396,1402 ****
+  	    op[0] = '=';
+  	    op[1] = NUL;
+  	    (void)ex_let_vars(eap->arg, &rettv, FALSE, semicolon, var_count,
+! 									  op);
+  	    clear_tv(&rettv);
+  	}
+      }
+--- 1418,1424 ----
+  	    op[0] = '=';
+  	    op[1] = NUL;
+  	    (void)ex_let_vars(eap->arg, &rettv, FALSE, semicolon, var_count,
+! 								is_const, op);
+  	    clear_tv(&rettv);
+  	}
+      }
+***************
+*** 1429,1435 ****
+  	else if (i != FAIL)
+  	{
+  	    (void)ex_let_vars(eap->arg, &rettv, FALSE, semicolon, var_count,
+! 									  op);
+  	    clear_tv(&rettv);
+  	}
+      }
+--- 1451,1457 ----
+  	else if (i != FAIL)
+  	{
+  	    (void)ex_let_vars(eap->arg, &rettv, FALSE, semicolon, var_count,
+! 								 is_const, op);
+  	    clear_tv(&rettv);
+  	}
+      }
+***************
+*** 1447,1455 ****
+  ex_let_vars(
+      char_u	*arg_start,
+      typval_T	*tv,
+!     int		copy,		/* copy values from "tv", don't move */
+!     int		semicolon,	/* from skip_var_list() */
+!     int		var_count,	/* from skip_var_list() */
+      char_u	*nextchars)
+  {
+      char_u	*arg = arg_start;
+--- 1469,1478 ----
+  ex_let_vars(
+      char_u	*arg_start,
+      typval_T	*tv,
+!     int		copy,		// copy values from "tv", don't move
+!     int		semicolon,	// from skip_var_list()
+!     int		var_count,	// from skip_var_list()
+!     int		is_const,	// lock variables for const
+      char_u	*nextchars)
+  {
+      char_u	*arg = arg_start;
+***************
+*** 1463,1469 ****
+  	/*
+  	 * ":let var = expr" or ":for var in list"
+  	 */
+! 	if (ex_let_one(arg, tv, copy, nextchars, nextchars) == NULL)
+  	    return FAIL;
+  	return OK;
+      }
+--- 1486,1492 ----
+  	/*
+  	 * ":let var = expr" or ":for var in list"
+  	 */
+! 	if (ex_let_one(arg, tv, copy, is_const, nextchars, nextchars) == NULL)
+  	    return FAIL;
+  	return OK;
+      }
+***************
+*** 1493,1499 ****
+      while (*arg != ']')
+      {
+  	arg = skipwhite(arg + 1);
+! 	arg = ex_let_one(arg, &item->li_tv, TRUE, (char_u *)",;]", nextchars);
+  	item = item->li_next;
+  	if (arg == NULL)
+  	    return FAIL;
+--- 1516,1523 ----
+      while (*arg != ']')
+      {
+  	arg = skipwhite(arg + 1);
+! 	arg = ex_let_one(arg, &item->li_tv, TRUE, is_const,
+! 						   (char_u *)",;]", nextchars);
+  	item = item->li_next;
+  	if (arg == NULL)
+  	    return FAIL;
+***************
+*** 1517,1524 ****
+  	    ltv.vval.v_list = l;
+  	    l->lv_refcount = 1;
+  
+! 	    arg = ex_let_one(skipwhite(arg + 1), &ltv, FALSE,
+! 						    (char_u *)"]", nextchars);
+  	    clear_tv(&ltv);
+  	    if (arg == NULL)
+  		return FAIL;
+--- 1541,1548 ----
+  	    ltv.vval.v_list = l;
+  	    l->lv_refcount = 1;
+  
+! 	    arg = ex_let_one(skipwhite(arg + 1), &ltv, FALSE, is_const,
+! 						     (char_u *)"]", nextchars);
+  	    clear_tv(&ltv);
+  	    if (arg == NULL)
+  		return FAIL;
+***************
+*** 1805,1815 ****
+   */
+      static char_u *
+  ex_let_one(
+!     char_u	*arg,		/* points to variable name */
+!     typval_T	*tv,		/* value to assign to variable */
+!     int		copy,		/* copy value from "tv" */
+!     char_u	*endchars,	/* valid chars after variable name  or NULL */
+!     char_u	*op)		/* "+", "-", "."  or NULL*/
+  {
+      int		c1;
+      char_u	*name;
+--- 1829,1840 ----
+   */
+      static char_u *
+  ex_let_one(
+!     char_u	*arg,		// points to variable name
+!     typval_T	*tv,		// value to assign to variable
+!     int		copy,		// copy value from "tv"
+!     int		is_const,	// lock variable for const
+!     char_u	*endchars,	// valid chars after variable name  or NULL
+!     char_u	*op)		// "+", "-", "."  or NULL
+  {
+      int		c1;
+      char_u	*name;
+***************
+*** 1824,1829 ****
+--- 1849,1859 ----
+       */
+      if (*arg == '$')
+      {
++ 	if (is_const)
++ 	{
++ 	    emsg(_("E996: Cannot lock an environment variable"));
++ 	    return NULL;
++ 	}
+  	/* Find the end of the name. */
+  	++arg;
+  	name = arg;
+***************
+*** 1879,1884 ****
+--- 1909,1919 ----
+       */
+      else if (*arg == '&')
+      {
++ 	if (is_const)
++ 	{
++ 	    emsg(_("E996: Cannot lock an option"));
++ 	    return NULL;
++ 	}
+  	/* Find the end of the name. */
+  	p = find_option_end(&arg, &opt_flags);
+  	if (p == NULL || (endchars != NULL
+***************
+*** 1943,1948 ****
+--- 1978,1988 ----
+       */
+      else if (*arg == '@')
+      {
++ 	if (is_const)
++ 	{
++ 	    emsg(_("E996: Cannot lock a register"));
++ 	    return NULL;
++ 	}
+  	++arg;
+  	if (op != NULL && vim_strchr((char_u *)"+-*/%", *op) != NULL)
+  	    semsg(_(e_letwrong), op);
+***************
+*** 1988,1994 ****
+  		emsg(_(e_letunexp));
+  	    else
+  	    {
+! 		set_var_lval(&lv, p, tv, copy, op);
+  		arg_end = p;
+  	    }
+  	}
+--- 2028,2034 ----
+  		emsg(_(e_letunexp));
+  	    else
+  	    {
+! 		set_var_lval(&lv, p, tv, copy, is_const, op);
+  		arg_end = p;
+  	    }
+  	}
+***************
+*** 2430,2435 ****
+--- 2470,2476 ----
+      char_u	*endp,
+      typval_T	*rettv,
+      int		copy,
++     int		is_const,    // Disallow to modify existing variable for :const
+      char_u	*op)
+  {
+      int		cc;
+***************
+*** 2495,2500 ****
+--- 2536,2548 ----
+  	{
+  	    typval_T tv;
+  
++ 	    if (is_const)
++ 	    {
++ 		emsg(_(e_cannot_mod));
++ 		*endp = cc;
++ 		return;
++ 	    }
++ 
+  	    // handle +=, -=, *=, /=, %= and .=
+  	    di = NULL;
+  	    if (get_var_tv(lp->ll_name, (int)STRLEN(lp->ll_name),
+***************
+*** 2509,2515 ****
+  	    }
+  	}
+  	else
+! 	    set_var(lp->ll_name, rettv, copy);
+  	*endp = cc;
+      }
+      else if (var_check_lock(lp->ll_newkey == NULL
+--- 2557,2563 ----
+  	    }
+  	}
+  	else
+! 	    set_var_const(lp->ll_name, rettv, copy, is_const);
+  	*endp = cc;
+      }
+      else if (var_check_lock(lp->ll_newkey == NULL
+***************
+*** 2521,2526 ****
+--- 2569,2580 ----
+  	listitem_T *ll_li = lp->ll_li;
+  	int	    ll_n1 = lp->ll_n1;
+  
++ 	if (is_const)
++ 	{
++ 	    emsg(_("E996: Cannot lock a range"));
++ 	    return;
++ 	}
++ 
+  	/*
+  	 * Check whether any of the list items is locked
+  	 */
+***************
+*** 2574,2579 ****
+--- 2628,2638 ----
+  	/*
+  	 * Assign to a List or Dictionary item.
+  	 */
++ 	if (is_const)
++ 	{
++ 	    emsg(_("E996: Cannot lock a list or dict"));
++ 	    return;
++ 	}
+  	if (lp->ll_newkey != NULL)
+  	{
+  	    if (op != NULL && *op != '=')
+***************
+*** 2860,2867 ****
+  	tv.v_lock = VAR_FIXED;
+  	tv.vval.v_number = blob_get(fi->fi_blob, fi->fi_bi);
+  	++fi->fi_bi;
+! 	return ex_let_vars(arg, &tv, TRUE,
+! 			      fi->fi_semicolon, fi->fi_varcount, NULL) == OK;
+      }
+  
+      item = fi->fi_lw.lw_item;
+--- 2919,2926 ----
+  	tv.v_lock = VAR_FIXED;
+  	tv.vval.v_number = blob_get(fi->fi_blob, fi->fi_bi);
+  	++fi->fi_bi;
+! 	return ex_let_vars(arg, &tv, TRUE, fi->fi_semicolon,
+! 					   fi->fi_varcount, FALSE, NULL) == OK;
+      }
+  
+      item = fi->fi_lw.lw_item;
+***************
+*** 2870,2877 ****
+      else
+      {
+  	fi->fi_lw.lw_item = item->li_next;
+! 	result = (ex_let_vars(arg, &item->li_tv, TRUE,
+! 			      fi->fi_semicolon, fi->fi_varcount, NULL) == OK);
+      }
+      return result;
+  }
+--- 2929,2936 ----
+      else
+      {
+  	fi->fi_lw.lw_item = item->li_next;
+! 	result = (ex_let_vars(arg, &item->li_tv, TRUE, fi->fi_semicolon,
+! 					  fi->fi_varcount, FALSE, NULL) == OK);
+      }
+      return result;
+  }
+***************
+*** 8051,8057 ****
+  set_var(
+      char_u	*name,
+      typval_T	*tv,
+!     int		copy)	    /* make copy of value in "tv" */
+  {
+      dictitem_T	*v;
+      char_u	*varname;
+--- 8110,8131 ----
+  set_var(
+      char_u	*name,
+      typval_T	*tv,
+!     int		copy)	    // make copy of value in "tv"
+! {
+!     set_var_const(name, tv, copy, FALSE);
+! }
+! 
+! /*
+!  * Set variable "name" to value in "tv".
+!  * If the variable already exists and "is_const" is FALSE the value is updated.
+!  * Otherwise the variable is created.
+!  */
+!     static void
+! set_var_const(
+!     char_u	*name,
+!     typval_T	*tv,
+!     int		copy,	    // make copy of value in "tv"
+!     int		is_const)   // disallow to modify existing variable
+  {
+      dictitem_T	*v;
+      char_u	*varname;
+***************
+*** 8075,8080 ****
+--- 8149,8160 ----
+  
+      if (v != NULL)
+      {
++ 	if (is_const)
++ 	{
++ 	    emsg(_(e_cannot_mod));
++ 	    return;
++ 	}
++ 
+  	/* existing variable, need to clear the value */
+  	if (var_check_ro(v->di_flags, name, FALSE)
+  			      || var_check_lock(v->di_tv.v_lock, name, FALSE))
+***************
+*** 8152,8157 ****
+--- 8232,8239 ----
+  	    return;
+  	}
+  	v->di_flags = DI_FLAGS_ALLOC;
++ 	if (is_const)
++ 	    v->di_flags |= DI_FLAGS_LOCK;
+      }
+  
+      if (copy || tv->v_type == VAR_NUMBER || tv->v_type == VAR_FLOAT)
+***************
+*** 8162,8167 ****
+--- 8244,8252 ----
+  	v->di_tv.v_lock = 0;
+  	init_tv(tv);
+      }
++ 
++     if (is_const)
++ 	v->di_tv.v_lock |= VAR_LOCKED;
+  }
+  
+  /*
+*** ../vim-8.1.1538/src/ex_cmdidxs.h	2019-06-10 13:10:45.370588270 +0200
+--- src/ex_cmdidxs.h	2019-06-15 14:46:27.993733724 +0200
+***************
+*** 8,36 ****
+    /* a */ 0,
+    /* b */ 19,
+    /* c */ 42,
+!   /* d */ 107,
+!   /* e */ 129,
+!   /* f */ 149,
+!   /* g */ 165,
+!   /* h */ 171,
+!   /* i */ 180,
+!   /* j */ 198,
+!   /* k */ 200,
+!   /* l */ 205,
+!   /* m */ 267,
+!   /* n */ 285,
+!   /* o */ 305,
+!   /* p */ 317,
+!   /* q */ 356,
+!   /* r */ 359,
+!   /* s */ 379,
+!   /* t */ 447,
+!   /* u */ 492,
+!   /* v */ 503,
+!   /* w */ 521,
+!   /* x */ 535,
+!   /* y */ 545,
+!   /* z */ 546
+  };
+  
+  /*
+--- 8,36 ----
+    /* a */ 0,
+    /* b */ 19,
+    /* c */ 42,
+!   /* d */ 108,
+!   /* e */ 130,
+!   /* f */ 150,
+!   /* g */ 166,
+!   /* h */ 172,
+!   /* i */ 181,
+!   /* j */ 199,
+!   /* k */ 201,
+!   /* l */ 206,
+!   /* m */ 268,
+!   /* n */ 286,
+!   /* o */ 306,
+!   /* p */ 318,
+!   /* q */ 357,
+!   /* r */ 360,
+!   /* s */ 380,
+!   /* t */ 448,
+!   /* u */ 493,
+!   /* v */ 504,
+!   /* w */ 522,
+!   /* x */ 536,
+!   /* y */ 546,
+!   /* z */ 547
+  };
+  
+  /*
+***************
+*** 43,49 ****
+  { /*         a   b   c   d   e   f   g   h   i   j   k   l   m   n   o   p   q   r   s   t   u   v   w   x   y   z */
+    /* a */ {  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  4,  5,  6,  0,  0,  0,  7, 15,  0, 16,  0,  0,  0,  0,  0 },
+    /* b */ {  2,  0,  0,  4,  5,  7,  0,  0,  0,  0,  0,  8,  9, 10, 11, 12,  0, 13,  0,  0,  0,  0, 22,  0,  0,  0 },
+!   /* c */ {  3, 12, 16, 18, 20, 22, 25,  0,  0,  0,  0, 33, 37, 40, 46, 55, 57, 58, 59,  0, 61,  0, 64,  0,  0,  0 },
+    /* d */ {  0,  0,  0,  0,  0,  0,  0,  0,  6, 15,  0, 16,  0,  0, 17,  0,  0, 19, 20,  0,  0,  0,  0,  0,  0,  0 },
+    /* e */ {  1,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  7,  9, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0, 16,  0,  0 },
+    /* f */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  0,  0,  0,  0,  0, 15,  0,  0,  0,  0,  0 },
+--- 43,49 ----
+  { /*         a   b   c   d   e   f   g   h   i   j   k   l   m   n   o   p   q   r   s   t   u   v   w   x   y   z */
+    /* a */ {  0,  1,  0,  0,  0,  0,  0,  0,  0,  0,  0,  4,  5,  6,  0,  0,  0,  7, 15,  0, 16,  0,  0,  0,  0,  0 },
+    /* b */ {  2,  0,  0,  4,  5,  7,  0,  0,  0,  0,  0,  8,  9, 10, 11, 12,  0, 13,  0,  0,  0,  0, 22,  0,  0,  0 },
+!   /* c */ {  3, 12, 16, 18, 20, 22, 25,  0,  0,  0,  0, 33, 37, 40, 46, 56, 58, 59, 60,  0, 62,  0, 65,  0,  0,  0 },
+    /* d */ {  0,  0,  0,  0,  0,  0,  0,  0,  6, 15,  0, 16,  0,  0, 17,  0,  0, 19, 20,  0,  0,  0,  0,  0,  0,  0 },
+    /* e */ {  1,  0,  2,  0,  0,  0,  0,  0,  0,  0,  0,  7,  9, 10,  0,  0,  0,  0,  0,  0,  0,  0,  0, 16,  0,  0 },
+    /* f */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  9,  0,  0,  0,  0,  0, 15,  0,  0,  0,  0,  0 },
+***************
+*** 69,72 ****
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 559;
+--- 69,72 ----
+    /* z */ {  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0 }
+  };
+  
+! static const int command_count = 560;
+*** ../vim-8.1.1538/src/ex_cmds.h	2019-06-10 13:10:45.370588270 +0200
+--- src/ex_cmds.h	2019-06-15 14:46:27.993733724 +0200
+***************
+*** 401,406 ****
+--- 401,409 ----
+  EX(CMD_confirm,		"confirm",	ex_wrongmodifier,
+  			NEEDARG|EXTRA|NOTRLCOM|CMDWIN,
+  			ADDR_NONE),
++ EX(CMD_const,		"const",	ex_const,
++ 			EXTRA|NOTRLCOM|SBOXOK|CMDWIN,
++ 			ADDR_NONE),
+  EX(CMD_copen,		"copen",	ex_copen,
+  			RANGE|COUNT|TRLBAR,
+  			ADDR_OTHER),
+*** ../vim-8.1.1538/src/proto/eval.pro	2019-04-27 20:36:52.534303564 +0200
+--- src/proto/eval.pro	2019-06-15 15:42:33.471067677 +0200
+***************
+*** 28,33 ****
+--- 28,34 ----
+  void *call_func_retlist(char_u *func, int argc, typval_T *argv);
+  int eval_foldexpr(char_u *arg, int *cp);
+  void ex_let(exarg_T *eap);
++ void ex_const(exarg_T *eap);
+  void list_hashtable_vars(hashtab_T *ht, char *prefix, int empty, int *first);
+  char_u *get_lval(char_u *name, typval_T *rettv, lval_T *lp, int unlet, int skip, int flags, int fne_flags);
+  void clear_lval(lval_T *lp);
+*** ../vim-8.1.1538/src/testdir/Make_all.mak	2019-06-09 13:42:36.428522167 +0200
+--- src/testdir/Make_all.mak	2019-06-15 14:46:27.993733724 +0200
+***************
+*** 87,92 ****
+--- 87,93 ----
+  	test_comparators \
+  	test_compiler \
+  	test_conceal \
++ 	test_const \
+  	test_crypt \
+  	test_cscope \
+  	test_cursor_func \
+***************
+*** 312,317 ****
+--- 313,319 ----
+  	test_command_count.res \
+  	test_comparators.res \
+  	test_conceal.res \
++ 	test_const.res \
+  	test_crypt.res \
+  	test_cscope.res \
+  	test_curswant.res \
+*** ../vim-8.1.1538/src/testdir/test_const.vim	2019-06-15 15:35:38.776519171 +0200
+--- src/testdir/test_const.vim	2019-06-15 15:28:09.557352213 +0200
+***************
+*** 0 ****
+--- 1,228 ----
++ " Test for :const
++ 
++ func s:noop()
++ endfunc
++ 
++ func Test_define_var_with_lock()
++     const i = 1
++     const f = 1.1
++     const s = 'vim'
++     const F = funcref('s:noop')
++     const l = [1, 2, 3]
++     const d = {'foo': 10}
++     if has('channel')
++       const j = test_null_job()
++       const c = test_null_channel()
++     endif
++     const b = v:true
++     const n = v:null
++     const bl = 0zC0FFEE
++     const here =<< trim EOS
++     hello
++     EOS
++ 
++     call assert_fails('let i = 1', 'E741:')
++     call assert_fails('let f = 1.1', 'E741:')
++     call assert_fails('let s = "vim"', 'E741:')
++     call assert_fails('let F = funcref("s:noop")', 'E741:')
++     call assert_fails('let l = [1, 2, 3]', 'E741:')
++     call assert_fails('let d = {"foo": 10}', 'E741:')
++     if has('channel')
++       call assert_fails('let j = test_null_job()', 'E741:')
++       call assert_fails('let c = test_null_channel()', 'E741:')
++     endif
++     call assert_fails('let b = v:true', 'E741:')
++     call assert_fails('let n = v:null', 'E741:')
++     call assert_fails('let bl = 0zC0FFEE', 'E741:')
++     call assert_fails('let here = "xxx"', 'E741:')
++ 
++     " Unlet
++     unlet i
++     unlet f
++     unlet s
++     unlet F
++     unlet l
++     unlet d
++     unlet j
++     unlet c
++     unlet b
++     unlet n
++     unlet bl
++     unlet here
++ endfunc
++ 
++ func Test_define_l_var_with_lock()
++     " With l: prefix
++     const l:i = 1
++     const l:f = 1.1
++     const l:s = 'vim'
++     const l:F = funcref('s:noop')
++     const l:l = [1, 2, 3]
++     const l:d = {'foo': 10}
++     if has('channel')
++       const l:j = test_null_job()
++       const l:c = test_null_channel()
++     endif
++     const l:b = v:true
++     const l:n = v:null
++     const l:bl = 0zC0FFEE
++     const l:here =<< trim EOS
++     hello
++     EOS
++ 
++     call assert_fails('let l:i = 1', 'E741:')
++     call assert_fails('let l:f = 1.1', 'E741:')
++     call assert_fails('let l:s = "vim"', 'E741:')
++     call assert_fails('let l:F = funcref("s:noop")', 'E741:')
++     call assert_fails('let l:l = [1, 2, 3]', 'E741:')
++     call assert_fails('let l:d = {"foo": 10}', 'E741:')
++     if has('channel')
++       call assert_fails('let l:j = test_null_job()', 'E741:')
++       call assert_fails('let l:c = test_null_channel()', 'E741:')
++     endif
++     call assert_fails('let l:b = v:true', 'E741:')
++     call assert_fails('let l:n = v:null', 'E741:')
++     call assert_fails('let l:bl = 0zC0FFEE', 'E741:')
++     call assert_fails('let l:here = "xxx"', 'E741:')
++ 
++     " Unlet
++     unlet l:i
++     unlet l:f
++     unlet l:s
++     unlet l:F
++     unlet l:l
++     unlet l:d
++     unlet l:j
++     unlet l:c
++     unlet l:b
++     unlet l:n
++     unlet l:bl
++     unlet l:here
++ endfunc
++ 
++ func Test_define_script_var_with_lock()
++     const s:x = 0
++     call assert_fails('let s:x = 1', 'E741:')
++     unlet s:x
++ endfunc
++ 
++ func Test_descructuring_with_lock()
++     const [a, b, c] = [1, 1.1, 'vim']
++ 
++     call assert_fails('let a = 1', 'E741:')
++     call assert_fails('let b = 1.1', 'E741:')
++     call assert_fails('let c = "vim"', 'E741:')
++ 
++     const [d; e] = [1, 1.1, 'vim']
++     call assert_fails('let d = 1', 'E741:')
++     call assert_fails('let e = [2.2, "a"]', 'E741:')
++ endfunc
++ 
++ func Test_cannot_modify_existing_variable()
++     let i = 1
++     let f = 1.1
++     let s = 'vim'
++     let F = funcref('s:noop')
++     let l = [1, 2, 3]
++     let d = {'foo': 10}
++     if has('channel')
++       let j = test_null_job()
++       let c = test_null_channel()
++     endif
++     let b = v:true
++     let n = v:null
++     let bl = 0zC0FFEE
++ 
++     call assert_fails('const i = 1', 'E995:')
++     call assert_fails('const f = 1.1', 'E995:')
++     call assert_fails('const s = "vim"', 'E995:')
++     call assert_fails('const F = funcref("s:noop")', 'E995:')
++     call assert_fails('const l = [1, 2, 3]', 'E995:')
++     call assert_fails('const d = {"foo": 10}', 'E995:')
++     if has('channel')
++       call assert_fails('const j = test_null_job()', 'E995:')
++       call assert_fails('const c = test_null_channel()', 'E995:')
++     endif
++     call assert_fails('const b = v:true', 'E995:')
++     call assert_fails('const n = v:null', 'E995:')
++     call assert_fails('const bl = 0zC0FFEE', 'E995:')
++     call assert_fails('const [i, f, s] = [1, 1.1, "vim"]', 'E995:')
++ 
++     const i2 = 1
++     const f2 = 1.1
++     const s2 = 'vim'
++     const F2 = funcref('s:noop')
++     const l2 = [1, 2, 3]
++     const d2 = {'foo': 10}
++     if has('channel')
++       const j2 = test_null_job()
++       const c2 = test_null_channel()
++     endif
++     const b2 = v:true
++     const n2 = v:null
++     const bl2 = 0zC0FFEE
++ 
++     call assert_fails('const i2 = 1', 'E995:')
++     call assert_fails('const f2 = 1.1', 'E995:')
++     call assert_fails('const s2 = "vim"', 'E995:')
++     call assert_fails('const F2 = funcref("s:noop")', 'E995:')
++     call assert_fails('const l2 = [1, 2, 3]', 'E995:')
++     call assert_fails('const d2 = {"foo": 10}', 'E995:')
++     if has('channel')
++       call assert_fails('const j2 = test_null_job()', 'E995:')
++       call assert_fails('const c2 = test_null_channel()', 'E995:')
++     endif
++     call assert_fails('const b2 = v:true', 'E995:')
++     call assert_fails('const n2 = v:null', 'E995:')
++     call assert_fails('const bl2 = 0zC0FFEE', 'E995:')
++     call assert_fails('const [i2, f2, s2] = [1, 1.1, "vim"]', 'E995:')
++ endfunc
++ 
++ func Test_const_with_index_access()
++     let l = [1, 2, 3]
++     call assert_fails('const l[0] = 4', 'E996:')
++     call assert_fails('const l[0:1] = [1, 2]', 'E996:')
++ 
++     let d = {'aaa': 0}
++     call assert_fails("const d['aaa'] = 4", 'E996:')
++     call assert_fails("const d.aaa = 4", 'E996:')
++ endfunc
++ 
++ func Test_const_with_compound_assign()
++     let i = 0
++     call assert_fails('const i += 4', 'E995:')
++     call assert_fails('const i -= 4', 'E995:')
++     call assert_fails('const i *= 4', 'E995:')
++     call assert_fails('const i /= 4', 'E995:')
++     call assert_fails('const i %= 4', 'E995:')
++ 
++     let s = 'a'
++     call assert_fails('const s .= "b"', 'E995:')
++ 
++     let [a, b, c] = [1, 2, 3]
++     call assert_fails('const [a, b, c] += [4, 5, 6]', 'E995:')
++ 
++     let [d; e] = [1, 2, 3]
++     call assert_fails('const [d; e] += [4, 5, 6]', 'E995:')
++ endfunc
++ 
++ func Test_const_with_special_variables()
++     call assert_fails('const $FOO = "hello"', 'E996:')
++     call assert_fails('const @a = "hello"', 'E996:')
++     call assert_fails('const &filetype = "vim"', 'E996:')
++     call assert_fails('const &l:filetype = "vim"', 'E996:')
++     call assert_fails('const &g:encoding = "utf-8"', 'E996:')
++ endfunc
++ 
++ func Test_lock_depth_is_1()
++     const l = [1, 2, 3]
++     const d = {'foo': 10}
++ 
++     " Modify list
++     call add(l, 4)
++     let l[0] = 42
++ 
++     " Modify dict
++     let d['bar'] = 'hello'
++     let d.foo = 44
++ endfunc
+*** ../vim-8.1.1538/src/version.c	2019-06-15 14:31:33.774185476 +0200
+--- src/version.c	2019-06-15 15:35:00.596628638 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1539,
+  /**/
+
+-- 
+A bad peace is better than a good war. - Yiddish Proverb
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

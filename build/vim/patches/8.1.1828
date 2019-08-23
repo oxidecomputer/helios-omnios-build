@@ -1,0 +1,104 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1828
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1828
+Problem:    Not strict enough checking syntax of method invocation.
+Solution:   Check there is no white space inside ->method(.
+Files:	    runtime/doc/eval.txt, src/eval.c, src/testdir/test_method.vim
+
+
+*** ../vim-8.1.1827/runtime/doc/eval.txt	2019-08-04 17:35:49.331707782 +0200
+--- runtime/doc/eval.txt	2019-08-08 21:08:25.195963762 +0200
+***************
+*** 1223,1234 ****
+  	name(expr8 [, args])
+  There can also be methods specifically for the type of "expr8".
+  
+! "->name(" must not contain white space.  There can be white space before "->"
+! and after the "(".
+! 
+! This allows for chaining, using the type that the method returns: >
+  	mylist->filter(filterexpr)->map(mapexpr)->sort()->join()
+  <
+  
+  							*expr9*
+  number
+--- 1223,1241 ----
+  	name(expr8 [, args])
+  There can also be methods specifically for the type of "expr8".
+  
+! This allows for chaining, passing the value that one method returns to the
+! next method: >
+  	mylist->filter(filterexpr)->map(mapexpr)->sort()->join()
+  <
++ 							*E274*
++ "->name(" must not contain white space.  There can be white space before the
++ "->" and after the "(", thus you can split the lines like this: >
++ 	mylist
++ 	\ ->filter(filterexpr)
++ 	\ ->map(mapexpr)
++ 	\ ->sort()
++ 	\ ->join()
++ <
+  
+  							*expr9*
+  number
+*** ../vim-8.1.1827/src/eval.c	2019-08-05 23:10:06.661422313 +0200
+--- src/eval.c	2019-08-08 21:04:26.705387118 +0200
+***************
+*** 4862,4867 ****
+--- 4862,4873 ----
+  		semsg(_(e_missingparen), name);
+  	    ret = FAIL;
+  	}
++ 	else if (VIM_ISWHITE((*arg)[-1]))
++ 	{
++ 	    if (verbose)
++ 		semsg(_("E274: No white space allowed before parenthesis"));
++ 	    ret = FAIL;
++ 	}
+  	else
+  	    ret = eval_func(arg, name, len, rettv, evaluate, &base);
+      }
+*** ../vim-8.1.1827/src/testdir/test_method.vim	2019-08-06 20:34:07.392451015 +0200
+--- src/testdir/test_method.vim	2019-08-08 21:08:54.039793112 +0200
+***************
+*** 112,114 ****
+--- 112,124 ----
+  
+    delfunc Concat
+  endfunc
++ 
++ func Test_method_syntax()
++   eval [1, 2, 3]  ->sort( )
++   eval [1, 2, 3]  
++ 	\ ->sort(
++ 	\ )
++   call assert_fails('eval [1, 2, 3]-> sort()', 'E260:')
++   call assert_fails('eval [1, 2, 3]->sort ()', 'E274:')
++   call assert_fails('eval [1, 2, 3]-> sort ()', 'E260:')
++ endfunc
+*** ../vim-8.1.1827/src/version.c	2019-08-08 20:49:10.771344293 +0200
+--- src/version.c	2019-08-08 21:09:17.859652368 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1828,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+31. You code your homework in HTML and give your instructor the URL.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

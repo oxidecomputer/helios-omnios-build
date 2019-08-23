@@ -1,0 +1,422 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1905
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1905
+Problem:    Cannot set all properties of the info popup.
+Solution:   Add popup_findinfo().  Rename popup_getpreview() to
+            popup_findpreview().
+Files:	    src/popupwin.c, src/proto/popupwin.pro, src/ex_cmds.c,
+            src/ex_docmd.c, src/popupmnu.c, src/evalfunc.c,
+            runtime/doc/popup.txt, src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_infopopup_align_3.dump
+
+
+*** ../vim-8.1.1904/src/popupwin.c	2019-08-21 17:29:08.034793106 +0200
+--- src/popupwin.c	2019-08-21 18:05:03.441681637 +0200
+***************
+*** 2058,2063 ****
+--- 2058,2075 ----
+  	popup_close_and_callback(wp, &argvars[1]);
+  }
+  
++     static void
++ popup_hide(win_T *wp)
++ {
++     if ((wp->w_popup_flags & POPF_HIDDEN) == 0)
++     {
++ 	wp->w_popup_flags |= POPF_HIDDEN;
++ 	--wp->w_buffer->b_nwindows;
++ 	redraw_all_later(NOT_VALID);
++ 	popup_mask_refresh = TRUE;
++     }
++ }
++ 
+  /*
+   * popup_hide({id})
+   */
+***************
+*** 2067,2076 ****
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
+  
+!     if (wp != NULL && (wp->w_popup_flags & POPF_HIDDEN) == 0)
+      {
+! 	wp->w_popup_flags |= POPF_HIDDEN;
+! 	--wp->w_buffer->b_nwindows;
+  	redraw_all_later(NOT_VALID);
+  	popup_mask_refresh = TRUE;
+      }
+--- 2079,2095 ----
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
+  
+!     if (wp != NULL)
+! 	popup_hide(wp);
+! }
+! 
+!     void
+! popup_show(win_T *wp)
+! {
+!     if ((wp->w_popup_flags & POPF_HIDDEN) != 0)
+      {
+! 	wp->w_popup_flags &= ~POPF_HIDDEN;
+! 	++wp->w_buffer->b_nwindows;
+  	redraw_all_later(NOT_VALID);
+  	popup_mask_refresh = TRUE;
+      }
+***************
+*** 2085,2097 ****
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
+  
+!     if (wp != NULL && (wp->w_popup_flags & POPF_HIDDEN) != 0)
+!     {
+! 	wp->w_popup_flags &= ~POPF_HIDDEN;
+! 	++wp->w_buffer->b_nwindows;
+! 	redraw_all_later(NOT_VALID);
+! 	popup_mask_refresh = TRUE;
+!     }
+  }
+  
+  /*
+--- 2104,2111 ----
+      int		id = (int)tv_get_number(argvars);
+      win_T	*wp = find_popup_win(id);
+  
+!     if (wp != NULL)
+! 	popup_show(wp);
+  }
+  
+  /*
+***************
+*** 3314,3320 ****
+  #endif
+  
+      void
+! f_popup_getpreview(typval_T *argvars UNUSED, typval_T *rettv)
+  {
+      win_T   *wp = popup_find_preview_window();
+  
+--- 3328,3342 ----
+  #endif
+  
+      void
+! f_popup_findinfo(typval_T *argvars UNUSED, typval_T *rettv)
+! {
+!     win_T   *wp = popup_find_info_window();
+! 
+!     rettv->vval.v_number = wp == NULL ? 0 : wp->w_id;
+! }
+! 
+!     void
+! f_popup_findpreview(typval_T *argvars UNUSED, typval_T *rettv)
+  {
+      win_T   *wp = popup_find_preview_window();
+  
+***************
+*** 3355,3364 ****
+  }
+  
+  #if defined(FEAT_QUICKFIX) || defined(PROTO)
+      void
+! popup_close_preview(int info)
+  {
+!     win_T *wp = info ? popup_find_info_window() : popup_find_preview_window();
+  
+      if (wp != NULL)
+      {
+--- 3377,3389 ----
+  }
+  
+  #if defined(FEAT_QUICKFIX) || defined(PROTO)
++ /*
++  * Close any preview popup.
++  */
+      void
+! popup_close_preview(void)
+  {
+!     win_T *wp = popup_find_preview_window();
+  
+      if (wp != NULL)
+      {
+***************
+*** 3369,3374 ****
+--- 3394,3411 ----
+  	popup_close_and_callback(wp, &res);
+      }
+  }
++ 
++ /*
++  * Hide the info popup.
++  */
++     void
++ popup_hide_info(void)
++ {
++     win_T *wp = popup_find_info_window();
++ 
++     if (wp != NULL)
++ 	popup_hide(wp);
++ }
+  #endif
+  
+  /*
+*** ../vim-8.1.1904/src/proto/popupwin.pro	2019-08-21 15:13:24.565040301 +0200
+--- src/proto/popupwin.pro	2019-08-21 18:05:08.121661141 +0200
+***************
+*** 27,32 ****
+--- 27,33 ----
+  void f_popup_notification(typval_T *argvars, typval_T *rettv);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+  void f_popup_hide(typval_T *argvars, typval_T *rettv);
++ void popup_show(win_T *wp);
+  void f_popup_show(typval_T *argvars, typval_T *rettv);
+  void f_popup_settext(typval_T *argvars, typval_T *rettv);
+  void popup_close(int id);
+***************
+*** 49,57 ****
+  win_T *popup_find_preview_window(void);
+  int popup_is_popup(win_T *wp);
+  win_T *popup_find_info_window(void);
+! void f_popup_getpreview(typval_T *argvars, typval_T *rettv);
+  int popup_create_preview_window(int info);
+! void popup_close_preview(int info);
+  void popup_set_title(win_T *wp);
+  void popup_update_preview_title(void);
+  /* vim: set ft=c : */
+--- 50,60 ----
+  win_T *popup_find_preview_window(void);
+  int popup_is_popup(win_T *wp);
+  win_T *popup_find_info_window(void);
+! void f_popup_findinfo(typval_T *argvars, typval_T *rettv);
+! void f_popup_findpreview(typval_T *argvars, typval_T *rettv);
+  int popup_create_preview_window(int info);
+! void popup_close_preview(void);
+! void popup_hide_info(void);
+  void popup_set_title(win_T *wp);
+  void popup_update_preview_title(void);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1904/src/ex_cmds.c	2019-08-21 14:36:29.387376100 +0200
+--- src/ex_cmds.c	2019-08-21 17:48:33.113835556 +0200
+***************
+*** 5154,5160 ****
+  	else if (use_popup)
+  	{
+  	    wp = popup_find_info_window();
+! 	    // TODO: set position
+  	}
+  	else
+  # endif
+--- 5154,5161 ----
+  	else if (use_popup)
+  	{
+  	    wp = popup_find_info_window();
+! 	    if (wp != NULL)
+! 		popup_show(wp);
+  	}
+  	else
+  # endif
+*** ../vim-8.1.1904/src/ex_docmd.c	2019-08-18 22:25:54.661448011 +0200
+--- src/ex_docmd.c	2019-08-21 17:49:57.989504854 +0200
+***************
+*** 5808,5814 ****
+  	}
+  # ifdef FEAT_TEXT_PROP
+      // Also when 'previewpopup' is empty, it might have been cleared.
+!     popup_close_preview(FALSE);
+  # endif
+  }
+  #endif
+--- 5808,5814 ----
+  	}
+  # ifdef FEAT_TEXT_PROP
+      // Also when 'previewpopup' is empty, it might have been cleared.
+!     popup_close_preview();
+  # endif
+  }
+  #endif
+*** ../vim-8.1.1904/src/popupmnu.c	2019-08-21 17:29:08.034793106 +0200
+--- src/popupmnu.c	2019-08-21 17:50:44.065322129 +0200
+***************
+*** 923,930 ****
+      }
+  #if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+      if (!has_info)
+! 	// close any popup info window
+! 	popup_close_preview(TRUE);
+  #endif
+  
+      if (!resized)
+--- 923,930 ----
+      }
+  #if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+      if (!has_info)
+! 	// hide any popup info window
+! 	popup_hide_info();
+  #endif
+  
+      if (!resized)
+***************
+*** 944,951 ****
+      redraw_tabline = TRUE;
+      status_redraw_all();
+  #if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+!     // close any popup info window
+!     popup_close_preview(TRUE);
+  #endif
+  }
+  
+--- 944,951 ----
+      redraw_tabline = TRUE;
+      status_redraw_all();
+  #if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+!     // hide any popup info window
+!     popup_hide_info();
+  #endif
+  }
+  
+*** ../vim-8.1.1904/src/evalfunc.c	2019-08-21 14:36:29.387376100 +0200
+--- src/evalfunc.c	2019-08-21 17:59:12.859203072 +0200
+***************
+*** 702,710 ****
+      {"popup_dialog",	2, 2, 0,	  f_popup_dialog},
+      {"popup_filter_menu", 2, 2, 0,	  f_popup_filter_menu},
+      {"popup_filter_yesno", 2, 2, 0,	  f_popup_filter_yesno},
+      {"popup_getoptions", 1, 1, 0,	  f_popup_getoptions},
+      {"popup_getpos",	1, 1, 0,	  f_popup_getpos},
+-     {"popup_getpreview", 0, 0, 0,	  f_popup_getpreview},
+      {"popup_hide",	1, 1, 0,	  f_popup_hide},
+      {"popup_locate",	2, 2, 0,	  f_popup_locate},
+      {"popup_menu",	2, 2, 0,	  f_popup_menu},
+--- 702,711 ----
+      {"popup_dialog",	2, 2, 0,	  f_popup_dialog},
+      {"popup_filter_menu", 2, 2, 0,	  f_popup_filter_menu},
+      {"popup_filter_yesno", 2, 2, 0,	  f_popup_filter_yesno},
++     {"popup_findinfo",	0, 0, 0,	  f_popup_findinfo},
++     {"popup_findpreview", 0, 0, 0,	  f_popup_findpreview},
+      {"popup_getoptions", 1, 1, 0,	  f_popup_getoptions},
+      {"popup_getpos",	1, 1, 0,	  f_popup_getpos},
+      {"popup_hide",	1, 1, 0,	  f_popup_hide},
+      {"popup_locate",	2, 2, 0,	  f_popup_locate},
+      {"popup_menu",	2, 2, 0,	  f_popup_menu},
+*** ../vim-8.1.1904/runtime/doc/popup.txt	2019-08-03 16:18:03.429654593 +0200
+--- runtime/doc/popup.txt	2019-08-21 17:59:50.199042696 +0200
+***************
+*** 289,294 ****
+--- 289,308 ----
+  		See the example here: |popup_dialog-example|
+  
+  
++ popup_findinfo()					*popup_findinfo()*
++ 		Get the |window-ID| for the popup info window, as it used by
++ 		the popup menu.  See |complete-popup|.  The info popup is
++ 		hidden when not used, it can be deleted with |popup_clear()|
++ 		and |popup_close()|.
++ 		Return zero if there is none.
++ 
++ 
++ popup_findpreview()					*popup_findpreview()*
++ 		Get the |window-ID| for the popup preview window.
++ 		Return zero if there is none.
++ 
++ 
++ 
+  popup_getoptions({id})					*popup_getoptions()*
+  		Return the {options} for popup {id} in a Dict.
+  		A zero value means the option was not set.  For "zindex" the
+***************
+*** 336,345 ****
+  
+  		If popup window {id} is not found an empty Dict is returned.
+  
+- popup_getpreview()					*popup_getpreview()*
+- 		Get the |window-ID| for the popup preview window.
+- 		Return zero if there is none.
+- 
+  
+  popup_hide({id})						*popup_hide()*
+  		If {id} is a displayed popup, hide it now. If the popup has a
+--- 350,355 ----
+*** ../vim-8.1.1904/src/testdir/test_popupwin.vim	2019-08-21 17:29:08.034793106 +0200
+--- src/testdir/test_popupwin.vim	2019-08-21 18:04:33.677811943 +0200
+***************
+*** 2162,2168 ****
+    call term_sendkeys(buf, "/another\<CR>\<C-W>}")
+    call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_2', {})
+  
+!   call term_sendkeys(buf, ":call popup_move(popup_getpreview(), #{col: 15})\<CR>")
+    call term_sendkeys(buf, ":\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_3', {})
+  
+--- 2162,2168 ----
+    call term_sendkeys(buf, "/another\<CR>\<C-W>}")
+    call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_2', {})
+  
+!   call term_sendkeys(buf, ":call popup_move(popup_findpreview(), #{col: 15})\<CR>")
+    call term_sendkeys(buf, ":\<CR>")
+    call VerifyScreenDump(buf, 'Test_popupwin_previewpopup_3', {})
+  
+***************
+*** 2245,2250 ****
+--- 2245,2254 ----
+  	      \ }
+        endfunc
+        call setline(1, 'text text text text text text text ')
++       func ChangeColor()
++ 	let id = popup_findinfo()
++ 	call popup_setoptions(id, #{highlight: 'InfoPopup'})
++       endfunc
+    END
+    return lines
+  endfunc
+***************
+*** 2313,2318 ****
+--- 2317,2323 ----
+    call VerifyScreenDump(buf, 'Test_popupwin_infopopup_align_2', {})
+  
+    call term_sendkeys(buf, "\<Esc>")
++   call term_sendkeys(buf, ":call ChangeColor()\<CR>")
+    call term_sendkeys(buf, ":call setline(2, ['x']->repeat(10))\<CR>")
+    call term_sendkeys(buf, "Gotest text test text\<C-X>\<C-U>")
+    call VerifyScreenDump(buf, 'Test_popupwin_infopopup_align_3', {})
+*** ../vim-8.1.1904/src/testdir/dumps/Test_popupwin_infopopup_align_3.dump	2019-08-21 17:29:08.034793106 +0200
+--- src/testdir/dumps/Test_popupwin_infopopup_align_3.dump	2019-08-21 18:05:24.369589948 +0200
+***************
+*** 8,14 ****
+  |x| @7| +0#0000001#e0e0e08|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffffff0@43
+  |x| @7| +0#0000001#ffd7ff255|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffffff0@43
+  |x| @7| +0#0000001#ffd7ff255|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffffff0@43
+! |x| @7| +0#0000001#ffd7ff255|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0&#e0e0e08|w|o|r|d|s| |a|r|e| |c|o@1|l| | +0#0000000#ffffff0@27
+  |t|e|s|t| |t|e|x|t| |a|w|o|r|d> @59
+  |~+0#4040ff13&| @73
+  |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |m+0#00e0003&|a|t|c|h| |1| |o|f| |4| +0#0000000&@26
+--- 8,14 ----
+  |x| @7| +0#0000001#e0e0e08|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffffff0@43
+  |x| @7| +0#0000001#ffd7ff255|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffffff0@43
+  |x| @7| +0#0000001#ffd7ff255|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffffff0@43
+! |x| @7| +0#0000001#ffd7ff255|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#0000000#ffff4012|w|o|r|d|s| |a|r|e| |c|o@1|l| | +0&#ffffff0@27
+  |t|e|s|t| |t|e|x|t| |a|w|o|r|d> @59
+  |~+0#4040ff13&| @73
+  |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |m+0#00e0003&|a|t|c|h| |1| |o|f| |4| +0#0000000&@26
+*** ../vim-8.1.1904/src/version.c	2019-08-21 17:29:08.034793106 +0200
+--- src/version.c	2019-08-21 18:11:48.883894473 +0200
+***************
+*** 763,764 ****
+--- 763,766 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1905,
+  /**/
+
+-- 
+A fool learns from his mistakes, a wise man from someone else's.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

@@ -1,0 +1,1033 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1880
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1880
+Problem:    Cannot show extra info for completion in a popup window.
+Solution:   Add the "popup" entry in 'completeopt'.
+Files:	    runtime/doc/options.txt, src/popupmnu.c, src/ex_cmds.c,
+            src/proto/ex_cmds.pro, src/ex_docmd.c, src/search.c, src/tag.c,
+            src/popupwin.c, src/proto/popupwin.pro, src/option.c, src/vim.h,
+            src/testdir/test_popupwin.vim,
+            src/testdir/dumps/Test_popupwin_infopopup_1.dump,
+            src/testdir/dumps/Test_popupwin_infopopup_2.dump,
+            src/testdir/dumps/Test_popupwin_infopopup_3.dump,
+            src/testdir/dumps/Test_popupwin_infopopup_4.dump
+
+
+*** ../vim-8.1.1879/runtime/doc/options.txt	2019-07-28 16:36:31.669949548 +0200
+--- runtime/doc/options.txt	2019-08-17 22:13:44.417404267 +0200
+***************
+*** 1131,1136 ****
+--- 1131,1140 ----
+  	v:beval_col	column number (byte index)
+  	v:beval_text	word under or after the mouse pointer
+  
++ 	Instead of showing a balloon, which is limited to plain text, consider
++ 	using a popup window, see |popup_beval_example|.  A popup window can
++ 	use highlighting and show a border.
++ 
+  	The evaluation of the expression must not have side effects!
+  	Example: >
+      function MyBalloonExpr()
+***************
+*** 1142,1149 ****
+      set bexpr=MyBalloonExpr()
+      set ballooneval
+  <
+! 	Also see |balloon_show()|, can be used if the content of the balloon
+! 	is to be fetched asynchronously.
+  
+  	NOTE: The balloon is displayed only if the cursor is on a text
+  	character.  If the result of evaluating 'balloonexpr' is not empty,
+--- 1146,1155 ----
+      set bexpr=MyBalloonExpr()
+      set ballooneval
+  <
+! 	Also see |balloon_show()|, it can be used if the content of the balloon
+! 	is to be fetched asynchronously.  In that case evaluating
+! 	'balloonexpr' should result in an empty string.  If you get a balloon
+! 	with only "0" you probably didn't return anything from your function.
+  
+  	NOTE: The balloon is displayed only if the cursor is on a text
+  	character.  If the result of evaluating 'balloonexpr' is not empty,
+***************
+*** 1155,1161 ****
+  	This option cannot be set in a modeline when 'modelineexpr' is off.
+  
+  	It is not allowed to change text or jump to another window while
+! 	evaluating 'balloonexpr' |textlock|.
+  
+  	To check whether line breaks in the balloon text work use this check: >
+  		if has("balloon_multiline")
+--- 1161,1167 ----
+  	This option cannot be set in a modeline when 'modelineexpr' is off.
+  
+  	It is not allowed to change text or jump to another window while
+! 	evaluating 'balloonexpr', see |textlock|.
+  
+  	To check whether line breaks in the balloon text work use this check: >
+  		if has("balloon_multiline")
+***************
+*** 1913,1918 ****
+--- 1915,1925 ----
+  		    completion in the preview window.  Only works in
+  		    combination with "menu" or "menuone".
+  
++ 	   popup    Show extra information about the currently selected
++ 		    completion in a popup window.  Only works in combination
++ 		    with "menu" or "menuone".  Overrides "preview".
++ 		    {only works when compiled with the +textprop feature}
++ 
+  	   noinsert Do not insert any text for a match until the user selects
+  		    a match from the menu. Only works in combination with
+  		    "menu" or "menuone". No effect if "longest" is present.
+*** ../vim-8.1.1879/src/popupmnu.c	2019-08-15 21:34:31.161015338 +0200
+--- src/popupmnu.c	2019-08-18 14:31:01.434106893 +0200
+***************
+*** 638,643 ****
+--- 638,646 ----
+  {
+      int	    resized = FALSE;
+      int	    context = pum_height / 2;
++ #ifdef FEAT_TEXT_PROP
++     int	    has_info = FALSE;
++ #endif
+  
+      pum_selected = n;
+  
+***************
+*** 690,700 ****
+  		pum_first = pum_selected + context - pum_height + 1;
+  	    }
+  	}
+  
+  #if defined(FEAT_QUICKFIX)
+  	/*
+  	 * Show extra info in the preview window if there is something and
+! 	 * 'completeopt' contains "preview".
+  	 * Skip this when tried twice already.
+  	 * Skip this also when there is not much room.
+  	 * NOTE: Be very careful not to sync undo!
+--- 693,706 ----
+  		pum_first = pum_selected + context - pum_height + 1;
+  	    }
+  	}
++ 	// adjust for the number of lines displayed
++ 	if (pum_first > pum_size - pum_height)
++ 	    pum_first = pum_size - pum_height;
+  
+  #if defined(FEAT_QUICKFIX)
+  	/*
+  	 * Show extra info in the preview window if there is something and
+! 	 * 'completeopt' contains "preview" or "popup".
+  	 * Skip this when tried twice already.
+  	 * Skip this also when there is not much room.
+  	 * NOTE: Be very careful not to sync undo!
+***************
+*** 707,749 ****
+  	    win_T	*curwin_save = curwin;
+  	    tabpage_T   *curtab_save = curtab;
+  	    int		res = OK;
+  
+! 	    /* Open a preview window.  3 lines by default.  Prefer
+! 	     * 'previewheight' if set and smaller. */
+  	    g_do_tagpreview = 3;
+  	    if (p_pvh > 0 && p_pvh < g_do_tagpreview)
+  		g_do_tagpreview = p_pvh;
+  	    ++RedrawingDisabled;
+! 	    /* Prevent undo sync here, if an autocommand syncs undo weird
+! 	     * things can happen to the undo tree. */
+  	    ++no_u_sync;
+! 	    resized = prepare_tagpreview(FALSE);
+  	    --no_u_sync;
+  	    --RedrawingDisabled;
+  	    g_do_tagpreview = 0;
+  
+! 	    if (curwin->w_p_pvw)
+  	    {
+  		if (!resized
+  			&& curbuf->b_nwindows == 1
+  			&& curbuf->b_fname == NULL
+  			&& bt_nofile(curbuf)
+  			&& curbuf->b_p_bh[0] == 'w')
+  		{
+! 		    /* Already a "wipeout" buffer, make it empty. */
+  		    while (!BUFEMPTY())
+  			ml_delete((linenr_T)1, FALSE);
+  		}
+  		else
+  		{
+! 		    /* Don't want to sync undo in the current buffer. */
+  		    ++no_u_sync;
+  		    res = do_ecmd(0, NULL, NULL, NULL, ECMD_ONE, 0, NULL);
+  		    --no_u_sync;
+  		    if (res == OK)
+  		    {
+! 			/* Edit a new, empty buffer. Set options for a "wipeout"
+! 			 * buffer. */
+  			set_option_value((char_u *)"swf", 0L, NULL, OPT_LOCAL);
+  			set_option_value((char_u *)"bt", 0L,
+  					       (char_u *)"nofile", OPT_LOCAL);
+--- 713,783 ----
+  	    win_T	*curwin_save = curwin;
+  	    tabpage_T   *curtab_save = curtab;
+  	    int		res = OK;
++ # ifdef FEAT_TEXT_PROP
++ 	    int		use_popup = strstr((char *)p_cot, "popup") != NULL;
++ # else
++ #  define use_popup 0
++ # endif
++ 	    has_info = TRUE;
+  
+! 	    // Open a preview window.  3 lines by default.  Prefer
+! 	    // 'previewheight' if set and smaller.
+  	    g_do_tagpreview = 3;
+  	    if (p_pvh > 0 && p_pvh < g_do_tagpreview)
+  		g_do_tagpreview = p_pvh;
+  	    ++RedrawingDisabled;
+! 	    // Prevent undo sync here, if an autocommand syncs undo weird
+! 	    // things can happen to the undo tree.
+  	    ++no_u_sync;
+! 	    resized = prepare_tagpreview(FALSE, FALSE, use_popup);
+  	    --no_u_sync;
+  	    --RedrawingDisabled;
+  	    g_do_tagpreview = 0;
+  
+! 	    if (curwin->w_p_pvw
+! # ifdef FEAT_TEXT_PROP
+! 		    || (curwin->w_popup_flags & POPF_INFO)
+! # endif
+! 		    )
+  	    {
++ # ifdef FEAT_TEXT_PROP
++ 		if (use_popup)
++ 		{
++ 		    int col = pum_col + pum_width + 1;
++ 
++ 		    if (Columns - col < 20 && Columns - col < pum_col)
++ 		    {
++ 			col = pum_col - 1;
++ 			curwin->w_popup_pos = POPPOS_TOPRIGHT;
++ 			curwin->w_maxwidth = pum_col - 1;
++ 		    }
++ 		    else
++ 			curwin->w_maxwidth = Columns - col + 1;
++ 		    curwin->w_maxwidth -= popup_extra_width(curwin);
++ 		    popup_set_wantpos_rowcol(curwin,
++ 				      pum_row + pum_selected - pum_first, col);
++ 		}
++ # endif
+  		if (!resized
+  			&& curbuf->b_nwindows == 1
+  			&& curbuf->b_fname == NULL
+  			&& bt_nofile(curbuf)
+  			&& curbuf->b_p_bh[0] == 'w')
+  		{
+! 		    // Already a "wipeout" buffer, make it empty.
+  		    while (!BUFEMPTY())
+  			ml_delete((linenr_T)1, FALSE);
+  		}
+  		else
+  		{
+! 		    // Don't want to sync undo in the current buffer.
+  		    ++no_u_sync;
+  		    res = do_ecmd(0, NULL, NULL, NULL, ECMD_ONE, 0, NULL);
+  		    --no_u_sync;
+  		    if (res == OK)
+  		    {
+! 			// Edit a new, empty buffer. Set options for a "wipeout"
+! 			// buffer.
+  			set_option_value((char_u *)"swf", 0L, NULL, OPT_LOCAL);
+  			set_option_value((char_u *)"bt", 0L,
+  					       (char_u *)"nofile", OPT_LOCAL);
+***************
+*** 774,783 ****
+  			    p = e + 1;
+  			}
+  		    }
+  
+  		    /* Increase the height of the preview window to show the
+  		     * text, but no more than 'previewheight' lines. */
+! 		    if (repeat == 0)
+  		    {
+  			if (lnum > p_pvh)
+  			    lnum = p_pvh;
+--- 808,819 ----
+  			    p = e + 1;
+  			}
+  		    }
++ 		    // delete the empty last line
++ 		    ml_delete(curbuf->b_ml.ml_line_count, FALSE);
+  
+  		    /* Increase the height of the preview window to show the
+  		     * text, but no more than 'previewheight' lines. */
+! 		    if (repeat == 0 && !use_popup)
+  		    {
+  			if (lnum > p_pvh)
+  			    lnum = p_pvh;
+***************
+*** 792,797 ****
+--- 828,835 ----
+  		    curbuf->b_p_ma = FALSE;
+  		    curwin->w_cursor.lnum = 1;
+  		    curwin->w_cursor.col = 0;
++ 		    if (use_popup && win_valid(curwin_save))
++ 			redraw_win_later(curwin_save, SOME_VALID);
+  
+  		    if ((curwin != curwin_save && win_valid(curwin_save))
+  			    || (curtab != curtab_save
+***************
+*** 852,857 ****
+--- 890,900 ----
+  	}
+  #endif
+      }
++ # ifdef FEAT_TEXT_PROP
++     if (!has_info)
++ 	// close any popup info window
++ 	popup_close_preview(TRUE);
++ # endif
+  
+      if (!resized)
+  	pum_redraw();
+***************
+*** 869,874 ****
+--- 912,921 ----
+      redraw_all_later(NOT_VALID);
+      redraw_tabline = TRUE;
+      status_redraw_all();
++ #ifdef FEAT_TEXT_PROP
++     // close any popup info window
++     popup_close_preview(TRUE);
++ #endif
+  }
+  
+  /*
+*** ../vim-8.1.1879/src/ex_cmds.c	2019-08-06 21:59:37.759982504 +0200
+--- src/ex_cmds.c	2019-08-17 22:55:52.629617804 +0200
+***************
+*** 5131,5137 ****
+   */
+      int
+  prepare_tagpreview(
+!     int		undo_sync)	/* sync undo when leaving the window */
+  {
+      win_T	*wp;
+  
+--- 5131,5139 ----
+   */
+      int
+  prepare_tagpreview(
+!     int		undo_sync,	    // sync undo when leaving the window
+!     int		use_previewpopup,   // use popup if 'previewpopup' set
+!     int		use_popup)	    // use other popup window
+  {
+      win_T	*wp;
+  
+***************
+*** 5145,5155 ****
+      if (!curwin->w_p_pvw)
+      {
+  # ifdef FEAT_TEXT_PROP
+! 	if (*p_pvp != NUL)
+  	{
+  	    wp = popup_find_preview_window();
+  	    if (wp != NULL)
+! 		popup_set_wantpos(wp, wp->w_minwidth);
+  	}
+  	else
+  # endif
+--- 5147,5162 ----
+      if (!curwin->w_p_pvw)
+      {
+  # ifdef FEAT_TEXT_PROP
+! 	if (use_previewpopup && *p_pvp != NUL)
+  	{
+  	    wp = popup_find_preview_window();
+  	    if (wp != NULL)
+! 		popup_set_wantpos_cursor(wp, wp->w_minwidth);
+! 	}
+! 	else if (use_popup)
+! 	{
+! 	    wp = popup_find_info_window();
+! 	    // TODO: set position
+  	}
+  	else
+  # endif
+***************
+*** 5166,5173 ****
+  	     * There is no preview window open yet.  Create one.
+  	     */
+  # ifdef FEAT_TEXT_PROP
+! 	    if (*p_pvp != NUL)
+! 		return popup_create_preview_window();
+  # endif
+  	    if (win_split(g_do_tagpreview > 0 ? g_do_tagpreview : 0, 0) == FAIL)
+  		return FALSE;
+--- 5173,5180 ----
+  	     * There is no preview window open yet.  Create one.
+  	     */
+  # ifdef FEAT_TEXT_PROP
+! 	    if ((use_previewpopup && *p_pvp != NUL) || use_popup)
+! 		return popup_create_preview_window(use_popup);
+  # endif
+  	    if (win_split(g_do_tagpreview > 0 ? g_do_tagpreview : 0, 0) == FAIL)
+  		return FALSE;
+*** ../vim-8.1.1879/src/proto/ex_cmds.pro	2019-07-23 22:15:21.311518857 +0200
+--- src/proto/ex_cmds.pro	2019-08-17 22:13:58.397315328 +0200
+***************
+*** 37,43 ****
+  char_u *get_old_sub(void);
+  void set_old_sub(char_u *val);
+  void free_old_sub(void);
+! int prepare_tagpreview(int undo_sync);
+  void ex_help(exarg_T *eap);
+  void ex_helpclose(exarg_T *eap);
+  char_u *check_help_lang(char_u *arg);
+--- 37,43 ----
+  char_u *get_old_sub(void);
+  void set_old_sub(char_u *val);
+  void free_old_sub(void);
+! int prepare_tagpreview(int undo_sync, int use_previewpopup, int use_popup);
+  void ex_help(exarg_T *eap);
+  void ex_helpclose(exarg_T *eap);
+  char_u *check_help_lang(char_u *arg);
+*** ../vim-8.1.1879/src/ex_docmd.c	2019-08-17 15:07:56.919054146 +0200
+--- src/ex_docmd.c	2019-08-17 22:31:07.046965305 +0200
+***************
+*** 5825,5831 ****
+  	}
+  # ifdef FEAT_TEXT_PROP
+      // Also when 'previewpopup' is empty, it might have been cleared.
+!     popup_close_preview();
+  # endif
+  }
+  #endif
+--- 5825,5831 ----
+  	}
+  # ifdef FEAT_TEXT_PROP
+      // Also when 'previewpopup' is empty, it might have been cleared.
+!     popup_close_preview(FALSE);
+  # endif
+  }
+  #endif
+***************
+*** 8614,8620 ****
+  
+      // Open the preview window or popup and make it the current window.
+      g_do_tagpreview = p_pvh;
+!     prepare_tagpreview(TRUE);
+  
+      // Edit the file.
+      do_exedit(eap, NULL);
+--- 8614,8620 ----
+  
+      // Open the preview window or popup and make it the current window.
+      g_do_tagpreview = p_pvh;
+!     prepare_tagpreview(TRUE, TRUE, FALSE);
+  
+      // Edit the file.
+      do_exedit(eap, NULL);
+*** ../vim-8.1.1879/src/search.c	2019-08-06 21:59:37.763982481 +0200
+--- src/search.c	2019-08-17 22:15:15.128829273 +0200
+***************
+*** 5578,5584 ****
+  		    if (g_do_tagpreview != 0)
+  		    {
+  			curwin_save = curwin;
+! 			prepare_tagpreview(TRUE);
+  		    }
+  #endif
+  		    if (action == ACTION_SPLIT)
+--- 5578,5584 ----
+  		    if (g_do_tagpreview != 0)
+  		    {
+  			curwin_save = curwin;
+! 			prepare_tagpreview(TRUE, TRUE, FALSE);
+  		    }
+  #endif
+  		    if (action == ACTION_SPLIT)
+*** ../vim-8.1.1879/src/tag.c	2019-08-06 21:59:37.763982481 +0200
+--- src/tag.c	2019-08-17 22:15:29.272740044 +0200
+***************
+*** 3439,3445 ****
+  	     * Make the preview window the current window.
+  	     * Open a preview window when needed.
+  	     */
+! 	    prepare_tagpreview(TRUE);
+  	}
+      }
+  
+--- 3439,3445 ----
+  	     * Make the preview window the current window.
+  	     * Open a preview window when needed.
+  	     */
+! 	    prepare_tagpreview(TRUE, TRUE, FALSE);
+  	}
+      }
+  
+*** ../vim-8.1.1879/src/popupwin.c	2019-08-04 21:11:48.558856798 +0200
+--- src/popupwin.c	2019-08-18 15:09:03.549512237 +0200
+***************
+*** 951,958 ****
+  popup_height(win_T *wp)
+  {
+      return wp->w_height
+! 	+ popup_top_extra(wp)
+! 	+ wp->w_popup_padding[2] + wp->w_popup_border[2];
+  }
+  
+  /*
+--- 951,958 ----
+  popup_height(win_T *wp)
+  {
+      return wp->w_height
+! 	    + popup_top_extra(wp)
+! 	    + wp->w_popup_padding[2] + wp->w_popup_border[2];
+  }
+  
+  /*
+***************
+*** 965,974 ****
+      // w_leftcol is how many columns of the core are left of the screen
+      // w_popup_rightoff is how many columns of the core are right of the screen
+      return wp->w_width + wp->w_leftcol
+! 	+ wp->w_popup_padding[3] + wp->w_popup_border[3]
+! 	+ wp->w_popup_padding[1] + wp->w_popup_border[1]
+! 	+ wp->w_has_scrollbar
+! 	+ wp->w_popup_rightoff;
+  }
+  
+  /*
+--- 965,983 ----
+      // w_leftcol is how many columns of the core are left of the screen
+      // w_popup_rightoff is how many columns of the core are right of the screen
+      return wp->w_width + wp->w_leftcol
+! 	    + popup_extra_width(wp)
+! 	    + wp->w_popup_rightoff;
+! }
+! 
+! /*
+!  * Return the extra width of popup window "wp": border, padding and scrollbar.
+!  */
+!     int
+! popup_extra_width(win_T *wp)
+! {
+!     return wp->w_popup_padding[3] + wp->w_popup_border[3]
+! 	    + wp->w_popup_padding[1] + wp->w_popup_border[1]
+! 	    + wp->w_has_scrollbar;
+  }
+  
+  /*
+***************
+*** 1230,1236 ****
+      TYPE_NOTIFICATION,
+      TYPE_DIALOG,
+      TYPE_MENU,
+!     TYPE_PREVIEW
+  } create_type_T;
+  
+  /*
+--- 1239,1246 ----
+      TYPE_NOTIFICATION,
+      TYPE_DIALOG,
+      TYPE_MENU,
+!     TYPE_PREVIEW,	// preview window
+!     TYPE_INFO		// popup menu info
+  } create_type_T;
+  
+  /*
+***************
+*** 1330,1336 ****
+   * Keep at least "width" columns from the right of the screen.
+   */
+      void
+! popup_set_wantpos(win_T *wp, int width)
+  {
+      setcursor_mayforce(TRUE);
+      wp->w_wantline = curwin->w_winrow + curwin->w_wrow;
+--- 1340,1346 ----
+   * Keep at least "width" columns from the right of the screen.
+   */
+      void
+! popup_set_wantpos_cursor(win_T *wp, int width)
+  {
+      setcursor_mayforce(TRUE);
+      wp->w_wantline = curwin->w_winrow + curwin->w_wrow;
+***************
+*** 1351,1360 ****
+  }
+  
+  /*
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+   * etc.
+!  * When creating a preview window popup "argvars" and "rettv" are NULL.
+   */
+      static win_T *
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+--- 1361,1397 ----
+  }
+  
+  /*
++  * Set w_wantline and w_wantcol for the a given screen position.
++  * Caller must take care of running into the window border.
++  */
++     void
++ popup_set_wantpos_rowcol(win_T *wp, int row, int col)
++ {
++     wp->w_wantline = row;
++     wp->w_wantcol = col;
++     popup_adjust_position(wp);
++ }
++ 
++ /*
++  * Add a border and lef&right padding.
++  */
++     static void
++ add_border_left_right_padding(win_T *wp)
++ {
++     int i;
++ 
++     for (i = 0; i < 4; ++i)
++     {
++ 	wp->w_popup_border[i] = 1;
++ 	wp->w_popup_padding[i] = (i & 1) ? 1 : 0;
++     }
++ }
++ 
++ /*
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+   * etc.
+!  * When creating a preview or info popup "argvars" and "rettv" are NULL.
+   */
+      static win_T *
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+***************
+*** 1495,1501 ****
+      }
+      if (type == TYPE_ATCURSOR)
+      {
+! 	popup_set_wantpos(wp, 0);
+  	set_moved_values(wp);
+  	set_moved_columns(wp, FIND_STRING);
+      }
+--- 1532,1538 ----
+      }
+      if (type == TYPE_ATCURSOR)
+      {
+! 	popup_set_wantpos_cursor(wp, 0);
+  	set_moved_values(wp);
+  	set_moved_columns(wp, FIND_STRING);
+      }
+***************
+*** 1571,1581 ****
+  	wp->w_zindex = POPUPWIN_DIALOG_ZINDEX;
+  	wp->w_popup_flags |= POPF_DRAG;
+  	wp->w_popup_flags &= ~POPF_MAPPING;
+! 	for (i = 0; i < 4; ++i)
+! 	{
+! 	    wp->w_popup_border[i] = 1;
+! 	    wp->w_popup_padding[i] = (i & 1) ? 1 : 0;
+! 	}
+      }
+  
+      if (type == TYPE_MENU)
+--- 1608,1614 ----
+  	wp->w_zindex = POPUPWIN_DIALOG_ZINDEX;
+  	wp->w_popup_flags |= POPF_DRAG;
+  	wp->w_popup_flags &= ~POPF_MAPPING;
+! 	add_border_left_right_padding(wp);
+      }
+  
+      if (type == TYPE_MENU)
+***************
+*** 1600,1606 ****
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+  	parse_previewpopup(wp);
+! 	popup_set_wantpos(wp, wp->w_minwidth);
+      }
+  
+      for (i = 0; i < 4; ++i)
+--- 1633,1646 ----
+  	for (i = 0; i < 4; ++i)
+  	    wp->w_popup_border[i] = 1;
+  	parse_previewpopup(wp);
+! 	popup_set_wantpos_cursor(wp, wp->w_minwidth);
+!     }
+!     if (type == TYPE_INFO)
+!     {
+! 	wp->w_popup_pos = POPPOS_TOPLEFT;
+! 	wp->w_popup_flags |= POPF_DRAG | POPF_RESIZE;
+! 	wp->w_popup_close = POPCLOSE_BUTTON;
+! 	add_border_left_right_padding(wp);
+      }
+  
+      for (i = 0; i < 4; ++i)
+***************
+*** 3171,3176 ****
+--- 3211,3238 ----
+      return NULL;
+  }
+  
++     int
++ popup_is_popup(win_T *wp)
++ {
++     return wp->w_popup_flags != 0;
++ }
++ 
++ /*
++  * Find an existing popup used as the info window, in the current tab page.
++  * Return NULL if not found.
++  */
++     win_T *
++ popup_find_info_window(void)
++ {
++     win_T *wp;
++ 
++     // info window popup is always local to tab page.
++     for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	if (wp->w_popup_flags & POPF_INFO)
++ 	    return wp;
++     return NULL;
++ }
++ 
+      void
+  f_popup_getpreview(typval_T *argvars UNUSED, typval_T *rettv)
+  {
+***************
+*** 3179,3204 ****
+      rettv->vval.v_number = wp == NULL ? 0 : wp->w_id;
+  }
+  
+-     int
+- popup_is_popup(win_T *wp)
+- {
+-     return wp->w_popup_flags != 0;
+- }
+- 
+  /*
+!  * Create a popup to be used as the preview window.
+   * NOTE: this makes the popup the current window, so that the file can be
+   * edited.  However, it must not remain to be the current window, the caller
+   * must make sure of that.
+   */
+      int
+! popup_create_preview_window(void)
+  {
+!     win_T *wp = popup_create(NULL, NULL, TYPE_PREVIEW);
+  
+      if (wp == NULL)
+  	return FAIL;
+!     wp->w_p_pvw = TRUE;
+  
+      // Set the width to a reasonable value, so that w_topline can be computed.
+      if (wp->w_minwidth > 0)
+--- 3241,3263 ----
+      rettv->vval.v_number = wp == NULL ? 0 : wp->w_id;
+  }
+  
+  /*
+!  * Create a popup to be used as the preview or info window.
+   * NOTE: this makes the popup the current window, so that the file can be
+   * edited.  However, it must not remain to be the current window, the caller
+   * must make sure of that.
+   */
+      int
+! popup_create_preview_window(int info)
+  {
+!     win_T *wp = popup_create(NULL, NULL, info ? TYPE_INFO : TYPE_PREVIEW);
+  
+      if (wp == NULL)
+  	return FAIL;
+!     if (info)
+! 	wp->w_popup_flags |= POPF_INFO;
+!     else
+! 	wp->w_p_pvw = TRUE;
+  
+      // Set the width to a reasonable value, so that w_topline can be computed.
+      if (wp->w_minwidth > 0)
+***************
+*** 3216,3224 ****
+  }
+  
+      void
+! popup_close_preview()
+  {
+!     win_T *wp = popup_find_preview_window();
+  
+      if (wp != NULL)
+      {
+--- 3275,3283 ----
+  }
+  
+      void
+! popup_close_preview(int info)
+  {
+!     win_T *wp = info ? popup_find_info_window() : popup_find_preview_window();
+  
+      if (wp != NULL)
+      {
+*** ../vim-8.1.1879/src/proto/popupwin.pro	2019-08-03 16:18:03.429654593 +0200
+--- src/proto/popupwin.pro	2019-08-18 14:22:44.556321232 +0200
+***************
+*** 8,16 ****
+  void popup_handle_scrollbar_click(win_T *wp, int row, int col);
+  int popup_height(win_T *wp);
+  int popup_width(win_T *wp);
+  void popup_adjust_position(win_T *wp);
+  int parse_previewpopup(win_T *wp);
+! void popup_set_wantpos(win_T *wp, int width);
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
+--- 8,18 ----
+  void popup_handle_scrollbar_click(win_T *wp, int row, int col);
+  int popup_height(win_T *wp);
+  int popup_width(win_T *wp);
++ int popup_extra_width(win_T *wp);
+  void popup_adjust_position(win_T *wp);
+  int parse_previewpopup(win_T *wp);
+! void popup_set_wantpos_cursor(win_T *wp, int width);
+! void popup_set_wantpos_rowcol(win_T *wp, int row, int col);
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
+***************
+*** 44,53 ****
+  void update_popups(void (*win_update)(win_T *wp));
+  int set_ref_in_popups(int copyID);
+  win_T *popup_find_preview_window(void);
+- void f_popup_getpreview(typval_T *argvars, typval_T *rettv);
+  int popup_is_popup(win_T *wp);
+! int popup_create_preview_window(void);
+! void popup_close_preview(void);
+  void popup_set_title(win_T *wp);
+  void popup_update_preview_title(void);
+  /* vim: set ft=c : */
+--- 46,56 ----
+  void update_popups(void (*win_update)(win_T *wp));
+  int set_ref_in_popups(int copyID);
+  win_T *popup_find_preview_window(void);
+  int popup_is_popup(win_T *wp);
+! win_T *popup_find_info_window(void);
+! void f_popup_getpreview(typval_T *argvars, typval_T *rettv);
+! int popup_create_preview_window(int info);
+! void popup_close_preview(int info);
+  void popup_set_title(win_T *wp);
+  void popup_update_preview_title(void);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1879/src/option.c	2019-08-06 21:59:37.763982481 +0200
+--- src/option.c	2019-08-17 22:25:22.177067318 +0200
+***************
+*** 3247,3253 ****
+  static char *(p_fcl_values[]) = {"all", NULL};
+  #endif
+  #ifdef FEAT_INS_EXPAND
+! static char *(p_cot_values[]) = {"menu", "menuone", "longest", "preview", "noinsert", "noselect", NULL};
+  # ifdef BACKSLASH_IN_FILENAME
+  static char *(p_csl_values[]) = {"slash", "backslash", NULL};
+  # endif
+--- 3247,3253 ----
+  static char *(p_fcl_values[]) = {"all", NULL};
+  #endif
+  #ifdef FEAT_INS_EXPAND
+! static char *(p_cot_values[]) = {"menu", "menuone", "longest", "preview", "popup", "noinsert", "noselect", NULL};
+  # ifdef BACKSLASH_IN_FILENAME
+  static char *(p_csl_values[]) = {"slash", "backslash", NULL};
+  # endif
+*** ../vim-8.1.1879/src/vim.h	2019-08-16 22:22:27.915986997 +0200
+--- src/vim.h	2019-08-17 22:27:00.440466845 +0200
+***************
+*** 622,627 ****
+--- 622,628 ----
+  #define POPF_DRAG	0x20	// popup can be moved by dragging
+  #define POPF_RESIZE	0x40	// popup can be resized by dragging
+  #define POPF_MAPPING	0x80	// mapping keys
++ #define POPF_INFO	0x100	// used for info of popup menu
+  
+  #ifdef FEAT_TEXT_PROP
+  # define WIN_IS_POPUP(wp) ((wp)->w_popup_flags != 0)
+*** ../vim-8.1.1879/src/testdir/test_popupwin.vim	2019-08-17 19:10:49.636938826 +0200
+--- src/testdir/test_popupwin.vim	2019-08-18 15:19:19.130902553 +0200
+***************
+*** 2193,2196 ****
+--- 2193,2268 ----
+    call delete('Xheader.h')
+  endfunc
+  
++ func Test_popupmenu_info()
++   let lines =<< trim END
++       set completeopt+=preview,popup
++       set completefunc=CompleteFuncDict
++ 
++       func CompleteFuncDict(findstart, base)
++ 	if a:findstart
++ 	  if col('.') > 10
++ 	    return col('.') - 10
++ 	  endif
++ 	  return 0
++ 	endif
++ 
++ 	return {
++ 		\ 'words': [
++ 		  \ {
++ 		    \ 'word': 'aword',
++ 		    \ 'abbr': 'wrd',
++ 		    \ 'menu': 'extra text',
++ 		    \ 'info': 'words are cool',
++ 		    \ 'kind': 'W',
++ 		    \ 'user_data': 'test'
++ 		  \ },
++ 		  \ {
++ 		    \ 'word': 'anotherword',
++ 		    \ 'abbr': 'anotwrd',
++ 		    \ 'menu': 'extra text',
++ 		    \ 'info': "other words are\ncooler than this and some more text\nto make wrap",
++ 		    \ 'kind': 'W',
++ 		    \ 'user_data': 'notest'
++ 		  \ },
++ 		  \ {
++ 		    \ 'word': 'noinfo',
++ 		    \ 'abbr': 'noawrd',
++ 		    \ 'menu': 'extra text',
++ 		    \ 'info': 'no words here',
++ 		    \ 'kind': 'W',
++ 		    \ 'user_data': 'notest'
++ 		  \ },
++ 		  \ {
++ 		    \ 'word': 'thatword',
++ 		    \ 'abbr': 'thatwrd',
++ 		    \ 'menu': 'extra text',
++ 		    \ 'info': 'that word is cool',
++ 		    \ 'kind': 'W',
++ 		    \ 'user_data': 'notest'
++ 		  \ },
++ 		\ ]
++ 	      \ }
++       endfunc
++       call setline(1, 'text text text text text text text ')
++   END
++   call writefile(lines, 'XtestInfoPopup')
++   let buf = RunVimInTerminal('-S XtestInfoPopup', #{rows: 14})
++   call term_wait(buf, 50)
++ 
++   call term_sendkeys(buf, "A\<C-X>\<C-U>")
++   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_1', {})
++ 
++   call term_sendkeys(buf, "\<C-N>")
++   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_2', {})
++ 
++   call term_sendkeys(buf, "\<C-N>")
++   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_3', {})
++ 
++   call term_sendkeys(buf, "\<C-N>\<C-N>")
++   call VerifyScreenDump(buf, 'Test_popupwin_infopopup_4', {})
++ 
++   call StopVimInTerminal(buf)
++   call delete('XtestInfoPopup')
++ endfunc
++ 
+  " vim: shiftwidth=2 sts=2
+*** ../vim-8.1.1879/src/testdir/dumps/Test_popupwin_infopopup_1.dump	2019-08-18 15:22:11.162170869 +0200
+--- src/testdir/dumps/Test_popupwin_infopopup_1.dump	2019-08-18 15:17:12.843439225 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |t+0&#ffffff0|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|a|w|o|r|d> @15|╔+0#0000001#ffd7ff255|═@15|X| +0#0000000#ffffff0@9
++ |~+0#4040ff13&| @23| +0#0000001#e0e0e08|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| |║+0&#ffd7ff255| |w|o|r|d|s| |a|r|e| |c|o@1|l| |║| +0#4040ff13#ffffff0@9
++ |~| @23| +0#0000001#ffd7ff255|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| |╚|═@15|⇲| +0#4040ff13#ffffff0@9
++ |~| @23| +0#0000001#ffd7ff255|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @23| +0#0000001#ffd7ff255|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |m+0#00e0003&|a|t|c|h| |1| |o|f| |4| +0#0000000&@26
+*** ../vim-8.1.1879/src/testdir/dumps/Test_popupwin_infopopup_2.dump	2019-08-18 15:22:11.166170852 +0200
+--- src/testdir/dumps/Test_popupwin_infopopup_2.dump	2019-08-18 15:19:32.994843611 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |t+0&#ffffff0|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|a|n|o|t|h|e|r|w|o|r|d> @37
++ |~+0#4040ff13&| @23| +0#0000001#ffd7ff255|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| |╔|═@25|X
++ |~+0#4040ff13#ffffff0| @23| +0#0000001#e0e0e08|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| |║+0&#ffd7ff255| |o|t|h|e|r| |w|o|r|d|s| |a|r|e| @9|║
++ |~+0#4040ff13#ffffff0| @23| +0#0000001#ffd7ff255|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| |║| |c|o@1|l|e|r| |t|h|a|n| |t|h|i|s| |a|n|d| |s|o|m| |║
++ |~+0#4040ff13#ffffff0| @23| +0#0000001#ffd7ff255|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| |║| |e| |m|o|r|e| |t|e|x|t| @13|║
++ |~+0#4040ff13#ffffff0| @45|║+0#0000001#ffd7ff255| |t|o| |m|a|k|e| |w|r|a|p| @12|║
++ |~+0#4040ff13#ffffff0| @45|╚+0#0000001#ffd7ff255|═@25|⇲
++ |~+0#4040ff13#ffffff0| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |m+0#00e0003&|a|t|c|h| |2| |o|f| |4| +0#0000000&@26
+*** ../vim-8.1.1879/src/testdir/dumps/Test_popupwin_infopopup_3.dump	2019-08-18 15:22:11.170170834 +0200
+--- src/testdir/dumps/Test_popupwin_infopopup_3.dump	2019-08-18 15:19:34.054839104 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |t+0&#ffffff0|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|n|o|i|n|f|o> @42
++ |~+0#4040ff13&| @23| +0#0000001#ffd7ff255|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @23| +0#0000001#ffd7ff255|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| |╔|═@14|X| +0#4040ff13#ffffff0@10
++ |~| @23| +0#0000001#e0e0e08|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| |║+0&#ffd7ff255| |n|o| |w|o|r|d|s| |h|e|r|e| |║| +0#4040ff13#ffffff0@10
++ |~| @23| +0#0000001#ffd7ff255|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| |╚|═@14|⇲| +0#4040ff13#ffffff0@10
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |m+0#00e0003&|a|t|c|h| |3| |o|f| |4| +0#0000000&@26
+*** ../vim-8.1.1879/src/testdir/dumps/Test_popupwin_infopopup_4.dump	2019-08-18 15:22:11.170170834 +0200
+--- src/testdir/dumps/Test_popupwin_infopopup_4.dump	2019-08-18 15:19:35.110834614 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |t+0&#ffffff0|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| |t|e|x|t| > @39
++ |~+0#4040ff13&| @23| +0#0000001#ffd7ff255|w|r|d| @4|W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @23| +0#0000001#ffd7ff255|a|n|o|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @23| +0#0000001#ffd7ff255|n|o|a|w|r|d| @1|W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @23| +0#0000001#ffd7ff255|t|h|a|t|w|r|d| |W| |e|x|t|r|a| |t|e|x|t| | +0#4040ff13#ffffff0@27
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |-+2#0000000&@1| |U|s|e|r| |d|e|f|i|n|e|d| |c|o|m|p|l|e|t|i|o|n| |(|^|U|^|N|^|P|)| |B+0#e000002&|a|c|k| |a|t| |o|r|i|g|i|n|a|l| +0#0000000&@22
+*** ../vim-8.1.1879/src/version.c	2019-08-17 21:36:11.843341321 +0200
+--- src/version.c	2019-08-17 22:27:22.752330704 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1880,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+90. Instead of calling you to dinner, your spouse sends e-mail.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

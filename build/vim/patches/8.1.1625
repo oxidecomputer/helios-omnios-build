@@ -1,0 +1,374 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1625
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1625
+Problem:    Script line numbers are not exactly right.
+Solution:   Handle heredoc and continuation lines better. (Ozaki Kiichi,
+            closes #4611, closes #4511)
+Files:	    src/ex_cmds2.c, src/proto/ex_cmds2.pro,
+            src/testdir/test_vimscript.vim, src/userfunc.c
+
+
+*** ../vim-8.1.1624/src/ex_cmds2.c	2019-06-25 06:27:57.537385321 +0200
+--- src/ex_cmds2.c	2019-07-04 14:44:06.668255705 +0200
+***************
+*** 3269,3288 ****
+   */
+  struct source_cookie
+  {
+!     FILE	*fp;		/* opened file for sourcing */
+!     char_u      *nextline;      /* if not NULL: line that was read ahead */
+!     int		finished;	/* ":finish" used */
+  #ifdef USE_CRNL
+!     int		fileformat;	/* EOL_UNKNOWN, EOL_UNIX or EOL_DOS */
+!     int		error;		/* TRUE if LF found after CR-LF */
+  #endif
+  #ifdef FEAT_EVAL
+!     linenr_T	breakpoint;	/* next line with breakpoint or zero */
+!     char_u	*fname;		/* name of sourced file */
+!     int		dbg_tick;	/* debug_tick when breakpoint was set */
+!     int		level;		/* top nesting level of sourced file */
+  #endif
+!     vimconv_T	conv;		/* type of conversion */
+  };
+  
+  #ifdef FEAT_EVAL
+--- 3269,3289 ----
+   */
+  struct source_cookie
+  {
+!     FILE	*fp;		// opened file for sourcing
+!     char_u	*nextline;	// if not NULL: line that was read ahead
+!     linenr_T	sourcing_lnum;	// line number of the source file
+!     int		finished;	// ":finish" used
+  #ifdef USE_CRNL
+!     int		fileformat;	// EOL_UNKNOWN, EOL_UNIX or EOL_DOS
+!     int		error;		// TRUE if LF found after CR-LF
+  #endif
+  #ifdef FEAT_EVAL
+!     linenr_T	breakpoint;	// next line with breakpoint or zero
+!     char_u	*fname;		// name of sourced file
+!     int		dbg_tick;	// debug_tick when breakpoint was set
+!     int		level;		// top nesting level of sourced file
+  #endif
+!     vimconv_T	conv;		// type of conversion
+  };
+  
+  #ifdef FEAT_EVAL
+***************
+*** 3346,3352 ****
+  }
+  #endif
+  
+- 
+  /*
+   * do_source: Read the file "fname" and execute its lines as EX commands.
+   *
+--- 3347,3352 ----
+***************
+*** 3495,3500 ****
+--- 3495,3501 ----
+  #endif
+  
+      cookie.nextline = NULL;
++     cookie.sourcing_lnum = 0;
+      cookie.finished = FALSE;
+  
+  #ifdef FEAT_EVAL
+***************
+*** 3790,3795 ****
+--- 3791,3804 ----
+  
+  #endif
+  
++     linenr_T
++ get_sourced_lnum(char_u *(*fgetline)(int, void *, int, int), void *cookie)
++ {
++     return fgetline == getsourceline
++ 			? ((struct source_cookie *)cookie)->sourcing_lnum
++ 			: sourcing_lnum;
++ }
++ 
+  /*
+   * Get one full line from a sourced file.
+   * Called by do_cmdline() when it's called from do_source().
+***************
+*** 3816,3821 ****
+--- 3825,3834 ----
+  	script_line_end();
+  # endif
+  #endif
++ 
++     // Set the current sourcing line number.
++     sourcing_lnum = sp->sourcing_lnum + 1;
++ 
+      /*
+       * Get current line.  If there is a read-ahead line, use it, otherwise get
+       * one now.
+***************
+*** 3828,3834 ****
+      {
+  	line = sp->nextline;
+  	sp->nextline = NULL;
+! 	++sourcing_lnum;
+      }
+  #ifdef FEAT_PROFILE
+      if (line != NULL && do_profiling == PROF_YES)
+--- 3841,3847 ----
+      {
+  	line = sp->nextline;
+  	sp->nextline = NULL;
+! 	++sp->sourcing_lnum;
+      }
+  #ifdef FEAT_PROFILE
+      if (line != NULL && do_profiling == PROF_YES)
+***************
+*** 3840,3846 ****
+      if (line != NULL && do_concat && vim_strchr(p_cpo, CPO_CONCAT) == NULL)
+      {
+  	/* compensate for the one line read-ahead */
+! 	--sourcing_lnum;
+  
+  	// Get the next line and concatenate it when it starts with a
+  	// backslash. We always need to read the next line, keep it in
+--- 3853,3859 ----
+      if (line != NULL && do_concat && vim_strchr(p_cpo, CPO_CONCAT) == NULL)
+      {
+  	/* compensate for the one line read-ahead */
+! 	--sp->sourcing_lnum;
+  
+  	// Get the next line and concatenate it when it starts with a
+  	// backslash. We always need to read the next line, keep it in
+***************
+*** 3931,3937 ****
+      /*
+       * Loop until there is a finished line (or end-of-file).
+       */
+!     sourcing_lnum++;
+      for (;;)
+      {
+  	/* make room to read at least 120 (more) characters */
+--- 3944,3950 ----
+      /*
+       * Loop until there is a finished line (or end-of-file).
+       */
+!     ++sp->sourcing_lnum;
+      for (;;)
+      {
+  	/* make room to read at least 120 (more) characters */
+***************
+*** 4001,4007 ****
+  		;
+  	    if ((len & 1) != (c & 1))	/* escaped NL, read more */
+  	    {
+! 		sourcing_lnum++;
+  		continue;
+  	    }
+  
+--- 4014,4020 ----
+  		;
+  	    if ((len & 1) != (c & 1))	/* escaped NL, read more */
+  	    {
+! 		++sp->sourcing_lnum;
+  		continue;
+  	    }
+  
+*** ../vim-8.1.1624/src/proto/ex_cmds2.pro	2019-06-25 04:12:12.312665250 +0200
+--- src/proto/ex_cmds2.pro	2019-07-04 14:44:22.440165162 +0200
+***************
+*** 81,86 ****
+--- 81,87 ----
+  void scriptnames_slash_adjust(void);
+  char_u *get_scriptname(scid_T id);
+  void free_scriptnames(void);
++ linenr_T get_sourced_lnum(char_u *(*fgetline)(int, void *, int, int), void *cookie);
+  char_u *getsourceline(int c, void *cookie, int indent, int do_concat);
+  void script_line_start(void);
+  void script_line_exec(void);
+*** ../vim-8.1.1624/src/testdir/test_vimscript.vim	2019-06-25 06:27:57.537385321 +0200
+--- src/testdir/test_vimscript.vim	2019-07-04 14:40:09.613616459 +0200
+***************
+*** 1676,1681 ****
+--- 1676,1751 ----
+      delfunc Func
+  endfunc
+  
++ func Test_function_defined_line()
++     if has('gui_running')
++         " Can't catch the output of gvim.
++         return
++     endif
++ 
++     let lines =<< trim [CODE]
++     " F1
++     func F1()
++         " F2
++         func F2()
++             "
++             "
++             "
++             return
++         endfunc
++         " F3
++         execute "func F3()\n\n\n\nreturn\nendfunc"
++         " F4
++         execute "func F4()\n
++                     \\n
++                     \\n
++                     \\n
++                     \return\n
++                     \endfunc"
++     endfunc
++     " F5
++     execute "func F5()\n\n\n\nreturn\nendfunc"
++     " F6
++     execute "func F6()\n
++                 \\n
++                 \\n
++                 \\n
++                 \return\n
++                 \endfunc"
++     call F1()
++     verbose func F1
++     verbose func F2
++     verbose func F3
++     verbose func F4
++     verbose func F5
++     verbose func F6
++     qall!
++     [CODE]
++ 
++     call writefile(lines, 'Xtest.vim')
++     let res = system(v:progpath .. ' --clean -es -X -S Xtest.vim')
++     call assert_equal(0, v:shell_error)
++ 
++     let m = matchstr(res, 'function F1()[^[:print:]]*[[:print:]]*')
++     call assert_match(' line 2$', m)
++ 
++     let m = matchstr(res, 'function F2()[^[:print:]]*[[:print:]]*')
++     call assert_match(' line 4$', m)
++ 
++     let m = matchstr(res, 'function F3()[^[:print:]]*[[:print:]]*')
++     call assert_match(' line 11$', m)
++ 
++     let m = matchstr(res, 'function F4()[^[:print:]]*[[:print:]]*')
++     call assert_match(' line 13$', m)
++ 
++     let m = matchstr(res, 'function F5()[^[:print:]]*[[:print:]]*')
++     call assert_match(' line 21$', m)
++ 
++     let m = matchstr(res, 'function F6()[^[:print:]]*[[:print:]]*')
++     call assert_match(' line 23$', m)
++ 
++     call delete('Xtest.vim')
++ endfunc
++ 
+  "-------------------------------------------------------------------------------
+  " Modelines								    {{{1
+  " vim: ts=8 sw=4 tw=80 fdm=marker
+*** ../vim-8.1.1624/src/userfunc.c	2019-06-25 04:12:12.312665250 +0200
+--- src/userfunc.c	2019-07-04 14:40:09.613616459 +0200
+***************
+*** 2008,2014 ****
+      int		todo;
+      hashitem_T	*hi;
+      int		do_concat = TRUE;
+!     int		sourcing_lnum_off;
+  
+      /*
+       * ":function" without argument: list functions.
+--- 2008,2015 ----
+      int		todo;
+      hashitem_T	*hi;
+      int		do_concat = TRUE;
+!     linenr_T	sourcing_lnum_off;
+!     linenr_T	sourcing_lnum_top;
+  
+      /*
+       * ":function" without argument: list functions.
+***************
+*** 2275,2280 ****
+--- 2276,2284 ----
+  	cmdline_row = msg_row;
+      }
+  
++     // Save the starting line number.
++     sourcing_lnum_top = sourcing_lnum;
++ 
+      indent = 2;
+      nesting = 0;
+      for (;;)
+***************
+*** 2285,2291 ****
+  	    saved_wait_return = FALSE;
+  	}
+  	need_wait_return = FALSE;
+- 	sourcing_lnum_off = sourcing_lnum;
+  
+  	if (line_arg != NULL)
+  	{
+--- 2289,2294 ----
+***************
+*** 2318,2325 ****
+  	}
+  
+  	/* Detect line continuation: sourcing_lnum increased more than one. */
+! 	if (sourcing_lnum > sourcing_lnum_off + 1)
+! 	    sourcing_lnum_off = sourcing_lnum - sourcing_lnum_off - 1;
+  	else
+  	    sourcing_lnum_off = 0;
+  
+--- 2321,2329 ----
+  	}
+  
+  	/* Detect line continuation: sourcing_lnum increased more than one. */
+! 	sourcing_lnum_off = get_sourced_lnum(eap->getline, eap->cookie);
+! 	if (sourcing_lnum < sourcing_lnum_off)
+! 	    sourcing_lnum_off -= sourcing_lnum;
+  	else
+  	    sourcing_lnum_off = 0;
+  
+***************
+*** 2670,2676 ****
+      fp->uf_flags = flags;
+      fp->uf_calls = 0;
+      fp->uf_script_ctx = current_sctx;
+!     fp->uf_script_ctx.sc_lnum += sourcing_lnum - newlines.ga_len - 1;
+      goto ret_free;
+  
+  erret:
+--- 2674,2680 ----
+      fp->uf_flags = flags;
+      fp->uf_calls = 0;
+      fp->uf_script_ctx = current_sctx;
+!     fp->uf_script_ctx.sc_lnum += sourcing_lnum_top;
+      goto ret_free;
+  
+  erret:
+*** ../vim-8.1.1624/src/version.c	2019-07-04 14:20:38.180325318 +0200
+--- src/version.c	2019-07-04 14:41:39.325101527 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1625,
+  /**/
+
+-- 
+Q:  Why do ducks have flat feet?
+A:  To stamp out forest fires.
+
+Q:  Why do elephants have flat feet?
+A:  To stamp out flaming ducks.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

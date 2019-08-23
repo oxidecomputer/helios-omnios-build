@@ -1,0 +1,259 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1537
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1537
+Problem:    Using "tab" for popup window can be confusing.
+Solution:   Use "tabpage". (Hirohito Higashi, closes #4532)
+Files:	    runtime/doc/popup.txt, src/popupwin.c,
+            src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1536/runtime/doc/popup.txt	2019-06-13 23:59:46.788290732 +0200
+--- runtime/doc/popup.txt	2019-06-15 14:10:50.033596174 +0200
+***************
+*** 40,50 ****
+  
+  A popup window has a window-ID like other windows, but behaves differently.
+  The size can be up to the whole Vim window and it overlaps other windows.
+! Popup windows can also overlap each other.
+  
+  The popup window contains a buffer, and that buffer is always associated with
+! the popup window.  The window cannot be used in Normal, Visual or Insert mode,
+! it does not get keyboard focus.  You can use functions like `setbufline()` to
+  change the text in the buffer.  There are more differences from how this
+  window and buffer behave compared to regular windows and buffers, see
+  |popup-buffer|.
+--- 40,51 ----
+  
+  A popup window has a window-ID like other windows, but behaves differently.
+  The size can be up to the whole Vim window and it overlaps other windows.
+! Popup windows can also overlap each other.  The "zindex" property specifies
+! what goes on top of what.
+  
+  The popup window contains a buffer, and that buffer is always associated with
+! the popup window.  The window cannot be in Normal, Visual or Insert mode, it
+! does not get keyboard focus.  You can use functions like `setbufline()` to
+  change the text in the buffer.  There are more differences from how this
+  window and buffer behave compared to regular windows and buffers, see
+  |popup-buffer|.
+***************
+*** 85,101 ****
+  
+  
+  
+! IMPLEMENTATION:
+  - Why does 'nrformats' leak from the popup window buffer???
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+    Use NOT_IN_POPUP_WINDOW for more commands.
+  - Add 'balloonpopup': instead of showing text, let the callback open a popup
+    window and return the window ID.   The popup will then be closed when the
+    mouse moves, except when it moves inside the popup.
+  - For the "moved" property also include mouse movement?
+- - When selecting text in the popup with modeless selection, do not select
+-   outside of the popup and don't select the border or padding.
+- - Add test for dragging the popup window.
+  - Make redrawing more efficient and avoid flicker:
+      - put popup menu also put in popup_mask?
+  - Invoke filter with character before mapping?
+--- 86,101 ----
+  
+  
+  
+! TODO:
+  - Why does 'nrformats' leak from the popup window buffer???
+  - Disable commands, feedkeys(), CTRL-W, etc. in a popup window.
+    Use NOT_IN_POPUP_WINDOW for more commands.
+  - Add 'balloonpopup': instead of showing text, let the callback open a popup
+    window and return the window ID.   The popup will then be closed when the
+    mouse moves, except when it moves inside the popup.
++ - For notifications use the PopupNotification highlight group, fall back to
++   WarningMsg if it isn't defined.
+  - For the "moved" property also include mouse movement?
+  - Make redrawing more efficient and avoid flicker:
+      - put popup menu also put in popup_mask?
+  - Invoke filter with character before mapping?
+***************
+*** 105,111 ****
+  - When drawing on top half a double-wide character, display ">" or "<" in the
+    incomplete cell.
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+! - Implement all the unimplemented options and features.
+  
+  
+  ==============================================================================
+--- 105,121 ----
+  - When drawing on top half a double-wide character, display ">" or "<" in the
+    incomplete cell.
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+! - Implement:
+! 	popup_dialog({text}, {options})
+! 	popup_filter_menu({id}, {key})
+! 	popup_filter_yesno({id}, {key})
+! 	popup_menu({text}, {options})
+! 	popup_setoptions({id}, {options})
+! 	flip option
+! 	hidden option
+! 	tabpage option with number
+! 	title option
+! 	transparent text property
+  
+  
+  ==============================================================================
+***************
+*** 140,146 ****
+  	|popup_getpos()|	get actual position and size of a popup
+  
+  
+! [functions to be moved to eval.txt later]
+  
+  popup_atcursor({text}, {options})			 *popup_atcursor()*
+  		Show the {text} above the cursor, and close it when the cursor
+--- 150,156 ----
+  	|popup_getpos()|	get actual position and size of a popup
+  
+  
+! [functions help to be moved to eval.txt later]
+  
+  popup_atcursor({text}, {options})			 *popup_atcursor()*
+  		Show the {text} above the cursor, and close it when the cursor
+***************
+*** 291,297 ****
+  				\ 'line': 1,
+  				\ 'col': 10,
+  				\ 'time': 3000,
+! 				\ 'tab': -1,
+  				\ 'zindex': 200,
+  				\ 'drag': 1,
+  				\ 'highlight': 'WarningMsg',
+--- 301,307 ----
+  				\ 'line': 1,
+  				\ 'col': 10,
+  				\ 'time': 3000,
+! 				\ 'tabpage': -1,
+  				\ 'zindex': 200,
+  				\ 'drag': 1,
+  				\ 'highlight': 'WarningMsg',
+***************
+*** 402,412 ****
+  	hidden		When TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
+  			{not implemented yet}
+! 	tab		When -1: display the popup on all tabs.
+  			When 0 (the default): display the popup on the current
+! 			tab.
+  			Otherwise the number of the tab page the popup is
+! 			displayed on; when invalid the current tab is used.
+  			{only -1 and 0 are implemented}
+  	title		Text to be displayed above the first item in the
+  			popup, on top of any border.  If there is no top
+--- 412,422 ----
+  	hidden		When TRUE the popup exists but is not displayed; use
+  			`popup_show()` to unhide it.
+  			{not implemented yet}
+! 	tabpage		When -1: display the popup on all tabs.
+  			When 0 (the default): display the popup on the current
+! 			tab page.
+  			Otherwise the number of the tab page the popup is
+! 			displayed on; when invalid the current tab page is used.
+  			{only -1 and 0 are implemented}
+  	title		Text to be displayed above the first item in the
+  			popup, on top of any border.  If there is no top
+*** ../vim-8.1.1536/src/popupwin.c	2019-06-14 20:00:45.374401154 +0200
+--- src/popupwin.c	2019-06-15 14:11:17.769490666 +0200
+***************
+*** 748,755 ****
+      // Avoid that 'buftype' is reset when this buffer is entered.
+      buf->b_p_initialized = TRUE;
+  
+!     if (dict_find(d, (char_u *)"tab", -1) != NULL)
+! 	nr = (int)dict_get_number(d, (char_u *)"tab");
+      else if (type == TYPE_NOTIFICATION)
+  	nr = -1;  // notifications are global by default
+      else
+--- 748,755 ----
+      // Avoid that 'buftype' is reset when this buffer is entered.
+      buf->b_p_initialized = TRUE;
+  
+!     if (dict_find(d, (char_u *)"tabpage", -1) != NULL)
+! 	nr = (int)dict_get_number(d, (char_u *)"tabpage");
+      else if (type == TYPE_NOTIFICATION)
+  	nr = -1;  // notifications are global by default
+      else
+***************
+*** 757,763 ****
+  
+      if (nr == 0)
+      {
+! 	// popup on current tab
+  	wp->w_next = curtab->tp_first_popupwin;
+  	curtab->tp_first_popupwin = wp;
+      }
+--- 757,763 ----
+  
+      if (nr == 0)
+      {
+! 	// popup on current tab page
+  	wp->w_next = curtab->tp_first_popupwin;
+  	curtab->tp_first_popupwin = wp;
+      }
+***************
+*** 1228,1234 ****
+  
+  /*
+   * Reset all the POPF_HANDLED flags in global popup windows and popup windows
+!  * in the current tab.
+   */
+      void
+  popup_reset_handled()
+--- 1228,1234 ----
+  
+  /*
+   * Reset all the POPF_HANDLED flags in global popup windows and popup windows
+!  * in the current tab page.
+   */
+      void
+  popup_reset_handled()
+*** ../vim-8.1.1536/src/testdir/test_popupwin.vim	2019-06-15 13:13:50.018011587 +0200
+--- src/testdir/test_popupwin.vim	2019-06-15 14:11:17.769490666 +0200
+***************
+*** 372,378 ****
+    call assert_equal(0, bufexists(bufnr))
+  
+    " global popup is visible in any tab
+!   let winid = popup_create("text", {'tab': -1})
+    call assert_equal(1, popup_getpos(winid).visible)
+    tabnew
+    call assert_equal(1, popup_getpos(winid).visible)
+--- 372,378 ----
+    call assert_equal(0, bufexists(bufnr))
+  
+    " global popup is visible in any tab
+!   let winid = popup_create("text", {'tabpage': -1})
+    call assert_equal(1, popup_getpos(winid).visible)
+    tabnew
+    call assert_equal(1, popup_getpos(winid).visible)
+*** ../vim-8.1.1536/src/version.c	2019-06-15 13:13:50.018011587 +0200
+--- src/version.c	2019-06-15 14:12:49.249142669 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1537,
+  /**/
+
+-- 
+Wizards had always known that the act of observation changed the thing that
+was observed, and sometimes forgot that it also changed the observer too.
+			Terry Pratchett  -  Interesting times
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

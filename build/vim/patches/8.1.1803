@@ -1,0 +1,1076 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1803
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1803
+Problem:    All builtin functions are global.
+Solution:   Add the method call operator ->.  Implemented for a limited number
+            of functions.
+Files:	    runtime/doc/eval.txt, src/eval.c, src/structs.h, src/userfunc.c,
+            src/globals.h, src/evalfunc.c, src/proto/evalfunc.pro,
+            src/testdir/test_method.vim, src/testdir/Make_all.mak
+
+
+*** ../vim-8.1.1802/runtime/doc/eval.txt	2019-07-28 17:57:04.845046867 +0200
+--- runtime/doc/eval.txt	2019-08-03 21:09:44.172857659 +0200
+***************
+*** 1114,1119 ****
+--- 1114,1121 ----
+  	expr9[expr1].name
+  	expr9.name[expr1]
+  	expr9(expr1, ...)[expr1].name
++ 	expr9->(expr1, ...)[expr1]
++ Evaluation is always from left to right.
+  
+  
+  expr8[expr1]		item of String or |List|	*expr-[]* *E111*
+***************
+*** 1213,1218 ****
+--- 1215,1225 ----
+  When expr8 is a |Funcref| type variable, invoke the function it refers to.
+  
+  
++ expr8->name([args])	method call			*method*
++ 
++ For global methods this is the same as: >
++ 	name(expr8 [, args])
++ There can also be methods specifically for the type of "expr8".
+  
+  							*expr9*
+  number
+***************
+*** 2877,2882 ****
+--- 2884,2891 ----
+  		item.  Use |extend()| to concatenate |Lists|.
+  		When {object} is a |Blob| then  {expr} must be a number.
+  		Use |insert()| to add an item at another position.
++ 		Can also be used as a |method|: >
++ 			mylist->add(val1)->add(val2)
+  
+  
+  and({expr}, {expr})					*and()*
+***************
+*** 3512,3517 ****
+--- 3521,3528 ----
+  		changing an item changes the contents of both |Lists|.
+  		A |Dictionary| is copied in a similar way as a |List|.
+  		Also see |deepcopy()|.
++ 		Can also be used as a |method|: >
++ 			mylist->copy()
+  
+  cos({expr})						*cos()*
+  		Return the cosine of {expr}, measured in radians, as a |Float|.
+***************
+*** 3548,3553 ****
+--- 3559,3566 ----
+  		When {comp} is a string then the number of not overlapping
+  		occurrences of {expr} is returned. Zero is returned when
+  		{expr} is an empty string.
++ 		Can also be used as a |method|: >
++ 			mylist->count(val)
+  
+  							*cscope_connection()*
+  cscope_connection([{num} , {dbpath} [, {prepend}]])
+***************
+*** 3731,3736 ****
+--- 3744,3751 ----
+  
+  		For a long |List| this is much faster than comparing the
+  		length with zero.
++ 		Can also be used as a |method|: >
++ 			mylist->empty()
+  
+  escape({string}, {chars})				*escape()*
+  		Escape the characters in {chars} that occur in {string} with a
+***************
+*** 4041,4046 ****
+--- 4056,4064 ----
+  		fails.
+  		Returns {expr1}.
+  
++ 		Can also be used as a |method|: >
++ 			mylist->extend(otherlist)
++ 
+  
+  feedkeys({string} [, {mode}])				*feedkeys()*
+  		Characters in {string} are queued for processing as if they
+***************
+*** 4154,4159 ****
+--- 4177,4184 ----
+  		Funcref errors inside a function are ignored, unless it was
+  		defined with the "abort" flag.
+  
++ 		Can also be used as a |method|: >
++ 			mylist->filter(expr2)
+  
+  finddir({name} [, {path} [, {count}]])				*finddir()*
+  		Find directory {name} in {path}.  Supports both downwards and
+***************
+*** 4416,4421 ****
+--- 4441,4448 ----
+  		Get item {idx} from |List| {list}.  When this item is not
+  		available return {default}.  Return zero when {default} is
+  		omitted.
++ 		Can also be used as a |method|: >
++ 			mylist->get(idx)
+  get({blob}, {idx} [, {default}])
+  		Get byte {idx} from |Blob| {blob}.  When this byte is not
+  		available return {default}.  Return -1 when {default} is
+***************
+*** 5685,5690 ****
+--- 5716,5724 ----
+  		Note that when {item} is a |List| it is inserted as a single
+  		item.  Use |extend()| to concatenate |Lists|.
+  
++ 		Can also be used as a |method|: >
++ 			mylist->insert(item)
++ 
+  invert({expr})						*invert()*
+  		Bitwise invert.  The argument is converted to a number.  A
+  		List, Dict or Float argument causes an error.  Example: >
+***************
+*** 5736,5741 ****
+--- 5770,5777 ----
+  			   echo key . ': ' . value
+  			endfor
+  
++ <		Can also be used as a |method|: >
++ 			mydict->items()
+  
+  job_ functions are documented here: |job-functions-details|
+  
+***************
+*** 5751,5756 ****
+--- 5787,5795 ----
+  		converted into a string like with |string()|.
+  		The opposite function is |split()|.
+  
++ 		Can also be used as a |method|: >
++ 			mylist->join()
++ 
+  js_decode({string})					*js_decode()*
+  		This is similar to |json_decode()| with these differences:
+  		- Object key names do not have to be in quotes.
+***************
+*** 5836,5842 ****
+  		Return a |List| with all the keys of {dict}.  The |List| is in
+  		arbitrary order.  Also see |items()| and |values()|.
+  
+! 							*len()* *E701*
+  len({expr})	The result is a Number, which is the length of the argument.
+  		When {expr} is a String or a Number the length in bytes is
+  		used, as with |strlen()|.
+--- 5875,5884 ----
+  		Return a |List| with all the keys of {dict}.  The |List| is in
+  		arbitrary order.  Also see |items()| and |values()|.
+  
+! 		Can also be used as a |method|: >
+! 			mydict->keys()
+! 
+! <							*len()* *E701*
+  len({expr})	The result is a Number, which is the length of the argument.
+  		When {expr} is a String or a Number the length in bytes is
+  		used, as with |strlen()|.
+***************
+*** 5847,5853 ****
+  		|Dictionary| is returned.
+  		Otherwise an error is given.
+  
+! 						*libcall()* *E364* *E368*
+  libcall({libname}, {funcname}, {argument})
+  		Call function {funcname} in the run-time library {libname}
+  		with single argument {argument}.
+--- 5889,5898 ----
+  		|Dictionary| is returned.
+  		Otherwise an error is given.
+  
+! 		Can also be used as a |method|: >
+! 			mylist->len()
+! 
+! <						*libcall()* *E364* *E368*
+  libcall({libname}, {funcname}, {argument})
+  		Call function {funcname} in the run-time library {libname}
+  		with single argument {argument}.
+***************
+*** 6132,6137 ****
+--- 6177,6184 ----
+  		Funcref errors inside a function are ignored, unless it was
+  		defined with the "abort" flag.
+  
++ 		Can also be used as a |method|: >
++ 			mylist->map(expr2)
+  
+  maparg({name} [, {mode} [, {abbr} [, {dict}]]])			*maparg()*
+  		When {dict} is omitted or zero: Return the rhs of mapping
+***************
+*** 6458,6464 ****
+  		items in {expr} cannot be used as a Number this results in
+  		an error.  An empty |List| or |Dictionary| results in zero.
+  
+! 							*min()*
+  min({expr})	Return the minimum value of all items in {expr}.
+  		{expr} can be a list or a dictionary.  For a dictionary,
+  		it returns the minimum of all values in the dictionary.
+--- 6505,6514 ----
+  		items in {expr} cannot be used as a Number this results in
+  		an error.  An empty |List| or |Dictionary| results in zero.
+  
+! 		Can also be used as a |method|: >
+! 			mylist->max()
+! 
+! <							*min()*
+  min({expr})	Return the minimum value of all items in {expr}.
+  		{expr} can be a list or a dictionary.  For a dictionary,
+  		it returns the minimum of all values in the dictionary.
+***************
+*** 6466,6472 ****
+  		items in {expr} cannot be used as a Number this results in
+  		an error.  An empty |List| or |Dictionary| results in zero.
+  
+! 							*mkdir()* *E739*
+  mkdir({name} [, {path} [, {prot}]])
+  		Create directory {name}.
+  
+--- 6516,6525 ----
+  		items in {expr} cannot be used as a Number this results in
+  		an error.  An empty |List| or |Dictionary| results in zero.
+  
+! 		Can also be used as a |method|: >
+! 			mylist->min()
+! 
+! <							*mkdir()* *E739*
+  mkdir({name} [, {path} [, {prot}]])
+  		Create directory {name}.
+  
+***************
+*** 7150,7155 ****
+--- 7203,7211 ----
+  <
+  		Use |delete()| to remove a file.
+  
++ 		Can also be used as a |method|: >
++ 			mylist->remove(idx)
++ 
+  remove({blob}, {idx} [, {end}])
+  		Without {end}: Remove the byte at {idx} from |Blob| {blob} and
+  		return the byte.
+***************
+*** 7184,7189 ****
+--- 7241,7248 ----
+  			:let longlist = repeat(['a', 'b'], 3)
+  <		Results in ['a', 'b', 'a', 'b', 'a', 'b'].
+  
++ 		Can also be used as a |method|: >
++ 			mylist->repeat(count)
+  
+  resolve({filename})					*resolve()* *E655*
+  		On MS-Windows, when {filename} is a shortcut (a .lnk file),
+***************
+*** 7201,7213 ****
+  		current directory (provided the result is still a relative
+  		path name) and also keeps a trailing path separator.
+  
+! 							*reverse()*
+! reverse({object})
+  		Reverse the order of items in {object} in-place.
+  		{object} can be a |List| or a |Blob|.
+  		Returns {object}.
+  		If you want an object to remain unmodified make a copy first: >
+  			:let revlist = reverse(copy(mylist))
+  
+  round({expr})							*round()*
+  		Round off {expr} to the nearest integral value and return it
+--- 7260,7274 ----
+  		current directory (provided the result is still a relative
+  		path name) and also keeps a trailing path separator.
+  
+! 
+! reverse({object})					*reverse()*
+  		Reverse the order of items in {object} in-place.
+  		{object} can be a |List| or a |Blob|.
+  		Returns {object}.
+  		If you want an object to remain unmodified make a copy first: >
+  			:let revlist = reverse(copy(mylist))
++ <		Can also be used as a |method|: >
++ 			mylist->reverse()
+  
+  round({expr})							*round()*
+  		Round off {expr} to the nearest integral value and return it
+***************
+*** 8065,8071 ****
+  		on numbers, text strings will sort next to each other, in the
+  		same order as they were originally.
+  
+! 		Also see |uniq()|.
+  
+  		Example: >
+  			func MyCompare(i1, i2)
+--- 8126,8135 ----
+  		on numbers, text strings will sort next to each other, in the
+  		same order as they were originally.
+  
+! 		Can also be used as a |method|: >
+! 			mylist->sort()
+! 
+! <		Also see |uniq()|.
+  
+  		Example: >
+  			func MyCompare(i1, i2)
+***************
+*** 8373,8379 ****
+  		replaced by "[...]" or "{...}".  Using eval() on the result
+  		will then fail.
+  
+! 		Also see |strtrans()|.
+  
+  							*strlen()*
+  strlen({expr})	The result is a Number, which is the length of the String
+--- 8437,8446 ----
+  		replaced by "[...]" or "{...}".  Using eval() on the result
+  		will then fail.
+  
+! 		Can also be used as a |method|: >
+! 			mylist->string()
+! 
+! <		Also see |strtrans()|.
+  
+  							*strlen()*
+  strlen({expr})	The result is a Number, which is the length of the String
+***************
+*** 8995,9000 ****
+--- 9062,9070 ----
+  <		To check if the v:t_ variables exist use this: >
+  			:if exists('v:t_number')
+  
++ <		Can also be used as a |method|: >
++ 			mylist->type()
++ 
+  undofile({name})					*undofile()*
+  		Return the name of the undo file that would be used for a file
+  		with name {name} when writing.  This uses the 'undodir'
+***************
+*** 9059,9068 ****
+--- 9129,9143 ----
+  <		The default compare function uses the string representation of
+  		each item.  For the use of {func} and {dict} see |sort()|.
+  
++ 		Can also be used as a |method|: >
++ 			mylist->uniq()
++ 
+  values({dict})						*values()*
+  		Return a |List| with all the values of {dict}.  The |List| is
+  		in arbitrary order.  Also see |items()| and |keys()|.
+  
++ 		Can also be used as a |method|: >
++ 			mydict->values()
+  
+  virtcol({expr})						*virtcol()*
+  		The result is a Number, which is the screen column of the file
+*** ../vim-8.1.1802/src/eval.c	2019-08-03 18:17:07.680638632 +0200
+--- src/eval.c	2019-08-03 19:03:27.140396230 +0200
+***************
+*** 4412,4417 ****
+--- 4412,4418 ----
+   *  + in front		unary plus (ignored)
+   *  trailing []		subscript in String or List
+   *  trailing .name	entry in Dictionary
++  *  trailing ->name()	method call
+   *
+   * "arg" must point to the first non-white of the expression.
+   * "arg" is advanced to the next non-white after the recognized expression.
+***************
+*** 4690,4702 ****
+  		    funcexe_T funcexe;
+  
+  		    // Invoke the function.
+! 		    funcexe.argv_func = NULL;
+  		    funcexe.firstline = curwin->w_cursor.lnum;
+  		    funcexe.lastline = curwin->w_cursor.lnum;
+  		    funcexe.doesrange = &len;
+  		    funcexe.evaluate = evaluate;
+  		    funcexe.partial = partial;
+- 		    funcexe.selfdict = NULL;
+  		    ret = get_func_tv(s, len, rettv, arg, &funcexe);
+  		}
+  		vim_free(s);
+--- 4691,4702 ----
+  		    funcexe_T funcexe;
+  
+  		    // Invoke the function.
+! 		    vim_memset(&funcexe, 0, sizeof(funcexe));
+  		    funcexe.firstline = curwin->w_cursor.lnum;
+  		    funcexe.lastline = curwin->w_cursor.lnum;
+  		    funcexe.doesrange = &len;
+  		    funcexe.evaluate = evaluate;
+  		    funcexe.partial = partial;
+  		    ret = get_func_tv(s, len, rettv, arg, &funcexe);
+  		}
+  		vim_free(s);
+***************
+*** 4802,4807 ****
+--- 4802,4871 ----
+  }
+  
+  /*
++  * Evaluate "->method()".
++  * "*arg" points to the '-'.
++  * Returns FAIL or OK. "*arg" is advanced to after the ')'.
++  */
++     static int
++ eval_method(
++     char_u	**arg,
++     typval_T	*rettv,
++     int		evaluate,
++     int		verbose)	/* give error messages */
++ {
++     char_u	*name;
++     long	len;
++     funcexe_T	funcexe;
++     int		ret = OK;
++     typval_T	base = *rettv;
++ 
++     // Skip over the ->.
++     *arg += 2;
++ 
++     // Locate the method name.
++     name = *arg;
++     for (len = 0; ASCII_ISALNUM(name[len]) || name[len] == '_'; ++len)
++ 	;
++     if (len == 0)
++     {
++ 	if (verbose)
++ 	    emsg(_("E260: Missing name after ->"));
++ 	return FAIL;
++     }
++ 
++     // Check for the "(".  Skip over white space after it.
++     if (name[len] != '(')
++     {
++ 	if (verbose)
++ 	    semsg(_(e_missingparen), name);
++ 	return FAIL;
++     }
++     *arg += len;
++ 
++     vim_memset(&funcexe, 0, sizeof(funcexe));
++     funcexe.evaluate = evaluate;
++     funcexe.basetv = &base;
++     rettv->v_type = VAR_UNKNOWN;
++     ret = get_func_tv(name, len, rettv, arg, &funcexe);
++ 
++     /* Clear the funcref afterwards, so that deleting it while
++      * evaluating the arguments is possible (see test55). */
++     if (evaluate)
++ 	clear_tv(&base);
++ 
++     /* Stop the expression evaluation when immediately aborting on
++      * error, or when an interrupt occurred or an exception was thrown
++      * but not caught. */
++     if (aborting())
++     {
++ 	if (ret == OK)
++ 	    clear_tv(rettv);
++ 	ret = FAIL;
++     }
++     return ret;
++ }
++ 
++ /*
+   * Evaluate an "[expr]" or "[expr:expr]" index.  Also "dict.key".
+   * "*arg" points to the '[' or '.'.
+   * Returns FAIL or OK. "*arg" is advanced to after the ']'.
+***************
+*** 7359,7367 ****
+  }
+  
+  /*
+!  * Handle expr[expr], expr[expr:expr] subscript and .name lookup.
+!  * Also handle function call with Funcref variable: func(expr)
+!  * Can all be combined: dict.func(expr)[idx]['func'](expr)
+   */
+      int
+  handle_subscript(
+--- 7423,7435 ----
+  }
+  
+  /*
+!  * Handle:
+!  * - expr[expr], expr[expr:expr] subscript
+!  * - ".name" lookup
+!  * - function call with Funcref variable: func(expr)
+!  * - method call: var->method()
+!  *
+!  * Can all be combined in any order: dict.func(expr)[idx]['func'](expr)->len()
+   */
+      int
+  handle_subscript(
+***************
+*** 7378,7391 ****
+      // "." is ".name" lookup when we found a dict or when evaluating and
+      // scriptversion is at least 2, where string concatenation is "..".
+      while (ret == OK
+! 	    && (**arg == '['
+! 		|| (**arg == '.' && (rettv->v_type == VAR_DICT
+  			|| (!evaluate
+  			    && (*arg)[1] != '.'
+  			    && current_sctx.sc_version >= 2)))
+! 		|| (**arg == '(' && (!evaluate || rettv->v_type == VAR_FUNC
+  					    || rettv->v_type == VAR_PARTIAL)))
+! 	    && !VIM_ISWHITE(*(*arg - 1)))
+      {
+  	if (**arg == '(')
+  	{
+--- 7446,7460 ----
+      // "." is ".name" lookup when we found a dict or when evaluating and
+      // scriptversion is at least 2, where string concatenation is "..".
+      while (ret == OK
+! 	    && (((**arg == '['
+! 		    || (**arg == '.' && (rettv->v_type == VAR_DICT
+  			|| (!evaluate
+  			    && (*arg)[1] != '.'
+  			    && current_sctx.sc_version >= 2)))
+! 		    || (**arg == '(' && (!evaluate || rettv->v_type == VAR_FUNC
+  					    || rettv->v_type == VAR_PARTIAL)))
+! 		&& !VIM_ISWHITE(*(*arg - 1)))
+! 	    || (**arg == '-' && (*arg)[1] == '>')))
+      {
+  	if (**arg == '(')
+  	{
+***************
+*** 7410,7419 ****
+  	    else
+  		s = (char_u *)"";
+  
+! 	    funcexe.argv_func = NULL;
+  	    funcexe.firstline = curwin->w_cursor.lnum;
+  	    funcexe.lastline = curwin->w_cursor.lnum;
+- 	    funcexe.doesrange = NULL;
+  	    funcexe.evaluate = evaluate;
+  	    funcexe.partial = pt;
+  	    funcexe.selfdict = selfdict;
+--- 7479,7487 ----
+  	    else
+  		s = (char_u *)"";
+  
+! 	    vim_memset(&funcexe, 0, sizeof(funcexe));
+  	    funcexe.firstline = curwin->w_cursor.lnum;
+  	    funcexe.lastline = curwin->w_cursor.lnum;
+  	    funcexe.evaluate = evaluate;
+  	    funcexe.partial = pt;
+  	    funcexe.selfdict = selfdict;
+***************
+*** 7436,7441 ****
+--- 7504,7517 ----
+  	    dict_unref(selfdict);
+  	    selfdict = NULL;
+  	}
++ 	else if (**arg == '-')
++ 	{
++ 	    if (eval_method(arg, rettv, evaluate, verbose) == FAIL)
++ 	    {
++ 		clear_tv(rettv);
++ 		ret = FAIL;
++ 	    }
++ 	}
+  	else /* **arg == '[' || **arg == '.' */
+  	{
+  	    dict_unref(selfdict);
+*** ../vim-8.1.1802/src/structs.h	2019-08-03 18:28:13.871145539 +0200
+--- src/structs.h	2019-08-03 18:48:44.098802528 +0200
+***************
+*** 1619,1624 ****
+--- 1619,1625 ----
+      int		evaluate;	// actually evaluate expressions
+      partial_T	*partial;	// for extra arguments
+      dict_T	*selfdict;	// Dictionary for "self"
++     typval_T	*basetv;	// base for base->method()
+  } funcexe_T;
+  
+  struct partial_S
+*** ../vim-8.1.1802/src/userfunc.c	2019-08-03 18:17:07.680638632 +0200
+--- src/userfunc.c	2019-08-03 19:12:12.720843818 +0200
+***************
+*** 1431,1440 ****
+      {
+  	funcexe_T funcexe;
+  
+! 	funcexe.argv_func = NULL;
+  	funcexe.firstline = curwin->w_cursor.lnum;
+  	funcexe.lastline = curwin->w_cursor.lnum;
+- 	funcexe.doesrange = NULL;
+  	funcexe.evaluate = TRUE;
+  	funcexe.partial = partial;
+  	funcexe.selfdict = selfdict;
+--- 1431,1439 ----
+      {
+  	funcexe_T funcexe;
+  
+! 	vim_memset(&funcexe, 0, sizeof(funcexe));
+  	funcexe.firstline = curwin->w_cursor.lnum;
+  	funcexe.lastline = curwin->w_cursor.lnum;
+  	funcexe.evaluate = TRUE;
+  	funcexe.partial = partial;
+  	funcexe.selfdict = selfdict;
+***************
+*** 1555,1561 ****
+  	    /*
+  	     * User defined function.
+  	     */
+! 	    if (partial != NULL && partial->pt_func != NULL)
+  		fp = partial->pt_func;
+  	    else
+  		fp = find_func(rfname);
+--- 1554,1563 ----
+  	    /*
+  	     * User defined function.
+  	     */
+! 	    if (funcexe->basetv != NULL)
+! 		// TODO: support User function: base->Method()
+! 		fp = NULL;
+! 	    else if (partial != NULL && partial->pt_func != NULL)
+  		fp = partial->pt_func;
+  	    else
+  		fp = find_func(rfname);
+***************
+*** 1625,1630 ****
+--- 1627,1640 ----
+  		}
+  	    }
+  	}
++ 	else if (funcexe->basetv != NULL)
++ 	{
++ 	    /*
++ 	     * Find the method name in the table, call its implementation.
++ 	     */
++ 	    error = call_internal_method(fname, argcount, argvars, rettv,
++ 							      funcexe->basetv);
++ 	}
+  	else
+  	{
+  	    /*
+***************
+*** 2715,2721 ****
+  translated_function_exists(char_u *name)
+  {
+      if (builtin_function(name, -1))
+! 	return find_internal_func(name) >= 0;
+      return find_func(name) != NULL;
+  }
+  
+--- 2725,2731 ----
+  translated_function_exists(char_u *name)
+  {
+      if (builtin_function(name, -1))
+! 	return has_internal_func(name);
+      return find_func(name) != NULL;
+  }
+  
+***************
+*** 3084,3090 ****
+  
+      if (*startarg != '(')
+      {
+! 	semsg(_("E107: Missing parentheses: %s"), eap->arg);
+  	goto end;
+      }
+  
+--- 3094,3100 ----
+  
+      if (*startarg != '(')
+      {
+! 	semsg(_(e_missingparen), eap->arg);
+  	goto end;
+      }
+  
+***************
+*** 3120,3126 ****
+  	}
+  	arg = startarg;
+  
+! 	funcexe.argv_func = NULL;
+  	funcexe.firstline = eap->line1;
+  	funcexe.lastline = eap->line2;
+  	funcexe.doesrange = &doesrange;
+--- 3130,3136 ----
+  	}
+  	arg = startarg;
+  
+! 	vim_memset(&funcexe, 0, sizeof(funcexe));
+  	funcexe.firstline = eap->line1;
+  	funcexe.lastline = eap->line2;
+  	funcexe.doesrange = &doesrange;
+*** ../vim-8.1.1802/src/globals.h	2019-08-02 22:08:21.201361921 +0200
+--- src/globals.h	2019-08-03 18:58:05.118632248 +0200
+***************
+*** 1592,1597 ****
+--- 1592,1598 ----
+  EXTERN char e_zerocount[]	INIT(= N_("E939: Positive count required"));
+  #ifdef FEAT_EVAL
+  EXTERN char e_usingsid[]	INIT(= N_("E81: Using <SID> not in a script context"));
++ EXTERN char e_missingparen[]	INIT(= N_("E107: Missing parentheses: %s"));
+  #endif
+  #ifdef FEAT_CLIENTSERVER
+  EXTERN char e_invexprmsg[]	INIT(= N_("E449: Invalid expression received"));
+*** ../vim-8.1.1802/src/evalfunc.c	2019-08-02 19:52:12.017753693 +0200
+--- src/evalfunc.c	2019-08-03 20:15:28.254662009 +0200
+***************
+*** 412,425 ****
+   * Array with names and number of arguments of all internal functions
+   * MUST BE KEPT SORTED IN strcmp() ORDER FOR BINARY SEARCH!
+   */
+! static struct fst
+  {
+      char	*f_name;	/* function name */
+      char	f_min_argc;	/* minimal number of arguments */
+      char	f_max_argc;	/* maximal number of arguments */
+      void	(*f_func)(typval_T *args, typval_T *rvar);
+  				/* implementation of function */
+! } functions[] =
+  {
+  #ifdef FEAT_FLOAT
+      {"abs",		1, 1, f_abs},
+--- 412,427 ----
+   * Array with names and number of arguments of all internal functions
+   * MUST BE KEPT SORTED IN strcmp() ORDER FOR BINARY SEARCH!
+   */
+! typedef struct
+  {
+      char	*f_name;	/* function name */
+      char	f_min_argc;	/* minimal number of arguments */
+      char	f_max_argc;	/* maximal number of arguments */
+      void	(*f_func)(typval_T *args, typval_T *rvar);
+  				/* implementation of function */
+! } funcentry_T;
+! 
+! static funcentry_T global_functions[] =
+  {
+  #ifdef FEAT_FLOAT
+      {"abs",		1, 1, f_abs},
+***************
+*** 987,992 ****
+--- 989,1025 ----
+      {"xor",		2, 2, f_xor},
+  };
+  
++ /*
++  * Methods that call the internal function with the base as the first argument.
++  */
++ static funcentry_T base_methods[] =
++ {
++     {"add",		1, 1, f_add},
++     {"copy",		0, 0, f_copy},
++     {"count",		1, 3, f_count},
++     {"empty",		0, 0, f_empty},
++     {"extend",		1, 2, f_extend},
++     {"filter",		1, 1, f_filter},
++     {"get",		1, 2, f_get},
++     {"index",		1, 3, f_index},
++     {"insert",		1, 2, f_insert},
++     {"items",		0, 0, f_items},
++     {"join",		0, 1, f_join},
++     {"keys",		0, 0, f_keys},
++     {"len",		0, 0, f_len},
++     {"map",		1, 1, f_map},
++     {"max",		0, 0, f_max},
++     {"min",		0, 0, f_min},
++     {"remove",		1, 2, f_remove},
++     {"repeat",		1, 1, f_repeat},
++     {"reverse",		0, 0, f_reverse},
++     {"sort",		0, 2, f_sort},
++     {"string",		0, 0, f_string},
++     {"type",		0, 0, f_type},
++     {"uniq",		0, 2, f_uniq},
++     {"values",		0, 0, f_values},
++ };
++ 
+  #if defined(FEAT_CMDL_COMPL) || defined(PROTO)
+  
+  /*
+***************
+*** 1007,1017 ****
+  	if (name != NULL)
+  	    return name;
+      }
+!     if (++intidx < (int)(sizeof(functions) / sizeof(struct fst)))
+      {
+! 	STRCPY(IObuff, functions[intidx].f_name);
+  	STRCAT(IObuff, "(");
+! 	if (functions[intidx].f_max_argc == 0)
+  	    STRCAT(IObuff, ")");
+  	return IObuff;
+      }
+--- 1040,1050 ----
+  	if (name != NULL)
+  	    return name;
+      }
+!     if (++intidx < (int)(sizeof(global_functions) / sizeof(funcentry_T)))
+      {
+! 	STRCPY(IObuff, global_functions[intidx].f_name);
+  	STRCAT(IObuff, "(");
+! 	if (global_functions[intidx].f_max_argc == 0)
+  	    STRCAT(IObuff, ")");
+  	return IObuff;
+      }
+***************
+*** 1043,1063 ****
+  #endif /* FEAT_CMDL_COMPL */
+  
+  /*
+!  * Find internal function in table above.
+   * Return index, or -1 if not found
+   */
+!     int
+  find_internal_func(
+!     char_u	*name)		/* name of the function */
+  {
+      int		first = 0;
+!     int		last = (int)(sizeof(functions) / sizeof(struct fst)) - 1;
+      int		cmp;
+      int		x;
+  
+!     /*
+!      * Find the function name in the table. Binary search.
+!      */
+      while (first <= last)
+      {
+  	x = first + ((unsigned)(last - first) >> 1);
+--- 1076,1100 ----
+  #endif /* FEAT_CMDL_COMPL */
+  
+  /*
+!  * Find internal function in table "functions".
+   * Return index, or -1 if not found
+   */
+!     static int
+  find_internal_func(
+!     char_u	*name,		// name of the function
+!     funcentry_T	*functions)	// functions table to use
+  {
+      int		first = 0;
+!     int		last;
+      int		cmp;
+      int		x;
+  
+!     if (functions == global_functions)
+! 	last = (int)(sizeof(global_functions) / sizeof(funcentry_T)) - 1;
+!     else
+! 	last = (int)(sizeof(base_methods) / sizeof(funcentry_T)) - 1;
+! 
+!     // Find the function name in the table. Binary search.
+      while (first <= last)
+      {
+  	x = first + ((unsigned)(last - first) >> 1);
+***************
+*** 1073,1078 ****
+--- 1110,1121 ----
+  }
+  
+      int
++ has_internal_func(char_u *name)
++ {
++     return find_internal_func(name, global_functions) >= 0;
++ }
++ 
++     int
+  call_internal_func(
+  	char_u	    *name,
+  	int	    argcount,
+***************
+*** 1081,1095 ****
+  {
+      int i;
+  
+!     i = find_internal_func(name);
+      if (i < 0)
+  	return ERROR_UNKNOWN;
+!     if (argcount < functions[i].f_min_argc)
+  	return ERROR_TOOFEW;
+!     if (argcount > functions[i].f_max_argc)
+  	return ERROR_TOOMANY;
+      argvars[argcount].v_type = VAR_UNKNOWN;
+!     functions[i].f_func(argvars, rettv);
+      return ERROR_NONE;
+  }
+  
+--- 1124,1170 ----
+  {
+      int i;
+  
+!     i = find_internal_func(name, global_functions);
+      if (i < 0)
+  	return ERROR_UNKNOWN;
+!     if (argcount < global_functions[i].f_min_argc)
+  	return ERROR_TOOFEW;
+!     if (argcount > global_functions[i].f_max_argc)
+  	return ERROR_TOOMANY;
+      argvars[argcount].v_type = VAR_UNKNOWN;
+!     global_functions[i].f_func(argvars, rettv);
+!     return ERROR_NONE;
+! }
+! 
+! /*
+!  * Invoke a method for base->method().
+!  */
+!     int
+! call_internal_method(
+! 	char_u	    *name,
+! 	int	    argcount,
+! 	typval_T    *argvars,
+! 	typval_T    *rettv,
+! 	typval_T    *basetv)
+! {
+!     int		i;
+!     int		fi;
+!     typval_T	argv[MAX_FUNC_ARGS + 1];
+! 
+!     fi = find_internal_func(name, base_methods);
+!     if (fi < 0)
+! 	return ERROR_UNKNOWN;
+!     if (argcount < base_methods[fi].f_min_argc)
+! 	return ERROR_TOOFEW;
+!     if (argcount > base_methods[fi].f_max_argc)
+! 	return ERROR_TOOMANY;
+! 
+!     argv[0] = *basetv;
+!     for (i = 0; i < argcount; ++i)
+! 	argv[i + 1] = argvars[i];
+!     argv[argcount + 1].v_type = VAR_UNKNOWN;
+! 
+!     base_methods[fi].f_func(argv, rettv);
+      return ERROR_NONE;
+  }
+  
+*** ../vim-8.1.1802/src/proto/evalfunc.pro	2019-07-22 23:03:53.322360395 +0200
+--- src/proto/evalfunc.pro	2019-08-03 19:26:13.219180538 +0200
+***************
+*** 1,8 ****
+  /* evalfunc.c */
+  char_u *get_function_name(expand_T *xp, int idx);
+  char_u *get_expr_name(expand_T *xp, int idx);
+! int find_internal_func(char_u *name);
+  int call_internal_func(char_u *name, int argcount, typval_T *argvars, typval_T *rettv);
+  linenr_T tv_get_lnum(typval_T *argvars);
+  buf_T *buflist_find_by_name(char_u *name, int curtab_only);
+  buf_T *tv_get_buf(typval_T *tv, int curtab_only);
+--- 1,9 ----
+  /* evalfunc.c */
+  char_u *get_function_name(expand_T *xp, int idx);
+  char_u *get_expr_name(expand_T *xp, int idx);
+! int has_internal_func(char_u *name);
+  int call_internal_func(char_u *name, int argcount, typval_T *argvars, typval_T *rettv);
++ int call_internal_method(char_u *name, int argcount, typval_T *argvars, typval_T *rettv, typval_T *basetv);
+  linenr_T tv_get_lnum(typval_T *argvars);
+  buf_T *buflist_find_by_name(char_u *name, int curtab_only);
+  buf_T *tv_get_buf(typval_T *tv, int curtab_only);
+*** ../vim-8.1.1802/src/testdir/test_method.vim	2019-08-03 21:55:41.170573238 +0200
+--- src/testdir/test_method.vim	2019-08-03 20:49:18.095540067 +0200
+***************
+*** 0 ****
+--- 1,61 ----
++ " Tests for ->method()
++ 
++ func Test_list()
++   let l = [1, 2, 3]
++   call assert_equal([1, 2, 3, 4], [1, 2, 3]->add(4))
++   call assert_equal(l, l->copy())
++   call assert_equal(1, l->count(2))
++   call assert_false(l->empty())
++   call assert_true([]->empty())
++   call assert_equal([1, 2, 3, 4, 5], [1, 2, 3]->extend([4, 5]))
++   call assert_equal([1, 3], [1, 2, 3]->filter('v:val != 2'))
++   call assert_equal(2, l->get(1))
++   call assert_equal(1, l->index(2))
++   call assert_equal([0, 1, 2, 3], [1, 2, 3]->insert(0))
++   call assert_fails('let x = l->items()', 'E715:')
++   call assert_equal('1 2 3', l->join())
++   call assert_fails('let x = l->keys()', 'E715:')
++   call assert_equal(3, l->len())
++   call assert_equal([2, 3, 4], [1, 2, 3]->map('v:val + 1'))
++   call assert_equal(3, l->max())
++   call assert_equal(1, l->min())
++   call assert_equal(2, [1, 2, 3]->remove(1))
++   call assert_equal([1, 2, 3, 1, 2, 3], l->repeat(2))
++   call assert_equal([3, 2, 1], [1, 2, 3]->reverse())
++   call assert_equal([1, 2, 3, 4], [4, 2, 3, 1]->sort())
++   call assert_equal('[1, 2, 3]', l->string())
++   call assert_equal(v:t_list, l->type())
++   call assert_equal([1, 2, 3], [1, 1, 2, 3, 3]->uniq())
++   call assert_fails('let x = l->values()', 'E715:')
++ endfunc
++ 
++ func Test_dict()
++   let d = #{one: 1, two: 2, three: 3}
++ 
++   call assert_equal(d, d->copy())
++   call assert_equal(1, d->count(2))
++   call assert_false(d->empty())
++   call assert_true({}->empty())
++   call assert_equal(#{one: 1, two: 2, three: 3, four: 4}, d->extend(#{four: 4}))
++   call assert_equal(#{one: 1, two: 2, three: 3}, d->filter('v:val != 4'))
++   call assert_equal(2, d->get('two'))
++   call assert_fails("let x = d->index(2)", 'E897:')
++   call assert_fails("let x = d->insert(0)", 'E899:')
++   call assert_equal([['one', 1], ['two', 2], ['three', 3]], d->items())
++   call assert_fails("let x = d->join()", 'E714:')
++   call assert_equal(['one', 'two', 'three'], d->keys())
++   call assert_equal(3, d->len())
++   call assert_equal(#{one: 2, two: 3, three: 4}, d->map('v:val + 1'))
++   call assert_equal(#{one: 1, two: 2, three: 3}, d->map('v:val - 1'))
++   call assert_equal(3, d->max())
++   call assert_equal(1, d->min())
++   call assert_equal(2, d->remove("two"))
++   let d.two = 2
++   call assert_fails('let x = d->repeat(2)', 'E731:')
++   call assert_fails('let x = d->reverse()', 'E899:')
++   call assert_fails('let x = d->sort()', 'E686:')
++   call assert_equal("{'one': 1, 'two': 2, 'three': 3}", d->string())
++   call assert_equal(v:t_dict, d->type())
++   call assert_fails('let x = d->uniq()', 'E686:')
++   call assert_equal([1, 2, 3], d->values())
++ endfunc
+*** ../vim-8.1.1802/src/testdir/Make_all.mak	2019-07-24 22:30:06.336638707 +0200
+--- src/testdir/Make_all.mak	2019-08-03 20:00:39.246433684 +0200
+***************
+*** 180,185 ****
+--- 180,186 ----
+  	test_matchadd_conceal \
+  	test_matchadd_conceal_utf8 \
+  	test_memory_usage \
++ 	test_method \
+  	test_menu \
+  	test_messages \
+  	test_mksession \
+***************
+*** 373,378 ****
+--- 374,380 ----
+  	test_marks.res \
+  	test_matchadd_conceal.res \
+  	test_memory_usage.res \
++ 	test_method.res \
+  	test_mksession.res \
+  	test_nested_function.res \
+  	test_netbeans.res \
+*** ../vim-8.1.1802/src/version.c	2019-08-03 18:31:08.313893064 +0200
+--- src/version.c	2019-08-03 20:53:02.070279207 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1803,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+20. When looking at a pageful of someone else's links, you notice all of them
+    are already highlighted in purple.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

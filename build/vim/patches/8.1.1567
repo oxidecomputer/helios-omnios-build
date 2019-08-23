@@ -1,0 +1,284 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1567
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1567
+Problem:    Localtime_r() does not respond to $TZ changes.
+Solution:   If $TZ changes then call tzset(). (Tom Ryder)
+Files:	    src/auto/configure, src/config.h.in, src/configure.ac,
+            src/evalfunc.c, src/memline.c, src/proto/memline.pro,
+            src/testdir/test_functions.vim, src/undo.c
+
+
+*** ../vim-8.1.1566/src/auto/configure	2019-06-14 20:40:55.062496423 +0200
+--- src/auto/configure	2019-06-18 22:48:11.107890747 +0200
+***************
+*** 12569,12575 ****
+  	memset mkdtemp nanosleep opendir putenv qsort readlink select setenv \
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+! 	strnicmp strpbrk strtol tgetent towlower towupper iswupper \
+  	usleep utime utimes mblen ftruncate unsetenv posix_openpt
+  do :
+    as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+--- 12569,12575 ----
+  	memset mkdtemp nanosleep opendir putenv qsort readlink select setenv \
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+! 	strnicmp strpbrk strtol tgetent towlower towupper iswupper tzset \
+  	usleep utime utimes mblen ftruncate unsetenv posix_openpt
+  do :
+    as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+*** ../vim-8.1.1566/src/config.h.in	2019-06-09 13:42:36.424522190 +0200
+--- src/config.h.in	2019-06-18 22:46:19.528536654 +0200
+***************
+*** 217,222 ****
+--- 217,223 ----
+  #undef HAVE_TOWLOWER
+  #undef HAVE_TOWUPPER
+  #undef HAVE_ISWUPPER
++ #undef HAVE_TZSET
+  #undef HAVE_UNSETENV
+  #undef HAVE_USLEEP
+  #undef HAVE_UTIME
+*** ../vim-8.1.1566/src/configure.ac	2019-06-14 20:40:55.062496423 +0200
+--- src/configure.ac	2019-06-18 22:46:19.528536654 +0200
+***************
+*** 3742,3748 ****
+  	memset mkdtemp nanosleep opendir putenv qsort readlink select setenv \
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+! 	strnicmp strpbrk strtol tgetent towlower towupper iswupper \
+  	usleep utime utimes mblen ftruncate unsetenv posix_openpt)
+  AC_FUNC_SELECT_ARGTYPES
+  AC_FUNC_FSEEKO
+--- 3742,3748 ----
+  	memset mkdtemp nanosleep opendir putenv qsort readlink select setenv \
+  	getpgid setpgid setsid sigaltstack sigstack sigset sigsetjmp sigaction \
+  	sigprocmask sigvec strcasecmp strerror strftime stricmp strncasecmp \
+! 	strnicmp strpbrk strtol tgetent towlower towupper iswupper tzset \
+  	usleep utime utimes mblen ftruncate unsetenv posix_openpt)
+  AC_FUNC_SELECT_ARGTYPES
+  AC_FUNC_FSEEKO
+*** ../vim-8.1.1566/src/evalfunc.c	2019-06-16 22:54:10.649908500 +0200
+--- src/evalfunc.c	2019-06-18 22:46:19.528536654 +0200
+***************
+*** 13188,13196 ****
+  f_strftime(typval_T *argvars, typval_T *rettv)
+  {
+      char_u	result_buf[256];
+- # ifdef HAVE_LOCALTIME_R
+      struct tm	tmval;
+- # endif
+      struct tm	*curtime;
+      time_t	seconds;
+      char_u	*p;
+--- 13188,13194 ----
+***************
+*** 13202,13212 ****
+  	seconds = time(NULL);
+      else
+  	seconds = (time_t)tv_get_number(&argvars[1]);
+! # ifdef HAVE_LOCALTIME_R
+!     curtime = localtime_r(&seconds, &tmval);
+! # else
+!     curtime = localtime(&seconds);
+! # endif
+      /* MSVC returns NULL for an invalid value of seconds. */
+      if (curtime == NULL)
+  	rettv->vval.v_string = vim_strsave((char_u *)_("(Invalid)"));
+--- 13200,13206 ----
+  	seconds = time(NULL);
+      else
+  	seconds = (time_t)tv_get_number(&argvars[1]);
+!     curtime = vim_localtime(&seconds, &tmval);
+      /* MSVC returns NULL for an invalid value of seconds. */
+      if (curtime == NULL)
+  	rettv->vval.v_string = vim_strsave((char_u *)_("(Invalid)"));
+*** ../vim-8.1.1566/src/memline.c	2019-06-08 18:07:17.748161711 +0200
+--- src/memline.c	2019-06-18 22:50:57.682934857 +0200
+***************
+*** 2082,2087 ****
+--- 2082,2129 ----
+  #endif
+  
+  /*
++  * Cache of the current timezone name as retrieved from TZ, or an empty string
++  * where unset, up to 64 octets long including trailing null byte.
++  */
++ #if defined(HAVE_LOCALTIME_R) && defined(HAVE_TZSET)
++ static char	tz_cache[64];
++ #endif
++ 
++ /*
++  * Call either localtime(3) or localtime_r(3) from POSIX libc time.h, with the
++  * latter version preferred for reentrancy.
++  *
++  * If we use localtime_r(3) and we have tzset(3) available, check to see if the
++  * environment variable TZ has changed since the last run, and call tzset(3) to
++  * update the global timezone variables if it has.  This is because the POSIX
++  * standard doesn't require localtime_r(3) implementations to do that as it
++  * does with localtime(3), and we don't want to call tzset(3) every time.
++  */
++     struct tm *
++ vim_localtime(
++     const time_t	*timep,		// timestamp for local representation
++     struct tm		*result)	// pointer to caller return buffer
++ {
++ #ifdef HAVE_LOCALTIME_R
++ # ifdef HAVE_TZSET
++     char		*tz;		// pointer for TZ environment var
++ 
++     tz = (char *)mch_getenv((char_u *)"TZ");
++     if (tz == NULL)
++ 	tz = "";
++     if (STRNCMP(tz_cache, tz, sizeof(tz_cache) - 1) != 0)
++     {
++ 	tzset();
++ 	vim_strncpy((char_u *)tz_cache, (char_u *)tz, sizeof(tz_cache) - 1);
++     }
++ # endif	// HAVE_TZSET
++     return localtime_r(timep, result);
++ #else
++     return localtime(timep);
++ #endif	// HAVE_LOCALTIME_R
++ }
++ 
++ /*
+   * Replacement for ctime(), which is not safe to use.
+   * Requires strftime(), otherwise returns "(unknown)".
+   * If "thetime" is invalid returns "(invalid)".  Never returns NULL.
+***************
+*** 2093,2108 ****
+  {
+      static char buf[50];
+  #ifdef HAVE_STRFTIME
+- # ifdef HAVE_LOCALTIME_R
+      struct tm	tmval;
+- # endif
+      struct tm	*curtime;
+  
+! # ifdef HAVE_LOCALTIME_R
+!     curtime = localtime_r(&thetime, &tmval);
+! # else
+!     curtime = localtime(&thetime);
+! # endif
+      /* MSVC returns NULL for an invalid value of seconds. */
+      if (curtime == NULL)
+  	vim_strncpy((char_u *)buf, (char_u *)_("(Invalid)"), sizeof(buf) - 1);
+--- 2135,2144 ----
+  {
+      static char buf[50];
+  #ifdef HAVE_STRFTIME
+      struct tm	tmval;
+      struct tm	*curtime;
+  
+!     curtime = vim_localtime(&thetime, &tmval);
+      /* MSVC returns NULL for an invalid value of seconds. */
+      if (curtime == NULL)
+  	vim_strncpy((char_u *)buf, (char_u *)_("(Invalid)"), sizeof(buf) - 1);
+*** ../vim-8.1.1566/src/proto/memline.pro	2019-05-23 21:35:44.455922641 +0200
+--- src/proto/memline.pro	2019-06-18 22:47:47.608026361 +0200
+***************
+*** 13,18 ****
+--- 13,19 ----
+  int recover_names(char_u *fname, int list, int nr, char_u **fname_out);
+  char_u *make_percent_swname(char_u *dir, char_u *name);
+  void get_b0_dict(char_u *fname, dict_T *d);
++ struct tm *vim_localtime(const time_t *timep, struct tm *result);
+  char *get_ctime(time_t thetime, int add_newline);
+  void ml_sync_all(int check_file, int check_char);
+  void ml_preserve(buf_T *buf, int message);
+*** ../vim-8.1.1566/src/testdir/test_functions.vim	2019-06-06 12:22:38.266535367 +0200
+--- src/testdir/test_functions.vim	2019-06-18 22:46:19.532536631 +0200
+***************
+*** 187,192 ****
+--- 187,216 ----
+  
+    call assert_fails('call strftime([])', 'E730:')
+    call assert_fails('call strftime("%Y", [])', 'E745:')
++ 
++   " Check that the time changes after we change the timezone
++   " Save previous timezone value, if any
++   if exists('$TZ')
++     let tz = $TZ
++   endif
++ 
++   " Force EST and then UTC, save the current hour (24-hour clock) for each
++   let $TZ = 'EST' | let est = strftime('%H')
++   let $TZ = 'UTC' | let utc = strftime('%H')
++ 
++   " Those hours should be two bytes long, and should not be the same; if they
++   " are, a tzset(3) call may have failed somewhere
++   call assert_equal(strlen(est), 2)
++   call assert_equal(strlen(utc), 2)
++   call assert_notequal(est, utc)
++ 
++   " If we cached a timezone value, put it back, otherwise clear it
++   if exists('tz')
++     let $TZ = tz
++   else
++     unlet $TZ
++   endif
++ 
+  endfunc
+  
+  func Test_resolve_unix()
+*** ../vim-8.1.1566/src/undo.c	2019-06-08 18:07:17.748161711 +0200
+--- src/undo.c	2019-06-18 22:46:19.532536631 +0200
+***************
+*** 3111,3128 ****
+  u_add_time(char_u *buf, size_t buflen, time_t tt)
+  {
+  #ifdef HAVE_STRFTIME
+- # ifdef HAVE_LOCALTIME_R
+      struct tm	tmval;
+- # endif
+      struct tm	*curtime;
+  
+      if (vim_time() - tt >= 100)
+      {
+! # ifdef HAVE_LOCALTIME_R
+! 	curtime = localtime_r(&tt, &tmval);
+! # else
+! 	curtime = localtime(&tt);
+! # endif
+  	if (vim_time() - tt < (60L * 60L * 12L))
+  	    /* within 12 hours */
+  	    (void)strftime((char *)buf, buflen, "%H:%M:%S", curtime);
+--- 3111,3122 ----
+  u_add_time(char_u *buf, size_t buflen, time_t tt)
+  {
+  #ifdef HAVE_STRFTIME
+      struct tm	tmval;
+      struct tm	*curtime;
+  
+      if (vim_time() - tt >= 100)
+      {
+! 	curtime = vim_localtime(&tt, &tmval);
+  	if (vim_time() - tt < (60L * 60L * 12L))
+  	    /* within 12 hours */
+  	    (void)strftime((char *)buf, buflen, "%H:%M:%S", curtime);
+*** ../vim-8.1.1566/src/version.c	2019-06-17 22:40:37.959820422 +0200
+--- src/version.c	2019-06-18 22:53:05.850204652 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1567,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+232. You start conversations with, "Have you gotten an ISDN line?"
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

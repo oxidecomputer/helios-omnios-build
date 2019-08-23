@@ -1,0 +1,94 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1660
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1660
+Problem:    Assert_fails() does not fail inside try/catch.
+Solution:   Set trylevel to zero. (Ozaki Kiichi, closes #4639)
+Files:	    src/eval.c, src/testdir/test_assert.vim
+
+
+*** ../vim-8.1.1659/src/eval.c	2019-07-05 22:14:12.086117124 +0200
+--- src/eval.c	2019-07-10 22:02:38.848688297 +0200
+***************
+*** 9910,9919 ****
+--- 9910,9923 ----
+      char_u	*cmd = tv_get_string_chk(&argvars[0]);
+      garray_T	ga;
+      int		ret = 0;
++     int		save_trylevel = trylevel;
+  
++     // trylevel must be zero for a ":throw" command to be considered failed
++     trylevel = 0;
+      called_emsg = FALSE;
+      suppress_errthrow = TRUE;
+      emsg_silent = TRUE;
++ 
+      do_cmdline_cmd(cmd);
+      if (!called_emsg)
+      {
+***************
+*** 9939,9948 ****
+  	    assert_append_cmd_or_arg(&ga, argvars, cmd);
+  	    assert_error(&ga);
+  	    ga_clear(&ga);
+! 	ret = 1;
+  	}
+      }
+  
+      called_emsg = FALSE;
+      suppress_errthrow = FALSE;
+      emsg_silent = FALSE;
+--- 9943,9953 ----
+  	    assert_append_cmd_or_arg(&ga, argvars, cmd);
+  	    assert_error(&ga);
+  	    ga_clear(&ga);
+! 	    ret = 1;
+  	}
+      }
+  
++     trylevel = save_trylevel;
+      called_emsg = FALSE;
+      suppress_errthrow = FALSE;
+      emsg_silent = FALSE;
+*** ../vim-8.1.1659/src/testdir/test_assert.vim	2019-06-13 22:19:04.533918194 +0200
+--- src/testdir/test_assert.vim	2019-07-10 21:59:36.705549072 +0200
+***************
+*** 166,171 ****
+--- 166,177 ----
+    call remove(v:errors, 0)
+  endfunc
+  
++ func Test_assert_fails_in_try_block()
++   try
++     call assert_equal(0, assert_fails('throw "error"'))
++   endtry
++ endfunc
++ 
+  func Test_assert_beeps()
+    new
+    call assert_equal(0, assert_beeps('normal h'))
+*** ../vim-8.1.1659/src/version.c	2019-07-10 21:55:50.770597935 +0200
+--- src/version.c	2019-07-10 22:00:49.225207651 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1660,
+  /**/
+
+-- 
+MARTHA'S WAY: Don't throw out all that leftover wine. Freeze into ice cubes
+              for future use in casseroles and sauces.
+MY WAY:       What leftover wine?
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

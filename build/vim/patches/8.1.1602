@@ -1,0 +1,171 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1602
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1602
+Problem:    Popup window cannot overflow on the left or right.
+Solution:   Only set the "fixed" option when it is in the dict. Set w_leftcol
+            to allow for the popup overflowing on the left and use it when
+            applying the mask.
+Files:	    src/popupwin.c
+
+
+*** ../vim-8.1.1601/src/popupwin.c	2019-06-26 05:13:51.799753098 +0200
+--- src/popupwin.c	2019-06-28 04:02:23.345291742 +0200
+***************
+*** 78,83 ****
+--- 78,84 ----
+  {
+      char_u	*str;
+      int		nr;
++     dictitem_T	*di;
+  
+      nr = popup_options_one(dict, (char_u *)"line");
+      if (nr > 0)
+***************
+*** 86,92 ****
+      if (nr > 0)
+  	wp->w_wantcol = nr;
+  
+!     wp->w_popup_fixed = dict_get_number(dict, (char_u *)"fixed") != 0;
+  
+      str = dict_get_string(dict, (char_u *)"pos", FALSE);
+      if (str != NULL)
+--- 87,95 ----
+      if (nr > 0)
+  	wp->w_wantcol = nr;
+  
+!     di = dict_find(dict, (char_u *)"fixed", -1);
+!     if (di != NULL)
+! 	wp->w_popup_fixed = dict_get_number(dict, (char_u *)"fixed") != 0;
+  
+      str = dict_get_string(dict, (char_u *)"pos", FALSE);
+      if (str != NULL)
+***************
+*** 666,675 ****
+--- 669,680 ----
+      int		org_wincol = wp->w_wincol;
+      int		org_width = wp->w_width;
+      int		org_height = wp->w_height;
++     int		org_leftcol = wp->w_leftcol;
+      int		minwidth;
+  
+      wp->w_winrow = 0;
+      wp->w_wincol = 0;
++     wp->w_leftcol = 0;
+      if (wp->w_popup_pos == POPPOS_CENTER)
+      {
+  	// center after computing the size
+***************
+*** 785,794 ****
+      else if (wp->w_popup_pos == POPPOS_BOTRIGHT
+  	    || wp->w_popup_pos == POPPOS_TOPRIGHT)
+      {
+  	// Right aligned: move to the right if needed.
+  	// No truncation, because that would change the height.
+! 	if (wp->w_width + extra_width < wp->w_wantcol)
+! 	    wp->w_wincol = wp->w_wantcol - (wp->w_width + extra_width);
+      }
+  
+      wp->w_height = wp->w_buffer->b_ml.ml_line_count - wp->w_topline
+--- 790,810 ----
+      else if (wp->w_popup_pos == POPPOS_BOTRIGHT
+  	    || wp->w_popup_pos == POPPOS_TOPRIGHT)
+      {
++ 	int leftoff = wp->w_wantcol - (wp->w_width + extra_width);
++ 
+  	// Right aligned: move to the right if needed.
+  	// No truncation, because that would change the height.
+! 	if (leftoff >= 0)
+! 	    wp->w_wincol = leftoff;
+! 	else if (wp->w_popup_fixed)
+! 	{
+! 	    // "col" specifies the right edge, but popup doesn't fit, skip some
+! 	    // columns when displaying the window.
+! 	    wp->w_leftcol = -leftoff;
+! 	    wp->w_width += leftoff;
+! 	    if (wp->w_width < 0)
+! 		wp->w_width = 0;
+! 	}
+      }
+  
+      wp->w_height = wp->w_buffer->b_ml.ml_line_count - wp->w_topline
+***************
+*** 823,828 ****
+--- 839,845 ----
+      // And redraw windows that were behind the popup.
+      if (org_winrow != wp->w_winrow
+  	    || org_wincol != wp->w_wincol
++ 	    || org_leftcol != wp->w_leftcol
+  	    || org_width != wp->w_width
+  	    || org_height != wp->w_height)
+      {
+***************
+*** 1078,1083 ****
+--- 1095,1101 ----
+      for (i = 0; i < 8; ++i)
+  	wp->w_border_char[i] = 0;
+      wp->w_want_scrollbar = 1;
++     wp->w_popup_fixed = 0;
+  
+      // Deal with options.
+      apply_options(wp, argvars[1].vval.v_dict);
+***************
+*** 1909,1915 ****
+      static int
+  popup_masked(win_T *wp, int screencol, int screenline)
+  {
+!     int		col = screencol - wp->w_wincol + 1;
+      int		line = screenline - wp->w_winrow + 1;
+      listitem_T	*lio, *li;
+      int		width, height;
+--- 1927,1933 ----
+      static int
+  popup_masked(win_T *wp, int screencol, int screenline)
+  {
+!     int		col = screencol - wp->w_wincol + 1 + wp->w_leftcol;
+      int		line = screenline - wp->w_winrow + 1;
+      listitem_T	*lio, *li;
+      int		width, height;
+***************
+*** 1988,1994 ****
+--- 2006,2018 ----
+  		linee = height + linee + 1;
+  
+  	    --cols;
++ 	    cols -= wp->w_leftcol;
++ 	    if (cols < 0)
++ 		cols = 0;
++ 	    cole -= wp->w_leftcol;
+  	    --lines;
++ 	    if (lines < 0)
++ 		lines = 0;
+  	    for (line = lines; line < linee && line < screen_Rows; ++line)
+  		for (col = cols; col < cole && col < screen_Columns; ++col)
+  		    popup_transparent[(line + wp->w_winrow) * screen_Columns
+*** ../vim-8.1.1601/src/version.c	2019-06-26 18:04:48.728050125 +0200
+--- src/version.c	2019-06-28 03:56:28.519125583 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1602,
+  /**/
+
+-- 
+       He was not in the least bit scared to be mashed into a pulp
+       Or to have his eyes gouged out and his elbows broken;
+       To have his kneecaps split and his body burned away
+       And his limbs all hacked and mangled, brave Sir Robin.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

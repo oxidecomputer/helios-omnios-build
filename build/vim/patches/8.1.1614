@@ -1,0 +1,207 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1614
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1614
+Problem:    'numberwidth' can only go up to 10.
+Solution:   Allow up to 20. (Charlie Stanton, closes #4584)
+Files:	    runtime/doc/options.txt, src/option.c, src/screen.c,
+            src/testdir/gen_opt_test.vim, src/testdir/test_options.vim
+
+
+*** ../vim-8.1.1613/runtime/doc/options.txt	2019-06-17 21:48:02.211646291 +0200
+--- runtime/doc/options.txt	2019-07-01 22:00:36.935801289 +0200
+***************
+*** 5385,5391 ****
+  	rows in the window, depending on whether 'number' or 'relativenumber'
+  	is set. Thus with the Vim default of 4 there is room for a line number
+  	up to 999. When the buffer has 1000 lines five columns will be used.
+! 	The minimum value is 1, the maximum value is 10.
+  	NOTE: This option is set to the Vi default value when 'compatible' is
+  	set and to the Vim default value when 'compatible' is reset.
+  
+--- 5385,5391 ----
+  	rows in the window, depending on whether 'number' or 'relativenumber'
+  	is set. Thus with the Vim default of 4 there is room for a line number
+  	up to 999. When the buffer has 1000 lines five columns will be used.
+! 	The minimum value is 1, the maximum value is 20.
+  	NOTE: This option is set to the Vi default value when 'compatible' is
+  	set and to the Vim default value when 'compatible' is reset.
+  
+***************
+*** 6804,6810 ****
+  	   "no"	    	never
+  	   "yes"    	always
+  	   "number"	display signs in the 'number' column. If the number
+! 			column is not present, then behaves like 'auto'.
+  
+  
+  			*'smartcase'* *'scs'* *'nosmartcase'* *'noscs'*
+--- 6804,6810 ----
+  	   "no"	    	never
+  	   "yes"    	always
+  	   "number"	display signs in the 'number' column. If the number
+! 			column is not present, then behaves like "auto".
+  
+  
+  			*'smartcase'* *'scs'* *'nosmartcase'* *'noscs'*
+*** ../vim-8.1.1613/src/option.c	2019-06-24 05:45:08.925616559 +0200
+--- src/option.c	2019-07-01 22:00:36.935801289 +0200
+***************
+*** 9493,9502 ****
+  	    errmsg = e_positive;
+  	    curwin->w_p_nuw = 1;
+  	}
+! 	if (curwin->w_p_nuw > 10)
+  	{
+  	    errmsg = e_invarg;
+! 	    curwin->w_p_nuw = 10;
+  	}
+  	curwin->w_nrwidth_line_count = 0; /* trigger a redraw */
+      }
+--- 9493,9502 ----
+  	    errmsg = e_positive;
+  	    curwin->w_p_nuw = 1;
+  	}
+! 	if (curwin->w_p_nuw > 20)
+  	{
+  	    errmsg = e_invarg;
+! 	    curwin->w_p_nuw = 20;
+  	}
+  	curwin->w_nrwidth_line_count = 0; /* trigger a redraw */
+      }
+*** ../vim-8.1.1613/src/screen.c	2019-06-30 22:16:06.931821750 +0200
+--- src/screen.c	2019-07-01 22:02:20.275168189 +0200
+***************
+*** 3149,3180 ****
+      int		nochange UNUSED,	// not updating for changed text
+      int		number_only)		// only update the number column
+  {
+!     int		col = 0;		/* visual column on screen */
+!     unsigned	off;			/* offset in ScreenLines/ScreenAttrs */
+!     int		c = 0;			/* init for GCC */
+!     long	vcol = 0;		/* virtual column (for tabs) */
+  #ifdef FEAT_LINEBREAK
+!     long	vcol_sbr = -1;		/* virtual column after showbreak */
+  #endif
+!     long	vcol_prev = -1;		/* "vcol" of previous character */
+!     char_u	*line;			/* current line */
+!     char_u	*ptr;			/* current position in "line" */
+!     int		row;			/* row in the window, excl w_winrow */
+!     int		screen_row;		/* row on the screen, incl w_winrow */
+  
+!     char_u	extra[20];		/* "%ld" and 'fdc' must fit in here */
+!     int		n_extra = 0;		/* number of extra chars */
+!     char_u	*p_extra = NULL;	/* string of extra chars, plus NUL */
+!     char_u	*p_extra_free = NULL;   /* p_extra needs to be freed */
+!     int		c_extra = NUL;		/* extra chars, all the same */
+!     int		c_final = NUL;		/* final char, mandatory if set */
+!     int		extra_attr = 0;		/* attributes when n_extra != 0 */
+!     static char_u *at_end_str = (char_u *)""; /* used for p_extra when
+! 					   displaying lcs_eol at end-of-line */
+!     int		lcs_eol_one = lcs_eol;	/* lcs_eol until it's been used */
+!     int		lcs_prec_todo = lcs_prec;   /* lcs_prec until it's been used */
+  
+!     /* saved "extra" items for when draw_state becomes WL_LINE (again) */
+      int		saved_n_extra = 0;
+      char_u	*saved_p_extra = NULL;
+      int		saved_c_extra = 0;
+--- 3149,3180 ----
+      int		nochange UNUSED,	// not updating for changed text
+      int		number_only)		// only update the number column
+  {
+!     int		col = 0;		// visual column on screen
+!     unsigned	off;			// offset in ScreenLines/ScreenAttrs
+!     int		c = 0;			// init for GCC
+!     long	vcol = 0;		// virtual column (for tabs)
+  #ifdef FEAT_LINEBREAK
+!     long	vcol_sbr = -1;		// virtual column after showbreak
+  #endif
+!     long	vcol_prev = -1;		// "vcol" of previous character
+!     char_u	*line;			// current line
+!     char_u	*ptr;			// current position in "line"
+!     int		row;			// row in the window, excl w_winrow
+!     int		screen_row;		// row on the screen, incl w_winrow
+  
+!     char_u	extra[21];		// "%ld " and 'fdc' must fit in here
+!     int		n_extra = 0;		// number of extra chars
+!     char_u	*p_extra = NULL;	// string of extra chars, plus NUL
+!     char_u	*p_extra_free = NULL;   // p_extra needs to be freed
+!     int		c_extra = NUL;		// extra chars, all the same
+!     int		c_final = NUL;		// final char, mandatory if set
+!     int		extra_attr = 0;		// attributes when n_extra != 0
+!     static char_u *at_end_str = (char_u *)""; // used for p_extra when
+! 					   // displaying lcs_eol at end-of-line
+!     int		lcs_eol_one = lcs_eol;	// lcs_eol until it's been used
+!     int		lcs_prec_todo = lcs_prec;   // lcs_prec until it's been used
+  
+!     // saved "extra" items for when draw_state becomes WL_LINE (again)
+      int		saved_n_extra = 0;
+      char_u	*saved_p_extra = NULL;
+      int		saved_c_extra = 0;
+*** ../vim-8.1.1613/src/testdir/gen_opt_test.vim	2019-05-05 16:54:59.505931038 +0200
+--- src/testdir/gen_opt_test.vim	2019-07-01 22:00:36.939801264 +0200
+***************
+*** 37,43 ****
+        \ 'imstyle': [[0, 1], [-1, 2, 999]],
+        \ 'lines': [[2, 24], [-1, 0, 1]],
+        \ 'linespace': [[0, 2, 4], ['']],
+!       \ 'numberwidth': [[1, 4, 8, 10], [-1, 0, 11]],
+        \ 'regexpengine': [[0, 1, 2], [-1, 3, 999]],
+        \ 'report': [[0, 1, 2, 9999], [-1]],
+        \ 'scroll': [[0, 1, 2, 20], [-1]],
+--- 37,43 ----
+        \ 'imstyle': [[0, 1], [-1, 2, 999]],
+        \ 'lines': [[2, 24], [-1, 0, 1]],
+        \ 'linespace': [[0, 2, 4], ['']],
+!       \ 'numberwidth': [[1, 4, 8, 10, 11, 20], [-1, 0, 21]],
+        \ 'regexpengine': [[0, 1, 2], [-1, 3, 999]],
+        \ 'report': [[0, 1, 2, 9999], [-1]],
+        \ 'scroll': [[0, 1, 2, 20], [-1]],
+*** ../vim-8.1.1613/src/testdir/test_options.vim	2019-06-15 18:40:11.044368488 +0200
+--- src/testdir/test_options.vim	2019-07-01 22:00:36.939801264 +0200
+***************
+*** 245,251 ****
+    call assert_fails('set backupcopy=', 'E474:')
+    call assert_fails('set regexpengine=3', 'E474:')
+    call assert_fails('set history=10001', 'E474:')
+!   call assert_fails('set numberwidth=11', 'E474:')
+    call assert_fails('set colorcolumn=-a')
+    call assert_fails('set colorcolumn=a')
+    call assert_fails('set colorcolumn=1,')
+--- 245,251 ----
+    call assert_fails('set backupcopy=', 'E474:')
+    call assert_fails('set regexpengine=3', 'E474:')
+    call assert_fails('set history=10001', 'E474:')
+!   call assert_fails('set numberwidth=21', 'E474:')
+    call assert_fails('set colorcolumn=-a')
+    call assert_fails('set colorcolumn=a')
+    call assert_fails('set colorcolumn=1,')
+*** ../vim-8.1.1613/src/version.c	2019-07-01 21:47:30.612714048 +0200
+--- src/version.c	2019-07-01 22:03:47.122630407 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1614,
+  /**/
+
+-- 
+E  M  A  C  S
+s  e  l  o  h
+c  t  t  n  i
+a  a     t  f
+p        r  t
+e        o
+         l
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

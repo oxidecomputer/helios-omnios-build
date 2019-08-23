@@ -1,0 +1,208 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1795
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1795
+Problem:    No syntax HL after splitting windows with :bufdo. (Yasuhiro
+            Matsumoto)
+Solution:   Trigger Syntax autocommands in buffers that are active.
+            (closes #4761)
+Files:	    src/vim.h, src/option.c, src/ex_cmds2.c,
+            src/testdir/test_syntax.vim
+
+
+*** ../vim-8.1.1794/src/vim.h	2019-08-02 19:52:12.021753684 +0200
+--- src/vim.h	2019-08-02 23:02:38.032216656 +0200
+***************
+*** 698,717 ****
+  #define NOTDONE			2   /* not OK or FAIL but skipped */
+  
+  /* flags for b_flags */
+! #define BF_RECOVERED	0x01	/* buffer has been recovered */
+! #define BF_CHECK_RO	0x02	/* need to check readonly when loading file
+! 				   into buffer (set by ":e", may be reset by
+! 				   ":buf" */
+! #define BF_NEVERLOADED	0x04	/* file has never been loaded into buffer,
+! 				   many variables still need to be set */
+! #define BF_NOTEDITED	0x08	/* Set when file name is changed after
+! 				   starting to edit, reset when file is
+! 				   written out. */
+! #define BF_NEW		0x10	/* file didn't exist when editing started */
+! #define BF_NEW_W	0x20	/* Warned for BF_NEW and file created */
+! #define BF_READERR	0x40	/* got errors while reading the file */
+! #define BF_DUMMY	0x80	/* dummy buffer, only used internally */
+! #define BF_PRESERVED	0x100	/* ":preserve" was used */
+  
+  /* Mask to check for flags that prevent normal writing */
+  #define BF_WRITE_MASK	(BF_NOTEDITED + BF_NEW + BF_READERR)
+--- 698,718 ----
+  #define NOTDONE			2   /* not OK or FAIL but skipped */
+  
+  /* flags for b_flags */
+! #define BF_RECOVERED	0x01	// buffer has been recovered
+! #define BF_CHECK_RO	0x02	// need to check readonly when loading file
+! 				// into buffer (set by ":e", may be reset by
+! 				// ":buf"
+! #define BF_NEVERLOADED	0x04	// file has never been loaded into buffer,
+! 				// many variables still need to be set
+! #define BF_NOTEDITED	0x08	// Set when file name is changed after
+! 				// starting to edit, reset when file is
+! 				// written out.
+! #define BF_NEW		0x10	// file didn't exist when editing started
+! #define BF_NEW_W	0x20	// Warned for BF_NEW and file created
+! #define BF_READERR	0x40	// got errors while reading the file
+! #define BF_DUMMY	0x80	// dummy buffer, only used internally
+! #define BF_PRESERVED	0x100	// ":preserve" was used
+! #define BF_SYN_SET	0x200	// 'syntax' option was set
+  
+  /* Mask to check for flags that prevent normal writing */
+  #define BF_WRITE_MASK	(BF_NOTEDITED + BF_NEW + BF_READERR)
+*** ../vim-8.1.1794/src/option.c	2019-07-28 19:24:09.063573879 +0200
+--- src/option.c	2019-08-02 23:02:54.932126360 +0200
+***************
+*** 7931,7936 ****
+--- 7931,7937 ----
+  	    // recursively, to avoid endless recurrence.
+  	    apply_autocmds(EVENT_SYNTAX, curbuf->b_p_syn, curbuf->b_fname,
+  		    value_changed || syn_recursive == 1, curbuf);
++ 	    curbuf->b_flags |= BF_SYN_SET;
+  	    --syn_recursive;
+  	}
+  #endif
+*** ../vim-8.1.1794/src/ex_cmds2.c	2019-07-14 15:48:35.241984533 +0200
+--- src/ex_cmds2.c	2019-08-03 13:27:23.055990447 +0200
+***************
+*** 1447,1455 ****
+--- 1447,1461 ----
+  
+  #if defined(FEAT_SYN_HL)
+      if (eap->cmdidx != CMD_windo && eap->cmdidx != CMD_tabdo)
++     {
+  	/* Don't do syntax HL autocommands.  Skipping the syntax file is a
+  	 * great speed improvement. */
+  	save_ei = au_event_disable(",Syntax");
++ 
++ 	for (buf = firstbuf; buf != NULL; buf = buf->b_next)
++ 	    buf->b_flags &= ~BF_SYN_SET;
++ 	buf = curbuf;
++     }
+  #endif
+  #ifdef FEAT_CLIPBOARD
+      start_global_changes();
+***************
+*** 1641,1649 ****
+  #if defined(FEAT_SYN_HL)
+      if (save_ei != NULL)
+      {
+  	au_event_restore(save_ei);
+! 	apply_autocmds(EVENT_SYNTAX, curbuf->b_p_syn,
+  					       curbuf->b_fname, TRUE, curbuf);
+      }
+  #endif
+  #ifdef FEAT_CLIPBOARD
+--- 1647,1681 ----
+  #if defined(FEAT_SYN_HL)
+      if (save_ei != NULL)
+      {
++ 	buf_T		*bnext;
++ 	aco_save_T	aco;
++ 
+  	au_event_restore(save_ei);
+! 
+! 	for (buf = firstbuf; buf != NULL; buf = bnext)
+! 	{
+! 	    bnext = buf->b_next;
+! 	    if (buf->b_nwindows > 0 && (buf->b_flags & BF_SYN_SET))
+! 	    {
+! 		buf->b_flags &= ~BF_SYN_SET;
+! 
+! 		// buffer was opened while Syntax autocommands were disabled,
+! 		// need to trigger them now.
+! 		if (buf == curbuf)
+! 		    apply_autocmds(EVENT_SYNTAX, curbuf->b_p_syn,
+  					       curbuf->b_fname, TRUE, curbuf);
++ 		else
++ 		{
++ 		    aucmd_prepbuf(&aco, buf);
++ 		    apply_autocmds(EVENT_SYNTAX, buf->b_p_syn,
++ 						      buf->b_fname, TRUE, buf);
++ 		    aucmd_restbuf(&aco);
++ 		}
++ 
++ 		// start over, in case autocommands messed things up.
++ 		bnext = firstbuf;
++ 	    }
++ 	}
+      }
+  #endif
+  #ifdef FEAT_CLIPBOARD
+*** ../vim-8.1.1794/src/testdir/test_syntax.vim	2019-06-15 17:57:43.976724009 +0200
+--- src/testdir/test_syntax.vim	2019-08-03 13:27:09.816050655 +0200
+***************
+*** 582,584 ****
+--- 582,622 ----
+    call test_override("ALL", 0)
+    bwipe!
+  endfunc
++ 
++ func Test_syntax_after_bufdo()
++   call writefile(['/* aaa comment */'], 'Xaaa.c')
++   call writefile(['/* bbb comment */'], 'Xbbb.c')
++   call writefile(['/* ccc comment */'], 'Xccc.c')
++   call writefile(['/* ddd comment */'], 'Xddd.c')
++ 
++   let bnr = bufnr('%')
++   new Xaaa.c
++   badd Xbbb.c
++   badd Xccc.c
++   badd Xddd.c
++   exe "bwipe " . bnr
++   let l = []
++   bufdo call add(l, bufnr('%'))
++   call assert_equal(4, len(l))
++ 
++   syntax on
++ 
++   " This used to only enable syntax HL in the last buffer.
++   bufdo tab split
++   tabrewind
++   for tab in range(1, 4)
++     norm fm
++     call assert_equal(['cComment'], map(synstack(line("."), col(".")), 'synIDattr(v:val, "name")'))
++     tabnext
++   endfor
++ 
++   bwipe! Xaaa.c
++   bwipe! Xbbb.c
++   bwipe! Xccc.c
++   bwipe! Xddd.c
++   syntax off
++   call delete('Xaaa.c')
++   call delete('Xbbb.c')
++   call delete('Xccc.c')
++   call delete('Xddd.c')
++ endfunc
+*** ../vim-8.1.1794/src/version.c	2019-08-02 22:46:08.317622692 +0200
+--- src/version.c	2019-08-02 23:12:04.713194761 +0200
+***************
+*** 775,776 ****
+--- 775,778 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1795,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+11. You find yourself typing "com" after every period when using a word
+    processor.com
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

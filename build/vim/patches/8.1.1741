@@ -1,0 +1,197 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1741
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1741
+Problem:    Cleared/added match highlighting not updated in other window.
+            (Andi Massimino)
+Solution:   Mark the right window for refresh.
+Files:	    src/highlight.c, src/testdir/test_match.vim,
+            src/testdir/dumps/Test_matchclear_1.dump,
+            src/testdir/dumps/Test_matchadd_1.dump
+
+
+*** ../vim-8.1.1740/src/highlight.c	2019-07-24 14:25:07.171074151 +0200
+--- src/highlight.c	2019-07-24 15:25:47.898502366 +0200
+***************
+*** 3850,3856 ****
+  	prev->next = m;
+      m->next = cur;
+  
+!     redraw_later(rtype);
+      return id;
+  
+  fail:
+--- 3850,3856 ----
+  	prev->next = m;
+      m->next = cur;
+  
+!     redraw_win_later(wp, rtype);
+      return id;
+  
+  fail:
+***************
+*** 3932,3938 ****
+  	vim_free(wp->w_match_head);
+  	wp->w_match_head = m;
+      }
+!     redraw_later(SOME_VALID);
+  }
+  
+  /*
+--- 3932,3938 ----
+  	vim_free(wp->w_match_head);
+  	wp->w_match_head = m;
+      }
+!     redraw_win_later(wp, SOME_VALID);
+  }
+  
+  /*
+*** ../vim-8.1.1740/src/testdir/test_match.vim	2019-07-24 14:25:07.171074151 +0200
+--- src/testdir/test_match.vim	2019-07-24 15:24:37.055420845 +0200
+***************
+*** 253,277 ****
+    set hlsearch&
+  endfunc
+  
+! func Test_matchdelete_other_window()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+! 
+    let lines =<< trim END
+      call setline(1, 'Hello Vim world')
+      let mid = matchadd('Error', 'world', 1)
+      let winid = win_getid()
+      new
+    END
+!   call writefile(lines, 'XscriptMatchDelete')
+!   let buf = RunVimInTerminal('-S XscriptMatchDelete', #{rows: 12})
+    call term_wait(buf)
+    call term_sendkeys(buf, ":call matchdelete(mid, winid)\<CR>")
+    call VerifyScreenDump(buf, 'Test_matchdelete_1', {})
+  
+    call StopVimInTerminal(buf)
+!   call delete('XscriptMatchDelete')
+  endfunc
+  
+  
+--- 253,306 ----
+    set hlsearch&
+  endfunc
+  
+! func OtherWindowCommon()
+    let lines =<< trim END
+      call setline(1, 'Hello Vim world')
+      let mid = matchadd('Error', 'world', 1)
+      let winid = win_getid()
+      new
+    END
+!   call writefile(lines, 'XscriptMatchCommon')
+!   let buf = RunVimInTerminal('-S XscriptMatchCommon', #{rows: 12})
+    call term_wait(buf)
++   return buf
++ endfunc
++ 
++ func Test_matchdelete_other_window()
++   if !CanRunVimInTerminal()
++     throw 'Skipped: cannot make screendumps'
++   endif
++   let buf = OtherWindowCommon()
+    call term_sendkeys(buf, ":call matchdelete(mid, winid)\<CR>")
+    call VerifyScreenDump(buf, 'Test_matchdelete_1', {})
+  
+    call StopVimInTerminal(buf)
+!   call delete('XscriptMatchCommon')
+! endfunc
+! 
+! func Test_matchclear_other_window()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+!   let buf = OtherWindowCommon()
+!   call term_sendkeys(buf, ":call clearmatches(winid)\<CR>")
+!   call VerifyScreenDump(buf, 'Test_matchclear_1', {})
+! 
+!   call StopVimInTerminal(buf)
+!   call delete('XscriptMatchCommon')
+! endfunc
+! 
+! func Test_matchadd_other_window()
+!   if !CanRunVimInTerminal()
+!     throw 'Skipped: cannot make screendumps'
+!   endif
+!   let buf = OtherWindowCommon()
+!   call term_sendkeys(buf, ":call matchadd('Search', 'Hello', 1, -1, #{window: winid})\<CR>")
+!   call term_sendkeys(buf, ":\<CR>")
+!   call VerifyScreenDump(buf, 'Test_matchadd_1', {})
+! 
+!   call StopVimInTerminal(buf)
+!   call delete('XscriptMatchCommon')
+  endfunc
+  
+  
+*** ../vim-8.1.1740/src/testdir/dumps/Test_matchclear_1.dump	2019-07-24 15:27:19.717378559 +0200
+--- src/testdir/dumps/Test_matchclear_1.dump	2019-07-24 15:16:03.372895380 +0200
+***************
+*** 0 ****
+--- 1,12 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+3#0000000&|N|o| |N|a|m|e|]| @47|0|,|0|-|1| @9|A|l@1
++ |H+0&&|e|l@1|o| |V|i|m| |w|o|r|l|d| @59
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|1|,|1| @11|A|l@1
++ |:+0&&|c|a|l@1| |c|l|e|a|r|m|a|t|c|h|e|s|(|w|i|n|i|d|)| @49
+*** ../vim-8.1.1740/src/testdir/dumps/Test_matchadd_1.dump	2019-07-24 15:27:19.721378511 +0200
+--- src/testdir/dumps/Test_matchadd_1.dump	2019-07-24 15:24:43.571334303 +0200
+***************
+*** 0 ****
+--- 1,12 ----
++ > +0&#ffffff0@74
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |~| @73
++ |[+3#0000000&|N|o| |N|a|m|e|]| @47|0|,|0|-|1| @9|A|l@1
++ |H+0&#ffff4012|e|l@1|o| +0&#ffffff0|V|i|m| |w+0#ffffff16#ff404010|o|r|l|d| +0#0000000#ffffff0@59
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |[+1#0000000&|N|o| |N|a|m|e|]| |[|+|]| @43|1|,|1| @11|A|l@1
++ |:+0&&| @73
+*** ../vim-8.1.1740/src/version.c	2019-07-24 14:59:42.267465100 +0200
+--- src/version.c	2019-07-24 15:15:25.573147848 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1741,
+  /**/
+
+-- 
+CART DRIVER: Bring out your dead!
+   We follow the cart through a wretched, impoverished plague-ridden village.
+   A few starved mongrels run about in the mud scavenging.  In the open
+   doorway of one house perhaps we jug glimpse a pair of legs dangling from
+   the ceiling.  In another doorway an OLD WOMAN is beating a cat against a
+   wall rather like one does with a mat.  The cart passes round a dead donkey
+   or cow in the mud.  And a MAN tied to a cart is being hammered to death by
+   four NUNS with huge mallets.
+                 "Monty Python and the Holy Grail" PYTHON (MONTY) PICTURES LTD
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

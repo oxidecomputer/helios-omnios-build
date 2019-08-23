@@ -1,0 +1,832 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1588
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1588
+Problem:    In :let-heredoc line continuation is recognized.
+Solution:   Do not consume line continuation. (Ozaki Kiichi, closes #4580)
+Files:	    src/autocmd.c, src/digraph.c, src/eval.c, src/evalfunc.c,
+            src/ex_cmds.c, src/ex_cmds.h, src/ex_cmds2.c, src/ex_docmd.c,
+            src/ex_getln.c, src/normal.c, src/ops.c, src/proto/autocmd.pro,
+            src/proto/ex_cmds2.pro, src/proto/ex_docmd.pro,
+            src/proto/ex_getln.pro, src/proto/userfunc.pro,
+            src/testdir/test_let.vim, src/testdir/test_startup.vim,
+            src/userfunc.c
+
+
+*** ../vim-8.1.1587/src/autocmd.c	2019-06-02 19:02:24.478427721 +0200
+--- src/autocmd.c	2019-06-25 03:28:16.282649840 +0200
+***************
+*** 2329,2335 ****
+   * Returns allocated string, or NULL for end of autocommands.
+   */
+      char_u *
+! getnextac(int c UNUSED, void *cookie, int indent UNUSED)
+  {
+      AutoPatCmd	    *acp = (AutoPatCmd *)cookie;
+      char_u	    *retval;
+--- 2329,2335 ----
+   * Returns allocated string, or NULL for end of autocommands.
+   */
+      char_u *
+! getnextac(int c UNUSED, void *cookie, int indent UNUSED, int do_concat UNUSED)
+  {
+      AutoPatCmd	    *acp = (AutoPatCmd *)cookie;
+      char_u	    *retval;
+*** ../vim-8.1.1587/src/digraph.c	2019-05-24 18:48:36.750128544 +0200
+--- src/digraph.c	2019-06-25 03:28:16.282649840 +0200
+***************
+*** 2378,2384 ****
+       */
+      for (;;)
+      {
+! 	line = eap->getline(0, eap->cookie, 0);
+  	if (line == NULL)
+  	    break;
+  
+--- 2378,2384 ----
+       */
+      for (;;)
+      {
+! 	line = eap->getline(0, eap->cookie, 0, TRUE);
+  	if (line == NULL)
+  	    break;
+  
+*** ../vim-8.1.1587/src/eval.c	2019-06-24 00:58:02.904020530 +0200
+--- src/eval.c	2019-06-25 03:28:16.282649840 +0200
+***************
+*** 1307,1313 ****
+  	int	mi = 0;
+  	int	ti = 0;
+  
+! 	theline = eap->getline(NUL, eap->cookie, 0);
+  	if (theline == NULL)
+  	{
+  	    semsg(_("E990: Missing end marker '%s'"), marker);
+--- 1307,1313 ----
+  	int	mi = 0;
+  	int	ti = 0;
+  
+! 	theline = eap->getline(NUL, eap->cookie, 0, FALSE);
+  	if (theline == NULL)
+  	{
+  	    semsg(_("E990: Missing end marker '%s'"), marker);
+*** ../vim-8.1.1587/src/evalfunc.c	2019-06-24 00:43:31.459691842 +0200
+--- src/evalfunc.c	2019-06-25 03:28:16.286649827 +0200
+***************
+*** 3234,3240 ****
+  get_list_line(
+      int	    c UNUSED,
+      void    *cookie,
+!     int	    indent UNUSED)
+  {
+      listitem_T **p = (listitem_T **)cookie;
+      listitem_T *item = *p;
+--- 3234,3241 ----
+  get_list_line(
+      int	    c UNUSED,
+      void    *cookie,
+!     int	    indent UNUSED,
+!     int	    do_concat UNUSED)
+  {
+      listitem_T **p = (listitem_T **)cookie;
+      listitem_T *item = *p;
+*** ../vim-8.1.1587/src/ex_cmds.c	2019-06-15 19:37:11.680608505 +0200
+--- src/ex_cmds.c	2019-06-25 03:28:16.286649827 +0200
+***************
+*** 4540,4546 ****
+  #ifdef FEAT_EVAL
+  		    eap->cstack->cs_looplevel > 0 ? -1 :
+  #endif
+! 		    NUL, eap->cookie, indent);
+  	    State = save_State;
+  	}
+  	lines_left = Rows - 1;
+--- 4540,4546 ----
+  #ifdef FEAT_EVAL
+  		    eap->cstack->cs_looplevel > 0 ? -1 :
+  #endif
+! 		    NUL, eap->cookie, indent, TRUE);
+  	    State = save_State;
+  	}
+  	lines_left = Rows - 1;
+***************
+*** 5388,5394 ****
+  			    for ( ; i <= (long)ec; ++i)
+  				msg_putchar('^');
+  
+! 			    resp = getexmodeline('?', NULL, 0);
+  			    if (resp != NULL)
+  			    {
+  				typed = *resp;
+--- 5388,5394 ----
+  			    for ( ; i <= (long)ec; ++i)
+  				msg_putchar('^');
+  
+! 			    resp = getexmodeline('?', NULL, 0, TRUE);
+  			    if (resp != NULL)
+  			    {
+  				typed = *resp;
+*** ../vim-8.1.1587/src/ex_cmds.h	2019-06-15 15:44:46.710530957 +0200
+--- src/ex_cmds.h	2019-06-25 03:28:16.286649827 +0200
+***************
+*** 1837,1843 ****
+      int		bad_char;	/* BAD_KEEP, BAD_DROP or replacement byte */
+      int		useridx;	/* user command index */
+      char	*errmsg;	/* returned error message */
+!     char_u	*(*getline)(int, void *, int);
+      void	*cookie;	/* argument for getline() */
+  #ifdef FEAT_EVAL
+      struct condstack *cstack;	/* condition stack for ":if" etc. */
+--- 1837,1843 ----
+      int		bad_char;	/* BAD_KEEP, BAD_DROP or replacement byte */
+      int		useridx;	/* user command index */
+      char	*errmsg;	/* returned error message */
+!     char_u	*(*getline)(int, void *, int, int);
+      void	*cookie;	/* argument for getline() */
+  #ifdef FEAT_EVAL
+      struct condstack *cstack;	/* condition stack for ":if" etc. */
+*** ../vim-8.1.1587/src/ex_cmds2.c	2019-06-20 03:45:31.171536943 +0200
+--- src/ex_cmds2.c	2019-06-25 03:39:24.264138930 +0200
+***************
+*** 371,376 ****
+--- 371,377 ----
+  	    int	save_trylevel = trylevel;
+  	    int save_did_throw = did_throw;
+  	    int save_ex_pressedreturn = get_pressedreturn();
++ 	    int save_may_garbage_collect = may_garbage_collect;
+  	    except_T *save_current_exception = current_exception;
+  	    vimvars_save_T vvsave;
+  
+***************
+*** 385,391 ****
+--- 386,394 ----
+  	    trylevel = 0;
+  	    did_throw = FALSE;
+  	    current_exception = NULL;
++ 	    may_garbage_collect = FALSE;
+  	    save_vimvars(&vvsave);
++ 
+  	    timer->tr_firing = TRUE;
+  	    timer_callback(timer);
+  	    timer->tr_firing = FALSE;
+***************
+*** 407,412 ****
+--- 410,416 ----
+  	    must_redraw = must_redraw > save_must_redraw
+  					      ? must_redraw : save_must_redraw;
+  	    set_pressedreturn(save_ex_pressedreturn);
++ 	    may_garbage_collect = save_may_garbage_collect;
+  
+  	    /* Only fire the timer again if it repeats and stop_timer() wasn't
+  	     * called while inside the callback (tr_id == -1). */
+***************
+*** 3611,3617 ****
+      cookie.conv.vc_type = CONV_NONE;		/* no conversion */
+  
+      /* Read the first line so we can check for a UTF-8 BOM. */
+!     firstline = getsourceline(0, (void *)&cookie, 0);
+      if (firstline != NULL && STRLEN(firstline) >= 3 && firstline[0] == 0xef
+  			      && firstline[1] == 0xbb && firstline[2] == 0xbf)
+      {
+--- 3615,3621 ----
+      cookie.conv.vc_type = CONV_NONE;		/* no conversion */
+  
+      /* Read the first line so we can check for a UTF-8 BOM. */
+!     firstline = getsourceline(0, (void *)&cookie, 0, TRUE);
+      if (firstline != NULL && STRLEN(firstline) >= 3 && firstline[0] == 0xef
+  			      && firstline[1] == 0xbb && firstline[2] == 0xbf)
+      {
+***************
+*** 3794,3800 ****
+   * Return NULL for end-of-file or some error.
+   */
+      char_u *
+! getsourceline(int c UNUSED, void *cookie, int indent UNUSED)
+  {
+      struct source_cookie *sp = (struct source_cookie *)cookie;
+      char_u		*line;
+--- 3798,3804 ----
+   * Return NULL for end-of-file or some error.
+   */
+      char_u *
+! getsourceline(int c UNUSED, void *cookie, int indent UNUSED, int do_concat)
+  {
+      struct source_cookie *sp = (struct source_cookie *)cookie;
+      char_u		*line;
+***************
+*** 3833,3839 ****
+  
+      /* Only concatenate lines starting with a \ when 'cpoptions' doesn't
+       * contain the 'C' flag. */
+!     if (line != NULL && (vim_strchr(p_cpo, CPO_CONCAT) == NULL))
+      {
+  	/* compensate for the one line read-ahead */
+  	--sourcing_lnum;
+--- 3837,3843 ----
+  
+      /* Only concatenate lines starting with a \ when 'cpoptions' doesn't
+       * contain the 'C' flag. */
+!     if (line != NULL && do_concat && vim_strchr(p_cpo, CPO_CONCAT) == NULL)
+      {
+  	/* compensate for the one line read-ahead */
+  	--sourcing_lnum;
+***************
+*** 4212,4218 ****
+   */
+      int
+  source_finished(
+!     char_u	*(*fgetline)(int, void *, int),
+      void	*cookie)
+  {
+      return (getline_equal(fgetline, cookie, getsourceline)
+--- 4216,4222 ----
+   */
+      int
+  source_finished(
+!     char_u	*(*fgetline)(int, void *, int, int),
+      void	*cookie)
+  {
+      return (getline_equal(fgetline, cookie, getsourceline)
+*** ../vim-8.1.1587/src/ex_docmd.c	2019-06-16 15:50:42.012557682 +0200
+--- src/ex_docmd.c	2019-06-25 03:28:16.286649827 +0200
+***************
+*** 20,28 ****
+  #endif
+  
+  #ifdef FEAT_EVAL
+! static char_u	*do_one_cmd(char_u **, int, struct condstack *, char_u *(*fgetline)(int, void *, int), void *cookie);
+  #else
+! static char_u	*do_one_cmd(char_u **, int, char_u *(*fgetline)(int, void *, int), void *cookie);
+  static int	if_level = 0;		/* depth in :if */
+  #endif
+  static void	free_cmdmod(void);
+--- 20,28 ----
+  #endif
+  
+  #ifdef FEAT_EVAL
+! static char_u	*do_one_cmd(char_u **, int, struct condstack *, char_u *(*fgetline)(int, void *, int, int), void *cookie);
+  #else
+! static char_u	*do_one_cmd(char_u **, int, char_u *(*fgetline)(int, void *, int, int), void *cookie);
+  static int	if_level = 0;		/* depth in :if */
+  #endif
+  static void	free_cmdmod(void);
+***************
+*** 431,441 ****
+      int		current_line;		/* last read line from growarray */
+      int		repeating;		/* TRUE when looping a second time */
+      /* When "repeating" is FALSE use "getline" and "cookie" to get lines */
+!     char_u	*(*getline)(int, void *, int);
+      void	*cookie;
+  };
+  
+! static char_u	*get_loop_line(int c, void *cookie, int indent);
+  static int	store_loop_line(garray_T *gap, char_u *line);
+  static void	free_cmdlines(garray_T *gap);
+  
+--- 431,441 ----
+      int		current_line;		/* last read line from growarray */
+      int		repeating;		/* TRUE when looping a second time */
+      /* When "repeating" is FALSE use "getline" and "cookie" to get lines */
+!     char_u	*(*getline)(int, void *, int, int);
+      void	*cookie;
+  };
+  
+! static char_u	*get_loop_line(int c, void *cookie, int indent, int do_concat);
+  static int	store_loop_line(garray_T *gap, char_u *line);
+  static void	free_cmdlines(garray_T *gap);
+  
+***************
+*** 619,625 ****
+      int
+  do_cmdline(
+      char_u	*cmdline,
+!     char_u	*(*fgetline)(int, void *, int),
+      void	*cookie,		/* argument for fgetline() */
+      int		flags)
+  {
+--- 619,625 ----
+      int
+  do_cmdline(
+      char_u	*cmdline,
+!     char_u	*(*fgetline)(int, void *, int, int),
+      void	*cookie,		/* argument for fgetline() */
+      int		flags)
+  {
+***************
+*** 644,650 ****
+      struct msglist	*private_msg_list;
+  
+      /* "fgetline" and "cookie" passed to do_one_cmd() */
+!     char_u	*(*cmd_getline)(int, void *, int);
+      void	*cmd_cookie;
+      struct loop_cookie cmd_loop_cookie;
+      void	*real_cookie;
+--- 644,650 ----
+      struct msglist	*private_msg_list;
+  
+      /* "fgetline" and "cookie" passed to do_one_cmd() */
+!     char_u	*(*cmd_getline)(int, void *, int, int);
+      void	*cmd_cookie;
+      struct loop_cookie cmd_loop_cookie;
+      void	*real_cookie;
+***************
+*** 894,900 ****
+  #else
+  		    0
+  #endif
+! 			    )) == NULL)
+  	    {
+  		/* Don't call wait_return for aborted command line.  The NULL
+  		 * returned for the end of a sourced file or executed function
+--- 894,900 ----
+  #else
+  		    0
+  #endif
+! 		    , TRUE)) == NULL)
+  	    {
+  		/* Don't call wait_return for aborted command line.  The NULL
+  		 * returned for the end of a sourced file or executed function
+***************
+*** 1424,1430 ****
+   * Obtain a line when inside a ":while" or ":for" loop.
+   */
+      static char_u *
+! get_loop_line(int c, void *cookie, int indent)
+  {
+      struct loop_cookie	*cp = (struct loop_cookie *)cookie;
+      wcmd_T		*wp;
+--- 1424,1430 ----
+   * Obtain a line when inside a ":while" or ":for" loop.
+   */
+      static char_u *
+! get_loop_line(int c, void *cookie, int indent, int do_concat)
+  {
+      struct loop_cookie	*cp = (struct loop_cookie *)cookie;
+      wcmd_T		*wp;
+***************
+*** 1437,1445 ****
+  
+  	/* First time inside the ":while"/":for": get line normally. */
+  	if (cp->getline == NULL)
+! 	    line = getcmdline(c, 0L, indent);
+  	else
+! 	    line = cp->getline(c, cp->cookie, indent);
+  	if (line != NULL && store_loop_line(cp->lines_gap, line) == OK)
+  	    ++cp->current_line;
+  
+--- 1437,1445 ----
+  
+  	/* First time inside the ":while"/":for": get line normally. */
+  	if (cp->getline == NULL)
+! 	    line = getcmdline(c, 0L, indent, do_concat);
+  	else
+! 	    line = cp->getline(c, cp->cookie, indent, do_concat);
+  	if (line != NULL && store_loop_line(cp->lines_gap, line) == OK)
+  	    ++cp->current_line;
+  
+***************
+*** 1487,1498 ****
+   */
+      int
+  getline_equal(
+!     char_u	*(*fgetline)(int, void *, int),
+      void	*cookie UNUSED,		/* argument for fgetline() */
+!     char_u	*(*func)(int, void *, int))
+  {
+  #ifdef FEAT_EVAL
+!     char_u		*(*gp)(int, void *, int);
+      struct loop_cookie *cp;
+  
+      /* When "fgetline" is "get_loop_line()" use the "cookie" to find the
+--- 1487,1498 ----
+   */
+      int
+  getline_equal(
+!     char_u	*(*fgetline)(int, void *, int, int),
+      void	*cookie UNUSED,		/* argument for fgetline() */
+!     char_u	*(*func)(int, void *, int, int))
+  {
+  #ifdef FEAT_EVAL
+!     char_u		*(*gp)(int, void *, int, int);
+      struct loop_cookie *cp;
+  
+      /* When "fgetline" is "get_loop_line()" use the "cookie" to find the
+***************
+*** 1517,1527 ****
+   */
+      void *
+  getline_cookie(
+!     char_u	*(*fgetline)(int, void *, int) UNUSED,
+      void	*cookie)		/* argument for fgetline() */
+  {
+  #ifdef FEAT_EVAL
+!     char_u		*(*gp)(int, void *, int);
+      struct loop_cookie *cp;
+  
+      /* When "fgetline" is "get_loop_line()" use the "cookie" to find the
+--- 1517,1527 ----
+   */
+      void *
+  getline_cookie(
+!     char_u	*(*fgetline)(int, void *, int, int) UNUSED,
+      void	*cookie)		/* argument for fgetline() */
+  {
+  #ifdef FEAT_EVAL
+!     char_u		*(*gp)(int, void *, int, int);
+      struct loop_cookie *cp;
+  
+      /* When "fgetline" is "get_loop_line()" use the "cookie" to find the
+***************
+*** 1654,1660 ****
+  #ifdef FEAT_EVAL
+      struct condstack	*cstack,
+  #endif
+!     char_u		*(*fgetline)(int, void *, int),
+      void		*cookie)		/* argument for fgetline() */
+  {
+      char_u		*p;
+--- 1654,1660 ----
+  #ifdef FEAT_EVAL
+      struct condstack	*cstack,
+  #endif
+!     char_u		*(*fgetline)(int, void *, int, int),
+      void		*cookie)		/* argument for fgetline() */
+  {
+      char_u		*p;
+*** ../vim-8.1.1587/src/ex_getln.c	2019-06-21 02:30:33.988511813 +0200
+--- src/ex_getln.c	2019-06-25 03:28:16.286649827 +0200
+***************
+*** 838,844 ****
+  getcmdline(
+      int		firstc,
+      long	count,		// only used for incremental search
+!     int		indent)		// indent for inside conditionals
+  {
+      return getcmdline_int(firstc, count, indent, TRUE);
+  }
+--- 838,845 ----
+  getcmdline(
+      int		firstc,
+      long	count,		// only used for incremental search
+!     int		indent,		// indent for inside conditionals
+!     int		do_concat UNUSED)
+  {
+      return getcmdline_int(firstc, count, indent, TRUE);
+  }
+***************
+*** 2687,2698 ****
+  getexline(
+      int		c,		/* normally ':', NUL for ":append" */
+      void	*cookie UNUSED,
+!     int		indent)		/* indent for inside conditionals */
+  {
+      /* When executing a register, remove ':' that's in front of each line. */
+      if (exec_from_reg && vpeekc() == ':')
+  	(void)vgetc();
+!     return getcmdline(c, 1L, indent);
+  }
+  
+  /*
+--- 2688,2700 ----
+  getexline(
+      int		c,		/* normally ':', NUL for ":append" */
+      void	*cookie UNUSED,
+!     int		indent,		/* indent for inside conditionals */
+!     int		do_concat)
+  {
+      /* When executing a register, remove ':' that's in front of each line. */
+      if (exec_from_reg && vpeekc() == ':')
+  	(void)vgetc();
+!     return getcmdline(c, 1L, indent, do_concat);
+  }
+  
+  /*
+***************
+*** 2706,2712 ****
+      int		promptc,	/* normally ':', NUL for ":append" and '?' for
+  				   :s prompt */
+      void	*cookie UNUSED,
+!     int		indent)		/* indent for inside conditionals */
+  {
+      garray_T	line_ga;
+      char_u	*pend;
+--- 2708,2715 ----
+      int		promptc,	/* normally ':', NUL for ":append" and '?' for
+  				   :s prompt */
+      void	*cookie UNUSED,
+!     int		indent,		/* indent for inside conditionals */
+!     int		do_concat UNUSED)
+  {
+      garray_T	line_ga;
+      char_u	*pend;
+***************
+*** 7409,7415 ****
+  #ifdef FEAT_EVAL
+  	    eap->cstack->cs_looplevel > 0 ? -1 :
+  #endif
+! 	    NUL, eap->cookie, 0);
+  
+  	if (theline == NULL || STRCMP(end_pattern, theline) == 0)
+  	{
+--- 7412,7418 ----
+  #ifdef FEAT_EVAL
+  	    eap->cstack->cs_looplevel > 0 ? -1 :
+  #endif
+! 	    NUL, eap->cookie, 0, TRUE);
+  
+  	if (theline == NULL || STRCMP(end_pattern, theline) == 0)
+  	{
+*** ../vim-8.1.1587/src/normal.c	2019-06-12 20:21:57.737817533 +0200
+--- src/normal.c	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 6237,6243 ****
+  
+      /* When using 'incsearch' the cursor may be moved to set a different search
+       * start position. */
+!     cap->searchbuf = getcmdline(cap->cmdchar, cap->count1, 0);
+  
+      if (cap->searchbuf == NULL)
+      {
+--- 6237,6243 ----
+  
+      /* When using 'incsearch' the cursor may be moved to set a different search
+       * start position. */
+!     cap->searchbuf = getcmdline(cap->cmdchar, cap->count1, 0, TRUE);
+  
+      if (cap->searchbuf == NULL)
+      {
+*** ../vim-8.1.1587/src/ops.c	2019-06-14 21:36:51.014437500 +0200
+--- src/ops.c	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 788,794 ****
+  {
+      char_u	*new_line;
+  
+!     new_line = getcmdline('=', 0L, 0);
+      if (new_line == NULL)
+  	return NUL;
+      if (*new_line == NUL)	/* use previous line */
+--- 788,794 ----
+  {
+      char_u	*new_line;
+  
+!     new_line = getcmdline('=', 0L, 0, TRUE);
+      if (new_line == NULL)
+  	return NUL;
+      if (*new_line == NUL)	/* use previous line */
+*** ../vim-8.1.1587/src/proto/autocmd.pro	2019-04-08 18:15:36.472223190 +0200
+--- src/proto/autocmd.pro	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 30,36 ****
+  void block_autocmds(void);
+  void unblock_autocmds(void);
+  int is_autocmd_blocked(void);
+! char_u *getnextac(int c, void *cookie, int indent);
+  int has_autocmd(event_T event, char_u *sfname, buf_T *buf);
+  char_u *get_augroup_name(expand_T *xp, int idx);
+  char_u *set_context_in_autocmd(expand_T *xp, char_u *arg, int doautocmd);
+--- 30,36 ----
+  void block_autocmds(void);
+  void unblock_autocmds(void);
+  int is_autocmd_blocked(void);
+! char_u *getnextac(int c, void *cookie, int indent, int do_concat);
+  int has_autocmd(event_T event, char_u *sfname, buf_T *buf);
+  char_u *get_augroup_name(expand_T *xp, int idx);
+  char_u *set_context_in_autocmd(expand_T *xp, char_u *arg, int doautocmd);
+*** ../vim-8.1.1587/src/proto/ex_cmds2.pro	2019-04-21 11:34:36.335256531 +0200
+--- src/proto/ex_cmds2.pro	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 81,87 ****
+  void scriptnames_slash_adjust(void);
+  char_u *get_scriptname(scid_T id);
+  void free_scriptnames(void);
+! char_u *getsourceline(int c, void *cookie, int indent);
+  void script_line_start(void);
+  void script_line_exec(void);
+  void script_line_end(void);
+--- 81,87 ----
+  void scriptnames_slash_adjust(void);
+  char_u *get_scriptname(scid_T id);
+  void free_scriptnames(void);
+! char_u *getsourceline(int c, void *cookie, int indent, int do_concat);
+  void script_line_start(void);
+  void script_line_exec(void);
+  void script_line_end(void);
+***************
+*** 89,95 ****
+  void ex_scriptversion(exarg_T *eap);
+  void ex_finish(exarg_T *eap);
+  void do_finish(exarg_T *eap, int reanimate);
+! int source_finished(char_u *(*fgetline)(int, void *, int), void *cookie);
+  void ex_checktime(exarg_T *eap);
+  char_u *get_mess_lang(void);
+  void set_lang_var(void);
+--- 89,95 ----
+  void ex_scriptversion(exarg_T *eap);
+  void ex_finish(exarg_T *eap);
+  void do_finish(exarg_T *eap, int reanimate);
+! int source_finished(char_u *(*fgetline)(int, void *, int, int), void *cookie);
+  void ex_checktime(exarg_T *eap);
+  char_u *get_mess_lang(void);
+  void set_lang_var(void);
+*** ../vim-8.1.1587/src/proto/ex_docmd.pro	2019-05-07 22:06:48.679310672 +0200
+--- src/proto/ex_docmd.pro	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 1,9 ****
+  /* ex_docmd.c */
+  void do_exmode(int improved);
+  int do_cmdline_cmd(char_u *cmd);
+! int do_cmdline(char_u *cmdline, char_u *(*fgetline)(int, void *, int), void *cookie, int flags);
+! int getline_equal(char_u *(*fgetline)(int, void *, int), void *cookie, char_u *(*func)(int, void *, int));
+! void *getline_cookie(char_u *(*fgetline)(int, void *, int), void *cookie);
+  int parse_command_modifiers(exarg_T *eap, char **errormsg, int skip_only);
+  int parse_cmd_address(exarg_T *eap, char **errormsg, int silent);
+  int checkforcmd(char_u **pp, char *cmd, int len);
+--- 1,9 ----
+  /* ex_docmd.c */
+  void do_exmode(int improved);
+  int do_cmdline_cmd(char_u *cmd);
+! int do_cmdline(char_u *cmdline, char_u *(*fgetline)(int, void *, int, int), void *cookie, int flags);
+! int getline_equal(char_u *(*fgetline)(int, void *, int, int), void *cookie, char_u *(*func)(int, void *, int, int));
+! void *getline_cookie(char_u *(*fgetline)(int, void *, int, int), void *cookie);
+  int parse_command_modifiers(exarg_T *eap, char **errormsg, int skip_only);
+  int parse_cmd_address(exarg_T *eap, char **errormsg, int silent);
+  int checkforcmd(char_u **pp, char *cmd, int len);
+*** ../vim-8.1.1587/src/proto/ex_getln.pro	2019-04-17 18:24:32.006143206 +0200
+--- src/proto/ex_getln.pro	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 1,14 ****
+  /* ex_getln.c */
+  void cmdline_init(void);
+! char_u *getcmdline(int firstc, long count, int indent);
+  char_u *getcmdline_prompt(int firstc, char_u *prompt, int attr, int xp_context, char_u *xp_arg);
+  int text_locked(void);
+  void text_locked_msg(void);
+  char *get_text_locked_msg(void);
+  int curbuf_locked(void);
+  int allbuf_locked(void);
+! char_u *getexline(int c, void *cookie, int indent);
+! char_u *getexmodeline(int promptc, void *cookie, int indent);
+  int cmdline_overstrike(void);
+  int cmdline_at_end(void);
+  colnr_T cmdline_getvcol_cursor(void);
+--- 1,14 ----
+  /* ex_getln.c */
+  void cmdline_init(void);
+! char_u *getcmdline(int firstc, long count, int indent, int do_concat);
+  char_u *getcmdline_prompt(int firstc, char_u *prompt, int attr, int xp_context, char_u *xp_arg);
+  int text_locked(void);
+  void text_locked_msg(void);
+  char *get_text_locked_msg(void);
+  int curbuf_locked(void);
+  int allbuf_locked(void);
+! char_u *getexline(int c, void *cookie, int indent, int do_concat);
+! char_u *getexmodeline(int promptc, void *cookie, int indent, int do_concat);
+  int cmdline_overstrike(void);
+  int cmdline_at_end(void);
+  colnr_T cmdline_getvcol_cursor(void);
+*** ../vim-8.1.1587/src/proto/userfunc.pro	2019-06-01 13:28:30.269829512 +0200
+--- src/proto/userfunc.pro	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 30,36 ****
+  int do_return(exarg_T *eap, int reanimate, int is_cmd, void *rettv);
+  void discard_pending_return(void *rettv);
+  char_u *get_return_cmd(void *rettv);
+! char_u *get_func_line(int c, void *cookie, int indent);
+  void func_line_start(void *cookie);
+  void func_line_exec(void *cookie);
+  void func_line_end(void *cookie);
+--- 30,36 ----
+  int do_return(exarg_T *eap, int reanimate, int is_cmd, void *rettv);
+  void discard_pending_return(void *rettv);
+  char_u *get_return_cmd(void *rettv);
+! char_u *get_func_line(int c, void *cookie, int indent, int do_concat);
+  void func_line_start(void *cookie);
+  void func_line_exec(void *cookie);
+  void func_line_end(void *cookie);
+*** ../vim-8.1.1587/src/testdir/test_let.vim	2019-06-24 00:58:02.908020514 +0200
+--- src/testdir/test_let.vim	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 237,242 ****
+--- 237,250 ----
+    END
+    call assert_equal(['something', 'endfunc'], var1)
+  
++   " not concatenate lines
++   let var1 =<< END
++ some
++   \thing
++   \ else
++ END
++   call assert_equal(['some', '  \thing', '  \ else'], var1)
++ 
+    " ignore "python << xx"
+    let var1 =<<END
+  something
+*** ../vim-8.1.1587/src/testdir/test_startup.vim	2019-06-06 16:12:05.923134646 +0200
+--- src/testdir/test_startup.vim	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 157,162 ****
+--- 157,163 ----
+  " horizontally or vertically.
+  func Test_o_arg()
+    let after =<< trim [CODE]
++     set cpo&vim
+      call writefile([winnr("$"),
+  		\ winheight(1), winheight(2), &lines,
+  		\ winwidth(1), winwidth(2), &columns,
+*** ../vim-8.1.1587/src/userfunc.c	2019-06-23 01:46:11.840059790 +0200
+--- src/userfunc.c	2019-06-25 03:28:16.290649811 +0200
+***************
+*** 2007,2012 ****
+--- 2007,2013 ----
+      hashtab_T	*ht;
+      int		todo;
+      hashitem_T	*hi;
++     int		do_concat = TRUE;
+      int		sourcing_lnum_off;
+  
+      /*
+***************
+*** 2303,2311 ****
+  	{
+  	    vim_free(line_to_free);
+  	    if (eap->getline == NULL)
+! 		theline = getcmdline(':', 0L, indent);
+  	    else
+! 		theline = eap->getline(':', eap->cookie, indent);
+  	    line_to_free = theline;
+  	}
+  	if (KeyTyped)
+--- 2304,2312 ----
+  	{
+  	    vim_free(line_to_free);
+  	    if (eap->getline == NULL)
+! 		theline = getcmdline(':', 0L, indent, do_concat);
+  	    else
+! 		theline = eap->getline(':', eap->cookie, indent, do_concat);
+  	    line_to_free = theline;
+  	}
+  	if (KeyTyped)
+***************
+*** 2334,2339 ****
+--- 2335,2341 ----
+  		{
+  		    VIM_CLEAR(skip_until);
+  		    VIM_CLEAR(trimmed);
++ 		    do_concat = TRUE;
+  		}
+  	    }
+  	}
+***************
+*** 2458,2463 ****
+--- 2460,2466 ----
+  		    skip_until = vim_strsave((char_u *)".");
+  		else
+  		    skip_until = vim_strnsave(p, (int)(skiptowhite(p) - p));
++ 		do_concat = FALSE;
+  	    }
+  	}
+  
+***************
+*** 3511,3517 ****
+  get_func_line(
+      int	    c UNUSED,
+      void    *cookie,
+!     int	    indent UNUSED)
+  {
+      funccall_T	*fcp = (funccall_T *)cookie;
+      ufunc_T	*fp = fcp->func;
+--- 3514,3521 ----
+  get_func_line(
+      int	    c UNUSED,
+      void    *cookie,
+!     int	    indent UNUSED,
+!     int	    do_concat UNUSED)
+  {
+      funccall_T	*fcp = (funccall_T *)cookie;
+      ufunc_T	*fp = fcp->func;
+*** ../vim-8.1.1587/src/version.c	2019-06-24 05:45:08.925616559 +0200
+--- src/version.c	2019-06-25 03:30:42.702093302 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1588,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+268. You get up in the morning and go online before getting your coffee.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

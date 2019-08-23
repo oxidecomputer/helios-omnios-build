@@ -1,0 +1,81 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1442
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1442
+Problem:    Popup windows not considered when the Vim window is resized.
+            (Ben Jackson)
+Solution:   Reallocate the w_lines structure. (closes #4467)
+Files:	    src/screen.c
+
+
+*** ../vim-8.1.1441/src/screen.c	2019-06-01 17:13:15.884517713 +0200
+--- src/screen.c	2019-06-01 18:06:21.022869626 +0200
+***************
+*** 8892,8897 ****
+--- 8892,8906 ----
+  	win_free_lsize(wp);
+      if (aucmd_win != NULL)
+  	win_free_lsize(aucmd_win);
++ #ifdef FEAT_TEXT_PROP
++     // global popup windows
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	win_free_lsize(wp);
++     // tab-local popup windows
++     FOR_ALL_TABPAGES(tp)
++ 	for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	    win_free_lsize(wp);
++ #endif
+  
+      new_ScreenLines = LALLOC_MULT(schar_T, (Rows + 1) * Columns);
+      vim_memset(new_ScreenLinesC, 0, sizeof(u8char_T *) * MAX_MCO);
+***************
+*** 8920,8925 ****
+--- 8929,8952 ----
+      if (aucmd_win != NULL && aucmd_win->w_lines == NULL
+  					&& win_alloc_lines(aucmd_win) == FAIL)
+  	outofmem = TRUE;
++ #ifdef FEAT_TEXT_PROP
++     // global popup windows
++     for (wp = first_popupwin; wp != NULL; wp = wp->w_next)
++ 	if (win_alloc_lines(wp) == FAIL)
++ 	{
++ 	    outofmem = TRUE;
++ 	    goto give_up;
++ 	}
++     // tab-local popup windows
++     FOR_ALL_TABPAGES(tp)
++ 	for (wp = tp->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	    if (win_alloc_lines(wp) == FAIL)
++ 	    {
++ 		outofmem = TRUE;
++ 		goto give_up;
++ 	    }
++ #endif
++ 
+  give_up:
+  
+      for (i = 0; i < p_mco; ++i)
+*** ../vim-8.1.1441/src/version.c	2019-06-01 17:13:15.884517713 +0200
+--- src/version.c	2019-06-01 18:01:48.076645123 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1442,
+  /**/
+
+-- 
+If bankers can count, how come they have eight windows and
+only four tellers?
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

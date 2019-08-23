@@ -1,0 +1,808 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1714
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1714
+Problem:    Cannot preview a file in a popup window.
+Solution:   Add the 'previewpopup' option.
+Files:	    runtime/doc/windows.txt, runtime/doc/options.txt, src/popupwin.c,
+            src/proto/popupwin.pro, src/option.c, src/option.h, src/ex_cmds.c,
+            src/testdir/dumps/Test_popupwin_previewpopup_1.dump,
+            src/testdir/dumps/Test_popupwin_previewpopup_2.dump,
+            src/ex_docmd.c, src/testdir/gen_opt_test.vim
+
+
+*** ../vim-8.1.1713/runtime/doc/windows.txt	2019-05-30 22:32:10.804178558 +0200
+--- runtime/doc/windows.txt	2019-07-18 14:23:29.638711601 +0200
+***************
+*** 864,870 ****
+  set in the preview window to be able to recognize it.  The 'winfixheight'
+  option is set to have it keep the same height when opening/closing other
+  windows.
+! 
+  						*:pta* *:ptag*
+  :pta[g][!] [tagname]
+  		Does ":tag[!] [tagname]" and shows the found tag in a
+--- 864,878 ----
+  set in the preview window to be able to recognize it.  The 'winfixheight'
+  option is set to have it keep the same height when opening/closing other
+  windows.
+! 						*preview-popup*
+! Alternatively, a popup window can be used by setting the 'previewpopup'
+! option.  When set, it overrules the 'previewwindow' and 'previewheight'
+! settings.  The option is a comma separated list of values:
+! 	height		maximum height of the popup
+! 	width		maximu width of the popup
+! Example: >
+! 	:set previewpopup=height:10,width:60
+! <
+  						*:pta* *:ptag*
+  :pta[g][!] [tagname]
+  		Does ":tag[!] [tagname]" and shows the found tag in a
+*** ../vim-8.1.1713/runtime/doc/options.txt	2019-07-01 22:05:44.453897107 +0200
+--- runtime/doc/options.txt	2019-07-18 14:24:29.190351622 +0200
+***************
+*** 5625,5631 ****
+  			{not available when compiled without the |+windows| or
+  			|+quickfix| features}
+  	Default height for a preview window.  Used for |:ptag| and associated
+! 	commands.  Used for |CTRL-W_}| when no count is given.
+  
+  					*'previewwindow'* *'nopreviewwindow'*
+  					*'pvw'* *'nopvw'* *E590*
+--- 5627,5642 ----
+  			{not available when compiled without the |+windows| or
+  			|+quickfix| features}
+  	Default height for a preview window.  Used for |:ptag| and associated
+! 	commands.  Used for |CTRL-W_}| when no count is given.  Not used when
+! 	'previewpopup' is set.
+! 
+! 					*'previewpopup'* *'pvp'*
+! 'previewpopup' 'pvp'	string (default empty)
+! 			global
+! 			{not available when compiled without the |+windows|,
+! 			|+textprop| or |+quickfix| feature}
+! 	When not empty a popup window is used for commands that would open a
+! 	preview window.  See |preview-popup|.
+  
+  					*'previewwindow'* *'nopreviewwindow'*
+  					*'pvw'* *'nopvw'* *E590*
+*** ../vim-8.1.1713/src/popupwin.c	2019-07-18 13:45:54.346319302 +0200
+--- src/popupwin.c	2019-07-18 21:25:11.580436506 +0200
+***************
+*** 13,19 ****
+  
+  #include "vim.h"
+  
+! #ifdef FEAT_TEXT_PROP
+  
+  typedef struct {
+      char	*pp_name;
+--- 13,19 ----
+  
+  #include "vim.h"
+  
+! #if defined(FEAT_TEXT_PROP) || defined(PROTO)
+  
+  typedef struct {
+      char	*pp_name;
+***************
+*** 442,447 ****
+--- 442,459 ----
+  }
+  
+  /*
++  * Scroll to show the line with the cursor.  This assumes lines don't wrap.
++  */
++     static void
++ popup_show_curline(win_T *wp)
++ {
++     if (wp->w_cursor.lnum < wp->w_topline)
++ 	wp->w_topline = wp->w_cursor.lnum;
++     else if (wp->w_cursor.lnum >= wp->w_botline)
++ 	wp->w_topline = wp->w_cursor.lnum - wp->w_height + 1;
++ }
++ 
++ /*
+   * Highlight the line with the cursor.
+   * Also scrolls the text to put the cursor line in view.
+   */
+***************
+*** 455,466 ****
+  
+      if ((wp->w_popup_flags & POPF_CURSORLINE) != 0)
+      {
+! 	// Scroll to show the line with the cursor.  This assumes lines don't
+! 	// wrap.
+! 	while (wp->w_topline + wp->w_height - 1 < wp->w_cursor.lnum)
+! 	    wp->w_topline++;
+! 	while (wp->w_cursor.lnum < wp->w_topline)
+! 	    wp->w_topline--;
+  
+  	id = syn_name2id((char_u *)"PopupSelected");
+  	vim_snprintf(buf, sizeof(buf), "\\%%%dl.*", (int)wp->w_cursor.lnum);
+--- 467,473 ----
+  
+      if ((wp->w_popup_flags & POPF_CURSORLINE) != 0)
+      {
+! 	popup_show_curline(wp);
+  
+  	id = syn_name2id((char_u *)"PopupSelected");
+  	vim_snprintf(buf, sizeof(buf), "\\%%%dl.*", (int)wp->w_cursor.lnum);
+***************
+*** 923,929 ****
+      }
+  
+      // start at the desired first line
+!     wp->w_topline = wp->w_firstline;
+      if (wp->w_topline > wp->w_buffer->b_ml.ml_line_count)
+  	wp->w_topline = wp->w_buffer->b_ml.ml_line_count;
+  
+--- 930,937 ----
+      }
+  
+      // start at the desired first line
+!     if (wp->w_firstline != 0)
+! 	wp->w_topline = wp->w_firstline;
+      if (wp->w_topline > wp->w_buffer->b_ml.ml_line_count)
+  	wp->w_topline = wp->w_buffer->b_ml.ml_line_count;
+  
+***************
+*** 1078,1084 ****
+      TYPE_BEVAL,
+      TYPE_NOTIFICATION,
+      TYPE_DIALOG,
+!     TYPE_MENU
+  } create_type_T;
+  
+  /*
+--- 1086,1093 ----
+      TYPE_BEVAL,
+      TYPE_NOTIFICATION,
+      TYPE_DIALOG,
+!     TYPE_MENU,
+!     TYPE_PREVIEW
+  } create_type_T;
+  
+  /*
+***************
+*** 1124,1182 ****
+  }
+  
+  /*
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
+   */
+      static win_T *
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+  {
+      win_T	*wp;
+      tabpage_T	*tp = NULL;
+!     int		tabnr;
+      int		new_buffer;
+      buf_T	*buf = NULL;
+!     dict_T	*d;
+      int		nr;
+      int		i;
+  
+!     // Check arguments look OK.
+!     if (argvars[0].v_type == VAR_NUMBER)
+      {
+! 	buf = buflist_findnr( argvars[0].vval.v_number);
+! 	if (buf == NULL)
+  	{
+! 	    semsg(_(e_nobufnr), argvars[0].vval.v_number);
+  	    return NULL;
+  	}
+      }
+-     else if (!(argvars[0].v_type == VAR_STRING
+- 		    && argvars[0].vval.v_string != NULL)
+- 		&& !(argvars[0].v_type == VAR_LIST
+- 		    && argvars[0].vval.v_list != NULL))
+-     {
+- 	emsg(_(e_listreq));
+- 	return NULL;
+-     }
+-     if (argvars[1].v_type != VAR_DICT || argvars[1].vval.v_dict == NULL)
+-     {
+- 	emsg(_(e_dictreq));
+- 	return NULL;
+-     }
+-     d = argvars[1].vval.v_dict;
+  
+!     if (dict_find(d, (char_u *)"tabpage", -1) != NULL)
+! 	tabnr = (int)dict_get_number(d, (char_u *)"tabpage");
+!     else if (type == TYPE_NOTIFICATION)
+! 	tabnr = -1;  // notifications are global by default
+!     else
+! 	tabnr = 0;
+!     if (tabnr > 0)
+      {
+! 	tp = find_tabpage(tabnr);
+! 	if (tp == NULL)
+  	{
+! 	    semsg(_("E997: Tabpage not found: %d"), tabnr);
+! 	    return NULL;
+  	}
+      }
+  
+--- 1133,1266 ----
+  }
+  
+  /*
++  * Parse the 'previewpopup' option and apply the values to window "wp" if it
++  * not NULL.
++  * Return FAIL if the parsing fails.
++  */
++     int
++ parse_previewpopup(win_T *wp)
++ {
++     char_u *p;
++ 
++     for (p = p_pvp; *p != NUL; p += (*p == ',' ? 1 : 0))
++     {
++ 	char_u	*e, *dig;
++ 	char_u	*s = p;
++ 	int	x;
++ 
++ 	e = vim_strchr(p, ':');
++ 	if (e == NULL || e[1] == NUL)
++ 	    return FAIL;
++ 
++ 	p = vim_strchr(e, ',');
++ 	if (p == NULL)
++ 	    p = e + STRLEN(e);
++ 	dig = e + 1;
++ 	x = getdigits(&dig);
++ 	if (dig != p)
++ 	    return FAIL;
++ 
++ 	if (STRNCMP(s, "height:", 7) == 0)
++ 	{
++ 	    if (wp != NULL)
++ 	    {
++ 		wp->w_minheight = x;
++ 		wp->w_maxheight = x;
++ 	    }
++ 	}
++ 	else if (STRNCMP(s, "width:", 6) == 0)
++ 	{
++ 	    if (wp != NULL)
++ 	    {
++ 		wp->w_minwidth = x;
++ 		wp->w_maxwidth = x;
++ 	    }
++ 	}
++ 	else
++ 	    return FAIL;
++     }
++     return OK;
++ }
++ 
++ /*
++  * Set w_wantline and w_wantcol for the cursor position in the current window.
++  */
++     void
++ popup_set_wantpos(win_T *wp)
++ {
++     setcursor_mayforce(TRUE);
++     wp->w_wantline = curwin->w_winrow + curwin->w_wrow;
++     if (wp->w_wantline == 0)  // cursor in first line
++     {
++ 	wp->w_wantline = 2;
++ 	wp->w_popup_pos = POPPOS_TOPLEFT;
++     }
++     wp->w_wantcol = curwin->w_wincol + curwin->w_wcol + 1;
++     popup_adjust_position(wp);
++ }
++ 
++ /*
+   * popup_create({text}, {options})
+   * popup_atcursor({text}, {options})
++  * etc.
++  * When creating a preview window popup "argvars" and "rettv" are NULL.
+   */
+      static win_T *
+  popup_create(typval_T *argvars, typval_T *rettv, create_type_T type)
+  {
+      win_T	*wp;
+      tabpage_T	*tp = NULL;
+!     int		tabnr = 0;
+      int		new_buffer;
+      buf_T	*buf = NULL;
+!     dict_T	*d = NULL;
+      int		nr;
+      int		i;
+  
+!     if (argvars != NULL)
+      {
+! 	// Check arguments look OK.
+! 	if (argvars[0].v_type == VAR_NUMBER)
+  	{
+! 	    buf = buflist_findnr( argvars[0].vval.v_number);
+! 	    if (buf == NULL)
+! 	    {
+! 		semsg(_(e_nobufnr), argvars[0].vval.v_number);
+! 		return NULL;
+! 	    }
+! 	}
+! 	else if (!(argvars[0].v_type == VAR_STRING
+! 			&& argvars[0].vval.v_string != NULL)
+! 		    && !(argvars[0].v_type == VAR_LIST
+! 			&& argvars[0].vval.v_list != NULL))
+! 	{
+! 	    emsg(_(e_listreq));
+  	    return NULL;
+  	}
++ 	if (argvars[1].v_type != VAR_DICT || argvars[1].vval.v_dict == NULL)
++ 	{
++ 	    emsg(_(e_dictreq));
++ 	    return NULL;
++ 	}
++ 	d = argvars[1].vval.v_dict;
+      }
+  
+!     if (d != NULL)
+      {
+! 	if (dict_find(d, (char_u *)"tabpage", -1) != NULL)
+! 	    tabnr = (int)dict_get_number(d, (char_u *)"tabpage");
+! 	else if (type == TYPE_NOTIFICATION)
+! 	    tabnr = -1;  // notifications are global by default
+! 	else
+! 	    tabnr = 0;
+! 	if (tabnr > 0)
+  	{
+! 	    tp = find_tabpage(tabnr);
+! 	    if (tp == NULL)
+! 	    {
+! 		semsg(_("E997: Tabpage not found: %d"), tabnr);
+! 		return NULL;
+! 	    }
+  	}
+      }
+  
+***************
+*** 1184,1190 ****
+      wp = win_alloc_popup_win();
+      if (wp == NULL)
+  	return NULL;
+!     rettv->vval.v_number = wp->w_id;
+      wp->w_popup_pos = POPPOS_TOPLEFT;
+      wp->w_popup_flags = POPF_IS_POPUP;
+  
+--- 1268,1275 ----
+      wp = win_alloc_popup_win();
+      if (wp == NULL)
+  	return NULL;
+!     if (rettv != NULL)
+! 	rettv->vval.v_number = wp->w_id;
+      wp->w_popup_pos = POPPOS_TOPLEFT;
+      wp->w_popup_flags = POPF_IS_POPUP;
+  
+***************
+*** 1211,1217 ****
+  	set_string_option_direct_in_buf(buf, (char_u *)"buftype", -1,
+  				     (char_u *)"popup", OPT_FREE|OPT_LOCAL, 0);
+  	set_string_option_direct_in_buf(buf, (char_u *)"bufhidden", -1,
+! 				      (char_u *)"hide", OPT_FREE|OPT_LOCAL, 0);
+  	buf->b_p_ul = -1;	// no undo
+  	buf->b_p_swf = FALSE;   // no swap file
+  	buf->b_p_bl = FALSE;    // unlisted buffer
+--- 1296,1302 ----
+  	set_string_option_direct_in_buf(buf, (char_u *)"buftype", -1,
+  				     (char_u *)"popup", OPT_FREE|OPT_LOCAL, 0);
+  	set_string_option_direct_in_buf(buf, (char_u *)"bufhidden", -1,
+! 				      (char_u *)"wipe", OPT_FREE|OPT_LOCAL, 0);
+  	buf->b_p_ul = -1;	// no undo
+  	buf->b_p_swf = FALSE;   // no swap file
+  	buf->b_p_bl = FALSE;    // unlisted buffer
+***************
+*** 1250,1269 ****
+  	}
+      }
+  
+!     if (new_buffer)
+  	popup_set_buffer_text(buf, argvars[0]);
+  
+!     if (type == TYPE_ATCURSOR)
+      {
+  	wp->w_popup_pos = POPPOS_BOTLEFT;
+! 	setcursor_mayforce(TRUE);
+! 	wp->w_wantline = curwin->w_winrow + curwin->w_wrow;
+! 	if (wp->w_wantline == 0)  // cursor in first line
+! 	{
+! 	    wp->w_wantline = 2;
+! 	    wp->w_popup_pos = POPPOS_TOPLEFT;
+! 	}
+! 	wp->w_wantcol = curwin->w_wincol + curwin->w_wcol + 1;
+  	set_moved_values(wp);
+  	set_moved_columns(wp, FIND_STRING);
+      }
+--- 1335,1350 ----
+  	}
+      }
+  
+!     if (new_buffer && argvars != NULL)
+  	popup_set_buffer_text(buf, argvars[0]);
+  
+!     if (type == TYPE_ATCURSOR || type == TYPE_PREVIEW)
+      {
+  	wp->w_popup_pos = POPPOS_BOTLEFT;
+! 	popup_set_wantpos(wp);
+!     }
+!     if (type == TYPE_ATCURSOR)
+!     {
+  	set_moved_values(wp);
+  	set_moved_columns(wp, FIND_STRING);
+      }
+***************
+*** 1360,1365 ****
+--- 1441,1455 ----
+  	wp->w_popup_flags |= POPF_CURSORLINE;
+      }
+  
++     if (type == TYPE_PREVIEW)
++     {
++ 	wp->w_popup_drag = 1;
++ 	wp->w_popup_close = POPCLOSE_BUTTON;
++ 	for (i = 0; i < 4; ++i)
++ 	    wp->w_popup_border[i] = 1;
++ 	parse_previewpopup(wp);
++     }
++ 
+      for (i = 0; i < 4; ++i)
+  	VIM_CLEAR(wp->w_border_highlight[i]);
+      for (i = 0; i < 8; ++i)
+***************
+*** 1367,1374 ****
+      wp->w_want_scrollbar = 1;
+      wp->w_popup_fixed = 0;
+  
+!     // Deal with options.
+!     apply_options(wp, argvars[1].vval.v_dict);
+  
+  #ifdef FEAT_TIMERS
+      if (type == TYPE_NOTIFICATION && wp->w_popup_timer == NULL)
+--- 1457,1465 ----
+      wp->w_want_scrollbar = 1;
+      wp->w_popup_fixed = 0;
+  
+!     if (d != NULL)
+! 	// Deal with options.
+! 	apply_options(wp, d);
+  
+  #ifdef FEAT_TIMERS
+      if (type == TYPE_NOTIFICATION && wp->w_popup_timer == NULL)
+***************
+*** 2839,2842 ****
+--- 2930,3001 ----
+      }
+      return abort;
+  }
++ 
++ /*
++  * Find an existing popup used as the preview window, in the current tab page.
++  * Return NULL if not found.
++  */
++     win_T *
++ popup_find_preview_window(void)
++ {
++     win_T *wp;
++ 
++     // Preview window popup is always local to tab page.
++     for (wp = curtab->tp_first_popupwin; wp != NULL; wp = wp->w_next)
++ 	if (wp->w_p_pvw)
++ 	    return wp;
++     return wp;
++ }
++ 
++     int
++ popup_is_popup(win_T *wp)
++ {
++     return wp->w_popup_flags != 0;
++ }
++ 
++ /*
++  * Create a popup to be used as the preview window.
++  * NOTE: this makes the popup the current window, so that the file can be
++  * edited.  However, it must not remain to be the current window, the caller
++  * must make sure of that.
++  */
++     int
++ popup_create_preview_window(void)
++ {
++     win_T *wp = popup_create(NULL, NULL, TYPE_PREVIEW);
++ 
++     if (wp == NULL)
++ 	return FAIL;
++     wp->w_p_pvw = TRUE;
++ 
++     // Set the width to a reasonable value, so that w_topline can be computed.
++     if (wp->w_minwidth > 0)
++ 	wp->w_width = wp->w_minwidth;
++     else if (wp->w_maxwidth > 0)
++ 	wp->w_width = wp->w_maxwidth;
++     else
++ 	wp->w_width = curwin->w_width;
++ 
++     // Will switch to another buffer soon, dummy one can be wiped.
++     wp->w_buffer->b_locked = FALSE;
++ 
++     win_enter(wp, FALSE);
++     return OK;
++ }
++ 
++     void
++ popup_close_preview()
++ {
++     win_T *wp = popup_find_preview_window();
++ 
++     if (wp != NULL)
++     {
++ 	typval_T res;
++ 
++ 	res.v_type = VAR_NUMBER;
++ 	res.vval.v_number = -1;
++ 	popup_close_and_callback(wp, &res);
++     }
++ }
++ 
+  #endif // FEAT_TEXT_PROP
+*** ../vim-8.1.1713/src/proto/popupwin.pro	2019-07-12 21:07:49.533756948 +0200
+--- src/proto/popupwin.pro	2019-07-18 19:56:10.799877129 +0200
+***************
+*** 8,13 ****
+--- 8,15 ----
+  int popup_height(win_T *wp);
+  int popup_width(win_T *wp);
+  void popup_adjust_position(win_T *wp);
++ int parse_previewpopup(win_T *wp);
++ void popup_set_wantpos(win_T *wp);
+  void f_popup_clear(typval_T *argvars, typval_T *rettv);
+  void f_popup_create(typval_T *argvars, typval_T *rettv);
+  void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
+***************
+*** 39,42 ****
+--- 41,48 ----
+  void may_update_popup_mask(int type);
+  void update_popups(void (*win_update)(win_T *wp));
+  int set_ref_in_popups(int copyID);
++ win_T *popup_find_preview_window(void);
++ int popup_is_popup(win_T *wp);
++ int popup_create_preview_window(void);
++ void popup_close_preview(void);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1713/src/option.c	2019-07-04 11:59:25.416462600 +0200
+--- src/option.c	2019-07-18 15:12:17.746173409 +0200
+***************
+*** 2079,2084 ****
+--- 2079,2093 ----
+  			    (char_u *)NULL, PV_NONE,
+  #endif
+  			    {(char_u *)12L, (char_u *)0L} SCTX_INIT},
++     {"previewpopup", "pvp", P_STRING|P_VI_DEF|P_COMMA|P_NODUP,
++ #ifdef FEAT_TEXT_PROP
++ 			    (char_u *)&p_pvp, PV_NONE,
++ 			    {(char_u *)"", (char_u *)0L}
++ #else
++ 			    (char_u *)NULL, PV_NONE,
++ 			    {(char_u *)NULL, (char_u *)0L}
++ #endif
++ 			    SCTX_INIT},
+      {"previewwindow", "pvw", P_BOOL|P_VI_DEF|P_RSTAT|P_NOGLOB,
+  #if defined(FEAT_QUICKFIX)
+  			    (char_u *)VAR_WIN, PV_PVW,
+***************
+*** 7831,7836 ****
+--- 7840,7854 ----
+      }
+  #endif
+  
++ #ifdef FEAT_TEXT_PROP
++     // 'previewpopup'
++     else if (varp == &p_pvp)
++     {
++ 	if (parse_previewpopup(NULL) == FAIL)
++ 	    errmsg = e_invarg;
++     }
++ #endif
++ 
+      /* Options that are a list of flags. */
+      else
+      {
+*** ../vim-8.1.1713/src/option.h	2019-05-25 19:51:03.776408456 +0200
+--- src/option.h	2019-07-18 14:26:30.489641780 +0200
+***************
+*** 499,504 ****
+--- 499,507 ----
+  EXTERN int	p_fs;		/* 'fsync' */
+  #endif
+  EXTERN int	p_gd;		/* 'gdefault' */
++ #ifdef FEAT_TEXT_PROP
++ EXTERN char_u	*p_pvp;		// 'previewpopup'
++ #endif
+  #ifdef FEAT_PRINTER
+  EXTERN char_u	*p_pdev;	/* 'printdevice' */
+  # ifdef FEAT_POSTSCRIPT
+*** ../vim-8.1.1713/src/ex_cmds.c	2019-06-25 23:40:24.496494754 +0200
+--- src/ex_cmds.c	2019-07-18 17:56:21.444906561 +0200
+***************
+*** 6270,6278 ****
+       */
+      if (!curwin->w_p_pvw)
+      {
+! 	FOR_ALL_WINDOWS(wp)
+! 	    if (wp->w_p_pvw)
+! 		break;
+  	if (wp != NULL)
+  	    win_enter(wp, undo_sync);
+  	else
+--- 6270,6289 ----
+       */
+      if (!curwin->w_p_pvw)
+      {
+! # ifdef FEAT_TEXT_PROP
+! 	if (*p_pvp != NUL)
+! 	{
+! 	    wp = popup_find_preview_window();
+! 	    if (wp != NULL)
+! 		popup_set_wantpos(wp);
+! 	}
+! 	else
+! # endif
+! 	{
+! 	    FOR_ALL_WINDOWS(wp)
+! 		if (wp->w_p_pvw)
+! 		    break;
+! 	}
+  	if (wp != NULL)
+  	    win_enter(wp, undo_sync);
+  	else
+***************
+*** 6280,6297 ****
+  	    /*
+  	     * There is no preview window open yet.  Create one.
+  	     */
+! 	    if (win_split(g_do_tagpreview > 0 ? g_do_tagpreview : 0, 0)
+! 								      == FAIL)
+  		return FALSE;
+  	    curwin->w_p_pvw = TRUE;
+  	    curwin->w_p_wfh = TRUE;
+! 	    RESET_BINDING(curwin);	    /* don't take over 'scrollbind'
+! 					       and 'cursorbind' */
+  # ifdef FEAT_DIFF
+! 	    curwin->w_p_diff = FALSE;	    /* no 'diff' */
+  # endif
+  # ifdef FEAT_FOLDING
+! 	    curwin->w_p_fdc = 0;	    /* no 'foldcolumn' */
+  # endif
+  	    return TRUE;
+  	}
+--- 6291,6311 ----
+  	    /*
+  	     * There is no preview window open yet.  Create one.
+  	     */
+! # ifdef FEAT_TEXT_PROP
+! 	    if (*p_pvp != NUL)
+! 		return popup_create_preview_window();
+! # endif
+! 	    if (win_split(g_do_tagpreview > 0 ? g_do_tagpreview : 0, 0) == FAIL)
+  		return FALSE;
+  	    curwin->w_p_pvw = TRUE;
+  	    curwin->w_p_wfh = TRUE;
+! 	    RESET_BINDING(curwin);	    // don't take over 'scrollbind'
+! 	    // and 'cursorbind'
+  # ifdef FEAT_DIFF
+! 	    curwin->w_p_diff = FALSE;	    // no 'diff'
+  # endif
+  # ifdef FEAT_FOLDING
+! 	    curwin->w_p_fdc = 0;	    // no 'foldcolumn'
+  # endif
+  	    return TRUE;
+  	}
+*** ../vim-8.1.1713/src/testdir/dumps/Test_popupwin_previewpopup_1.dump	2019-07-18 21:40:44.755062843 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_1.dump	2019-07-18 19:56:18.611836409 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |o+0&#ffffff0|n|e| @71
++ |t|w|o| @1|╔+0#0000001#ffd7ff255|═@40|X| +0#0000000#ffffff0@26
++ |t|h|r|e@1|║+0#0000001#ffd7ff255|2|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
++ |f|o|u|r| |║+0#0000001#ffd7ff255|t|h|e|w|o|r|d| |i|s| |h|e|r|e| @24| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
++ |f|i|v|e| |║+0#0000001#ffd7ff255|2@1| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
++ |s|i|x| @1|║+0#0000001#ffd7ff255|2|3| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@26
++ |s|e|v|e|n|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@26
++ |f|i|n|d| >t|h|e|w|o|r|d| |s|o|m|e|w|h|e|r|e| @52
++ |n|i|n|e| @70
++ |t|h|i|s| |i|s| |a|n|o|t|h|e|r| |w|o|r|d| @54
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |:+0#0000000&| @55|8|,|6| @10|A|l@1| 
+*** ../vim-8.1.1713/src/testdir/dumps/Test_popupwin_previewpopup_2.dump	2019-07-18 21:40:44.755062843 +0200
+--- src/testdir/dumps/Test_popupwin_previewpopup_2.dump	2019-07-18 20:22:04.656003118 +0200
+***************
+*** 0 ****
+--- 1,14 ----
++ |o+0&#ffffff0|n|e| @71
++ |t|w|o| @71
++ |t|h|r|e@1| @69
++ |f|o|u|r| @3|╔+0#0000001#ffd7ff255|═@40|X| +0#0000000#ffffff0@23
++ |f|i|v|e| @3|║+0#0000001#ffd7ff255|2|7| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
++ |s|i|x| @4|║+0#0000001#ffd7ff255|t|h|i|s| |i|s| |a|n|o|t|h|e|r| |p|l|a|c|e| @18| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
++ |s|e|v|e|n| @2|║+0#0000001#ffd7ff255|2|9| @37| +0#0000000#0000001|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
++ |f|i|n|d| |t|h|e|║+0#0000001#ffd7ff255|3|0| @37| +0#0000000#a8a8a8255|║+0#0000001#ffd7ff255| +0#0000000#ffffff0@23
++ |n|i|n|e| @3|╚+0#0000001#ffd7ff255|═@40|╝| +0#0000000#ffffff0@23
++ |t|h|i|s| |i|s| >a|n|o|t|h|e|r| |w|o|r|d| @54
++ |~+0#4040ff13&| @73
++ |~| @73
++ |~| @73
++ |/+0#0000000&|a|n|o|t|h|e|r| @48|1|0|,|9| @9|A|l@1| 
+*** ../vim-8.1.1713/src/ex_docmd.c	2019-07-12 17:57:54.836524031 +0200
+--- src/ex_docmd.c	2019-07-18 15:43:02.010966183 +0200
+***************
+*** 5893,5904 ****
+  {
+      win_T	*win;
+  
+      FOR_ALL_WINDOWS(win)
+  	if (win->w_p_pvw)
+  	{
+  	    ex_win_close(eap->forceit, win, NULL);
+! 	    break;
+  	}
+  }
+  #endif
+  
+--- 5893,5909 ----
+  {
+      win_T	*win;
+  
++     // First close any normal window.
+      FOR_ALL_WINDOWS(win)
+  	if (win->w_p_pvw)
+  	{
+  	    ex_win_close(eap->forceit, win, NULL);
+! 	    return;
+  	}
++ # ifdef FEAT_TEXT_PROP
++     // Also when 'previewpopup' is empty, it might have been cleared.
++     popup_close_preview();
++ # endif
+  }
+  #endif
+  
+*** ../vim-8.1.1713/src/testdir/gen_opt_test.vim	2019-07-01 22:05:44.457897080 +0200
+--- src/testdir/gen_opt_test.vim	2019-07-18 21:36:04.405654351 +0200
+***************
+*** 116,121 ****
+--- 116,122 ----
+        \ 'mousemodel': [['', 'popup'], ['xxx']],
+        \ 'mouseshape': [['', 'n:arrow'], ['xxx']],
+        \ 'nrformats': [['', 'alpha', 'alpha,hex,bin'], ['xxx']],
++       \ 'previewpopup': [['', 'height:13', 'width:10,height:234'], ['height:yes', 'xxx', 'xxx:99']],
+        \ 'printmbfont': [['', 'r:some', 'b:Bold,c:yes'], ['xxx']],
+        \ 'printoptions': [['', 'header:0', 'left:10pc,top:5pc'], ['xxx']],
+        \ 'scrollopt': [['', 'ver', 'ver,hor'], ['xxx']],
+*** ../vim-8.1.1713/src/version.c	2019-07-18 13:45:54.350319282 +0200
+--- src/version.c	2019-07-18 20:22:43.619807910 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1714,
+  /**/
+
+-- 
+My Go, this amn keyboar oesn't have a .
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

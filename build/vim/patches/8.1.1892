@@ -1,0 +1,242 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1892
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1892
+Problem:    Missing index entry and option menu for 'completepopup'.
+Solution:   Add the entries.  Adjust #ifdefs to avoid dead code.
+Files:	    runtime/doc/quickref.txt, runtime/optwin.vim, src/option.c,
+            src/option.h, src/popupwin.c
+
+
+*** ../vim-8.1.1891/runtime/doc/quickref.txt	2019-05-05 18:11:46.320590639 +0200
+--- runtime/doc/quickref.txt	2019-08-20 20:27:43.810888063 +0200
+***************
+*** 651,656 ****
+--- 651,658 ----
+  'complete'	  'cpt'     specify how Insert mode completion works
+  'completefunc'	  'cfu'     function to be used for Insert mode completion
+  'completeopt'	  'cot'     options for Insert mode completion
++ 'completepopup'	  'cpp'     options for the Insert mode completion info popup
++ 'completeslash'	  'csl'	    like 'shellslash' for completion
+  'concealcursor'	  'cocu'    whether concealable text is hidden in cursor line
+  'conceallevel'	  'cole'    whether concealable text is shown or hidden
+  'confirm'	  'cf'	    ask what to do about unsaved/read-only files
+***************
+*** 828,833 ****
+--- 831,837 ----
+  'perldll'		    name of the Perl dynamic library
+  'preserveindent'  'pi'	    preserve the indent structure when reindenting
+  'previewheight'   'pvh'     height of the preview window
++ 'previewpopup'    'pvp'     use popup window for preview
+  'previewwindow'   'pvw'     identifies the preview window
+  'printdevice'	  'pdev'    name of the printer to be used for :hardcopy
+  'printencoding'   'penc'    encoding to be used for printing
+***************
+*** 981,986 ****
+--- 985,991 ----
+  'wildmode'	  'wim'     mode for 'wildchar' command-line expansion
+  'wildoptions'	  'wop'     specifies how command line completion is done
+  'winaltkeys'	  'wak'     when the windows system handles ALT keys
++ 'wincolor'	  'wcr'	    window-local highlighting
+  'window'	  'wi'	    nr of lines to scroll for CTRL-F and CTRL-B
+  'winheight'	  'wh'	    minimum number of lines for the current window
+  'winfixheight'	  'wfh'     keep window height when opening/closing windows
+*** ../vim-8.1.1891/runtime/optwin.vim	2019-04-28 18:04:56.054492198 +0200
+--- runtime/optwin.vim	2019-08-20 21:08:36.518017481 +0200
+***************
+*** 415,420 ****
+--- 415,423 ----
+  call <SID>OptionG("hl", &hl)
+  call append("$", "hlsearch\thighlight all matches for the last used search pattern")
+  call <SID>BinOptionG("hls", &hls)
++ call append("$", "wincolor\thighlight group to use for the window")
++ call append("$", "\t(local to window)")
++ call <SID>OptionL("wcr")
+  if has("termguicolors")
+    call append("$", "termguicolors\tuse GUI colors for the terminal")
+    call <SID>BinOptionG("tgc", &tgc)
+***************
+*** 476,481 ****
+--- 479,486 ----
+  call append("$", "helpheight\tinitial height of the help window")
+  call append("$", " \tset hh=" . &hh)
+  if has("quickfix")
++   call append("$", "previewpopup\tuse a popup window for preview")
++   call append("$", " \tset pvp=" . &pvp)
+    call append("$", "previewheight\tdefault height for the preview window")
+    call append("$", " \tset pvh=" . &pvh)
+    call append("$", "previewwindow\tidentifies the preview window")
+***************
+*** 801,806 ****
+--- 806,815 ----
+    call <SID>OptionL("cpt")
+    call append("$", "completeopt\twhether to use a popup menu for Insert mode completion")
+    call <SID>OptionG("cot", &cot)
++   if exists("+completepopup")
++     call append("$", "completepopup\toptions for the Insert mode completion info popup")
++     call <SID>OptionG("cpp", &cpp)
++   endif
+    call append("$", "pumheight\tmaximum height of the popup menu")
+    call <SID>OptionG("ph", &ph)
+    call append("$", "pumwidth\tminimum width of the popup menu")
+*** ../vim-8.1.1891/src/option.c	2019-08-20 20:13:40.330821936 +0200
+--- src/option.c	2019-08-20 20:41:23.293563351 +0200
+***************
+*** 894,900 ****
+  #endif
+  			    SCTX_INIT},
+      {"completepopup", "cpp", P_STRING|P_VI_DEF|P_COMMA|P_NODUP,
+! #ifdef FEAT_TEXT_PROP
+  			    (char_u *)&p_cpp, PV_NONE,
+  			    {(char_u *)"", (char_u *)0L}
+  #else
+--- 894,900 ----
+  #endif
+  			    SCTX_INIT},
+      {"completepopup", "cpp", P_STRING|P_VI_DEF|P_COMMA|P_NODUP,
+! #if defined(FEAT_TEXT_PROP) && defined(FEAT_QUICKFIX)
+  			    (char_u *)&p_cpp, PV_NONE,
+  			    {(char_u *)"", (char_u *)0L}
+  #else
+***************
+*** 7830,7841 ****
+--- 7830,7843 ----
+  	if (parse_previewpopup(NULL) == FAIL)
+  	    errmsg = e_invarg;
+      }
++ # ifdef FEAT_QUICKFIX
+      // 'completepopup'
+      else if (varp == &p_cpp)
+      {
+  	if (parse_completepopup(NULL) == FAIL)
+  	    errmsg = e_invarg;
+      }
++ # endif
+  #endif
+  
+      /* Options that are a list of flags. */
+*** ../vim-8.1.1891/src/option.h	2019-08-18 22:25:54.669447972 +0200
+--- src/option.h	2019-08-20 20:43:32.396269500 +0200
+***************
+*** 503,509 ****
+--- 503,511 ----
+  #endif
+  EXTERN int	p_gd;		// 'gdefault'
+  #ifdef FEAT_TEXT_PROP
++ # ifdef FEAT_QUICKFIX
+  EXTERN char_u	*p_cpp;		// 'completepopup'
++ # endif
+  EXTERN char_u	*p_pvp;		// 'previewpopup'
+  #endif
+  #ifdef FEAT_PRINTER
+*** ../vim-8.1.1891/src/popupwin.c	2019-08-20 20:13:40.330821936 +0200
+--- src/popupwin.c	2019-08-20 20:45:30.635198211 +0200
+***************
+*** 1294,1302 ****
+      static int
+  parse_popup_option(win_T *wp, int is_preview)
+  {
+!     char_u *p;
+  
+!     for (p = is_preview ? p_pvp : p_cpp; *p != NUL; p += (*p == ',' ? 1 : 0))
+      {
+  	char_u	*e, *dig;
+  	char_u	*s = p;
+--- 1294,1306 ----
+      static int
+  parse_popup_option(win_T *wp, int is_preview)
+  {
+!     char_u *p =
+! #ifdef FEAT_QUICKFIX
+! 	!is_preview ? p_cpp :
+! #endif
+! 	p_pvp;
+  
+!     for ( ; *p != NUL; p += (*p == ',' ? 1 : 0))
+      {
+  	char_u	*e, *dig;
+  	char_u	*s = p;
+***************
+*** 1674,1679 ****
+--- 1678,1684 ----
+  	parse_previewpopup(wp);
+  	popup_set_wantpos_cursor(wp, wp->w_minwidth);
+      }
++ # ifdef FEAT_QUICKFIX
+      if (type == TYPE_INFO)
+      {
+  	wp->w_popup_pos = POPPOS_TOPLEFT;
+***************
+*** 1682,1687 ****
+--- 1687,1693 ----
+  	add_border_left_right_padding(wp);
+  	parse_completepopup(wp);
+      }
++ # endif
+  
+      for (i = 0; i < 4; ++i)
+  	VIM_CLEAR(wp->w_border_highlight[i]);
+***************
+*** 3257,3262 ****
+--- 3263,3269 ----
+      return wp->w_popup_flags != 0;
+  }
+  
++ #if defined(FEAT_QUICKFIX) || defined(PROTO)
+  /*
+   * Find an existing popup used as the info window, in the current tab page.
+   * Return NULL if not found.
+***************
+*** 3272,3277 ****
+--- 3279,3285 ----
+  	    return wp;
+      return NULL;
+  }
++ #endif
+  
+      void
+  f_popup_getpreview(typval_T *argvars UNUSED, typval_T *rettv)
+***************
+*** 3314,3319 ****
+--- 3322,3328 ----
+      return OK;
+  }
+  
++ #if defined(FEAT_QUICKFIX) || defined(PROTO)
+      void
+  popup_close_preview(int info)
+  {
+***************
+*** 3328,3333 ****
+--- 3337,3343 ----
+  	popup_close_and_callback(wp, &res);
+      }
+  }
++ #endif
+  
+  /*
+   * Set the title of the popup window to the file name.
+*** ../vim-8.1.1891/src/version.c	2019-08-20 20:13:40.334821916 +0200
+--- src/version.c	2019-08-20 21:10:06.553500696 +0200
+***************
+*** 767,768 ****
+--- 767,770 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1892,
+  /**/
+
+-- 
+From "know your smileys":
+ :-{}	Too much lipstick
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

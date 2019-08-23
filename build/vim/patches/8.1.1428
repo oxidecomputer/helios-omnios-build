@@ -1,0 +1,442 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1428
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1428
+Problem:    Popup_atcursor() not implemented yet.
+Solution:   Implement it. (Yasuhiro Matsumoto, closes #4456)
+Files:	    runtime/doc/popup.txt, src/evalfunc.c, src/popupwin.c,
+            src/proto/popupwin.pro, src/testdir/test_popupwin.vim
+
+
+*** ../vim-8.1.1427/runtime/doc/popup.txt	2019-05-30 14:29:42.597507636 +0200
+--- runtime/doc/popup.txt	2019-05-30 19:22:30.828010454 +0200
+***************
+*** 85,95 ****
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+! - when creating the window set options to Vim default? (verify with 'number')
+  - Implement filter.
+    Check that popup_close() works in the filter.
+- - Implement the "pos" option.
+  - Handle screen resize in screenalloc().
+  - Make redrawing more efficient and avoid flicker.
+      Store popup info in a mask, use the mask in screen_line()
+      Fix redrawing problem with completion.
+--- 85,95 ----
+  
+  IMPLEMENTATION:
+  - Code is in popupwin.c
+! - Implement the "pos" option.
+  - Implement filter.
+    Check that popup_close() works in the filter.
+  - Handle screen resize in screenalloc().
++ - show [Popup] instead of [Scratch] in ":ls!"
+  - Make redrawing more efficient and avoid flicker.
+      Store popup info in a mask, use the mask in screen_line()
+      Fix redrawing problem with completion.
+***************
+*** 97,103 ****
+      Fix redrawing the statusline on top of a popup
+  - Figure out the size and position better.
+      if wrapping splits a double-wide character
+!     if wrapping has an indent
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Implement all the unimplemented options and features.
+  
+--- 97,103 ----
+      Fix redrawing the statusline on top of a popup
+  - Figure out the size and position better.
+      if wrapping splits a double-wide character
+!     if wrapping inserts indent
+  - Can the buffer be re-used, to avoid using up lots of buffer numbers?
+  - Implement all the unimplemented options and features.
+  
+***************
+*** 160,169 ****
+  
+  
+  popup_atcursor({text}, {options})			 *popup_atcursor()*
+- 	  	{not implemented yet}
+  		Show the {text} above the cursor, and close it when the cursor
+  		moves.  This works like: >
+  			call popup_create({text}, {
+  				\ 'line': 'cursor-1',
+  				\ 'col': 'cursor',
+  				\ 'moved': 'WORD',
+--- 160,169 ----
+  
+  
+  popup_atcursor({text}, {options})			 *popup_atcursor()*
+  		Show the {text} above the cursor, and close it when the cursor
+  		moves.  This works like: >
+  			call popup_create({text}, {
++ 				\ 'pos': 'botleft',
+  				\ 'line': 'cursor-1',
+  				\ 'col': 'cursor',
+  				\ 'moved': 'WORD',
+***************
+*** 270,279 ****
+  - 'bufhidden' is "hide"
+  - 'buflisted' is off
+  - 'undolevels' is -1: no undo at all
+! TODO: more
+  
+! It is possible to change these options, but anything might break then, so
+! better leave them alone.
+  
+  The window does have a cursor position, but the cursor is not displayed.
+  
+--- 270,280 ----
+  - 'bufhidden' is "hide"
+  - 'buflisted' is off
+  - 'undolevels' is -1: no undo at all
+! - all other buffer-local and window_local options are set to their Vim default
+!   value.
+  
+! It is possible to change the specifically mentioned options, but anything
+! might break then, so better leave them alone.
+  
+  The window does have a cursor position, but the cursor is not displayed.
+  
+***************
+*** 306,317 ****
+  			"cursor", "cursor+1" or "cursor-1" to use the line of
+  			the cursor and add or subtract a number of lines;
+  			default is "cursor-1".
+- 			{only number is implemented}
+  	col		screen column where to position the popup; can use
+  			"cursor" to use the column of the cursor, "cursor+99"
+  			and "cursor-99" to add or subtract a number of
+  			columns; default is "cursor"
+- 			{only number is implemented}
+  	pos		"topleft", "topright", "botleft" or "botright":
+  			defines what corner of the popup "line" and "col" are
+  			used for.  When not set "topleft" is used.
+--- 307,316 ----
+***************
+*** 342,350 ****
+  			{not implemented yet}
+  	highlight	highlight group name to use for the text, stored in
+  			the 'wincolor' option
+  	border		list with numbers, defining the border thickness
+! 			above/right/below/left of the popup; an empty list
+! 			uses a border of 1 all around
+  			{not implemented yet}
+  	borderhighlight	highlight group name to use for the border
+  			{not implemented yet}
+--- 341,357 ----
+  			{not implemented yet}
+  	highlight	highlight group name to use for the text, stored in
+  			the 'wincolor' option
++ 	padding		list with numbers, defining the padding
++ 			above/right/below/left of the popup (similar to CSS);
++ 			an empty list uses a padding of 1 all around; the
++ 			padding goes around the text, inside any border;
++ 			padding uses the 'wincolor' highlight; Example: [1, 2,
++ 			1, 3] has 1 line of padding above, 2 columns on the
++ 			right, 1 line below and 3 columns on the left
++ 			{not implemented yet}
+  	border		list with numbers, defining the border thickness
+! 			above/right/below/left of the popup (similar to CSS);
+! 			an empty list uses a border of 1 all around
+  			{not implemented yet}
+  	borderhighlight	highlight group name to use for the border
+  			{not implemented yet}
+*** ../vim-8.1.1427/src/evalfunc.c	2019-05-30 17:29:34.767666654 +0200
+--- src/evalfunc.c	2019-05-30 19:05:00.148910615 +0200
+***************
+*** 809,814 ****
+--- 809,815 ----
+      {"perleval",	1, 1, f_perleval},
+  #endif
+  #ifdef FEAT_TEXT_PROP
++     {"popup_atcursor",	2, 2, f_popup_atcursor},
+      {"popup_close",	1, 1, f_popup_close},
+      {"popup_create",	2, 2, f_popup_create},
+      {"popup_getoptions", 1, 1, f_popup_getoptions},
+*** ../vim-8.1.1427/src/popupwin.c	2019-05-30 19:03:19.653294536 +0200
+--- src/popupwin.c	2019-05-30 19:20:36.144585240 +0200
+***************
+*** 16,26 ****
+  #ifdef FEAT_TEXT_PROP
+  
+  /*
+   * Go through the options in "dict" and apply them to buffer "buf" displayed in
+   * popup window "wp".
+   */
+      static void
+! apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict)
+  {
+      int	    nr;
+      char_u  *str;
+--- 16,70 ----
+  #ifdef FEAT_TEXT_PROP
+  
+  /*
++  * Get option value for"key", which is "line" or "col".
++  * Handles "cursor+N" and "cursor-N".
++  */
++     static int
++ popup_options_pos(dict_T *dict, char_u *key)
++ {
++     dictitem_T	*di;
++     char_u	*val;
++     char_u	*s;
++     char_u	*endp;
++     int		n = 0;
++ 
++     di = dict_find(dict, key, -1);
++     if (di == NULL)
++ 	return 0;
++ 
++     val = tv_get_string(&di->di_tv);
++     if (STRNCMP(val, "cursor", 6) != 0)
++ 	return dict_get_number(dict, key);
++ 
++     setcursor_mayforce(TRUE);
++     s = val + 6;
++     if (*s != NUL)
++     {
++ 	n = strtol((char *)s, (char **)&endp, 10);
++ 	if (endp != NULL && *skipwhite(endp) != NUL)
++ 	{
++ 	    semsg(_(e_invexpr2), val);
++ 	    return 0;
++ 	}
++     }
++ 
++     if (STRCMP(key, "line") == 0)
++ 	n = screen_screenrow() + 1 + n;
++     else // "col"
++ 	n = screen_screencol() + 1 + n;
++ 
++     if (n < 1)
++ 	n = 1;
++     return n;
++ }
++ 
++ /*
+   * Go through the options in "dict" and apply them to buffer "buf" displayed in
+   * popup window "wp".
++  * When called from f_popup_atcursor() "atcursor" is TRUE.
+   */
+      static void
+! apply_options(win_T *wp, buf_T *buf UNUSED, dict_T *dict, int atcursor)
+  {
+      int	    nr;
+      char_u  *str;
+***************
+*** 30,37 ****
+      wp->w_maxwidth = dict_get_number(dict, (char_u *)"maxwidth");
+      wp->w_maxheight = dict_get_number(dict, (char_u *)"maxheight");
+  
+!     wp->w_wantline = dict_get_number(dict, (char_u *)"line");
+!     wp->w_wantcol = dict_get_number(dict, (char_u *)"col");
+  
+      wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
+  
+--- 74,92 ----
+      wp->w_maxwidth = dict_get_number(dict, (char_u *)"maxwidth");
+      wp->w_maxheight = dict_get_number(dict, (char_u *)"maxheight");
+  
+!     if (atcursor)
+!     {
+! 	setcursor_mayforce(TRUE);
+! 	wp->w_wantline = screen_screenrow();
+! 	wp->w_wantcol = screen_screencol() + 1;
+!     }
+! 
+!     nr = popup_options_pos(dict, (char_u *)"line");
+!     if (nr > 0)
+! 	wp->w_wantline = nr;
+!     nr = popup_options_pos(dict, (char_u *)"col");
+!     if (nr > 0)
+! 	wp->w_wantcol = nr;
+  
+      wp->w_zindex = dict_get_number(dict, (char_u *)"zindex");
+  
+***************
+*** 215,223 ****
+  
+  /*
+   * popup_create({text}, {options})
+   */
+!     void
+! f_popup_create(typval_T *argvars, typval_T *rettv)
+  {
+      win_T   *wp;
+      buf_T   *buf;
+--- 270,280 ----
+  
+  /*
+   * popup_create({text}, {options})
++  * popup_atcursor({text}, {options})
++  * When called from f_popup_atcursor() "atcursor" is TRUE.
+   */
+!     static void
+! popup_create(typval_T *argvars, typval_T *rettv, int atcursor)
+  {
+      win_T   *wp;
+      buf_T   *buf;
+***************
+*** 309,315 ****
+      curbuf = curwin->w_buffer;
+  
+      // Deal with options.
+!     apply_options(wp, buf, argvars[1].vval.v_dict);
+  
+      // set default values
+      if (wp->w_zindex == 0)
+--- 366,372 ----
+      curbuf = curwin->w_buffer;
+  
+      // Deal with options.
+!     apply_options(wp, buf, argvars[1].vval.v_dict, atcursor);
+  
+      // set default values
+      if (wp->w_zindex == 0)
+***************
+*** 323,328 ****
+--- 380,403 ----
+  }
+  
+  /*
++  * popup_create({text}, {options})
++  */
++     void
++ f_popup_create(typval_T *argvars, typval_T *rettv)
++ {
++     popup_create(argvars, rettv, FALSE);
++ }
++ 
++ /*
++  * popup_atcursor({text}, {options})
++  */
++     void
++ f_popup_atcursor(typval_T *argvars, typval_T *rettv)
++ {
++     popup_create(argvars, rettv, TRUE);
++ }
++ 
++ /*
+   * Find the popup window with window-ID "id".
+   * If the popup window does not exist NULL is returned.
+   * If the window is not a popup window, and error message is given.
+*** ../vim-8.1.1427/src/proto/popupwin.pro	2019-05-30 14:29:42.597507636 +0200
+--- src/proto/popupwin.pro	2019-05-30 19:05:00.148910615 +0200
+***************
+*** 1,15 ****
+  /* popupwin.c */
+- void popup_adjust_position(win_T *wp);
+- void f_popup_create(typval_T *argvars, typval_T *rettv);
+  int popup_any_visible(void);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
+  void f_popup_hide(typval_T *argvars, typval_T *rettv);
+  void f_popup_show(typval_T *argvars, typval_T *rettv);
+  void popup_close(int id);
+  void popup_close_tabpage(tabpage_T *tp, int id);
+- void close_all_popups(void);
+- void ex_popupclear(exarg_T *eap);
+- void f_popup_move(typval_T *argvars, typval_T *rettv);
+- void f_popup_getoptions(typval_T *argvars, typval_T *rettv);
+- void f_popup_getposition(typval_T *argvars, typval_T *rettv);
+  /* vim: set ft=c : */
+--- 1,16 ----
+  /* popupwin.c */
+  int popup_any_visible(void);
++ void close_all_popups(void);
++ void ex_popupclear(exarg_T *eap);
++ void f_popup_atcursor(typval_T *argvars, typval_T *rettv);
+  void f_popup_close(typval_T *argvars, typval_T *rettv);
++ void f_popup_create(typval_T *argvars, typval_T *rettv);
++ void f_popup_getoptions(typval_T *argvars, typval_T *rettv);
++ void f_popup_getposition(typval_T *argvars, typval_T *rettv);
+  void f_popup_hide(typval_T *argvars, typval_T *rettv);
++ void f_popup_move(typval_T *argvars, typval_T *rettv);
+  void f_popup_show(typval_T *argvars, typval_T *rettv);
++ void popup_adjust_position(win_T *wp);
+  void popup_close(int id);
+  void popup_close_tabpage(tabpage_T *tp, int id);
+  /* vim: set ft=c : */
+*** ../vim-8.1.1427/src/testdir/test_popupwin.vim	2019-05-30 18:40:20.120405138 +0200
+--- src/testdir/test_popupwin.vim	2019-05-30 19:21:59.304168903 +0200
+***************
+*** 335,337 ****
+--- 335,386 ----
+    call popup_close(winid)
+    bwipe
+  endfunc
++ 
++ func Test_popup_atcursor()
++   topleft vnew
++   call setline(1, [
++   \  'xxxxxxxxxxxxxxxxx',
++   \  'xxxxxxxxxxxxxxxxx',
++   \  'xxxxxxxxxxxxxxxxx',
++   \])
++ 
++   call cursor(2, 2)
++   redraw
++   let winid = popup_atcursor('vim', {})
++   redraw
++   let line = join(map(range(1, 17), 'screenstring(1, v:val)'), '')
++   call assert_equal('xvimxxxxxxxxxxxxx', line)
++   call popup_close(winid)
++ 
++   call cursor(3, 4)
++   redraw
++   let winid = popup_atcursor('vim', {})
++   redraw
++   let line = join(map(range(1, 17), 'screenstring(2, v:val)'), '')
++   call assert_equal('xxxvimxxxxxxxxxxx', line)
++   call popup_close(winid)
++ 
++   call cursor(1, 1)
++   redraw
++   let winid = popup_create('vim', {
++   \ 'line': 'cursor+2',
++   \ 'col': 'cursor+1',
++   \})
++   redraw
++   let line = join(map(range(1, 17), 'screenstring(3, v:val)'), '')
++   call assert_equal('xvimxxxxxxxxxxxxx', line)
++   call popup_close(winid)
++ 
++   call cursor(3, 3)
++   redraw
++   let winid = popup_create('vim', {
++   \ 'line': 'cursor-2',
++   \ 'col': 'cursor-1',
++   \})
++   redraw
++   let line = join(map(range(1, 17), 'screenstring(1, v:val)'), '')
++   call assert_equal('xvimxxxxxxxxxxxxx', line)
++   call popup_close(winid)
++ 
++   bwipe!
++ endfunc
+*** ../vim-8.1.1427/src/version.c	2019-05-30 19:03:19.653294536 +0200
+--- src/version.c	2019-05-30 19:23:28.679718885 +0200
+***************
+*** 769,770 ****
+--- 769,772 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1428,
+  /**/
+
+-- 
+"I simultaneously try to keep my head in the clouds and my feet on the
+ground.  Sometimes it's a stretch, though."              -- Larry Wall
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

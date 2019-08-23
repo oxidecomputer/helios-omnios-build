@@ -1,0 +1,344 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1878
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1878
+Problem:    Negative float before method not parsed correctly.
+Solution:   Apply "!" and "-" in front of expression before using ->.
+Files:	    src/eval.c, src/proto/eval.pro, src/userfunc.c,
+            src/testdir/test_method.vim
+
+
+*** ../vim-8.1.1877/src/eval.c	2019-08-09 23:25:02.636657233 +0200
+--- src/eval.c	2019-08-17 20:57:42.571858569 +0200
+***************
+*** 241,246 ****
+--- 241,247 ----
+  static int eval5(char_u **arg, typval_T *rettv, int evaluate);
+  static int eval6(char_u **arg, typval_T *rettv, int evaluate, int want_string);
+  static int eval7(char_u **arg, typval_T *rettv, int evaluate, int want_string);
++ static int eval7_leader(typval_T *rettv, char_u *start_leader, char_u **end_leaderp);
+  
+  static int get_string_tv(char_u **arg, typval_T *rettv, int evaluate);
+  static int get_lit_string_tv(char_u **arg, typval_T *rettv, int evaluate);
+***************
+*** 1810,1816 ****
+  		{
+  		    /* handle d.key, l[idx], f(expr) */
+  		    arg_subsc = arg;
+! 		    if (handle_subscript(&arg, &tv, TRUE, TRUE) == FAIL)
+  			error = TRUE;
+  		    else
+  		    {
+--- 1811,1818 ----
+  		{
+  		    /* handle d.key, l[idx], f(expr) */
+  		    arg_subsc = arg;
+! 		    if (handle_subscript(&arg, &tv, TRUE, TRUE,
+! 							  name, &name) == FAIL)
+  			error = TRUE;
+  		    else
+  		    {
+***************
+*** 4756,4823 ****
+      /* Handle following '[', '(' and '.' for expr[expr], expr.name,
+       * expr(expr), expr->name(expr) */
+      if (ret == OK)
+! 	ret = handle_subscript(arg, rettv, evaluate, TRUE);
+  
+      /*
+       * Apply logical NOT and unary '-', from right to left, ignore '+'.
+       */
+      if (ret == OK && evaluate && end_leader > start_leader)
+!     {
+! 	int	    error = FALSE;
+! 	varnumber_T val = 0;
+  #ifdef FEAT_FLOAT
+! 	float_T	    f = 0.0;
+  
+! 	if (rettv->v_type == VAR_FLOAT)
+! 	    f = rettv->vval.v_float;
+! 	else
+  #endif
+! 	    val = tv_get_number_chk(rettv, &error);
+! 	if (error)
+! 	{
+! 	    clear_tv(rettv);
+! 	    ret = FAIL;
+! 	}
+! 	else
+  	{
+! 	    while (end_leader > start_leader)
+  	    {
+- 		--end_leader;
+- 		if (*end_leader == '!')
+- 		{
+  #ifdef FEAT_FLOAT
+! 		    if (rettv->v_type == VAR_FLOAT)
+! 			f = !f;
+! 		    else
+  #endif
+! 			val = !val;
+! 		}
+! 		else if (*end_leader == '-')
+! 		{
+  #ifdef FEAT_FLOAT
+! 		    if (rettv->v_type == VAR_FLOAT)
+! 			f = -f;
+! 		    else
+  #endif
+! 			val = -val;
+! 		}
+  	    }
+  #ifdef FEAT_FLOAT
+! 	    if (rettv->v_type == VAR_FLOAT)
+! 	    {
+! 		clear_tv(rettv);
+! 		rettv->vval.v_float = f;
+! 	    }
+! 	    else
+  #endif
+! 	    {
+! 		clear_tv(rettv);
+! 		rettv->v_type = VAR_NUMBER;
+! 		rettv->vval.v_number = val;
+! 	    }
+  	}
+      }
+! 
+      return ret;
+  }
+  
+--- 4758,4837 ----
+      /* Handle following '[', '(' and '.' for expr[expr], expr.name,
+       * expr(expr), expr->name(expr) */
+      if (ret == OK)
+! 	ret = handle_subscript(arg, rettv, evaluate, TRUE,
+! 						    start_leader, &end_leader);
+  
+      /*
+       * Apply logical NOT and unary '-', from right to left, ignore '+'.
+       */
+      if (ret == OK && evaluate && end_leader > start_leader)
+! 	ret = eval7_leader(rettv, start_leader, &end_leader);
+!     return ret;
+! }
+! 
+! /*
+!  * Apply the leading "!" and "-" before an eval7 expression to "rettv".
+!  * Adjusts "end_leaderp" until it is at "start_leader".
+!  */
+!     static int
+! eval7_leader(typval_T *rettv, char_u *start_leader, char_u **end_leaderp)
+! {
+!     char_u	*end_leader = *end_leaderp;
+!     int		ret = OK;
+!     int		error = FALSE;
+!     varnumber_T val = 0;
+  #ifdef FEAT_FLOAT
+!     float_T	    f = 0.0;
+  
+!     if (rettv->v_type == VAR_FLOAT)
+! 	f = rettv->vval.v_float;
+!     else
+  #endif
+! 	val = tv_get_number_chk(rettv, &error);
+!     if (error)
+!     {
+! 	clear_tv(rettv);
+! 	ret = FAIL;
+!     }
+!     else
+!     {
+! 	while (end_leader > start_leader)
+  	{
+! 	    --end_leader;
+! 	    if (*end_leader == '!')
+  	    {
+  #ifdef FEAT_FLOAT
+! 		if (rettv->v_type == VAR_FLOAT)
+! 		    f = !f;
+! 		else
+  #endif
+! 		    val = !val;
+! 	    }
+! 	    else if (*end_leader == '-')
+! 	    {
+  #ifdef FEAT_FLOAT
+! 		if (rettv->v_type == VAR_FLOAT)
+! 		    f = -f;
+! 		else
+  #endif
+! 		    val = -val;
+  	    }
++ 	}
+  #ifdef FEAT_FLOAT
+! 	if (rettv->v_type == VAR_FLOAT)
+! 	{
+! 	    clear_tv(rettv);
+! 	    rettv->vval.v_float = f;
+! 	}
+! 	else
+  #endif
+! 	{
+! 	    clear_tv(rettv);
+! 	    rettv->v_type = VAR_NUMBER;
+! 	    rettv->vval.v_number = val;
+  	}
+      }
+!     *end_leaderp = end_leader;
+      return ret;
+  }
+  
+***************
+*** 7539,7546 ****
+  handle_subscript(
+      char_u	**arg,
+      typval_T	*rettv,
+!     int		evaluate,	/* do more than finding the end */
+!     int		verbose)	/* give error messages */
+  {
+      int		ret = OK;
+      dict_T	*selfdict = NULL;
+--- 7553,7562 ----
+  handle_subscript(
+      char_u	**arg,
+      typval_T	*rettv,
+!     int		evaluate,	// do more than finding the end
+!     int		verbose,	// give error messages
+!     char_u	*start_leader,	// start of '!' and '-' prefixes
+!     char_u	**end_leaderp)  // end of '!' and '-' prefixes
+  {
+      int		ret = OK;
+      dict_T	*selfdict = NULL;
+***************
+*** 7576,7587 ****
+  	}
+  	else if (**arg == '-')
+  	{
+! 	    if ((*arg)[2] == '{')
+! 		// expr->{lambda}()
+! 		ret = eval_lambda(arg, rettv, evaluate, verbose);
+! 	    else
+! 		// expr->name()
+! 		ret = eval_method(arg, rettv, evaluate, verbose);
+  	}
+  	else /* **arg == '[' || **arg == '.' */
+  	{
+--- 7592,7610 ----
+  	}
+  	else if (**arg == '-')
+  	{
+! 	    // Expression "-1.0->method()" applies the leader "-" before
+! 	    // applying ->.
+! 	    if (evaluate && *end_leaderp > start_leader)
+! 		ret = eval7_leader(rettv, start_leader, end_leaderp);
+! 	    if (ret == OK)
+! 	    {
+! 		if ((*arg)[2] == '{')
+! 		    // expr->{lambda}()
+! 		    ret = eval_lambda(arg, rettv, evaluate, verbose);
+! 		else
+! 		    // expr->name()
+! 		    ret = eval_method(arg, rettv, evaluate, verbose);
+! 	    }
+  	}
+  	else /* **arg == '[' || **arg == '.' */
+  	{
+***************
+*** 9803,9809 ****
+  	if (n)
+  	{
+  	    /* handle d.key, l[idx], f(expr) */
+! 	    n = (handle_subscript(&var, &tv, TRUE, FALSE) == OK);
+  	    if (n)
+  		clear_tv(&tv);
+  	}
+--- 9826,9832 ----
+  	if (n)
+  	{
+  	    /* handle d.key, l[idx], f(expr) */
+! 	    n = (handle_subscript(&var, &tv, TRUE, FALSE, name, &name) == OK);
+  	    if (n)
+  		clear_tv(&tv);
+  	}
+*** ../vim-8.1.1877/src/proto/eval.pro	2019-07-28 14:15:21.330943640 +0200
+--- src/proto/eval.pro	2019-08-17 20:49:25.598652264 +0200
+***************
+*** 85,91 ****
+  char_u *v_throwpoint(char_u *oldval);
+  char_u *set_cmdarg(exarg_T *eap, char_u *oldarg);
+  int get_var_tv(char_u *name, int len, typval_T *rettv, dictitem_T **dip, int verbose, int no_autoload);
+! int handle_subscript(char_u **arg, typval_T *rettv, int evaluate, int verbose);
+  typval_T *alloc_tv(void);
+  void free_tv(typval_T *varp);
+  void clear_tv(typval_T *varp);
+--- 85,91 ----
+  char_u *v_throwpoint(char_u *oldval);
+  char_u *set_cmdarg(exarg_T *eap, char_u *oldarg);
+  int get_var_tv(char_u *name, int len, typval_T *rettv, dictitem_T **dip, int verbose, int no_autoload);
+! int handle_subscript(char_u **arg, typval_T *rettv, int evaluate, int verbose, char_u *start_leader, char_u **end_leaderp);
+  typval_T *alloc_tv(void);
+  void free_tv(typval_T *varp);
+  void clear_tv(typval_T *varp);
+*** ../vim-8.1.1877/src/userfunc.c	2019-08-16 22:22:27.915986997 +0200
+--- src/userfunc.c	2019-08-17 20:49:00.106813103 +0200
+***************
+*** 3165,3172 ****
+  	if (has_watchexpr())
+  	    dbg_check_breakpoint(eap);
+  
+! 	/* Handle a function returning a Funcref, Dictionary or List. */
+! 	if (handle_subscript(&arg, &rettv, !eap->skip, TRUE) == FAIL)
+  	{
+  	    failed = TRUE;
+  	    break;
+--- 3165,3173 ----
+  	if (has_watchexpr())
+  	    dbg_check_breakpoint(eap);
+  
+! 	// Handle a function returning a Funcref, Dictionary or List.
+! 	if (handle_subscript(&arg, &rettv, !eap->skip, TRUE,
+! 							  name, &name) == FAIL)
+  	{
+  	    failed = TRUE;
+  	    break;
+*** ../vim-8.1.1877/src/testdir/test_method.vim	2019-08-16 22:22:27.915986997 +0200
+--- src/testdir/test_method.vim	2019-08-17 20:51:11.705986816 +0200
+***************
+*** 115,120 ****
+--- 115,125 ----
+    delfunc Concat
+  endfunc
+  
++ func Test_method_float()
++   eval 1.234->string()->assert_equal('1.234')
++   eval -1.234->string()->assert_equal('-1.234')
++ endfunc
++ 
+  func Test_method_syntax()
+    eval [1, 2, 3]  ->sort( )
+    eval [1, 2, 3]  
+*** ../vim-8.1.1877/src/version.c	2019-08-17 20:17:48.081707408 +0200
+--- src/version.c	2019-08-17 21:03:17.754448200 +0200
+***************
+*** 771,772 ****
+--- 771,774 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1878,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+88. Every single time you press the 'Get mail' button...it does get new mail.
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

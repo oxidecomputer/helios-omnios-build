@@ -1,0 +1,432 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1767
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1767
+Problem:    FEAT_SESSION defined separately.
+Solution:   Make FEAT_SESSION depend on FEAT_EVAL.
+Files:	    src/feature.h, src/session.c, src/evalfunc.c, src/ex_docmd.c,
+            src/gui_gtk_x11.c, src/proto.h
+
+
+*** ../vim-8.1.1766/src/feature.h	2019-07-21 14:50:15.383092355 +0200
+--- src/feature.h	2019-07-28 15:01:11.066716158 +0200
+***************
+*** 559,567 ****
+  
+  /*
+   * +mksession		":mksession" command.
+!  *			Requires +windows and +vertsplit.
+   */
+! #if defined(FEAT_NORMAL)
+  # define FEAT_SESSION
+  #endif
+  
+--- 559,567 ----
+  
+  /*
+   * +mksession		":mksession" command.
+!  *			fully depends on +eval
+   */
+! #if defined(FEAT_EVAL)
+  # define FEAT_SESSION
+  #endif
+  
+*** ../vim-8.1.1766/src/session.c	2019-07-28 14:15:21.330943640 +0200
+--- src/session.c	2019-07-28 15:19:50.533820674 +0200
+***************
+*** 1063,1069 ****
+  static int mksession_nl = FALSE;    // use NL only in put_eol()
+  #endif
+  
+- #if defined(FEAT_SESSION) || defined(PROTO)
+  /*
+   * ":mkexrc", ":mkvimrc", ":mkview" and ":mksession".
+   */
+--- 1063,1068 ----
+***************
+*** 1244,1253 ****
+  	    if (put_line(fd, "let &so = s:so_save | let &siso = s:siso_save")
+  								      == FAIL)
+  		failed = TRUE;
+! # ifdef FEAT_SEARCH_EXTRA
+  	    if (no_hlsearch && put_line(fd, "nohlsearch") == FAIL)
+  		failed = TRUE;
+! # endif
+  	    if (put_line(fd, "doautoall SessionLoadPost") == FAIL)
+  		failed = TRUE;
+  	    if (eap->cmdidx == CMD_mksession)
+--- 1243,1252 ----
+  	    if (put_line(fd, "let &so = s:so_save | let &siso = s:siso_save")
+  								      == FAIL)
+  		failed = TRUE;
+! #ifdef FEAT_SEARCH_EXTRA
+  	    if (no_hlsearch && put_line(fd, "nohlsearch") == FAIL)
+  		failed = TRUE;
+! #endif
+  	    if (put_line(fd, "doautoall SessionLoadPost") == FAIL)
+  		failed = TRUE;
+  	    if (eap->cmdidx == CMD_mksession)
+***************
+*** 1264,1270 ****
+  
+  	if (failed)
+  	    emsg(_(e_write));
+! #if defined(FEAT_EVAL) && defined(FEAT_SESSION)
+  	else if (eap->cmdidx == CMD_mksession)
+  	{
+  	    // successful session write - set this_session var
+--- 1263,1269 ----
+  
+  	if (failed)
+  	    emsg(_(e_write));
+! #if defined(FEAT_SESSION)
+  	else if (eap->cmdidx == CMD_mksession)
+  	{
+  	    // successful session write - set this_session var
+***************
+*** 1293,1301 ****
+  #endif
+  }
+  
+! #endif // FEAT_SESSION
+! 
+! #if defined(FEAT_VIMINFO) || defined(FEAT_SESSION)
+      var_flavour_T
+  var_flavour(char_u *varname)
+  {
+--- 1292,1298 ----
+  #endif
+  }
+  
+! #if (defined(FEAT_VIMINFO) || defined(FEAT_SESSION)) || defined(PROTO)
+      var_flavour_T
+  var_flavour(char_u *varname)
+  {
+*** ../vim-8.1.1766/src/evalfunc.c	2019-07-28 13:20:57.498863391 +0200
+--- src/evalfunc.c	2019-07-28 15:01:56.246531266 +0200
+***************
+*** 231,239 ****
+  static void f_matchstrpos(typval_T *argvars, typval_T *rettv);
+  static void f_max(typval_T *argvars, typval_T *rettv);
+  static void f_min(typval_T *argvars, typval_T *rettv);
+- #ifdef vim_mkdir
+  static void f_mkdir(typval_T *argvars, typval_T *rettv);
+- #endif
+  static void f_mode(typval_T *argvars, typval_T *rettv);
+  #ifdef FEAT_MZSCHEME
+  static void f_mzeval(typval_T *argvars, typval_T *rettv);
+--- 231,237 ----
+***************
+*** 694,702 ****
+      {"matchstrpos",	2, 4, f_matchstrpos},
+      {"max",		1, 1, f_max},
+      {"min",		1, 1, f_min},
+- #ifdef vim_mkdir
+      {"mkdir",		1, 3, f_mkdir},
+- #endif
+      {"mode",		0, 1, f_mode},
+  #ifdef FEAT_MZSCHEME
+      {"mzeval",		1, 1, f_mzeval},
+--- 692,698 ----
+***************
+*** 7945,7951 ****
+      return r;
+  }
+  
+- #ifdef vim_mkdir
+  /*
+   * "mkdir()" function
+   */
+--- 7941,7946 ----
+***************
+*** 7989,7995 ****
+      }
+      rettv->vval.v_number = vim_mkdir_emsg(dir, prot);
+  }
+- #endif
+  
+  /*
+   * "mode()" function
+--- 7984,7989 ----
+*** ../vim-8.1.1766/src/ex_docmd.c	2019-07-28 14:15:21.330943640 +0200
+--- src/ex_docmd.c	2019-07-28 15:03:50.278056818 +0200
+***************
+*** 307,313 ****
+  static char_u	*arg_all(void);
+  #ifndef FEAT_SESSION
+  # define ex_loadview		ex_ni
+- # define ex_mkrc		ex_ni
+  #endif
+  #ifndef FEAT_EVAL
+  # define ex_compiler		ex_ni
+--- 307,312 ----
+***************
+*** 8433,8440 ****
+  #endif
+  }
+  
+! #if ((defined(FEAT_SESSION) || defined(FEAT_EVAL)) && defined(vim_mkdir)) \
+! 	|| defined(PROTO)
+      int
+  vim_mkdir_emsg(char_u *name, int prot)
+  {
+--- 8432,8438 ----
+  #endif
+  }
+  
+! #if (defined(FEAT_SESSION) || defined(FEAT_EVAL)) || defined(PROTO)
+      int
+  vim_mkdir_emsg(char_u *name, int prot)
+  {
+*** ../vim-8.1.1766/src/gui_gtk_x11.c	2019-06-14 21:36:51.010437524 +0200
+--- src/gui_gtk_x11.c	2019-07-28 15:05:03.517746962 +0200
+***************
+*** 159,165 ****
+   */
+  # define DEFAULT_FONT	"Monospace 10"
+  
+! #if !(defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION))
+  /*
+   * Atoms used to communicate save-yourself from the X11 session manager. There
+   * is no need to move them into the GUI struct, since they should be constant.
+--- 159,169 ----
+   */
+  # define DEFAULT_FONT	"Monospace 10"
+  
+! #if defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)
+! # define USE_GNOME_SESSION
+! #endif
+! 
+! #if !defined(FEAT_GUI_GNOME)
+  /*
+   * Atoms used to communicate save-yourself from the X11 session manager. There
+   * is no need to move them into the GUI struct, since they should be constant.
+***************
+*** 377,383 ****
+  static char **gui_argv = NULL;
+  
+  static const char *role_argument = NULL;
+! #if defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)
+  static const char *restart_command = NULL;
+  static       char *abs_restart_command = NULL;
+  #endif
+--- 381,387 ----
+  static char **gui_argv = NULL;
+  
+  static const char *role_argument = NULL;
+! #if defined(USE_GNOME_SESSION)
+  static const char *restart_command = NULL;
+  static       char *abs_restart_command = NULL;
+  #endif
+***************
+*** 404,410 ****
+      int			    i	= 0;
+      int			    len = 0;
+  
+! #if defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)
+      /*
+       * Determine the command used to invoke Vim, to be passed as restart
+       * command to the session manager.	If argv[0] contains any directory
+--- 408,414 ----
+      int			    i	= 0;
+      int			    len = 0;
+  
+! #if defined(USE_GNOME_SESSION)
+      /*
+       * Determine the command used to invoke Vim, to be passed as restart
+       * command to the session manager.	If argv[0] contains any directory
+***************
+*** 580,586 ****
+  gui_mch_free_all(void)
+  {
+      vim_free(gui_argv);
+! #if defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)
+      vim_free(abs_restart_command);
+  #endif
+  }
+--- 584,590 ----
+  gui_mch_free_all(void)
+  {
+      vim_free(gui_argv);
+! #if defined(USE_GNOME_SESSION)
+      vim_free(abs_restart_command);
+  #endif
+  }
+***************
+*** 2274,2280 ****
+  #endif /* FEAT_DND */
+  
+  
+! #if defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)
+  /*
+   * GnomeClient interact callback.  Check for unsaved buffers that cannot
+   * be abandoned and pop up a dialog asking the user for confirmation if
+--- 2278,2284 ----
+  #endif /* FEAT_DND */
+  
+  
+! #if defined(USE_GNOME_SESSION)
+  /*
+   * GnomeClient interact callback.  Check for unsaved buffers that cannot
+   * be abandoned and pop up a dialog asking the user for confirmation if
+***************
+*** 2437,2443 ****
+      }
+  }
+  
+! #else /* !(FEAT_GUI_GNOME && FEAT_SESSION) */
+  
+  # ifdef USE_XSMP
+  /*
+--- 2441,2447 ----
+      }
+  }
+  
+! #else // !USE_GNOME_SESSION
+  
+  # ifdef USE_XSMP
+  /*
+***************
+*** 2571,2577 ****
+  
+      return GDK_FILTER_CONTINUE;
+  }
+! #endif /* !(FEAT_GUI_GNOME && FEAT_SESSION) */
+  
+  
+  /*
+--- 2575,2581 ----
+  
+      return GDK_FILTER_CONTINUE;
+  }
+! #endif // !USE_GNOME_SESSION
+  
+  
+  /*
+***************
+*** 2624,2637 ****
+  	g_list_free(icons);
+      }
+  
+! #if !(defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION))
+      /* Register a handler for WM_SAVE_YOURSELF with GDK's low-level X I/F */
+      gdk_window_add_filter(NULL, &global_event_filter, NULL);
+  #endif
+      /* Setup to indicate to the window manager that we want to catch the
+       * WM_SAVE_YOURSELF event.	For GNOME, this connects to the session
+       * manager instead. */
+! #if defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)
+      if (using_gnome)
+  #endif
+  	setup_save_yourself();
+--- 2628,2641 ----
+  	g_list_free(icons);
+      }
+  
+! #if !defined(USE_GNOME_SESSION)
+      /* Register a handler for WM_SAVE_YOURSELF with GDK's low-level X I/F */
+      gdk_window_add_filter(NULL, &global_event_filter, NULL);
+  #endif
+      /* Setup to indicate to the window manager that we want to catch the
+       * WM_SAVE_YOURSELF event.	For GNOME, this connects to the session
+       * manager instead. */
+! #if defined(USE_GNOME_SESSION)
+      if (using_gnome)
+  #endif
+  	setup_save_yourself();
+***************
+*** 3933,3939 ****
+      gui.visibility = GDK_VISIBILITY_UNOBSCURED;
+  #endif
+  
+! #if !(defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION))
+      wm_protocols_atom = gdk_atom_intern("WM_PROTOCOLS", FALSE);
+      save_yourself_atom = gdk_atom_intern("WM_SAVE_YOURSELF", FALSE);
+  #endif
+--- 3937,3943 ----
+      gui.visibility = GDK_VISIBILITY_UNOBSCURED;
+  #endif
+  
+! #if !defined(USE_GNOME_SESSION)
+      wm_protocols_atom = gdk_atom_intern("WM_PROTOCOLS", FALSE);
+      save_yourself_atom = gdk_atom_intern("WM_SAVE_YOURSELF", FALSE);
+  #endif
+***************
+*** 4039,4045 ****
+      return OK;
+  }
+  
+! #if (defined(FEAT_GUI_GNOME) && defined(FEAT_SESSION)) || defined(PROTO)
+  /*
+   * This is called from gui_start() after a fork() has been done.
+   * We have to tell the session manager our new PID.
+--- 4043,4049 ----
+      return OK;
+  }
+  
+! #if defined(USE_GNOME_SESSION) || defined(PROTO)
+  /*
+   * This is called from gui_start() after a fork() has been done.
+   * We have to tell the session manager our new PID.
+***************
+*** 4057,4063 ****
+  	    gnome_client_set_process_id(client, getpid());
+      }
+  }
+! #endif /* FEAT_GUI_GNOME && FEAT_SESSION */
+  
+  #if GTK_CHECK_VERSION(3,0,0)
+      static GdkRGBA
+--- 4061,4067 ----
+  	    gnome_client_set_process_id(client, getpid());
+      }
+  }
+! #endif // USE_GNOME_SESSION
+  
+  #if GTK_CHECK_VERSION(3,0,0)
+      static GdkRGBA
+*** ../vim-8.1.1766/src/proto.h	2019-07-28 14:15:21.330943640 +0200
+--- src/proto.h	2019-07-28 15:09:50.336504528 +0200
+***************
+*** 183,191 ****
+  # endif
+  # include "regexp.pro"
+  # include "screen.pro"
+! # ifdef FEAT_SESSION
+! #  include "session.pro"
+! # endif
+  # if defined(FEAT_CRYPT) || defined(FEAT_PERSISTENT_UNDO)
+  #  include "sha256.pro"
+  # endif
+--- 183,189 ----
+  # endif
+  # include "regexp.pro"
+  # include "screen.pro"
+! # include "session.pro"
+  # if defined(FEAT_CRYPT) || defined(FEAT_PERSISTENT_UNDO)
+  #  include "sha256.pro"
+  # endif
+*** ../vim-8.1.1766/src/version.c	2019-07-28 14:15:21.330943640 +0200
+--- src/version.c	2019-07-28 15:09:21.556630867 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1767,
+  /**/
+
+-- 
+Back off man, I'm a scientist.
+              -- Peter, Ghostbusters
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///

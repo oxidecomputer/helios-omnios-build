@@ -1,0 +1,335 @@
+To: vim_dev@googlegroups.com
+Subject: Patch 8.1.1583
+Fcc: outbox
+From: Bram Moolenaar <Bram@moolenaar.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+------------
+
+Patch 8.1.1583
+Problem:    Set_ref_in_list() only sets ref in items.
+Solution:   Rename to set_ref_in_list_items() to avoid confusion.
+Files:	    src/eval.c, src/proto/eval.pro, src/if_lua.c, src/popupwin.c,
+            src/userfunc.c, src/if_py_both.h
+
+
+*** ../vim-8.1.1582/src/eval.c	2019-06-20 03:45:31.171536943 +0200
+--- src/eval.c	2019-06-23 01:40:06.385705332 +0200
+***************
+*** 5841,5853 ****
+  }
+  
+  /*
+   * Mark all lists and dicts referenced through list "l" with "copyID".
+   * "ht_stack" is used to add hashtabs to be marked.  Can be NULL.
+   *
+   * Returns TRUE if setting references failed somehow.
+   */
+      int
+! set_ref_in_list(list_T *l, int copyID, ht_stack_T **ht_stack)
+  {
+      listitem_T	 *li;
+      int		 abort = FALSE;
+--- 5841,5883 ----
+  }
+  
+  /*
++  * Mark a dict and its items with "copyID".
++  * Returns TRUE if setting references failed somehow.
++  */
++     int
++ set_ref_in_dict(dict_T *d, int copyID)
++ {
++     if (d != NULL && d->dv_copyID != copyID)
++     {
++ 	d->dv_copyID = copyID;
++ 	return set_ref_in_ht(&d->dv_hashtab, copyID, NULL);
++     }
++     return FALSE;
++ }
++ 
++ /*
++  * Mark a list and its items with "copyID".
++  * Returns TRUE if setting references failed somehow.
++  */
++     int
++ set_ref_in_list(list_T *ll, int copyID)
++ {
++     if (ll != NULL && ll->lv_copyID != copyID)
++     {
++ 	ll->lv_copyID = copyID;
++ 	return set_ref_in_list_items(ll, copyID, NULL);
++     }
++     return FALSE;
++ }
++ 
++ /*
+   * Mark all lists and dicts referenced through list "l" with "copyID".
+   * "ht_stack" is used to add hashtabs to be marked.  Can be NULL.
+   *
+   * Returns TRUE if setting references failed somehow.
+   */
+      int
+! set_ref_in_list_items(list_T *l, int copyID, ht_stack_T **ht_stack)
+  {
+      listitem_T	 *li;
+      int		 abort = FALSE;
+***************
+*** 5930,5936 ****
+  	    ll->lv_copyID = copyID;
+  	    if (list_stack == NULL)
+  	    {
+! 		abort = set_ref_in_list(ll, copyID, ht_stack);
+  	    }
+  	    else
+  	    {
+--- 5960,5966 ----
+  	    ll->lv_copyID = copyID;
+  	    if (list_stack == NULL)
+  	    {
+! 		abort = set_ref_in_list_items(ll, copyID, ht_stack);
+  	    }
+  	    else
+  	    {
+*** ../vim-8.1.1582/src/proto/eval.pro	2019-06-15 15:44:46.710530957 +0200
+--- src/proto/eval.pro	2019-06-23 01:40:09.125692648 +0200
+***************
+*** 50,56 ****
+  int get_copyID(void);
+  int garbage_collect(int testing);
+  int set_ref_in_ht(hashtab_T *ht, int copyID, list_stack_T **list_stack);
+! int set_ref_in_list(list_T *l, int copyID, ht_stack_T **ht_stack);
+  int set_ref_in_item(typval_T *tv, int copyID, ht_stack_T **ht_stack, list_stack_T **list_stack);
+  char_u *echo_string_core(typval_T *tv, char_u **tofree, char_u *numbuf, int copyID, int echo_style, int restore_copyID, int composite_val);
+  char_u *echo_string(typval_T *tv, char_u **tofree, char_u *numbuf, int copyID);
+--- 50,58 ----
+  int get_copyID(void);
+  int garbage_collect(int testing);
+  int set_ref_in_ht(hashtab_T *ht, int copyID, list_stack_T **list_stack);
+! int set_ref_in_dict(dict_T *d, int copyID);
+! int set_ref_in_list(list_T *ll, int copyID);
+! int set_ref_in_list_items(list_T *l, int copyID, ht_stack_T **ht_stack);
+  int set_ref_in_item(typval_T *tv, int copyID, ht_stack_T **ht_stack, list_stack_T **list_stack);
+  char_u *echo_string_core(typval_T *tv, char_u **tofree, char_u *numbuf, int copyID, int echo_style, int restore_copyID, int composite_val);
+  char_u *echo_string(typval_T *tv, char_u **tofree, char_u *numbuf, int copyID);
+*** ../vim-8.1.1582/src/if_lua.c	2019-03-26 21:44:16.825047310 +0100
+--- src/if_lua.c	2019-06-23 01:40:19.365645288 +0200
+***************
+*** 1980,2010 ****
+  	{
+  	    list_T *l = (list_T *)lua_touserdata(L, 5); // key
+  
+! 	    if (l->lv_copyID != copyID)
+! 	    {
+! 		l->lv_copyID = copyID;
+! 		abort = set_ref_in_list(l, copyID, NULL);
+! 	    }
+  	}
+  	else if (lua_rawequal(L, -1, 3)) // dict?
+  	{
+  	    dict_T *d = (dict_T *)lua_touserdata(L, 5); // key
+  
+! 	    if (d->dv_copyID != copyID)
+! 	    {
+! 		d->dv_copyID = copyID;
+! 		abort = set_ref_in_ht(&d->dv_hashtab, copyID, NULL);
+! 	    }
+  	}
+  	else if (lua_rawequal(L, -1, 4)) // funcref?
+  	{
+  	    luaV_Funcref *f = (luaV_Funcref *)lua_touserdata(L, 5); // key
+  
+! 	    if (f->self != NULL && f->self->dv_copyID != copyID)
+! 	    {
+! 		f->self->dv_copyID = copyID;
+! 		abort = set_ref_in_ht(&f->self->dv_hashtab, copyID, NULL);
+! 	    }
+  	}
+  	lua_pop(L, 2); // metatable and value
+      }
+--- 1980,1998 ----
+  	{
+  	    list_T *l = (list_T *)lua_touserdata(L, 5); // key
+  
+! 	    abort = set_ref_in_list(l, copyID);
+  	}
+  	else if (lua_rawequal(L, -1, 3)) // dict?
+  	{
+  	    dict_T *d = (dict_T *)lua_touserdata(L, 5); // key
+  
+! 	    abort = set_ref_in_dict(d, copyID);
+  	}
+  	else if (lua_rawequal(L, -1, 4)) // funcref?
+  	{
+  	    luaV_Funcref *f = (luaV_Funcref *)lua_touserdata(L, 5); // key
+  
+! 	    abort = set_ref_in_dict(f->self, copyID);
+  	}
+  	lua_pop(L, 2); // metatable and value
+      }
+*** ../vim-8.1.1582/src/popupwin.c	2019-06-23 01:03:48.539006597 +0200
+--- src/popupwin.c	2019-06-23 01:26:04.574143189 +0200
+***************
+*** 2297,2307 ****
+  	tv.vval.v_partial = wp->w_filter_cb.cb_partial;
+  	abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL);
+      }
+!     if (wp->w_popup_mask != NULL && wp->w_popup_mask->lv_copyID != copyID)
+!     {
+! 	wp->w_popup_mask->lv_copyID = copyID;
+! 	abort = abort || set_ref_in_list(wp->w_popup_mask, copyID, NULL);
+!     }
+      return abort;
+  }
+  
+--- 2297,2303 ----
+  	tv.vval.v_partial = wp->w_filter_cb.cb_partial;
+  	abort = abort || set_ref_in_item(&tv, copyID, NULL, NULL);
+      }
+!     abort = abort || set_ref_in_list(wp->w_popup_mask, copyID);
+      return abort;
+  }
+  
+*** ../vim-8.1.1582/src/userfunc.c	2019-06-20 03:45:31.175536929 +0200
+--- src/userfunc.c	2019-06-23 01:19:34.287593207 +0200
+***************
+*** 4000,4006 ****
+  	abort = abort
+  	    || set_ref_in_ht(&fc->l_vars.dv_hashtab, copyID + 1, NULL)
+  	    || set_ref_in_ht(&fc->l_avars.dv_hashtab, copyID + 1, NULL)
+! 	    || set_ref_in_list(&fc->l_varlist, copyID + 1, NULL);
+      }
+      return abort;
+  }
+--- 4000,4006 ----
+  	abort = abort
+  	    || set_ref_in_ht(&fc->l_vars.dv_hashtab, copyID + 1, NULL)
+  	    || set_ref_in_ht(&fc->l_avars.dv_hashtab, copyID + 1, NULL)
+! 	    || set_ref_in_list_items(&fc->l_varlist, copyID + 1, NULL);
+      }
+      return abort;
+  }
+***************
+*** 4016,4022 ****
+  	abort = abort
+  	    || set_ref_in_ht(&fc->l_vars.dv_hashtab, copyID, NULL)
+  	    || set_ref_in_ht(&fc->l_avars.dv_hashtab, copyID, NULL)
+! 	    || set_ref_in_list(&fc->l_varlist, copyID, NULL)
+  	    || set_ref_in_func(NULL, fc->func, copyID);
+      }
+      return abort;
+--- 4016,4022 ----
+  	abort = abort
+  	    || set_ref_in_ht(&fc->l_vars.dv_hashtab, copyID, NULL)
+  	    || set_ref_in_ht(&fc->l_avars.dv_hashtab, copyID, NULL)
+! 	    || set_ref_in_list_items(&fc->l_varlist, copyID, NULL)
+  	    || set_ref_in_func(NULL, fc->func, copyID);
+      }
+      return abort;
+*** ../vim-8.1.1582/src/if_py_both.h	2019-05-28 23:08:12.068648696 +0200
+--- src/if_py_both.h	2019-06-23 01:40:35.217572144 +0200
+***************
+*** 5832,5854 ****
+  set_ref_in_py(const int copyID)
+  {
+      pylinkedlist_T	*cur;
+!     dict_T	*dd;
+!     list_T	*ll;
+!     int		i;
+!     int		abort = FALSE;
+      FunctionObject	*func;
+  
+      if (lastdict != NULL)
+      {
+  	for (cur = lastdict ; !abort && cur != NULL ; cur = cur->pll_prev)
+! 	{
+! 	    dd = ((DictionaryObject *) (cur->pll_obj))->dict;
+! 	    if (dd->dv_copyID != copyID)
+! 	    {
+! 		dd->dv_copyID = copyID;
+! 		abort = abort || set_ref_in_ht(&dd->dv_hashtab, copyID, NULL);
+! 	    }
+! 	}
+      }
+  
+      if (lastlist != NULL)
+--- 5832,5847 ----
+  set_ref_in_py(const int copyID)
+  {
+      pylinkedlist_T	*cur;
+!     list_T		*ll;
+!     int			i;
+!     int			abort = FALSE;
+      FunctionObject	*func;
+  
+      if (lastdict != NULL)
+      {
+  	for (cur = lastdict ; !abort && cur != NULL ; cur = cur->pll_prev)
+! 	    abort = set_ref_in_dict(((DictionaryObject *)(cur->pll_obj))->dict,
+! 								       copyID);
+      }
+  
+      if (lastlist != NULL)
+***************
+*** 5856,5866 ****
+  	for (cur = lastlist ; !abort && cur != NULL ; cur = cur->pll_prev)
+  	{
+  	    ll = ((ListObject *) (cur->pll_obj))->list;
+! 	    if (ll->lv_copyID != copyID)
+! 	    {
+! 		ll->lv_copyID = copyID;
+! 		abort = abort || set_ref_in_list(ll, copyID, NULL);
+! 	    }
+  	}
+      }
+  
+--- 5849,5855 ----
+  	for (cur = lastlist ; !abort && cur != NULL ; cur = cur->pll_prev)
+  	{
+  	    ll = ((ListObject *) (cur->pll_obj))->list;
+! 	    abort = set_ref_in_list(ll, copyID);
+  	}
+      }
+  
+***************
+*** 5869,5880 ****
+  	for (cur = lastfunc ; !abort && cur != NULL ; cur = cur->pll_prev)
+  	{
+  	    func = (FunctionObject *) cur->pll_obj;
+! 	    if (func->self != NULL && func->self->dv_copyID != copyID)
+! 	    {
+! 		func->self->dv_copyID = copyID;
+! 		abort = abort || set_ref_in_ht(
+! 			&func->self->dv_hashtab, copyID, NULL);
+! 	    }
+  	    if (func->argc)
+  		for (i = 0; !abort && i < func->argc; ++i)
+  		    abort = abort
+--- 5858,5864 ----
+  	for (cur = lastfunc ; !abort && cur != NULL ; cur = cur->pll_prev)
+  	{
+  	    func = (FunctionObject *) cur->pll_obj;
+! 	    abort = set_ref_in_dict(func->self, copyID);
+  	    if (func->argc)
+  		for (i = 0; !abort && i < func->argc; ++i)
+  		    abort = abort
+*** ../vim-8.1.1582/src/version.c	2019-06-23 01:03:48.543006582 +0200
+--- src/version.c	2019-06-23 01:44:24.388535244 +0200
+***************
+*** 779,780 ****
+--- 779,782 ----
+  {   /* Add new patch number below this line */
++ /**/
++     1583,
+  /**/
+
+-- 
+hundred-and-one symptoms of being an internet addict:
+255. You work for a newspaper and your editor asks you to write an
+     article about Internet addiction...in the "first person."
+
+ /// Bram Moolenaar -- Bram@Moolenaar.net -- http://www.Moolenaar.net   \\\
+///        sponsor Vim, vote for features -- http://www.Vim.org/sponsor/ \\\
+\\\  an exciting new programming language -- http://www.Zimbu.org        ///
+ \\\            help me help AIDS victims -- http://ICCF-Holland.org    ///
