@@ -66,7 +66,7 @@
 | security/sudo				| 1.8.27		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.6			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
-| service/network/smtp/dma		| 0.11			| https://github.com/corecode/dma/releases
+| service/network/smtp/dma		| 0.12			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 009			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
