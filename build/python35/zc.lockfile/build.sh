@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../../lib/functions.sh
 
 PKG=library/python-3/zc.lockfile-35
 PROG=zc.lockfile
-VER=1.4
+VER=2.0
 SUMMARY="Portable inter-process lock implementation"
 DESC="A basic portable implementation of interprocess locks using lock files"
 
