@@ -53,7 +53,7 @@
 | library/security/openssl-1.1		| 1.1.1c		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| network/dns/bind			| 9.11.9		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.11.10		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.0p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -66,7 +66,7 @@
 | security/sudo				| 1.8.27		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.6			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
-| service/network/smtp/dma		| 0.11			| https://github.com/corecode/dma/releases
+| service/network/smtp/dma		| 0.12			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 009			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
@@ -98,13 +98,13 @@
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.41		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 10.3.10		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
-| developer/swig			| 4.0.0			| http://www.swig.org/download.html
+| developer/swig			| 4.0.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-35		| 19.1.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-35		| 1.12.3		| https://pypi.org/project/cffi
-| library/python-3/cheroot-35		| 6.5.5			| https://pypi.org/project/cheroot
+| library/python-3/cheroot-35		| 6.5.6			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 18.1.2		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.4			| https://pypi.org/project/coverage
@@ -125,9 +125,9 @@
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-35	| 0.15.4		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-35		| 2019.2		| https://pypi.org/project/pytz
-| library/python-3/setuptools-35	| 41.0.1		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-35	| 41.2.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.14.1		| https://pypi.org/project/tempora
-| library/python-3/zc.lockfile-35	| 1.4			| https://pypi.org/project/zc.lockfile
+| library/python-3/zc.lockfile-35	| 2.0			| https://pypi.org/project/zc.lockfile
 

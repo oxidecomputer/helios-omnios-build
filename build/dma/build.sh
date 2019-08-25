@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=dma
-VER=0.11
+VER=0.12
 PKG=service/network/smtp/dma
 SUMMARY="The DragonFly Mail Agent"
 DESC="$SUMMARY"
