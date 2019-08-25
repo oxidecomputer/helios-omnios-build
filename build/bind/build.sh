@@ -52,6 +52,7 @@ CONFIGURE_OPTS="
     --enable-shared
     --disable-static
     --without-python
+    --with-zlib=/usr
 "
 
 init
