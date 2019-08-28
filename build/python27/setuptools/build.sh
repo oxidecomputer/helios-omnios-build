@@ -28,10 +28,10 @@
 
 PKG=library/python-2/setuptools-27
 PROG=setuptools
-py3build=$SRCDIR/../../python35/setuptools/build.sh
-VER="`grep '^VER=' $py3build | sed 's/.*=//;q'`"
 SUMMARY="Python package management"
 DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+
+inherit_ver python37/setuptools
 
 . $SRCDIR/../common.sh
 
