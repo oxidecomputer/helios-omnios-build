@@ -12,11 +12,11 @@
 
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-set_python_version 3.5
+set_python_version 3.7
 
-PYVER=$PYTHONVER           # 3.5
+PYVER=$PYTHONVER           # 3.7
 PYMVER=${PYTHONVER%%.*}    # 3
-SPYVER=${PYTHONVER//./}    # 35
+SPYVER=${PYTHONVER//./}    # 37
 
 RUN_DEPENDS_IPS="runtime/python-$SPYVER "
 XFORM_ARGS="
