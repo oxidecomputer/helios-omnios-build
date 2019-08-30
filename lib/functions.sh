@@ -2152,5 +2152,21 @@ check_for_prebuilt() {
     fi
 }
 
+inherit_ver() {
+    local src="$1"
+    local script="${2:-build.sh}"
+
+    src=$ROOTDIR/build/$src/$script
+    logmsg "-- inheriting version from $src"
+    [ -f $src ] || logerr "inherit_ver: cannot locate source"
+    VER=`sed -n '/^VER=/ {
+                s/.*=//
+                p
+                q
+        }' $src`
+    [ -n "$VER" ] || logerr "No version found."
+    logmsg "-- inherited version '$VER'"
+}
+
 # Vim hints
 # vim:ts=4:sw=4:et:fdm=marker

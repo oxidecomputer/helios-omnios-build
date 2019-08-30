@@ -63,6 +63,7 @@
 | runtime/perl				| 5.30.0		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.16		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.7			| https://www.python.org/downloads/source/
+| runtime/python-37			| 3.7.4			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.27		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.6			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
@@ -125,7 +126,7 @@
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-35	| 0.15.4		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-35		| 2019.2		| https://pypi.org/project/pytz
-| library/python-3/setuptools-35	| 41.2.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 41.2.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.14.1		| https://pypi.org/project/tempora

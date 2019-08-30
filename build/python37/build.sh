@@ -17,8 +17,8 @@
 . ../../lib/functions.sh
 
 PROG=Python
-VER=3.5.7
-PKG=runtime/python-35
+VER=3.7.4
+PKG=runtime/python-37
 MVER=${VER%.*}
 SUMMARY="$PROG $MVER"
 DESC="$SUMMARY"
@@ -72,9 +72,6 @@ CONFIGURE_OPTS="
 preprep_build() {
     run_autoheader
     run_autoconf
-    # New file from dtrace patch
-    chmod +x $TMPDIR/$BUILDDIR/Include/pydtrace_offsets.sh \
-        || logerr "Could not set pydtrace_offsets.sh executable"
 }
 
 TESTSUITE_SED="
@@ -85,7 +82,9 @@ TESTSUITE_SED="
 "
 
 launch_testsuite() {
-    export EXTRATESTOPTS="-uall,-network,-audio,-gui,-largefile"
+    EXTRATESTOPTS="-uall,-network,-audio,-gui,-largefile"
+    EXTRATESTOPTS+=" -j 1"
+    export EXTRATESTOPTS
     # Some tests have non-ASCII characters
     _LC_ALL=$LC_ALL
     export LC_ALL=en_US.UTF-8
@@ -95,14 +94,15 @@ launch_testsuite() {
 
 test_dtrace() {
     [ -n "$SKIP_TESTSUITE" ] && return
-    pushd $TMPDIR/$BUILDDIR > /dev/null
-    # Dtrace requires elevated privileges.
-    $PFEXEC $SRCDIR/files/run-dtrace-tests | tee $SRCDIR/testsuite-d.log
+    pushd $TMPDIR/$BUILDDIR >/dev/null
+    # Dtrace tests require elevated privileges. They will have been skipped
+    # as part of the full testsuite run.
+    $PFEXEC $MAKE test TESTOPTS=test_dtrace | tee $SRCDIR/testsuite-d.log
     sed -i "$TESTSUITE_SED" $SRCDIR/testsuite-d.log
     # Reset ownership on the python 3 cache directories/files that will have
     # been created owned by root.
     $PFEXEC chown -R "`stat -c %U $SRCDIR`" .
-    popd
+    popd >/dev/null
 }
 
 init
