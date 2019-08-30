@@ -29,7 +29,7 @@
 
 PROG=bash
 VER=5.0
-PATCHLEVEL=9
+PATCHLEVEL=11
 PKG=shell/bash
 SUMMARY="GNU Bash"
 DESC="GNU Bourne-Again shell (bash)"
