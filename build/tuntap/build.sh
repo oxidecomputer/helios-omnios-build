@@ -1,28 +1,19 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Use is subject to license terms.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -32,25 +23,17 @@ PKG=driver/tuntap
 SUMMARY="TUN/TAP driver for OmniOS"
 DESC="TUN/TAP driver for OmniOS based on the Universal TUN/TAP Driver"
 
-# do not build 64bit objects when compiling for 32bit objects
-CONFIGURE_OPTS_32="--disable-64bit"
+set_arch 64
 
-# Re-define make_clean() to always run 'make clean' due to there because
-# 'make distclean' in tun/tap's Makefile does not run 'make clean', and
-# thus keeps 32bit objects around when we try to compile 64bit ones.
-make_clean() {
-    pushd $TMPDIR/$BUILDDIR > /dev/null
-    logcmd $MAKE clean
-    logcmd $MAKE distclean
-    popd > /dev/null
-}
+# Ensure that the standard function prologue remains at the very start of a
+# function, so DTrace fbt will instrument the right place.
+CFLAGS+=" -fno-shrink-wrap"
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 make_package
 clean_up
 
