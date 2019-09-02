@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.60.6
+VER=2.60.7
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
@@ -35,6 +35,9 @@ RUN_DEPENDS_IPS="
     runtime/python-$PYTHONPKGVER
     runtime/perl-64
 "
+
+# ninja does not support the --quiet option
+MAKE_TESTSUITE_ARGS=
 
 # use GNU msgfmt; otherwise the build fails
 PATH="/usr/gnu/bin:$PATH:/opt/ooce/bin"
