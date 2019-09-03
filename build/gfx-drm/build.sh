@@ -35,6 +35,8 @@ BUILDARCH=64
 : ${GFX_DRM_SOURCE_REPO:=$GITHUB/gfx-drm}
 : ${GFX_DRM_SOURCE_BRANCH:=r$RELVER}
 
+set_gccver $ILLUMOS_GCC_VER
+
 init
 WORKDIR=$TMPDIR/$BUILDDIR/$PROG
 DESTDIR=$WORKDIR/proto/root_i386
@@ -66,7 +68,7 @@ pre_build() {
 			export PKGPUBLISHER=$PKGPUBLISHER
 			export SUPPRESSPKGDEP=true
 			export PKGVERS_BRANCH=$PVER
-			export GNUC_ROOT=/opt/gcc-4.4.4
+			export GNUC_ROOT=$GCCPATH
 		EOM
     ) > env-d.sh
     sed < env-d.sh > env.sh '
