@@ -45,7 +45,7 @@ BUILD_DEPENDS_IPS="
 "
 SKIP_LICENCES='qemu.license'
 
-set_gccver 4.4.4
+set_gccver $ILLUMOS_GCC_VER
 set_arch 64
 
 # Unset the prefix because we actually DO want things in kernel etc
@@ -84,8 +84,8 @@ make_prog() {
     logcmd $MAKE \
         KERNEL_SOURCE=$KERNEL_SOURCE \
         PROTO_AREA=$PROTO_AREA \
-        CC=/opt/gcc-4.4.4/bin/gcc \
-        PRIMARY_COMPILER_VER=4 \
+        CC=$GCC \
+        PRIMARY_COMPILER_VER=$GCCVER \
         || logerr "--- Make failed"
     logcmd cp $KERNEL_SOURCE/usr/src/OPENSOLARIS.LICENSE \
         $SRCDIR/OPENSOLARIS.LICENSE \

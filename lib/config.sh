@@ -221,6 +221,7 @@ CXX=g++
 
 # Specify default versions for building packages
 DEFAULT_GCC_VER=8
+ILLUMOS_GCC_VER=7
 PYTHON2VER=2.7
 PYTHON3VER=3.5
 DEFAULT_PYTHON_VER=$PYTHON3VER
