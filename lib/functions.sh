@@ -369,8 +369,8 @@ set_gccver() {
     [ -x "$GCC" ] || logerr "Unknown compiler version $GCCVER"
     PATH="$GCCPATH/bin:$BASEPATH"
     for cmd in gcc g++; do
-        [ -h $TMPDIR/tools/$cmd ] && rm -f $TMPDIR/tools/$cmd
-        ln -sf $GCCPATH/bin/$cmd $TMPDIR/tools/$cmd || logerr "$cmd link"
+        [ -h $BASE_TMPDIR/tools/$cmd ] && rm -f $TMPDIR/tools/$cmd
+        ln -sf $GCCPATH/bin/$cmd $BASE_TMPDIR/tools/$cmd || logerr "$cmd link"
     done
     if [ -n "$USE_CCACHE" ]; then
         [ -x $CCACHE_PATH/ccache ] || logerr "Ccache is not installed"
