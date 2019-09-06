@@ -26,11 +26,11 @@
 . ../../lib/functions.sh
 
 PROG=libsigc++
-VER=2.99.13
+VER=3.0.0
 VERHUMAN=$VER
 PKG=library/c++/sigcpp
-SUMMARY="libsigc++ - a library that implements typesafe callback system"
-DESC="$SUMMARY"
+SUMMARY="$PROG"
+DESC="A library that implements typesafe callback system for standard C++"
 
 export MAKE
 CONFIGURE_OPTS="--includedir=/usr/include"
