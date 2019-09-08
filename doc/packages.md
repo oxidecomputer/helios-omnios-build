@@ -22,13 +22,13 @@
 | developer/parser/bison		| 3.4.1			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.23.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.1.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.1			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 8.31			| https://git.savannah.gnu.org/cgit/coreutils.git/refs/tags
 | file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
-| library/c++/sigcpp			| 2.99.13		| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
+| library/c++/sigcpp			| 3.0.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.7			| https://github.com/libexpat/libexpat/releases
 | library/gmp				| 6.1.2			| https://gmplib.org/
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
@@ -94,7 +94,7 @@
 | text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.65.3		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.60.7		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.62.0		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.32			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.41		| https://github.com/Azure/WALinuxAgent/releases
@@ -105,8 +105,8 @@
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-35		| 19.1.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-35		| 1.12.3		| https://pypi.org/project/cffi
-| library/python-3/cheroot-35		| 6.5.6			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-35		| 18.1.2		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/cheroot-35		| 6.5.8			| https://pypi.org/project/cheroot
+| library/python-3/cherrypy-35		| 18.2.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
