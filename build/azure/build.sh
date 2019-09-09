@@ -16,6 +16,15 @@
 
 . ../../lib/functions.sh
 
+PROG=WAGuestAgent
+PKG=system/virtualization/azure-agent
+VER=2.2.42
+SUMMARY="Microsoft Azure Guest Agent"
+DESC="The $SUMMARY (waagent) manages provisioning and VM interaction "
+DESC+="with the Azure Fabric Controller."
+
+BUILDDIR=WALinuxAgent-$VER
+
 # The "rmvolmgr" service is relied upon to mount and umount the
 # provisioning ISO that is attached to the VM when running on Azure.
 RUN_DEPENDS_IPS="
@@ -24,35 +33,13 @@ RUN_DEPENDS_IPS="
     service/storage/media-volume-manager
 "
 
-PROG=WAGuestAgent
-PKG=system/virtualization/azure-agent
-VER=2.2.41
-SUMMARY="Microsoft Azure Guest Agent"
-DESC="The $SUMMARY (waagent) manages provisioning and VM interaction "
-DESC+="with the Azure Fabric Controller."
-
-# Respect environmental overrides for these to ease development.
-: ${WAAGENT_SOURCE_REPO:=$GITHUB/$PROG}
-: ${WAAGENT_SOURCE_BRANCH:=master}
-
-# Extend VER so that the temporary build directory is branch specific.
-# Branch names can include '/' so remove them.
-_VER=$VER
-VER+="-${WAAGENT_SOURCE_BRANCH//\//_}"
-
-clone_source() {
-    clone_github_source $PROG \
-        "$WAAGENT_SOURCE_REPO" "$WAAGENT_SOURCE_BRANCH" "$WAAGENT_CLONE"
-}
-
 init
-clone_source
-BUILDDIR+=/$PROG
-EXTRACTED_SRC=$BUILDDIR
+download_source $PROG v$VER ""
+patch_source
 prep_build
 python_build
-VER=$_VER make_package
-#clean_up
+make_package
+clean_up
 
 # Vim hints
 # vim:ts=4:sw=4:et:fdm=marker
