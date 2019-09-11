@@ -17,7 +17,7 @@
 #
 . ../../lib/functions.sh
 
-# rxvt-unicode terminfo definition is not shipped by ncurses.
+# The rxvt-unicode terminfo definition is not shipped by ncurses.
 # See https://invisible-island.net/ncurses/ncurses-urxvt.html
 
 PROG=rxvt-unicode
@@ -28,8 +28,8 @@ DESC="$SUMMARY"
 
 build() {
     TERMINFO=${DESTDIR}/usr/gnu/share/terminfo
-    mkdir -p $TERMINFO
-    /usr/gnu/bin/tic -xo $TERMINFO \
+    logcmd mkdir -p $TERMINFO
+    logcmd /usr/gnu/bin/tic -xo $TERMINFO \
         $TMPDIR/$BUILDDIR/doc/etc/${PROG}.terminfo \
         || logerr 'failed to install terminfo file'
 }
