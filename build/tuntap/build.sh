@@ -29,9 +29,17 @@ set_arch 64
 # function, so DTrace fbt will instrument the right place.
 CFLAGS+=" -fno-shrink-wrap"
 
+# Build the kernel module with retpolines and other settings that are used in
+# illumos-omnios
+CFLAGS+=" -ffreestanding -mcmodel=kernel"
+CFLAGS+=" -mno-mmx -mno-sse -mno-red-zone"
+CFLAGS+=" -mindirect-branch=thunk-extern"
+CFLAGS+=" -mindirect-branch-register"
+
 init
 download_source $PROG $PROG $VER
 patch_source
+run_autoreconf -fi
 prep_build
 build
 make_package
