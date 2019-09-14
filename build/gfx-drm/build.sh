@@ -14,6 +14,7 @@
 
 #
 # Copyright 2018 Thomas Merkel
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 
 . ../../lib/functions.sh
@@ -113,7 +114,14 @@ build() {
 make_package() {
     pushd $WORKDIR/usr/src/pkg/manifests
     logcmd rm -f {system-test-*,x11-*-libdrm}.mf
+    cat << EOM >> driver-graphics-drm.mf
+dir path=etc/versions group=sys
+file path=etc/versions/build.$PROG
+EOM
+    PKGFMT_OUTPUT=v1 pkgfmt driver-graphics-drm.mf
     popd
+    make_versionsbuild $PROG $DESTDIR $WORKDIR
+    make_versionsbuild $PROG $DESTDIR-nd $WORKDIR
 
     logmsg "Packages for agpgart and drm"
     pushd $WORKDIR > /dev/null
