@@ -36,8 +36,12 @@ r151032 release repository: https://pkg.omniosce.org/r151032/core
   omnios# ipadm show-prop tcp -p congestion_control
   PROTO PROPERTY              CURRENT      POSSIBLE
   tcp   congestion_control    sunreno      sunreno,newreno,cubic
-
   ```
+
+* The new `C.UTF-8` locale is available. This has all the characteristics of
+  the default C locale, other than having UTF-8 as its character map. It is
+  useful when one needs to have default messages, default collation rules
+  but take advantage of Unicode characters.
 
 * Improvements to the Enlightened Hyper-V drivers for running under Hyper-V
   or Microsoft Azure.
@@ -71,6 +75,33 @@ r151032 release repository: https://pkg.omniosce.org/r151032/core
 * `praudit` now supports the `-p` and `-g` flags in order that it can use
   a specified version of the *passwd* and *group* files when parsing audit
   logs.
+
+* `ps` now supports the `-F` option which generates a full listing (as `-f`)
+   but shows the full current process arguments and not the truncated start
+   arguments. The current arguments may have changed since the process was
+   started.
+   ```
+   omnios# ps -ef | grep sendmail
+      smmsp   623     1   0 23:18:54 ? 0:00 /usr/lib/smtp/sendmail/sendmail -Ac -q15m
+   omnios# ps -eF | grep sendmail
+      smmsp   623     1   0 23:18:54 ? 0:00 sendmail: Queue runner@00:15:00 for /var/spool/clientmqueue
+    ```
+
+* `pgrep` and `pkill` also now support the `-F` option in addition to the
+  existing `-f`. As for ps, this matches against and displays the current
+  process arguments instead of the truncated start arguments.
+  ```
+   omnios# pgrep -Fl sendmail:
+     623 sendmail: Queue runner@00:15:00 for /var/spool/clientmqueue
+   omnios# pgrep -fl sendmail
+     623 /usr/lib/smtp/sendmail/sendmail -Ac -q15m
+  ```
+
+* `ps auxww` no longer shows truncated process start arguments when run without
+  root privileges; the output is now consistent regardless.
+
+* `ptree` supports the new `-s` option to filter the output to processes
+  started by an SMF service.
 
 ### Zones
 
@@ -109,7 +140,10 @@ r151032 release repository: https://pkg.omniosce.org/r151032/core
   improve performance of these operations.
 
 * Support for specifying a desired `ashift` at pool creation time via
-  `zpool create -o ashift=XX pool ...`
+  `zpool create -o ashift=XX pool ...`. This can also be specified during
+  device attach or replacement to override pool requirements at the expense
+  of performance, which can be useful if it is necessary to add a 4K-sector
+  drive to an existing pool with ashift=9.
 
 ### Package Management
 
