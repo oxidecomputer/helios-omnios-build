@@ -20,15 +20,19 @@ PROG=dma
 VER=0.12
 PKG=service/network/smtp/dma
 SUMMARY="The DragonFly Mail Agent"
-DESC="$SUMMARY"
+DESC="A small lightweight Mail Transport Agent (MTA)"
 
 set_arch 64
 
 # adding ASLR flags to compiler and linker since
 # dma:             gets ASLR if linker flag is set
 # dma-mbox-create: gets ASLR if compiler flag is set
-CFLAGS+=" -pipe -Wl,-z,aslr -DHAVE_STRLCPY -DHAVE_GETPROGNAME"
+CFLAGS+=" -pipe -Wl,-z,aslr"
 LDADD="-Wl,-z,aslr -lssl -lcrypto -lresolv -lsocket -lnsl"
+
+# We have these functions so set the flags to stop dma building in its own
+# versions.
+CFLAGS+=" -DHAVE_STRLCPY -DHAVE_GETPROGNAME -DHAVE_REALLOCF"
 
 export PREFIX=/usr
 export SBIN=${PREFIX}/lib/smtp/dma
