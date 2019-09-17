@@ -117,6 +117,7 @@ fix_drivers
 SUMMARY="illumos KVM kernel driver ($PROG ${KVM_COMMIT:0:10})"
 DESC="KVM is the kernel virtual machine, a framework for the in-kernel "
 DESC+="acceleration of QEMU."
+make_versionsbuild $PROG
 make_package kvm.mog
 clean_up
 

@@ -2168,5 +2168,16 @@ inherit_ver() {
     logmsg "-- inherited version '$VER'"
 }
 
+make_versionsbuild() {
+    local prog=$1
+    local dir=${2:-$DESTDIR}
+    local bdir=${3:-$TMPDIR/$BUILDDIR}
+
+    logcmd mkdir -p $dir/etc/versions || logerr "-- mkdir etc/versions"
+    echo "$prog - `$GIT -C "$bdir" describe --all --long --dirty`" \
+        > $dir/etc/versions/build.$prog \
+        || logerr "-- could not make /etc/versions/build.$1"
+}
+
 # Vim hints
 # vim:ts=4:sw=4:et:fdm=marker
