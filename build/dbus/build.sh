@@ -40,6 +40,7 @@ CONFIGURE_OPTS="
     --with-x=no
     --with-dbus-user=root
     --disable-static
+    --disable-inotify
 "
 
 export MAKE
