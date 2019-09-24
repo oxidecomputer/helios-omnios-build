@@ -31,7 +31,13 @@ build() {
     logcmd mkdir -p $TERMINFO
     logcmd /usr/gnu/bin/tic -xo $TERMINFO \
         $TMPDIR/$BUILDDIR/doc/etc/${PROG}.terminfo \
-        || logerr 'failed to install terminfo file'
+        || logerr 'failed to install terminfo file for ncurses'
+
+    # Also ship for the illumos libcurses
+    TERMINFO=${DESTDIR}/usr/share/lib/terminfo
+    logcmd mkdir -p $TERMINFO
+    TERMINFO=$TERMINFO /usr/bin/tic $TMPDIR/$BUILDDIR/doc/etc/${PROG}.terminfo \
+        2>/dev/null || logerr 'failed to install terminfo file for curses'
 }
 
 init
