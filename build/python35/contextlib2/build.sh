@@ -18,7 +18,7 @@
 
 PKG=library/python-3/contextlib2-35
 PROG=contextlib2
-VER=0.5.5
+VER=0.6.0
 SUMMARY="Utilities for with-statement contexts"
 DESC="Provides utilities for common tasks involving the with statement"
 

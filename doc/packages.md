@@ -109,7 +109,7 @@
 | library/python-3/cffi-35		| 1.12.3		| https://pypi.org/project/cffi
 | library/python-3/cheroot-35		| 6.5.8			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 18.2.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/contextlib2-35	| 0.5.5			| https://pypi.org/project/contextlib2
+| library/python-3/contextlib2-35	| 0.6.0			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
