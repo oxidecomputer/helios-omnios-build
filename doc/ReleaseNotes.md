@@ -13,6 +13,8 @@ r151032 release repository: https://pkg.omniosce.org/r151032/core
 
 ## Upgrade Notes
 
+XXX
+
 ## New features since r151030
 
 ### System Features
@@ -21,7 +23,7 @@ r151032 release repository: https://pkg.omniosce.org/r151032/core
   EFI system partition (ESP) on the root pool disks will automatically become
   UEFI-boot enabled following upgrade.
 
-* ZFS now has support for native encryption, TRIM, allocation classes and more.
+* ZFS now has support for native encryption, allocation classes and more.
 
 * Many improvements to the in-kernel SMB/CIFS support, including support for
   SMB3 and some Apple extensions for SMB2.
@@ -51,6 +53,14 @@ r151032 release repository: https://pkg.omniosce.org/r151032/core
 
 * The OmniOS kernel is now built with retpolines and other mitigations against
   CPU side-channel attacks.
+
+* The default resolution for the framebuffer console after boot is now
+  1024x768. This can be overriden by creating a file under `/boot/conf.d/`
+  assigning the desired resolution to the `boot_resolution` variable:
+  ```terminal
+  omnios# cat /boot/conf.d/bootres
+  boot_resolution=1280x1024
+  ```
 
 ### Commands and Command Options
 
@@ -105,6 +115,8 @@ r151032 release repository: https://pkg.omniosce.org/r151032/core
 
 ### Zones
 
+XXX
+
 ### LX zones
 
 * Improved support for newer Linux distributions.
@@ -134,9 +146,7 @@ r151032 release repository: https://pkg.omniosce.org/r151032/core
 * Support for
   [pool allocation classes](https://zfs.datto.com/2017\_slides/brady.pdf).
 
-* Support for UNMAP/TRIM for SSD devices.
-
-* ZFS now uses sorted scans (scrubs/resilvers/TRIM) which can significantly
+* ZFS now uses sorted scans (scrubs/resilvers) which can significantly
   improve performance of these operations.
 
 * Support for specifying a desired `ashift` at pool creation time via
@@ -146,6 +156,8 @@ r151032 release repository: https://pkg.omniosce.org/r151032/core
   drive to an existing pool with ashift=9.
 
 ### Package Management
+
+XXX
 
 ### Hardware Support
 
