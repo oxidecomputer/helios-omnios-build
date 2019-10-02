@@ -84,7 +84,7 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/test/fio			| 3.16			| https://github.com/axboe/fio/releases
-| terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
+| terminal/screen			| 4.7.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 2.9			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.0.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.7			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
