@@ -53,7 +53,7 @@
 | library/security/openssl-1.1		| 1.1.1d		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| meta/data/microcode			| 20190618		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
+| meta/data/microcode			| 20190918		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
 | network/dns/bind			| 9.11.11		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.0p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
@@ -84,7 +84,7 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/test/fio			| 3.16			| https://github.com/axboe/fio/releases
-| terminal/screen			| 4.6.2			| http://git.savannah.gnu.org/cgit/screen.git/refs/tags
+| terminal/screen			| 4.7.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 2.9			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.0.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.7			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
