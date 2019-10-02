@@ -29,7 +29,7 @@
 | file/gnu-coreutils			| 8.31			| https://git.savannah.gnu.org/cgit/coreutils.git/refs/tags
 | file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.0.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
-| library/expat				| 2.2.8			| https://github.com/libexpat/libexpat/releases
+| library/expat				| 2.2.9			| https://github.com/libexpat/libexpat/releases
 | library/gmp				| 6.1.2			| https://gmplib.org/
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.0.2			| http://www.mpfr.org/mpfr-current/
@@ -78,7 +78,7 @@
 | system/data/urxvt-terminfo		| 9.22			| http://dist.schmorp.de/rxvt-unicode/
 | system/library/dbus			| 1.12.16		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.110			| https://dbus.freedesktop.org/releases/dbus-glib/
-| system/library/pcap			| 1.9.0			| http://www.tcpdump.org/#latest-releases
+| system/library/pcap			| 1.9.1			| http://www.tcpdump.org/#latest-releases
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
@@ -100,14 +100,14 @@
 | developer/gnu-binutils		| 2.32			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.42		| https://github.com/Azure/WALinuxAgent/releases
-| system/virtualization/open-vm-tools	| 10.3.10		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
+| system/virtualization/open-vm-tools	| 11.0.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
-| library/python-3/attrs-35		| 19.1.0		| https://pypi.org/project/attrs
+| library/python-3/attrs-35		| 19.2.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-35		| 1.12.3		| https://pypi.org/project/cffi
-| library/python-3/cheroot-35		| 6.5.8			| https://pypi.org/project/cheroot
+| library/python-3/cheroot-35		| 7.0.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-35		| 18.2.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-35	| 0.6.0			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-35		| 4.5.4			| https://pypi.org/project/coverage
