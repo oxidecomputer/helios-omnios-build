@@ -516,7 +516,7 @@ parallel_build() {
     for tgt in `buildorder`; do
         # Defer this until last
         [ "$tgt" = "system/install/kayak-kernel" ] && continue
-        # If nightly is running, defer dependant services to last
+        # If nightly is running, defer dependent services to last
         if nightly_running && [[ $tgt = *illumos-gate ]]; then
                 defer+=($tgt)
                 continue
@@ -526,7 +526,8 @@ parallel_build() {
     for tgt in ${defer[@]}; do
         queue+=($tgt)
     done
-    [ -z "$SKIP_KAYAK_KERNEL" ] && queue+=(.WAIT system/install/kayak-kernel)
+    [ -z "$SKIP_KAYAK_KERNEL" ] && \
+        queue+=(.REBUILD system/install/kayak-kernel)
 
     pkgcount=${#queue[@]}
 
@@ -538,11 +539,21 @@ parallel_build() {
         ((pkgnum++))
 
         # Handle special targets
-        if [ "$tgt" = ".WAIT" ]; then
-            # Special target that waits until there are no running jobs
-            wait_for_jobs "emptying queue"
-            continue
-        fi
+        case "$tgt" in
+            .WAIT)
+                # Special target that waits until there are no running jobs
+                logmsg -n "-- waiting for jobs"
+                wait_for_jobs "emptying queue"
+                continue
+            ;;
+            .REBUILD)
+                # Rebuild the repository
+                logmsg -n "-- Rebuilding the package repository"
+                wait_for_jobs "emptying for rebuild"
+                pkgrepo -s $PKGSRVR rebuild
+                continue
+            ;;
+        esac
 
         # If this target belongs to the same script as an already running
         # job, skip it.
