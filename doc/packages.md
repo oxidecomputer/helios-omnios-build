@@ -104,7 +104,7 @@
 | developer/swig			| 4.0.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
-| library/python-3/asn1crypto-35	| 0.24.0		| https://pypi.org/project/asn1crypto
+| library/python-3/asn1crypto-35	| 1.0.1			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-35		| 19.2.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-35		| 1.12.3		| https://pypi.org/project/cffi
 | library/python-3/cheroot-35		| 7.0.0			| https://pypi.org/project/cheroot
