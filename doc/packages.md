@@ -133,4 +133,5 @@
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.14.1		| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-35	| 2.0			| https://pypi.org/project/zc.lockfile
+| library/python-3/zipp-35		| 0.6.0			| https://pypi.org/project/zipp
 
