@@ -29,7 +29,7 @@ diff -wpruN '--exclude=*.orig' a~/Makefile.in a/Makefile.in
 -	auth2-gss.o gss-serv.o gss-serv-krb5.o \
 +	auth2-gss.o gss-serv.o gss-serv-krb5.o kexgsss.o \
  	loginrec.o auth-pam.o auth-shadow.o auth-sia.o md5crypt.o \
- 	sftp-server.o sftp-common.o \
+ 	sftp-server.o sftp-common.o sftp-realpath.o \
  	sandbox-null.o sandbox-rlimit.o sandbox-systrace.o sandbox-darwin.o \
 diff -wpruN '--exclude=*.orig' a~/auth-krb5.c a/auth-krb5.c
 --- a~/auth-krb5.c	1970-01-01 00:00:00
@@ -120,7 +120,7 @@ diff -wpruN '--exclude=*.orig' a~/auth.c a/auth.c
 -	fromlen = sizeof(from);
 -	memset(&from, 0, sizeof(from));
 -	if (getpeername(ssh_packet_get_connection_in(ssh),
--	    (struct sockaddr *)&from, &fromlen) < 0) {
+-	    (struct sockaddr *)&from, &fromlen) == -1) {
 -		debug("getpeername failed: %.100s", strerror(errno));
 -		return strdup(ntop);
 -	}
@@ -291,7 +291,7 @@ diff -wpruN '--exclude=*.orig' a~/auth2-gss.c a/auth2-gss.c
 diff -wpruN '--exclude=*.orig' a~/auth2.c a/auth2.c
 --- a~/auth2.c	1970-01-01 00:00:00
 +++ a/auth2.c	1970-01-01 00:00:00
-@@ -75,6 +75,7 @@ extern Authmethod method_passwd;
+@@ -73,6 +73,7 @@ extern Authmethod method_passwd;
  extern Authmethod method_kbdint;
  extern Authmethod method_hostbased;
  #ifdef GSSAPI
@@ -299,7 +299,7 @@ diff -wpruN '--exclude=*.orig' a~/auth2.c a/auth2.c
  extern Authmethod method_gssapi;
  #endif
  
-@@ -82,6 +83,7 @@ Authmethod *authmethods[] = {
+@@ -80,6 +81,7 @@ Authmethod *authmethods[] = {
  	&method_none,
  	&method_pubkey,
  #ifdef GSSAPI
@@ -337,7 +337,7 @@ diff -wpruN '--exclude=*.orig' a~/canohost.c a/canohost.c
 +	fromlen = sizeof(from);
 +	memset(&from, 0, sizeof(from));
 +	if (getpeername(ssh_packet_get_connection_in(ssh),
-+	    (struct sockaddr *)&from, &fromlen) < 0) {
++	    (struct sockaddr *)&from, &fromlen) == -1) {
 +		debug("getpeername failed: %.100s", strerror(errno));
 +		return strdup(ntop);
 +	}
@@ -437,7 +437,7 @@ diff -wpruN '--exclude=*.orig' a~/clientloop.c a/clientloop.c
  /* import options */
  extern Options options;
  
-@@ -1374,9 +1378,18 @@ client_loop(struct ssh *ssh, int have_pt
+@@ -1373,9 +1377,18 @@ client_loop(struct ssh *ssh, int have_pt
  			break;
  
  		/* Do channel operations unless rekeying in progress. */
@@ -460,7 +460,7 @@ diff -wpruN '--exclude=*.orig' a~/clientloop.c a/clientloop.c
 diff -wpruN '--exclude=*.orig' a~/configure.ac a/configure.ac
 --- a~/configure.ac	1970-01-01 00:00:00
 +++ a/configure.ac	1970-01-01 00:00:00
-@@ -665,6 +665,30 @@ main() { if (NSVersionOfRunTimeLibrary("
+@@ -666,6 +666,30 @@ main() { if (NSVersionOfRunTimeLibrary("
  	    [Use tunnel device compatibility to OpenBSD])
  	AC_DEFINE([SSH_TUN_PREPEND_AF], [1],
  	    [Prepend the address family to IP tunnel traffic])
@@ -1277,9 +1277,9 @@ diff -wpruN '--exclude=*.orig' a~/gss-serv.c a/gss-serv.c
 diff -wpruN '--exclude=*.orig' a~/hmac.c a/hmac.c
 --- a~/hmac.c	1970-01-01 00:00:00
 +++ a/hmac.c	1970-01-01 00:00:00
-@@ -19,6 +19,7 @@
+@@ -21,6 +21,7 @@
  
- #include <sys/types.h>
+ #include <stdlib.h>
  #include <string.h>
 +#include <stdlib.h>
  
@@ -1307,7 +1307,7 @@ diff -wpruN '--exclude=*.orig' a~/kex.c a/kex.c
  static int kex_input_newkeys(int, u_int32_t, struct ssh *);
 @@ -113,15 +118,28 @@ static const struct kexalg kexalgs[] = {
  #endif /* HAVE_EVP_SHA256 || !WITH_OPENSSL */
- 	{ NULL, -1, -1, -1},
+ 	{ NULL, 0, -1, -1},
  };
 +static const struct kexalg gss_kexalgs[] = {
 +#ifdef GSSAPI
@@ -1367,7 +1367,7 @@ diff -wpruN '--exclude=*.orig' a~/kex.c a/kex.c
  	return NULL;
  }
  
-@@ -301,6 +335,29 @@ kex_assemble_names(char **listp, const c
+@@ -313,6 +347,29 @@ kex_assemble_names(char **listp, const c
  	return r;
  }
  
@@ -1397,7 +1397,7 @@ diff -wpruN '--exclude=*.orig' a~/kex.c a/kex.c
  /* put algorithm proposal into buffer */
  int
  kex_prop2buf(struct sshbuf *b, char *proposal[PROPOSAL_MAX])
-@@ -657,6 +714,9 @@ kex_free(struct kex *kex)
+@@ -696,6 +753,9 @@ kex_free(struct kex *kex)
  	sshbuf_free(kex->server_version);
  	sshbuf_free(kex->client_pub);
  	free(kex->session_id);
@@ -1410,7 +1410,7 @@ diff -wpruN '--exclude=*.orig' a~/kex.c a/kex.c
 diff -wpruN '--exclude=*.orig' a~/kex.h a/kex.h
 --- a~/kex.h	1970-01-01 00:00:00
 +++ a/kex.h	1970-01-01 00:00:00
-@@ -103,6 +103,15 @@ enum kex_exchange {
+@@ -102,6 +102,15 @@ enum kex_exchange {
  	KEX_ECDH_SHA2,
  	KEX_C25519_SHA256,
  	KEX_KEM_SNTRUP4591761X25519_SHA512,
@@ -1426,7 +1426,7 @@ diff -wpruN '--exclude=*.orig' a~/kex.h a/kex.h
  	KEX_MAX
  };
  
-@@ -154,6 +163,12 @@ struct kex {
+@@ -153,6 +162,12 @@ struct kex {
  	u_int	flags;
  	int	hash_alg;
  	int	ec_nid;
@@ -1439,7 +1439,7 @@ diff -wpruN '--exclude=*.orig' a~/kex.h a/kex.h
  	char	*failed_choice;
  	int	(*verify_host_key)(struct sshkey *, struct ssh *);
  	struct sshkey *(*load_host_public_key)(int, int, struct ssh *);
-@@ -175,8 +190,10 @@ struct kex {
+@@ -174,8 +189,10 @@ struct kex {
  
  int	 kex_names_valid(const char *);
  char	*kex_alg_list(char);
@@ -1450,7 +1450,7 @@ diff -wpruN '--exclude=*.orig' a~/kex.h a/kex.h
  
  int	 kex_exchange_identification(struct ssh *, int, const char *);
  
-@@ -203,6 +220,12 @@ int	 kexgex_client(struct ssh *);
+@@ -202,6 +219,12 @@ int	 kexgex_client(struct ssh *);
  int	 kexgex_server(struct ssh *);
  int	 kex_gen_client(struct ssh *);
  int	 kex_gen_server(struct ssh *);
@@ -1463,7 +1463,7 @@ diff -wpruN '--exclude=*.orig' a~/kex.h a/kex.h
  
  int	 kex_dh_keypair(struct kex *);
  int	 kex_dh_enc(struct kex *, const struct sshbuf *, struct sshbuf **,
-@@ -235,6 +258,12 @@ int	 kexgex_hash(int, const struct sshbu
+@@ -234,6 +257,12 @@ int	 kexgex_hash(int, const struct sshbu
      const BIGNUM *, const u_char *, size_t,
      u_char *, size_t *);
  
@@ -1506,7 +1506,7 @@ diff -wpruN '--exclude=*.orig' a~/kexdh.c a/kexdh.c
 diff -wpruN '--exclude=*.orig' a~/kexgen.c a/kexgen.c
 --- a~/kexgen.c	1970-01-01 00:00:00
 +++ a/kexgen.c	1970-01-01 00:00:00
-@@ -43,7 +43,7 @@
+@@ -44,7 +44,7 @@
  static int input_kex_gen_init(int, u_int32_t, struct ssh *);
  static int input_kex_gen_reply(int type, u_int32_t seq, struct ssh *ssh);
  
@@ -2608,8 +2608,8 @@ diff -wpruN '--exclude=*.orig' a~/kexgsss.c a/kexgsss.c
 diff -wpruN '--exclude=*.orig' a~/mac.c a/mac.c
 --- a~/mac.c	1970-01-01 00:00:00
 +++ a/mac.c	1970-01-01 00:00:00
-@@ -29,6 +29,7 @@
- 
+@@ -30,6 +30,7 @@
+ #include <stdlib.h>
  #include <string.h>
  #include <stdio.h>
 +#include <stdlib.h>
@@ -2942,7 +2942,7 @@ diff -wpruN '--exclude=*.orig' a~/monitor_wrap.c a/monitor_wrap.c
 diff -wpruN '--exclude=*.orig' a~/monitor_wrap.h a/monitor_wrap.h
 --- a~/monitor_wrap.h	1970-01-01 00:00:00
 +++ a/monitor_wrap.h	1970-01-01 00:00:00
-@@ -61,8 +61,10 @@ int mm_sshkey_verify(const struct sshkey
+@@ -63,8 +63,10 @@ int mm_sshkey_verify(const struct sshkey
  OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
  OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *,
     gss_buffer_desc *, gss_buffer_desc *, OM_uint32 *);
@@ -2997,7 +2997,7 @@ diff -wpruN '--exclude=*.orig' a~/readconf.c a/readconf.c
  #endif
  #ifdef ENABLE_PKCS11
  	{ "pkcs11provider", oPKCS11Provider },
-@@ -1000,10 +1015,42 @@ parse_time:
+@@ -1005,10 +1020,42 @@ parse_time:
  		intptr = &options->gss_authentication;
  		goto parse_flag;
  
@@ -3040,7 +3040,7 @@ diff -wpruN '--exclude=*.orig' a~/readconf.c a/readconf.c
  	case oBatchMode:
  		intptr = &options->batch_mode;
  		goto parse_flag;
-@@ -1878,7 +1925,13 @@ initialize_options(Options * options)
+@@ -1887,7 +1934,13 @@ initialize_options(Options * options)
  	options->pubkey_authentication = -1;
  	options->challenge_response_authentication = -1;
  	options->gss_authentication = -1;
@@ -3054,7 +3054,7 @@ diff -wpruN '--exclude=*.orig' a~/readconf.c a/readconf.c
  	options->password_authentication = -1;
  	options->kbd_interactive_authentication = -1;
  	options->kbd_interactive_devices = NULL;
-@@ -2027,8 +2080,18 @@ fill_default_options(Options * options)
+@@ -2036,8 +2089,18 @@ fill_default_options(Options * options)
  		options->challenge_response_authentication = 1;
  	if (options->gss_authentication == -1)
  		options->gss_authentication = 0;
@@ -3073,7 +3073,7 @@ diff -wpruN '--exclude=*.orig' a~/readconf.c a/readconf.c
  	if (options->password_authentication == -1)
  		options->password_authentication = 1;
  	if (options->kbd_interactive_authentication == -1)
-@@ -2647,7 +2710,14 @@ dump_client_config(Options *o, const cha
+@@ -2656,7 +2719,14 @@ dump_client_config(Options *o, const cha
  	dump_cfg_fmtint(oGatewayPorts, o->fwd_opts.gateway_ports);
  #ifdef GSSAPI
  	dump_cfg_fmtint(oGssAuthentication, o->gss_authentication);
@@ -3183,7 +3183,7 @@ diff -wpruN '--exclude=*.orig' a~/servconf.c a/servconf.c
  	{ "kbdinteractiveauthentication", sKbdInteractiveAuthentication, SSHCFG_ALL },
  	{ "challengeresponseauthentication", sChallengeResponseAuthentication, SSHCFG_GLOBAL },
  	{ "skeyauthentication", sDeprecated, SSHCFG_GLOBAL },
-@@ -1619,6 +1643,10 @@ process_server_config_line(ServerOptions
+@@ -1622,6 +1646,10 @@ process_server_config_line(ServerOptions
  		intptr = &options->gss_authentication;
  		goto parse_flag;
  
@@ -3194,7 +3194,7 @@ diff -wpruN '--exclude=*.orig' a~/servconf.c a/servconf.c
  	case sGssCleanupCreds:
  		intptr = &options->gss_cleanup_creds;
  		goto parse_flag;
-@@ -1627,6 +1655,22 @@ process_server_config_line(ServerOptions
+@@ -1630,6 +1658,22 @@ process_server_config_line(ServerOptions
  		intptr = &options->gss_strict_acceptor;
  		goto parse_flag;
  
@@ -3217,7 +3217,7 @@ diff -wpruN '--exclude=*.orig' a~/servconf.c a/servconf.c
  	case sPasswordAuthentication:
  		intptr = &options->password_authentication;
  		goto parse_flag;
-@@ -2760,6 +2804,10 @@ dump_config(ServerOptions *o)
+@@ -2766,6 +2810,10 @@ dump_config(ServerOptions *o)
  #ifdef GSSAPI
  	dump_cfg_fmtint(sGssAuthentication, o->gss_authentication);
  	dump_cfg_fmtint(sGssCleanupCreds, o->gss_cleanup_creds);
@@ -3449,7 +3449,7 @@ diff -wpruN '--exclude=*.orig' a~/ssh_config a/ssh_config
 diff -wpruN '--exclude=*.orig' a~/ssh_config.4 a/ssh_config.4
 --- a~/ssh_config.4	1970-01-01 00:00:00
 +++ a/ssh_config.4	1970-01-01 00:00:00
-@@ -762,10 +762,67 @@ The default is
+@@ -766,10 +766,67 @@ The default is
  Specifies whether user authentication based on GSSAPI is allowed.
  The default is
  .Cm no .
@@ -3644,7 +3644,7 @@ diff -wpruN '--exclude=*.orig' a~/sshconnect2.c a/sshconnect2.c
  	{"gssapi-with-mic",
  		userauth_gssapi,
  		userauth_gssapi_cleanup,
-@@ -722,12 +790,25 @@ userauth_gssapi(struct ssh *ssh)
+@@ -721,12 +789,25 @@ userauth_gssapi(struct ssh *ssh)
  	OM_uint32 min;
  	int r, ok = 0;
  	gss_OID mech = NULL;
@@ -3671,7 +3671,7 @@ diff -wpruN '--exclude=*.orig' a~/sshconnect2.c a/sshconnect2.c
  
  	/* Check to see whether the mechanism is usable before we offer it */
  	while (authctxt->mech_tried < authctxt->gss_supported_mechs->count &&
-@@ -736,13 +817,15 @@ userauth_gssapi(struct ssh *ssh)
+@@ -735,13 +816,15 @@ userauth_gssapi(struct ssh *ssh)
  		    elements[authctxt->mech_tried];
  		/* My DER encoding requires length<128 */
  		if (mech->length < 128 && ssh_gssapi_check_mechanism(&gssctxt,
@@ -3688,7 +3688,7 @@ diff -wpruN '--exclude=*.orig' a~/sshconnect2.c a/sshconnect2.c
  	if (!ok || mech == NULL)
  		return 0;
  
-@@ -982,6 +1065,55 @@ input_gssapi_error(int type, u_int32_t p
+@@ -981,6 +1064,55 @@ input_gssapi_error(int type, u_int32_t p
  	free(lang);
  	return r;
  }
@@ -3769,7 +3769,7 @@ diff -wpruN '--exclude=*.orig' a~/sshd.c a/sshd.c
  		sshpkt_fatal(ssh, r, "%s: send", __func__);
  	sshbuf_free(buf);
  }
-@@ -1780,7 +1784,8 @@ main(int ac, char **av)
+@@ -1784,7 +1788,8 @@ main(int ac, char **av)
  		free(fp);
  	}
  	accumulate_host_timing_secret(cfg, NULL);
@@ -3779,7 +3779,7 @@ diff -wpruN '--exclude=*.orig' a~/sshd.c a/sshd.c
  		logit("sshd: no hostkeys available -- exiting.");
  		exit(1);
  	}
-@@ -2112,6 +2117,60 @@ main(int ac, char **av)
+@@ -2117,6 +2122,60 @@ main(int ac, char **av)
  	    rdomain == NULL ? "" : "\"");
  	free(laddr);
  
@@ -3840,7 +3840,7 @@ diff -wpruN '--exclude=*.orig' a~/sshd.c a/sshd.c
  	/*
  	 * We don't want to listen forever unless the other side
  	 * successfully authenticates itself.  So we set up an alarm which is
-@@ -2328,6 +2387,48 @@ do_ssh2_kex(struct ssh *ssh)
+@@ -2333,6 +2392,48 @@ do_ssh2_kex(struct ssh *ssh)
  	myproposal[PROPOSAL_SERVER_HOST_KEY_ALGS] = compat_pkalg_proposal(
  	    list_hostkey_types());
  
@@ -3889,7 +3889,7 @@ diff -wpruN '--exclude=*.orig' a~/sshd.c a/sshd.c
  	/* start key exchange */
  	if ((r = kex_setup(ssh, myproposal)) != 0)
  		fatal("kex_setup: %s", ssh_err(r));
-@@ -2343,7 +2444,18 @@ do_ssh2_kex(struct ssh *ssh)
+@@ -2348,7 +2449,18 @@ do_ssh2_kex(struct ssh *ssh)
  # ifdef OPENSSL_HAS_ECC
  	kex->kex[KEX_ECDH_SHA2] = kex_gen_server;
  # endif
@@ -3923,7 +3923,7 @@ diff -wpruN '--exclude=*.orig' a~/sshd_config a/sshd_config
 diff -wpruN '--exclude=*.orig' a~/sshd_config.4 a/sshd_config.4
 --- a~/sshd_config.4	1970-01-01 00:00:00
 +++ a/sshd_config.4	1970-01-01 00:00:00
-@@ -664,6 +664,11 @@ Specifies whether to automatically destr
+@@ -666,6 +666,11 @@ Specifies whether to automatically destr
  on logout.
  The default is
  .Cm yes .
@@ -3935,7 +3935,7 @@ diff -wpruN '--exclude=*.orig' a~/sshd_config.4 a/sshd_config.4
  .It Cm GSSAPIStrictAcceptorCheck
  Determines whether to be strict about the identity of the GSSAPI acceptor
  a client authenticates against.
-@@ -678,6 +683,31 @@ machine's default store.
+@@ -680,6 +685,31 @@ machine's default store.
  This facility is provided to assist with operation on multi homed machines.
  The default is
  .Cm yes .
@@ -3970,7 +3970,7 @@ diff -wpruN '--exclude=*.orig' a~/sshd_config.4 a/sshd_config.4
 diff -wpruN '--exclude=*.orig' a~/sshkey.c a/sshkey.c
 --- a~/sshkey.c	1970-01-01 00:00:00
 +++ a/sshkey.c	1970-01-01 00:00:00
-@@ -135,6 +135,7 @@ static const struct keytype keytypes[] =
+@@ -145,6 +145,7 @@ static const struct keytype keytypes[] =
  #  endif /* OPENSSL_HAS_NISTP521 */
  # endif /* OPENSSL_HAS_ECC */
  #endif /* WITH_OPENSSL */
@@ -3978,7 +3978,7 @@ diff -wpruN '--exclude=*.orig' a~/sshkey.c a/sshkey.c
  	{ NULL, NULL, NULL, -1, -1, 0, 0 }
  };
  
-@@ -223,7 +224,7 @@ sshkey_alg_list(int certs_only, int plai
+@@ -233,7 +234,7 @@ sshkey_alg_list(int certs_only, int plai
  	const struct keytype *kt;
  
  	for (kt = keytypes; kt->type != -1; kt++) {
