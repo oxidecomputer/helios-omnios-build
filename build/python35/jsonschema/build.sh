@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-#
+
 . ../../../lib/functions.sh
 
 PKG=library/python-3/jsonschema-35
 PROG=jsonschema
-VER=3.0.2
+VER=3.1.0
 SUMMARY="An implementation of JSON Schema validation for Python"
 DESC="$SUMMARY"
 
@@ -27,6 +27,8 @@ DESC="$SUMMARY"
 RUN_DEPENDS_IPS+="
     library/python-$PYMVER/attrs-$SPYVER
     library/python-$PYMVER/pyrsistent-$SPYVER
+    library/python-$PYMVER/js-regex-$SPYVER
+    library/python-$PYMVER/importlib-metadata-$SPYVER
 "
 
 init
