@@ -13,13 +13,13 @@
 #
 # }}}
 
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-3/jaraco.functools-35
 PROG=jaraco.functools
-VER=1.20
+VER=2.0
 SUMMARY="jaraco.functools - Additional functools"
 DESC="$SUMMARY"
 
