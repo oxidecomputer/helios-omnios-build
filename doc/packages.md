@@ -128,7 +128,7 @@
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-35	| 0.15.4		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-35		| 2019.2		| https://pypi.org/project/pytz
-| library/python-3/setuptools-37	| 41.2.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 41.4.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.14.1		| https://pypi.org/project/tempora
