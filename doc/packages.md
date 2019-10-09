@@ -113,6 +113,7 @@
 | library/python-3/coverage-35		| 4.5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
+| library/python-3/importlib-metadata-35 | 0.23			| https://pypi.org/project/importlib-metadata
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-35	| 3.0.2			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.1.0			| https://pypi.org/project/Mako
