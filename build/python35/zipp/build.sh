@@ -10,18 +10,17 @@
 # A full copy of the text of the CDDL should have accompanied this
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
-#
 # }}}
-
+#
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/jaraco.functools-35
-PROG=jaraco.functools
-VER=2.0
-SUMMARY="jaraco.functools - Additional functools"
-DESC="$SUMMARY"
+PKG=library/python-3/zipp-35
+PROG=zipp
+VER=0.6.0
+SUMMARY="Backport of pathlib-compatible object wrapper for zip files"
+DESC="A pathlib-compatible Zipfile object wrapper"
 
 . $SRCDIR/../common.sh
 
@@ -30,7 +29,6 @@ download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
-strip_install
 make_package
 clean_up
 

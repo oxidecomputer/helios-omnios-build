@@ -10,27 +10,31 @@
 # A full copy of the text of the CDDL should have accompanied this
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
-#
 # }}}
-
+#
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/jaraco.functools-35
-PROG=jaraco.functools
-VER=2.0
-SUMMARY="jaraco.functools - Additional functools"
-DESC="$SUMMARY"
+PKG=library/python-3/importlib-metadata-35
+PROG=importlib-metadata
+VER=0.23
+SUMMARY="Read metadata from Python packages"
+DESC="A library to access the metadata for a Python package"
 
 . $SRCDIR/../common.sh
 
+BUILDDIR=${PROG//-/_}-$VER
+
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/zipp-$SPYVER
+"
+
 init
-download_source pymodules/$PROG $PROG $VER
+download_source pymodules/$PROG $BUILDDIR
 patch_source
 prep_build
 python_build
-strip_install
 make_package
 clean_up
 

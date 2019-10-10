@@ -113,10 +113,13 @@
 | library/python-3/coverage-35		| 4.5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
 | library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
+| library/python-3/importlib-metadata-35 | 0.23			| https://pypi.org/project/importlib-metadata
+| library/python-3/jaraco.functools-35	| 2.0			| https://pypi.org/project/jaraco.functools
+| library/python-3/js-regex-35		| 1.0.0			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-35	| 3.0.2			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-35	| 3.1.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-35		| 1.1.0			| https://pypi.org/project/Mako
-| library/python-3/meson-35		| 0.51.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-35		| 0.52.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-35	| 7.2.0			| https://pypi.org/project/more-itertools
 | library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
@@ -127,10 +130,11 @@
 | library/python-3/pycurl-35		| 7.43.0.3		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-35	| 0.15.4		| https://pypi.org/project/pyrsistent
-| library/python-3/pytz-35		| 2019.2		| https://pypi.org/project/pytz
-| library/python-3/setuptools-37	| 41.2.0		| https://pypi.org/project/setuptools
+| library/python-3/pytz-35		| 2019.3		| https://pypi.org/project/pytz
+| library/python-3/setuptools-37	| 41.4.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-35		| 1.14.1		| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-35	| 2.0			| https://pypi.org/project/zc.lockfile
+| library/python-3/zipp-35		| 0.6.0			| https://pypi.org/project/zipp
 
