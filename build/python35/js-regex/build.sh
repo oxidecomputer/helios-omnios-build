@@ -18,9 +18,10 @@
 
 PKG=library/python-3/js-regex-35
 PROG=js-regex
-VER=1.0.0
 SUMMARY="A thin compatibility layer to use Javascript regular expressions"
 DESC="$SUMMARY"
+
+inherit_ver python37/js-regex
 
 . $SRCDIR/../common.sh
 

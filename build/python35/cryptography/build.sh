@@ -18,9 +18,10 @@
 
 PKG=library/python-3/cryptography-35
 PROG=cryptography
-VER=2.7
 SUMMARY="Cryptographic recipes and primitives"
 DESC="$SUMMARY"
+
+inherit_ver python37/cryptography
 
 . $SRCDIR/../common.sh
 

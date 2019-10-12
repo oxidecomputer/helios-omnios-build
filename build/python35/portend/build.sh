@@ -18,9 +18,10 @@
 
 PKG=library/python-3/portend-35
 PROG=portend
-VER=2.5
 SUMMARY="portend - TCP port monitoring utilities"
 DESC="$SUMMARY"
+
+inherit_ver python37/portend
 
 . $SRCDIR/../common.sh
 

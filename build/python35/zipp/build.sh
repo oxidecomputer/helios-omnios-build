@@ -18,9 +18,10 @@
 
 PKG=library/python-3/zipp-35
 PROG=zipp
-VER=0.6.0
 SUMMARY="Backport of pathlib-compatible object wrapper for zip files"
 DESC="A pathlib-compatible Zipfile object wrapper"
+
+inherit_ver python37/zipp
 
 . $SRCDIR/../common.sh
 

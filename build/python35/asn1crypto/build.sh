@@ -19,9 +19,10 @@
 
 PKG=library/python-3/asn1crypto-35
 PROG=asn1crypto
-VER=1.0.1
 SUMMARY="asn1crypto - Fast ASN.1 parser..."
 DESC="$SUMMARY"
+
+inherit_ver python37/asn1crypto
 
 . $SRCDIR/../common.sh
 

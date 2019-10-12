@@ -18,9 +18,10 @@
 
 PKG=library/python-3/simplejson-35
 PROG=simplejson
-VER=3.16.0
 SUMMARY="simplejson - Python interface to JSON for Python"
 DESC="$SUMMARY"
+
+inherit_ver python37/simplejson
 
 . $SRCDIR/../common.sh
 

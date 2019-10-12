@@ -18,9 +18,10 @@
 
 PKG=library/python-3/attrs-35
 PROG=attrs
-VER=19.2.0
 SUMMARY="Python attrs"
 DESC="Classes Without Boilerplate"
+
+inherit_ver python37/attrs
 
 . $SRCDIR/../common.sh
 

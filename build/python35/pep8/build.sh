@@ -19,9 +19,10 @@
 
 PKG=library/python-3/pep8-35
 PROG=pep8
-VER=1.7.1
 SUMMARY="pep8 - Python style guide checker"
 DESC="$SUMMARY"
+
+inherit_ver python37/pep8
 
 . $SRCDIR/../common.sh
 

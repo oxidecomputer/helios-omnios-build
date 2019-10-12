@@ -19,9 +19,10 @@
 
 PKG=library/python-3/functools_lru_cache-35
 PROG=backports.functools_lru_cache
-VER=1.5
 SUMMARY="Backport of functools.lru_cache from Python 3.3"
 DESC="$SUMMARY"
+
+inherit_ver python37/functools_lru_cache
 
 . $SRCDIR/../common.sh
 

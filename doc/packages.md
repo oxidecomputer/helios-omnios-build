@@ -103,38 +103,38 @@
 | system/virtualization/open-vm-tools	| 11.0.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
-| library/python-3/functools_lru_cache-35	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
-| library/python-3/asn1crypto-35	| 1.0.1			| https://pypi.org/project/asn1crypto
-| library/python-3/attrs-35		| 19.2.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-35		| 1.12.3		| https://pypi.org/project/cffi
-| library/python-3/cheroot-35		| 8.1.0			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-35		| 18.3.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/contextlib2-35	| 0.6.0			| https://pypi.org/project/contextlib2
-| library/python-3/coverage-35		| 4.5.4			| https://pypi.org/project/coverage
-| library/python-3/cryptography-35	| 2.7			| https://pypi.org/project/cryptography
-| library/python-3/idna-35		| 2.8			| https://pypi.org/project/idna
-| library/python-3/importlib-metadata-35 | 0.23			| https://pypi.org/project/importlib-metadata
-| library/python-3/jaraco.functools-35	| 2.0			| https://pypi.org/project/jaraco.functools
-| library/python-3/js-regex-35		| 1.0.0			| https://pypi.org/project/js-regex
-| library/python-3/jsonrpclib-35	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-35	| 3.1.1			| https://pypi.org/project/jsonschema
-| library/python-3/mako-35		| 1.1.0			| https://pypi.org/project/Mako
-| library/python-3/meson-35		| 0.52.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-35	| 7.2.0			| https://pypi.org/project/more-itertools
-| library/python-3/pep8-35		| 1.7.1			| https://pypi.org/project/pep8/
-| library/python-3/ply-35		| 3.11			| https://pypi.org/project/ply
-| library/python-3/portend-35		| 2.5			| https://pypi.org/project/portend
-| library/python-3/prettytable-35	| 0.7.2			| https://pypi.org/project/PrettyTable
-| library/python-3/pybonjour-35		| 1.1.1			| https://pypi.org/project/pybonjour
-| library/python-3/pycparser-35		| 2.19			| https://pypi.org/project/pycparser
-| library/python-3/pycurl-35		| 7.43.0.3		| https://pypi.org/project/pycurl
-| library/python-3/pyopenssl-35		| 19.0.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-35	| 0.15.4		| https://pypi.org/project/pyrsistent
-| library/python-3/pytz-35		| 2019.3		| https://pypi.org/project/pytz
+| library/python-3/functools_lru_cache-37	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
+| library/python-3/asn1crypto-37	| 1.0.1			| https://pypi.org/project/asn1crypto
+| library/python-3/attrs-37		| 19.2.0		| https://pypi.org/project/attrs
+| library/python-3/cffi-37		| 1.12.3		| https://pypi.org/project/cffi
+| library/python-3/cheroot-37		| 8.1.0			| https://pypi.org/project/cheroot
+| library/python-3/cherrypy-37		| 18.3.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/contextlib2-37	| 0.6.0			| https://pypi.org/project/contextlib2
+| library/python-3/coverage-37		| 4.5.4			| https://pypi.org/project/coverage
+| library/python-3/cryptography-37	| 2.7			| https://pypi.org/project/cryptography
+| library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
+| library/python-3/importlib-metadata-37 | 0.23			| https://pypi.org/project/importlib-metadata
+| library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
+| library/python-3/js-regex-37		| 1.0.0			| https://pypi.org/project/js-regex
+| library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
+| library/python-3/jsonschema-37	| 3.1.1			| https://pypi.org/project/jsonschema
+| library/python-3/mako-37		| 1.1.0			| https://pypi.org/project/Mako
+| library/python-3/meson-37		| 0.52.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/more-itertools-37	| 7.2.0			| https://pypi.org/project/more-itertools
+| library/python-3/pep8-37		| 1.7.1			| https://pypi.org/project/pep8/
+| library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
+| library/python-3/portend-37		| 2.5			| https://pypi.org/project/portend
+| library/python-3/prettytable-37	| 0.7.2			| https://pypi.org/project/PrettyTable
+| library/python-3/pybonjour-37		| 1.1.1			| https://pypi.org/project/pybonjour
+| library/python-3/pycparser-37		| 2.19			| https://pypi.org/project/pycparser
+| library/python-3/pycurl-37		| 7.43.0.3		| https://pypi.org/project/pycurl
+| library/python-3/pyopenssl-37		| 19.0.0		| https://pypi.org/project/pyOpenSSL
+| library/python-3/pyrsistent-37	| 0.15.4		| https://pypi.org/project/pyrsistent
+| library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
 | library/python-3/setuptools-37	| 41.4.0		| https://pypi.org/project/setuptools
-| library/python-3/simplejson-35	| 3.16.0		| https://pypi.org/project/simplejson
-| library/python-3/six-35		| 1.12.0		| https://pypi.org/project/six
-| library/python-3/tempora-35		| 1.14.1		| https://pypi.org/project/tempora
-| library/python-3/zc.lockfile-35	| 2.0			| https://pypi.org/project/zc.lockfile
-| library/python-3/zipp-35		| 0.6.0			| https://pypi.org/project/zipp
+| library/python-3/simplejson-37	| 3.16.0		| https://pypi.org/project/simplejson
+| library/python-3/six-37		| 1.12.0		| https://pypi.org/project/six
+| library/python-3/tempora-37		| 1.14.1		| https://pypi.org/project/tempora
+| library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
+| library/python-3/zipp-37		| 0.6.0			| https://pypi.org/project/zipp
 

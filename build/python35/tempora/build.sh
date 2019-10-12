@@ -18,9 +18,10 @@
 
 PKG=library/python-3/tempora-35
 PROG=tempora
-VER=1.14.1
 SUMMARY="Objects and routines pertaining to date and time"
 DESC="$SUMMARY"
+
+inherit_ver python37/tempora
 
 . $SRCDIR/../common.sh
 

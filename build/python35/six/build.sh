@@ -18,9 +18,10 @@
 
 PKG=library/python-3/six-35
 PROG=six
-VER=1.12.0
 SUMMARY="A Python 2 and 3 compatibility library"
 DESC="$SUMMARY"
+
+inherit_ver python37/six
 
 . $SRCDIR/../common.sh
 

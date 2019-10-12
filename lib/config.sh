@@ -21,7 +21,7 @@
 #
 # Copyright (c) 2015 by Delphix. All rights reserved.
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 #############################################################################
 # Configuration for the build system
@@ -223,7 +223,7 @@ CXX=g++
 DEFAULT_GCC_VER=8
 ILLUMOS_GCC_VER=7
 PYTHON2VER=2.7
-PYTHON3VER=3.5
+PYTHON3VER=3.7
 DEFAULT_PYTHON_VER=$PYTHON3VER
 
 # Options to turn compiler features on and off. Associative array keyed by

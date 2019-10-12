@@ -18,9 +18,10 @@
 
 PKG=library/python-3/coverage-35
 PROG=coverage
-VER=4.5.4
 SUMMARY="Python coverage module"
 DESC="Code coverage testing for Python"
+
+inherit_ver python37/coverage
 
 . $SRCDIR/../common.sh
 
