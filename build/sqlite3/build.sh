@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=sqlite-autoconf
-VER=3300000
+VER=3300100
 PKG=database/sqlite-3
 SUMMARY="SQL database engine library"
 DESC="SQLite is a self-contained, high-reliability, embedded, full-featured, "
