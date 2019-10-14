@@ -84,6 +84,7 @@
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
+| system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
 | system/test/fio			| 3.16			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.7.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 2.9			| https://github.com/tmux/tmux/releases http://tmux.github.io/
