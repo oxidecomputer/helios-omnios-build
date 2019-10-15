@@ -18,9 +18,10 @@
 
 PKG=library/python-3/mako-35
 PROG=Mako
-VER=1.1.0
 SUMMARY="Mako - a python templating language"
 DESC="$SUMMARY"
+
+inherit_ver python37/mako
 
 . $SRCDIR/../common.sh
 

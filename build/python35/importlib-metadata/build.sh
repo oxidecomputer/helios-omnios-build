@@ -18,9 +18,10 @@
 
 PKG=library/python-3/importlib-metadata-35
 PROG=importlib-metadata
-VER=0.23
 SUMMARY="Read metadata from Python packages"
 DESC="A library to access the metadata for a Python package"
+
+inherit_ver python37/importlib-metadata
 
 . $SRCDIR/../common.sh
 

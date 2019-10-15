@@ -480,6 +480,15 @@ if [ -n "$opensslver" -a "$opensslver" != "1.1" ]; then
 fi
 
 #############################################################################
+# Check the Python3 mediator
+#############################################################################
+
+_med=`pkg mediator -H python3 2>/dev/null| awk '{print $3}'`
+if [ -n "$_med" -a "$_med" != "$PYTHON3VER" ]; then
+    logerr "--- Python3 mediator is set incorrectly"
+fi
+
+#############################################################################
 # Print startup message
 #############################################################################
 
@@ -1694,12 +1703,10 @@ pre_python_64() {
 
 python_vendor_relocate() {
     pushd $DESTDIR/usr/lib >/dev/null || logerr "python relocate pushd"
-    for ver in $PYTHON2VER $PYTHON3VER; do
-        [ -d python$ver/site-packages ] || continue
-        logmsg "Relocating python $ver site to vendor-packages"
-        mv python$ver/site-packages python$ver/vendor-packages \
-            || logerr "python: cannot move from site to vendor-packages"
-    done
+    [ -d python$PYTHONVER/site-packages ] || continue
+    logmsg "Relocating python $PYTHONVER site to vendor-packages"
+    mv python$PYTHONVER/site-packages python$PYTHONVER/vendor-packages \
+        || logerr "python: cannot move from site to vendor-packages"
     popd >/dev/null
 }
 

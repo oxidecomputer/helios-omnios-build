@@ -18,9 +18,10 @@
 
 PKG=library/python-3/ply-35
 PROG=ply
-VER=3.11
 SUMMARY="ply - Python lex and yacc"
 DESC="$SUMMARY"
+
+inherit_ver python37/ply
 
 . $SRCDIR/../common.sh
 

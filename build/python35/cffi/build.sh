@@ -18,9 +18,10 @@
 
 PKG=library/python-3/cffi-35
 PROG=cffi
-VER=1.12.3
 SUMMARY="cffi"
 DESC="Foreign Function Interface for Python calling C code"
+
+inherit_ver python37/cffi
 
 . $SRCDIR/../common.sh
 

@@ -19,9 +19,10 @@
 
 PKG=library/python-3/jaraco.functools-35
 PROG=jaraco.functools
-VER=2.0
 SUMMARY="jaraco.functools - Additional functools"
 DESC="$SUMMARY"
+
+inherit_ver python37/jaraco.functools
 
 . $SRCDIR/../common.sh
 

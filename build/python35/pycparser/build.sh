@@ -19,9 +19,10 @@
 
 PKG=library/python-3/pycparser-35
 PROG=pycparser
-VER=2.19
 SUMMARY="Complete parser of the C language"
 DESC="$SUMMARY, written in pure Python"
+
+inherit_ver python37/pycparser
 
 . $SRCDIR/../common.sh
 

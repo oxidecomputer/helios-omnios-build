@@ -18,9 +18,10 @@
 
 PKG=library/python-3/pyopenssl-35
 PROG=pyOpenSSL
-VER=19.0.0
 SUMMARY="pyOpenSSL - Python interface to the OpenSSL library"
 DESC="$SUMMARY"
+
+inherit_ver python37/pyopenssl
 
 . $SRCDIR/../common.sh
 

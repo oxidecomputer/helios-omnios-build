@@ -43,6 +43,7 @@ HARDLINK_TARGETS="
     usr/bin/python$MVER
 "
 
+set_python_version $MVER
 set_arch 64
 
 export CCSHARED="-fPIC"
