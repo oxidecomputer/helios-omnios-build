@@ -46,6 +46,7 @@
 | library/nspr				| 4.22			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.33			| https://ftp.pcre.org/pub/pcre/
+| library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
 | library/readline			| 8.0			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
 | library/readline7-patchlvl		| 005			| https://ftp.gnu.org/gnu/readline/readline-7.0-patches/
@@ -83,6 +84,7 @@
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
+| system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
 | system/test/fio			| 3.16			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.7.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 2.9			| https://github.com/tmux/tmux/releases http://tmux.github.io/
