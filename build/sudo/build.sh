@@ -18,19 +18,17 @@
 . ../../lib/functions.sh
 
 PROG=sudo
-VER=1.8.28
+VER=1.8.28p1
 PKG=security/sudo
 SUMMARY="Authority delegation tool"
 DESC="Provide limited super-user privileges to specific users"
 
-CONFIGURE_OPTS_32+="
-    --bindir=/usr/bin
-    --sbindir=/usr/sbin
-    --libexecdir=/usr/lib/sudo
-"
+set_arch 64
+
 CONFIGURE_OPTS_64+="
-    --libexecdir=/usr/lib/sudo/amd64
+    --libexecdir=/usr/lib/$PROG/$ISAPART64
 "
+
 CONFIGURE_OPTS="
     --with-ldap
     --with-project
@@ -49,22 +47,12 @@ TESTSUITE_SED="
     /^libtool:/d
 "
 
-make_install64() {
-    # This file will exist from the 32-bit 'make install' and so this
-    # install will attempt to validate it and will fail because we aren't
-    # running as root. Remove the file and let the 64-bit installation
-    # re-create it.
-    logcmd rm -f $DESTDIR/etc/sudoers
-    make_install
-}
-
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
 run_testsuite check
-make_isa_stub
 VER=${VER//p/.}
 make_package
 clean_up
