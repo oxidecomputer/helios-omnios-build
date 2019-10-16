@@ -91,9 +91,8 @@ init
 download_source $PROG $PROG $VER
 move_manpages
 patch_source
-run_inbuild autoreconf -fi
+run_autoreconf -fi
 prep_build
-run_autoconf
 build
 install_smf network ssh.xml sshd
 
