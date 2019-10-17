@@ -48,7 +48,6 @@ download_source $PROG $PROG $VER
 patch_source
 run_autoreconf -fi
 prep_build
-run_autoconf
 build
 install_smf network ipmievd.xml svc-ipmievd
 make_package

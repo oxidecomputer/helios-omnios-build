@@ -69,12 +69,6 @@ CONFIGURE_OPTS="
     ac_cv_func_getentropy=no
 "
 
-# We patch auto* files so need to re-generate
-preprep_build() {
-    run_autoheader
-    run_autoconf
-}
-
 TESTSUITE_SED="
     1,/tests* OK/ {
         /tests* OK/p
@@ -109,7 +103,7 @@ test_dtrace() {
 init
 download_source $PROG $PROG $VER
 patch_source
-preprep_build
+run_autoreconf -fi
 prep_build
 build
 strip_install

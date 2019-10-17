@@ -68,8 +68,7 @@ CONFIGURE_OPTS="
 "
 
 preprep_build() {
-    run_autoheader
-    run_autoconf
+    run_autoreconf -fi
     # New file from dtrace patch
     chmod +x $TMPDIR/$BUILDDIR/Include/pydtrace_offsets.sh \
         || logerr "Could not set pydtrace_offsets.sh executable"

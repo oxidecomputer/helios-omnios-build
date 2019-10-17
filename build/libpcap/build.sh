@@ -36,8 +36,8 @@ fixup_man3(){
 init
 download_source $PROG $PROG $VER
 patch_source
+run_autoreconf -fi
 prep_build
-run_autoconf
 build
 make_isa_stub
 fixup_man3

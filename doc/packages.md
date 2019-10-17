@@ -55,7 +55,7 @@
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20190918		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.11.11		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.11.12		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.1p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -66,7 +66,7 @@
 | runtime/python-27			| 2.7.16		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.7			| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.4			| https://www.python.org/downloads/source/
-| security/sudo				| 1.8.28		| https://www.sudo.ws/
+| security/sudo				| 1.8.28p1		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.7			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.12			| https://github.com/corecode/dma/releases
@@ -99,7 +99,7 @@
 | web/curl				| 7.66.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.62.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
-| developer/gnu-binutils		| 2.32			| https://ftp.gnu.org/gnu/binutils
+| developer/gnu-binutils		| 2.33.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.42		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.0.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
