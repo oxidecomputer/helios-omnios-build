@@ -12,22 +12,17 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/functions.sh
 
-PKG=library/python-3/pep8-37
-PROG=pep8
-VER=1.7.1
-SUMMARY="pep8 - Python style guide checker"
+PKG=library/python-3/pycodestyle-37
+PROG=pycodestyle
+VER=2.5.0
+SUMMARY="$PROG - Python style guide checker"
 DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
-
-make_licence() {
-    head -25 $TMPDIR/$BUILDDIR/pep8.py> $TMPDIR/$BUILDDIR/LICENCE
-}
 
 init
 download_source pymodules/$PROG $PROG $VER
