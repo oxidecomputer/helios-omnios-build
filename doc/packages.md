@@ -123,11 +123,11 @@
 | library/python-3/mako-37		| 1.1.0			| https://pypi.org/project/Mako
 | library/python-3/meson-37		| 0.52.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 7.2.0			| https://pypi.org/project/more-itertools
-| library/python-3/pep8-37		| 1.7.1			| https://pypi.org/project/pep8/
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.5			| https://pypi.org/project/portend
 | library/python-3/prettytable-37	| 0.7.2			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-37		| 1.1.1			| https://pypi.org/project/pybonjour
+| library/python-3/pycodestyle-37	| 2.5.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-37		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.3		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.0.0		| https://pypi.org/project/pyOpenSSL
