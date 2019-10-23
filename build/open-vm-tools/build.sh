@@ -19,11 +19,11 @@
 
 PKG=system/virtualization/open-vm-tools
 PROG=open-vm-tools
-VER=11.0.0
+VER=11.0.1
 # The open-vm-tools have been inconsistent in the past in regard to whether
 # the filenames and extracted directories contain the build number. If they
 # do, set the build number.
-BUILD=14549434
+BUILD=14773994
 SUMMARY="Open Virtual Machine Tools"
 DESC="The Open Virtual Machine Tools project aims to provide a suite of open "
 DESC+="source virtualisation utilities and drivers to improve the "
