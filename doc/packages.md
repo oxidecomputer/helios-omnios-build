@@ -108,7 +108,7 @@
 | library/python-3/functools_lru_cache-37	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-37	| 1.2.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-37		| 1.12.3		| https://pypi.org/project/cffi
+| library/python-3/cffi-37		| 1.13.1		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.1.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.3.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-37	| 0.6.0			| https://pypi.org/project/contextlib2
