@@ -113,7 +113,7 @@
 | library/python-3/cherrypy-37		| 18.3.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-37	| 0.6.0			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-37		| 4.5.4			| https://pypi.org/project/coverage
-| library/python-3/cryptography-37	| 2.7			| https://pypi.org/project/cryptography
+| library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 0.23			| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
