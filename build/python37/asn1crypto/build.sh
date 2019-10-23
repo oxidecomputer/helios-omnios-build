@@ -12,14 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../../lib/functions.sh
 
 PKG=library/python-3/asn1crypto-37
 PROG=asn1crypto
-VER=1.0.1
+VER=1.2.0
 SUMMARY="asn1crypto - Fast ASN.1 parser..."
 DESC="$SUMMARY"
 
