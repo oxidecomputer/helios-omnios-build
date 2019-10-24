@@ -106,18 +106,18 @@
 | developer/swig			| 4.0.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/functools_lru_cache-37	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
-| library/python-3/asn1crypto-37	| 1.0.1			| https://pypi.org/project/asn1crypto
-| library/python-3/attrs-37		| 19.2.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-37		| 1.12.3		| https://pypi.org/project/cffi
-| library/python-3/cheroot-37		| 8.1.0			| https://pypi.org/project/cheroot
+| library/python-3/asn1crypto-37	| 1.2.0			| https://pypi.org/project/asn1crypto
+| library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs
+| library/python-3/cffi-37		| 1.13.1		| https://pypi.org/project/cffi
+| library/python-3/cheroot-37		| 8.2.1			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.3.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/contextlib2-37	| 0.6.0			| https://pypi.org/project/contextlib2
 | library/python-3/coverage-37		| 4.5.4			| https://pypi.org/project/coverage
-| library/python-3/cryptography-37	| 2.7			| https://pypi.org/project/cryptography
+| library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 0.23			| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
-| library/python-3/js-regex-37		| 1.0.0			| https://pypi.org/project/js-regex
+| library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.1.1			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.0			| https://pypi.org/project/Mako
