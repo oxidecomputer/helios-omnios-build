@@ -40,7 +40,7 @@
 | library/libffi			| 3.2.1			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/ncurses			| 6.1.20190921		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
+| library/ncurses			| 6.1.20191019		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.39.2		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.47			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.23			| http://archive.mozilla.org/pub/nspr/releases/
@@ -98,11 +98,11 @@
 | text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.66.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.62.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.62.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.33.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.42		| https://github.com/Azure/WALinuxAgent/releases
-| system/virtualization/open-vm-tools	| 11.0.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
+| system/virtualization/open-vm-tools	| 11.0.1		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/functools_lru_cache-37	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
