@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=libedit
-VER=20190324-3.1
+VER=20191025-3.1
 
 VERHUMAN=$VER
 PKG=library/libedit
