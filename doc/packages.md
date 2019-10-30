@@ -64,7 +64,7 @@
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
 | runtime/perl				| 5.30.0		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.16		| https://www.python.org/downloads/source/
-| runtime/python-35			| 3.5.7			| https://www.python.org/downloads/source/
+| runtime/python-35			| 3.5.8			| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.5			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.28p1		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
