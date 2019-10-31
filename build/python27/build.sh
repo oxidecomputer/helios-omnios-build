@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=Python
-VER=2.7.16
+VER=2.7.17
 PKG=runtime/python-27
 SUMMARY="$PROG ${VER%.*}"
 DESC="$SUMMARY"
