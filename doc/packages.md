@@ -133,7 +133,7 @@
 | library/python-3/pyopenssl-37		| 19.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-37	| 0.15.4		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
-| library/python-3/setuptools-37	| 41.4.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 41.6.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-37		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 1.14.1		| https://pypi.org/project/tempora
