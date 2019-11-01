@@ -124,7 +124,7 @@
 | library/python-3/meson-37		| 0.52.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 7.2.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
-| library/python-3/portend-37		| 2.5			| https://pypi.org/project/portend
+| library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
 | library/python-3/prettytable-37	| 0.7.2			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-37		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-37	| 2.5.0			| https://pypi.org/project/pycodestyle/
