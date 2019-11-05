@@ -21,7 +21,7 @@
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.4.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.23.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/git		| 2.24.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.1.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
@@ -66,7 +66,7 @@
 | runtime/python-27			| 2.7.17		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.8			| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.5			| https://www.python.org/downloads/source/
-| security/sudo				| 1.8.28p1		| https://www.sudo.ws/
+| security/sudo				| 1.8.29		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.7			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.12			| https://github.com/corecode/dma/releases
@@ -105,13 +105,11 @@
 | system/virtualization/open-vm-tools	| 11.0.1		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
-| library/python-3/functools_lru_cache-37	| 1.5		| https://pypi.org/project/backports.functools_lru_cache/
 | library/python-3/asn1crypto-37	| 1.2.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-37		| 1.13.1		| https://pypi.org/project/cffi
+| library/python-3/cffi-37		| 1.13.2		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.2.1			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-37		| 18.3.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/contextlib2-37	| 0.6.0			| https://pypi.org/project/contextlib2
+| library/python-3/cherrypy-37		| 18.4.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-37		| 4.5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
@@ -124,16 +122,16 @@
 | library/python-3/meson-37		| 0.52.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 7.2.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
-| library/python-3/portend-37		| 2.5			| https://pypi.org/project/portend
+| library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
 | library/python-3/prettytable-37	| 0.7.2			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-37		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-37	| 2.5.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-37		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.3		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.0.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-37	| 0.15.4		| https://pypi.org/project/pyrsistent
+| library/python-3/pyrsistent-37	| 0.15.5		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
-| library/python-3/setuptools-37	| 41.4.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 41.6.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.16.0		| https://pypi.org/project/simplejson
 | library/python-3/six-37		| 1.12.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 1.14.1		| https://pypi.org/project/tempora
