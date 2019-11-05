@@ -26,7 +26,6 @@ DESC="Highly-optimized, pure-python HTTP server"
 
 RUN_DEPENDS_IPS+="
     library/python-$PYMVER/more-itertools-$SPYVER
-    library/python-$PYMVER/functools_lru_cache-$SPYVER
 "
 
 init
