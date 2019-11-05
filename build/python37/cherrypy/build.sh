@@ -29,7 +29,6 @@ RUN_DEPENDS_IPS+="
     library/python-$PYMVER/portend-$SPYVER
     library/python-$PYMVER/cheroot-$SPYVER
     library/python-$PYMVER/zc.lockfile-$SPYVER
-    library/python-$PYMVER/contextlib2-$SPYVER
 "
 
 init
