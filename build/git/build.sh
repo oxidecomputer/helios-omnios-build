@@ -19,12 +19,14 @@
 . ../../lib/functions.sh
 
 PROG=git
-VER=2.23.0
+VER=2.24.0
 PKG=developer/versioning/git
 SUMMARY="$PROG - distributed version control system"
 DESC="Git is a free and open source distributed version control system "
 DESC+="designed to handle everything from small to very large projects with "
 DESC+="speed and efficiency."
+
+set_arch 64
 
 BUILD_DEPENDS_IPS="
     compatibility/ucb
@@ -33,19 +35,15 @@ BUILD_DEPENDS_IPS="
 "
 
 HARDLINK_TARGETS="
-    usr/libexec/git-core/git
-    usr/libexec/amd64/git-core/git
-    usr/libexec/git-core/git-remote-ftp
-    usr/libexec/amd64/git-core/git-remote-ftp
-    usr/libexec/git-core/git-cvsserver
-    usr/libexec/amd64/git-core/git-cvsserver
-    usr/libexec/git-core/git-shell
-    usr/libexec/amd64/git-core/git-shell
+    usr/libexec/$ISAPART64/git-core/git
+    usr/libexec/$ISAPART64/git-core/git-remote-ftp
+    usr/libexec/$ISAPART64/git-core/git-cvsserver
+    usr/libexec/$ISAPART64/git-core/git-shell
 "
 
 # For inet_ntop which isn't detected properly in the configure script
 LDFLAGS="-lnsl"
-CFLAGS64+=" -I/usr/include/amd64"
+CFLAGS64+=" -I/usr/include/$ISAPART64"
 CONFIGURE_OPTS="
     --without-tcltk
     --with-curl=/usr
@@ -53,12 +51,6 @@ CONFIGURE_OPTS="
 "
 
 MAKE_INSTALL_ARGS+=" perllibdir=/usr/lib/site_perl"
-
-save_function configure32 configure32_orig
-configure32() {
-    make_param configure
-    configure32_orig
-}
 
 save_function configure64 configure64_orig
 configure64() {
@@ -68,12 +60,23 @@ configure64() {
 
 install_man() {
     logmsg "Fetching and installing pre-built man pages"
-    if [ ! -f ${TMPDIR}/${PROG}-manpages-${VER}.tar.xz ]; then
-        pushd $TMPDIR > /dev/null
-        get_resource $PROG/${PROG}-manpages-${VER}.tar.xz || \
-            logerr "--- Failed to fetch tarball"
-        popd > /dev/null
-    fi
+    man="$PROG-manpages-$VER.tar.xz"
+    pushd $TMPDIR > /dev/null
+
+    for f in $man $man.sha256; do
+        if [ ! -f ${TMPDIR}/$f ]; then
+            get_resource $PROG/$f || \
+                logerr "--- Failed to fetch $f"
+        fi
+    done
+
+    logmsg "Verifying checksum of downloaded file."
+    sum="`digest -a sha256 $man`"
+    [ "$sum" = "`cat $man.sha256`" ] \
+        || logerr "Checksum of downloaded file does not match."
+
+    popd > /dev/null
+
     logcmd mkdir -p ${DESTDIR}${PREFIX}/share/man
     pushd ${DESTDIR}${PREFIX}/share/man > /dev/null
     extract_archive ${TMPDIR}/${PROG}-manpages-${VER}.tar.xz || \
@@ -106,7 +109,6 @@ patch_source
 prep_build
 build
 run_testsuite
-make_isa_stub
 install_man
 install_pod
 strip_install
