@@ -18,7 +18,7 @@
 
 PKG=library/python-3/cherrypy-37
 PROG=CherryPy
-VER=18.3.0
+VER=18.4.0
 SUMMARY="Object-Oriented HTTP framework"
 DESC="A pythonic, object-oriented HTTP framework."
 
