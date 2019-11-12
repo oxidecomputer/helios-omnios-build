@@ -1,0 +1,184 @@
+#!/usr/bin/bash
+#
+# {{{ CDDL HEADER
+#
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
+#
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
+#
+# Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
+. ../../lib/functions.sh
+
+PKG=developer/gcc9
+PROG=gcc
+VER=9.2.0
+ILVER=il-0
+SUMMARY="gcc $VER-$ILVER"
+DESC="The GNU Compiler Collection"
+
+GCCMAJOR=${VER%%.*}
+OPT=/opt/gcc-$GCCMAJOR
+
+XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
+
+PREFIX=$OPT
+
+# Build gcc with itself
+set_gccver $GCCMAJOR
+
+set_arch 64
+ARCH=x86_64-pc-solaris2.11
+
+# We're building the 64-bit version of the compiler and tools but we want
+# to install it in the standard bin/lib locations. Gcc will take care of
+# building and putting the 32/64 objects in the right places. We also want
+# to unset all of the flags that we usually pass for a 64-bit object so that
+# gcc can properly create the multilib targets.
+CONFIGURE_OPTS_64="$CONFIGURE_OPTS_32"
+unset CFLAGS CFLAGS32 CFLAGS64
+unset CPPFLAGS CPPFLAGS32 CPPFLAGS64
+unset CXXFLAGS CXXFLAGS32 CXXFLAGS64
+unset LDFLAGS LDFLAGS32 LDFLAGS64
+
+# Use bash for all shells - some corruption occurs in libstdc++-v3/config.status
+# otherwise.
+export CONFIG_SHELL=$SHELL
+export MAKESHELL=$SHELL
+# Place the GNU utilities first in the path
+export PATH=/usr/gnu/bin:$PATH
+
+LANGUAGES="c,c++,fortran,lto"
+
+RUN_DEPENDS_IPS="
+    developer/linker
+    developer/gnu-binutils
+    system/header
+    system/library/c-runtime
+"
+
+BUILD_DEPENDS_IPS="
+    ooce/developer/autogen
+    ooce/developer/dejagnu
+"
+
+export LD=/bin/ld
+export LD_FOR_HOST=$LD
+export LD_FOR_TARGET=$LD
+export LD_OPTIONS="-zignore -zcombreloc -i"
+
+HARDLINK_TARGETS="
+    ${PREFIX/#\/}/bin/$ARCH-gcc-$VER
+    ${PREFIX/#\/}/bin/$ARCH-gcc-ar
+    ${PREFIX/#\/}/bin/$ARCH-gcc-nm
+    ${PREFIX/#\/}/bin/$ARCH-gcc-ranlib
+    ${PREFIX/#\/}/bin/$ARCH-c++
+    ${PREFIX/#\/}/bin/$ARCH-g++
+    ${PREFIX/#\/}/bin/$ARCH-gfortran
+"
+#    ${PREFIX/#\/}/bin/$ARCH-gccgo
+
+PKGDIFF_HELPER="
+    s^/$GCCMAJOR\\.[0-9]\\.[0-9]([/ ])^/$GCCMAJOR.x.x\\1^
+    s^/gcc-$GCCMAJOR\\.[0-9]\\.[0-9]^/gcc-$GCCMAJOR.x.x^
+"
+
+CONFIGURE_OPTS="
+    --prefix=$OPT
+    --host $ARCH
+    --build $ARCH
+    --target $ARCH
+    --with-gmp-include=/usr/include/gmp
+    --with-ld=$LD --without-gnu-ld
+    --with-as=/usr/bin/gas --with-gnu-as
+    --with-build-time-tools=/usr/gnu/i386-pc-solaris2.11/bin
+    --with-build-config=no
+    --enable-languages=$LANGUAGES
+    --enable-shared
+    --with-system-zlib
+    --enable-plugins
+    --enable-__cxa_atexit
+    --enable-initfini-array
+    --disable-libitm
+    enable_frame_pointer=yes
+"
+CONFIGURE_OPTS_WS="
+    --with-boot-ldflags=\"-R$OPT/lib\"
+    --with-boot-cflags=\"-O2\"
+    --with-pkgversion=\"OmniOS $RELVER/$VER-$ILVER\"
+    --with-bugurl=https://omniosce.org/about/contact
+"
+LDFLAGS="-R$OPT/lib"
+
+# If the selected compiler is the same version as the one we're building
+# then the three-stage bootstrap is unecessary and some build time can be
+# saved.
+[ -z "$FORCE_BOOTSTRAP" ] \
+    && [ "`gcc -v 2>&1 | nawk '/^gcc version/ { print $3 }'`" = "$VER" ] \
+    && CONFIGURE_OPTS+=" --disable-bootstrap" \
+    && logmsg -n "--- disabling bootstrap"
+
+make_install() {
+    logmsg "--- make install"
+    logcmd $MAKE DESTDIR=${DESTDIR} install-strip || \
+        logerr "--- Make install failed"
+}
+
+tests() {
+    # A specific test to ensure that this is properly enabled by configure
+    egrep -s gcc_cv_as_eh_frame=yes $TMPDIR/$BUILDDIR/gcc/config.log \
+        || logerr "The .eh_frame based unwinder is not enabled"
+
+    export GUILE_AUTO_COMPILE=0
+    export PATH+=:/opt/ooce/bin
+    # The tests can be run in parallel - we sort them afterwards for consistent
+    # results.
+    MAKE_TESTSUITE_ARGS+=" $MAKE_JOBS"
+    # Some gcc tests (e.g. limits-exprparen.c) need a larger stack
+    ulimit -Ss 16385
+    # Lots of tests create core files via assertions
+    ulimit -c 0
+    # This causes the testsuite to be run twice, once with no additional
+    # options (see the leading , in the {} expression), and once with
+    # -msave-args
+    MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{,-msave-args\}"
+    run_testsuite "check check-target" "" build.log.testsuite
+    pushd $TMPDIR/$BUILDDIR >/dev/null
+    # Sort the test results in the individual summary files
+    find $TMPDIR/$BUILDDIR -name '*.sum' -type f | while read s; do
+        cp $s $s.orig
+        nawk '
+            /^Running target unix/ { sorting = 1; print; next }
+            /Summary .*===$/ { close("sort -k2"); sorting = 0; print; next }
+            sorting { print | "sort -k2" }
+            # The version lines include the build path
+            /  version / { next }
+            { print }
+        ' < $s.orig > $s
+    done
+    make_param mail-report.log
+    cat mail-report.log > $SRCDIR/testsuite.log.detail
+    egrep ' Summary (for .*)?===$|^#' mail-report.log > $SRCDIR/testsuite.log
+    popd >/dev/null
+}
+
+init
+download_source $PROG $PROG $VER
+patch_source
+# gcc should be built out-of-tree
+prep_build autoconf -oot
+build
+tests
+logcmd cp $TMPDIR/$SRC_BUILDDIR/COPYING* $TMPDIR/$BUILDDIR
+make_package
+clean_up
+
+# Vim hints
+# vim:ts=4:sw=4:et:fdm=marker

@@ -19,7 +19,7 @@
 
 PKG=system/library/gfortran-runtime
 PROG=gfortran
-VER=8
+VER=9
 SUMMARY="GNU fortran runtime dependencies"
 DESC="$SUMMARY"
 
@@ -55,7 +55,7 @@ for v in `seq 5 $VER`; do
                 [ -f $l -a ! -h $l ] && full=$l && break
             done
         fi
-        [ -f $full ] || logerr "No $lib lib for gcc-$v"
+        [ -f "$full" ] || logerr "No $lib lib for gcc-$v"
         full=`basename $full`                          # libxxxx.so.1.2.3
         maj=${full/%.+([0-9]).+([0-9])/}               # libxxxx.so.1
 
