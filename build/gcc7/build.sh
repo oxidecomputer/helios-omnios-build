@@ -146,13 +146,11 @@ tests() {
     popd >/dev/null
 }
 
-# gcc should be built out-of-tree
-OUT_OF_TREE_BUILD=1
-
 init
 download_source $PROG $PROG $VER
 patch_source
-prep_build
+# gcc should be built out-of-tree
+prep_build autoconf -oot
 build
 tests
 logcmd cp $TMPDIR/$SRC_BUILDDIR/COPYING* $TMPDIR/$BUILDDIR
