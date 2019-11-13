@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=perl
-VER=5.30.0
+VER=5.30.1
 NODOTVER=${VER//./} # 5xxy
 SVER=${VER%.*}      # 5.xx
 PKG=runtime/perl-$NODOTVER ##IGNORE##
