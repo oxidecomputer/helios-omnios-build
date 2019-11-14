@@ -55,13 +55,17 @@ export MAKESHELL=$SHELL
 # Place the GNU utilities first in the path
 export PATH=/usr/gnu/bin:$PATH
 
-LANGUAGES="c,c++,fortran,lto"
+LANGUAGES="c,c++,fortran,lto,go,objc"
 
 RUN_DEPENDS_IPS="
     developer/linker
     developer/gnu-binutils
     system/header
     system/library/c-runtime
+    system/library/g++-runtime
+    system/library/gcc-runtime
+    system/library/gccgo-runtime
+    system/library/gfortran-runtime
 "
 
 BUILD_DEPENDS_IPS="
@@ -82,8 +86,8 @@ HARDLINK_TARGETS="
     ${PREFIX/#\/}/bin/$ARCH-c++
     ${PREFIX/#\/}/bin/$ARCH-g++
     ${PREFIX/#\/}/bin/$ARCH-gfortran
+    ${PREFIX/#\/}/bin/$ARCH-gccgo
 "
-#    ${PREFIX/#\/}/bin/$ARCH-gccgo
 
 PKGDIFF_HELPER="
     s^/$GCCMAJOR\\.[0-9]\\.[0-9]([/ ])^/$GCCMAJOR.x.x\\1^
@@ -101,6 +105,7 @@ CONFIGURE_OPTS="
     --with-build-time-tools=/usr/gnu/i386-pc-solaris2.11/bin
     --with-build-config=no
     --enable-languages=$LANGUAGES
+    --with-arch-32=i586
     --enable-shared
     --with-system-zlib
     --enable-plugins
