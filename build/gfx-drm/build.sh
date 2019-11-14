@@ -140,7 +140,7 @@ push_pkgs() {
         -s debug.illumos=false,$WORKDIR/packages/i386/nightly-nd/repo.drm \
         -s debug.illumos=true,$WORKDIR/packages/i386/nightly/repo.drm \
         || logerr "push failed"
-    if [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ]; then
+    if [ "$SKIP_PKG_DIFF" != 1 ]; then
         diff_package driver/graphics/agpgart@0.5.11,$SUNOSVER-$RELVER.$DASHREV
         diff_package driver/graphics/drm@0.5.11,$SUNOSVER-$RELVER.$DASHREV
         diff_package system/header/header-agp@0.5.11,$SUNOSVER-$RELVER.$DASHREV
