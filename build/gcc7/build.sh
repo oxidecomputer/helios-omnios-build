@@ -33,6 +33,14 @@ XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 set_gccver $GCCMAJOR
 set_arch 32
 
+# Although we're building a 32-bit version of the compiler, gcc will take
+# care of building 32 and 64-bit objects to support its toolchain. We need
+# to unset the build flags and leave it to the gcc build system.
+unset CFLAGS CFLAGS32 CFLAGS64
+unset CPPFLAGS CPPFLAGS32 CPPFLAGS64
+unset CXXFLAGS CXXFLAGS32 CXXFLAGS64
+unset LDFLAGS LDFLAGS32 LDFLAGS64
+
 RUN_DEPENDS_IPS="
     developer/linker
     developer/gnu-binutils
