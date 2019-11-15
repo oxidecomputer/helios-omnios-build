@@ -66,6 +66,7 @@ RUN_DEPENDS_IPS="
     system/library/gcc-runtime
     system/library/gccgo-runtime
     system/library/gfortran-runtime
+    system/library/gobjc-runtime
 "
 
 BUILD_DEPENDS_IPS="

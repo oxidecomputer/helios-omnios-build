@@ -11,17 +11,21 @@
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
 # }}}
-#
+
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 . common.sh
 
-PKG=system/library/gcc-runtime
-PROG=libgcc_s
+PKG=system/library/gobjc-runtime
+PROG=objc
 VER=9
-SUMMARY="GNU compiler runtime dependencies"
+SUMMARY="GNU Objective-C runtime dependencies"
 DESC="$SUMMARY"
+
+# These libraries only came in with gcc 9 so use this as the baseline for
+# the unversioned links in usr/lib
+SHARED_GCC_VER=9
 
 init
 prep_build
@@ -33,14 +37,12 @@ pushd $DESTDIR >/dev/null
 
 # To keep all of the logic in one place, links are not created in the .mog
 
-libs="libgcc_s libatomic"
+libs="libobjc"
 
 mkdir -p usr/lib/$ISAPART64
 
-for v in `seq 5 $VER`; do
+for v in `seq 9 $VER`; do
     install_lib $v "$libs"
-    # The gcc-runtime package provides the 64 -> amd64 links
-    logcmd ln -s $ISAPART64 usr/gcc/$v/lib/64
 done
 
 install_unversioned $SHARED_GCC_VER "$libs"
