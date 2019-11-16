@@ -134,7 +134,7 @@
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
 | library/python-3/setuptools-37	| 41.6.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.16.0		| https://pypi.org/project/simplejson
-| library/python-3/six-37		| 1.12.0		| https://pypi.org/project/six
+| library/python-3/six-37		| 1.13.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 1.14.1		| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
 | library/python-3/zipp-37		| 0.6.0			| https://pypi.org/project/zipp
