@@ -12,14 +12,14 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 . common.sh
 
 PKG=system/library/g++-runtime
 PROG=libstdc++
-VER=8
+VER=9
 SUMMARY="GNU C++ compiler runtime dependencies"
 DESC="$SUMMARY"
 
@@ -35,62 +35,13 @@ pushd $DESTDIR >/dev/null
 
 mkdir -p usr/lib/$ISAPART64
 
+libs="libstdc++ libssp"
+
 for v in `seq 5 $VER`; do
-    logcmd mkdir -p usr/gcc/$v/lib/$ISAPART64
-    for lib in libstdc++ libssp; do
-        # Find the library file in this gcc version
-        full=
-        if [ -d /opt/gcc-$v/lib ]; then
-            for l in /opt/gcc-$v/lib/$lib.so.*; do
-                # There is a libstdc++.so.6.0.xx-gdb.py
-                [[ $l = *.py ]] && continue
-                [ -f $l -a ! -h $l ] && full=$l && break
-            done
-        else
-            for l in /usr/gcc/$v/lib/$lib.so.*; do
-                [[ $l = *.py ]] && continue
-                [ -f $l -a ! -h $l ] && full=$l && break
-            done
-        fi
-        [ -f $full ] || logerr "No $lib lib for gcc-$v"
-        full=`basename $full`                          # libxxxx.so.1.2.3
-        maj=${full/%.+([0-9]).+([0-9])/}               # libxxxx.so.1
-
-        logmsg "-- GCC $v - $full ($maj)"
-
-        if [ -f /opt/gcc-$v/lib/$full ]; then
-            logcmd cp /opt/gcc-$v/lib/$full usr/gcc/$v/lib/$full
-            logcmd cp /opt/gcc-$v/lib/$ISAPART64/$full \
-                usr/gcc/$v/lib/$ISAPART64/$full
-        else
-            logcmd cp /usr/gcc/$v/lib/$full usr/gcc/$v/lib/$full
-            logcmd cp /usr/gcc/$v/lib/$ISAPART64/$full \
-                usr/gcc/$v/lib/$ISAPART64/$full
-        fi
-
-        # Now sort out the links
-
-        # Link versioned libraries to /usr/lib - latest gcc version will win in
-        # the case that two deliver the same versioned file.
-        logcmd ln -sf ../gcc/$v/lib/$full usr/lib/$full
-        logcmd ln -sf $full usr/lib/$maj
-        logcmd ln -sf ../../gcc/$v/lib/$ISAPART64/$full usr/lib/$ISAPART64/$full
-        logcmd ln -sf $full usr/lib/$ISAPART64/$maj
-
-        logcmd ln -s $full usr/gcc/$v/lib/$maj
-        logcmd ln -s $full usr/gcc/$v/lib/$ISAPART64/$maj
-        logcmd ln -s $maj usr/gcc/$v/lib/$lib.so
-        logcmd ln -s $maj usr/gcc/$v/lib/$ISAPART64/$lib.so
-
-        # And now link in the main .so version for the current gcc
-
-        logcmd ln -sf $maj usr/lib/$lib.so
-        logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$maj usr/lib/$maj
-        logcmd ln -sf $maj usr/lib/$ISAPART64/$lib.so
-        logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$maj \
-            usr/lib/$ISAPART64/$maj
-    done
+    install_lib $v "$libs"
 done
+
+install_unversioned $SHARED_GCC_VER "$libs"
 
 # And special-case libssl.so.0.0.0
 lib=libssp.so.0.0.0
@@ -119,7 +70,7 @@ done
 popd >/dev/null
 set +o errexit
 
-make_package runtime++.mog
+make_package runtime.mog
 clean_up
 
 # Vim hints

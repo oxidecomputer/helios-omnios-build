@@ -1,29 +1,20 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Use is subject to license terms.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=illumos-closed
@@ -33,27 +24,41 @@ PKG=developer/illumos-closed
 SUMMARY="illumos closed binaries"
 DESC="Closed-source binaries required to build an illumos distribution."
 
-install_closed() {
-    logmsg "Creating proto directory"
+BUILDDIR=closed
+
+HARDLINK_TARGETS="
+    opt/onbld/closed/root_i386/usr/xpg4/bin/alias
+    opt/onbld/closed/root_i386-nd/usr/xpg4/bin/alias
+    opt/onbld/closed/root_i386/platform/i86pc/kernel/cpu/cpu_ms.GenuineIntel.6.46
+    opt/onbld/closed/root_i386-nd/platform/i86pc/kernel/cpu/cpu_ms.GenuineIntel.6.46
+    opt/onbld/closed/root_i386/etc/init.d/llc2
+    opt/onbld/closed/root_i386-nd/etc/init.d/llc2
+    opt/onbld/closed/root_i386/kernel/strmod/sdpib
+    opt/onbld/closed/root_i386-nd/kernel/strmod/sdpib
+    opt/onbld/closed/root_i386/kernel/strmod/amd64/sdpib
+    opt/onbld/closed/root_i386-nd/kernel/strmod/amd64/sdpib
+"
+
+transfer_closed() {
     logcmd mkdir -p $DESTDIR/opt/onbld \
         || logerr "--- Failed to create proto directory"
+    logcmd rsync -aH $TMPDIR/$BUILDDIR/ $DESTDIR/opt/onbld/closed/ \
+        || logerr "rsync of closed failed"
+}
 
-    pushd $DESTDIR/opt/onbld > /dev/null
-
-    logmsg "Unpacking closed binaries"
-    logcmd tar xjvpf $SRCDIR/on-closed-bins.i386.tar.bz2 \
-        || logerr "--- failed to unpack closed bins (debug version)"
-    logcmd tar xjvpf $SRCDIR/on-closed-bins-nd.i386.tar.bz2 \
-        || logerr "--- failed to unpack closed bins (non-debug version)"
-    logcmd cp $SRCDIR/on-closed-bins.i386.tar.bz2 closed
-    logcmd cp $SRCDIR/on-closed-bins-nd.i386.tar.bz2 closed
-
-    popd > /dev/null
+install_archives() {
+    logcmd cp $TMPDIR/on-closed-bins{,-nd}.i386.tar.bz2 \
+        $DESTDIR/opt/onbld/closed/ \
+        || logerr "Cannot copy archives into place."
 }
 
 init
 prep_build
-install_closed
+download_source on-closed on-closed-bins.i386 ""
+transfer_closed
+download_source on-closed on-closed-bins-nd.i386 ""
+transfer_closed
+install_archives
 make_package
 clean_up
 

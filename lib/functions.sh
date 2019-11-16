@@ -51,9 +51,11 @@ process_opts() {
     AUTOINSTALL=
     DEPVER=
     SKIP_PKGLINT=
+    SKIP_PKG_DIFF=
     REBASE_PATCHES=
     SKIP_TESTSUITE=
-    while getopts "bciPptf:ha:d:lr:" opt; do
+    SKIP_CHECKSUM=
+    while getopts "bcDiPptsf:ha:d:lr:" opt; do
         case $opt in
             h)
                 show_usage
@@ -72,8 +74,12 @@ process_opts() {
             P)
                 REBASE_PATCHES=1
                 ;;
+            D)
+                SKIP_PKG_DIFF=0
+                ;;
             b)
                 BATCH=1 # Batch mode - exit on error
+                [ -z "$SKIP_PKG_DIFF" ] && SKIP_PKG_DIFF=1
                 ;;
             c)
                 USE_CCACHE=1
@@ -83,6 +89,9 @@ process_opts() {
                 ;;
             t)
                 SKIP_TESTSUITE=1
+                ;;
+            s)
+                SKIP_CHECKSUM=1
                 ;;
             f)
                 FLAVOR="$OPTARG"
@@ -119,6 +128,7 @@ Usage: $0 [-blt] [-f FLAVOR] [-h] [-a 32|64|both] [-d DEPVER]
   -b        : batch mode (exit on errors without asking)
   -c        : use 'ccache' to speed up (re-)compilation
   -d DEPVER : specify an extra dependency version (no default)
+  -D        : collect package diff output in batch mode
   -f FLAVOR : build a specific package flavor
   -h        : print this help text
   -i        : autoinstall mode (install build deps)
@@ -128,6 +138,7 @@ Usage: $0 [-blt] [-f FLAVOR] [-h] [-a 32|64|both] [-d DEPVER]
   -r REPO   : specify the IPS repo to use
               (default: $PKGSRVR)
   -t        : skip test suite
+  -s        : skip checksum comparison
 
 EOM
 }
@@ -675,6 +686,15 @@ run_aclocal() { run_inbuild aclocal "$@"; }
 
 prep_build() {
     typeset style=${1:-autoconf}
+    typeset flags="$2"
+
+    for flag in "$flags"; do
+        case $flag in
+            -oot)
+                OUT_OF_TREE_BUILD=1
+                ;;
+        esac
+    done
 
     logmsg "Preparing for $style build"
 
@@ -909,15 +929,17 @@ download_source() {
     _ARC_SOURCE+="${_ARC_SOURCE:+ }$DLDIR/$FILENAME"
 
     # Fetch and verify the archive checksum
-    logmsg "Verifying checksum of downloaded file."
-    if [ ! -f "$FILENAME.sha256" ]; then
-        get_resource $DLDIR/$FILENAME.sha256 \
-            || logerr "Unable to download SHA256 checksum for $FILENAME"
-    fi
-    if [ -f "$FILENAME.sha256" ]; then
-        sum="`digest -a sha256 $FILENAME`"
-        [ "$sum" = "`cat $FILENAME.sha256`" ] \
-            || logerr "Checksum of downloaded file does not match."
+    if [ -z "$SKIP_CHECKSUM" ]; then
+        logmsg "Verifying checksum of downloaded file."
+        if [ ! -f "$FILENAME.sha256" ]; then
+            get_resource $DLDIR/$FILENAME.sha256 \
+                || logerr "Unable to download SHA256 checksum for $FILENAME"
+        fi
+        if [ -f "$FILENAME.sha256" ]; then
+            sum="`digest -a sha256 $FILENAME`"
+            [ "$sum" = "`cat $FILENAME.sha256`" ] \
+                || logerr "Checksum of downloaded file does not match."
+        fi
     fi
 
     # Extract the archive
@@ -1274,7 +1296,7 @@ make_package() {
     fi
     logmsg "--- Published $FMRI"
 
-    [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ] && diff_package $FMRI
+    [ "$SKIP_PKG_DIFF" != 1 ] && diff_package $FMRI
 
     return 0
 }
@@ -1300,7 +1322,7 @@ publish_manifest()
     translate_manifest $pmf $pmf.final
 
     logcmd pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
-    [ -z "$BATCH" -a -z "$SKIP_PKG_DIFF" ] && diff_latest $pkg
+    [ "$SKIP_PKG_DIFF" != 1 ] && diff_latest $pkg
 }
 
 # Create a list of the items contained within a package in a format suitable
@@ -1334,17 +1356,31 @@ diff_package() {
     xfmri=${fmri%@*}
 
     logmsg "--- Comparing old package with new"
-    if ! gdiff -U0 --color=always --minimal \
-        <(pkgitems -g $IPS_REPO $xfmri) \
-        <(pkgitems -g $PKGSRVR $fmri) \
-        > $TMPDIR/pkgdiff.$$; then
-            echo
-            # Not anchored due to colour codes in file
-            egrep -v '(\-\-\-|\+\+\+|\@\@) ' $TMPDIR/pkgdiff.$$
-            note "Differences found between old and new packages"
-            ask_to_continue
+    if [ -n "$BATCH" ]; then
+        of=$TMPDIR/pkg.diff.$$
+        echo "Package: $fmri" > $of
+        if ! gdiff -u \
+            <(pkgitems -g $IPS_REPO $xfmri) \
+            <(pkgitems -g $PKGSRVR $fmri) \
+            >> $of; then
+                logmsg -e "----- $fmri has changed"
+                mv $of $TMPDIR/pkg.diff
+        else
+            rm -f $of
+        fi
+    else
+        if ! gdiff -U0 --color=always --minimal \
+            <(pkgitems -g $IPS_REPO $xfmri) \
+            <(pkgitems -g $PKGSRVR $fmri) \
+            > $TMPDIR/pkgdiff.$$; then
+                echo
+                # Not anchored due to colour codes in file
+                egrep -v '(\-\-\-|\+\+\+|\@\@) ' $TMPDIR/pkgdiff.$$
+                note "Differences found between old and new packages"
+                ask_to_continue
+        fi
+        rm -f $TMPDIR/pkgdiff.$$
     fi
-    rm -f $TMPDIR/pkgdiff.$$
 }
 
 diff_latest() {

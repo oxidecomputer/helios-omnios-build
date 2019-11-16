@@ -33,6 +33,14 @@ XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
 set_gccver $GCCMAJOR
 set_arch 32
 
+# Although we're building a 32-bit version of the compiler, gcc will take
+# care of building 32 and 64-bit objects to support its toolchain. We need
+# to unset the build flags and leave it to the gcc build system.
+unset CFLAGS CFLAGS32 CFLAGS64
+unset CPPFLAGS CPPFLAGS32 CPPFLAGS64
+unset CXXFLAGS CXXFLAGS32 CXXFLAGS64
+unset LDFLAGS LDFLAGS32 LDFLAGS64
+
 RUN_DEPENDS_IPS="
     developer/linker
     developer/gnu-binutils
@@ -113,6 +121,11 @@ tests() {
     egrep -s gcc_cv_as_eh_frame=yes $TMPDIR/$BUILDDIR/gcc/config.log \
         || logerr "The .eh_frame based unwinder is not enabled"
 
+    [ -n "$SKIP_TESTSUITE" ] && return
+    if [ -z "$BATCH" ] && ! ask_to_testsuite; then
+        return
+    fi
+
     export GUILE_AUTO_COMPILE=0
     export PATH+=:/opt/ooce/bin
     # The tests can be run in parallel - we sort them afterwards for consistent
@@ -126,7 +139,9 @@ tests() {
     # options (see the leading , in the {} expression), and once with
     # -msave-args
     MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{,-msave-args\}"
-    run_testsuite "check check-target" "" build.log.testsuite
+    # If not in batch mode, we've already asked whether this should be run
+    # above, so set BATCH
+    BATCH=1 run_testsuite "check check-target" "" build.log.testsuite
     pushd $TMPDIR/$BUILDDIR >/dev/null
     # Sort the test results in the individual summary files
     find $TMPDIR/$BUILDDIR -name '*.sum' -type f | while read s; do
@@ -146,13 +161,11 @@ tests() {
     popd >/dev/null
 }
 
-# gcc should be built out-of-tree
-OUT_OF_TREE_BUILD=1
-
 init
 download_source $PROG $PROG $VER
 patch_source
-prep_build
+# gcc should be built out-of-tree
+prep_build autoconf -oot
 build
 tests
 logcmd cp $TMPDIR/$SRC_BUILDDIR/COPYING* $TMPDIR/$BUILDDIR
