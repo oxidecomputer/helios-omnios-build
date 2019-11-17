@@ -220,7 +220,7 @@ CC=gcc
 CXX=g++
 
 # Specify default versions for building packages
-DEFAULT_GCC_VER=8
+DEFAULT_GCC_VER=9
 ILLUMOS_GCC_VER=7
 PYTHON2VER=2.7
 PYTHON3VER=3.7
@@ -235,11 +235,12 @@ FCFLAGS[_]+=" -O2"
 
 # Taken from illumos-joyent along with the following comment:
 # "gcc has a rather aggressive optimization on by default that infers loop
-#  bounds based on undefined behavior (!!).  This can lead to some VERY
-#  surprising optimizations -- ones that may be technically correct in the
+#  bounds based on undefined behaviour (!!).  This can lead to some VERY
+#  surprising optimisations -- ones that may be technically correct in the
 #  strictest sense but also result in incorrect program behavior."
 FCFLAGS[7]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[8]+=" -fno-aggressive-loop-optimizations"
+FCFLAGS[9]+=" -fno-aggressive-loop-optimizations"
 
 # CFLAGS applies to both builds, 32/64 only gets applied to the respective
 # build

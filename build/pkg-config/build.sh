@@ -34,8 +34,8 @@ SUMMARY="A tool for generating compiler command line options"
 DESC="pkg-config is a helper tool used when compiling applications and libraries that helps you insert the correct compiler options on the command line, rather than hard-coding values on where to find libraries."
 
 HARDLINK_TARGETS="
-    usr/bin/i386/i386-pc-solaris2.11-pkg-config
-    usr/bin/amd64/i386-pc-solaris2.11-pkg-config
+    usr/bin/i386/x86_64-pc-solaris2.11-pkg-config
+    usr/bin/amd64/x86_64-pc-solaris2.11-pkg-config
 "
 
 init
