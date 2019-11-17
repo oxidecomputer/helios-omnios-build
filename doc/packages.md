@@ -42,7 +42,7 @@
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20191019		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
-| library/nghttp2			| 1.39.2		| https://github.com/nghttp2/nghttp2/releases
+| library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.47			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.23			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
@@ -134,7 +134,7 @@
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
 | library/python-3/setuptools-37	| 41.6.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.16.0		| https://pypi.org/project/simplejson
-| library/python-3/six-37		| 1.12.0		| https://pypi.org/project/six
+| library/python-3/six-37		| 1.13.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 1.14.1		| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
 | library/python-3/zipp-37		| 0.6.0			| https://pypi.org/project/zipp
