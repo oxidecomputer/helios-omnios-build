@@ -125,6 +125,9 @@ PATCHDIR=patches
 # Do we create isaexec stubs for scripts and other non-binaries (default yes)
 NOSCRIPTSTUB=
 
+ISAPART=i386
+ISAPART64=amd64
+
 #############################################################################
 # Perl stuff
 #############################################################################
@@ -211,8 +214,6 @@ DONT_REMOVE_INSTALL_DIR=
 
 CCACHE_PATH=/opt/ooce/ccache/bin
 
-ISAPART=i386
-ISAPART64=amd64
 BUILDORDER="32 64"
 
 # For OmniOS we (almost) always want GCC
