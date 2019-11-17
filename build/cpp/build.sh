@@ -35,6 +35,8 @@ DESC="$SUMMARY"
 BUILD_DEPENDS_IPS="developer/parser/bison"
 SKIP_LICENCES="*.licence"
 
+set_arch 32
+
 setup_src() {
    logcmd mkdir -p $TMPDIR/$BUILDDIR
    logcmd cp $SRCDIR/files/* $TMPDIR/$BUILDDIR || logerr "file copy failed"
@@ -43,7 +45,7 @@ setup_src() {
 build() {
     # Set the version to something reasonable
     pushd $TMPDIR/$BUILDDIR > /dev/null || logerr "can't enter build harness"
-    logcmd gmake CC=gcc
+    logcmd gmake CC=gcc CFLAGS=\"$CFLAGS32\"
     popd > /dev/null
 }
 

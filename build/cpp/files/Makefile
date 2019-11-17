@@ -22,9 +22,12 @@
 #
 
 all: cpp.o y.tab.o
-	$(CC) -o cpp cpp.o y.tab.o
+	$(CC) $(CFLAGS) -o cpp cpp.o y.tab.o
 
-install: all
+.c.o:
+	$(CC) $(CFLAGS) -c $< -o $@
+
+install:
 	/usr/sbin/install -m 0755 -f $(DESTDIR)/usr/lib cpp
 
 y.tab.c: cpy.y
