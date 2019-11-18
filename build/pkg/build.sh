@@ -109,7 +109,7 @@ clone_source
 build
 package
 
-if [ "$SKIP_PKG_DIFF" != 1 ]; then
+if [ -z "$SKIP_PKG_DIFF" ]; then
     for pkg in $PKGLIST; do
         diff_latest $pkg
     done

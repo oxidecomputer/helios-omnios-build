@@ -74,12 +74,9 @@ process_opts() {
             P)
                 REBASE_PATCHES=1
                 ;;
-            D)
-                SKIP_PKG_DIFF=0
-                ;;
             b)
                 BATCH=1 # Batch mode - exit on error
-                [ -z "$SKIP_PKG_DIFF" ] && SKIP_PKG_DIFF=1
+                SKIP_PKG_DIFF=1
                 ;;
             c)
                 USE_CCACHE=1
@@ -1296,7 +1293,7 @@ make_package() {
     fi
     logmsg "--- Published $FMRI"
 
-    [ "$SKIP_PKG_DIFF" != 1 ] && diff_package $FMRI
+    [ -z "$SKIP_PKG_DIFF" ] && diff_package $FMRI
 
     return 0
 }
@@ -1322,7 +1319,7 @@ publish_manifest()
     translate_manifest $pmf $pmf.final
 
     logcmd pkgsend -s $PKGSRVR publish $pmf.final || logerr "pkgsend failed"
-    [ "$SKIP_PKG_DIFF" != 1 ] && diff_latest $pkg
+    [ -z "$SKIP_PKG_DIFF" ] && diff_latest $pkg
 }
 
 # Create a list of the items contained within a package in a format suitable
@@ -1355,7 +1352,6 @@ diff_package() {
     local fmri="$1"
     xfmri=${fmri%@*}
 
-    logmsg "--- Comparing old package with new"
     if [ -n "$BATCH" ]; then
         of=$TMPDIR/pkg.diff.$$
         echo "Package: $fmri" > $of
@@ -1363,12 +1359,13 @@ diff_package() {
             <(pkgitems -g $IPS_REPO $xfmri) \
             <(pkgitems -g $PKGSRVR $fmri) \
             >> $of; then
-                logmsg -e "----- $fmri has changed"
-                mv $of $TMPDIR/pkg.diff
+                    logmsg -e "----- $fmri has changed"
+                    mv $of $TMPDIR/pkg.diff
         else
             rm -f $of
         fi
     else
+        logmsg "--- Comparing old package with new"
         if ! gdiff -U0 --color=always --minimal \
             <(pkgitems -g $IPS_REPO $xfmri) \
             <(pkgitems -g $PKGSRVR $fmri) \
@@ -1385,7 +1382,7 @@ diff_package() {
 
 diff_latest() {
     typeset fmri="`pkg list -nvHg $PKGSRVR $1 | nawk 'NR==1{print $1}'`"
-    logmsg "-- For package $fmri"
+    logmsg "-- Generating diffs for $fmri"
     diff_package $fmri
 }
 
