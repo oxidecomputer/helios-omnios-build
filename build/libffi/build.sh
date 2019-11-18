@@ -1,29 +1,20 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Use is subject to license terms.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=libffi
@@ -35,38 +26,25 @@ DESC="$SUMMARY"
 
 SKIP_LICENCES=libffi
 
-make_prog32() {
-    logmsg "Making program (32)"
-    logcmd gmake
-    pushd i386-pc-solaris2.11 > /dev/null
-    logcmd gmake clean
+# libffi has historically been linked with libtool's -nostdlib.
+# The exact reason for this unclear but historic commit messages indicate that
+# it may be related to C++ throw/catch across the library interface.
+# We should try and clarify the exact reason but we retain the same link
+# behavour.
+
+save_function make_prog _make_prog
+make_prog() {
+    _make_prog
+    logmsg "--- rebuilding libraries with -nostdlib -lc"
+    pushd $TRIPLET64 >/dev/null || logerr "pushd"
     libtool_nostdlib libtool -lc
-    logcmd gmake || logerr "make failed"
-    popd > /dev/null
+    logcmd $MAKE clean all || logerr "Rebuild with -nostdlib failed"
+    popd >/dev/null
 }
 
-make_install32() {
-    logmsg "Installing program (32)"
-    pushd i386-pc-solaris2.11 > /dev/null
-    logcmd gmake install DESTDIR="$DESTDIR"
-    popd > /dev/null
-}
-
-make_prog64() {
-    logmsg "Making program (64)"
-    logcmd gmake
-    pushd i386-pc-solaris2.11 > /dev/null
-    logcmd gmake clean
-    libtool_nostdlib libtool -lc
-    logcmd gmake || logerr "make failed"
-    popd > /dev/null
-}
-
-make_install64() {
-    logmsg "Installing program (64)"
-    pushd i386-pc-solaris2.11 > /dev/null
-    logcmd gmake install DESTDIR="$DESTDIR"
-    popd > /dev/null
+tests() {
+    nm $TMPDIR/$BUILDDIR/$TRIPLET64/.libs/libffi.so | egrep '\|_(init|fini)' \
+        && logerr "libffi was linked against standard libraries."
 }
 
 init
@@ -74,7 +52,7 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
+tests
 make_package
 clean_up
 
