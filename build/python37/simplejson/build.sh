@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-3/simplejson-37
 PROG=simplejson
-VER=3.16.0
+VER=3.17.0
 SUMMARY="simplejson - Python interface to JSON for Python"
 DESC="$SUMMARY"
 
