@@ -35,7 +35,7 @@ PREFIX=$OPT
 set_gccver $GCCMAJOR
 
 set_arch 64
-ARCH=x86_64-pc-solaris2.11
+ARCH=$TRIPLET64
 
 # We're building the 64-bit version of the compiler and tools but we want
 # to install it in the standard bin/lib locations. Gcc will take care of
@@ -103,7 +103,7 @@ CONFIGURE_OPTS="
     --with-gmp-include=/usr/include/gmp
     --with-ld=$LD --without-gnu-ld
     --with-as=/usr/bin/gas --with-gnu-as
-    --with-build-time-tools=/usr/gnu/i386-pc-solaris2.11/bin
+    --with-build-time-tools=/usr/gnu/$TRIPLET32/bin
     --with-build-config=no
     --enable-languages=$LANGUAGES
     --with-arch-32=i586

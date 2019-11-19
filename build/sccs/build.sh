@@ -36,6 +36,10 @@ HARDLINK_TARGETS="
 make_clean() { :; }
 configure32() { :; }
 
+MAKE="dmake"
+MAKE_ARGS="CCOM=gcc$BUILDARCH"
+MAKE_INSTALL_ARGS="$MAKE_ARGS"
+
 init
 prep_build
 download_source $PROG $PROG $VER

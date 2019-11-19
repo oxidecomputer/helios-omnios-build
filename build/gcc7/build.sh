@@ -61,7 +61,7 @@ export LD=/bin/ld
 export LD_FOR_HOST=$LD
 export LD_FOR_TARGET=$LD
 export LD_OPTIONS="-zignore -zcombreloc -i"
-ARCH=i386-pc-solaris2.11
+ARCH=$TRIPLET32
 
 HARDLINK_TARGETS="
     ${PREFIX/#\/}/bin/$ARCH-gcc-$VER

@@ -25,6 +25,8 @@ SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
 
+set_gccver 8
+
 SKIP_LICENCES=OpenSSL
 
 # Generic options for both 32 and 64bit variants

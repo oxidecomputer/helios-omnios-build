@@ -1,29 +1,20 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=cdrtools
@@ -35,9 +26,8 @@ DESC="$SUMMARY"
 
 DEPENDS_IPS="system/library system/library/gcc-runtime"
 
-export MAKE=/usr/bin/make
-
 set_arch 32
+objdir=i386-sunos5-gcc$BUILDARCH
 
 make_clean() {
     logcmd ./.clean
@@ -45,10 +35,11 @@ make_clean() {
 
 # cdrtools doesn't use configure in the normal way, just make will invoke
 # configure automatically.
-configure32() {
-    export CC
-    MAKE_ARGS="CC=$CC"
-}
+configure32() { :; }
+
+MAKE=dmake
+MAKE_ARGS="CCOM=gcc$BUILDARCH"
+MAKE_INSTALL_ARGS="$MAKE_ARGS"
 
 make_install() {
     pushd $DESTDIR >/dev/null
@@ -60,14 +51,14 @@ make_install() {
 
     logcmd cp $SRCDIR/files/exec_attr etc/security/exec_attr.d/cdrecord
 
-    logcmd cp $TMPDIR/$BUILDDIR/mkisofs/OBJ/i386-sunos5-gcc/mkisofs \
+    logcmd cp $TMPDIR/$BUILDDIR/mkisofs/OBJ/$objdir/mkisofs \
         usr/bin/mkisofs || logerr "install mkisofs failed"
     logcmd cp $TMPDIR/$BUILDDIR/mkisofs/mkisofs.8 usr/share/man/man8/mkisofs.8 \
         || logerr "install mkisofs.8 failed"
 
     for cmd in cdda2wav cdrecord readcd ; do
         logcmd cp $SRCDIR/files/$cmd usr/bin/$cmd || logerr "cp $cmd failed"
-        logcmd cp $TMPDIR/$BUILDDIR/$cmd/OBJ/i386-sunos5-gcc/$cmd \
+        logcmd cp $TMPDIR/$BUILDDIR/$cmd/OBJ/$objdir/$cmd \
             usr/bin/$cmd.bin || logerr "cp $cmd.bin failed"
         logcmd cp $TMPDIR/$BUILDDIR/$cmd/$cmd.1 usr/share/man/man1/$cmd.1 \
             || logerr "cp $cmd.1 failed"

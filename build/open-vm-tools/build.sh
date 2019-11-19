@@ -40,6 +40,7 @@ export PATH=/usr/gnu/bin:$PATH
 
 # There's some hand assembly in here that only works in 32-bit
 set_arch 32
+set_gccver 8
 
 BUILD_DEPENDS_IPS='developer/pkg-config'
 

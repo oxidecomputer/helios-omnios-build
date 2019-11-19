@@ -33,6 +33,7 @@ DESC="A set of programming tools for creating and managing binary programs, "
 DESC+="object files, libraries, etc."
 
 set_arch 64
+set_gccver 8
 
 HARDLINK_TARGETS="
     usr/bin/gar

@@ -1,28 +1,20 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Use is subject to license terms.
-#
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=p7zip
@@ -33,7 +25,6 @@ DESC="$SUMMARY"
 
 SRCVER="${VER}_src_all"
 set_builddir "${PROG}_${VER}"
-BUILDARCH=32
 
 RUN_DEPENDS_IPS="
     system/library/g++-runtime
@@ -43,55 +34,35 @@ RUN_DEPENDS_IPS="
 
 SKIP_LICENCES=unRar
 
+DEST_HOME=$PREFIX
+DEST_SHARE_DOC=$DEST_HOME/share/doc/p7zip
+DEST_MAN=$DEST_HOME/share/man
+export DEST_HOME DEST_BIN DEST_SHARE DEST_SHARE_DOC DEST_MAN
+
+MAKE_ARGS=all3
+
 configure32() {
-    DEST_HOME=$PREFIX
-    DEST_SHARE_DOC=$DEST_HOME/share/doc/p7zip
-    DEST_MAN=$DEST_HOME/share/man
-    export DEST_HOME DEST_BIN DEST_SHARE DEST_SHARE_DOC DEST_MAN
-}
-
-make_prog() {
-    [[ -n $NO_PARALLEL_MAKE ]] && MAKE_JOBS=""
-
-    logmsg "Making 64 bit version"
-    logcmd $MAKE $MAKE_JOBS OPTFLAGS="-D_LARGEFILE64_SOURCE -m64" all3 || \
-        logerr "--- 64bit make failed"
-
-    DEST_BIN=$DEST_HOME/bin/$ISAPART64
-    DEST_SHARE=$DEST_HOME/lib/amd64
-    export DEST_BIN DEST_SHARE
-    logmsg "Installing 64 bit version"
-    logcmd $MAKE $MAKE_JOBS OPTFLAGS="-D_LARGEFILE64_SOURCE -m64" \
-        install DEST_DIR="$DESTDIR" || \
-        logerr "--- 64bit make install failed"
-
-    logmsg "--- make clean"
-    logcmd $MAKE clean
-
-    logmsg "Making 32 bit version"
-    logmsg "--- make"
-    logcmd $MAKE $MAKE_JOBS all3 || \
-        logerr "--- Make failed"
-
-    DEST_BIN=$DEST_HOME/bin/$ISAPART
-    DEST_SHARE=$DEST_HOME/lib
-    export DEST_BIN DEST_SHARE
-    logmsg "Installing 32 bit version"
-    logcmd $MAKE $MAKE_JOBS install DEST_DIR="$DESTDIR" || \
-        logerr "--- 32bit make install failed"
-}
-
-build32() {
-    pushd $TMPDIR/$BUILDDIR > /dev/null
-    logmsg "Building it all 32/64"
-    export ISALIST="$ISAPART"
-    make_clean
-    configure32
     logcmd cp makefile.solaris_x86 makefile.machine
-    make_prog32
-    popd > /dev/null
-    unset ISALIST
-    export ISALIST
+
+    MAKE_ARGS_WS="OPTFLAGS=\"-D_LARGEFILE64_SOURCE $CFLAGS32\""
+
+    MAKE_INSTALL_ARGS_WS="
+        $MAKE_ARGS_WS
+        DEST_DIR=\"$DESTDIR\"
+        DEST_BIN=$DEST_HOME/bin/$ISAPART
+        DEST_SHARE=$DEST_HOME/lib
+    "
+}
+
+configure64() {
+    MAKE_ARGS_WS="OPTFLAGS=\"-D_LARGEFILE64_SOURCE $CFLAGS64\""
+
+    MAKE_INSTALL_ARGS_WS="
+        $MAKE_ARGS_WS
+        DEST_DIR=\"$DESTDIR\"
+        DEST_BIN=$DEST_HOME/bin/$ISAPART64
+        DEST_SHARE=$DEST_HOME/lib/$ISAPART64
+    "
 }
 
 # Also include the shell wrapper for gzip-style compatibility
@@ -114,7 +85,6 @@ run_testsuite test
 install_sh_wrapper
 make_isa_stub
 make_package
-chmod -R u+w $DESTDIR
 clean_up
 
 # Vim hints

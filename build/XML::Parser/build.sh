@@ -25,6 +25,8 @@ DESC="A perl module for parsing XML documents"
 PREFIX=/usr/perl5
 reset_configure_opts
 
+set_gccver 8
+
 NO_PARALLEL_MAKE=1
 SKIP_LICENCES=Artistic
 

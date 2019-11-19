@@ -34,6 +34,8 @@ SUMMARY="Perl $SVER Programming Language"
 DESC="A highly capable, feature-rich programming language"
 PREFIX=/usr/perl5/${SVER}
 
+set_gccver 8
+
 BUILD_DEPENDS_IPS="text/gnu-sed"
 SKIP_LICENCES="Artistic2"
 TESTSUITE_SED="
