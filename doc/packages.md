@@ -118,7 +118,7 @@
 | library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-37	| 3.1.1			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.0			| https://pypi.org/project/Mako
 | library/python-3/meson-37		| 0.52.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 7.2.0			| https://pypi.org/project/more-itertools
