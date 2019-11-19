@@ -129,7 +129,7 @@
 | library/python-3/pycodestyle-37	| 2.5.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-37		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.3		| https://pypi.org/project/pycurl
-| library/python-3/pyopenssl-37		| 19.0.0		| https://pypi.org/project/pyOpenSSL
+| library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-37	| 0.15.5		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
 | library/python-3/setuptools-37	| 41.6.0		| https://pypi.org/project/setuptools
