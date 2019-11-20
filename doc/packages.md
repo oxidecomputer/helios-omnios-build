@@ -41,7 +41,7 @@
 | library/libffi			| 3.2.1			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/ncurses			| 6.1.20191019		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
+| library/ncurses			| 6.1.20191116		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.47			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.23			| http://archive.mozilla.org/pub/nspr/releases/
@@ -69,7 +69,7 @@
 | runtime/python-37			| 3.7.5			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.29		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
-| service/network/ntpsec		| 1.1.7			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
+| service/network/ntpsec		| 1.1.8			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.12			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 011			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
@@ -118,7 +118,7 @@
 | library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-37	| 3.1.1			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.0			| https://pypi.org/project/Mako
 | library/python-3/meson-37		| 0.52.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 7.2.0			| https://pypi.org/project/more-itertools
@@ -129,11 +129,11 @@
 | library/python-3/pycodestyle-37	| 2.5.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-37		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.3		| https://pypi.org/project/pycurl
-| library/python-3/pyopenssl-37		| 19.0.0		| https://pypi.org/project/pyOpenSSL
+| library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-37	| 0.15.5		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
 | library/python-3/setuptools-37	| 41.6.0		| https://pypi.org/project/setuptools
-| library/python-3/simplejson-37	| 3.16.0		| https://pypi.org/project/simplejson
+| library/python-3/simplejson-37	| 3.17.0		| https://pypi.org/project/simplejson
 | library/python-3/six-37		| 1.13.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 1.14.1		| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile

@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=ncurses
-VER=6.1-20191019
+VER=6.1-20191116
 PKG=library/ncurses
 SUMMARY="A CRT screen handling package"
 DESC="Utilities and shared libraries for terminal handling"

@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=ntpsec
-VER=1.1.7
+VER=1.1.8
 PKG=service/network/ntpsec
 SUMMARY="Network time services"
 DESC="A secure, hardened and improved Network Time Protocol implementation"
