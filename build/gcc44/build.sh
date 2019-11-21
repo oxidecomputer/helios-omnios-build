@@ -89,7 +89,7 @@ CONFIGURE_OPTS="
     --enable-languages=c,c++,fortran
     --without-gnu-ld --with-ld=/bin/ld
     --with-as=/usr/bin/gas --with-gnu-as
-    --with-build-time-tools=/usr/gnu/${TRIPLET32}/bin
+    --with-build-time-tools=/usr/gnu/$TRIPLET64/bin
 "
 LDFLAGS32="-R/opt/gcc-${VER}/lib"
 export LD_OPTIONS="-zignore -zcombreloc -Bdirect -i"

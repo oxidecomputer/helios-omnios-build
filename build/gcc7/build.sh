@@ -87,7 +87,7 @@ CONFIGURE_OPTS="
     --with-gmp-include=/usr/include/gmp
     --with-ld=$LD --without-gnu-ld
     --with-as=/usr/bin/gas --with-gnu-as
-    --with-build-time-tools=/usr/gnu/$ARCH/bin
+    --with-build-time-tools=/usr/gnu/$TRIPLET64/bin
     --enable-languages=c,c++,fortran,lto
     --enable-plugins
     --enable-__cxa_atexit
