@@ -33,7 +33,6 @@ DESC="A set of programming tools for creating and managing binary programs, "
 DESC+="object files, libraries, etc."
 
 set_arch 64
-set_gccver 8
 
 HARDLINK_TARGETS="
     usr/bin/gar
@@ -65,7 +64,7 @@ MAKE_ARGS+=" SHELL=/bin/bash"
 basic_tests() {
     logmsg "--- basic tests"
     # Limited sanity checks
-    [ `$DESTDIR/usr/bin/gld --print-output-format` = elf32-i386-sol2 ] \
+    [ `$DESTDIR/usr/bin/gld --print-output-format` = elf64-x86-64-sol2 ] \
         || logerr "gld output format test failed"
     # These targets are required for the ilumos-omnios UEFI build.
     # https://illumos.topicbox.com/groups/developer/T5f37e8c8f0687062-Mcec43129fb017b70a035e5fd
