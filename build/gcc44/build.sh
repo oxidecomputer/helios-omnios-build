@@ -44,10 +44,10 @@ set_arch 32
 # Although we're building a 32-bit version of the compiler, gcc will take
 # care of building 32 and 64-bit objects to support its toolchain. We need
 # to unset the build flags and leave it to the gcc build system.
-unset CFLAGS CFLAGS32 CFLAGS64
-unset CPPFLAGS CPPFLAGS32 CPPFLAGS64
-unset CXXFLAGS CXXFLAGS32 CXXFLAGS64
-unset LDFLAGS LDFLAGS32 LDFLAGS64
+unset CFLAGS32 CFLAGS64
+unset CPPFLAGS32 CPPFLAGS64
+unset CXXFLAGS32 CXXFLAGS64
+unset LDFLAGS32 LDFLAGS64
 
 XFORM_ARGS="-D TRIPLET=$TRIPLET32 -D VER=$VER -D PREFIX=${PREFIX#/}"
 
@@ -70,7 +70,6 @@ HARDLINK_TARGETS="
     ${PREFIX/#\/}/bin/$TRIPLET32-gcc-$VER
     ${PREFIX/#\/}/bin/$TRIPLET32-c++
     ${PREFIX/#\/}/bin/$TRIPLET32-g++
-    ${PREFIX/#\/}/bin/$TRIPLET32-gfortran
 "
 
 export LD=/bin/ld
@@ -86,7 +85,7 @@ CONFIGURE_OPTS="
     --with-gmp=/opt/gcc-${VER}
     --with-mpfr=/opt/gcc-${VER}
     --with-mpc=/opt/gcc-${VER}
-    --enable-languages=c,c++,fortran
+    --enable-languages=c,c++
     --without-gnu-ld --with-ld=/bin/ld
     --with-as=/usr/bin/gas --with-gnu-as
     --with-build-time-tools=/usr/gnu/$TRIPLET64/bin
@@ -111,9 +110,10 @@ build
 # For some reason, this gcc44 package doesn't properly push the LDFLAGS shown
 # above into various subdirectories.  Use elfedit to fix it.
 ESTRING="dyn:runpath /opt/gcc-${VER}/lib:%o"
-elfedit -e "${ESTRING}" ${TMPDIR}/${BUILDDIR}/host-${TRIPLET32}/gcc/cc1
-elfedit -e "${ESTRING}" ${TMPDIR}/${BUILDDIR}/host-${TRIPLET32}/gcc/cc1plus
-elfedit -e "${ESTRING}" ${TMPDIR}/${BUILDDIR}/host-${TRIPLET32}/gcc/f951
+logcmd elfedit -e "$ESTRING" $TMPDIR/$BUILDDIR/host-$TRIPLET32/gcc/cc1 \
+    || logerr "elfedit cc1 failed"
+logcmd elfedit -e "$ESTRING" $TMPDIR/$BUILDDIR/host-$TRIPLET32/gcc/cc1plus \
+    || logerr "elfedit cc1plus failed"
 
 make_package gcc.mog depends.mog
 clean_up
