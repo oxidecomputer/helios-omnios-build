@@ -43,10 +43,10 @@ ARCH=$TRIPLET64
 # to unset all of the flags that we usually pass for a 64-bit object so that
 # gcc can properly create the multilib targets.
 CONFIGURE_OPTS_64="$CONFIGURE_OPTS_32"
-unset CFLAGS CFLAGS32 CFLAGS64
-unset CPPFLAGS CPPFLAGS32 CPPFLAGS64
-unset CXXFLAGS CXXFLAGS32 CXXFLAGS64
-unset LDFLAGS LDFLAGS32 LDFLAGS64
+unset CFLAGS32 CFLAGS64
+unset CPPFLAGS32 CPPFLAGS64
+unset CXXFLAGS32 CXXFLAGS64
+unset LDFLAGS32 LDFLAGS64
 
 # Use bash for all shells - some corruption occurs in libstdc++-v3/config.status
 # otherwise.
