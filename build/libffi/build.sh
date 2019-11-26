@@ -18,13 +18,17 @@
 . ../../lib/functions.sh
 
 PROG=libffi
-VER=3.2.1
+VER=3.3
 VERHUMAN=$VER
 PKG=library/libffi
 SUMMARY="A Portable Foreign Function Interface Library"
 DESC="$SUMMARY"
 
 SKIP_LICENCES=libffi
+
+# Previous versions that also need to be built and packaged since compiled
+# software may depend on it.
+PVERS="3.2.1"
 
 # libffi has historically been linked with libtool's -nostdlib.
 # The exact reason for this unclear but historic commit messages indicate that
@@ -48,9 +52,19 @@ tests() {
 }
 
 init
+prep_build
+
+# Build previous versions
+for pver in $PVERS; do
+    note -n "Building previous version: $pver"
+    BUILDDIR=$PROG-$pver download_source $PROG $PROG $pver
+    BUILDDIR=$PROG-$pver build
+    BUILDDIR=$PROG-$pver tests
+done
+
+note -n "Building current version: $VER"
 download_source $PROG $PROG $VER
 patch_source
-prep_build
 build
 tests
 make_package
