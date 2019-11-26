@@ -33,8 +33,6 @@ DESC="$SUMMARY"
 
 set_python_version $PYTHON2VER
 
-set_gccver 8
-
 BUILD_DEPENDS_IPS="developer/build/autoconf developer/pkg-config"
 RUN_DEPENDS_IPS="
     compress/bzip2
@@ -55,8 +53,8 @@ CC=gcc
 CXX=g++
 
 export CCSHARED="-fPIC"
-LDFLAGS32="-L/usr/gnu/lib -R/usr/gnu/lib"
-LDFLAGS64="-L/usr/gnu/lib/amd64 -R/usr/gnu/lib/amd64"
+LDFLAGS32+=" -L/usr/gnu/lib -R/usr/gnu/lib"
+LDFLAGS64+=" -L/usr/gnu/lib/amd64 -R/usr/gnu/lib/amd64"
 CPPFLAGS+=" -I/usr/include/ncurses -D_LARGEFILE64_SOURCE"
 CPPFLAGS64="`pkg-config --cflags libffi`"
 CPPFLAGS32="${CPPFLAGS64/amd64?/}"
