@@ -34,8 +34,6 @@ SUMMARY="Perl $SVER Programming Language"
 DESC="A highly capable, feature-rich programming language"
 PREFIX=/usr/perl5/${SVER}
 
-set_gccver 8
-
 BUILD_DEPENDS_IPS="text/gnu-sed"
 SKIP_LICENCES="Artistic2"
 TESTSUITE_SED="
@@ -67,7 +65,9 @@ PERL_BUILD_OPTS_COMMON="
 configure32() {
     logmsg "--- configure (32-bit)"
     logcmd $SHELL Configure ${PERL_BUILD_OPTS_COMMON} \
-        -Dccflags="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -D_TS_ERRNO" \
+        -Dccflags="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -m32 -D_TS_ERRNO" \
+        -Dldflags="-m32" \
+        -Dlddlflags="-G -32" \
         -Dprefix=${PREFIX} \
         -Dvendorprefix=${PREFIX} \
         -Dbin=${PREFIX}/bin/${ISAPART} \
@@ -85,6 +85,7 @@ configure32() {
     logcmd sed -i '
         s/-fstack-protector-strong//g
         s/mydomain="\.undef"/mydomain="undef"/g
+        /^lddlflags/s/-G -m32//
     ' config.sh
 }
 
@@ -105,6 +106,7 @@ configure64() {
     logmsg "--- configure (64-bit)"
     logcmd $SHELL Configure ${PERL_BUILD_OPTS_COMMON} \
         -Dccflags="-D_LARGEFILE64_SOURCE -m64 -D_TS_ERRNO" \
+        -Dldflags="-m64" \
         -Dlddlflags="-G -64" \
         -Dprefix=${PREFIX} \
         -Dvendorprefix=${PREFIX} \
