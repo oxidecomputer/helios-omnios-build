@@ -38,15 +38,15 @@
 | library/libedit			| 20191025-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.11		| https://github.com/libevent/libevent/releases | Used solely by tmux
 | library/libidn			| 1.35			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags
-| library/libffi			| 3.2.1			| https://sourceware.org/libffi/
+| library/libffi			| 3.3			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20191116		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.47			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.47.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.23			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
-| library/pcre2				| 10.33			| https://ftp.pcre.org/pub/pcre/
+| library/pcre2				| 10.34			| https://ftp.pcre.org/pub/pcre/
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
 | library/readline			| 8.0			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
@@ -130,9 +130,9 @@
 | library/python-3/pycparser-37		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.3		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-37	| 0.15.5		| https://pypi.org/project/pyrsistent
+| library/python-3/pyrsistent-37	| 0.15.6		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
-| library/python-3/setuptools-37	| 41.6.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 42.0.1		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.17.0		| https://pypi.org/project/simplejson
 | library/python-3/six-37		| 1.13.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 1.14.1		| https://pypi.org/project/tempora
