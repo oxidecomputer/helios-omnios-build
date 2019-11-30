@@ -18,17 +18,26 @@
 
 PROG=openjdk
 VER=1.8
-DATE=20190219
-UPDATE=202
+UPDATE=232
+BUILD=09
 PKG=openjdk    ##IGNORE## - filled in later
 SUMMARY="tbc"; DESC="tbc"
 
-MVER=`echo $VER | cut -d. -f2`
-VERHUMAN=jdk${MVER}u${UPDATE}
+BUILD_DEPENDS_IPS="
+    system/header/header-audio
+    developer/java/openjdk8
+    ooce/library/fontconfig
+    ooce/library/freetype2
+"
+
+MVER=${VER##*.}
+VERHUMAN=jdk${MVER}u${UPDATE}-b$BUILD
 IVER=${VER}.0
 
 IROOT=usr/jdk/instances
 IFULL=$IROOT/$PROG$IVER
+
+OOCEPREFIX=/opt/ooce
 
 XFORM_ARGS="
     -D VER=$VER
@@ -37,14 +46,13 @@ XFORM_ARGS="
     -D IFULL=$IFULL
 "
 
-# The archive extracts into just 'openjdk'
-set_builddir "$PROG"
+set_builddir "$PROG-jdk${MVER}u-$VERHUMAN.1"
 set_arch 64
 MJOBS=8
 
 # Do these steps early to set up TMPDIR
 init
-download_source $PROG $PROG $VER.$UPDATE-$DATE
+download_source $PROG $VERHUMAN.1
 patch_source
 
 # The JDK build framework does not use the -j option to make.
@@ -52,17 +60,11 @@ NO_PARALLEL_MAKE=1
 OUT_OF_TREE_BUILD=1
 prep_build
 
-BUILD_DEPENDS_IPS="
-    system/header/header-audio
-    developer/java/openjdk8
-    ooce/library/freetype2
-"
-
 CONFIGURE_OPTS="
     --with-milestone=fcs
-    --with-update-version=$UPDATE
     --with-user-release-suffix=omnios-$RELVER
-    --with-build-number=$DATE
+    --with-update-version=$UPDATE
+    --with-build-number=$BUILD
     --with-toolchain-type=gcc
     --with-boot-jdk=/usr/java
     --disable-headful
@@ -77,9 +79,11 @@ CONFIGURE_OPTS="
     --with-memory-size=768
     --disable-precompiled-headers
     --disable-ccache
-    --with-freetype=/opt/ooce
-    --with-freetype-include=/opt/ooce/include/freetype2
-    --with-freetype-lib=/opt/ooce/lib/amd64
+    --with-freetype=$OOCEPREFIX
+    --with-freetype-include=$OOCEPREFIX/include/freetype2
+    --with-freetype-lib=$OOCEPREFIX/lib/$ISAPART64
+    --with-fontconfig=$OOCEPREFIX
+    --with-fontconfig-include=$OOCEPREFIX/include
     --with-jobs=$MJOBS
 "
 CONFIGURE_OPTS_WS="
@@ -174,7 +178,7 @@ build
 #############################################################################
 # Build packages
 
-VER=$IVER.$UPDATE.$DATE
+VER=$IVER.$UPDATE.$BUILD
 _DESC="Open-source implementation of the eighth edition of the Java SE Platform"
 
 #############################################################################
