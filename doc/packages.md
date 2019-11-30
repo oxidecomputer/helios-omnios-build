@@ -115,7 +115,10 @@
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 0.23			| https://pypi.org/project/importlib-metadata
+| library/python-3/jaraco.classes-37	| 2.0			| https://pypi.org/project/jaraco.classes
+| library/python-3/jaraco.collections-37 | 2.1			| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
+| library/python-3/jaraco.text-37	| 3.1			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
