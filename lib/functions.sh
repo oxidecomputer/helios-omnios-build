@@ -1744,8 +1744,16 @@ python_vendor_relocate() {
     pushd $DESTDIR/usr/lib >/dev/null || logerr "python relocate pushd"
     [ -d python$PYTHONVER/site-packages ] || continue
     logmsg "Relocating python $PYTHONVER site to vendor-packages"
-    mv python$PYTHONVER/site-packages python$PYTHONVER/vendor-packages \
-        || logerr "python: cannot move from site to vendor-packages"
+    if [ -d python$PYTHONVER/vendor-packages ]; then
+        rsync -a python$PYTHONVER/site-packages/ \
+            python$PYTHONVER/vendor-packages/ \
+            || logerr "python: cannot copy from site to vendor-packages"
+        rm -rf python$PYTHONVER/site-packages \
+            || logerr "python: cannot remove site-packages directory"
+    else
+        mv python$PYTHONVER/site-packages/ python$PYTHONVER/vendor-packages/ \
+            || logerr "python: cannot move from site to vendor-packages"
+    fi
     popd >/dev/null
 }
 
