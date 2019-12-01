@@ -121,6 +121,12 @@ tests() {
     egrep -s gcc_cv_as_eh_frame=yes $TMPDIR/$BUILDDIR/gcc/config.log \
         || logerr "The .eh_frame based unwinder is not enabled"
 
+    # A specific test to ensure that thread-local storage is properly
+    # detected and is not being emulated.
+    egrep -s gcc_cv_use_emutls=no \
+        $TMPDIR/$BUILDDIR/$ARCH/libgcc/config.log \
+        || logerr "Emulated TLS is enabled"
+
     [ -n "$SKIP_TESTSUITE" ] && return
     if [ -z "$BATCH" ] && ! ask_to_testsuite; then
         return
