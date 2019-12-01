@@ -55,7 +55,7 @@
 | library/security/openssl-1.1		| 1.1.1d		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| meta/data/microcode			| 20190918		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
+| meta/data/microcode			| 20191115		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
 | network/dns/bind			| 9.11.13		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.1p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
@@ -74,7 +74,7 @@
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 011			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
-| shell/tcsh				| 6.21.00		| https://github.com/tcsh-org/tcsh/releases
+| shell/tcsh				| 6.22.00		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.7.1			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.7.3			| https://github.com/tycho/cpuid/releases
 | system/data/urxvt-terminfo		| 9.22			| http://dist.schmorp.de/rxvt-unicode/
@@ -88,7 +88,7 @@
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
 | system/test/fio			| 3.16			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.7.0			| https://ftp.gnu.org/gnu/screen/
-| terminal/tmux				| 2.9			| https://github.com/tmux/tmux/releases http://tmux.github.io/
+| terminal/tmux				| 3.0			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.0.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.7			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.20.1		| https://ftp.gnu.org/pub/gnu/gettext/
@@ -110,18 +110,21 @@
 | library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-37		| 1.13.2		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.2.1			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-37		| 18.4.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/cherrypy-37		| 18.5.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-37		| 4.5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 0.23			| https://pypi.org/project/importlib-metadata
+| library/python-3/jaraco.classes-37	| 2.0			| https://pypi.org/project/jaraco.classes
+| library/python-3/jaraco.collections-37 | 2.1			| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
+| library/python-3/jaraco.text-37	| 3.1			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.0			| https://pypi.org/project/Mako
-| library/python-3/meson-37		| 0.52.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-37	| 7.2.0			| https://pypi.org/project/more-itertools
+| library/python-3/meson-37		| 0.52.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/more-itertools-37	| 8.0.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
 | library/python-3/prettytable-37	| 0.7.2			| https://pypi.org/project/PrettyTable

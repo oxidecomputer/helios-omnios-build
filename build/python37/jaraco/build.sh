@@ -17,21 +17,34 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/jaraco.functools-37
-PROG=jaraco.functools
-VER=2.0
-SUMMARY="jaraco.functools - Additional functools"
-DESC="$SUMMARY"
+PKG=library/python-3/jaraco-37
+PROG=jaraco
+VER=1.0.0
+SUMMARY="jaraco"
+DESC="A bundle of jaraco python modules"
 
 . $SRCDIR/../common.sh
 
+typeset -A packages
+packages[classes]=2.0
+packages[collections]=2.1
+packages[functools]=2.0
+packages[text]=3.1
+
 init
-download_source pymodules/$PROG $PROG $VER
-patch_source
 prep_build
-python_build
+
+for pkg in "${!packages[@]}"; do
+    ver=${packages[$pkg]}
+    BUILDDIR=$PROG.$pkg-$ver
+
+    note -n "Building $PROG.$pkg"
+    download_source pymodules/$PROG.$pkg $PROG.$pkg $ver
+    python_build
+done
+
 strip_install
-make_package
+EXTRACTED_SRC=$BUILDDIR make_package
 clean_up
 
 # Vim hints

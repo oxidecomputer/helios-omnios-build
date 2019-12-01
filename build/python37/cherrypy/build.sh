@@ -18,7 +18,7 @@
 
 PKG=library/python-3/cherrypy-37
 PROG=CherryPy
-VER=18.4.0
+VER=18.5.0
 SUMMARY="Object-Oriented HTTP framework"
 DESC="A pythonic, object-oriented HTTP framework."
 
@@ -29,6 +29,7 @@ RUN_DEPENDS_IPS+="
     library/python-$PYMVER/portend-$SPYVER
     library/python-$PYMVER/cheroot-$SPYVER
     library/python-$PYMVER/zc.lockfile-$SPYVER
+    library/python-$PYMVER/jaraco-$SPYVER
 "
 
 init
