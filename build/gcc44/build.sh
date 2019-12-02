@@ -19,13 +19,6 @@
 
 PROG=gcc
 VER=4.4.4
-#
-# The ILLUMOSVER is the suffix of the tag gcc-4.4.4-<ILLUMOSVER>.
-# It takes the form "il-N" for some number N.  These are announced to the
-# illumos developer's list, and it is expected that OmniOSce will keep a
-# copy at mirrors.omniosce.org, or local maintainers keep it whereever they
-# keep their local mirrors.
-#
 ILLUMOSVER=il-4
 VERHUMAN="${VER}-${ILLUMOSVER}"
 PKG=developer/gcc44
@@ -66,21 +59,23 @@ RUN_DEPENDS_IPS="
 
 reset_configure_opts
 
-HARDLINK_TARGETS="
-    ${PREFIX/#\/}/bin/$TRIPLET32-gcc-$VER
-    ${PREFIX/#\/}/bin/$TRIPLET32-c++
-    ${PREFIX/#\/}/bin/$TRIPLET32-g++
-"
-
 export LD=/bin/ld
 export LD_FOR_TARGET=$LD
 export LD_FOR_HOST=$LD
+ARCH=$TRIPLET32
+
+HARDLINK_TARGETS="
+    ${PREFIX/#\/}/bin/$ARCH-gcc-$VER
+    ${PREFIX/#\/}/bin/$ARCH-c++
+    ${PREFIX/#\/}/bin/$ARCH-g++
+"
+
 
 CONFIGURE_OPTS_32="--prefix=/opt/gcc-${VER}"
 CONFIGURE_OPTS="
-    --host ${TRIPLET32}
-    --build ${TRIPLET32}
-    --target ${TRIPLET32}
+    --host ${ARCH}
+    --build ${ARCH}
+    --target ${ARCH}
     --with-boot-ldflags=-R/opt/gcc-${VER}/lib
     --with-gmp=/opt/gcc-${VER}
     --with-mpfr=/opt/gcc-${VER}
@@ -101,20 +96,70 @@ export LD_OPTIONS="-zignore -zcombreloc -Bdirect -i"
     && CONFIGURE_OPTS+=" --disable-bootstrap" \
     && logmsg "--- disabling bootstrap"
 
+fix_runpath() {
+    # For some reason, this gcc44 package doesn't properly push the LDFLAGS
+    # shown above into various subdirectories.  Use elfedit to fix it.
+    ESTRING="dyn:runpath /opt/gcc-${VER}/lib:%o"
+    logcmd elfedit -e "$ESTRING" $TMPDIR/$BUILDDIR/host-$ARCH/gcc/cc1 \
+        || logerr "elfedit cc1 failed"
+    logcmd elfedit -e "$ESTRING" $TMPDIR/$BUILDDIR/host-$ARCH/gcc/cc1plus \
+        || logerr "elfedit cc1plus failed"
+}
+
+tests() {
+    # A specific test to ensure that thread-local storage is properly
+    # detected and is not being emulated.
+    egrep -s gcc_cv_have_cc_tls=yes \
+        $TMPDIR/$BUILDDIR/$ARCH/libgcc/config.log \
+        || logerr "Emulated TLS is enabled"
+
+    [ -n "$SKIP_TESTSUITE" ] && return
+    if [ -z "$BATCH" ] && ! ask_to_testsuite; then
+        return
+    fi
+
+    export GUILE_AUTO_COMPILE=0
+    export PATH+=:/opt/ooce/bin
+    # The tests can be run in parallel - we sort them afterwards for consistent
+    # results.
+    MAKE_TESTSUITE_ARGS+=" $MAKE_JOBS"
+    # Some gcc tests (e.g. limits-exprparen.c) need a larger stack
+    ulimit -Ss 16385
+    # Lots of tests create core files via assertions
+    ulimit -c 0
+    # This causes the testsuite to be run twice, once with no additional
+    # options (see the leading , in the {} expression), and once with
+    # -msave-args
+    MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{,-msave-args\}"
+    # If not in batch mode, we've already asked whether this should be run
+    # above, so set BATCH
+    BATCH=1 run_testsuite "check check-target" "" build.log.testsuite
+    pushd $TMPDIR/$BUILDDIR >/dev/null
+    # Sort the test results in the individual summary files
+    find $TMPDIR/$BUILDDIR -name '*.sum' -type f | while read s; do
+        cp $s $s.orig
+        nawk '
+            /^Running target unix/ { sorting = 1; print; next }
+            /Summary .*===$/ { close("sort -k2"); sorting = 0; print; next }
+            sorting { print | "sort -k2" }
+            # The version lines include the build path
+            /  version / { next }
+            { print }
+        ' < $s.orig > $s
+    done
+    make_param mail-report.log
+    cat mail-report.log > $SRCDIR/testsuite.log.detail
+    egrep ' Summary (for .*)?===$|^#' mail-report.log > $SRCDIR/testsuite.log
+    popd >/dev/null
+}
+
 init
 download_source gcc44 ${PROG}-gcc-4.4.4-${ILLUMOSVER}
 patch_source
 prep_build
 build
-
-# For some reason, this gcc44 package doesn't properly push the LDFLAGS shown
-# above into various subdirectories.  Use elfedit to fix it.
-ESTRING="dyn:runpath /opt/gcc-${VER}/lib:%o"
-logcmd elfedit -e "$ESTRING" $TMPDIR/$BUILDDIR/host-$TRIPLET32/gcc/cc1 \
-    || logerr "elfedit cc1 failed"
-logcmd elfedit -e "$ESTRING" $TMPDIR/$BUILDDIR/host-$TRIPLET32/gcc/cc1plus \
-    || logerr "elfedit cc1plus failed"
-
+fix_runpath
+tests
 make_package gcc.mog depends.mog
 clean_up
 
