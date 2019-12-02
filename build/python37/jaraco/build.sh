@@ -29,7 +29,7 @@ typeset -A packages
 packages[classes]=2.0
 packages[collections]=2.1
 packages[functools]=2.0
-packages[text]=3.1
+packages[text]=3.2.0
 
 init
 prep_build

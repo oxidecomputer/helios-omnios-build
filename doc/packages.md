@@ -74,7 +74,7 @@
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 011			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
-| shell/tcsh				| 6.22.00		| https://github.com/tcsh-org/tcsh/releases
+| shell/tcsh				| 6.22.01		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.7.1			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.7.3			| https://github.com/tycho/cpuid/releases
 | system/data/urxvt-terminfo		| 9.22			| http://dist.schmorp.de/rxvt-unicode/
@@ -114,11 +114,11 @@
 | library/python-3/coverage-37		| 4.5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
-| library/python-3/importlib-metadata-37 | 0.23			| https://pypi.org/project/importlib-metadata
+| library/python-3/importlib-metadata-37 | 1.1.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 2.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-37 | 2.1			| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
-| library/python-3/jaraco.text-37	| 3.1			| https://pypi.org/project/jaraco.text
+| library/python-3/jaraco.text-37	| 3.2.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
@@ -135,7 +135,7 @@
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-37	| 0.15.6		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
-| library/python-3/setuptools-37	| 42.0.1		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 42.0.2		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.17.0		| https://pypi.org/project/simplejson
 | library/python-3/six-37		| 1.13.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 1.14.1		| https://pypi.org/project/tempora
