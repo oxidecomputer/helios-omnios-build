@@ -114,7 +114,7 @@
 | library/python-3/coverage-37		| 4.5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
-| library/python-3/importlib-metadata-37 | 1.1.0		| https://pypi.org/project/importlib-metadata
+| library/python-3/importlib-metadata-37 | 1.2.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 2.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-37 | 2.1			| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
