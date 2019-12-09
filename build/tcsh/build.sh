@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=tcsh
-VER=6.22.01
+VER=6.22.02
 VERHUMAN=$VER
 PKG=shell/tcsh
 SUMMARY="Tenex C-shell (tcsh)"

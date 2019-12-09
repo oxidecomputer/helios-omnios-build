@@ -18,7 +18,7 @@
 
 PKG=library/python-3/importlib-metadata-37
 PROG=importlib-metadata
-VER=1.1.0
+VER=1.2.0
 SUMMARY="Read metadata from Python packages"
 DESC="A library to access the metadata for a Python package"
 
