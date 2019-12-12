@@ -20,13 +20,13 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.4.2			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.5			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.24.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/git		| 2.24.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.2.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
-| editor/vim				| 8.1			| http://ftp.vim.org/pub/vim/unix
+| editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 8.31			| https://git.savannah.gnu.org/cgit/coreutils.git/refs/tags
 | file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.0.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
@@ -35,13 +35,13 @@
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.0.2			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
-| library/libedit			| 20191025-3.1		| https://thrysoee.dk/editline/
+| library/libedit			| 20191211-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.11		| https://github.com/libevent/libevent/releases | Used solely by tmux
 | library/libidn			| 1.35			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags
 | library/libffi			| 3.3			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/ncurses			| 6.1.20191116		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
+| library/ncurses			| 6.1.20191207		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.48			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.24			| http://archive.mozilla.org/pub/nspr/releases/
@@ -65,7 +65,7 @@
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
 | runtime/perl				| 5.30.1		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.17		| https://www.python.org/downloads/source/
-| runtime/python-35			| 3.5.8			| https://www.python.org/downloads/source/
+| runtime/python-35			| 3.5.9			| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.5			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.29		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
