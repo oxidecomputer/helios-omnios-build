@@ -18,7 +18,7 @@
 
 PROG=WAGuestAgent
 PKG=system/virtualization/azure-agent
-VER=2.2.42
+VER=2.2.45
 SUMMARY="Microsoft Azure Guest Agent"
 DESC="The $SUMMARY (waagent) manages provisioning and VM interaction "
 DESC+="with the Azure Fabric Controller."

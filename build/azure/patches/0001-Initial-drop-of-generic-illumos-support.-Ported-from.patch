@@ -1,7 +1,7 @@
-From 1c829e85088d7c8dc45f1898190f19ab02cdcaca Mon Sep 17 00:00:00 2001
+From 81ab17a48fbf7b48bbdb87ba050127b163171a0c Mon Sep 17 00:00:00 2001
 From: Prakash Surya <prakash.surya@delphix.com>
 Date: Fri, 31 May 2019 16:22:43 -0400
-Subject: [PATCH 01/10] Initial drop of generic illumos support.  Ported from
+Subject: [PATCH 01/12] Initial drop of generic illumos support.  Ported from
  DelphixOS. Portions contributed by: Pavel Zakharov
  <pavel.zakharov@delphix.com> Portions contributed by: George Wilson
  <george.wilson@delphix.com> Portions contributed by: Dan McDonald
@@ -16,12 +16,12 @@ Subject: [PATCH 01/10] Initial drop of generic illumos support.  Ported from
  .../daemon/resourcedisk/illumos.py            |  32 ++
  azurelinuxagent/pa/deprovision/factory.py     |   5 +
  azurelinuxagent/pa/deprovision/illumos.py     |  74 ++++
- azurelinuxagent/pa/provision/factory.py       |   6 +
+ azurelinuxagent/pa/provision/factory.py       |   7 +
  azurelinuxagent/pa/provision/illumos.py       |  32 ++
  config/illumos/waagent.conf                   |  26 ++
  init/illumos/waagent.xml                      |  45 +++
  setup.py                                      |   6 +
- 13 files changed, 587 insertions(+), 1 deletion(-)
+ 13 files changed, 588 insertions(+), 1 deletion(-)
  create mode 100644 azurelinuxagent/common/osutil/illumos.py
  create mode 100644 azurelinuxagent/daemon/resourcedisk/illumos.py
  create mode 100644 azurelinuxagent/pa/deprovision/illumos.py
@@ -30,7 +30,7 @@ Subject: [PATCH 01/10] Initial drop of generic illumos support.  Ported from
  create mode 100644 init/illumos/waagent.xml
 
 diff --git a/azurelinuxagent/common/osutil/default.py b/azurelinuxagent/common/osutil/default.py
-index 7cc2be8..fd3fdce 100644
+index 7ccc534..a56afa9 100644
 --- a/azurelinuxagent/common/osutil/default.py
 +++ b/azurelinuxagent/common/osutil/default.py
 @@ -1,5 +1,6 @@
@@ -40,7 +40,7 @@ index 7cc2be8..fd3fdce 100644
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -607,6 +608,8 @@ class DefaultOSUtil(object):
+@@ -618,6 +619,8 @@ class DefaultOSUtil(object):
                         "the pattern [{0}]: {1}\n".format(pattern, device_list)
          raise OSUtilError(msg="Failed to get dvd device from {0}".format(dev_dir),
                            inner=inner_detail)
@@ -49,7 +49,7 @@ index 7cc2be8..fd3fdce 100644
  
      def mount_dvd(self,
                    max_retry=6,
-@@ -630,10 +633,11 @@ class DefaultOSUtil(object):
+@@ -641,10 +644,11 @@ class DefaultOSUtil(object):
              os.makedirs(mount_point)
  
          err = ''
@@ -62,7 +62,7 @@ index 7cc2be8..fd3fdce 100644
                                            chk_err=False)
              if return_code == 0:
                  logger.info("Successfully mounted dvd")
-@@ -1090,6 +1094,15 @@ class DefaultOSUtil(object):
+@@ -1101,6 +1105,15 @@ class DefaultOSUtil(object):
      def restart_ssh_service(self):
          pass
  
@@ -79,7 +79,7 @@ index 7cc2be8..fd3fdce 100644
          """
          Add specified route 
 diff --git a/azurelinuxagent/common/osutil/factory.py b/azurelinuxagent/common/osutil/factory.py
-index bb3db9b..4b2c04f 100644
+index 56515ed..77b3b6d 100644
 --- a/azurelinuxagent/common/osutil/factory.py
 +++ b/azurelinuxagent/common/osutil/factory.py
 @@ -1,4 +1,6 @@
@@ -97,8 +97,8 @@ index bb3db9b..4b2c04f 100644
  
  from distutils.version import LooseVersion as Version
  
-@@ -116,6 +119,9 @@ def get_osutil(distro_name=DISTRO_NAME,
-     elif distro_name == "openwrt":
+@@ -127,6 +130,9 @@ def _get_osutil(distro_name, distro_code_name, distro_version, distro_full_name)
+     if distro_name == "openwrt":
          return OpenWRTOSUtil()
  
 +    elif distro_name == "illumos":
@@ -434,7 +434,7 @@ index 0000000..0cfd53e
 +    def device_for_ide_port(self, port_id):
 +        logger.warn('"device_for_ide_port" not supported.')
 diff --git a/azurelinuxagent/common/version.py b/azurelinuxagent/common/version.py
-index 512670b..9d46689 100644
+index 7142942..90f21f2 100644
 --- a/azurelinuxagent/common/version.py
 +++ b/azurelinuxagent/common/version.py
 @@ -1,4 +1,6 @@
@@ -646,7 +646,7 @@ index 0000000..0f88a30
 +        return warnings, actions
 +
 diff --git a/azurelinuxagent/pa/provision/factory.py b/azurelinuxagent/pa/provision/factory.py
-index 5f90319..d169fc3 100644
+index 8134d19..3769638 100644
 --- a/azurelinuxagent/pa/provision/factory.py
 +++ b/azurelinuxagent/pa/provision/factory.py
 @@ -1,4 +1,6 @@
@@ -656,22 +656,29 @@ index 5f90319..d169fc3 100644
  #
  # Licensed under the Apache License, Version 2.0 (the "License");
  # you may not use this file except in compliance with the License.
-@@ -22,11 +24,15 @@ from azurelinuxagent.common.version import DISTRO_NAME, DISTRO_VERSION, \
+@@ -22,17 +24,22 @@ from azurelinuxagent.common.version import DISTRO_NAME, DISTRO_VERSION, \
  
  from .default import ProvisionHandler
- from .cloudinit import CloudInitProvisionHandler
+ from .cloudinit import CloudInitProvisionHandler, cloud_init_is_enabled
 +from .illumos import illumosProvisionHandler
  
- def get_provision_handler(distro_name=DISTRO_NAME, 
+ def get_provision_handler(distro_name=DISTRO_NAME,
                              distro_version=DISTRO_VERSION,
                              distro_full_name=DISTRO_FULL_NAME):
  
 +    if distro_name == "illumos":
 +        return illumosProvisionHandler();
 +
-     if conf.get_provision_cloudinit():
+     provisioning_agent = conf.get_provisioning_agent()
+ 
+     if provisioning_agent == 'cloud-init' or (
+             provisioning_agent == 'auto' and
+             cloud_init_is_enabled()):
+         logger.info('Using cloud-init for provisioning')
++
          return CloudInitProvisionHandler()
  
+     logger.info('Using waagent for provisioning')
 diff --git a/azurelinuxagent/pa/provision/illumos.py b/azurelinuxagent/pa/provision/illumos.py
 new file mode 100644
 index 0000000..90d9a09
@@ -818,5 +825,5 @@ index ee0d839..8218756 100755
          set_bin_files(data_files)
          set_conf_files(data_files, src=["config/debian/waagent.conf"])
 -- 
-2.21.0
+2.23.0
 
