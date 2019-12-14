@@ -28,6 +28,7 @@ BUILD_DEPENDS_IPS="
     developer/java/openjdk8
     ooce/library/fontconfig
     ooce/library/freetype2
+    ooce/print/cups
 "
 
 MVER=${VER##*.}
@@ -73,7 +74,7 @@ CONFIGURE_OPTS="
     --with-cacerts-file=/etc/ssl/java/cacerts
     --with-zlib=system
     --with-giflib=bundled
-    --with-cups-include=$TMPDIR/cups/include
+    --with-cups-include=$OOCEPREFIX/include
     --x-includes=$TMPDIR/openwin/X11/include
     --enable-freetype-bundling
     --with-memory-size=768
@@ -170,7 +171,6 @@ make_install() {
 
 #############################################################################
 
-grab cups/cups-headers.tar.gz cups/include
 grab Xstuff/openwin.tar.gz openwin/X11/include
 chmod +x $CONFIGURE_CMD
 build
