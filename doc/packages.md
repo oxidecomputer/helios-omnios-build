@@ -13,7 +13,7 @@
 | developer/build/automake		| 1.16.1		| https://git.savannah.gnu.org/cgit/automake.git/refs/tags https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.2.1			| http://git.savannah.gnu.org/cgit/make.git/refs/tags
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
-| developer/gcc7			| 7.4			| https://ftp.gnu.org/gnu/gcc/
+| developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc8			| 8.3			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc9			| 9.2			| https://ftp.gnu.org/gnu/gcc/
 | developer/java/openjdk8		| 1.8.232-09		| https://github.com/battleblow/openjdk-jdk8u/releases
