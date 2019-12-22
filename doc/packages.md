@@ -66,7 +66,7 @@
 | runtime/perl				| 5.30.1		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.17		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.9			| https://www.python.org/downloads/source/
-| runtime/python-37			| 3.7.5			| https://www.python.org/downloads/source/
+| runtime/python-37			| 3.7.6			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.29		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.8			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
@@ -99,7 +99,7 @@
 | text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.67.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.62.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.62.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.33.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.45		| https://github.com/Azure/WALinuxAgent/releases
@@ -111,13 +111,13 @@
 | library/python-3/cffi-37		| 1.13.2		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.2.1			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.5.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-37		| 4.5.4			| https://pypi.org/project/coverage
+| library/python-3/coverage-37		| 5.0			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
-| library/python-3/importlib-metadata-37 | 1.2.0		| https://pypi.org/project/importlib-metadata
-| library/python-3/jaraco.classes-37	| 2.0			| https://pypi.org/project/jaraco.classes
-| library/python-3/jaraco.collections-37 | 2.1			| https://pypi.org/project/jaraco.collections
-| library/python-3/jaraco.functools-37	| 2.0			| https://pypi.org/project/jaraco.functools
+| library/python-3/importlib-metadata-37 | 1.3.0		| https://pypi.org/project/importlib-metadata
+| library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
+| library/python-3/jaraco.collections-37 | 3.0.0		| https://pypi.org/project/jaraco.collections
+| library/python-3/jaraco.functools-37	| 3.0.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-37	| 3.2.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
@@ -138,7 +138,7 @@
 | library/python-3/setuptools-37	| 42.0.2		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.17.0		| https://pypi.org/project/simplejson
 | library/python-3/six-37		| 1.13.0		| https://pypi.org/project/six
-| library/python-3/tempora-37		| 1.14.1		| https://pypi.org/project/tempora
+| library/python-3/tempora-37		| 2.0.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
 | library/python-3/zipp-37		| 0.6.0			| https://pypi.org/project/zipp
 

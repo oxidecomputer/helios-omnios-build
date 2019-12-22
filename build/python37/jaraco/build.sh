@@ -26,9 +26,9 @@ DESC="A bundle of jaraco python modules"
 . $SRCDIR/../common.sh
 
 typeset -A packages
-packages[classes]=2.0
-packages[collections]=2.1
-packages[functools]=2.0
+packages[classes]=3.1.0
+packages[collections]=3.0.0
+packages[functools]=3.0.0
 packages[text]=3.2.0
 
 init
