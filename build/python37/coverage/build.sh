@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-3/coverage-37
 PROG=coverage
-VER=5.0
+VER=5.0.1
 SUMMARY="Python coverage module"
 DESC="Code coverage testing for Python"
 
