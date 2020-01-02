@@ -67,7 +67,7 @@
 | runtime/python-27			| 2.7.17		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.9			| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.6			| https://www.python.org/downloads/source/
-| security/sudo				| 1.8.29		| https://www.sudo.ws/
+| security/sudo				| 1.8.30		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.8			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.12			| https://github.com/corecode/dma/releases

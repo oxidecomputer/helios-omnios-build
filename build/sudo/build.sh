@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=sudo
-VER=1.8.29
+VER=1.8.30
 PKG=security/sudo
 SUMMARY="Authority delegation tool"
 DESC="Provide limited super-user privileges to specific users"
