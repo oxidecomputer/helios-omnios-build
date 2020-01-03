@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -25,6 +25,9 @@ DESC="A general-purpose parser generator that converts an annotated "
 DESC+="context-free grammar into a deterministic or generalised parser"
 
 set_arch 64
+
+# Ruby is required for parts of the testsuite
+BUILD_DEPENDS_IPS="ooce/runtime/ruby-26"
 
 CONFIGURE_OPTS="--disable-yacc"
 export M4=/usr/bin/gm4
@@ -41,7 +44,7 @@ patch_source
 prep_build
 build
 strip_install
-run_testsuite check
+PATH+=:/opt/ooce/bin run_testsuite check
 make_package
 clean_up
 
