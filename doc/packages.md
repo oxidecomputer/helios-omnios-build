@@ -29,7 +29,7 @@
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 8.31			| https://git.savannah.gnu.org/cgit/coreutils.git/refs/tags
 | file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
-| library/c++/sigcpp			| 3.0.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
+| library/c++/sigcpp			| 3.0.2			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.9			| https://github.com/libexpat/libexpat/releases
 | library/gmp				| 6.1.2			| https://gmplib.org/
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html

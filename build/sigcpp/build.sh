@@ -21,12 +21,12 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=libsigc++
-VER=3.0.0
+VER=3.0.2
 VERHUMAN=$VER
 PKG=library/c++/sigcpp
 SUMMARY="$PROG"
