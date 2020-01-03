@@ -29,19 +29,19 @@
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 8.31			| https://git.savannah.gnu.org/cgit/coreutils.git/refs/tags
 | file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
-| library/c++/sigcpp			| 3.0.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
+| library/c++/sigcpp			| 3.0.2			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.9			| https://github.com/libexpat/libexpat/releases
 | library/gmp				| 6.1.2			| https://gmplib.org/
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.0.2			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
-| library/libedit			| 20191211-3.1		| https://thrysoee.dk/editline/
+| library/libedit			| 20191231-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.11		| https://github.com/libevent/libevent/releases | Used solely by tmux
 | library/libidn			| 1.35			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags
 | library/libffi			| 3.3			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/ncurses			| 6.1.20191207		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
+| library/ncurses			| 6.1.20191228		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.48			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.24			| http://archive.mozilla.org/pub/nspr/releases/
@@ -67,7 +67,7 @@
 | runtime/python-27			| 2.7.17		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.9			| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.6			| https://www.python.org/downloads/source/
-| security/sudo				| 1.8.29		| https://www.sudo.ws/
+| security/sudo				| 1.8.30		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.8			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.12			| https://github.com/corecode/dma/releases
@@ -111,7 +111,7 @@
 | library/python-3/cffi-37		| 1.13.2		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.2.1			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.5.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-37		| 5.0			| https://pypi.org/project/coverage
+| library/python-3/coverage-37		| 5.0.1			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 1.3.0		| https://pypi.org/project/importlib-metadata
@@ -135,7 +135,7 @@
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-37	| 0.15.6		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
-| library/python-3/setuptools-37	| 42.0.2		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 44.0.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.17.0		| https://pypi.org/project/simplejson
 | library/python-3/six-37		| 1.13.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 2.0.0			| https://pypi.org/project/tempora
