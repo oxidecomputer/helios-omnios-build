@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -22,13 +22,11 @@ VER=2.46
 SUMMARY="XML::Parser perl module"
 DESC="A perl module for parsing XML documents"
 
-PREFIX=/usr/perl5
-reset_configure_opts
+set_arch 64
 
 NO_PARALLEL_MAKE=1
-SKIP_LICENCES=Artistic
 
-BUILD_DEPENDS_IPS="runtime/perl runtime/perl-64"
+BUILD_DEPENDS_IPS="runtime/perl"
 RUN_DEPENDS_IPS="$BUILD_DEPENDS_IPS"
 
 init
