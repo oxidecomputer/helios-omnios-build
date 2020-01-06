@@ -13,7 +13,7 @@
 # }}}
 
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -25,7 +25,7 @@ DESC="The GNOME general-purpose utility library"
 
 RUN_DEPENDS_IPS="
     runtime/python-$PYTHONPKGVER
-    runtime/perl-64
+    runtime/perl
 "
 
 # ninja does not support the --quiet option
