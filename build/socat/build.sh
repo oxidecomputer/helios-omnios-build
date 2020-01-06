@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=socat
-VER=1.7.3.3
+VER=1.7.3.4
 PKG=network/socat
 SUMMARY="Multipurpose socket relay"
 DESC="socat is a relay for bidirectional data transfer between two "
