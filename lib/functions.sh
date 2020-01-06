@@ -232,7 +232,7 @@ ask_to_continue_() {
     echo -n "${1}${MSG} ($STR) "
     read
     while [[ ! "$REPLY" =~ $RE ]]; do
-        echo -n "continue? ($STR) "
+        echo -n "${MSG} ($STR) "
         read
     done
 }
@@ -259,13 +259,18 @@ ask_to_install() {
         logmsg -e "===== Build aborted ====="
         exit 1
     fi
-    ask_to_continue_ "$MSG " "Install/Abort?" "i/a" "[iIaA]"
-    if [[ "$REPLY" == "i" || "$REPLY" == "I" ]]; then
-        logcmd $PFEXEC pkg install $ati_PKG || logerr "pkg install failed"
-    else
-        logmsg -e "===== Build aborted ====="
-        exit 1
-    fi
+    ask_to_continue_ "$MSG " "Install/Abort/Skip?" "i/a/s" "[iIaAsS]"
+    case $REPLY in
+        i|I)
+            logcmd $PFEXEC pkg install $ati_PKG || logerr "pkg install failed"
+            ;;
+        s|S)
+            # Skip
+            ;;
+        *)
+            logmsg -e "===== Build aborted ====="
+            exit 1
+    esac
 }
 
 ask_to_pkglint() {
@@ -1145,6 +1150,7 @@ make_package() {
         fi
         logcmd -p $PKGSEND generate $GENERATE_ARGS $DESTDIR > $P5M_INT || \
             logerr "------ Failed to generate manifest"
+        check_hardlinks "$P5M_INT" "$HARDLINK_TARGETS"
     else
         logmsg "--- Looks like a meta-package. Creating empty manifest"
         logcmd touch $P5M_INT || \
@@ -1994,6 +2000,57 @@ check_symlinks() {
     for link in `find "$1" -type l`; do
         readlink -e $link >/dev/null || logerr "Dangling symlink $link"
     done
+}
+
+#############################################################################
+# Check that hardlinks are anchored for reproducible package builds
+#############################################################################
+
+check_hardlinks() {
+    typeset manifest="$1"; shift
+    typeset targets="$@"
+    typeset -A tlookup
+
+    logmsg "-- Checking hardlinks"
+
+    for t in $targets; do
+        tlookup[$t]=1
+    done
+
+    hlf=`mktemp`
+
+    nawk '$1 == "hardlink" {
+            path = ""
+            for (i = 0; i <= NF; i++) {
+                split($i, a, "=")
+                key = a[1]; val = a[2]
+                if (key == "path") {
+                    dir = path = val
+                    sub(/\/[^\/]*$/, "/", dir)
+                }
+                if (key == "target") {
+                    if (val ~ /^\//)
+                        print val, path
+                    else
+                        printf("%s%s %s\n", dir, val, path)
+                }
+            }
+        }' < "$manifest" | while read link path; do
+            logmsg "--- checking hardlink $link"
+            [ -n "${tlookup[$link]}" ] || echo "$link <- $path" >> $hlf
+    done
+
+    if [ -s $hlf ]; then
+        logmsg "---"
+        logmsg -e "These hardlinks do not have locked targets,"\
+            "resulting in inconsistent builds."
+        cat $hlf | while read hl; do
+            logmsg -e "--- Unlocked hardlink: $hl"
+        done
+        logerr "---"
+    fi
+
+    rm -f $hlf
 }
 
 #############################################################################
