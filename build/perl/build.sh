@@ -34,6 +34,12 @@ XFORM_ARGS="
     -DVERSION=$MAJVER
 "
 
+HARDLINK_TARGETS="
+    ${PREFIX#/}/bin/$PROG$VER
+    ${PREFIX#/}/bin/${PROG}thanks
+    ${PREFIX#/}/man/man1/${PROG}thanks.1
+"
+
 BUILD_DEPENDS_IPS="text/gnu-sed"
 
 TESTSUITE_SED="
