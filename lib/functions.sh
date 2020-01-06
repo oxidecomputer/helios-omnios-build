@@ -232,7 +232,7 @@ ask_to_continue_() {
     echo -n "${1}${MSG} ($STR) "
     read
     while [[ ! "$REPLY" =~ $RE ]]; do
-        echo -n "continue? ($STR) "
+        echo -n "${MSG} ($STR) "
         read
     done
 }
@@ -259,13 +259,18 @@ ask_to_install() {
         logmsg -e "===== Build aborted ====="
         exit 1
     fi
-    ask_to_continue_ "$MSG " "Install/Abort?" "i/a" "[iIaA]"
-    if [[ "$REPLY" == "i" || "$REPLY" == "I" ]]; then
-        logcmd $PFEXEC pkg install $ati_PKG || logerr "pkg install failed"
-    else
-        logmsg -e "===== Build aborted ====="
-        exit 1
-    fi
+    ask_to_continue_ "$MSG " "Install/Abort/Skip?" "i/a/s" "[iIaAsS]"
+    case $REPLY in
+        i|I)
+            logcmd $PFEXEC pkg install $ati_PKG || logerr "pkg install failed"
+            ;;
+        s|S)
+            # Skip
+            ;;
+        *)
+            logmsg -e "===== Build aborted ====="
+            exit 1
+    esac
 }
 
 ask_to_pkglint() {
