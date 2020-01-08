@@ -96,7 +96,7 @@
 | text/gnu-sed				| 4.7			| http://git.savannah.gnu.org/cgit/sed.git/refs/tags https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.67.0		| https://curl.haxx.se/download.html
+| web/curl				| 7.68.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.62.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.33.1		| https://ftp.gnu.org/gnu/binutils
