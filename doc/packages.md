@@ -96,7 +96,7 @@
 | text/gnu-sed				| 4.7			| http://git.savannah.gnu.org/cgit/sed.git/refs/tags https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.67.0		| https://curl.haxx.se/download.html
+| web/curl				| 7.68.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.62.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.33.1		| https://ftp.gnu.org/gnu/binutils
@@ -132,7 +132,7 @@
 | library/python-3/pycparser-37		| 2.19			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.3		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-37	| 0.15.6		| https://pypi.org/project/pyrsistent
+| library/python-3/pyrsistent-37	| 0.15.7		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
 | library/python-3/setuptools-37	| 44.0.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.17.0		| https://pypi.org/project/simplejson
