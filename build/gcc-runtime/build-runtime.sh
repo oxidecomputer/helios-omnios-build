@@ -33,7 +33,7 @@ pushd $DESTDIR >/dev/null
 
 # To keep all of the logic in one place, links are not created in the .mog
 
-libs="libgcc_s libatomic"
+libs="libgcc_s libatomic libgomp"
 
 mkdir -p usr/lib/$ISAPART64
 
