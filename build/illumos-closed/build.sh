@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -30,7 +30,9 @@ HARDLINK_TARGETS="
     opt/onbld/closed/root_i386/usr/xpg4/bin/alias
     opt/onbld/closed/root_i386-nd/usr/xpg4/bin/alias
     opt/onbld/closed/root_i386/platform/i86pc/kernel/cpu/cpu_ms.GenuineIntel.6.46
+    opt/onbld/closed/root_i386/platform/i86pc/kernel/cpu/amd64/cpu_ms.GenuineIntel.6.46
     opt/onbld/closed/root_i386-nd/platform/i86pc/kernel/cpu/cpu_ms.GenuineIntel.6.46
+    opt/onbld/closed/root_i386-nd/platform/i86pc/kernel/cpu/amd64/cpu_ms.GenuineIntel.6.46
     opt/onbld/closed/root_i386/etc/init.d/llc2
     opt/onbld/closed/root_i386-nd/etc/init.d/llc2
     opt/onbld/closed/root_i386/kernel/strmod/sdpib
