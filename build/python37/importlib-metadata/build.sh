@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-3/importlib-metadata-37
 PROG=importlib-metadata
-VER=1.3.0
+VER=1.4.0
 SUMMARY="Read metadata from Python packages"
 DESC="A library to access the metadata for a Python package"
 
