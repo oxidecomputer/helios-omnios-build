@@ -113,7 +113,7 @@
 | library/python-3/coverage-37		| 5.0.2			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
-| library/python-3/importlib-metadata-37 | 1.3.0		| https://pypi.org/project/importlib-metadata
+| library/python-3/importlib-metadata-37 | 1.4.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-37 | 3.0.0		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-37	| 3.0.0			| https://pypi.org/project/jaraco.functools
@@ -137,7 +137,7 @@
 | library/python-3/setuptools-37	| 44.0.0		| https://pypi.org/project/setuptools
 | library/python-3/simplejson-37	| 3.17.0		| https://pypi.org/project/simplejson
 | library/python-3/six-37		| 1.13.0		| https://pypi.org/project/six
-| library/python-3/tempora-37		| 2.0.0			| https://pypi.org/project/tempora
+| library/python-3/tempora-37		| 2.1.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
 | library/python-3/zipp-37		| 0.6.0			| https://pypi.org/project/zipp
 
