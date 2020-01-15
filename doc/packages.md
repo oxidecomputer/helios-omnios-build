@@ -22,7 +22,7 @@
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.5			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.24.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/git		| 2.25.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.2.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
@@ -43,7 +43,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20191228		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.49			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.49.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.24			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.34			| https://ftp.pcre.org/pub/pcre/
@@ -75,7 +75,7 @@
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.02		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.7.1			| https://sourceforge.net/projects/zsh/files/zsh
-| system/cpuid				| 1.7.3			| https://github.com/tycho/cpuid/releases
+| system/cpuid				| 1.7.4			| https://github.com/tycho/cpuid/releases
 | system/data/urxvt-terminfo		| 9.22			| http://dist.schmorp.de/rxvt-unicode/
 | system/library/dbus			| 1.12.16		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.110			| https://dbus.freedesktop.org/releases/dbus-glib/
