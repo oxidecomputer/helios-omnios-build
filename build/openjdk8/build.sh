@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -105,18 +105,6 @@ MAKE_ARGS="
 
 export PATH=/usr/gnu/bin:$PATH
 
-grab() {
-    typeset arc=$1
-    typeset dir=$2
-    pushd $TMPDIR >/dev/null || logerr "pushd $TMPDIR failed"
-    if [ ! -d $dir/include ]; then
-        logcmd get_resource $arc || logerr "--- Failed to download $arc"
-        logcmd extract_archive `basename $arc` \
-            || logerr "--- Failed to extract $arc"
-    fi
-    popd >/dev/null
-}
-
 # Some files are present in both the j2re and j2sdk images.
 # Generate a list of those files so that we deliver them in j2re only.
 find_dups() {
@@ -171,7 +159,7 @@ make_install() {
 
 #############################################################################
 
-grab Xstuff/openwin.tar.gz openwin/X11/include
+BUILDDIR=openwin download_source Xstuff openwin
 chmod +x $CONFIGURE_CMD
 build
 
