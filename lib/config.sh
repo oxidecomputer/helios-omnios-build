@@ -106,6 +106,7 @@ ARCHIVE_TYPES="tar.xz tar.bz2 tar.gz tgz tar zip"
 
 # Default prefix for packages (may be overridden)
 PREFIX=/usr
+NOTES_LOCATION=$PREFIX/share/doc/release-notes
 
 # Temporary directories
 # TMPDIR is used for source archives and build directories
