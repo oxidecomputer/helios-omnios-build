@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-3/zipp-37
 PROG=zipp
-VER=0.6.0
+VER=1.0.0
 SUMMARY="Backport of pathlib-compatible object wrapper for zip files"
 DESC="A pathlib-compatible Zipfile object wrapper"
 
