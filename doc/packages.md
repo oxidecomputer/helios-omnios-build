@@ -31,7 +31,7 @@
 | file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.0.2			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.9			| https://github.com/libexpat/libexpat/releases
-| library/gmp				| 6.1.2			| https://gmplib.org/
+| library/gmp				| 6.2.0			| https://gmplib.org/download/gmp/ https://gmplib.org/
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.0.2			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
