@@ -40,8 +40,9 @@ build() {
     logcmd mkdir -p $DESTDIR/$PREFIX/bin || logerr "mkdir bin"
     logcmd mkdir -p $DESTDIR/$PREFIX/share/man/man1 || logerr "mkdir man"
     logcmd cp resize $DESTDIR/$PREFIX/bin/ || logerr "copy into bin"
-    logcmd cp resize.man $DESTDIR/$PREFIX/share/man/man1/resize.1 \
-        || logerr "copy resize.man"
+    sed < resize.man > $DESTDIR/$PREFIX/share/man/man1/resize.1 "
+            s/__app_version__/$VER/g
+        " || logerr "copy resize.man"
 
     popd > /dev/null
 }
