@@ -60,28 +60,12 @@ configure64() {
 
 install_man() {
     logmsg "Fetching and installing pre-built man pages"
-    man="$PROG-manpages-$VER.tar.xz"
-    pushd $TMPDIR > /dev/null
 
-    for f in $man $man.sha256; do
-        if [ ! -f ${TMPDIR}/$f ]; then
-            get_resource $PROG/$f || \
-                logerr "--- Failed to fetch $f"
-        fi
-    done
+    BUILDDIR=man1 download_source $PROG $PROG-manpages $VER $TMPDIR/manpages
 
-    logmsg "Verifying checksum of downloaded file."
-    sum="`digest -a sha256 $man`"
-    [ "$sum" = "`cat $man.sha256`" ] \
-        || logerr "Checksum of downloaded file does not match."
-
-    popd > /dev/null
-
-    logcmd mkdir -p ${DESTDIR}${PREFIX}/share/man
-    pushd ${DESTDIR}${PREFIX}/share/man > /dev/null
-    extract_archive ${TMPDIR}/${PROG}-manpages-${VER}.tar.xz || \
-        logerr "--- Error extracting archive"
-    popd > /dev/null
+    dst="${DESTDIR}${PREFIX}/share/man"
+    logcmd mkdir -p $dst
+    logcmd rsync -a $TMPDIR/manpages/ $dst/ || logerr "rsync manpages"
 }
 
 install_pod() {
