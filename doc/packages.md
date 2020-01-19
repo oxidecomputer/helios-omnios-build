@@ -16,7 +16,7 @@
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc8			| 8.3			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc9			| 9.2			| https://ftp.gnu.org/gnu/gcc/
-| developer/java/openjdk8		| 1.8.232-09		| https://github.com/battleblow/openjdk-jdk8u/releases
+| developer/java/openjdk8		| 1.8.242-07		| https://github.com/battleblow/openjdk-jdk8u/releases
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
@@ -31,7 +31,7 @@
 | file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.0.2			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.9			| https://github.com/libexpat/libexpat/releases
-| library/gmp				| 6.1.2			| https://gmplib.org/
+| library/gmp				| 6.2.0			| https://gmplib.org/download/gmp/ https://gmplib.org/
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.0.2			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html

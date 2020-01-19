@@ -13,13 +13,13 @@
 # }}}
 #
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-#
+
 . ../../lib/functions.sh
 
 PROG=openjdk
 VER=1.8
-UPDATE=232
-BUILD=09
+UPDATE=242
+BUILD=07
 PKG=openjdk    ##IGNORE## - filled in later
 SUMMARY="tbc"; DESC="tbc"
 
