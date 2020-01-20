@@ -11,7 +11,7 @@
 | database/sqlite-3			| 3300100		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.1		| https://git.savannah.gnu.org/cgit/automake.git/refs/tags https://ftp.gnu.org/gnu/automake/
-| developer/build/gnu-make		| 4.2.1			| http://git.savannah.gnu.org/cgit/make.git/refs/tags
+| developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc8			| 8.3			| https://ftp.gnu.org/gnu/gcc/
