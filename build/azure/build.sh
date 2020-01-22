@@ -12,18 +12,18 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=WAGuestAgent
 PKG=system/virtualization/azure-agent
-VER=2.2.45
+VER=2.2.46
 SUMMARY="Microsoft Azure Guest Agent"
 DESC="The $SUMMARY (waagent) manages provisioning and VM interaction "
 DESC+="with the Azure Fabric Controller."
 
-BUILDDIR=WALinuxAgent-$VER
+set_builddir WALinuxAgent-$VER
 
 # The "rmvolmgr" service is relied upon to mount and umount the
 # provisioning ISO that is attached to the VM when running on Azure.
