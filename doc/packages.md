@@ -58,7 +58,7 @@
 | network/dns/bind			| 9.11.14		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.1p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
-| network/service/isc-dhcp		| 4.4.1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
+| network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/socat				| 1.7.3.4		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
@@ -83,7 +83,7 @@
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.8			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
-| system/pciutils			| 3.6.2			| https://www.kernel.org/pub/software/utils/pciutils/
+| system/pciutils			| 3.6.3			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
 | system/test/fio			| 3.17			| https://github.com/axboe/fio/releases
 | terminal/screen			| 4.7.0			| https://ftp.gnu.org/gnu/screen/
@@ -101,7 +101,7 @@
 | library/glib2				| 2.62.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.33.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
-| system/virtualization/azure-agent	| 2.2.45		| https://github.com/Azure/WALinuxAgent/releases
+| system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.0.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
