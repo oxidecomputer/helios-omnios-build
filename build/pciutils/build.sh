@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=pciutils
-VER=3.6.3
+VER=3.6.4
 PKG=system/pciutils
 SUMMARY="PCI device utilities"
 DESC="Programs (lspci, setpci) for inspecting and manipulating configuration "
