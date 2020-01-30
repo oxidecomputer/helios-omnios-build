@@ -58,14 +58,13 @@ patch_source
 
 # The JDK build framework does not use the -j option to make.
 NO_PARALLEL_MAKE=1
-OUT_OF_TREE_BUILD=1
-prep_build
+prep_build autoconf -oot
 
 CONFIGURE_OPTS="
     --with-milestone=fcs
     --with-user-release-suffix=omnios-$RELVER
     --with-update-version=$UPDATE
-    --with-build-number=$BUILD
+    --with-build-number=b$BUILD
     --with-toolchain-type=gcc
     --with-boot-jdk=/usr/java
     --disable-headful
