@@ -1356,7 +1356,7 @@ publish_manifest()
 # content, just whether items have been added, removed or had their attributes
 # such as ownership changed.
 pkgitems() {
-    pkg contents -m "$@" 2>&1 | sed -E "
+    pkg contents -m "$@" 2>&1 | pkgfmt -u | sed -E "
         # Remove signatures
         /^signature/d
         # Remove version numbers from the package FMRI
@@ -1374,7 +1374,7 @@ pkgitems() {
         # Remove timestamps
         s/ timestamp=[^ ]+//
         $PKGDIFF_HELPER
-    " | pkgfmt
+    "
 }
 
 diff_package() {
