@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=dma
-VER=0.12
+VER=0.13
 PKG=service/network/smtp/dma
 SUMMARY="The DragonFly Mail Agent"
 DESC="A small lightweight Mail Transport Agent (MTA)"
