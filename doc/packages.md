@@ -23,7 +23,7 @@
 | developer/parser/bison		| 3.5.1			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.25.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.2.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.3			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -66,7 +66,7 @@
 | runtime/python-27			| 2.7.17		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.9			| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.6			| https://www.python.org/downloads/source/
-| security/sudo				| 1.8.30		| https://www.sudo.ws/
+| security/sudo				| 1.8.31		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.8			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.12			| https://github.com/corecode/dma/releases
@@ -99,7 +99,7 @@
 | web/curl				| 7.68.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.62.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
-| developer/gnu-binutils		| 2.33.1		| https://ftp.gnu.org/gnu/binutils
+| developer/gnu-binutils		| 2.34			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.0.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
