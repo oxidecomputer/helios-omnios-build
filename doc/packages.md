@@ -41,7 +41,7 @@
 | library/libffi			| 3.3			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/ncurses			| 6.1.20200111		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
+| library/ncurses			| 6.1.20200118		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.49.2		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.24			| http://archive.mozilla.org/pub/nspr/releases/
@@ -69,7 +69,7 @@
 | security/sudo				| 1.8.31		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p13		| http://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.8			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
-| service/network/smtp/dma		| 0.12			| https://github.com/corecode/dma/releases
+| service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 011			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
@@ -85,8 +85,8 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.6.4			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
-| system/test/fio			| 3.17			| https://github.com/axboe/fio/releases
-| terminal/screen			| 4.7.0			| https://ftp.gnu.org/gnu/screen/
+| system/test/fio			| 3.18			| https://github.com/axboe/fio/releases
+| terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.0			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.0.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.7			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
@@ -113,7 +113,7 @@
 | library/python-3/coverage-37		| 5.0.3			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.8			| https://pypi.org/project/idna
-| library/python-3/importlib-metadata-37 | 1.4.0		| https://pypi.org/project/importlib-metadata
+| library/python-3/importlib-metadata-37 | 1.5.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-37 | 3.0.0		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-37	| 3.0.0			| https://pypi.org/project/jaraco.functools
@@ -123,14 +123,14 @@
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.1			| https://pypi.org/project/Mako
 | library/python-3/meson-37		| 0.53.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-37	| 8.1.0			| https://pypi.org/project/more-itertools
+| library/python-3/more-itertools-37	| 8.2.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
 | library/python-3/prettytable-37	| 0.7.2			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-37		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-37	| 2.5.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-37		| 2.19			| https://pypi.org/project/pycparser
-| library/python-3/pycurl-37		| 7.43.0.4		| https://pypi.org/project/pycurl
+| library/python-3/pycurl-37		| 7.43.0.5		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-37	| 0.15.7		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
@@ -139,5 +139,5 @@
 | library/python-3/six-37		| 1.14.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 2.1.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
-| library/python-3/zipp-37		| 2.0.1			| https://pypi.org/project/zipp
+| library/python-3/zipp-37		| 2.1.0			| https://pypi.org/project/zipp
 
