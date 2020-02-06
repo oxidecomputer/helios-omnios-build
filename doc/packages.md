@@ -139,5 +139,5 @@
 | library/python-3/six-37		| 1.14.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 2.1.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
-| library/python-3/zipp-37		| 2.0.1			| https://pypi.org/project/zipp
+| library/python-3/zipp-37		| 2.1.0			| https://pypi.org/project/zipp
 
