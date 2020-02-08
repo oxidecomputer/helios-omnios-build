@@ -18,7 +18,7 @@
 
 PKG=library/python-3/zipp-37
 PROG=zipp
-VER=2.1.0
+VER=2.2.0
 SUMMARY="Backport of pathlib-compatible object wrapper for zip files"
 DESC="A pathlib-compatible Zipfile object wrapper"
 
