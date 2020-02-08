@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
-#
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../../lib/functions.sh
 
 PKG=library/python-3/cffi-37
 PROG=cffi
-VER=1.13.2
+VER=1.14.0
 SUMMARY="cffi"
 DESC="Foreign Function Interface for Python calling C code"
 
