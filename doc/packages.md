@@ -43,8 +43,8 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.1.20200118		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.49.2		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
-| library/nspr				| 4.24			| http://archive.mozilla.org/pub/nspr/releases/
+| library/nss				| 3.50			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nspr				| 4.25			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.34			| https://ftp.pcre.org/pub/pcre/
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
@@ -71,7 +71,7 @@
 | service/network/ntpsec		| 1.1.8			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
-| shell/bash5-patchlvl			| 011			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
+| shell/bash5-patchlvl			| 016			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.02		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.7.1			| https://sourceforge.net/projects/zsh/files/zsh
@@ -107,7 +107,7 @@
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-37	| 1.3.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-37		| 1.13.2		| https://pypi.org/project/cffi
+| library/python-3/cffi-37		| 1.14.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.2.1			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.5.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-37		| 5.0.3			| https://pypi.org/project/coverage
@@ -139,5 +139,5 @@
 | library/python-3/six-37		| 1.14.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 2.1.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
-| library/python-3/zipp-37		| 2.1.0			| https://pypi.org/project/zipp
+| library/python-3/zipp-37		| 2.2.0			| https://pypi.org/project/zipp
 
