@@ -1706,7 +1706,7 @@ build() {
         shift
     done
     [ -n "$MULTI_BUILD" ] && logmsg "--- Using multiple build directories"
-    _BUILDDIR=$BUILDDIR
+    typeset _BUILDDIR=$BUILDDIR
     for b in $BUILDORDER; do
         if [ -n "$MULTI_BUILD" ]; then
             BUILDDIR+="/build.$b"
