@@ -20,7 +20,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.5.1			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.5.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.25.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.3			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
@@ -39,13 +39,13 @@
 | library/libevent			| 2.1.11		| https://github.com/libevent/libevent/releases | Used solely by tmux
 | library/libidn			| 1.35			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags
 | library/libffi			| 3.3			| https://sourceware.org/libffi/
-| library/libxml2			| 2.9.9			| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
+| library/libxml2			| 2.9.10		| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/ncurses			| 6.1.20200118		| https://invisible-mirror.net/archives/ncurses/current/ https://ftp.gnu.org/gnu/ncurses/ | Updated every week
+| library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.50			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.25			| http://archive.mozilla.org/pub/nspr/releases/
-| library/pcre				| 8.43			| https://ftp.pcre.org/pub/pcre/
+| library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.34			| https://ftp.pcre.org/pub/pcre/
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
 | library/readline			| 8.0			| https://ftp.gnu.org/gnu/readline/

@@ -403,6 +403,31 @@ set_gccver() {
 set_gccver $DEFAULT_GCC_VER -q
 
 #############################################################################
+# Go version
+#############################################################################
+
+set_gover() {
+    GOVER="$1"
+    logmsg "-- Setting Go version to $GOVER"
+    GO_PATH="/opt/ooce/go-$GOVER"
+    PATH="$GO_PATH/bin:$PATH"
+    GOROOT_BOOTSTRAP="$GO_PATH"
+    export PATH GOROOT_BOOTSTRAP
+}
+
+#############################################################################
+# node.js version
+#############################################################################
+
+set_nodever() {
+    NODEVER="$1"
+    logmsg "-- Setting node.js version to $NODEVER"
+    NODDEPATH="/opt/ooce/node-$NODEVER/bin"
+    PATH="$NODEPATH/bin:$PATH"
+    export PATH
+}
+
+#############################################################################
 # Default configure options.
 #############################################################################
 
@@ -1033,8 +1058,14 @@ clone_github_source() {
             logmsg "No $_branch branch, using $branch."
         fi
     fi
-    if [ "$fresh" -eq 0 -a -n "$branch" ]; then
-        logcmd $GIT -C $prog pull origin $branch || logerr "failed to pull"
+    if [ "$fresh" -eq 0 ]; then
+        if [ -n "$branch" ]; then
+            logcmd $GIT -C $prog reset --hard $branch \
+                || logerr "failed to reset branch"
+            logcmd $GIT -C $prog pull --rebase origin $branch \
+                || logerr "failed to pull"
+        fi
+        logcmd $GIT -C $prog clean -fdx
     fi
 
     $GIT -C $prog show --shortstat
