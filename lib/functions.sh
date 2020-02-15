@@ -403,6 +403,31 @@ set_gccver() {
 set_gccver $DEFAULT_GCC_VER -q
 
 #############################################################################
+# Go version
+#############################################################################
+
+set_gover() {
+    GOVER="$1"
+    logmsg "-- Setting Go version to $GOVER"
+    GO_PATH="/opt/ooce/go-$GOVER"
+    PATH="$GO_PATH/bin:$PATH"
+    GOROOT_BOOTSTRAP="$GO_PATH"
+    export PATH GOROOT_BOOTSTRAP
+}
+
+#############################################################################
+# node.js version
+#############################################################################
+
+set_nodever() {
+    NODEVER="$1"
+    logmsg "-- Setting node.js version to $NODEVER"
+    NODDEPATH="/opt/ooce/node-$NODEVER/bin"
+    PATH="$NODEPATH/bin:$PATH"
+    export PATH
+}
+
+#############################################################################
 # Default configure options.
 #############################################################################
 
