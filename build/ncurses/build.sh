@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=ncurses
-VER=6.1-20200118
+VER=6.2
 PKG=library/ncurses
 SUMMARY="A CRT screen handling package"
 DESC="Utilities and shared libraries for terminal handling"
@@ -84,7 +84,6 @@ build_abi5
 build_abi6
 make_isa_stub
 gnu_links
-VER=${VER/-/.}
 make_package
 clean_up
 
