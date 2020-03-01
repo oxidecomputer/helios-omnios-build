@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=openssh
-VER=8.1p1
+VER=8.2p1
 PKG=network/openssh
 SUMMARY="OpenSSH Client and utilities"
 DESC="OpenSSH Secure Shell protocol Client and associated Utilities"
@@ -83,6 +83,7 @@ move_manpages() {
     move_manpage sftp-server        8 1m
     move_manpage ssh-keysign        8 1m
     move_manpage ssh-pkcs11-helper  8 1m
+    move_manpage ssh-sk-helper      8 1m
 
     popd
 }

@@ -56,7 +56,7 @@
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20191115		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
 | network/dns/bind			| 9.11.15		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
-| network/openssh			| 8.1p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
+| network/openssh			| 8.2p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/socat				| 1.7.3.4		| http://www.dest-unreach.org/socat/download/
