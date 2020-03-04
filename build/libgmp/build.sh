@@ -63,11 +63,11 @@ CONFIGURE_OPTS_WS_64="
 
 tests() {
     # In the past, libgmp has had a habit of detecting that the build host
-    # CPU supports the BMI2 mulx instruction and building a binary that does
-    # not work on pre-Haswell processors. We explicitly check for this in the
-    # resulting 64-bit library file.
-    dis $DESTDIR/usr/lib/$ISAPART64/libgmp.so | egrep -s mulx \
-        && logerr "libgmp has been built with mulx instructions"
+    # CPU supports the BMI1 lzcntq and BMI2 mulx instructions and building a
+    # binary that does not work on pre-Haswell processors. We explicitly check
+    # for this in the resulting 64-bit library file.
+    dis $DESTDIR/usr/lib/$ISAPART64/libgmp.so | egrep -s '(mulx|lzcntq)' \
+        && logerr "libgmp has been built with mulx/lzcntq instructions"
 }
 
 init
