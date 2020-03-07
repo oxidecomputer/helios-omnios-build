@@ -12,14 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../../lib/functions.sh
 
 PKG=library/python-3/pycparser-37
 PROG=pycparser
-VER=2.19
+VER=2.20
 SUMMARY="Complete parser of the C language"
 DESC="$SUMMARY, written in pure Python"
 

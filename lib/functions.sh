@@ -1065,6 +1065,34 @@ clone_github_source() {
 }
 
 #############################################################################
+# Get go source from github
+#############################################################################
+
+clone_go_source() {
+    typeset prog="$1"
+    typeset src="$2"
+    typeset branch="$3"
+    typeset deps="${4-_deps}"
+
+    clone_github_source $prog "$GITHUB/$src/$prog" $branch
+
+    BUILDDIR+=/$prog
+
+    pushd $TMPDIR/$BUILDDIR > /dev/null
+
+    [ -z "$GOPATH" ] && GOPATH="$TMPDIR/$BUILDDIR/$deps"
+    export GOPATH
+
+    logmsg "Getting go dependencies"
+    logcmd go get -d ./... || logerr "failed to get dependencies"
+
+    logmsg "Fixing permissions on dependencies"
+    logcmd chmod -R u+w $GOPATH
+
+    popd > /dev/null
+}
+
+#############################################################################
 # Make the package
 #############################################################################
 
@@ -1532,6 +1560,22 @@ install_smf() {
     fi
 
     popd > /dev/null
+}
+
+#############################################################################
+# Install a go binary
+#############################################################################
+
+install_go() {
+    typeset src="${1:-$PROG}"
+    typeset dst="${2:-$PROG}"
+    typeset dstdir="${3:-$DESTDIR/$PREFIX/bin}"
+
+    logcmd mkdir -p $dstdir \
+        || logerr "Failed to create install dir"
+
+    logcmd cp $TMPDIR/$BUILDDIR/$src $dstdir/$dst \
+        || logerr "Failed to install binary"
 }
 
 #############################################################################
