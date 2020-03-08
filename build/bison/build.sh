@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=bison
-VER=3.5.2
+VER=3.5.3
 PKG=developer/parser/bison
 SUMMARY="General-purpose parser generator"
 DESC="A general-purpose parser generator that converts an annotated "
