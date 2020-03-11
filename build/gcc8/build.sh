@@ -19,7 +19,7 @@
 
 PKG=developer/gcc8
 PROG=gcc
-VER=8.3.0
+VER=8.4.0
 ILVER=il-0
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
