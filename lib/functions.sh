@@ -47,7 +47,8 @@ process_opts() {
     REBASE_PATCHES=
     SKIP_TESTSUITE=
     SKIP_CHECKSUM=
-    while getopts "bcDiPptsf:ha:d:Llr:" opt; do
+    EXTRACT_MODE=0
+    while getopts "bcDiPptsf:ha:d:Llr:x" opt; do
         case $opt in
             h)
                 show_usage
@@ -105,6 +106,9 @@ process_opts() {
             d)
                 DEPVER=$OPTARG
                 ;;
+            x)
+                (( EXTRACT_MODE++ ))
+                ;;
         esac
     done
 }
@@ -132,6 +136,8 @@ Usage: $0 [-blt] [-f FLAVOR] [-h] [-a 32|64|both] [-d DEPVER]
               (default: $PKGSRVR)
   -t        : skip test suite
   -s        : skip checksum comparison
+  -x        : download and extract source only
+  -xx       : as -x but also apply patches
 
 EOM
 }
@@ -878,6 +884,7 @@ rebase_patches() {
 patch_source() {
     [ -n "$REBASE_PATCHES" ] && rebase_patches
     apply_patches
+    [ $EXTRACT_MODE -ge 1 ] && exit 0
 }
 
 #############################################################################
@@ -982,6 +989,8 @@ download_source() {
     fi
 
     popd >/dev/null
+
+    [ $EXTRACT_MODE -eq 1 ] && exit 0
 }
 
 # Finds an existing archive and stores its value in a variable whose name
