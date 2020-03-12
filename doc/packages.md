@@ -14,7 +14,7 @@
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
-| developer/gcc8			| 8.3			| https://ftp.gnu.org/gnu/gcc/
+| developer/gcc8			| 8.4			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc9			| 9.2			| https://ftp.gnu.org/gnu/gcc/
 | developer/java/openjdk8		| 1.8.242-07		| https://github.com/battleblow/openjdk-jdk8u/releases
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
@@ -96,7 +96,7 @@
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.69.0		| https://curl.haxx.se/download.html
+| web/curl				| 7.69.1		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.64.0		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.34			| https://ftp.gnu.org/gnu/binutils
