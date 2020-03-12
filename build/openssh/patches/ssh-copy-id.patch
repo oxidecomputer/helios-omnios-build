@@ -1,0 +1,72 @@
+
+Patch ssh-copy-id to avoid bash-specific statements, and problems with
+variable scoping in ksh93u
+
+--- src/contrib/ssh-copy-id~	2020-03-11 11:51:39.110888824 +0000
++++ src/contrib/ssh-copy-id	2020-03-11 11:53:48.111151193 +0000
+@@ -1,4 +1,4 @@
+-#!/bin/sh
++#!/bin/ksh
+ 
+ # Copyright (c) 1999-2016 Philip Hands <phil@hands.com>
+ #               2013 Martin Kletzander <mkletzan@redhat.com>
+@@ -59,7 +59,7 @@
+ most_recent_id="$(cd "$HOME" ; ls -t .ssh/id*.pub 2>/dev/null | grep -v -- '-cert.pub$' | head -n 1)"
+ DEFAULT_PUB_ID_FILE="${most_recent_id:+$HOME/}$most_recent_id"
+ 
+-usage () {
++function usage {
+   printf 'Usage: %s [-h|-?|-f|-n] [-i [identity_file]] [-p port] [[-o <ssh -o options>] ...] [user@]hostname\n' "$0" >&2
+   printf '\t-f: force mode -- copy keys without trying to check if they are already installed\n' >&2
+   printf '\t-n: dry run    -- no keys are actually copied\n' >&2
+@@ -68,12 +68,12 @@
+ }
+ 
+ # escape any single quotes in an argument
+-quote() {
++function quote {
+   printf "%s\n" "$1" | sed -e "s/'/'\\\\''/g"
+ }
+ 
+-use_id_file() {
+-  local L_ID_FILE="$1"
++function use_id_file {
++  typeset L_ID_FILE="$1"
+ 
+   if [ -z "$L_ID_FILE" ] ; then
+     printf "%s: ERROR: no ID file found\n" "$0"
+@@ -91,7 +91,7 @@
+   # check that the files are readable
+   for f in "$PUB_ID_FILE" ${PRIV_ID_FILE:+"$PRIV_ID_FILE"} ; do
+     ErrMSG=$( { : < "$f" ; } 2>&1 ) || {
+-      local L_PRIVMSG=""
++      typeset L_PRIVMSG=""
+       [ "$f" = "$PRIV_ID_FILE" ] && L_PRIVMSG="	(to install the contents of '$PUB_ID_FILE' anyway, look at the -f option)"
+       printf "\n%s: ERROR: failed to open ID file '%s': %s\n" "$0" "$f" "$(printf "%s\n%s\n" "$ErrMSG" "$L_PRIVMSG" | sed -e 's/.*: *//')"
+       exit 1
+@@ -206,8 +206,8 @@
+ 
+ # populate_new_ids() uses several global variables ($USER_HOST, $SSH_OPTS ...)
+ # and has the side effect of setting $NEW_IDS
+-populate_new_ids() {
+-  local L_SUCCESS="$1"
++function populate_new_ids {
++  typeset L_SUCCESS="$1"
+ 
+   if [ "$FORCED" ] ; then
+     NEW_IDS=$(eval $GET_ID)
+@@ -218,12 +218,12 @@
+   eval set -- "$SSH_OPTS"
+ 
+   umask 0177
+-  local L_TMP_ID_FILE=$(mktemp ~/.ssh/ssh-copy-id_id.XXXXXXXXXX)
++  typeset L_TMP_ID_FILE=$(mktemp ~/.ssh/ssh-copy-id_id.XXXXXXXXXX)
+   if test $? -ne 0 || test "x$L_TMP_ID_FILE" = "x" ; then
+     printf '%s: ERROR: mktemp failed\n' "$0" >&2
+     exit 1
+   fi
+-  local L_CLEANUP="rm -f \"$L_TMP_ID_FILE\" \"${L_TMP_ID_FILE}.stderr\""
++  typeset L_CLEANUP="rm -f \"$L_TMP_ID_FILE\" \"${L_TMP_ID_FILE}.stderr\""
+   trap "$L_CLEANUP" EXIT TERM INT QUIT
+   printf '%s: INFO: attempting to log in with the new key(s), to filter out any that are already installed\n' "$0" >&2
+   NEW_IDS=$(

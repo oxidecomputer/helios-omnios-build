@@ -88,6 +88,18 @@ move_manpages() {
     popd
 }
 
+save_function make_install _make_install
+make_install() {
+    _make_install
+    logmsg "--- installing ssh-copy-id from contrib"
+    logcmd cp $TMPDIR/$BUILDDIR/contrib/ssh-copy-id $DESTDIR/usr/bin/ \
+        || logerr "Could not install ssh-copy-id"
+    logcmd chmod 755 $DESTDIR/usr/bin/ssh-copy-id || logerr "chmod failed"
+    logcmd cp $TMPDIR/$BUILDDIR/contrib/ssh-copy-id.1 \
+        $DESTDIR/usr/share/man/man1/ \
+        || logerr "Could not install ssh-copy-id.1"
+}
+
 init
 download_source $PROG $PROG $VER
 move_manpages
