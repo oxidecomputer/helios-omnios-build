@@ -65,7 +65,7 @@
 | runtime/perl				| 5.30.1		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.17		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.9			| https://www.python.org/downloads/source/
-| runtime/python-37			| 3.7.6			| https://www.python.org/downloads/source/
+| runtime/python-37			| 3.7.7			| https://www.python.org/downloads/source/
 | security/sudo				| 1.8.31		| https://www.sudo.ws/
 | service/network/ntp			| 4.2.8p14		| https://www.ntp.org/downloads.html
 | service/network/ntpsec		| 1.1.8			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
