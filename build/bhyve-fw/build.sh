@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -29,24 +29,28 @@ DESC="$SUMMARY"
 
 # Respect environmental overrides for these to ease development.
 : ${EDK2_SOURCE_REPO:=$GITHUB/$PROG}
-: ${EDK2_SOURCE_BRANCH:=master}
-: ${EDK2_BETA_BRANCH:=edk2-stable201903}
+: ${EDK2_LEGACY_BRANCH:=master}
+: ${EDK2_SOURCE_BRANCH:=edk2-stable201903}
+
+XFORM_ARGS+=" -D UEFIVER=2.70 -D CSMVER=2.40"
 
 setup_env() {
 
     case $1 in
-        $EDK2_SOURCE_BRANCH)
+        $EDK2_LEGACY_BRANCH)
             UPKGPREFIX=Bhyve
             set_gccver 4.4.4
             unset PYTHON3_ENABLE
-            PKGSUFFIX=
+            PKGSUFFIX=-2.40
+            BUILD_CSM=1
             EXTRA_BUILD_ARGS=
             ;;
-        $EDK2_BETA_BRANCH)
+        $EDK2_SOURCE_BRANCH)
             UPKGPREFIX=Ovmf
             set_gccver $DEFAULT_GCC_VER
             export PYTHON3_ENABLE=TRUE
-            PKGSUFFIX=-beta
+            PKGSUFFIX=-2.70
+            BUILD_CSM=0
             EXTRA_BUILD_ARGS="-DHTTP_BOOT_ENABLE=TRUE"
             ;;
     esac
@@ -145,7 +149,7 @@ install() {
 init
 prep_build
 
-for branch in $EDK2_SOURCE_BRANCH $EDK2_BETA_BRANCH; do
+for branch in $EDK2_SOURCE_BRANCH $EDK2_LEGACY_BRANCH; do
 
     [ -n "$DEPVER" -a "$DEPVER" != $branch ] && continue
 
@@ -177,7 +181,7 @@ for branch in $EDK2_SOURCE_BRANCH $EDK2_BETA_BRANCH; do
             install
         fi
 
-        if [[ -z "$FLAVOR" || "$FLAVOR" = *CSM* ]]; then
+        if [ $BUILD_CSM -ne 0 ] && [[ -z "$FLAVOR" || "$FLAVOR" = *CSM* ]]; then
             # Build UEFI+CSM firmware
             note -n "UEFI+CSM Firmware"
             build -csm
