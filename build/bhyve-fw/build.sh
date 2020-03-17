@@ -32,7 +32,9 @@ DESC="$SUMMARY"
 : ${EDK2_LEGACY_BRANCH:=master}
 : ${EDK2_SOURCE_BRANCH:=edk2-stable201903}
 
-XFORM_ARGS+=" -D UEFIVER=2.70 -D CSMVER=2.40"
+# The UEFI 2.70 firmware does not work with PCI pass-through so we continue
+# to set the links so that 2.40 is the default for now.
+XFORM_ARGS+=" -D UEFIVER=2.40 -D CSMVER=2.40"
 
 setup_env() {
 
