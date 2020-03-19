@@ -47,7 +47,6 @@ set_python_version $MVER
 set_arch 64
 
 export CCSHARED="-fPIC"
-LDFLAGS64="-L/usr/gnu/lib/amd64 -R/usr/gnu/lib/amd64"
 CPPFLAGS+=" -I/usr/include/ncurses -D_LARGEFILE64_SOURCE"
 CPPFLAGS+=" -DSKIP_ZIP_PATH"
 CPPFLAGS64="`pkg-config --cflags libffi`"
