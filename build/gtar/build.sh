@@ -45,6 +45,11 @@ CONFIGURE_OPTS="
     --program-prefix=g
     --with-rmt=/usr/sbin/rmt
 "
+# The configure script checks to see if eaccess() is present in libgen and if
+# so it links libgen into the final binary. However, we also have faccessat()
+# and that is used in preference to eaccess(). libgen is therefore an
+# unecessary library.
+CONFIGURE_OPTS_WS="ac_cv_search_eaccess=\"none required\""
 
 init
 download_source $PROG $PROG $VER
