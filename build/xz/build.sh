@@ -12,19 +12,23 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=xz
-VER=5.2.4
+VER=5.2.5
 VERHUMAN=$VER
 PKG=compress/xz
 SUMMARY="XZ Utils - general-purpose data compression software"
-DESC="$SUMMARY"
+DESC="Free general-purpose data compression software with a "
+DESC+="high compression ratio"
 
-BUILD_DEPENDS_IPS="autoconf"
 SKIP_LICENCES=xz
+
+# Skip isaexec and deliver 64-bit binaries directly to bin and sbin
+# 32-bit binaries are stripped in local.mog
+CONFIGURE_OPTS_64+=" --bindir=$PREFIX/bin --sbindir=$PREFIX/sbin"
 
 save_function configure32 _configure32
 configure32() {
@@ -39,16 +43,14 @@ configure64() {
 }
 
 TESTSUITE_SED="/libtool/d"
-SKIP_LICENCES="xz"
 
 init
 download_source $PROG $PROG $VER
 patch_source
-run_autoreconf
+run_autoreconf -fi
 prep_build
 build
 run_testsuite check
-make_isa_stub
 make_package
 clean_up
 
