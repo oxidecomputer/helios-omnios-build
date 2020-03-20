@@ -61,21 +61,11 @@ CONFIGURE_OPTS_WS_64="
     MPN_PATH=\"$MPN64\"
 "
 
-tests() {
-    # In the past, libgmp has had a habit of detecting that the build host
-    # CPU supports the BMI1 lzcntq and BMI2 mulx instructions and building a
-    # binary that does not work on pre-Haswell processors. We explicitly check
-    # for this in the resulting 64-bit library file.
-    dis $DESTDIR/usr/lib/$ISAPART64/libgmp.so | egrep -s '(mulx|lzcntq)' \
-        && logerr "libgmp has been built with mulx/lzcntq instructions"
-}
-
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-tests
 run_testsuite check
 make_package
 clean_up

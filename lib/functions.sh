@@ -1212,6 +1212,7 @@ make_package() {
         check_symlinks "$DESTDIR"
         [ -z "$BATCH" ] && check_libabi "$DESTDIR" "$PKG"
         [ -z "$BATCH" ] && check_rtime "$DESTDIR"
+        check_bmi "$DESTDIR"
         logmsg "--- Generating package manifest from $DESTDIR"
         GENERATE_ARGS=
         if [ -n "$HARDLINK_TARGETS" ]; then
@@ -2240,6 +2241,10 @@ check_libabi() {
     done
 }
 
+#############################################################################
+# ELF checks
+#############################################################################
+
 check_rtime() {
     local destdir="$1"
 
@@ -2252,6 +2257,31 @@ check_rtime() {
     if [ -s "$TMPDIR/rtime.err" ]; then
         cat $TMPDIR/rtime.err | tee -a $LOGFILE
         logerr "ELF runtime problems detected"
+    fi
+}
+
+check_bmi() {
+    local destdir="$1"
+
+    [ -n "$BMI_EXPECTED" ] && return
+
+    logmsg "-- Checking for BMI instructions"
+    [ -f "$TMPDIR/rtime.files" ] || \
+        logcmd -p $FIND_ELF -fr $destdir/ > $TMPDIR/rtime.files
+
+    # In the past, some programs have ended up containing BMI instructions
+    # that will cause an illegal instruction error on pre-Haswell processors.
+    # We explicitly check for this in the elf objects.
+    : > $TMPDIR/rtime.bmi
+    nawk '/^OBJECT/ { print $NF }' $TMPDIR/rtime.files | while read obj; do
+        [ -f "$destdir/$obj" ] || continue
+        dis $destdir/$obj 2>/dev/null | egrep -s '(mulx|lzcntq|shlx)' \
+        && echo "$obj has been built with BMI instructions" \
+        >> $TMPDIR/rtime.bmi
+    done
+    if [ -s "$TMPDIR/rtime.bmi" ]; then
+        cat $TMPDIR/rtime.bmi | tee -a $LOGFILE
+        logerr "BMI instruction set found"
     fi
 }
 
