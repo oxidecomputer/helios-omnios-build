@@ -26,6 +26,7 @@ DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
 
 SKIP_LICENCES=OpenSSL
+BMI_EXPECTED=1
 
 # Generic options for both 32 and 64bit variants
 base_OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"

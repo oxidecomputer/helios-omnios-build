@@ -28,6 +28,7 @@ GCCMAJOR=${VER%%.*}
 OPT=/opt/gcc-$GCCMAJOR
 
 XFORM_ARGS="-D MAJOR=$GCCMAJOR -D OPT=$OPT -D GCCVER=$VER"
+BMI_EXPECTED=1
 
 # Build gcc with itself
 set_gccver $GCCMAJOR

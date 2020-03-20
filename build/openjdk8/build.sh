@@ -46,6 +46,7 @@ XFORM_ARGS="
     -D IROOT=$IROOT
     -D IFULL=$IFULL
 "
+BMI_EXPECTED=1
 
 set_builddir "$PROG-jdk${MVER}u-$VERHUMAN.1"
 set_arch 64

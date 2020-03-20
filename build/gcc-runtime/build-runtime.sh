@@ -23,6 +23,8 @@ VER=9
 SUMMARY="GNU compiler runtime dependencies"
 DESC="$SUMMARY"
 
+BMI_EXPECTED=1
+
 init
 prep_build
 shopt -s extglob
