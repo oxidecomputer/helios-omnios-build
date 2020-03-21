@@ -12,6 +12,7 @@ SHARED_GCC_VER=7
 maj=
 full=
 pth=
+max=0
 
 # Find the library file in the specified gcc version
 find_lib() {
@@ -28,6 +29,9 @@ find_lib() {
     [ -f "$full" ] || logerr "No $lib lib for gcc-$v"
     full=`basename $full`                          # libxxxx.so.1.2.3
     maj=${full/%.+([0-9]).+([0-9])/}               # libxxxx.so.1
+
+    local minor="${full##*.}"
+    [ -n "$minor" -a "$minor" -gt $max ] && max=$minor
 
     logmsg "-- GCC $v - found $full ($maj)"
 }

@@ -13,13 +13,13 @@
 # }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PKG=developer/gcc9
 PROG=gcc
-VER=9.2.0
+VER=9.3.0
 ILVER=il-0
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
@@ -155,9 +155,6 @@ tests() {
 
     export GUILE_AUTO_COMPILE=0
     export PATH+=:/opt/ooce/bin
-    # The tests can be run in parallel - we sort them afterwards for consistent
-    # results.
-    MAKE_TESTSUITE_ARGS+=" $MAKE_JOBS"
     # Some gcc tests (e.g. limits-exprparen.c) need a larger stack
     ulimit -Ss 16385
     # Lots of tests create core files via assertions
