@@ -25,6 +25,10 @@ DESC="Free, distributed source control management tool"
 
 RUN_DEPENDS_IPS="web/curl library/security/openssl"
 
+# Mercurial bundles a zstd python module which is a fat binary supporting
+# different architectures.
+BMI_EXPECTED=1
+
 init
 download_source $PROG $PROG $VER
 patch_source
