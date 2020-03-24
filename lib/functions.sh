@@ -2275,7 +2275,7 @@ check_bmi() {
     : > $TMPDIR/rtime.bmi
     nawk '/^OBJECT/ { print $NF }' $TMPDIR/rtime.files | while read obj; do
         [ -f "$destdir/$obj" ] || continue
-        dis $destdir/$obj 2>/dev/null | egrep -s '(mulx|lzcntq|shlx)' \
+        dis $destdir/$obj 2>/dev/null | egrep -s '\<(mulx|lzcntq|shlx)\>' \
         && echo "$obj has been built with BMI instructions" \
         >> $TMPDIR/rtime.bmi
     done
