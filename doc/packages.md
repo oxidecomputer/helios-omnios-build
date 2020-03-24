@@ -15,7 +15,7 @@
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc8			| 8.4			| https://ftp.gnu.org/gnu/gcc/
-| developer/gcc9			| 9.2			| https://ftp.gnu.org/gnu/gcc/
+| developer/gcc9			| 9.3			| https://ftp.gnu.org/gnu/gcc/
 | developer/java/openjdk8		| 1.8.242-07		| https://github.com/battleblow/openjdk-jdk8u/releases
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags

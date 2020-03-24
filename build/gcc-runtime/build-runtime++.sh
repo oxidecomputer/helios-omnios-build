@@ -51,7 +51,7 @@ logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$lib \
 
 # Copy in legacy versions in case old code is linked against them
 mkdir -p usr/gcc/legacy/lib/$ISAPART64
-for lver in `seq 13 25`; do
+for lver in `seq 13 $max`; do
     [ -f /usr/lib/libstdc++.so.6.0.$lver ] || continue
     # Already provided by non-legacy
     [ -f usr/lib/libstdc++.so.6.0.$lver ] && continue
