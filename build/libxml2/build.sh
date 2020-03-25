@@ -34,6 +34,7 @@ TESTSUITE_FILTER="^(Total|[Tt]esting|Ran)"
 init
 download_source $PROG $PROG $VER
 patch_source
+run_autoreconf -fi
 prep_build
 build
 run_testsuite check
