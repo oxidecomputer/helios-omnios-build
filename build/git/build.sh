@@ -19,7 +19,7 @@
 . ../../lib/functions.sh
 
 PROG=git
-VER=2.25.2
+VER=2.26.0
 PKG=developer/versioning/git
 SUMMARY="$PROG - distributed version control system"
 DESC="Git is a free and open source distributed version control system "
