@@ -137,7 +137,7 @@
 | library/python-3/rapidjson-37		| 0.9.1			| https://pypi.org/project/python-rapidjson
 | library/python-3/setuptools-37	| 46.1.3		| https://pypi.org/project/setuptools
 | library/python-3/six-37		| 1.14.0		| https://pypi.org/project/six
-| library/python-3/tempora-37		| 2.1.0			| https://pypi.org/project/tempora
+| library/python-3/tempora-37		| 3.0.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
 | library/python-3/zipp-37		| 3.1.0			| https://pypi.org/project/zipp
 
