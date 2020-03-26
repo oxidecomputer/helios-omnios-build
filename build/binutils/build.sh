@@ -62,7 +62,7 @@ basic_tests() {
         || logerr "gld output format test failed"
     # These targets are required for the ilumos-omnios UEFI build.
     # https://illumos.topicbox.com/groups/developer/T5f37e8c8f0687062-Mcec43129fb017b70a035e5fd
-    for target in pe-i386 pei-i386 pe-x86-64 pei-x86-64; do
+    for target in pei-i386 pei-x86-64; do
         $DESTDIR/usr/bin/gobjdump -i | grep -qw "$target" \
             || logerr "output format $target not supported."
     done
