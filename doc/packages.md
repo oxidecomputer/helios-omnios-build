@@ -10,7 +10,7 @@
 | data/iso-codes			| 4.4			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3310100		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
-| developer/build/automake		| 1.16.1		| https://git.savannah.gnu.org/cgit/automake.git/refs/tags https://ftp.gnu.org/gnu/automake/
+| developer/build/automake		| 1.16.2		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
@@ -22,14 +22,14 @@
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.5.3			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.25.2		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/git		| 2.26.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.3.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 8.32			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
-| library/c++/sigcpp			| 3.0.2			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
+| library/c++/sigcpp			| 3.0.3			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.9			| https://github.com/libexpat/libexpat/releases
 | library/gmp				| 6.2.0			| https://gmplib.org/download/gmp/ https://gmplib.org/
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
@@ -110,10 +110,10 @@
 | library/python-3/cffi-37		| 1.14.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.3.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.5.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-37		| 5.0.3			| https://pypi.org/project/coverage
+| library/python-3/coverage-37		| 5.0.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.9			| https://pypi.org/project/idna
-| library/python-3/importlib-metadata-37 | 1.5.0		| https://pypi.org/project/importlib-metadata
+| library/python-3/importlib-metadata-37 | 1.5.2		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-37 | 3.0.0		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-37	| 3.0.0			| https://pypi.org/project/jaraco.functools
@@ -132,12 +132,12 @@
 | library/python-3/pycparser-37		| 2.20			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.5		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-37	| 0.15.7		| https://pypi.org/project/pyrsistent
+| library/python-3/pyrsistent-37	| 0.16.0		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-37		| 0.9.1			| https://pypi.org/project/python-rapidjson
-| library/python-3/setuptools-37	| 46.0.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 46.1.3		| https://pypi.org/project/setuptools
 | library/python-3/six-37		| 1.14.0		| https://pypi.org/project/six
-| library/python-3/tempora-37		| 2.1.0			| https://pypi.org/project/tempora
+| library/python-3/tempora-37		| 3.0.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
 | library/python-3/zipp-37		| 3.1.0			| https://pypi.org/project/zipp
 
