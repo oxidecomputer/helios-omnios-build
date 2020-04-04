@@ -52,6 +52,9 @@ CONFIGURE_OPTS="
 REMOVE_PREVIOUS=1
 SKIP_LICENCES=libxslt
 
+# During build, several errors are output as part of validation checks.
+SKIP_BUILD_ERRCHK=1
+
 backup_man() {
     logmsg "making a backup of xsltproc.1"
     logcmd cp $TMPDIR/$BUILDDIR/doc/xsltproc.1 $TMPDIR/$BUILDDIR/backup.1
