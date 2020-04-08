@@ -20,10 +20,10 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.5.3			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.5.4			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.26.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.3.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.3.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -111,9 +111,9 @@
 | library/python-3/cheroot-37		| 8.3.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.5.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-37		| 5.0.4			| https://pypi.org/project/coverage
-| library/python-3/cryptography-37	| 2.8			| https://pypi.org/project/cryptography
+| library/python-3/cryptography-37	| 2.9			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.9			| https://pypi.org/project/idna
-| library/python-3/importlib-metadata-37 | 1.5.2		| https://pypi.org/project/importlib-metadata
+| library/python-3/importlib-metadata-37 | 1.6.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-37 | 3.0.0		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-37	| 3.0.0			| https://pypi.org/project/jaraco.functools
@@ -122,7 +122,7 @@
 | library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.2			| https://pypi.org/project/Mako
-| library/python-3/meson-37		| 0.53.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-37		| 0.54.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 8.2.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
