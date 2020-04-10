@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.64.1
+VER=2.64.2
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
@@ -71,7 +71,7 @@ clean_testsuite() {
         # Found a test
         /^ *[0-9][0-9]*\/[0-9]/ {
             # Remove elapsed time
-            sub(/ *[0-9][0-9]*\.[0-9][0-9] s .*/, "")
+            sub(/ *[0-9][0-9]*\.[0-9][0-9]* s .*/, "")
             # Remove sequence number
             sub(/ *[0-9]*\/[0-9]* */, "")
             print | "sort"
