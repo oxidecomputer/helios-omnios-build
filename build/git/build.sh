@@ -19,7 +19,7 @@
 . ../../lib/functions.sh
 
 PROG=git
-VER=2.26.0
+VER=2.26.1
 PKG=developer/versioning/git
 SUMMARY="$PROG - distributed version control system"
 DESC="Git is a free and open source distributed version control system "
@@ -52,6 +52,9 @@ CONFIGURE_OPTS="
 
 MAKE_INSTALL_ARGS+=" perllibdir=/usr/lib/site_perl"
 
+# Checking for BMI instructions is very expensive; disable for batch builds
+BMI_EXPECTED=$BATCH
+
 save_function configure64 configure64_orig
 configure64() {
     make_param configure
@@ -66,6 +69,7 @@ install_man() {
     dst="${DESTDIR}${PREFIX}/share/man"
     logcmd mkdir -p $dst
     logcmd rsync -a $TMPDIR/manpages/ $dst/ || logerr "rsync manpages"
+    logcmd rm -f $dst/git-manpages*.xz*
 }
 
 install_pod() {
