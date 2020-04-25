@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-#
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../../lib/functions.sh
 
 PKG=library/python-3/jsonrpclib-37
 PROG=jsonrpclib
-VER=0.4.0
+VER=0.4.1
 SUMMARY="A Python JSON-RPC over HTTP that mirrors xmlrpclib syntax"
 DESC="$SUMMARY"
 
