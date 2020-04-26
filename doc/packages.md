@@ -71,7 +71,7 @@
 | service/network/ntpsec		| 1.1.8			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
-| shell/bash5-patchlvl			| 016			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
+| shell/bash5-patchlvl			| 017			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.02		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
@@ -110,9 +110,9 @@
 | library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-37		| 1.14.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.3.0			| https://pypi.org/project/cheroot
-| library/python-3/cherrypy-37		| 18.5.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-37		| 5.0.4			| https://pypi.org/project/coverage
-| library/python-3/cryptography-37	| 2.9			| https://pypi.org/project/cryptography
+| library/python-3/cherrypy-37		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
+| library/python-3/coverage-37		| 5.1			| https://pypi.org/project/coverage
+| library/python-3/cryptography-37	| 2.9.2			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.9			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 1.6.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
@@ -120,7 +120,7 @@
 | library/python-3/jaraco.functools-37	| 3.0.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-37	| 3.2.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
-| library/python-3/jsonrpclib-37	| 0.4.0			| https://github.com/tcalmant/jsonrpclib/releases
+| library/python-3/jsonrpclib-37	| 0.4.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.2			| https://pypi.org/project/Mako
 | library/python-3/meson-37		| 0.54.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
