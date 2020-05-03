@@ -23,7 +23,7 @@
 | developer/parser/bison		| 3.5.4			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.26.2		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.3.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.4			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -43,7 +43,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.51.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.52			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.25			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.34			| https://ftp.pcre.org/pub/pcre/
@@ -97,7 +97,7 @@
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.69.1		| https://curl.haxx.se/download.html
+| web/curl				| 7.70.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.64.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.34			| https://ftp.gnu.org/gnu/binutils
@@ -117,13 +117,13 @@
 | library/python-3/importlib-metadata-37 | 1.6.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-37 | 3.0.0		| https://pypi.org/project/jaraco.collections
-| library/python-3/jaraco.functools-37	| 3.0.0			| https://pypi.org/project/jaraco.functools
+| library/python-3/jaraco.functools-37	| 3.0.1			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-37	| 3.2.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.2			| https://pypi.org/project/Mako
-| library/python-3/meson-37		| 0.54.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-37		| 0.54.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 8.2.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
@@ -134,7 +134,7 @@
 | library/python-3/pycurl-37		| 7.43.0.5		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-37	| 0.16.0		| https://pypi.org/project/pyrsistent
-| library/python-3/pytz-37		| 2019.3		| https://pypi.org/project/pytz
+| library/python-3/pytz-37		| 2020.1		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-37		| 0.9.1			| https://pypi.org/project/python-rapidjson
 | library/python-3/setuptools-37	| 46.1.3		| https://pypi.org/project/setuptools
 | library/python-3/six-37		| 1.14.0		| https://pypi.org/project/six

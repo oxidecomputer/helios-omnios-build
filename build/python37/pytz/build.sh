@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-3/pytz-37
 PROG=pytz
-VER=2019.3
+VER=2020.1
 SUMMARY="Python world timezone definitons"
 DESC="$SUMMARY, modern and historical"
 

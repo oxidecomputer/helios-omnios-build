@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=nss
-VER=3.51.1
+VER=3.52
 # Include NSPR version since we're downloading a combined tarball.
 NSPRVER=4.25
 # But set BUILDDIR to just be the NSS version.
@@ -34,7 +34,8 @@ DIST64=SunOS5.11_i86pc_gcc_64_OPT.OBJ
 BUILD_DEPENDS_IPS="library/nspr/header-nspr"
 
 # required for getopt
-CFLAGS+=" -D__EXTENSIONS__"
+set_standard XPG6
+
 MAKE_ARGS="
     BUILD_OPT=1
     NS_USE_GCC=1
