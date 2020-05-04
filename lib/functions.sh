@@ -185,6 +185,10 @@ logcmd() {
     fi
 }
 
+pipelog() {
+    tee -a $LOGFILE 2>&1
+}
+
 c_highlight="`tput setaf 2`"
 c_error="`tput setaf 1`"
 c_note="`tput setaf 6`"
@@ -1010,6 +1014,8 @@ download_source() {
             " ($BUILDDIR)"
     fi
 
+    CLEAN_SOURCE=1
+
     popd >/dev/null
 
     [ $EXTRACT_MODE -eq 1 ] && exit 0
@@ -1685,8 +1691,14 @@ make_isaexec_stub_arch() {
 #############################################################################
 
 make_clean() {
+    if [ -n "$CLEAN_SOURCE" ]; then
+        CLEAN_SOURCE=
+        return
+    fi
     logmsg "--- make (dist)clean"
-    logcmd $MAKE distclean || logcmd $MAKE clean
+    (
+        $MAKE distclean || $MAKE clean
+    ) 2>&1 | sed 's/error: /errorclean: /' | pipelog >/dev/null
 }
 
 configure32() {
@@ -2060,6 +2072,10 @@ buildpl() {
 }
 
 build_clean() {
+    if [ -n "$CLEAN_SOURCE" ]; then
+        CLEAN_SOURCE=
+        return
+    fi
     logmsg "--- Build (dist)clean"
     logcmd ./Build distclean || \
     logcmd ./Build clean || \
