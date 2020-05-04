@@ -36,6 +36,9 @@ BUILD_DEPENDS_IPS="library/nspr/header-nspr"
 # required for getopt
 set_standard XPG6
 
+# nspr/nss produces lots of runtime warnings that we cannot easily resolve.
+SKIP_RTIME_CHECK=1
+
 MAKE_ARGS="
     BUILD_OPT=1
     NS_USE_GCC=1
