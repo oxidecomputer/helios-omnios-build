@@ -1239,7 +1239,7 @@ make_package() {
     if [ -n "$DESTDIR" ]; then
         check_symlinks "$DESTDIR"
         [ -z "$BATCH" ] && check_libabi "$DESTDIR" "$PKG"
-        [ -z "$BATCH" ] && check_rtime "$DESTDIR"
+        [ -z "$BATCH" -a -z "$SKIP_RTIME_CHECK" ] && check_rtime "$DESTDIR"
         check_bmi "$DESTDIR"
         logmsg "--- Generating package manifest from $DESTDIR"
         GENERATE_ARGS=
