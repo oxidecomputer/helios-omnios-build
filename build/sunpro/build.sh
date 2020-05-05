@@ -24,6 +24,9 @@ DESC="$SUMMARY"
 
 set_builddir sunpro-runtime
 
+# This package contains closed binaries that have some old dependencies
+SKIP_RTIME_CHECK=1
+
 install() {
     pushd $TMPDIR/$BUILDDIR >/dev/null
     logcmd rsync -avr ${PREFIX#/}/ $DESTDIR/${PREFIX#/}/
