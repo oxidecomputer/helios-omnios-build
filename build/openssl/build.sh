@@ -83,17 +83,6 @@ install_pkcs11()
     popd > /dev/null
 }
 
-save_function make_package _make_package
-make_package() {
-    if echo $VER | egrep -s '[a-z]'; then
-        NUMVER=${VER::$((${#VER} -1))}
-        ALPHAVER=${VER:$((${#VER} -1))}
-        VER=${NUMVER}.$(ord26 ${ALPHAVER})
-    fi
-
-    _make_package
-}
-
 # Move installed libs from /usr/lib to /lib
 move_libs() {
     logmsg "Relocating libs from usr/lib to lib"
