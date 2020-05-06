@@ -30,8 +30,6 @@ CONFIGURE_OPTS="
     --enable-thread
     --with-ca-bundle=/etc/ssl/cacert.pem
 "
-# curl has arch-dependent headers.
-CONFIGURE_OPTS_64+=" --includedir=$PREFIX/include/amd64"
 
 # Build backwards so that the 32-bit version is available for the test-suite.
 # Otherwise there are test failures because some tests preload a library

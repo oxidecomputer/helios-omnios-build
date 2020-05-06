@@ -43,7 +43,6 @@ HARDLINK_TARGETS="
 
 # For inet_ntop which isn't detected properly in the configure script
 LDFLAGS="-lnsl"
-CFLAGS64+=" -I/usr/include/$ISAPART64"
 CONFIGURE_OPTS="
     --without-tcltk
     --with-curl=/usr
