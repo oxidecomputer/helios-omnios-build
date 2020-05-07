@@ -13,13 +13,12 @@
 # }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=tmux
-VER=3.0
-VERHUMAN=$VER
+VER=3.1b
 PKG=terminal/tmux
 SUMMARY="Terminal multiplexer"
 DESC="$SUMMARY"
@@ -41,6 +40,7 @@ set_arch 64
 CONFIGURE_OPTS="
     --prefix=/usr
     --disable-shared
+    ac_cv_lib_xnet_socket=no
 "
 
 save_function configure64 _configure64
@@ -67,10 +67,7 @@ download_source $PROG $PROG $VER
 patch_source
 build
 strip_install
-# Unusually, there was a 2.9a. Change this to 2.9.1
-# Can likely be removed once 2.10 is released or if tmux begin to make a habit
-# of using letter suffixes, it can be extended to make use of 'ord26'
-VER=${VER//a/.1} make_package
+make_package
 clean_up
 
 # Vim hints
