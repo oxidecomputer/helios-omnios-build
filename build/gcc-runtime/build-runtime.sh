@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 . common.sh
@@ -35,7 +35,7 @@ pushd $DESTDIR >/dev/null
 
 # To keep all of the logic in one place, links are not created in the .mog
 
-libs="libgcc_s libatomic libgomp"
+libs="libgcc_s libatomic libgomp libssp"
 
 mkdir -p usr/lib/$ISAPART64
 
@@ -46,6 +46,12 @@ for v in `seq 5 $VER`; do
 done
 
 install_unversioned $SHARED_GCC_VER "$libs"
+
+# And special-case libssp.so.0.0.0
+lib=libssp.so.0.0.0
+logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$lib usr/lib/$lib
+logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$lib \
+    usr/lib/$ISAPART64/$lib
 
 popd >/dev/null
 set +o errexit

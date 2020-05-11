@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 . common.sh
@@ -35,19 +35,13 @@ pushd $DESTDIR >/dev/null
 
 mkdir -p usr/lib/$ISAPART64
 
-libs="libstdc++ libssp"
+libs="libstdc++"
 
 for v in `seq 5 $VER`; do
     install_lib $v "$libs"
 done
 
 install_unversioned $SHARED_GCC_VER "$libs"
-
-# And special-case libssl.so.0.0.0
-lib=libssp.so.0.0.0
-logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$lib usr/lib/$lib
-logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$lib \
-    usr/lib/$ISAPART64/$lib
 
 # Copy in legacy versions in case old code is linked against them
 mkdir -p usr/gcc/legacy/lib/$ISAPART64
