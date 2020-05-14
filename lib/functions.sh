@@ -1251,6 +1251,9 @@ make_package() {
     elif [[ $VER = *[a-z] ]]; then
         ## Convert single trailing alpha character
         VER="${VER:0: -1}.`ord26 ${VER: -1}`"
+    elif [[ $VER = *p[0-9] ]]; then
+        ## Convert trailing pX
+        VER=${VER//p/.}
     fi
 
     ## Strip leading zeros in version components.

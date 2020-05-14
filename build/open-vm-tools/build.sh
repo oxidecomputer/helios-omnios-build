@@ -19,11 +19,11 @@
 
 PKG=system/virtualization/open-vm-tools
 PROG=open-vm-tools
-VER=11.0.5
+VER=11.1.0
 # The open-vm-tools have been inconsistent in the past in regard to whether
 # the filenames and extracted directories contain the build number. If they
 # do, set the build number.
-BUILD=15389592
+BUILD=16036546
 SUMMARY="Open Virtual Machine Tools"
 DESC="The Open Virtual Machine Tools project aims to provide a suite of open "
 DESC+="source virtualisation utilities and drivers to improve the "
@@ -42,8 +42,9 @@ set_arch 64
 
 BUILD_DEPENDS_IPS='developer/pkg-config'
 
-# _XPG4_2 - Need cmsg from UNIX95
-# __EXTENSIONS__ - Need gethostbyname_r in _XPG4_2
+# XPG4v2 - Need cmsg from UNIX95
+# __EXTENSIONS__ (see CFLAGS) - Need gethostbyname_r in XPG4v2
+set_standard XPG4v2
 
 CFLAGS+="\
     -std=gnu89 \
@@ -52,7 +53,6 @@ CFLAGS+="\
     -Wno-deprecated \
     -Wno-deprecated-declarations \
     -Wno-unused-local-typedefs \
-    -D_XPG4_2 \
     -D__EXTENSIONS__ \
 "
 CONFIGURE_OPTS="
@@ -95,8 +95,7 @@ init
 download_source $PROG $PROG $DLVER
 patch_source
 prep_build
-run_autoreconf
-export LIBS="-lnsl"
+run_autoreconf -fi
 build
 install_smf system/virtualization open-vm-tools.xml
 install_conf

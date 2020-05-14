@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=sudo
-VER=1.8.31p1
+VER=1.9.0
 PKG=security/sudo
 SUMMARY="Authority delegation tool"
 DESC="Provide limited super-user privileges to specific users"
@@ -40,6 +40,10 @@ CONFIGURE_OPTS="
     --with-ignore-dot
     --with-bsm-audit
     --disable-pam-session
+    --enable-openssl
+    --enable-python
+    --enable-log-client
+    --disable-log-server
 "
 
 SKIP_LICENCES=Various
@@ -53,7 +57,6 @@ patch_source
 prep_build
 build
 run_testsuite check
-VER=${VER//p/.}
 make_package
 clean_up
 

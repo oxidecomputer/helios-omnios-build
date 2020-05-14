@@ -59,6 +59,7 @@ tests() {
 init
 download_source $PROG $PROG $VER
 patch_source
+run_autoreconf -fi
 prep_build
 build
 tests

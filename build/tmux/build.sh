@@ -62,6 +62,7 @@ CPPFLAGS=" \
     -I/usr/include/ncurses \
 "
 LDFLAGS="-L$DEPROOT/usr/lib/amd64 -lsocket -lnsl -lsendfile"
+CONFIGURE_OPTS+=" --enable-utempter"
 
 download_source $PROG $PROG $VER
 patch_source
