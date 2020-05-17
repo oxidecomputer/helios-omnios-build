@@ -1986,8 +1986,8 @@ pre_python_64() {
 }
 
 python_vendor_relocate() {
-    pushd $DESTDIR/usr/lib >/dev/null || logerr "python relocate pushd"
-    [ -d python$PYTHONVER/site-packages ] || continue
+    pushd $DESTDIR/$PREFIX/lib >/dev/null || logerr "python relocate pushd"
+    [ -d python$PYTHONVER/site-packages ] || return
     logmsg "Relocating python $PYTHONVER site to vendor-packages"
     if [ -d python$PYTHONVER/vendor-packages ]; then
         rsync -a python$PYTHONVER/site-packages/ \
@@ -2063,7 +2063,8 @@ python_build() {
 #############################################################################
 
 siteperl_to_vendor() {
-    logcmd mv $DESTDIR/usr/perl5/site_perl $DESTDIR/usr/perl5/vendor_perl \
+    logcmd mv $DESTDIR/$PREFIX/perl5/site_perl \
+        $DESTDIR/$PREFIX/perl5/vendor_perl \
         || logerr "can't move to vendor_perl"
 }
 
