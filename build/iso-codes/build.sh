@@ -13,25 +13,22 @@
 # }}}
 
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=iso-codes
-VER=4.4
+VER=4.5.0
 PKG=data/iso-codes
 SUMMARY="ISO code lists and translations"
 DESC="Lists of various ISO standards "
 DESC+="(e.g. country, language, language scripts, and currency names)"
 
-BUILD_DEPENDS_IPS="data/iso-codes"
-
-BUILDDIR=$PROG-$PROG-$VER
-
+set_builddir $PROG-$PROG-$VER
 set_arch 64
 
 init
-download_source $PROG $PROG $VER
+download_source $PROG $PROG-$PROG $VER
 patch_source
 prep_build
 build

@@ -7,7 +7,7 @@
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
-| data/iso-codes			| 4.4			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
+| data/iso-codes			| 4.5.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3310100		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.2		| https://ftp.gnu.org/gnu/automake/
@@ -20,7 +20,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.6			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.6.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.26.2		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.4			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
@@ -43,7 +43,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.40.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.52			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.52.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.25			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.35			| https://ftp.pcre.org/pub/pcre/
@@ -54,8 +54,8 @@
 | library/security/openssl-1.1		| 1.1.1g		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| meta/data/microcode			| 20191115		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.11.18		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| meta/data/microcode			| 20200520		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
+| network/dns/bind			| 9.11.19		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.2p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.1.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -99,7 +99,7 @@
 | text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.70.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.64.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.64.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.34			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
@@ -123,20 +123,20 @@
 | library/python-3/jsonrpclib-37	| 0.4.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.2			| https://pypi.org/project/Mako
-| library/python-3/meson-37		| 0.54.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-37	| 8.2.0			| https://pypi.org/project/more-itertools
+| library/python-3/meson-37		| 0.54.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/more-itertools-37	| 8.3.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
 | library/python-3/prettytable-37	| 0.7.2			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-37		| 1.1.1			| https://pypi.org/project/pybonjour
-| library/python-3/pycodestyle-37	| 2.5.0			| https://pypi.org/project/pycodestyle/
+| library/python-3/pycodestyle-37	| 2.6.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-37		| 2.20			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.5		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-37	| 0.16.0		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2020.1		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-37		| 0.9.1			| https://pypi.org/project/python-rapidjson
-| library/python-3/setuptools-37	| 46.1.3		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 46.4.0		| https://pypi.org/project/setuptools
 | library/python-3/six-37		| 1.14.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 3.0.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
