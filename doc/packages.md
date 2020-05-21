@@ -7,7 +7,7 @@
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
-| data/iso-codes			| 4.4			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
+| data/iso-codes			| 4.5.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3310100		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.2		| https://ftp.gnu.org/gnu/automake/
