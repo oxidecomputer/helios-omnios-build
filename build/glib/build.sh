@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.64.2
+VER=2.64.3
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
@@ -41,7 +41,7 @@ CFLAGS+=" -Wno-error=format-nonliteral -Wno-error=format=2"
 
 # Required to enable the POSIX variants of getpwuid_r and getpwnam_r
 # See comment in /usr/include/pwd.h
-CFLAGS+=" -D_XPG6 -D_POSIX_PTHREAD_SEMANTICS"
+set_standard POSIX
 
 LDFLAGS+=" -Wl,-z,ignore"
 
@@ -71,7 +71,7 @@ clean_testsuite() {
         # Found a test
         /^ *[0-9][0-9]*\/[0-9]/ {
             # Remove elapsed time
-            sub(/ *[0-9][0-9]*\.[0-9][0-9]* s .*/, "")
+            sub(/ *[0-9][0-9]*\.[0-9][0-9]* *s/, "")
             # Remove sequence number
             sub(/ *[0-9]*\/[0-9]* */, "")
             print | "sort"
