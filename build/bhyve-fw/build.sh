@@ -40,6 +40,11 @@ export GAR=/usr/bin/gar
 export GLD=/usr/bin/gld
 export GOBJCOPY=/usr/bin/gobjcopy
 
+# Since the firmware builds will run in parallel in the background,
+# put them in a new task which will be killed on interrupt.
+newtask -c $$
+trap "pkill -T0; exit" SIGINT
+
 # Build the UEFI firmware
 
 tag=il-edk2-stable202005-1
