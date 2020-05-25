@@ -240,6 +240,7 @@ FCFLAGS[_]+=" -O2"
 FCFLAGS[7]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[8]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[9]+=" -fno-aggressive-loop-optimizations"
+FCFLAGS[10]+=" -fno-aggressive-loop-optimizations"
 
 # Flags to enable particular standards; see standards(5)
 typeset -A STANDARDS

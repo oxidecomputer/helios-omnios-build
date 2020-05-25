@@ -12,14 +12,14 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 . common.sh
 
 PKG=system/library/gobjc-runtime
 PROG=objc
-VER=9
+VER=10
 SUMMARY="GNU Objective-C runtime dependencies"
 DESC="$SUMMARY"
 
