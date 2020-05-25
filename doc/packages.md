@@ -14,7 +14,6 @@
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
-| developer/gcc8			| 8.4			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc9			| 9.3			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc10			| 10.1			| https://ftp.gnu.org/gnu/gcc/
 | developer/java/openjdk8		| 1.8.252-09		| https://github.com/battleblow/openjdk-jdk8u/releases
