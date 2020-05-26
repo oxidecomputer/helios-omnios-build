@@ -219,7 +219,7 @@ CC=gcc
 CXX=g++
 
 # Specify default versions for building packages
-DEFAULT_GCC_VER=9
+DEFAULT_GCC_VER=10
 ILLUMOS_GCC_VER=7
 PYTHON2VER=2.7
 PYTHON3VER=3.7
@@ -240,6 +240,7 @@ FCFLAGS[_]+=" -O2"
 FCFLAGS[7]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[8]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[9]+=" -fno-aggressive-loop-optimizations"
+FCFLAGS[10]+=" -fno-aggressive-loop-optimizations"
 
 # Flags to enable particular standards; see standards(5)
 typeset -A STANDARDS

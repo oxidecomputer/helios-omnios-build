@@ -33,6 +33,9 @@ PKG=network/test/netperf
 SUMMARY="netperf network testing tool"
 DESC="$SUMMARY $VER"
 
+# This component does not yet build with gcc 10
+set_gccver 9
+
 DEPENDS_IPS="system/library"
 SKIP_LICENCES=HP
 

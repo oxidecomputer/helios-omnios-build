@@ -23,6 +23,9 @@ PKG=compress/p7zip
 SUMMARY="The p7zip compression and archiving utility"
 DESC="$SUMMARY"
 
+# This component does not yet build with gcc 10
+set_gccver 9
+
 SRCVER="${VER}_src_all"
 set_builddir "${PROG}_${VER}"
 

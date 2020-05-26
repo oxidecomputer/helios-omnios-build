@@ -19,7 +19,7 @@
 
 PKG=system/library/g++-runtime
 PROG=libstdc++
-VER=9
+VER=10
 SUMMARY="GNU C++ compiler runtime dependencies"
 DESC="$SUMMARY"
 

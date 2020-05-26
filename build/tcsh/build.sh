@@ -32,6 +32,9 @@ PKG=shell/tcsh
 SUMMARY="Tenex C-shell (tcsh)"
 DESC="A Unix shell based on and compatible with the C shell (csh)"
 
+# This component does not yet build with gcc 10
+set_gccver 9
+
 UCPROG=${PROG^^}
 UVER=${VER//./_}
 
