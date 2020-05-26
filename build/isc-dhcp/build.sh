@@ -25,6 +25,9 @@ PKG=network/service/isc-dhcp
 SUMMARY="ISC DHCP"
 DESC="$SUMMARY $VER"
 
+# This component does not yet build with gcc 10
+set_gccver 9
+
 DEPENDS_IPS="system/library"
 
 set_arch 64

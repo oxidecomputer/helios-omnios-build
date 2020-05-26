@@ -219,7 +219,7 @@ CC=gcc
 CXX=g++
 
 # Specify default versions for building packages
-DEFAULT_GCC_VER=9
+DEFAULT_GCC_VER=10
 ILLUMOS_GCC_VER=7
 PYTHON2VER=2.7
 PYTHON3VER=3.7

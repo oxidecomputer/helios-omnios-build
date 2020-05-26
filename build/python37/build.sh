@@ -23,6 +23,9 @@ MVER=${VER%.*}
 SUMMARY="$PROG $MVER"
 DESC="$SUMMARY"
 
+# This component does not yet build with gcc 10
+set_gccver 9
+
 BUILD_DEPENDS_IPS="developer/build/autoconf developer/pkg-config"
 RUN_DEPENDS_IPS="
     compress/bzip2

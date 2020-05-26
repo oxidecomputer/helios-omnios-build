@@ -23,6 +23,9 @@ PKG=service/network/ntp
 SUMMARY="Network Time Services"
 DESC="An implementation of Network Time Protocol Version 4"
 
+# This component does not yet build with gcc 10
+set_gccver 9
+
 set_arch 64
 
 CONFIGURE_OPTS_64+="

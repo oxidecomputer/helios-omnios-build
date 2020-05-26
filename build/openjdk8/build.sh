@@ -23,6 +23,9 @@ BUILD=09
 PKG=openjdk    ##IGNORE## - filled in later
 SUMMARY="tbc"; DESC="tbc"
 
+# This component does not yet build with gcc 10
+set_gccver 9
+
 BUILD_DEPENDS_IPS="
     system/header/header-audio
     developer/java/openjdk8

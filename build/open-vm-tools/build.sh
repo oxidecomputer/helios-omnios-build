@@ -30,6 +30,9 @@ DESC+="source virtualisation utilities and drivers to improve the "
 DESC+="functionality and user experience of virtualisation. The project "
 DESC+="currently runs in guest operating systems under the VMware hypervisor."
 
+# This component does not yet build with gcc 10
+set_gccver 9
+
 DLVER=$VER
 if [ -n "$BUILD" ]; then
     set_builddir "$PROG-$VER-$BUILD"

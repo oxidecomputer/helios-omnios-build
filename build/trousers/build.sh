@@ -33,6 +33,9 @@ PKG=library/security/trousers
 SUMMARY="trousers - TCG Software Stack - software for accessing a TPM device"
 DESC="$SUMMARY"
 
+# This component does not yet build with gcc 10
+set_gccver 9
+
 LIBS="-lbsm -lnsl -lsocket -lgen -lscf -lresolv"
 
 CONFIGURE_OPTS+="
