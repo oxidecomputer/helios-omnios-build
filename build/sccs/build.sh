@@ -22,9 +22,6 @@ PKG=developer/versioning/sccs
 SUMMARY="Source Code Control System (SCCS)"
 DESC="The POSIX standard Source Code Control System (SCCS)"
 
-# This component does not yet build with gcc 10
-set_gccver 9
-
 set_arch 32
 MAKE=dmake
 NO_PARALLEL_MAKE=1
