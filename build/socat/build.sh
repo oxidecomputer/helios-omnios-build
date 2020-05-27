@@ -23,9 +23,6 @@ SUMMARY="Multipurpose socket relay"
 DESC="socat is a relay for bidirectional data transfer between two "
 DESC+="independent data channels."
 
-# This component does not yet build with gcc 10
-set_gccver 9
-
 set_arch 64
 
 init
