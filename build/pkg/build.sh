@@ -41,9 +41,6 @@ PKGLIST+=" $PKG"
 SUMMARY="This isn't used"
 DESC="$SUMMARY"
 
-# This component does not yet build with gcc 10
-set_gccver 9
-
 PROG=pkg
 VER=omni
 BUILDNUM=$RELVER
