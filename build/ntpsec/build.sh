@@ -22,9 +22,6 @@ PKG=service/network/ntpsec
 SUMMARY="Network time services"
 DESC="A secure, hardened and improved Network Time Protocol implementation"
 
-# This component does not yet build with gcc 10
-set_gccver 9
-
 set_arch 64
 
 # Required to generate man pages
