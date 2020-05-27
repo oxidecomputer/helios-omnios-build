@@ -23,9 +23,6 @@ SUMMARY="Link-layer Discovery Daemon"
 DESC="A comprehensive implementation of the IEEE standard 802.1AB "
 DESC+="Link Layer Discovery Protocol"
 
-# This component does not yet build with gcc 10
-set_gccver 9
-
 set_arch 64
 
 # The openlldp source has empty C files.
