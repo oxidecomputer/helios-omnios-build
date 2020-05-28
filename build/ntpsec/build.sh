@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=ntpsec
-VER=1.1.8
+VER=1.1.9
 PKG=service/network/ntpsec
 SUMMARY="Network time services"
 DESC="A secure, hardened and improved Network Time Protocol implementation"
