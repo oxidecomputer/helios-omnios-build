@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=nss
-VER=3.52.1
+VER=3.53
 # Include NSPR version since we're downloading a combined tarball.
 NSPRVER=4.25
 # But set BUILDDIR to just be the NSS version.
@@ -40,18 +40,22 @@ set_standard XPG6
 SKIP_RTIME_CHECK=1
 
 MAKE_ARGS="
+    -C nss
     BUILD_OPT=1
     NS_USE_GCC=1
     NO_MDUPDATE=1
+    USE_MDUPDATE=
     NSDISTMODE=copy
     NSS_USE_SYSTEM_SQLITE=1
     NSS_ENABLE_WERROR=0
+    nss_build_all
 "
 MAKE_ARGS_WS_32="
     XCFLAGS=\"-g $CFLAGS32 $CFLAGS\"
     LDFLAGS=\"$LDFLAGS32 $LDFLAGS\"
 "
 MAKE_ARGS_WS_64="
+    USE_64=1
     XCFLAGS=\"-g $CFLAGS64 $CFLAGS\"
     LDFLAGS=\"$LDFLAGS64 $LDFLAGS\"
 "
@@ -67,42 +71,25 @@ NSPR_MANS=
 
 NSPR_SAVE="$TMPDIR/nspr-save.$$"
 
-export CC
-
 make_clean() {
-    # Assume PWD == top-level with nss & nspr subdirs.
     /bin/rm -rf dist
-    pushd nss >/dev/null || logerr "pushd nss"
-    logcmd gmake $MAKE_ARGS nss_clean_all || logerr "Can't make clean"
-    popd >/dev/null
 }
 
 configure32() {
-    # Get the install/prototype path out of the way now.
-    logcmd mkdir -p $DESTDIR/usr/lib/mps \
-        || logerr "Failed to create NSS install directory."
-}
-
-make_prog32() {
-    eval set -- $MAKE_ARGS_WS_32
-    pushd nss >/dev/null || logerr "pushd nss"
-    logmsg "  -- nspr"
-    logcmd $MAKE $MAKE_ARGS "$@" $MAKE_JOBS build_nspr \
-        || logerr "nspr build failed"
-    for d in coreconf lib cmd; do
-        logmsg "  -- $d"
-        logcmd $MAKE $MAKE_ARGS "$@" -C $d || logerr "$d build failed"
-    done
-    popd >/dev/null
+    export MAKE_ARGS_WS="$MAKE_ARGS_WS_32"
 }
 
 make_install32() {
     logmsg "Installing libraries (32)"
+
+    logcmd mkdir -p $DESTDIR/usr/lib/mps \
+        || logerr "Failed to create NSS install directory."
     for lib in $TGT_LIBS; do
         logcmd cp $TMPDIR/$BUILDDIR/dist/$DIST32/lib/$lib \
             $DESTDIR/usr/lib/mps/$lib \
             || logerr "Install $lib failed"
     done
+
     logmsg "Installing headers"
     logcmd mkdir -p $DESTDIR/usr/include/mps \
         || logerr "Failed to create NSS header install directory."
@@ -128,31 +115,20 @@ make_install32() {
 }
 
 configure64() {
-    # Get the install/prototype path out of the way now.
-    logcmd mkdir -p $DESTDIR/usr/lib/mps/amd64 \
-        || logerr "Failed to create NSS install directory."
-}
-
-make_prog64() {
-    eval set -- $MAKE_ARGS_WS_64
-    pushd nss >/dev/null || logerr "pushd nss"
-    logmsg "  -- nspr"
-    logcmd $MAKE $MAKE_ARGS "$@" $MAKE_JOBS USE_64=1 build_nspr \
-        || logerr "nspr build failed"
-    for d in coreconf lib cmd; do
-        logmsg "  -- $d"
-        logcmd $MAKE $MAKE_ARGS "$@" USE_64=1 -C $d || logerr "$d build failed"
-    done
-    popd >/dev/null
+    export MAKE_ARGS_WS="$MAKE_ARGS_WS_64"
 }
 
 make_install64() {
     logmsg "Installing libraries (64)"
+
+    logcmd mkdir -p $DESTDIR/usr/lib/mps/amd64 \
+        || logerr "Failed to create NSS install directory."
     for lib in $TGT_LIBS; do
         logcmd cp $TMPDIR/$BUILDDIR/dist/$DIST64/lib/$lib \
             $DESTDIR/usr/lib/mps/amd64/$lib \
             || logerr "Install $lib failed"
     done
+
     logmsg "Installing binaries (64)"
     logcmd mkdir -p $DESTDIR/usr/bin/amd64
     for bin in $TGT_BINS; do
