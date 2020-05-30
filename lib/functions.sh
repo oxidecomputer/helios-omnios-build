@@ -1650,7 +1650,7 @@ install_smf() {
     done
 
     [ -z "$manifestf" ] && logerr "Could not locate $manifest"
-    [ -z "$methodf" ] && logerr "Could not locate $method"
+    [ -n "$method" -a -z "$methodf" ] && logerr "Could not locate $method"
 
     logcmd svccfg validate $manifestf \
         || logerr "Manifest does not pass validation"
