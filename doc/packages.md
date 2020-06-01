@@ -8,7 +8,7 @@
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | data/iso-codes			| 4.5.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3310100		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3320100		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.2		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -84,7 +84,7 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.6.4			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
-| system/test/fio			| 3.19			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.20			| https://github.com/axboe/fio/releases
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.1b			| https://github.com/tmux/tmux/releases http://tmux.github.io/
