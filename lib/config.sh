@@ -163,6 +163,7 @@ XZCAT=xzcat
 UNZIP=unzip
 AWK=gawk
 GIT=git
+EGREP=/usr/bin/egrep
 RIPGREP=/opt/ooce/bin/rg
 CMAKE=/opt/ooce/bin/cmake
 MESON_MAKE=/opt/ooce/bin/ninja

@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=pciutils
-VER=3.6.4
+VER=3.7.0
 PKG=system/pciutils
 SUMMARY="PCI device utilities"
 DESC="Programs (lspci, setpci) for inspecting and manipulating configuration "
@@ -35,24 +35,21 @@ configure64() {
     export LDFLAGS CC PREFIX
 }
 
-make_prog() {
-    logmsg "--- make"
-    logcmd $MAKE PREFIX=$PREFIX \
-        OPT="-O2 -m64 -DBYTE_ORDER=1234 -DLITTLE_ENDIAN=1234" \
-        || logerr "--- Make failed"
-}
+MAKE_ARGS_WS="
+    OPT=\"$CFLAGS64 -DBYTE_ORDER=1234 -DLITTLE_ENDIAN=1234\"
+"
 
-make_install() {
-    logmsg "--- make install"
-    logcmd $MAKE DESTDIR=${DESTDIR} PREFIX=$PREFIX install \
-        || logerr "--- Make install failed"
-}
+MAKE_INSTALL_ARGS="
+    STRIP=
+    PREFIX=$PREFIX
+"
 
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
+strip_install
 make_package
 clean_up
 
