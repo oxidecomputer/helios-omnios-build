@@ -76,7 +76,7 @@
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.7.4			| https://github.com/tycho/cpuid/releases
 | system/data/urxvt-terminfo		| 9.22			| http://dist.schmorp.de/rxvt-unicode/
-| system/library/dbus			| 1.12.16		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
+| system/library/dbus			| 1.12.18		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.110			| https://dbus.freedesktop.org/releases/dbus-glib/
 | system/library/pcap			| 1.9.1			| http://www.tcpdump.org/#latest-releases
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
