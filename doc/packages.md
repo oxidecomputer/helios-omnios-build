@@ -121,7 +121,7 @@
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
-| library/python-3/mako-37		| 1.1.2			| https://pypi.org/project/Mako
+| library/python-3/mako-37		| 1.1.3			| https://pypi.org/project/Mako
 | library/python-3/meson-37		| 0.54.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 8.3.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
