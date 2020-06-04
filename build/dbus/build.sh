@@ -21,17 +21,19 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=dbus
-VER=1.12.16
+VER=1.12.18
 PKG=dbus ##IGNORE##
 SUMMARY="filled in below"
 DESC="$SUMMARY"
 
-CPPFLAGS+=" -D__EXTENSIONS__ -D_REENTRANT -D_XPG6"
+set_standard XPG6
+CPPFLAGS+=" -D_REENTRANT"
+
 CONFIGURE_OPTS="
     --with-dbus-daemondir=/usr/lib
     --bindir=/usr/bin
