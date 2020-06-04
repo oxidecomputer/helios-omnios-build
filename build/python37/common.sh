@@ -27,6 +27,10 @@ XFORM_ARGS="
     -D SPYVER=$SPYVER
 "
 
+PKGDIFF_HELPER='
+    s:(vendor-packages/[^-]*)-[0-9.]*:\1-VERSION:g
+'
+
 # Use an extra directory level for building each module since there can be
 # multiple versions of python being built in parallel and if they are built
 # in the same directory then they will clobber each other.
