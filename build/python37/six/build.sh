@@ -18,7 +18,7 @@
 
 PKG=library/python-3/six-37
 PROG=six
-VER=1.14.0
+VER=1.15.0
 SUMMARY="A Python 2 and 3 compatibility library"
 DESC="$SUMMARY"
 
