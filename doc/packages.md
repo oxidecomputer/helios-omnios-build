@@ -8,7 +8,7 @@
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | data/iso-codes			| 4.5.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3320100		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3320200		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.2		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -121,7 +121,7 @@
 | library/python-3/js-regex-37		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-37	| 0.4.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
-| library/python-3/mako-37		| 1.1.2			| https://pypi.org/project/Mako
+| library/python-3/mako-37		| 1.1.3			| https://pypi.org/project/Mako
 | library/python-3/meson-37		| 0.54.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 8.3.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
@@ -135,8 +135,8 @@
 | library/python-3/pyrsistent-37	| 0.16.0		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2020.1		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-37		| 0.9.1			| https://pypi.org/project/python-rapidjson
-| library/python-3/setuptools-37	| 46.4.0		| https://pypi.org/project/setuptools
-| library/python-3/six-37		| 1.14.0		| https://pypi.org/project/six
+| library/python-3/setuptools-37	| 47.1.1		| https://pypi.org/project/setuptools
+| library/python-3/six-37		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 3.0.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
 | library/python-3/zipp-37		| 3.1.0			| https://pypi.org/project/zipp
