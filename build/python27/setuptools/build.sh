@@ -21,17 +21,16 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../../lib/functions.sh
 
 PKG=library/python-2/setuptools-27
 PROG=setuptools
+# 47.x dropped support for python2
+VER=46.4.0
 SUMMARY="Python package management"
 DESC="Easily download, build, install, upgrade, and uninstall Python packages"
-
-inherit_ver python37/setuptools
 
 . $SRCDIR/../common.sh
 
