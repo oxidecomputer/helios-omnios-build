@@ -17,11 +17,11 @@
 . ../../lib/functions.sh
 
 PROG=cpuid
-VER=1.7.4
-VERHUMAN=$VER
+VER=1.7.6
 PKG=system/cpuid
 SUMMARY="A simple CPUID decoder/dumper for x86/x86_64"
-DESC="A program which can dump and extract information from the x86 CPUID instruction"
+DESC="A program which can dump and extract information from the x86 "
+DESC+="CPUID instruction"
 
 set_arch 64
 
