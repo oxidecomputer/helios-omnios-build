@@ -20,7 +20,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.6.3			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.6.4			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.27.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.4.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
@@ -74,7 +74,7 @@
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.02		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
-| system/cpuid				| 1.7.4			| https://github.com/tycho/cpuid/releases
+| system/cpuid				| 1.7.6			| https://github.com/tycho/cpuid/releases
 | system/data/urxvt-terminfo		| 9.22			| http://dist.schmorp.de/rxvt-unicode/
 | system/library/dbus			| 1.12.18		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.110			| https://dbus.freedesktop.org/releases/dbus-glib/
@@ -103,7 +103,7 @@
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.1.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
-| developer/swig			| 4.0.1			| http://www.swig.org/download.html
+| developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-37	| 1.3.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs

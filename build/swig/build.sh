@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=swig
-VER=4.0.1
+VER=4.0.2
 PKG=developer/swig
 SUMMARY="The Simplified Wrapper and Interface Generator (swig)"
 DESC="A compiler that integrates C and C++ with languages including Perl, "
@@ -28,11 +28,18 @@ set_arch 64
 
 CONFIGURE_OPTS="--disable-ccache"
 
+# SWIG supports a number of languages. Only test the ones shipped with core.
+TEST_TARGETS="
+    partialcheck-perl5-test-suite
+    partialcheck-python-test-suite
+"
+
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
+run_testsuite "$TEST_TARGETS"
 make_package
 clean_up
 
