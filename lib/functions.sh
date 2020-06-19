@@ -1295,6 +1295,9 @@ make_package() {
     elif [[ $VER = *p[0-9] ]]; then
         ## Convert trailing pX
         VER=${VER//p/.}
+    elif [[ $VER = *-P[0-9] ]]; then
+        # Convert trailing -P (as used by ISC bind)
+        VER=${VER//-P/.}
     fi
 
     ## Strip leading zeros in version components.
