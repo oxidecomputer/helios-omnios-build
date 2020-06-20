@@ -42,12 +42,18 @@ init
 prep_build
 
 # Build previous versions
+_BUILDDIR=$BUILDDIR
+_PATCHDIR=$PATCHDIR
 for pver in $PVERS; do
     note -n "Building previous version: $pver"
-    BUILDDIR=$PROG-$pver download_source $PROG $PROG $pver
-    PATCHDIR=patches-${pver##.*} patch_source
-    BUILDDIR=$PROG-$pver build
+    BUILDDIR=$PROG-$pver
+    PATCHDIR=patches-${pver%%.*}
+    download_source $PROG $PROG $pver
+    patch_source
+    build
 done
+BUILDDIR=$_BUILDDIR
+PATCHDIR=$_PATCHDIR
 
 note -n "Building current version: $VER"
 download_source $PROG $PROG $VER
