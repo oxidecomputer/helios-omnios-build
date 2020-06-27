@@ -19,7 +19,7 @@
 
 PROG=perl
 PKG=runtime/perl
-VER=5.30.3
+VER=5.32.0
 MAJVER=${VER%.*}
 SUMMARY="Perl $MAJVER Programming Language"
 DESC="A highly capable, feature-rich programming language"
@@ -55,7 +55,7 @@ configure64() {
         -Dusedtrace \
         -Dusemultiplicity \
         -Duselargefiles \
-        -Duse64bitint \
+        -Duse64bitall \
         -Dmyhostname=localhost \
         -Umydomain \
         -Umyuname \
@@ -64,9 +64,6 @@ configure64() {
         -Dcc=gcc \
         -Dld=/usr/ccs/bin/ld \
         -Doptimize=-O3 \
-        -Dccflags="-D_LARGEFILE64_SOURCE -m64 -D_TS_ERRNO" \
-        -Dldflags="-m64" \
-        -Dlddlflags="-G -64" \
         -Dprefix=${PREFIX} \
         -Dvendorprefix=${PREFIX} \
         -Dbin=${PREFIX}/bin \
@@ -78,14 +75,17 @@ configure64() {
         -Dprivlib=${PREFIX}/lib \
         -Dsitelib=/usr/perl5/site_perl/$MAJVER \
         -Dvendorlib=/usr/perl5/vendor_perl/$MAJVER \
+        -Ulocincpth= \
+        -Uloclibpth= \
+        -Dlibpth="/lib/$ISAPART64 /usr/lib/$ISAPART64" \
         -Dlibs="-lsocket -lnsl -lm -lc" \
         || logerr "--- Configure failed"
 
-    logcmd sed -i '
+    logcmd sed -i "
         s/-fstack-protector-strong//g
-        s/mydomain="\.undef"/mydomain="undef"/g
-        /^lddlflags/s/-G -m64//
-    ' config.sh
+        s/mydomain=\"\.undef\"/mydomain=\"undef\"/g
+        s!^libpth=.*!libpth=\"/lib/$ISAPART64 /usr/lib/$ISAPART64\"!g
+    " config.sh
 }
 
 init
