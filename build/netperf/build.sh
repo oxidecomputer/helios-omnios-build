@@ -1,29 +1,20 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
-#
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../lib/functions.sh
 
 PROG=netperf
@@ -33,15 +24,10 @@ PKG=network/test/netperf
 SUMMARY="netperf network testing tool"
 DESC="$SUMMARY $VER"
 
-# This component does not yet build with gcc 10
-set_gccver 9
-
-DEPENDS_IPS="system/library"
 SKIP_LICENCES=HP
 
 set_arch 64
-
-CONFIGURE_OPTS="LDFLAGS=-lxnet"
+set_standard XPG6
 
 init
 download_source $PROG $PROG $VER
