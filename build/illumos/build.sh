@@ -67,7 +67,7 @@ push_pkgs() {
     [ "$FLAVOR" = ctf ] && \
         FLAVOR="SUNWcs `pkg search -H -o pkg.name \
             dir:path:/kernel OR dir:path:/platform \
-            | egrep -v '^ooce/|driver/virtualization/kvm'`"
+            | egrep -v '^ooce/|virtualization/kvm|graphics/(agpgart|drm)'`"
 
     pkgmerge -d $PKGSRVR \
         -s debug.illumos=false,$ndrepo/ \
