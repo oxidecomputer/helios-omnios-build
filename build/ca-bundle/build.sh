@@ -1,27 +1,19 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -56,6 +48,10 @@ build_pem() {
 
     BUILDDIR=$BUILDDIR_ORIG
 
+    # The make-ca script has a hard coded sanity check for at least 150
+    # certificates. However, the number of trusted roots is now just under 150.
+    logcmd sed -i 's/\<150\>/140/g' $TMPDIR/$MAKECADIR/make-ca
+
     logmsg "-- Generating CA certificate files"
     PATH=/usr/gnu/bin:$PATH logcmd bash $TMPDIR/$MAKECADIR/make-ca \
         --destdir $DESTDIR \
@@ -68,12 +64,12 @@ build_pem() {
     logcmd cp $TMPDIR/nss-$NSSVER/nss/COPYING $TMPDIR/$BUILDDIR/license || \
         logerr "--- Failed to copy license file"
 
-    cp $DESTDIR/etc/ssl/cacert.pem{,.full}
+    logcmd cp $DESTDIR/etc/ssl/cacert.pem{,.full}
     sed -n < $DESTDIR/etc/ssl/cacert.pem.full > $DESTDIR/etc/ssl/cacert.pem '
         /^#/p
         /---BEGIN CERT/,/---END CERT/p
     '
-    rm -f $DESTDIR/etc/ssl/cacert.pem.full
+    logcmd rm -f $DESTDIR/etc/ssl/cacert.pem.full
 }
 
 # Install the OmniOSce CA cert, to be used by pkg(1)
