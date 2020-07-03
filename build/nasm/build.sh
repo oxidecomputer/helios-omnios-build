@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 #
 . ../../lib/functions.sh
 
 PROG=nasm
-VER=2.14.02
+VER=2.15.02
 VERHUMAN=$VER
 PKG=developer/nasm
 SUMMARY="The Netwide Assembler"
@@ -26,12 +26,13 @@ DESC="an assembler targetting the Intel x86 series of processors"
 
 set_arch 32
 
+# Nasm uses INSTALLROOT instead of the more standard DESTDIR
+MAKE_INSTALL_ARGS="INSTALLROOT=$DESTDIR"
+
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
-# Nasm uses INSTALLROOT instead of the more standard DESTDIR
-MAKE_INSTALL_ARGS="INSTALLROOT=$DESTDIR"
 build
 make_package
 clean_up

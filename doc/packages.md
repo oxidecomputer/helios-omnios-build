@@ -19,11 +19,11 @@
 | developer/java/openjdk8		| 1.8.252-09		| https://github.com/battleblow/openjdk-jdk8u/releases
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
-| developer/nasm			| 2.14.02		| http://www.nasm.us/pub/nasm/releasebuilds
+| developer/nasm			| 2.15.02		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.6.4			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.27.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.4.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.4.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -43,8 +43,8 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.41.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.53.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
-| library/nspr				| 4.25			| http://archive.mozilla.org/pub/nspr/releases/
+| library/nss				| 3.54			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nspr				| 4.26			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.35			| https://ftp.pcre.org/pub/pcre/
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
@@ -96,7 +96,7 @@
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.71.0		| https://curl.haxx.se/download.html
+| web/curl				| 7.71.1		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.64.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.34			| https://ftp.gnu.org/gnu/binutils
@@ -112,8 +112,8 @@
 | library/python-3/cherrypy-37		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-37		| 5.1			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 2.9.2			| https://pypi.org/project/cryptography
-| library/python-3/idna-37		| 2.9			| https://pypi.org/project/idna
-| library/python-3/importlib-metadata-37 | 1.6.0		| https://pypi.org/project/importlib-metadata
+| library/python-3/idna-37		| 2.10			| https://pypi.org/project/idna
+| library/python-3/importlib-metadata-37 | 1.7.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-37 | 3.0.0		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-37	| 3.0.1			| https://pypi.org/project/jaraco.functools
@@ -123,7 +123,7 @@
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.3			| https://pypi.org/project/Mako
 | library/python-3/meson-37		| 0.54.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-37	| 8.3.0			| https://pypi.org/project/more-itertools
+| library/python-3/more-itertools-37	| 8.4.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
 | library/python-3/prettytable-37	| 0.7.2			| https://pypi.org/project/PrettyTable
