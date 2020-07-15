@@ -57,7 +57,7 @@
 | meta/data/microcode			| 20200616		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
 | network/dns/bind			| 9.11.20		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.3p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
-| network/rsync				| 3.1.3			| https://rsync.samba.org/
+| network/rsync				| 3.2.2			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/socat				| 1.7.3.4		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
