@@ -16,7 +16,7 @@
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc9			| 9.3			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc10			| 10.1			| https://ftp.gnu.org/gnu/gcc/
-| developer/java/openjdk8		| 1.8.252-09		| https://github.com/battleblow/openjdk-jdk8u/releases
+| developer/java/openjdk8		| 1.8.262-10		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.15.02		| http://www.nasm.us/pub/nasm/releasebuilds
@@ -33,7 +33,7 @@
 | library/expat				| 2.2.9			| https://github.com/libexpat/libexpat/releases
 | library/gmp				| 6.2.0			| https://gmplib.org/download/gmp/ https://gmplib.org/
 | library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
-| library/mpfr				| 4.0.2			| http://www.mpfr.org/mpfr-current/
+| library/mpfr				| 4.1.0			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
 | library/libedit			| 20191231-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.11		| https://github.com/libevent/libevent/releases | Used solely by tmux
@@ -57,7 +57,7 @@
 | meta/data/microcode			| 20200616		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
 | network/dns/bind			| 9.11.20		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.3p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
-| network/rsync				| 3.1.3			| https://rsync.samba.org/
+| network/rsync				| 3.2.2			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/socat				| 1.7.3.4		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source

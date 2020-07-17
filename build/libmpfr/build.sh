@@ -13,12 +13,12 @@
 #
 # CDDL HEADER END  }}}
 #
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=mpfr
-VER=4.0.2
+VER=4.1.0
 PKG=library/mpfr
 SUMMARY="The GNU multiple-precision floating-point computation library"
 DESC="$SUMMARY"
