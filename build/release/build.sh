@@ -55,7 +55,7 @@ build() {
 
     cat <<- EOM > etc/release
   OmniOS v11 r$RELEASE
-  Copyright 2017 OmniTI Computer Consulting, Inc. All rights reserved.
+  Copyright (c) 2012-2017 OmniTI Computer Consulting, Inc.
   `copyright_string`
   All rights reserved. Use is subject to licence terms.
 	EOM

@@ -295,7 +295,7 @@ ask_to_testsuite() {
 # Copyright string
 #############################################################################
 copyright_string() {
-    echo "Copyright 2017-`date +%Y`" \
+    echo "Copyright (c) 2017-`date +%Y`" \
         "OmniOS Community Edition (OmniOSce) Association."
 }
 
