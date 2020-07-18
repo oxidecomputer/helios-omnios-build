@@ -66,7 +66,7 @@ push_pkgs() {
 
     [ "$FLAVOR" = ctf ] && \
         FLAVOR="SUNWcs `pkg search -H -o pkg.name \
-            dir:path:/kernel OR dir:path:/platform \
+            dir:path:/kernel OR dir:path:/platform OR dir:path:/usr/platform \
             | egrep -v '^ooce/|virtualization/kvm|graphics/(agpgart|drm)'`"
 
     pkgmerge -d $PKGSRVR \
