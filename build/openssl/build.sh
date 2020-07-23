@@ -152,6 +152,7 @@ if [ -z "$FLAVOR" -o "$FLAVOR" = "1.1" ]; then
     patch_source
     prep_build
     build
+    convert_ctf
     (cd $DESTDIR; gpatch -p1 < $SRCDIR/$PATCHDIR/post/opensslconf.dualarch)
     run_testsuite
     move_libs
