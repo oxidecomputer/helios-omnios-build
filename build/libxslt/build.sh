@@ -21,8 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -34,7 +33,6 @@ DESC="The portable XSLT C library built on libxml2"
 
 CFLAGS32+=" -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
 CFLAGS64+=" -D_LARGEFILE_SOURCE"
-LDFLAGS="-lpthread"
 
 # Without --with-libxml-prefix, configure does not find /usr/bin/xml2-config!
 CONFIGURE_OPTS="
