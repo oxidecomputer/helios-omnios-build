@@ -19,7 +19,7 @@
 
 PKG=developer/gcc10
 PROG=gcc
-VER=10.1.0
+VER=10.2.0
 ILVER=il-0
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
