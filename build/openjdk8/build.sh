@@ -70,7 +70,7 @@ CONFIGURE_OPTS="
     --with-update-version=$UPDATE
     --with-build-number=b$BUILD
     --with-toolchain-type=gcc
-    --with-boot-jdk=/usr/java
+    --with-boot-jdk=/$IFULL
     --disable-headful
     --without-x
     --enable-unlimited-crypto
