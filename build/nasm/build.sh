@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=nasm
-VER=2.15.02
+VER=2.15.03
 VERHUMAN=$VER
 PKG=developer/nasm
 SUMMARY="The Netwide Assembler"

@@ -19,7 +19,7 @@
 | developer/java/openjdk8		| 1.8.262-10		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
-| developer/nasm			| 2.15.02		| http://www.nasm.us/pub/nasm/releasebuilds
+| developer/nasm			| 2.15.03		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.6.4			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.27.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
