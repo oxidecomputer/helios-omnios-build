@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=bison
-VER=3.6.4
+VER=3.7
 PKG=developer/parser/bison
 SUMMARY="General-purpose parser generator"
 DESC="A general-purpose parser generator that converts an annotated "
@@ -44,7 +44,7 @@ patch_source
 prep_build
 build
 strip_install
-PATH+=:/opt/ooce/bin run_testsuite check
+PATH=/usr/gnu/bin:/opt/ooce/bin:$PATH run_testsuite check
 make_package
 clean_up
 
