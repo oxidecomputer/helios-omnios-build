@@ -15,7 +15,7 @@
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc9			| 9.3			| https://ftp.gnu.org/gnu/gcc/
-| developer/gcc10			| 10.1			| https://ftp.gnu.org/gnu/gcc/
+| developer/gcc10			| 10.2			| https://ftp.gnu.org/gnu/gcc/
 | developer/java/openjdk8		| 1.8.262-10		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
@@ -99,7 +99,7 @@
 | web/curl				| 7.71.1		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.64.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
-| developer/gnu-binutils		| 2.34			| https://ftp.gnu.org/gnu/binutils
+| developer/gnu-binutils		| 2.35			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.1.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/

@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=binutils
-VER=2.34
+VER=2.35
 PKG=developer/gnu-binutils
 SUMMARY="GNU binary utilities"
 DESC="A set of programming tools for creating and managing binary programs, "
@@ -46,6 +46,8 @@ CONFIGURE_OPTS="
     --enable-largefile
     --with-system-zlib
 "
+
+XFORM_ARGS="-D GNU_ARCH=$TRIPLET64"
 
 # Without specifying the shell as bash here, the generated linker
 # emulation files get truncated scripts.
