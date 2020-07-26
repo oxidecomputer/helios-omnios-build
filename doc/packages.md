@@ -16,7 +16,6 @@
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc9			| 9.3			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc10			| 10.2			| https://ftp.gnu.org/gnu/gcc/
-| developer/java/openjdk8		| 1.8.262-10		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.15.02		| http://www.nasm.us/pub/nasm/releasebuilds
@@ -62,6 +61,8 @@
 | network/socat				| 1.7.3.4		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
+| runtime/java/openjdk11		| 11.0.8+10		| https://hg.openjdk.java.net/jdk-updates/jdk11u/tags
+| runtime/java/openjdk8			| 1.8.262-10		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | runtime/perl				| 5.32.0		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.9			| https://www.python.org/downloads/source/
