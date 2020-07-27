@@ -18,8 +18,8 @@
 | developer/gcc10			| 10.2			| https://ftp.gnu.org/gnu/gcc/
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
-| developer/nasm			| 2.15.02		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.6.4			| https://ftp.gnu.org/gnu/bison/
+| developer/nasm			| 2.15.03		| http://www.nasm.us/pub/nasm/releasebuilds
+| developer/parser/bison		| 3.7			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.27.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.4.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
@@ -36,14 +36,14 @@
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
 | library/libedit			| 20191231-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.11		| https://github.com/libevent/libevent/releases | Used solely by tmux
-| library/libidn			| 1.35			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags
+| library/libidn			| 1.36			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.3			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.10		| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.41.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.54			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
-| library/nspr				| 4.26			| http://archive.mozilla.org/pub/nspr/releases/
+| library/nss				| 3.55			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nspr				| 4.27			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.35			| https://ftp.pcre.org/pub/pcre/
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
@@ -54,7 +54,7 @@
 | library/unixodbc			| 2.3.7			| http://www.unixodbc.org/download.html
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20200616		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.11.20		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.11.21		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.3p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.2			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -67,11 +67,11 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.9			| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.7			| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.1			| https://www.sudo.ws/
+| security/sudo				| 1.9.2			| https://www.sudo.ws/
 | service/network/ntpsec		| 1.1.9			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
-| shell/bash5-patchlvl			| 017			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
+| shell/bash5-patchlvl			| 018			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.02		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
