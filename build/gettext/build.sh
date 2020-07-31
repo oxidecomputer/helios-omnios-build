@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=gettext
-VER=0.20.2
+VER=0.21
 PKG=text/gnu-gettext
 SUMMARY="gettext - GNU gettext utility"
 DESC="GNU gettext - GNU gettext utility"
