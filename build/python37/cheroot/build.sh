@@ -18,7 +18,7 @@
 
 PKG=library/python-3/cheroot-37
 PROG=cheroot
-VER=8.3.0
+VER=8.4.2
 SUMMARY="cheroot HTTP server"
 DESC="Highly-optimized, pure-python HTTP server"
 

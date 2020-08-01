@@ -106,13 +106,13 @@
 | system/virtualization/open-vm-tools	| 11.1.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
-| library/python-3/asn1crypto-37	| 1.3.0			| https://pypi.org/project/asn1crypto
+| library/python-3/asn1crypto-37	| 1.4.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-37		| 1.14.0		| https://pypi.org/project/cffi
-| library/python-3/cheroot-37		| 8.3.0			| https://pypi.org/project/cheroot
+| library/python-3/cffi-37		| 1.14.1		| https://pypi.org/project/cffi
+| library/python-3/cheroot-37		| 8.4.2			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-37		| 5.1			| https://pypi.org/project/coverage
-| library/python-3/cryptography-37	| 2.9.2			| https://pypi.org/project/cryptography
+| library/python-3/coverage-37		| 5.2.1			| https://pypi.org/project/coverage
+| library/python-3/cryptography-37	| 3.0			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.10			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 1.7.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
@@ -136,9 +136,9 @@
 | library/python-3/pyrsistent-37	| 0.16.0		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2020.1		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-37		| 0.9.1			| https://pypi.org/project/python-rapidjson
-| library/python-3/setuptools-37	| 47.1.1		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 49.2.0		| https://pypi.org/project/setuptools
 | library/python-3/six-37		| 1.15.0		| https://pypi.org/project/six
-| library/python-3/tempora-37		| 3.0.0			| https://pypi.org/project/tempora
+| library/python-3/tempora-37		| 4.0.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
 | library/python-3/zipp-37		| 3.1.0			| https://pypi.org/project/zipp
 
