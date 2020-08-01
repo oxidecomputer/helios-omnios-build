@@ -78,7 +78,6 @@ CONFIGURE_OPTS="
     --with-cups-include=$OOCEPREFIX/include
     --with-freetype=bundled
     --with-fontconfig-include=$OOCEPREFIX/include
-    CXXFILT=/usr/bin/gc++filt
 "
 
 MAKE_ARGS="all"
