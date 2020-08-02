@@ -18,8 +18,8 @@
 
 PROG=openjdk
 VER=1.8
-UPDATE=262
-BUILD=10
+UPDATE=265
+BUILD=01
 PKG=openjdk    ##IGNORE## - filled in later
 SUMMARY="tbc"; DESC="tbc"
 
@@ -78,7 +78,7 @@ CONFIGURE_OPTS="
     --with-zlib=system
     --with-giflib=bundled
     --with-cups-include=$OOCEPREFIX/include
-    --x-includes=$TMPDIR/openwin/X11/include
+    --x-includes=$OOCEPREFIX/include
     --enable-freetype-bundling
     --with-memory-size=768
     --disable-precompiled-headers
@@ -162,7 +162,6 @@ make_install() {
 
 #############################################################################
 
-BUILDDIR=openwin download_source Xstuff openwin
 chmod +x $CONFIGURE_CMD
 build
 
