@@ -35,7 +35,7 @@
 | library/mpfr				| 4.1.0			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
 | library/libedit			| 20191231-3.1		| https://thrysoee.dk/editline/
-| library/libevent			| 2.1.11		| https://github.com/libevent/libevent/releases | Used solely by tmux
+| library/libevent			| 2.1.12		| https://github.com/libevent/libevent/releases | Used solely by tmux
 | library/libidn			| 1.36			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.3			| https://sourceware.org/libffi/
 | library/libxml2			| 2.9.10		| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
