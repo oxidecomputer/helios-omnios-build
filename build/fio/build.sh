@@ -21,10 +21,14 @@
 . ../../lib/functions.sh
 
 PROG=fio
-VER=3.20
+VER=3.21
 PKG=system/test/fio
 SUMMARY="Flexible IO Tester"
 DESC="A tool that is able to simulate a given I/O workload"
+
+RUN_DEPENDS_IPS+="
+    runtime/python-$PYTHONPKGVER
+"
 
 set_builddir "$PROG-$PROG-$VER"
 set_arch 64
@@ -34,6 +38,7 @@ CONFIGURE_OPTS_64="
     --extra-cflags=-m64
     --disable-native
 "
+
 SKIP_LICENCES=fio
 
 init
