@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=Python
-VER=3.7.7
+VER=3.7.8
 PKG=runtime/python-37
 MVER=${VER%.*}
 SUMMARY="$PROG $MVER"
@@ -82,11 +82,13 @@ launch_testsuite() {
     EXTRATESTOPTS="-uall,-network,-audio,-gui,-largefile"
     EXTRATESTOPTS+=" -j 1"
     export EXTRATESTOPTS
-    # Some tests have non-ASCII characters
-    _LC_ALL=$LC_ALL
-    export LC_ALL=en_US.UTF-8
-    LC_ALL=$LC_ALL run_testsuite "$@"
-    export LC_ALL=$_LC_ALL
+    if [ -z "$SKIP_TESTSUITE" ] && ( [ -n "$BATCH" ] || ask_to_testsuite ); then
+        # Some tests have non-ASCII characters
+        _LC_ALL=$LC_ALL
+        export LC_ALL=en_US.UTF-8
+        BATCH=1 LC_ALL=$LC_ALL run_testsuite "$@" < /dev/null
+        export LC_ALL=$_LC_ALL
+    fi
 }
 
 test_dtrace() {
