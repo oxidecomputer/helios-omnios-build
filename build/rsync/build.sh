@@ -49,8 +49,6 @@ CPPFLAGS+=" -I$DEPROOT/usr/include"
 
 CONFIGURE_OPTS="
     --with-included-popt
-    --disable-zstd
-    --disable-lz4
 "
 # Needed so that man pages are correctly installed every time
 REMOVE_PREVIOUS=1
