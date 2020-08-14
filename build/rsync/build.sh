@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=rsync
-VER=3.2.2
+VER=3.2.3
 PKG=network/rsync
 SUMMARY="rsync - faster, flexible replacement for rcp"
 DESC="An open source utility that provides fast incremental file transfer"
