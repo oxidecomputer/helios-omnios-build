@@ -18,28 +18,45 @@
 . ../../lib/functions.sh
 
 PROG=rsync
-VER=3.2.2
-VERHUMAN=$VER
+VER=3.2.3
 PKG=network/rsync
 SUMMARY="rsync - faster, flexible replacement for rcp"
 DESC="An open source utility that provides fast incremental file transfer"
 
+XXHASHVER=0.8.0
+XFORM_ARGS+=" -DXXHASH=$XXHASHVER"
+
 set_arch 64
+
+init
+prep_build
+
+#########################################################################
+# Download and build a static version of xxhash
+
+CONFIGURE_CMD=/bin/true \
+    MAKE_INSTALL_ARGS="prefix=$PREFIX" \
+    INSTALL=/usr/gnu/bin/install \
+    build_dependency xxhash xxHash-$XXHASHVER xxhash v$XXHASHVER
+
+# We want rsync to link statically with xxhash, rather than bundling the
+# .so files
+logcmd rm -f $DEPROOT/usr/lib/*.so*
+LDFLAGS+=" -L$DEPROOT/usr/lib"
+CPPFLAGS+=" -I$DEPROOT/usr/include"
+
+#########################################################################
+
 CONFIGURE_OPTS="
     --with-included-popt
-    --disable-xxhash
-    --disable-zstd
-    --disable-lz4
 "
 # Needed so that man pages are correctly installed every time
 REMOVE_PREVIOUS=1
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]|^-|[0-9] (passed|failed|skipped|missing)'
 
-init
 download_source $PROG $PROG $VER
 patch_source
-prep_build
 build
 run_testsuite
 make_package
