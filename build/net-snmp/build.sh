@@ -1,34 +1,24 @@
 #!/usr/bin/bash
 #
-# {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
-#
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END }}}
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
+# }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=net-snmp
-VER=5.8
-VERHUMAN=$VER
+VER=5.9
 PKG=system/management/snmp/net-snmp
 SUMMARY="Net-SNMP Agent files and libraries"
 DESC="$SUMMARY"
@@ -38,6 +28,10 @@ SKIP_LICENCES="CMU/UCD"
 
 RUN_DEPENDS_IPS="shell/bash"
 
+# Previous versions that also need to be built and the libraries packaged
+# since compiled software may depend on them.
+PVERS="5.7.3 5.8"
+
 MIB_MODULES="host disman/event-mib ucd-snmp/diskio udp-mib tcp-mib if-mib"
 
 CFLAGS+=" -fstack-check"
@@ -45,9 +39,19 @@ LDFLAGS32="-Wl,-zignore $LDFLAGS32 -L/lib"
 LDFLAGS64="-Wl,-zignore $LDFLAGS64 -L/lib/$ISAPART64"
 LNETSNMPLIBS="-lsocket -lnsl"
 
-# Skip isaexec and deliver 64-bit binaries directly to bin and sbin
-# 32-bit binaries are stripped in local.mog
+LIBRARIES_ONLY="
+    --disable-agent
+    --disable-applications
+    --disable-manuals
+    --disable-scripts
+    --disable-mibs
+"
+
+# Skip isaexec - deliver 64-bit binaries straight to [s]bin
 CONFIGURE_OPTS_64+=" --bindir=$PREFIX/bin --sbindir=$PREFIX/sbin"
+# For 32-bit, only build the libraries
+CONFIGURE_OPTS_32+=" $LIBRARIES_ONLY"
+
 CONFIGURE_OPTS="
     --with-defaults
     --with-default-snmp-version=3
@@ -71,7 +75,7 @@ CONFIGURE_OPTS="
 "
 
 CONFIGURE_OPTS_WS="
-    --with-transports=\"UDP TCP UDPIPv6 TCPIPv6\"
+    --with-transports=\"Unix UDP TCP UDPIPv6 TCPIPv6\"
     --with-mib-modules=\"$MIB_MODULES\"
     LNETSNMPLIBS=\"$LNETSNMPLIBS\"
 "
@@ -82,28 +86,29 @@ TESTSUITE_SED="
     /^gmake/d
 "
 
-install_legacy()
-{
-    # Include legacy API libraries (changed from .30 -> .35 in 5.8)
-    ver=30
-    for lib in snmp netsnmp netsnmpagent netsnmphelpers netsnmpmibs \
-      netsnmptrapd; do
-        logcmd cp /usr/lib/lib$lib.so.$ver $DESTDIR/usr/lib/ \
-            || logerr "$lib copy failed"
-        logcmd cp /usr/lib/amd64/lib$lib.so.$ver $DESTDIR/usr/lib/amd64/ \
-            || logerr "$lib copy failed"
-    done
-}
-
 init
+prep_build
+
+# We only want the libraries from legacy versions
+save_buildenv
+CONFIGURE_OPTS_64+=" $LIBRARIES_ONLY"
+for pver in $PVERS; do
+    note -n "Building previous version: $pver"
+    build_dependency -merge -ctf $PROG-$pver $PROG-$pver $PROG $PROG $pver
+done
+restore_buildenv
+# Remove unnecessary files from the legacy versions
+logcmd rm -rf $DESTDIR/usr/{include,bin}
+logcmd $FD lib $DESTDIR/usr/lib -e la -e so -X rm {}
+
+note -n "Building current version: $VER"
 download_source $PROG $PROG $VER
 patch_source
-prep_build
-build
-install_legacy
+# The source archive for version 5.9 includes some .o files that need cleaning
+CLEAN_SOURCE=
+build -ctf
 run_testsuite test
 install_smf application/management net-snmp.xml svc-net-snmp
-strip_install
 make_package
 clean_up
 
