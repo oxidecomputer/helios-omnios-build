@@ -211,7 +211,7 @@ logmsg() {
 logerr() {
     [ "$1" = "-b" ] && BATCH=1 && shift
     # Print an error message and ask the user if they wish to continue
-    logmsg -e "$@"
+    logmsg -e "$@" >> /dev/stderr
     if [ -z "$BATCH" ]; then
         ask_to_continue "An Error occured in the build. "
     else
@@ -710,6 +710,7 @@ verify_depends() {
         BUILD_DEPENDS_IPS=$DEPENDS_IPS
     fi
     for i in $BUILD_DEPENDS_IPS; do
+        logmsg "-- Checking for build dependency $i"
         # Trim indicators to get the true name (see make_package for details)
         case ${i:0:1} in
             \=|\?)
@@ -719,13 +720,13 @@ verify_depends() {
                 # If it's an exclude, we should error if it's installed rather
                 # than missing
                 i=${i:1}
-                pkg info $i > /dev/null 2<&1 && \
-                    logerr "--- $i should not be installed during build."
+                logcmd pkg info -q $i \
+                    && logerr "--- $i should not be installed during build."
                 continue
                 ;;
         esac
-        pkg info $i > /dev/null 2<&1 ||
-            ask_to_install "$i" "--- Build-time dependency $i not found"
+        logcmd pkg info -q $i \
+            || ask_to_install "$i" "--- Build-time dependency $i not found"
     done
 }
 
@@ -2221,7 +2222,7 @@ build_install() {
 test_if_core() {
     logmsg "Testing whether $MODNAME is in core"
     logmsg "--- Ensuring ${PKG} is not installed"
-    if logcmd pkg info ${PKG}; then
+    if logcmd pkg info -q ${PKG}; then
         logerr "------ Package ${PKG} appears to be installed.  Please uninstall it."
     else
         logmsg "------ Not installed, good."
@@ -2616,19 +2617,23 @@ check_for_prebuilt() {
     fi
 }
 
-inherit_ver() {
+pkg_ver() {
     local src="$1"
     local script="${2:-build.sh}"
 
     src=$ROOTDIR/build/$src/$script
-    logmsg "-- inheriting version from $src"
-    [ -f $src ] || logerr "inherit_ver: cannot locate source"
-    VER=`sed -n '/^VER=/ {
+    [ -f $src ] || logerr "pkg_ver: cannot locate source"
+    local ver=`sed -n '/^VER=/ {
                 s/.*=//
                 p
                 q
         }' $src`
-    [ -n "$VER" ] || logerr "No version found."
+    [ -n "$ver" ] || logerr "No version found."
+    echo $ver
+}
+
+inherit_ver() {
+    VER=`pkg_ver "$@"`
     logmsg "-- inherited version '$VER'"
 }
 
