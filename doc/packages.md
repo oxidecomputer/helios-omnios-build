@@ -88,7 +88,7 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
-| system/test/fio			| 3.21			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.22			| https://github.com/axboe/fio/releases
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.1b			| https://github.com/tmux/tmux/releases http://tmux.github.io/

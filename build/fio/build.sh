@@ -21,7 +21,7 @@
 . ../../lib/functions.sh
 
 PROG=fio
-VER=3.21
+VER=3.22
 PKG=system/test/fio
 SUMMARY="Flexible IO Tester"
 DESC="A tool that is able to simulate a given I/O workload"
