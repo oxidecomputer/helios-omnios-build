@@ -88,7 +88,7 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
-| system/test/fio			| 3.21			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.22			| https://github.com/axboe/fio/releases
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.1b			| https://github.com/tmux/tmux/releases http://tmux.github.io/
@@ -111,8 +111,8 @@
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-37	| 1.4.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-37		| 1.14.1		| https://pypi.org/project/cffi
-| library/python-3/cheroot-37		| 8.4.2			| https://pypi.org/project/cheroot
+| library/python-3/cffi-37		| 1.14.2		| https://pypi.org/project/cffi
+| library/python-3/cheroot-37		| 8.4.4			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-37		| 5.2.1			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 3.0			| https://pypi.org/project/cryptography
@@ -126,7 +126,7 @@
 | library/python-3/jsonrpclib-37	| 0.4.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.3			| https://pypi.org/project/Mako
-| library/python-3/meson-37		| 0.55.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-37		| 0.55.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 8.4.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
@@ -139,7 +139,7 @@
 | library/python-3/pyrsistent-37	| 0.16.0		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2020.1		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-37		| 0.9.1			| https://pypi.org/project/python-rapidjson
-| library/python-3/setuptools-37	| 49.2.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 49.6.0		| https://pypi.org/project/setuptools
 | library/python-3/six-37		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 4.0.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
