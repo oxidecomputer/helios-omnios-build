@@ -19,23 +19,24 @@
 
 PROG=vim
 VER=8.2
-PATCHLEVEL=422
+PATCHLEVEL=1484
 PKG=editor/vim
 SUMMARY="Vi IMproved"
 DESC="Advanced text editor that provides the power of the UNIX vi editor "
 DESC+="with a more complete feature set."
 
 SVER=${VER//./}
-set_builddir "$PROG$SVER"
+VER+=".$PATCHLEVEL"
 
 set_arch 64
+set_standard XPG6
 
 XFORM_ARGS+=" -D SVER=$SVER"
 
 SKIP_LICENCES="*"
 
-# VIM 8.0 source exposes either a bug in illumos msgfmt(1), OR it contains
-# a GNU-ism we are strict about.  Either way, use GNU msgfmt for now.
+# zh_CN.cp936.po has invalid characters which GNU msgfmt seems to be able to
+# ignore.
 export MSGFMT=/usr/gnu/bin/msgfmt
 
 CONFIGURE_OPTS="
@@ -44,6 +45,10 @@ CONFIGURE_OPTS="
     --disable-gui
     --disable-gtktest
 "
+CONFIGURE_OPTS_WS="
+    --with-compiledby=\"OmniOS $RELVER\"
+"
+MAKE_INSTALL_ARGS="STRIP=/bin/true"
 
 extract_licence() {
     sed -n < $DESTDIR/usr/share/vim/vim$SVER/doc/uganda.txt \
@@ -53,12 +58,11 @@ extract_licence() {
 }
 
 init
-download_source $PROG $PROG $VER
+download_source $PROG v$VER
 patch_source
 prep_build
-build
+build -ctf
 extract_licence
-VER+=".$PATCHLEVEL"
 make_package
 clean_up
 
