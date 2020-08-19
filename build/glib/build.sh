@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.64.4
+VER=2.64.5
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
@@ -89,11 +89,22 @@ make_clean() {
     [ -d $TMPDIR/$BUILDDIR ] && logcmd rm -rf $TMPDIR/$BUILDDIR
 }
 
+fix_rpaths() {
+    # A recent update to Meson has resulted in the libraries ending up with
+    # populated runpaths which causes the illumos build check_rtime to
+    # (rightly) complain. Strip them here.
+    fd lib $DESTDIR -e so | while read so; do
+        logcmd /usr/bin/elfedit -e 'dyn:delete RUNPATH' $so
+        logcmd /usr/bin/elfedit -e 'dyn:delete RPATH' $so
+    done
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source
 prep_build meson
 build
+fix_rpaths
 clean_testsuite
 make_package
 clean_up
