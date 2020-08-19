@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-#  {{{ CDDL HEADER START
+# {{{ CDDL HEADER
 #
 # This file and its contents are supplied under the terms of the
 # Common Development and Distribution License ("CDDL"), version 1.0.
@@ -10,16 +10,14 @@
 # A full copy of the text of the CDDL should have accompanied this
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
+# }}}
 #
-# CDDL HEADER END  }}}
-#
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=mpc
-VER=1.1.0
-VERHUMAN=$VER
+VER=1.2.0
 PKG=library/mpc
 SUMMARY="The GNU complex number library"
 DESC="$SUMMARY"

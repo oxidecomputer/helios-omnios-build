@@ -33,7 +33,7 @@
 | library/c++/sigcpp			| 3.0.3			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.9			| https://github.com/libexpat/libexpat/releases
 | library/gmp				| 6.2.0			| https://gmplib.org/download/gmp/ https://gmplib.org/
-| library/mpc				| 1.1.0			| http://www.multiprecision.org/mpc/download.html
+| library/mpc				| 1.2.0			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.1.0			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
 | library/libedit			| 20191231-3.1		| https://thrysoee.dk/editline/
