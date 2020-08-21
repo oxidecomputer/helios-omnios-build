@@ -19,19 +19,16 @@
 
 PKG=system/virtualization/open-vm-tools
 PROG=open-vm-tools
-VER=11.1.0
+VER=11.1.5
 # The open-vm-tools have been inconsistent in the past in regard to whether
 # the filenames and extracted directories contain the build number. If they
 # do, set the build number.
-BUILD=16036546
+BUILD=16724464
 SUMMARY="Open Virtual Machine Tools"
 DESC="The Open Virtual Machine Tools project aims to provide a suite of open "
 DESC+="source virtualisation utilities and drivers to improve the "
 DESC+="functionality and user experience of virtualisation. The project "
 DESC+="currently runs in guest operating systems under the VMware hypervisor."
-
-# This component does not yet build with gcc 10
-set_gccver 9
 
 DLVER=$VER
 if [ -n "$BUILD" ]; then
