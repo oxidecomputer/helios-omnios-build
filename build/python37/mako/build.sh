@@ -33,7 +33,7 @@ download_source pymodules/${PROG,,} $PROG $VER
 patch_source
 prep_build
 python_build
-make_package
+make_package $SRCDIR/../common.mog
 clean_up
 
 # Vim hints
