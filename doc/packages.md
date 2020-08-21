@@ -20,7 +20,7 @@
 | developer/gcc10			| 10.2			| https://ftp.gnu.org/gnu/gcc/
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
-| developer/nasm			| 2.15.03		| http://www.nasm.us/pub/nasm/releasebuilds
+| developer/nasm			| 2.15.04		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.7.1			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.28.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
