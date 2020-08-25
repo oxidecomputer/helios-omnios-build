@@ -2266,6 +2266,7 @@ convert_ctf() {
     pushd $DESTDIR >/dev/null
     while read file; do
         file $file | $EGREP -s 'ELF.*not stripped' || continue
+        typeset mode=`stat -c %a "$file"`
         typeset tf="$file.$$"
         rm -f "$tf"
         if $CTFDUMP -h "$file" 1>/dev/null 2>&1; then
@@ -2274,15 +2275,14 @@ convert_ctf() {
         elif logcmd $CTFCONVERT $CTFCONVERTFLAGS \
           -l "$PROG-$VER" -o "$tf" "$file" && [ -s "$tf" ]; then
             logmsg "------ Converting CTF data for $file"
-            typeset mode=`stat -c %a "$file"`
             logcmd chmod u+w "$file" || logerr -b "chmod u+w failed: $file"
             logcmd cp "$tf" "$file" || logerr -b "copy failed: $file"
-            logcmd chmod $mode "$file" || logerr -b "chmod failed: $file"
         else
             logmsg "------ Failed to convert CTF data for $file"
         fi
         logcmd rm -f "$tf"
         logcmd strip -x "$file"
+        logcmd chmod $mode "$file" || logerr -b "chmod failed: $file"
     done < <(find . -depth -type f -perm -0100)
     popd >/dev/null
 }
