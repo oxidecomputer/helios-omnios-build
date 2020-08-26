@@ -38,7 +38,7 @@ configure64() {
 }
 
 MAKE_INSTALL_ARGS="
-    INSTALL=/usr/gnu/bin/install
+    INSTALL=$GNUBIN/install
     PREFIX=$PREFIX
 "
 MAKE_INSTALL_ARGS_32="LIBDIR=$PREFIX/lib BINDIR=$PREFIX/bin/$ISAPART"
@@ -51,7 +51,7 @@ download_source $PROG "v$VER"
 patch_source
 prep_build
 build -ctf
-PATH=/usr/gnu/bin:$PATH run_testsuite
+PATH=$GNUBIN:$PATH run_testsuite
 make_package
 clean_up
 

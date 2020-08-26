@@ -36,7 +36,7 @@ prep_build
 
 CONFIGURE_CMD=/bin/true \
     MAKE_INSTALL_ARGS="prefix=$PREFIX" \
-    INSTALL=/usr/gnu/bin/install \
+    INSTALL=$GNUBIN/install \
     build_dependency xxhash xxHash-$XXHASHVER xxhash v$XXHASHVER
 
 # We want rsync to link statically with xxhash, rather than bundling the

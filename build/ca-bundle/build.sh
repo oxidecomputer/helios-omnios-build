@@ -53,7 +53,7 @@ build_pem() {
     logcmd sed -i 's/\<150\>/140/g' $TMPDIR/$MAKECADIR/make-ca
 
     logmsg "-- Generating CA certificate files"
-    PATH=/usr/gnu/bin:$PATH logcmd bash $TMPDIR/$MAKECADIR/make-ca \
+    PATH=$GNUBIN:$PATH logcmd bash $TMPDIR/$MAKECADIR/make-ca \
         --destdir $DESTDIR \
         --certdata $TMPDIR/$NSSDIR/$CERTDATA \
         --keytool /usr/bin/keytool \

@@ -30,7 +30,7 @@ CONFIGURE_OPTS="--program-prefix=g"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
-export PATH+=:/opt/ooce/bin
+export PATH+=:$OOCEBIN
 
 init
 download_source $PROG $PROG $VER

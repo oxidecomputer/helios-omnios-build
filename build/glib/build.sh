@@ -32,7 +32,7 @@ RUN_DEPENDS_IPS="
 MAKE_TESTSUITE_ARGS=
 
 # use GNU msgfmt; otherwise the build fails
-PATH="/usr/gnu/bin:$PATH:/opt/ooce/bin"
+PATH="$GNUBIN:$PATH:$OOCEBIN"
 
 # With gcc 6 and above, -Werror_format=2 produces errors like:
 #   error: format not a string literal, arguments not checked

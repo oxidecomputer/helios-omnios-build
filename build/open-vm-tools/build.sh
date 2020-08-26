@@ -36,7 +36,7 @@ if [ -n "$BUILD" ]; then
     DLVER+=-$BUILD
 fi
 
-export PATH=/usr/gnu/bin:$PATH
+export PATH=$GNUBIN:$PATH
 
 set_arch 64
 

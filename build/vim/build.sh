@@ -37,7 +37,7 @@ SKIP_LICENCES="*"
 
 # zh_CN.cp936.po has invalid characters which GNU msgfmt seems to be able to
 # ignore.
-export MSGFMT=/usr/gnu/bin/msgfmt
+export MSGFMT=$GNUBIN/msgfmt
 
 CONFIGURE_OPTS="
     --with-features=huge

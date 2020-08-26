@@ -54,7 +54,7 @@ unset LDFLAGS32 LDFLAGS64
 export CONFIG_SHELL=$SHELL
 export MAKESHELL=$SHELL
 # Place the GNU utilities first in the path
-export PATH=/usr/gnu/bin:$PATH
+export PATH=$GNUBIN:$PATH
 
 LANGUAGES="c,c++,fortran,lto,go,objc"
 
@@ -156,7 +156,7 @@ tests() {
     fi
 
     export GUILE_AUTO_COMPILE=0
-    export PATH+=:/opt/ooce/bin
+    export PATH+=:$OOCEBIN
     # Some gcc tests (e.g. limits-exprparen.c) need a larger stack
     ulimit -Ss 16385
     # Lots of tests create core files via assertions

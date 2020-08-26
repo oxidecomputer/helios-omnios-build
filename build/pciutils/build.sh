@@ -28,7 +28,7 @@ RUN_DEPENDS_IPS="system/pciutils/pci.ids"
 
 set_arch 64
 
-export PATH=/usr/gnu/bin:$PATH
+export PATH=$GNUBIN:$PATH
 
 configure64() {
     LDFLAGS+=" $LDFLAGS64"

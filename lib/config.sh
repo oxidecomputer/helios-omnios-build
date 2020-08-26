@@ -152,37 +152,45 @@ PERL_MAKE_TEST=1
 #############################################################################
 # Paths to common tools
 #############################################################################
-WGET=wget
-PATCH=gpatch
-MAKE=gmake
-TESTSUITE_MAKE=gmake
-TAR="gtar --no-same-permissions --no-same-owner"
-GZIP=/opt/ooce/bin/pigz
-BUNZIP2=/opt/ooce/bin/pbunzip2
-ZSTD=/usr/bin/zstd
-XZCAT=xzcat
-UNZIP=unzip
-AWK=gawk
-GIT=git
-EGREP=/usr/bin/egrep
-RIPGREP=/opt/ooce/bin/rg
-FD=/opt/ooce/bin/fd
-CMAKE=/opt/ooce/bin/cmake
-MESON_MAKE=/opt/ooce/bin/ninja
-REALPATH=/usr/gnu/bin/realpath
-FIND_ELF=/opt/onbld/bin/find_elf
-CHECK_RTIME=/opt/onbld/bin/check_rtime
-# Command for privilege escalation. Can be overridden in site.sh
-PFEXEC=sudo
+USRBIN=/usr/bin
+OOCEBIN=/opt/ooce/bin
+SFWBIN=/usr/sfw/bin
+ONBLDBIN=/opt/onbld/bin
+GNUBIN=/usr/gnu/bin
 
-CTFDUMP=/opt/onbld/bin/i386/ctfdump
-CTFCONVERT=/opt/onbld/bin/i386/ctfconvert
+WGET=$USRBIN/wget
+PATCH=$USRBIN/gpatch
+MAKE=$USRBIN/gmake
+TESTSUITE_MAKE=$USRBIN/gmake
+TAR="$USRBIN/gtar --no-same-permissions --no-same-owner"
+ZSTD=$USRBIN/zstd
+XZCAT=$USRBIN/xzcat
+UNZIP=$USRBIN/unzip
+AWK=$USRBIN/gawk
+GIT=$USRBIN/git
+EGREP=$USRBIN/egrep
+# Command for privilege escalation. Can be overridden in site.sh
+PFEXEC=$USRBIN/sudo
+PKGSEND=$USRBIN/pkgsend
+PKGLINT=$USRBIN/pkglint
+PKGMOGRIFY=$USRBIN/pkgmogrify
+PKGFMT=$USRBIN/pkgfmt
+PKGDEPEND=$USRBIN/pkgdepend
+
+GZIP=$OOCEBIN/pigz
+BUNZIP2=$OOCEBIN/pbunzip2
+RIPGREP=$OOCEBIN/rg
+FD=$OOCEBIN/fd
+CMAKE=$OOCEBIN/cmake
+MESON_MAKE=$OOCEBIN/ninja
+
+REALPATH=$GNUBIN/realpath
+
+FIND_ELF=$ONBLDBIN/find_elf
+CHECK_RTIME=$ONBLDBIN/check_rtime
+CTFDUMP=$ONBLDBIN/i386/ctfdump
+CTFCONVERT=$ONBLDBIN/i386/ctfconvert
 CTFCONVERTFLAGS=-mi
-PKGSEND=/usr/bin/pkgsend
-PKGLINT=/usr/bin/pkglint
-PKGMOGRIFY=/usr/bin/pkgmogrify
-PKGFMT=/usr/bin/pkgfmt
-PKGDEPEND=/usr/bin/pkgdepend
 
 # Figure out number of logical CPUs for use with parallel gmake jobs (-j)
 # Default to 1.5*nCPUs as we assume the build machine is 100% devoted to

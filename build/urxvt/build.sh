@@ -29,7 +29,7 @@ DESC="$SUMMARY"
 build() {
     TERMINFO=${DESTDIR}/usr/gnu/share/terminfo
     logcmd mkdir -p $TERMINFO
-    logcmd /usr/gnu/bin/tic -xo $TERMINFO \
+    logcmd $GNUBIN/tic -xo $TERMINFO \
         $TMPDIR/$BUILDDIR/doc/etc/${PROG}.terminfo \
         || logerr 'failed to install terminfo file for ncurses'
 }
