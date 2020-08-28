@@ -120,7 +120,7 @@ tests() {
     fi
 
     export GUILE_AUTO_COMPILE=0
-    export PATH+=:/opt/ooce/bin
+    export PATH+=:$OOCEBIN
     # The tests can be run in parallel - we sort them afterwards for consistent
     # results.
     MAKE_TESTSUITE_ARGS+=" $MAKE_JOBS"

@@ -26,7 +26,7 @@ set_arch 64
 
 # Required to generate man pages
 BUILD_DEPENDS_IPS="ooce/text/asciidoc"
-export PATH=$PATH:/opt/ooce/bin
+export PATH=$PATH:$OOCEBIN
 
 SKIP_LICENCES="*"
 
@@ -60,8 +60,8 @@ make_clean() {
 
 configure64() {
     logmsg "--- configure"
-    BIN_ASCIIDOC=/opt/ooce/bin/asciidoc \
-        BIN_A2X=/opt/ooce/bin/a2x \
+    BIN_ASCIIDOC=$OOCEBIN/asciidoc \
+        BIN_A2X=$OOCEBIN/a2x \
         CC='gcc -m64' \
         logcmd ./waf configure \
         --prefix=/usr \

@@ -27,7 +27,7 @@ BUILD_DEPENDS_IPS="compress/xz library/gmp"
 
 PREFIX=/usr/gnu
 
-# We ship 64-bit binaries under /usr/gnu/bin/ with selected ones linked back
+# We ship 64-bit binaries under $GNUBIN/ with selected ones linked back
 # to /usr/bin/, but we need to continue building dual arch so that the
 # 32-bit libstdbuf.so is available. This enables the stdbuf command to
 # work with 32-bit binaries.
@@ -43,7 +43,7 @@ CONFIGURE_OPTS+="
     ac_cv_func_inotify_init=no
 "
 CONFIGURE_OPTS_32+="
-    --bindir=/usr/gnu/bin/__i386
+    --bindir=$GNUBIN/__i386
     --libexecdir=/usr/lib
 "
 CONFIGURE_OPTS_64+="

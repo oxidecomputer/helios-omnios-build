@@ -29,7 +29,7 @@ MAKE_INSTALL_TARGET="-C lib install"
 base_MAKE_ARGS="
     PREFIX=$PREFIX
     MANDIR=$PREFIX/share/man
-    INSTALL=/usr/gnu/bin/install
+    INSTALL=$GNUBIN/install
 "
 
 configure32() {

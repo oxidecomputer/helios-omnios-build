@@ -26,8 +26,8 @@ umask 022
 # scripts
 #############################################################################
 
-BASEPATH=/usr/ccs/bin:/usr/bin:/usr/sbin:/usr/gnu/bin:/usr/sfw/bin
-export PATH=$BASEPATH
+# Set a basic path - it will be modified once config.sh is loaded
+PATH=/usr/bin:/usr/sbin:/usr/gnu/bin
 
 #############################################################################
 # Process command line options
@@ -343,6 +343,9 @@ SRCDIR=$PWD/`dirname $0`
 . $MYDIR/config.sh
 [ -f $MYDIR/site.sh ] && . $MYDIR/site.sh
 BASE_TMPDIR=$TMPDIR
+
+BASEPATH=/usr/ccs/bin:$USRBIN:/usr/sbin:$GNUBIN:$SFWBIN
+export PATH=$BASEPATH
 
 # Platform information, e.g. 5.11
 SUNOSVER=`uname -r`
@@ -2046,9 +2049,9 @@ build_dependency() {
         DEPROOT=$DESTDIR
     fi
 
+    note -n "-- Building dependency $dep"
     download_source "$dldir" "$prog" "$ver" "$TMPDIR"
     patch_source
-    note "-- Building dependency $dep"
     build $buildargs
 
     # Restore variables

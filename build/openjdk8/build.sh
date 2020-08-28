@@ -106,7 +106,7 @@ MAKE_ARGS="
     NO_DOCS=1
 "
 
-export PATH=/usr/gnu/bin:$PATH
+export PATH=$GNUBIN:$PATH
 
 # Some files are present in both the j2re and j2sdk images.
 # Generate a list of those files so that we deliver them in j2re only.
