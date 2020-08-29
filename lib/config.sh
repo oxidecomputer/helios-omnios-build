@@ -158,31 +158,35 @@ SFWBIN=/usr/sfw/bin
 ONBLDBIN=/opt/onbld/bin
 GNUBIN=/usr/gnu/bin
 
-WGET=$USRBIN/wget
-PATCH=$USRBIN/gpatch
-MAKE=$USRBIN/gmake
-TESTSUITE_MAKE=$USRBIN/gmake
-TAR="$USRBIN/gtar --no-same-permissions --no-same-owner"
-ZSTD=$USRBIN/zstd
-XZCAT=$USRBIN/xzcat
-UNZIP=$USRBIN/unzip
 AWK=$USRBIN/gawk
-GIT=$USRBIN/git
+CURL=$USRBIN/curl
 EGREP=$USRBIN/egrep
+GIT=$USRBIN/git
+MAKE=$USRBIN/gmake
+PATCH=$USRBIN/gpatch
+TAR="$USRBIN/gtar --no-same-permissions --no-same-owner"
+TESTSUITE_MAKE=$USRBIN/gmake
+UNZIP=$USRBIN/unzip
+WGET=$USRBIN/wget
+XZCAT=$USRBIN/xzcat
+ZSTD=$USRBIN/zstd
+
 # Command for privilege escalation. Can be overridden in site.sh
 PFEXEC=$USRBIN/sudo
+
 PKGSEND=$USRBIN/pkgsend
 PKGLINT=$USRBIN/pkglint
 PKGMOGRIFY=$USRBIN/pkgmogrify
 PKGFMT=$USRBIN/pkgfmt
 PKGDEPEND=$USRBIN/pkgdepend
 
-GZIP=$OOCEBIN/pigz
 BUNZIP2=$OOCEBIN/pbunzip2
-RIPGREP=$OOCEBIN/rg
-FD=$OOCEBIN/fd
 CMAKE=$OOCEBIN/cmake
+FD=$OOCEBIN/fd
+GZIP=$OOCEBIN/pigz
+JQ=$OOCEBIN/jq
 MESON_MAKE=$OOCEBIN/ninja
+RIPGREP=$OOCEBIN/rg
 
 REALPATH=$GNUBIN/realpath
 
