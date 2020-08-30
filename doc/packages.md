@@ -20,7 +20,7 @@
 | developer/gcc10			| 10.2			| https://ftp.gnu.org/gnu/gcc/
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
-| developer/nasm			| 2.15.04		| http://www.nasm.us/pub/nasm/releasebuilds
+| developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.7.1			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.28.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
@@ -113,12 +113,12 @@
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-37	| 1.4.0			| https://pypi.org/project/asn1crypto
-| library/python-3/attrs-37		| 19.3.0		| https://pypi.org/project/attrs
+| library/python-3/attrs-37		| 20.1.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-37		| 1.14.2		| https://pypi.org/project/cffi
-| library/python-3/cheroot-37		| 8.4.4			| https://pypi.org/project/cheroot
+| library/python-3/cheroot-37		| 8.4.5			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-37		| 5.2.1			| https://pypi.org/project/coverage
-| library/python-3/cryptography-37	| 3.0			| https://pypi.org/project/cryptography
+| library/python-3/cryptography-37	| 3.1			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.10			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 1.7.0		| https://pypi.org/project/importlib-metadata
 | library/python-3/jaraco.classes-37	| 3.1.0			| https://pypi.org/project/jaraco.classes
@@ -130,7 +130,7 @@
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.3			| https://pypi.org/project/Mako
 | library/python-3/meson-37		| 0.55.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-37	| 8.4.0			| https://pypi.org/project/more-itertools
+| library/python-3/more-itertools-37	| 8.5.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
 | library/python-3/prettytable-37	| 0.7.2			| https://pypi.org/project/PrettyTable

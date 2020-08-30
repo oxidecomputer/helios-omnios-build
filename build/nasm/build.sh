@@ -14,17 +14,16 @@
 
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
-#
 . ../../lib/functions.sh
 
 PROG=nasm
-VER=2.15.04
+VER=2.15.05
 VERHUMAN=$VER
 PKG=developer/nasm
 SUMMARY="The Netwide Assembler"
 DESC="an assembler targetting the Intel x86 series of processors"
 
-set_arch 32
+set_arch 64
 
 # Nasm uses INSTALLROOT instead of the more standard DESTDIR
 MAKE_INSTALL_ARGS="INSTALLROOT=$DESTDIR"
