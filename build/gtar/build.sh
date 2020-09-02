@@ -37,6 +37,7 @@ RUN_DEPENDS_IPS="
     compress/gzip
     compress/bzip2
     compress/xz
+    compress/zstd
 "
 
 set_arch 64
@@ -44,6 +45,7 @@ set_arch 64
 CONFIGURE_OPTS="
     --program-prefix=g
     --with-rmt=/usr/sbin/rmt
+    --with-zstd=/usr/bin/zstd
 "
 # The configure script checks to see if eaccess() is present in libgen and if
 # so it links libgen into the final binary. However, we also have faccessat()
