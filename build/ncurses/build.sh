@@ -32,10 +32,12 @@ CONFIGURE_OPTS_COMMON="
     --program-prefix=g
     --mandir=$GPREFIX/share/man
     --disable-overwrite
+    --disable-stripping
     --without-normal
     --with-shared
     --enable-widec
     --disable-lib-suffixes
+    --enable-pc-files
     --without-debug
     --enable-string-hacks
     --enable-symlinks
@@ -47,20 +49,14 @@ CONFIGURE_OPTS_COMMON="
 CONFIGURE_OPTS_ABI6="$CONFIGURE_OPTS_COMMON"
 CONFIGURE_OPTS_ABI5="$CONFIGURE_OPTS_COMMON --with-abi-version=5"
 CONFIGURE_OPTS_32="
-    --bindir=$PREFIX/bin/$ISAPART"
-
+    --bindir=$PREFIX/bin/$ISAPART
+    --with-pkg-config-libdir=$PREFIX/lib/pkgconfig
+"
 CONFIGURE_OPTS_64="
     --bindir=$PREFIX/bin/$ISAPART64
-    --libdir=$GPREFIX/lib/$ISAPART64"
-
-gnu_links() {
-    # put libncurses* in PREFIX/lib so other programs don't need to link
-    # with rpath
-    mkdir -p $DESTDIR/$PREFIX/lib/$ISAPART64
-    mv $DESTDIR/$GPREFIX/lib/libncurses* $DESTDIR/$PREFIX/lib
-    mv $DESTDIR/$GPREFIX/lib/$ISAPART64/libncurses* \
-       $DESTDIR/$PREFIX/lib/$ISAPART64
-}
+    --libdir=$GPREFIX/lib/$ISAPART64
+    --with-pkg-config-libdir=$PREFIX/lib/$ISAPART64/pkgconfig
+"
 
 build_abi5() {
     logmsg '--- Building backward-compatible ABI version 5 libraries.'
@@ -82,8 +78,8 @@ patch_source
 prep_build
 build_abi5
 build_abi6
+strip_install
 make_isa_stub
-gnu_links
 make_package
 clean_up
 
