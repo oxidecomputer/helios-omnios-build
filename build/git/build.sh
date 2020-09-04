@@ -49,7 +49,8 @@ CONFIGURE_OPTS="
     --with-openssl=/usr
 "
 
-MAKE_INSTALL_ARGS+=" perllibdir=/usr/lib/site_perl"
+perllib=`$PERL -MConfig -e 'print $Config{installvendorlib}'`
+MAKE_INSTALL_ARGS+=" perllibdir=$perllib"
 
 # Checking for BMI instructions is very expensive; disable for batch builds
 BMI_EXPECTED=$BATCH
