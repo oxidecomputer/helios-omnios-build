@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=unixODBC
-VER=2.3.8
+VER=2.3.9
 PKG=library/unixodbc
 SUMMARY="The UnixODBC Subsystem and SDK"
 DESC="UnixODBC - The UnixODBC Subsystem and SDK"
