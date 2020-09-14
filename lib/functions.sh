@@ -1730,6 +1730,26 @@ install_smf() {
 }
 
 #############################################################################
+# Install an /etc/inet/services fragment
+#############################################################################
+
+install_inetservices() {
+    typeset frag="${1:-services}"
+
+    pushd $DESTDIR > /dev/null
+    logmsg "-- Installing /etc/inet/services fragment - $frag"
+
+    [ -f "$SRCDIR/files/$frag" ] || logerr "files/$frag not found"
+
+    logcmd mkdir -p etc/inet/services.d || logerr "mkdir failed"
+
+    logcmd cp $SRCDIR/files/$frag etc/inet/services.d/${PKG//\//:} \
+        || logerr "copy failed"
+
+    popd > /dev/null
+}
+
+#############################################################################
 # Install a go binary
 #############################################################################
 
