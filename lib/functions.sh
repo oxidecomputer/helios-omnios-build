@@ -280,13 +280,13 @@ ask_to_install() {
 }
 
 ask_to_pkglint() {
-    ask_to_continue_ "" "Do you want to run pkglint at this time?" \
+    ask_to_continue_ "" "Do you want to run pkglint?" \
         "y/n" "[yYnN]"
     [[ "$REPLY" == "y" || "$REPLY" == "Y" ]]
 }
 
 ask_to_testsuite() {
-    ask_to_continue_ "" "Do you want to run the test-suite at this time?" \
+    ask_to_continue_ "" "Do you want to run the test-suite?" \
         "y/n" "[yYnN]"
     [[ "$REPLY" == "y" || "$REPLY" == "Y" ]]
 }
@@ -1236,60 +1236,160 @@ pkgmeta() {
     echo set name=$1 value=\"$2\"
 }
 
+# Start building a partial manifest
+#   manifest_start <filename>
+manifest_start() {
+    PARTMF="$1"
+    SEEDMF=$TMPDIR/manifest.seed
+    :>$PARTMF
+    generate_manifest $SEEDMF
+}
+
+# Add a directory, and the files directly underneath, to a partial manifest.
+# Optional arguments indicate sub-directories to recurse one level into.
+#   manifest_add_dir <directory> [subdir]...
+manifest_add_dir() {
+    typeset dir=${1#/}; shift
+    logmsg "---- Adding dir '$dir'"
+    (
+        $RIPGREP "^dir.* path=$dir(\$|\\s)" $SEEDMF
+        $RIPGREP "^(file|link|hardlink).* path=$dir/[^/]+(\$|\\s)" $SEEDMF
+    ) >> $PARTMF
+    for d in "$@"; do
+        manifest_add_dir "$dir/$d"
+    done
+}
+
+# Add a file/link/hardlink to a partial manifest.
+#   manifest_add <directory> <pattern> [pattern]...
+manifest_add() {
+    typeset dir=${1#/}; shift
+
+    for f in "$@"; do
+        $RIPGREP "^(file|link|hardlink).* path=$dir/$f(\$|\\s)" $SEEDMF
+    done >> $PARTMF
+}
+
+# Finalise a partial manifest.
+# Takes care of adding any necessary 'dir' actions to support files which
+# have been added and sorts the result, removing duplicate lines. Only
+# directories under one of the provided prefixes are included
+#   manifest_finalise <prefix> [prefix]...
+manifest_finalise() {
+    typeset tf=`mktemp`
+    logcmd cp $PARTMF $tf
+
+    typeset prefix
+    for prefix in "$@"; do
+        prefix=${prefix#/}
+        logmsg "--- determining implicit directories for $prefix"
+        $RIPGREP "^dir.* path=$prefix(\$|\\s)" $SEEDMF >> $tf
+        $RIPGREP "(file|link|hardlink).* path=$prefix/" $PARTMF \
+            | sed "
+                s^.*path=$prefix/^^
+                s^/[^/]*$^^
+        " | sort -u | while read dir; do
+            logmsg "---- $dir"
+            while :; do
+                $RIPGREP "^dir.* path=$prefix/$dir(\$|\\s)" $SEEDMF >> $tf
+                [[ $dir = */* ]] || break
+                dir=`dirname $dir`
+            done
+        done
+    done
+    sort -u < $tf > $PARTMF
+    rm -f $tf
+}
+
+# Create a manifest file containing all of the lines that are not present
+# in the manifests given.
+#   manifest_uniq <new manifest> <old manifest> [old manifest]...
+manifest_uniq() {
+    typeset dst="$1"; shift
+
+    typeset tf=`mktemp`
+    typeset mftmp=`mktemp`
+    typeset seedtmp=`mktemp`
+    sort -u < $SEEDMF > $seedtmp
+
+    for mf in "$@"; do
+        sort -u < $mf > $mftmp
+        logcmd -p comm -13 $mftmp $seedtmp > $tf
+        logcmd mv $tf $seedtmp
+    done
+    logcmd mv $seedtmp $dst
+    rm -f $tf $mftmp
+}
+
+generate_manifest() {
+    typeset outf="$1"
+
+    [ -n "$DESTDIR" -a -d "$DESTDIR" ] || logerr "DESTDIR does not exist"
+
+    check_symlinks "$DESTDIR"
+    [ -z "$BATCH" ] && check_libabi "$DESTDIR" "$PKG"
+    [ -z "$BATCH" -a -z "$SKIP_RTIME_CHECK" ] && check_rtime "$DESTDIR"
+    check_bmi "$DESTDIR"
+    logmsg "--- Generating package manifest from $DESTDIR"
+    typeset GENERATE_ARGS=
+    if [ -n "$HARDLINK_TARGETS" ]; then
+        for f in $HARDLINK_TARGETS; do
+            GENERATE_ARGS+="--target $f "
+        done
+    fi
+    logcmd -p $PKGSEND generate $GENERATE_ARGS $DESTDIR > $outf \
+        || logerr "------ Failed to generate manifest"
+}
+
 make_package() {
     logmsg "-- building package $PKG"
+
+    PKGE=`url_encode $PKG`
+
+    typeset seed_manifest=
+    while [[ "$1" = -* ]]; do
+        case "$1" in
+            -seed)  [ -n "$2" -a -f "$2" ] \
+                        || logerr "Seed manifest '$2' not found"
+                    seed_manifest=$2; shift
+                    ;;
+            *)      logerr "Unknown option to make_package - $1" ;;
+        esac
+        shift
+    done
+
+    [ -z "$LOCAL_MOG_FILE" -a -f $SRCDIR/local.mog ] && LOCAL_MOG_FILE=local.mog
+    typeset EXTRA_MOG_FILE="$1"
+    typeset FINAL_MOG_FILE="$2"
+    [[ -n "$LOCAL_MOG_FILE" && ! "$LOCAL_MOG_FILE" = /* ]] \
+        && LOCAL_MOG_FILE="$SRCDIR/$LOCAL_MOG_FILE"
+    [[ -n "$EXTRA_MOG_FILE" && ! "$EXTRA_MOG_FILE" = /* ]] \
+        && EXTRA_MOG_FILE="$SRCDIR/$EXTRA_MOG_FILE"
+    [[ -n "$FINAL_MOG_FILE" && ! "$FINAL_MOG_FILE" = /* ]] \
+        && FINAL_MOG_FILE="$SRCDIR/$FINAL_MOG_FILE"
+
+
     case $BUILDARCH in
-        32)
-            BUILDSTR="32bit-"
-            ;;
-        64)
-            BUILDSTR="64bit-"
-            ;;
-        *)
-            BUILDSTR=""
-            ;;
+        32) BUILDSTR="32bit-" ;;
+        64) BUILDSTR="64bit-" ;;
+        *) BUILDSTR="" ;;
     esac
-    # Add the flavor name to the package if it is not the default
     case $FLAVOR in
-        ""|default)
-            FLAVORSTR=""
-            ;;
-        *)
-            FLAVORSTR="$FLAVOR-"
-            ;;
+        ""|default) FLAVORSTR="" ;;
+        *) FLAVORSTR="$FLAVOR-" ;;
     esac
     DESCSTR="$DESC"
-    if [ -n "$FLAVORSTR" ]; then
-        DESCSTR="$DESCSTR ($FLAVOR)"
-    fi
+    [ -n "$FLAVORSTR" ] && DESCSTR="$DESCSTR ($FLAVOR)"
+
+    # Temporary file paths
     PVER=$RELVER.$DASHREV
     P5M_INT=$TMPDIR/${PKGE}.p5m.int
     P5M_INT2=$TMPDIR/${PKGE}.p5m.int.2
     P5M_INT3=$TMPDIR/${PKGE}.p5m.int.3
     P5M_FINAL=$TMPDIR/${PKGE}.p5m
     MANUAL_DEPS=$TMPDIR/${PKGE}.deps.mog
-    GLOBAL_MOG_FILE=$MYDIR/global-transforms.mog
+    GLOBAL_MOG_FILE=$MYDIR/mog/global-transforms.mog
     MY_MOG_FILE=$TMPDIR/${PKGE}.mog
-    if [ -z "$LOCAL_MOG_FILE" ]; then
-        [ -f $SRCDIR/local.mog ] && \
-            LOCAL_MOG_FILE=$SRCDIR/local.mog || LOCAL_MOG_FILE=
-    fi
-    EXTRA_MOG_FILE=
-    FINAL_MOG_FILE=
-    if [ -n "$1" ]; then
-            if [[ "$1" = /* ]]; then
-                EXTRA_MOG_FILE="$1"
-            else
-                EXTRA_MOG_FILE="$SRCDIR/$1"
-            fi
-    fi
-    if [ -n "$2" ]; then
-            if [[ "$2" = /* ]]; then
-                FINAL_MOG_FILE="$2"
-            else
-                FINAL_MOG_FILE="$SRCDIR/$2"
-            fi
-    fi
 
     # Version cleanup
 
@@ -1322,20 +1422,11 @@ make_package() {
     else
         FMRI="${PKG}@${VER},${SUNOSVER}-${PVER}"
     fi
-    if [ -n "$DESTDIR" ]; then
-        check_symlinks "$DESTDIR"
-        [ -z "$BATCH" ] && check_libabi "$DESTDIR" "$PKG"
-        [ -z "$BATCH" -a -z "$SKIP_RTIME_CHECK" ] && check_rtime "$DESTDIR"
-        check_bmi "$DESTDIR"
-        logmsg "--- Generating package manifest from $DESTDIR"
-        GENERATE_ARGS=
-        if [ -n "$HARDLINK_TARGETS" ]; then
-            for f in $HARDLINK_TARGETS; do
-                GENERATE_ARGS+="--target $f "
-            done
-        fi
-        logcmd -p $PKGSEND generate $GENERATE_ARGS $DESTDIR > $P5M_INT || \
-            logerr "------ Failed to generate manifest"
+
+    if [ -n "$seed_manifest" ]; then
+        logcmd cp $seed_manifest $P5M_INT || logerr "seed copy failed"
+    elif [ -n "$DESTDIR" ]; then
+        generate_manifest $P5M_INT
     else
         logmsg "--- Looks like a meta-package. Creating empty manifest"
         logcmd touch $P5M_INT || \
@@ -1368,7 +1459,7 @@ make_package() {
 
     # Transforms
     logmsg "--- Applying transforms"
-    logcmd -p $PKGMOGRIFY \
+    logcmd -p $PKGMOGRIFY -I $MYDIR/mog \
         $XFORM_ARGS \
         $P5M_INT \
         $MY_MOG_FILE \
