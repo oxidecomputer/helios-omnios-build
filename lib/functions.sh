@@ -2766,7 +2766,7 @@ wait_for_prebuilt() {
     logmsg "Waiting for illumos nightly build $nightly_pid to be finished."
     logmsg "Time spent waiting via time(1) printed below."
     logcmd touch $BASE_TMPDIR/.nw.$PPID
-    logcmd "`/bin/time pwait $nightly_pid`"
+    logmsg "`/bin/time pwait $nightly_pid`"
     logcmd rm -f $BASE_TMPDIR/.nw.$PPID
     if [ -h $PREBUILT_ILLUMOS/log/nightly.lock ]; then
         logerr "Nightly lock present, but build not running. Aborting."
