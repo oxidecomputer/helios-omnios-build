@@ -47,8 +47,8 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.41.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.56			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
-| library/nspr				| 4.28			| http://archive.mozilla.org/pub/nspr/releases/
+| library/nss				| 3.57			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nspr				| 4.29			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.35			| https://ftp.pcre.org/pub/pcre/
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
@@ -107,18 +107,18 @@
 | web/curl				| 7.72.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.66.0		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
-| developer/gnu-binutils		| 2.35			| https://ftp.gnu.org/gnu/binutils
+| developer/gnu-binutils		| 2.35.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.1.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-37	| 1.4.0			| https://pypi.org/project/asn1crypto
-| library/python-3/attrs-37		| 20.1.0		| https://pypi.org/project/attrs
+| library/python-3/attrs-37		| 20.2.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-37		| 1.14.2		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.4.5			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-37		| 5.2.1			| https://pypi.org/project/coverage
+| library/python-3/coverage-37		| 5.3			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 3.1			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.10			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 1.7.0		| https://pypi.org/project/importlib-metadata
@@ -130,7 +130,7 @@
 | library/python-3/jsonrpclib-37	| 0.4.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-37	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-37		| 1.1.3			| https://pypi.org/project/Mako
-| library/python-3/meson-37		| 0.55.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-37		| 0.55.3		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-37	| 8.5.0			| https://pypi.org/project/more-itertools
 | library/python-3/ply-37		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-37		| 2.6			| https://pypi.org/project/portend
@@ -140,10 +140,10 @@
 | library/python-3/pycparser-37		| 2.20			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.6		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-37	| 0.16.0		| https://pypi.org/project/pyrsistent
+| library/python-3/pyrsistent-37	| 0.17.3		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2020.1		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-37		| 0.9.1			| https://pypi.org/project/python-rapidjson
-| library/python-3/setuptools-37	| 50.2.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-37	| 50.3.0		| https://pypi.org/project/setuptools
 | library/python-3/six-37		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-37		| 4.0.0			| https://pypi.org/project/tempora
 | library/python-3/zc.lockfile-37	| 2.0			| https://pypi.org/project/zc.lockfile
