@@ -118,7 +118,7 @@
 | library/python-3/cffi-37		| 1.14.2		| https://pypi.org/project/cffi
 | library/python-3/cheroot-37		| 8.4.5			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-37		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-37		| 5.2.1			| https://pypi.org/project/coverage
+| library/python-3/coverage-37		| 5.3			| https://pypi.org/project/coverage
 | library/python-3/cryptography-37	| 3.1			| https://pypi.org/project/cryptography
 | library/python-3/idna-37		| 2.10			| https://pypi.org/project/idna
 | library/python-3/importlib-metadata-37 | 1.7.0		| https://pypi.org/project/importlib-metadata
