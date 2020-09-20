@@ -140,7 +140,7 @@
 | library/python-3/pycparser-37		| 2.20			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-37		| 7.43.0.6		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-37		| 19.1.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-37	| 0.16.0		| https://pypi.org/project/pyrsistent
+| library/python-3/pyrsistent-37	| 0.17.3		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-37		| 2020.1		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-37		| 0.9.1			| https://pypi.org/project/python-rapidjson
 | library/python-3/setuptools-37	| 50.3.0		| https://pypi.org/project/setuptools
