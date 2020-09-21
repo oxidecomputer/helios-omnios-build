@@ -71,7 +71,7 @@
 | runtime/java/openjdk8			| 1.8.265-01		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | runtime/perl				| 5.32.0		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
-| runtime/python-35			| 3.5.9			| https://www.python.org/downloads/source/
+| runtime/python-35			| 3.5.10		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.9			| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.2			| https://www.sudo.ws/
 | service/network/ntpsec		| 1.1.9			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
