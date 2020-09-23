@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=openssl
-VER=1.1.1g
+VER=1.1.1h
 LVER=1.0.2u
 PKG=library/security/openssl
 SUMMARY="Cryptography and SSL/TLS Toolkit"
