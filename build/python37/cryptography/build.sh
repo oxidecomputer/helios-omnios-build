@@ -18,7 +18,7 @@
 
 PKG=library/python-3/cryptography-37
 PROG=cryptography
-VER=3.1
+VER=3.1.1
 SUMMARY="Cryptographic recipes and primitives"
 DESC="$SUMMARY"
 
