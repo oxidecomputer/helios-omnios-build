@@ -18,8 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=libsigc++
-VER=3.0.3
-VERHUMAN=$VER
+VER=3.0.4
 PKG=library/c++/sigcpp
 SUMMARY="$PROG"
 DESC="A library that implements typesafe callback system for standard C++"
@@ -28,15 +27,17 @@ export MAKE
 CONFIGURE_OPTS="--includedir=/usr/include"
 
 TESTSUITE_SED="
-    /CXX/d
+    s/  *[0-9]\.[0-9]*s$//
+    s/  *$//
+    /Full log written/d
 "
 
 init
 download_source $PROG $PROG $VER
 patch_source
-prep_build
+prep_build meson
 build
-run_testsuite check
+run_testsuite
 make_isa_stub
 make_package
 clean_up
