@@ -1,6 +1,6 @@
 
-Patch ssh-copy-id to avoid bash-specific statements, and problems with
-variable scoping in ksh93u
+Patch ssh-copy-id to avoid bash-specific statements, and use the new function
+syntax to enable function variable scoping in ksh
 
 diff -wpruN '--exclude=*.orig' a~/contrib/ssh-copy-id a/contrib/ssh-copy-id
 --- a~/contrib/ssh-copy-id	1970-01-01 00:00:00
@@ -9,24 +9,24 @@ diff -wpruN '--exclude=*.orig' a~/contrib/ssh-copy-id a/contrib/ssh-copy-id
 -#!/bin/sh
 +#!/bin/ksh
  
- # Copyright (c) 1999-2016 Philip Hands <phil@hands.com>
- #               2013 Martin Kletzander <mkletzan@redhat.com>
-@@ -59,7 +59,7 @@ fi
- most_recent_id="$(cd "$HOME" ; ls -t .ssh/id*.pub 2>/dev/null | grep -v -- '-cert.pub$' | head -n 1)"
- DEFAULT_PUB_ID_FILE="${most_recent_id:+$HOME/}$most_recent_id"
+ # Copyright (c) 1999-2020 Philip Hands <phil@hands.com>
+ #               2017 Sebastien Boyron <seb@boyron.eu>
+@@ -62,7 +62,7 @@ fi
+ # shellcheck disable=SC2010
+ DEFAULT_PUB_ID_FILE=$(ls -t "${HOME}"/.ssh/id*.pub 2>/dev/null | grep -v -- '-cert.pub$' | head -n 1)
  
 -usage () {
 +function usage {
-   printf 'Usage: %s [-h|-?|-f|-n] [-i [identity_file]] [-p port] [[-o <ssh -o options>] ...] [user@]hostname\n' "$0" >&2
+   printf 'Usage: %s [-h|-?|-f|-n] [-i [identity_file]] [-p port] [-F alternative ssh_config file] [[-o <ssh -o options>] ...] [user@]hostname\n' "$0" >&2
    printf '\t-f: force mode -- copy keys without trying to check if they are already installed\n' >&2
    printf '\t-n: dry run    -- no keys are actually copied\n' >&2
-@@ -68,12 +68,12 @@ usage () {
+@@ -71,12 +71,12 @@ usage () {
  }
  
  # escape any single quotes in an argument
 -quote() {
 +function quote {
-   printf "%s\n" "$1" | sed -e "s/'/'\\\\''/g"
+   printf '%s\n' "$1" | sed -e "s/'/'\\\\''/g"
  }
  
 -use_id_file() {
@@ -35,17 +35,17 @@ diff -wpruN '--exclude=*.orig' a~/contrib/ssh-copy-id a/contrib/ssh-copy-id
 +  typeset L_ID_FILE="$1"
  
    if [ -z "$L_ID_FILE" ] ; then
-     printf "%s: ERROR: no ID file found\n" "$0"
-@@ -91,7 +91,7 @@ use_id_file() {
+     printf '%s: ERROR: no ID file found\n' "$0"
+@@ -94,7 +94,7 @@ use_id_file() {
    # check that the files are readable
    for f in "$PUB_ID_FILE" ${PRIV_ID_FILE:+"$PRIV_ID_FILE"} ; do
      ErrMSG=$( { : < "$f" ; } 2>&1 ) || {
 -      local L_PRIVMSG=""
 +      typeset L_PRIVMSG=""
        [ "$f" = "$PRIV_ID_FILE" ] && L_PRIVMSG="	(to install the contents of '$PUB_ID_FILE' anyway, look at the -f option)"
-       printf "\n%s: ERROR: failed to open ID file '%s': %s\n" "$0" "$f" "$(printf "%s\n%s\n" "$ErrMSG" "$L_PRIVMSG" | sed -e 's/.*: *//')"
+       printf "\\n%s: ERROR: failed to open ID file '%s': %s\\n" "$0" "$f" "$(printf '%s\n%s\n' "$ErrMSG" "$L_PRIVMSG" | sed -e 's/.*: *//')"
        exit 1
-@@ -206,8 +206,8 @@ fi
+@@ -168,8 +168,8 @@ fi
  
  # populate_new_ids() uses several global variables ($USER_HOST, $SSH_OPTS ...)
  # and has the side effect of setting $NEW_IDS
@@ -54,20 +54,52 @@ diff -wpruN '--exclude=*.orig' a~/contrib/ssh-copy-id a/contrib/ssh-copy-id
 +function populate_new_ids {
 +  typeset L_SUCCESS="$1"
  
+   # shellcheck disable=SC2086
    if [ "$FORCED" ] ; then
-     NEW_IDS=$(eval $GET_ID)
-@@ -218,12 +218,12 @@ populate_new_ids() {
+@@ -181,13 +181,13 @@ populate_new_ids() {
    eval set -- "$SSH_OPTS"
  
    umask 0177
--  local L_TMP_ID_FILE=$(mktemp ~/.ssh/ssh-copy-id_id.XXXXXXXXXX)
-+  typeset L_TMP_ID_FILE=$(mktemp ~/.ssh/ssh-copy-id_id.XXXXXXXXXX)
+-  local L_TMP_ID_FILE
++  typeset L_TMP_ID_FILE
+   L_TMP_ID_FILE=$(mktemp ~/.ssh/ssh-copy-id_id.XXXXXXXXXX)
    if test $? -ne 0 || test "x$L_TMP_ID_FILE" = "x" ; then
      printf '%s: ERROR: mktemp failed\n' "$0" >&2
      exit 1
    fi
 -  local L_CLEANUP="rm -f \"$L_TMP_ID_FILE\" \"${L_TMP_ID_FILE}.stderr\""
 +  typeset L_CLEANUP="rm -f \"$L_TMP_ID_FILE\" \"${L_TMP_ID_FILE}.stderr\""
+   # shellcheck disable=SC2064
    trap "$L_CLEANUP" EXIT TERM INT QUIT
    printf '%s: INFO: attempting to log in with the new key(s), to filter out any that are already installed\n' "$0" >&2
-   NEW_IDS=$(
+@@ -236,8 +236,8 @@ populate_new_ids() {
+ # installkey_sh [target_path]
+ #    produce a one-liner to add the keys to remote authorized_keys file
+ #    optionally takes an alternative path for authorized_keys
+-installkeys_sh() {
+-  local AUTH_KEY_FILE=${1:-.ssh/authorized_keys}
++function installkeys_sh {
++  typeset AUTH_KEY_FILE=${1:-.ssh/authorized_keys}
+ 
+   # In setting INSTALLKEYS_SH:
+   #    the tr puts it all on one line (to placate tcsh)
+@@ -247,7 +247,8 @@ installkeys_sh() {
+   #    the -z `tail ...` checks for a trailing newline. The echo adds one if was missing
+   #    the cat adds the keys we're getting via STDIN
+   #    and if available restorecon is used to restore the SELinux context
+-  INSTALLKEYS_SH=$(tr '\t\n' ' ' <<-EOF)
++  tf=`mktemp`
++  cat <<EOF > $tf | tr '\t\n' ' '
+ 	cd;
+ 	umask 077;
+ 	mkdir -p $(dirname "${AUTH_KEY_FILE}") &&
+@@ -260,7 +261,8 @@ installkeys_sh() {
+ EOF
+ 
+   # to defend against quirky remote shells: use 'exec sh -c' to get POSIX;
+-  printf "exec sh -c '%s'" "${INSTALLKEYS_SH}"
++  printf "exec sh -c '%s'" "`cat $tf`"
++  rm -f $tf
+ }
+ 
+ REMOTE_VERSION=$(ssh -v -o PreferredAuthentications=',' -o ControlPath=none "$@" 2>&1 |
