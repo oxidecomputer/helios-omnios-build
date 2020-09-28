@@ -99,7 +99,7 @@
 | text/gawk				| 5.1.0			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.7			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.21			| https://ftp.gnu.org/pub/gnu/gettext/
-| text/gnu-grep				| 3.4			| https://ftp.gnu.org/gnu/grep/
+| text/gnu-grep				| 3.5			| https://ftp.gnu.org/gnu/grep/
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
