@@ -84,11 +84,6 @@ clean_testsuite() {
     rm -f $SRCDIR/$tf
 }
 
-make_clean() {
-    logmsg "--- make (dist)clean"
-    [ -d $TMPDIR/$BUILDDIR ] && logcmd rm -rf $TMPDIR/$BUILDDIR
-}
-
 fix_rpaths() {
     # A recent update to Meson has resulted in the libraries ending up with
     # populated runpaths which causes the illumos build check_rtime to
