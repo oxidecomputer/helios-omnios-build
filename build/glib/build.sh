@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.66.0
+VER=2.66.1
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
