@@ -57,9 +57,12 @@ prep_build
 # Build previous versions
 for pver in $PVERS; do
     note -n "Building previous version: $pver"
-    BUILDDIR=$PROG-$pver download_source $PROG $PROG $pver
-    BUILDDIR=$PROG-$pver build
-    BUILDDIR=$PROG-$pver tests
+    save_variable BUILDDIR
+    BUILDDIR=$PROG-$pver
+    download_source $PROG $PROG $pver
+    build
+    tests
+    restore_variable BUILDDIR
 done
 
 note -n "Building current version: $VER"
