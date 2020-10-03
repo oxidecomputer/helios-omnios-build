@@ -36,6 +36,18 @@ export XML_CATALOG_FILES=/opt/ooce/docbook-xsl/catalog.xml
 CFLAGS+=" -D__EXTENSIONS__"
 export CFLAGS
 
+CONFIGURE_OPTS="
+    --prefix=/usr
+    --sysconfdir=/etc/inet
+    --define=CONFIG_FILE=/etc/inet/ntp.conf
+    --refclock=all
+    --python=$PYTHON
+    --pythondir=$PYTHONVENDOR
+    --pythonarchdir=$PYTHONVENDOR
+    --enable-manpage --disable-doc
+    --nopyc --nopyo --nopycache
+"
+
 # NTPsec uses the 'waf' build system
 
 fix_shebangs() {
@@ -62,18 +74,9 @@ configure64() {
     logmsg "--- configure"
     BIN_ASCIIDOC=$OOCEBIN/asciidoc \
         BIN_A2X=$OOCEBIN/a2x \
+        BIN_XSLTPROC=$USRBIN/xsltproc \
         CC='gcc -m64' \
-        logcmd ./waf configure \
-        --prefix=/usr \
-        --sysconfdir=/etc/inet \
-        --refclock=all \
-        --define=CONFIG_FILE=/etc/inet/ntp.conf \
-        --python=$PYTHON \
-        --pythondir=$PYTHONVENDOR \
-        --pythonarchdir=$PYTHONVENDOR \
-        --nopyc \
-        --nopyo \
-        --nopycache \
+        logcmd ./waf configure $CONFIGURE_OPTS \
         || logerr "--- configure failed"
     logcmd mkdir -p build/main/pylib
     logcmd ln -s . build/main/pylib/64
@@ -94,20 +97,6 @@ make_install() {
 install_ntpdate() {
     logcmd cp $TMPDIR/$BUILDDIR/attic/ntpdate $DESTDIR/usr/bin/ntpdate
     logcmd chmod 755 $DESTDIR/usr/bin/ntpdate
-}
-
-install_files() {
-    logmsg "--- install files"
-
-    logcmd mkdir -p $DESTDIR/etc/inet
-    logcmd cp $SRCDIR/files/ntp.conf $DESTDIR/etc/inet/ntp.conf
-
-    logcmd mkdir -p $DESTDIR/etc/security/auth_attr.d
-    logcmd mkdir -p $DESTDIR/etc/security/prof_attr.d
-    logcmd cp $SRCDIR/files/security/auth_attr \
-        $DESTDIR/etc/security/auth_attr.d/ntp
-    logcmd cp $SRCDIR/files/security/prof_attr \
-        $DESTDIR/etc/security/prof_attr.d/ntp
 }
 
 # Force the testsuite output to be sorted by the binary being tested
@@ -134,7 +123,6 @@ prep_build
 build
 fix_testsuite_output
 install_ntpdate
-install_files
 install_smf network ntpsec.xml ntpsec
 python_compile
 make_package
