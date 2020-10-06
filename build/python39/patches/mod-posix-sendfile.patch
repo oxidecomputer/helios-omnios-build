@@ -1,0 +1,41 @@
+
+On illumos, sendfile() raises EINVAL when the offset is bigger than the
+input file size, and when fewer bytes were transferred when requested.
+The former behaviour was accommodated via https://bugs.python.org/issue41687
+but the latter still needs patching.
+
+diff -wpruN '--exclude=*.orig' a~/Modules/posixmodule.c a/Modules/posixmodule.c
+--- a~/Modules/posixmodule.c	1970-01-01 00:00:00
++++ a/Modules/posixmodule.c	1970-01-01 00:00:00
+@@ -9465,6 +9465,7 @@ done:
+     // On Solaris, sendfile raises EINVAL rather than returning 0
+     // when the offset is equal or bigger than the in_fd size.
+     struct stat st;
++    int overflow = 0;
+ 
+     do {
+         Py_BEGIN_ALLOW_THREADS
+@@ -9477,6 +9478,8 @@ done:
+     if (offset >= st.st_size) {
+         return Py_BuildValue("i", 0);
+     }
++    if (offset + count > st.st_size)
++        overflow = 1;
+ #endif
+ 
+     do {
+@@ -9484,6 +9487,14 @@ done:
+         ret = sendfile(out_fd, in_fd, &offset, count);
+         Py_END_ALLOW_THREADS
+     } while (ret < 0 && errno == EINTR && !(async_err = PyErr_CheckSignals()));
++
++#if defined(__sun) && defined(__SVR4)
++    // On illumos, EINVAL is also returned when
++    // - "Fewer bytes were transferred than were requested"
++    if (ret < 0 && errno == EINVAL && overflow != 0)
++        return Py_BuildValue("i", 0);
++#endif
++
+     if (ret < 0)
+         return (!async_err) ? posix_error() : NULL;
+     return Py_BuildValue("n", ret);
