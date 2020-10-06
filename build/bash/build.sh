@@ -21,9 +21,8 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2013 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Use is subject to license terms.
 # Copyright (c) 2013 by Delphix. All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -34,20 +33,59 @@ PKG=shell/bash
 SUMMARY="GNU Bash"
 DESC="GNU Bourne-Again shell (bash)"
 
+# bash-completion version
+BCVER=2.11
+
 BUILD_DEPENDS_IPS="library/readline"
 RUN_DEPENDS_IPS="system/prerequisite/gnu system/library"
 
 set_arch 64
 
+XFORM_ARGS+="
+    -DBCVER=$BCVER
+"
+
+init
+prep_build
+
+###########################################################################
+# Build the bash-completions package, including illumos extensions
+# courtesy of OpenIndiana
+
+save_function make_clean _make_clean
+make_clean() {
+    # Patch the bash completions to use GNU grep and GNU sed since that is
+    # what they expect. Now that awk -> nawk, that does not need patching.
+    logcmd find completions bash_completion -type f -exec sed -i '
+        s/\<grep\>/g&/g
+        s/\<sed\>/g&/g
+        # The GNU tar completion parses the output of --help and --warnings
+        s/\<tar --/g&/g
+    ' {} +
+}
+
+build_dependency -merge bash-completion bash-completion-$BCVER \
+    $PROG bash-completion $BCVER
+
+clone_github_source illumos-completion \
+    https://github.com/OpenIndiana/openindiana-completions master
+
+logcmd rm -f $TMPDIR/$BUILDDIR/illumos-completion/*.md
+logcmd rsync -av --exclude=.git \
+    $TMPDIR/$BUILDDIR/illumos-completion/ \
+    $DESTDIR/$PREFIX/share/bash-completion/completions/ || logerr rsync
+
+save_function _make_clean make_clean
+
+###########################################################################
+
+note -n "Building $PROG"
+
 CFLAGS+=" -I/usr/include/ncurses"
 
-# Cribbed from upstream but modified for gcc
 # "let's shrink the SHT_SYMTAB as much as we can"
 LDFLAGS="-Wl,-z -Wl,redlocsym -lncurses"
 
-# Cribbed from upstream, with a few changes:
-#   We only do 64-bit so forgo the isaexec stuff
-#   Don't bother building static
 CONFIGURE_OPTS="
     --localstatedir=/var
     --enable-alias
@@ -91,18 +129,9 @@ CONFIGURE_OPTS="
     --with-installed-readline=yes
 "
 
-# Files taken from upstream userland-gate
-install_files() {
-    logmsg "Installing extra files"
-    logcmd rsync -a $SRCDIR/files/ $DESTDIR/ || logerr "Extra files failed."
-}
-
-init
 download_source $PROG $PROG $VER
 patch_source
-prep_build
 build
-install_files
 [ -n "$PATCHLEVEL" ] && VER+=".$PATCHLEVEL"
 make_package
 clean_up
