@@ -16,11 +16,11 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/pytz-39
+PROG=pytz
+VER=2020.1
+SUMMARY="Python world timezone definitons"
+DESC="$SUMMARY, modern and historical"
 
 . $SRCDIR/../common.sh
 
@@ -29,6 +29,7 @@ download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

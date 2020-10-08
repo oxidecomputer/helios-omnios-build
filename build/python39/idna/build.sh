@@ -16,11 +16,12 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/idna-39
+PROG=idna
+VER=2.10
+SUMMARY="Internationalized Domain Names in Applications (IDNA)"
+DESC="Support for the Internationalised Domain Names in Applications (IDNA) "
+DESC+="protocol as specified in RFC 5891"
 
 . $SRCDIR/../common.sh
 
@@ -29,6 +30,7 @@ download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

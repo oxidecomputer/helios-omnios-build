@@ -11,16 +11,16 @@
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
 # }}}
-#
+
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/six-39
+PROG=six
+VER=1.15.0
+SUMMARY="A Python 2 and 3 compatibility library"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 
@@ -29,6 +29,7 @@ download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

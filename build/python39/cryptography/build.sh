@@ -13,22 +13,30 @@
 # }}}
 #
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-
+#
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/cryptography-39
+PROG=cryptography
+VER=3.1.1
+SUMMARY="Cryptographic recipes and primitives"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
+
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/six-$SPYVER
+    library/python-$PYMVER/cffi-$SPYVER
+    library/python-$PYMVER/asn1crypto-$SPYVER
+    library/python-$PYMVER/idna-$SPYVER
+"
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

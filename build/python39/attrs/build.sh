@@ -13,14 +13,14 @@
 # }}}
 #
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-
+#
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/attrs-39
+PROG=attrs
+VER=20.2.0
+SUMMARY="Python attrs"
+DESC="Classes Without Boilerplate"
 
 . $SRCDIR/../common.sh
 

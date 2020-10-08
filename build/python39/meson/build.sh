@@ -16,11 +16,12 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/meson-39
+PROG=meson
+VER=0.55.3
+SUMMARY="The Meson Build system"
+DESC="An open source build system meant to be both extremely fast, "
+DESC+="and, even more importantly, as user friendly as possible"
 
 . $SRCDIR/../common.sh
 
@@ -29,6 +30,7 @@ download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

@@ -12,20 +12,22 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+#
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/pyopenssl-39
+PROG=pyOpenSSL
+VER=19.1.0
+SUMMARY="pyOpenSSL - Python interface to the OpenSSL library"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 
+RUN_DEPENDS_IPS+=" library/python-3/cryptography-39"
+
 init
-download_source pymodules/$PROG $PROG $VER
+download_source pymodules/${PROG,,} $PROG $VER
 patch_source
 prep_build
 python_build

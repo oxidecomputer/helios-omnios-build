@@ -16,19 +16,22 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/asn1crypto-39
+PROG=asn1crypto
+VER=1.4.0
+SUMMARY="asn1crypto - Fast ASN.1 parser..."
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
+
+BUILD_DEPENDS_IPS+="library/python-$PYMVER/setuptools-$SPYVER"
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

@@ -10,17 +10,18 @@
 # A full copy of the text of the CDDL should have accompanied this
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
-# }}}
 #
+# }}}
+
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/more-itertools-39
+PROG=more-itertools
+VER=8.5.0
+SUMMARY="More routines for operating on iterables"
+DESC="$SUMMARY, beyond itertools"
 
 . $SRCDIR/../common.sh
 
@@ -29,6 +30,7 @@ download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

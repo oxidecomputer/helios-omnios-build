@@ -13,19 +13,27 @@
 # }}}
 #
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-
+#
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/cherrypy-39
+PROG=CherryPy
+VER=18.6.0
+SUMMARY="Object-Oriented HTTP framework"
+DESC="A pythonic, object-oriented HTTP framework."
 
 . $SRCDIR/../common.sh
 
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/six-$SPYVER
+    library/python-$PYMVER/portend-$SPYVER
+    library/python-$PYMVER/cheroot-$SPYVER
+    library/python-$PYMVER/zc.lockfile-$SPYVER
+    library/python-$PYMVER/jaraco-$SPYVER
+"
+
 init
-download_source pymodules/$PROG $PROG $VER
+download_source pymodules/${PROG,,} $PROG $VER
 patch_source
 prep_build
 python_build

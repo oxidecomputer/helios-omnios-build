@@ -12,23 +12,26 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/zc.lockfile-39
+PROG=zc.lockfile
+VER=2.0
+SUMMARY="Portable inter-process lock implementation"
+DESC="A basic portable implementation of interprocess locks using lock files"
 
 . $SRCDIR/../common.sh
+
+SKIP_LICENCES=ZPL
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

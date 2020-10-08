@@ -16,11 +16,11 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/coverage-39
+PROG=coverage
+VER=5.3
+SUMMARY="Python coverage module"
+DESC="Code coverage testing for Python"
 
 . $SRCDIR/../common.sh
 

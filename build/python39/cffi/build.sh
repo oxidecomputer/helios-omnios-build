@@ -16,19 +16,26 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/cffi-39
+PROG=cffi
+VER=1.14.3
+SUMMARY="cffi"
+DESC="Foreign Function Interface for Python calling C code"
 
 . $SRCDIR/../common.sh
+
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/pycparser-$SPYVER
+"
+
+REMOVE_PREVIOUS=1
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

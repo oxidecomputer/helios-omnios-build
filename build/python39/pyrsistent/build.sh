@@ -16,11 +16,11 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/pyrsistent-39
+PROG=pyrsistent
+VER=0.17.3
+SUMMARY="Python pyrsistent"
+DESC="Persistent/Functional/Immutable data structures"
 
 . $SRCDIR/../common.sh
 
