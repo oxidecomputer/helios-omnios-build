@@ -64,8 +64,16 @@ make_clean() {
     ' {} +
 }
 
+save_function configure64 _configure64
+configure64() {
+    run_autoreconf -fi
+    _configure64 "$@"
+}
+
 build_dependency -merge bash-completion bash-completion-$BCVER \
     $PROG bash-completion $BCVER
+
+save_function _configure64 configure64
 
 clone_github_source illumos-completion \
     https://github.com/OpenIndiana/openindiana-completions master
