@@ -31,6 +31,14 @@ MAKECAVER=0.6
 DESC="Root CA certificates extracted from mozilla-nss $NSSVER source"
 DESC+=", plus OmniOS CA cert."
 
+# Continue using the JDK 1.8 keytool to generate the java key store, as long
+# as we continue to ship Java 1.8
+KEYTOOL=/usr/jdk/instances/openjdk1.8.0/bin/keytool
+
+# There should always be at least this many certificates in the generated
+# bundles - if there are not, the build will abort.
+SAFETY_THRESH=100
+
 OVERRIDE_SOURCE_URL=none
 
 build_pem() {
@@ -48,15 +56,15 @@ build_pem() {
 
     BUILDDIR=$BUILDDIR_ORIG
 
-    # The make-ca script has a hard coded sanity check for at least 150
-    # certificates. However, the number of trusted roots is now just under 150.
-    logcmd sed -i 's/\<150\>/140/g' $TMPDIR/$MAKECADIR/make-ca
+    # The make-ca script has a hard coded check for at least 150
+    # certificates. However, the number of trusted roots is now lower
+    logcmd sed -i "s/\\<150\\>/$SAFETY_THRESH/g" $TMPDIR/$MAKECADIR/make-ca
 
     logmsg "-- Generating CA certificate files"
     PATH=$GNUBIN:$PATH logcmd bash $TMPDIR/$MAKECADIR/make-ca \
         --destdir $DESTDIR \
         --certdata $TMPDIR/$NSSDIR/$CERTDATA \
-        --keytool /usr/bin/keytool \
+        --keytool $KEYTOOL \
         --cafile /etc/ssl/cacert.pem \
         || logerr "Failed to generate certificates"
 
@@ -91,10 +99,19 @@ install_omnios_cacert() {
     done
 }
 
+tests() {
+    [ `$KEYTOOL -rfc -list -keystore $DESTDIR/etc/ssl/java/cacerts \
+        -storepass changeit | grep -c 'BEGIN CERT'` -ge $SAFETY_THRESH ] \
+        || logerr "Short JKS"
+    [ `grep -c 'BEGIN CERT' $DESTDIR/etc/ssl/cacert.pem` -ge $SAFETY_THRESH ] \
+        || logerr "Short cacert.pem"
+}
+
 init
 prep_build
 build_pem
 install_omnios_cacert
+tests
 make_package
 clean_up
 
