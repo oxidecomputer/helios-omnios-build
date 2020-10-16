@@ -46,7 +46,7 @@ CONFIGURE_OPTS="
     --disable-gtktest
 "
 CONFIGURE_OPTS_WS="
-    --with-compiledby=\"OmniOS $RELVER\"
+    --with-compiledby=\"Helios $RELVER\"
 "
 MAKE_INSTALL_ARGS="STRIP=/bin/true"
 

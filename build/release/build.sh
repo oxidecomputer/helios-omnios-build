@@ -19,11 +19,11 @@
 PROG=release
 VER=0.5.11
 PKG=release/name
-SUMMARY="OmniOS release information"
-DESC="OmniOS /etc/release and /etc/os-release files"
+SUMMARY="Helios release information"
+DESC="Helios /etc/release and /etc/os-release files"
 
 # Update the following line with the current release suffix
-RELSUFFIX=bb
+RELSUFFIX=
 
 RELEASE=${RELVER}${RELSUFFIX}
 RELDATE="`date +%Y.%m.%d`"
@@ -54,23 +54,20 @@ build() {
     logcmd mkdir -p etc || logerr "-- mkdir failed"
 
     cat <<- EOM > etc/release
-  OmniOS v11 r$RELEASE
-  Copyright (c) 2012-2017 OmniTI Computer Consulting, Inc.
-  `copyright_string`
-  All rights reserved. Use is subject to licence terms.
+Oxide Helios $RELEASE
 	EOM
 
     cat <<- EOM > etc/os-release
-NAME="OmniOS"
-PRETTY_NAME="OmniOS Community Edition v11 r$RELEASE"
-CPE_NAME="cpe:/o:omniosce:omnios:11:$RELNUM:$RELREV"
-ID=omnios
-VERSION=r$RELEASE
-VERSION_ID=r$RELEASE
+NAME="Helios"
+PRETTY_NAME="Oxide Helios $RELEASE"
+CPE_NAME="cpe:/o:oxide:helios:$RELNUM:$RELREV"
+ID=helios
+VERSION=$RELEASE
+VERSION_ID=$RELEASE
 BUILD_ID=$RELNUM.$RELREV.$RELDATE
 HOME_URL="$HOMEURL/"
 SUPPORT_URL="$HOMEURL/"
-BUG_REPORT_URL="$GITHUB/omnios-build/issues/new"
+BUG_REPORT_URL="https://github.com/oxidecomputer/helios/issues/new"
 	EOM
 
     popd >/dev/null
