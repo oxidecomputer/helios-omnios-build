@@ -29,6 +29,8 @@ MPN32="x86/pentium x86 generic"
 MPN64="x86_64/pentium4 x86_64 generic"
 export MPN32 MPN64
 
+BMI_EXPECTED=1 #XXX sigh
+
 BUILD_DEPENDS_IPS=developer/build/libtool
 
 TESTSUITE_SED="
