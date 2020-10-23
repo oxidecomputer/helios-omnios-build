@@ -18,8 +18,8 @@
 
 PROG=openjdk
 VER=11
-UPDATE=8
-BUILD=10
+UPDATE=9
+BUILD=11
 PKG=runtime/java/openjdk11
 SUMMARY="openjdk $VER"
 DESC="Open-source implementation of the eleventh edition of the Java SE Platform"
