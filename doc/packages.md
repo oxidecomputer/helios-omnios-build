@@ -36,7 +36,7 @@
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/releases | Currently used solely by rsyslog
 | library/fastjson			| 0.99.8		| https://github.com/rsyslog/libfastjson/releases | Currently used solely by rsyslog
 | library/gmp				| 6.2.0			| https://gmplib.org/download/gmp/ https://gmplib.org/
-| library/mpc				| 1.2.0			| http://www.multiprecision.org/mpc/download.html
+| library/mpc				| 1.2.1			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.1.0			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
 | library/libedit			| 20191231-3.1		| https://thrysoee.dk/editline/
