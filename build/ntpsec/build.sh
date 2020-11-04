@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=ntpsec
-VER=1.1.9
+VER=1.2.0
 PKG=service/network/ntpsec
 SUMMARY="Network time services"
 DESC="A secure, hardened and improved Network Time Protocol implementation"
@@ -33,41 +33,26 @@ SKIP_LICENCES="*"
 export XML_CATALOG_FILES=/opt/ooce/docbook-xsl/catalog.xml
 
 # Required to include struct timespec definition and constants.
-CFLAGS+=" -D__EXTENSIONS__"
-export CFLAGS
+export CFLAGS+=" -D__EXTENSIONS__"
 
 CONFIGURE_OPTS="
-    --prefix=/usr
+    --prefix=$PREFIX
     --sysconfdir=/etc/inet
     --define=CONFIG_FILE=/etc/inet/ntp.conf
     --refclock=all
     --python=$PYTHON
+    --pyshebang=$PYTHON
     --pythondir=$PYTHONVENDOR
     --pythonarchdir=$PYTHONVENDOR
+    --libdir=$PYTHONVENDOR
     --enable-manpage --disable-doc
     --nopyc --nopyo --nopycache
 "
 
 # NTPsec uses the 'waf' build system
 
-fix_shebangs() {
-    # Although NTPSec components are tested with python3 and can run with
-    # either python2 or python3, the default shebang lines just point at
-    # '#!/usr/bin/env python'; we need to fix them up to use python3.
-    # (NB: there was discussion on the ntpsec mailing list about providing
-    #      an option to do this automatically but it has so far been rejected.
-    #      Distributions are rolling their own patches, e.g.
-    #      https://sources.debian.org/src/ntpsec/1.1.2+dfsg1-4/debian/patches/hardcode-python3-path.patch/
-    # Scripting it is more future-proof
-
-    logmsg "--- fix shebangs"
-    sed -i '1s^/usr/bin/env python$^/usr/bin/python3^' \
-        `find $TMPDIR/$BUILDDIR -type f`
-}
-
 make_clean() {
     logcmd ./waf distclean
-    fix_shebangs
 }
 
 configure64() {
