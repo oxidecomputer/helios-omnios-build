@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=mpc
-VER=1.2.0
+VER=1.2.1
 PKG=library/mpc
 SUMMARY="The GNU complex number library"
 DESC="$SUMMARY"
