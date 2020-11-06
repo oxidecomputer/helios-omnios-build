@@ -32,18 +32,12 @@ set_arch 64
 set_standard XPG6
 
 init
-prep_build
+prep_build autoconf -autoreconf
 
 #########################################################################
 # Download and build a static dependencies
 
 save_buildenv
-# libfastjson does not provide ./configure
-save_function configure64 _configure64
-configure64() {
-    run_autoreconf -fi
-    _configure64 "$@"
-}
 CONFIGURE_OPTS="--disable-shared"
 
 PATH=$GNUBIN:$PATH \
@@ -51,7 +45,6 @@ PATH=$GNUBIN:$PATH \
 build_dependency estr libestr-$ESTRVER $PROG/estr v$ESTRVER
 
 restore_buildenv
-save_function _configure64 configure64
 
 export LIBFASTJSON_CFLAGS="-I$DEPROOT/usr/include/libfastjson"
 export LIBFASTJSON_LIBS="-L$DEPROOT/usr/lib/$ISAPART64 -lfastjson"
@@ -64,9 +57,9 @@ addpath PKG_CONFIG_PATH64 $DEPROOT$PREFIX/lib/$ISAPART64/pkgconfig
 note -n "-- Building $PROG"
 
 CONFIGURE_OPTS="
-    --enable-klog
     --enable-inet
     --disable-libsystemd
+    --disable-klog
 
     --disable-libgcrypt
     --disable-gnutls
@@ -88,6 +81,11 @@ CONFIGURE_OPTS="
     --enable-testbench
     --enable-imdiag
     --enable-extended-tests
+
+    ac_cv_func_epoll_create=no
+    ac_cv_func_epoll_create1=no
+    ac_cv_func_inotify_init=no
+    ac_cv_header_sys_inotify_h=no
 "
 
 # There is no need to install the plugins under amd64/
