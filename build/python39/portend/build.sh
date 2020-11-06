@@ -12,17 +12,21 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/portend-39
+PROG=portend
+VER=2.6
+SUMMARY="portend - TCP port monitoring utilities"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
+
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/tempora-$SPYVER
+"
 
 init
 download_source pymodules/$PROG $PROG $VER

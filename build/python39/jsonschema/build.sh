@@ -12,24 +12,30 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/jsonschema-39
+PROG=jsonschema
+VER=3.2.0
+SUMMARY="An implementation of JSON Schema validation for Python"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
+
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/attrs-$SPYVER
+    library/python-$PYMVER/pyrsistent-$SPYVER
+    library/python-$PYMVER/js-regex-$SPYVER
+"
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
-make_package
+make_package $SRCDIR/../common.mog
 clean_up
 
 # Vim hints

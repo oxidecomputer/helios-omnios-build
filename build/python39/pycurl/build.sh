@@ -16,13 +16,15 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/pycurl-39
+PROG=pycurl
+VER=7.43.0.6
+SUMMARY="Python bindings for libcurl"
+DESC="PycURL provides a thin layer of Python bindings on top of libcurl."
 
 . $SRCDIR/../common.sh
+
+SKIP_LICENCES=MIT
 
 init
 download_source pymodules/$PROG $PROG $VER

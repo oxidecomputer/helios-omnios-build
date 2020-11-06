@@ -10,26 +10,41 @@
 # A full copy of the text of the CDDL should have accompanied this
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
-# }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# }}}
+
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/jaraco-39
+PROG=jaraco
+VER=1.0.0
+SUMMARY="jaraco"
+DESC="A bundle of jaraco python modules"
 
 . $SRCDIR/../common.sh
 
+typeset -A packages
+packages[classes]=3.1.0
+packages[collections]=3.0.0
+packages[functools]=3.0.1
+packages[text]=3.2.0
+
 init
-download_source pymodules/$PROG $PROG $VER
-patch_source
 prep_build
-python_build
-make_package
+
+for pkg in "${!packages[@]}"; do
+    ver=${packages[$pkg]}
+    BUILDDIR=$PROG.$pkg-$ver
+
+    note -n "Building $PROG.$pkg"
+    download_source pymodules/$PROG.$pkg $PROG.$pkg $ver
+    python_build
+done
+
+strip_install
+EXTRACTED_SRC=$BUILDDIR make_package
 clean_up
 
 # Vim hints

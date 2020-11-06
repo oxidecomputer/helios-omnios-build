@@ -16,11 +16,11 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/pycparser-39
+PROG=pycparser
+VER=2.20
+SUMMARY="Complete parser of the C language"
+DESC="$SUMMARY, written in pure Python"
 
 . $SRCDIR/../common.sh
 

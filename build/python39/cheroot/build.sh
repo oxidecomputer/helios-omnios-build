@@ -16,20 +16,25 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/cheroot-39
+PROG=cheroot
+VER=8.4.5
+SUMMARY="cheroot HTTP server"
+DESC="Highly-optimized, pure-python HTTP server"
 
 . $SRCDIR/../common.sh
+
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/more-itertools-$SPYVER
+"
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
-make_package
+strip_install
+make_package $SRCDIR/../common.mog
 clean_up
 
 # Vim hints

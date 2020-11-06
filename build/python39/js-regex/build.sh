@@ -12,15 +12,15 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/js-regex-39
+PROG=js-regex
+VER=1.0.1
+SUMMARY="A thin compatibility layer to use Javascript regular expressions"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 

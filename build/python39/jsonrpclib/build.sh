@@ -16,11 +16,11 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/jsonrpclib-39
+PROG=jsonrpclib
+VER=0.4.1
+SUMMARY="A Python JSON-RPC over HTTP that mirrors xmlrpclib syntax"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 

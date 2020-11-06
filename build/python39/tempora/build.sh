@@ -16,20 +16,25 @@
 
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/tempora-39
+PROG=tempora
+VER=4.0.0
+SUMMARY="Objects and routines pertaining to date and time"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
+
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/pytz-$SPYVER
+"
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
-make_package
+strip_install
+make_package $SRCDIR/../common.mog
 clean_up
 
 # Vim hints

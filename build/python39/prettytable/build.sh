@@ -12,15 +12,16 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+#
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/prettytable-39
+PROG=prettytable
+VER=0.7.2
+SUMMARY="Simple tabular data display"
+DESC="prettytable - A simple Python library for easily displaying tabular "
+DESC+="data in a visually appealing ASCII table format."
 
 . $SRCDIR/../common.sh
 
@@ -29,6 +30,7 @@ download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+strip_install
 make_package
 clean_up
 

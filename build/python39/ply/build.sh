@@ -12,23 +12,29 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-
+# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+#
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/ply-39
+PROG=ply
+VER=3.11
+SUMMARY="ply - Python lex and yacc"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
+
+make_licence() {
+    awk '/Copyright/,/DAMAGE.$/{print}' $TMPDIR/$BUILDDIR/README.md > \
+        $TMPDIR/$BUILDDIR/LICENCE
+}
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
+make_licence
 make_package
 clean_up
 

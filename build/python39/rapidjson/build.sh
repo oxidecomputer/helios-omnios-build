@@ -13,19 +13,22 @@
 # }}}
 #
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
-
+#
 . ../../../lib/functions.sh
 
-PKG=library/python-3/setuptools-37
-PROG=setuptools
-inherit_ver python39/setuptools
-SUMMARY="Python package management"
-DESC="Easily download, build, install, upgrade, and uninstall Python packages"
+PKG=library/python-3/rapidjson-39
+PROG=rapidjson
+VER=0.9.1
+SUMMARY="rapidjson - Python interface to RapidJSON"
+DESC="RapidJSON is an extremely fast C++ JSON parser and serialization library"
+DESC+="; this module wraps it into a Python 3 extension"
 
 . $SRCDIR/../common.sh
 
+set_builddir python-$PROG-$VER
+
 init
-download_source pymodules/$PROG $PROG $VER
+download_source pymodules/$PROG python-$PROG $VER
 patch_source
 prep_build
 python_build
