@@ -85,8 +85,6 @@ launch_testsuite() {
     EXTRATESTOPTS+=" --ignorefile $SRCDIR/files/test.exclude"
     # Run single-threaded
     EXTRATESTOPTS+=" -j 1"
-    # Abort any test that does not complete within 4 minutes
-    EXTRATESTOPTS+=" --timeout 240"
     export EXTRATESTOPTS
     if [ -z "$SKIP_TESTSUITE" ] && ( [ -n "$BATCH" ] || ask_to_testsuite ); then
         # Some tests have non-ASCII characters
