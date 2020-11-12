@@ -121,14 +121,14 @@
 | library/python-3/cheroot-39		| 8.4.5			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-39		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-39		| 5.3			| https://pypi.org/project/coverage
-| library/python-3/cryptography-39	| 3.1.1			| https://pypi.org/project/cryptography
+| library/python-3/cryptography-39	| 3.2.1			| https://pypi.org/project/cryptography
 | library/python-3/idna-39		| 2.10			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-39	| 3.1.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-39 | 3.0.0		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-39	| 3.0.1			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-39	| 3.2.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-39		| 1.0.1			| https://pypi.org/project/js-regex
-| library/python-3/jsonrpclib-39	| 0.4.1			| https://github.com/tcalmant/jsonrpclib/releases
+| library/python-3/jsonrpclib-39	| 0.4.2			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-39	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-39		| 1.1.3			| https://pypi.org/project/Mako
 | library/python-3/meson-39		| 0.55.3		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
