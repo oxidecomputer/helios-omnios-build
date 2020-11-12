@@ -136,7 +136,7 @@
 | library/python-3/orjson-39		| 3.4.3			| https://github.com/ijl/orjson/releases
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-39		| 2.6			| https://pypi.org/project/portend
-| library/python-3/prettytable-39	| 0.7.2			| https://pypi.org/project/PrettyTable
+| library/python-3/prettytable-39	| 1.0.1			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-39		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-39	| 2.6.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-39		| 2.20			| https://pypi.org/project/pycparser
