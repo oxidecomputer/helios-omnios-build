@@ -148,5 +148,6 @@
 | library/python-3/setuptools-39	| 50.3.2		| https://pypi.org/project/setuptools
 | library/python-3/six-39		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.0.1			| https://pypi.org/project/tempora
+| library/python-3/wcwidth-39		| 0.2.5			| https://pypi.org/project/wcwidth
 | library/python-3/zc.lockfile-39	| 2.0			| https://pypi.org/project/zc.lockfile
 
