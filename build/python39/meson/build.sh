@@ -18,7 +18,7 @@
 
 PKG=library/python-3/meson-39
 PROG=meson
-VER=0.55.3
+VER=0.56.0
 SUMMARY="The Meson Build system"
 DESC="An open source build system meant to be both extremely fast, "
 DESC+="and, even more importantly, as user friendly as possible"
