@@ -114,7 +114,7 @@
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.2.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
-| library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
+| library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-39	| 1.4.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-39		| 20.3.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-39		| 1.14.3		| https://pypi.org/project/cffi

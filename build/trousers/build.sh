@@ -21,17 +21,18 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=trousers
-VER=0.3.14
+VER=0.3.15
 VERHUMAN=$VER
 PKG=library/security/trousers
-SUMMARY="trousers - TCG Software Stack - software for accessing a TPM device"
-DESC="$SUMMARY"
+SUMMARY="TrouSerS - An open-source TCG Software Stack implementation."
+DESC="TrouSerS - software for accessing a TPM device"
+
+forgo_isaexec
 
 LIBS="-lbsm -lnsl -lsocket -lgen -lscf -lresolv"
 
@@ -39,7 +40,6 @@ CONFIGURE_OPTS+="
 	--sysconfdir=/etc/security
 	--disable-usercheck
 "
-#CONFIGURE_OPTS+=" --enable-debug"
 CONFIGURE_OPTS_WS="
     LIBS=\"$LIBS\"
 "
@@ -57,9 +57,8 @@ init
 download_source $PROG $PROG $VER
 patch_source
 fix_headers
-prep_build
+prep_build autoconf -autoreconf
 build
-make_isa_stub
 install_smf application/security tcsd.xml tcsd
 make_package
 clean_up
