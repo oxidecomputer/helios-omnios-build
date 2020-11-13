@@ -68,7 +68,7 @@
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
 | runtime/java/openjdk11		| 11.0.9+11		| https://hg.openjdk.java.net/jdk-updates/jdk11u/tags
-| runtime/java/openjdk8			| 1.8.272-10		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
+| runtime/java/openjdk8			| 1.8.275-01		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | runtime/perl				| 5.32.0		| http://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-35			| 3.5.10		| https://www.python.org/downloads/source/
