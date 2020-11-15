@@ -94,19 +94,19 @@
 | system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
 | system/rsyslog			| 8.2010.0		| https://www.rsyslog.com/downloads/download-v8-stable/
-| system/test/fio			| 3.23			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.24			| https://github.com/axboe/fio/releases
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
-| terminal/tmux				| 3.1b			| https://github.com/tmux/tmux/releases http://tmux.github.io/
+| terminal/tmux				| 3.1c			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.1.0			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.7			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.21			| https://ftp.gnu.org/pub/gnu/gettext/
-| text/gnu-grep				| 3.5			| https://ftp.gnu.org/gnu/grep/
+| text/gnu-grep				| 3.6			| https://ftp.gnu.org/gnu/grep/
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
-| text/less				| 551			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.72.0		| https://curl.haxx.se/download.html
+| text/less				| 563			| http://www.greenwoodsoftware.com/less/download.html
+| web/curl				| 7.73.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.66.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.35.1		| https://ftp.gnu.org/gnu/binutils
@@ -114,7 +114,7 @@
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.2.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
-| library/security/trousers		| 0.3.14		| https://sourceforge.net/projects/trousers/files/trousers
+| library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-39	| 1.4.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-39		| 20.3.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-39		| 1.14.3		| https://pypi.org/project/cffi
@@ -148,5 +148,6 @@
 | library/python-3/setuptools-39	| 50.3.2		| https://pypi.org/project/setuptools
 | library/python-3/six-39		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.0.1			| https://pypi.org/project/tempora
+| library/python-3/wcwidth-39		| 0.2.5			| https://pypi.org/project/wcwidth
 | library/python-3/zc.lockfile-39	| 2.0			| https://pypi.org/project/zc.lockfile
 

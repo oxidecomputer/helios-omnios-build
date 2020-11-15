@@ -12,40 +12,25 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2011-2013 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Use is subject to license terms.
-#
-# Copyright (c) 2014, 2016 by Delphix. All rights reserved.
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+#
+. ../../../lib/functions.sh
 
-. ../../lib/functions.sh
+PKG=library/python-3/wcwidth-39
+PROG=wcwidth
+VER=0.2.5
+SUMMARY="Measures the displayed width of unicode strings in a terminal"
+DESC="This library is mainly for CLI programs that produce output for "
+DESC+="terminals, or pretend to be an emulator."
 
-PROG=fio
-VER=3.24
-PKG=system/test/fio
-SUMMARY="Flexible IO Tester"
-DESC="A tool that is able to simulate a given I/O workload"
-
-RUN_DEPENDS_IPS+="
-    runtime/python-$PYTHONPKGVER
-"
-
-set_builddir "$PROG-$PROG-$VER"
-set_arch 64
-
-CONFIGURE_OPTS_64="
-    --prefix=$PREFIX
-    --extra-cflags=-m64
-    --disable-native
-"
-
-SKIP_LICENCES=fio
+. $SRCDIR/../common.sh
 
 init
-download_source $PROG $PROG $VER
+download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
-build
+python_build
+strip_install
 make_package
 clean_up
 

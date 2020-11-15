@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=tmux
-VER=3.1b
+VER=3.1c
 PKG=terminal/tmux
 SUMMARY="Terminal multiplexer"
 DESC="$SUMMARY"
