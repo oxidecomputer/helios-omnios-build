@@ -94,7 +94,7 @@ else
     IPS_REPO=https://pkg.omniosce.org/bloody/core
 fi
 
-ARCHIVE_TYPES="tar.xz tar.bz2 tar.gz tgz tar zip"
+ARCHIVE_TYPES="tar.zst tar.xz tar.bz2 tar.gz tgz tar zip"
 
 # Default prefix for packages (may be overridden)
 PREFIX=/usr
