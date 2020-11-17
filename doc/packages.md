@@ -22,7 +22,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.7.3			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.7.4			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.29.2		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.6			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
@@ -35,7 +35,7 @@
 | library/expat				| 2.2.10		| https://github.com/libexpat/libexpat/releases
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/releases | Currently used solely by rsyslog
 | library/fastjson			| 0.99.8		| https://github.com/rsyslog/libfastjson/releases | Currently used solely by rsyslog
-| library/gmp				| 6.2.0			| https://gmplib.org/download/gmp/ https://gmplib.org/
+| library/gmp				| 6.2.1			| https://gmplib.org/download/gmp/ https://gmplib.org/
 | library/mpc				| 1.2.1			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.1.0			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
@@ -47,7 +47,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.41.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.58			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.59			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.29			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.35			| https://ftp.pcre.org/pub/pcre/
@@ -59,7 +59,7 @@
 | library/unixodbc			| 2.3.9			| http://www.unixodbc.org/download.html
 | library/xxhash			| 0.8.0			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| meta/data/microcode			| 20200616		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
+| meta/data/microcode			| 20201112		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
 | network/dns/bind			| 9.11.24		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.4p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
