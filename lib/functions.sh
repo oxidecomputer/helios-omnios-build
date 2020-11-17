@@ -568,7 +568,7 @@ fi
 
 _med=`pkg mediator -H python3 2>/dev/null| awk '{print $3}'`
 if [ -n "$_med" -a "$_med" != "$PYTHON3VER" ]; then
-    logerr "--- Python3 mediator is set incorrectly"
+    logerr "--- Python3 mediator is set incorrectly ($_med)"
 fi
 
 #############################################################################
