@@ -118,15 +118,16 @@ make_install() {
 }
 
 tests() {
-    # A specific test to ensure that this is properly enabled by configure
+    # Specific tests to ensure that certain features are properly detected
     egrep -s gcc_cv_as_eh_frame=yes $TMPDIR/$BUILDDIR/gcc/config.log \
         || logerr "The .eh_frame based unwinder is not enabled"
 
-    # A specific test to ensure that thread-local storage is properly
-    # detected and is not being emulated.
     egrep -s gcc_cv_use_emutls=no \
         $TMPDIR/$BUILDDIR/$ARCH/libgcc/config.log \
         || logerr "Emulated TLS is enabled"
+
+    egrep -s gcc_cv_libc_provides_ssp=yes $TMPDIR/$BUILDDIR/gcc/config.log \
+        || logerr "libc support for SSP was not detected"
 
     [ -n "$SKIP_TESTSUITE" ] && return
     if [ -z "$BATCH" ] && ! ask_to_testsuite; then
