@@ -251,7 +251,7 @@ CXX=g++
 DEFAULT_GCC_VER=10
 ILLUMOS_GCC_VER=7
 PYTHON2VER=2.7
-PYTHON3VER=3.7
+PYTHON3VER=3.9
 DEFAULT_PYTHON_VER=$PYTHON3VER
 
 # Options to turn compiler features on and off. Associative array keyed by
