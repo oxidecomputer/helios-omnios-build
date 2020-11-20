@@ -416,6 +416,22 @@ set_gccver() {
 
 set_gccver $DEFAULT_GCC_VER -q
 
+set_ssp() {
+    local SPFLAGS
+    case "$1" in
+        none)   SPFLAGS=; SKIP_SSP_CHECK=1 ;;
+        strong) SPFLAGS="-fstack-protector-strong" ;;
+        basic)  SPFLAGS="-fstack-protector" ;;
+        all)    SPFLAGS="-fstack-protector-all" ;;
+        *)      logerr "Unknown stack protector variant ($1)" ;;
+    esac
+    local LCFLAGS=`echo $CFLAGS | sed 's/-fstack-protector[^ ]*//'`
+    local LCXXFLAGS=`echo $CXXFLAGS | sed 's/-fstack-protector[^ ]*//'`
+    CFLAGS="$LCFLAGS $SPFLAGS"
+    CXXFLAGS="$LCFLAGS $SPFLAGS"
+    logmsg "-- Set stack protection $1"
+}
+
 #############################################################################
 # Go version
 #############################################################################
@@ -1340,7 +1356,10 @@ generate_manifest() {
     [ -n "$DESTDIR" -a -d "$DESTDIR" ] || logerr "DESTDIR does not exist"
 
     check_symlinks "$DESTDIR"
-    [ -z "$BATCH" -a -z "$SKIP_RTIME_CHECK" ] && check_rtime "$DESTDIR"
+    if [ -z "$BATCH" ]; then
+        [ -z "$SKIP_RTIME_CHECK" ] && check_rtime "$DESTDIR"
+        [ -z "$SKIP_SSP_CHECK" ] && check_ssp "$DESTDIR"
+    fi
     check_bmi "$DESTDIR"
     logmsg "--- Generating package manifest from $DESTDIR"
     typeset GENERATE_ARGS=
@@ -2627,11 +2646,18 @@ check_libabi() {
 # ELF checks
 #############################################################################
 
+rtime_files() {
+    local destdir="$1"
+
+    [ -f "$TMPDIR/rtime.files" ] && return
+    logcmd -p $FIND_ELF -fr $destdir/ > $TMPDIR/rtime.files
+}
+
 check_rtime() {
     local destdir="$1"
 
     logmsg "-- Checking ELF runtime attributes"
-    logcmd -p $FIND_ELF -fr $destdir/ > $TMPDIR/rtime.files
+    rtime_files "$destdir"
 
     cp $ROOTDIR/doc/rtime $TMPDIR/rtime.cfg
     [ -f $SRCDIR/rtime ] && cat $SRCDIR/rtime >> $TMPDIR/rtime.cfg
@@ -2647,6 +2673,27 @@ check_rtime() {
     fi
 }
 
+check_ssp() {
+    local destdir="$1"
+
+    logmsg "-- Checking stack smashing protection"
+    rtime_files "$destdir"
+
+    : > $TMPDIR/rtime.ssp
+    while read obj; do
+        [ -f "$destdir/$obj" ] || continue
+        nm $destdir/$obj | egrep -s '__stack_chk_guard' \
+            || echo "$obj does not include stack smashing protection" \
+            >> $TMPDIR/rtime.ssp &
+        parallelise $LCPUS
+    done < <(nawk '/^OBJECT/ { print $NF }' $TMPDIR/rtime.files)
+    wait
+    if [ -s "$TMPDIR/rtime.ssp" ]; then
+        cat $TMPDIR/rtime.ssp | tee -a $LOGFILE
+        logerr "Found object(s) without SSP"
+    fi
+}
+
 check_bmi() {
     local destdir="$1"
 
@@ -2657,9 +2704,7 @@ check_bmi() {
     # We explicitly check for this in the elf objects.
 
     logmsg "-- Checking for BMI instructions"
-
-    [ -f "$TMPDIR/rtime.files" ] || \
-        logcmd -p $FIND_ELF -fr $destdir/ > $TMPDIR/rtime.files
+    rtime_files "$destdir"
 
     : > $TMPDIR/rtime.bmi
     while read obj; do
