@@ -32,6 +32,7 @@ BMI_EXPECTED=1
 
 # Build gcc with itself
 set_gccver $GCCMAJOR
+set_ssp none
 set_arch 32
 
 # Although we're building a 32-bit version of the compiler, gcc will take

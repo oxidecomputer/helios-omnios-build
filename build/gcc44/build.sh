@@ -32,6 +32,7 @@ set_builddir "${PROG}-gcc-4.4.4-${ILLUMOSVER}"
 
 # Build gcc44 with itself...
 set_gccver 4.4.4
+set_ssp none
 set_arch 32
 
 # Although we're building a 32-bit version of the compiler, gcc will take

@@ -36,6 +36,7 @@ PREFIX=$OPT
 set_gccver $GCCMAJOR
 
 set_arch 64
+set_ssp none
 ARCH=$TRIPLET64
 
 # We're building the 64-bit version of the compiler and tools but we want
