@@ -24,6 +24,8 @@ SUMMARY="Perl-Compatible Regular Expressions"
 DESC="The PCRE library is a set of functions that implement regular expression"
 DESC+=" pattern matching using the same syntax and semantics as Perl 5"
 
+set_ssp none
+
 CONFIGURE_OPTS="
 	--localstatedir=/var
 	--disable-static

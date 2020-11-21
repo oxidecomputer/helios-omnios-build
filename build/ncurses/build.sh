@@ -23,6 +23,8 @@ PKG=library/ncurses
 SUMMARY="A CRT screen handling package"
 DESC="Utilities and shared libraries for terminal handling"
 
+set_ssp none
+
 DEPENDS_IPS="shell/bash system/library"
 
 LD=/usr/ccs/bin/ld

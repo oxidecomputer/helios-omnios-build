@@ -23,6 +23,8 @@ PKG=library/zlib
 SUMMARY="$PROG - A massively spiffy yet delicately unobtrusive compression library"
 DESC="$SUMMARY"
 
+set_ssp none
+
 DEPENDS_IPS="system/library/gcc-runtime"
 SKIP_LICENCES=zlib
 

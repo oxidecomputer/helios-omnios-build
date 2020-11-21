@@ -26,6 +26,8 @@ DESC="$SUMMARY"
 
 SKIP_LICENCES=libffi
 
+set_ssp none
+
 # Previous versions that also need to be built and packaged since compiled
 # software may depend on it.
 PVERS="3.2.1"

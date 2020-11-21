@@ -22,6 +22,8 @@ PKG=compress/brotli
 SUMMARY="Brotli compress"
 DESC="Brotli is a generic-purpose lossless compression algorithm"
 
+set_ssp none
+
 BUILD_DEPENDS_IPS="
     ooce/developer/cmake
 "

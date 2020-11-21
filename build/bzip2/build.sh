@@ -31,6 +31,9 @@ PREFIX=/usr
 export PREFIX
 export CC
 
+# 32-bit build uses -nostdlib
+set_ssp none
+
 base_CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -Wall -Winline"
 
 configure32() {
