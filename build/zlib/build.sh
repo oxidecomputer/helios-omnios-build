@@ -55,26 +55,6 @@ make_prog64() {
     popd > /dev/null
 }
 
-# Relocate the libs to /lib, to match upstream
-move_libs() {
-    logcmd mkdir -p $DESTDIR/lib/$ISAPART64
-    logcmd ln -s $ISAPART64 $DESTDIR/lib/64
-    logcmd mv $DESTDIR/usr/lib/lib* $DESTDIR/lib || \
-        logerr "failed to move libs (32-bit)"
-    logcmd mv $DESTDIR/usr/lib/$ISAPART64/lib* $DESTDIR/lib/$ISAPART64 || \
-        logerr "failed to move libs (64-bit)"
-    pushd $DESTDIR/usr/lib >/dev/null
-    logcmd ln -s ../../lib/libz.so.$VER libz.so
-    logcmd ln -s ../../lib/libz.so.$VER libz.so.1
-    logcmd ln -s ../../lib/libz.so.$VER libz.so.$VER
-    popd >/dev/null
-    pushd $DESTDIR/usr/lib/$ISAPART64 >/dev/null
-    logcmd ln -s ../../../lib/64/libz.so.$VER libz.so
-    logcmd ln -s ../../../lib/64/libz.so.$VER libz.so.1
-    logcmd ln -s ../../../lib/64/libz.so.$VER libz.so.$VER
-    popd>/dev/null
-}
-
 init
 download_source $PROG $PROG $VER
 patch_source
@@ -82,7 +62,6 @@ prep_build
 build
 run_testsuite
 install_license
-move_libs
 make_package
 clean_up
 
