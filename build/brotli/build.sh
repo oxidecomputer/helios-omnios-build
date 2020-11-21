@@ -22,8 +22,6 @@ PKG=compress/brotli
 SUMMARY="Brotli compress"
 DESC="Brotli is a generic-purpose lossless compression algorithm"
 
-set_ssp none
-
 BUILD_DEPENDS_IPS="
     ooce/developer/cmake
 "
@@ -33,6 +31,7 @@ XFORM_ARGS+=" -DPREFIX=${PREFIX#/}"
 CONFIGURE_OPTS="
     -DCMAKE_BUILD_TYPE=Release
     -DCMAKE_INSTALL_PREFIX=$PREFIX
+    -DCMAKE_VERBOSE_MAKEFILE=1
 "
 CONFIGURE_OPTS_32="
     -DCMAKE_INSTALL_BINDIR=$PREFIX/bin/i386
