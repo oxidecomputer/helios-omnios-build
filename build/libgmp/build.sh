@@ -23,8 +23,6 @@ PKG=library/gmp
 SUMMARY="GNU MP"
 DESC="The GNU Multiple Precision (Bignum) Library"
 
-set_ssp none
-
 # Build library to use only common CPU features rather than those supported
 # on the build machine.
 MPN32="x86/pentium x86 generic"
@@ -39,6 +37,7 @@ TESTSUITE_SED="
 "
 
 CFLAGS+=" -fexceptions"
+LDFLAGS32+=" -lssp_ns"
 CONFIGURE_OPTS="
     --includedir=$PREFIX/include/gmp
     --localstatedir=/var
