@@ -49,7 +49,7 @@ jobs=
 
 # Build the UEFI firmware
 
-tag=il-edk2-stable202005-1
+tag=il-edk2-stable202005-2
 XFORM_ARGS+=" -D UEFITAG=$tag"
 
 typeset -A jobs
