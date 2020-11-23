@@ -45,10 +45,14 @@ export GOBJCOPY=/usr/bin/gobjcopy
 newtask -c $$
 trap "pkill -T0; exit" SIGINT
 
+jobs=
+
 # Build the UEFI firmware
 
 tag=il-edk2-stable202005-1
 XFORM_ARGS+=" -D UEFITAG=$tag"
+
+typeset -A jobs
 
 (
     if [ -z "$FLAVOR" -o "$FLAVOR" = UEFI ]; then
@@ -62,14 +66,20 @@ XFORM_ARGS+=" -D UEFITAG=$tag"
             [ -n "$DEPVER" -a "$DEPVER" != $v ] && continue
             note "Building UEFI $v firmware"
             logcmd ./build clean
-            logcmd ./build $v || logerr "UEFI $v build failed"
-            logcmd cp Build/BhyveX64/${v}_ILLGCC/FV/BHYVE_CODE.fd \
-                $fwdir/BHYVE_$v.fd \
-                || logerr "Copy firmware failed"
+            if ! logcmd ./build $v; then
+                logmsg -e "UEFI $v build failed"
+                exit 1
+            fi
+            if ! logcmd cp Build/BhyveX64/${v}_ILLGCC/FV/BHYVE_CODE.fd \
+                $fwdir/BHYVE_$v.fd; then
+                    logmsg -e "Copy UEFI firmware failed"
+                    exit 1
+            fi
         done
         popd >/dev/null
     fi
 ) &
+jobs[UEFI]=$!
 
 # At present, the CSM firmware is still built from the old 2014 branch
 # using gcc 4.
@@ -88,17 +98,26 @@ XFORM_ARGS+=" -D CSMTAG=$tag"
             [ -n "$DEPVER" -a "$DEPVER" != $v ] && continue
             note "Building CSM $v firmware"
             logcmd ./build clean
-            logcmd bash -x ./build -csm $v || logerr "CSM $v build failed"
-            logcmd cp Build/BhyveX64/${v}_ILLGCC/FV/BHYVE.fd \
-                $fwdir/BHYVE_${v}_CSM.fd \
-                || logerr "Copy firmware failed"
+            if ! logcmd bash -x ./build -csm $v; then
+                logmsg -e "CSM $v build failed"
+                exit 1
+            fi
+            if ! logcmd cp Build/BhyveX64/${v}_ILLGCC/FV/BHYVE.fd \
+                $fwdir/BHYVE_${v}_CSM.fd; then
+                    logmsg -e "Copy CSM firmware failed"
+                    exit 1
+            fi
         done
         popd >/dev/null
     fi
 ) &
+jobs[CSM]=$!
 
 # Both firmware branches are built in parallel, wait for them to finish
-wait
+for job in "${!jobs[@]}"; do
+    wait ${jobs[$job]}
+    [ $? -ne 0 -a $? -ne 127 ] && logerr "Job $job failed ($?)"
+done
 
 make_package
 clean_up
