@@ -33,6 +33,7 @@ DIST64=SunOS5.11_i86pc_gcc_64_OPT.OBJ
 
 BUILD_DEPENDS_IPS="library/nspr/header-nspr"
 
+set_ssp none
 # required for getopt
 set_standard XPG6
 

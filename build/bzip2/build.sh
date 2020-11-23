@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -26,6 +26,8 @@ DESC="A patent free high-quality data compressor"
 SKIP_LICENCES=bzip2
 XFORM_ARGS="-D VER=$VER"
 
+forgo_isaexec
+
 # We don't use configure, so explicitly export PREFIX
 PREFIX=/usr
 export PREFIX
@@ -34,7 +36,7 @@ export CC
 base_CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -Wall -Winline"
 
 configure32() {
-    BINISA=$ISAPART
+    BINISA=""
     LIBISA=""
     CFLAGS="$CFLAGS32 $base_CFLAGS"
     LDFLAGS="$LDFLAGS $LDFLAGS32"
@@ -42,7 +44,7 @@ configure32() {
 }
 
 configure64() {
-    BINISA=$ISAPART64
+    BINISA=""
     LIBISA=$ISAPART64
     CFLAGS="$CFLAGS64 $base_CFLAGS"
     LDFLAGS="$LDFLAGS $LDFLAGS64"
@@ -67,12 +69,6 @@ make_shlib() {
     export CFLAGS
 }
 
-make_shlib_install() {
-    logmsg "--- make install (shared lib)"
-    logcmd $MAKE DESTDIR=${DESTDIR} -f Makefile-libbz2_so install || \
-        logerr "--- Make install failed (shared lib)"
-}
-
 save_function make_prog32 _make_prog32
 make_prog32() {
     make_shlib
@@ -85,6 +81,13 @@ make_prog64() {
     _make_prog64
 }
 
+save_function make_install _make_install
+make_install() {
+    _make_install "$@"
+    logcmd cp $TMPDIR/$BUILDDIR/bzip2-shared $DESTDIR/usr/bin/bzip2 \
+        || logerr "Cannot copy shared bzip2 into place"
+}
+
 TESTSUITE_SED="
     /in business/q
 "
@@ -94,7 +97,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_isa_stub
 strip_install
 run_testsuite
 make_package

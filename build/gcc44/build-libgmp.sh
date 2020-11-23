@@ -32,6 +32,7 @@ SUMMARY="gcc44 - private libgmp"
 DESC="$SUMMARY"
 
 set_gccver 4.4.4
+set_ssp none
 set_arch 32
 
 PREFIX=/opt/gcc-${GCCVER}

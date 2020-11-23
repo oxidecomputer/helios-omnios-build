@@ -19,10 +19,11 @@
 
 PROG=libpcap
 VER=1.9.1
-VERHUMAN=$VER
 PKG=system/library/pcap
 SUMMARY="libpcap - a packet capture library"
 DESC="$SUMMARY"
+
+set_ssp none
 
 CONFIGURE_OPTS="
     --mandir=/usr/share/man

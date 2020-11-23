@@ -32,6 +32,7 @@ SUMMARY="gcc44 - private libmpfr"
 DESC="$SUMMARY"
 
 set_gccver 4.4.4
+set_ssp none
 set_arch 32
 
 BUILD_DEPENDS_IPS="developer/gcc44/libgmp-gcc44"
