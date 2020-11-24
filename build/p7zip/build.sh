@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -22,9 +22,6 @@ VER=16.02
 PKG=compress/p7zip
 SUMMARY="The p7zip compression and archiving utility"
 DESC="$SUMMARY"
-
-# This component does not yet build with gcc 10
-set_gccver 9
 
 SRCVER="${VER}_src_all"
 set_builddir "${PROG}_${VER}"
@@ -47,7 +44,7 @@ MAKE_ARGS=all3
 configure32() {
     logcmd cp makefile.solaris_x86 makefile.machine
 
-    MAKE_ARGS_WS="OPTFLAGS=\"-D_LARGEFILE64_SOURCE $CFLAGS32\""
+    MAKE_ARGS_WS="OPTFLAGS=\"-D_LARGEFILE64_SOURCE $CFLAGS32 $CFLAGS\""
 
     MAKE_INSTALL_ARGS_WS="
         $MAKE_ARGS_WS
@@ -58,7 +55,7 @@ configure32() {
 }
 
 configure64() {
-    MAKE_ARGS_WS="OPTFLAGS=\"-D_LARGEFILE64_SOURCE $CFLAGS64\""
+    MAKE_ARGS_WS="OPTFLAGS=\"-D_LARGEFILE64_SOURCE $CFLAGS64 $CFLAGS\""
 
     MAKE_INSTALL_ARGS_WS="
         $MAKE_ARGS_WS
@@ -78,6 +75,12 @@ install_sh_wrapper() {
         logerr "--- Failed: unable to copy p7zip man page"
     popd > /dev/null
 }
+
+TESTSUITE_SED="
+    s/[0-9]* CPUs x64/CPUs x64/
+    /^REP=/d
+    /check\/\.\./d
+"
 
 init
 download_source $PROG ${PROG}_${SRCVER}
