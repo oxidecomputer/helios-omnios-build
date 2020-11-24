@@ -25,8 +25,6 @@ SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
 
-set_ssp none
-
 SKIP_LICENCES=OpenSSL
 BMI_EXPECTED=1
 
