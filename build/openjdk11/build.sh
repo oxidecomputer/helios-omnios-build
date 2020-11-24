@@ -25,8 +25,6 @@ SUMMARY="openjdk $VER"
 DESC="Open-source implementation of the eleventh edition of the Java SE Platform"
 
 set_arch 64
-# This component does not yet build with gcc 10
-set_gccver 9
 
 set_builddir "jdk${VER}u-jdk-$VER.0.$UPDATE+$BUILD"
 
