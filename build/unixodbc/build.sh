@@ -23,8 +23,6 @@ PKG=library/unixodbc
 SUMMARY="The UnixODBC Subsystem and SDK"
 DESC="UnixODBC - The UnixODBC Subsystem and SDK"
 
-set_ssp none
-
 CONFIGURE_OPTS="
     --includedir=$PREFIX/include/odbc
     --localstatedir=/var
