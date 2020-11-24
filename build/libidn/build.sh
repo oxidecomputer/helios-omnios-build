@@ -23,8 +23,6 @@ PKG=library/libidn
 SUMMARY="The Internationalized Domains Library"
 DESC="IDN - The Internationalized Domains Library"
 
-set_ssp none
-
 CONFIGURE_OPTS="--disable-static"
 
 init
