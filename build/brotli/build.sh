@@ -58,7 +58,7 @@ init
 download_source $PROG v$VER
 patch_source
 prep_build cmake
-build -ctf
+build
 make_package
 clean_up
 

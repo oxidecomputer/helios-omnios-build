@@ -106,7 +106,7 @@ download_source $PROG $PROG $VER
 patch_source
 # The source archive for version 5.9 includes some .o files that need cleaning
 CLEAN_SOURCE=
-build -ctf
+build
 run_testsuite test
 install_smf application/management net-snmp.xml svc-net-snmp
 make_package

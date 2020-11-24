@@ -45,7 +45,7 @@ init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
-build -ctf
+build
 run_testsuite check
 make_isa_stub
 make_package

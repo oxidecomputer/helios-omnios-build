@@ -61,7 +61,7 @@ init
 download_source $PROG v$VER
 patch_source
 prep_build
-build -ctf
+build
 extract_licence
 make_package
 clean_up
