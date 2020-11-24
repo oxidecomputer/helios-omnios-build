@@ -23,8 +23,6 @@ PKG=runtime/python-27
 SUMMARY="$PROG ${VER%.*}"
 DESC="$SUMMARY"
 
-# This component does not yet build with gcc 10
-set_gccver 9
 set_ssp none
 
 set_python_version $PYTHON2VER
