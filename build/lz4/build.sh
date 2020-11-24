@@ -18,11 +18,11 @@
 
 PROG=lz4
 PKG=compress/lz4
-VER=1.9.2
+VER=1.9.3
 SUMMARY="LZ4"
 DESC="Extremely fast compression"
 
-# we build/ship 32 and 64bit libraries but only 64bit binaries
+# we build/ship 32 and 64-bit libraries but only 64-bit binaries
 configure32() {
     MAKE_ARGS_WS="
         CFLAGS=\"$CFLAGS $CFLAGS32\"
