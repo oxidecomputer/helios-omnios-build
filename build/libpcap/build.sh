@@ -23,12 +23,11 @@ PKG=system/library/pcap
 SUMMARY="libpcap - a packet capture library"
 DESC="$SUMMARY"
 
-set_ssp none
-
 CONFIGURE_OPTS="
     --mandir=/usr/share/man
     --with-pcap=dlpi
 "
+LDFLAGS+=" $SSPFLAGS"
 
 fixup_man3(){
     mv $DESTDIR/usr/share/man/man3 $DESTDIR/usr/share/man/man3pcap
@@ -37,7 +36,6 @@ fixup_man3(){
 init
 download_source $PROG $PROG $VER
 patch_source
-run_autoreconf -fi
 prep_build
 build
 make_isa_stub
