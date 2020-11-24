@@ -40,7 +40,7 @@ CONFIGURE_OPTS="
 	--with-match-limit=10000000
 	--with-pic
 "
-LDFLAGS32+=" -lssp_ns"
+LDFLAGS+=" $SSPFLAGS"
 
 init
 download_source $PROG $PROG $VER
