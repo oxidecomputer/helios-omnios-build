@@ -26,11 +26,11 @@ DESC="$SUMMARY"
 
 SKIP_LICENCES=libffi
 
-set_ssp none
-
 # Previous versions that also need to be built and packaged since compiled
 # software may depend on it.
 PVERS="3.2.1"
+
+LDFLAGS+=" $SSPFLAGS"
 
 # libffi has historically been linked with libtool's -nostdlib.
 # The exact reason for this unclear but historic commit messages indicate that
@@ -41,9 +41,14 @@ PVERS="3.2.1"
 save_function make_prog _make_prog
 make_prog() {
     _make_prog
-    logmsg "--- rebuilding libraries with -nostdlib -lc"
+    logmsg "--- rebuilding libraries with -nostdlib"
     pushd $TRIPLET64 >/dev/null || logerr "pushd"
-    libtool_nostdlib libtool -lc
+    if [ "$ISALIST" = "$ISAPART" ]; then
+        # 32-bit
+        libtool_nostdlib libtool "-lc -lssp_ns"
+    else
+        libtool_nostdlib libtool "-lc"
+    fi
     logcmd $MAKE clean all || logerr "Rebuild with -nostdlib failed"
     popd >/dev/null
 }
