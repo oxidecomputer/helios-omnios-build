@@ -47,7 +47,6 @@ patch_source
 prep_build
 build
 run_testsuite check
-strip_install
 make_package
 clean_up
 

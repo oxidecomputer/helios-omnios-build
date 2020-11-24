@@ -53,7 +53,6 @@ download_source $PROG $PROG $VER
 BUILDDIR=openwin download_source Xstuff openwin
 patch_source
 build
-strip_install
 make_package
 clean_up
 

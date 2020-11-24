@@ -63,7 +63,6 @@ run_autoreconf -fi
 prep_build
 build
 tests
-strip_install
 make_package
 clean_up
 

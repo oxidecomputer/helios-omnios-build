@@ -67,7 +67,6 @@ CONFIGURE_OPTS+=" --enable-utempter"
 download_source $PROG $PROG $VER
 patch_source
 build
-strip_install
 make_package
 clean_up
 
