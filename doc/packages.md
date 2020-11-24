@@ -81,7 +81,7 @@
 | shell/bash5-patchlvl			| 018			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
-| shell/tcsh				| 6.22.02		| https://github.com/tcsh-org/tcsh/releases
+| shell/tcsh				| 6.22.03		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.7.6			| https://github.com/tycho/cpuid/releases
 | system/data/urxvt-terminfo		| 9.22			| http://dist.schmorp.de/rxvt-unicode/
