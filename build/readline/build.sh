@@ -23,13 +23,12 @@ PKG=library/readline
 SUMMARY="GNU readline"
 DESC="GNU readline library"
 
-set_ssp none
-
 # Previous versions that also need to be built and packaged since compiled
 # software may depend on it.
 PVERS="6.3 7.0"
 
 CONFIGURE_OPTS="--disable-static"
+LDFLAGS+=" $SSPFLAGS"
 
 init
 prep_build
