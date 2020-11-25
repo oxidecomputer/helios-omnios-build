@@ -13,32 +13,31 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=zip
 VER=3.0
-VERHUMAN=$VER
 PKG=compress/zip
 SUMMARY="The Info-Zip (zip) compression utility"
 DESC="$SUMMARY"
 
 set_builddir "$PROG${VER//./}"
-set_arch 32
+set_arch 64
 
 SKIP_LICENCES="*"
 
 export CPP="gcc -E"
 
-configure32() {
+configure64() {
     export ISAPART DESTDIR PREFIX
+    MAKE_ARGS_WS="CC=\"gcc -m$BUILDARCH $CFLAGS $CFLAGS64\" CPP=\"gcc -E\""
 }
 
 BASE_MAKE_ARGS="-f unix/Makefile"
 MAKE_ARGS="$BASE_MAKE_ARGS generic"
 MAKE_INSTALL_ARGS="$BASE_MAKE_ARGS install"
-MAKE_ARGS_WS="CC=\"gcc -m$BUILDARCH\" CPP=\"gcc -E\""
 
 init
 download_source $PROG $PROG${VER//./}
