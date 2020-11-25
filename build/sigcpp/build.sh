@@ -36,7 +36,7 @@ init
 download_source $PROG $PROG $VER
 patch_source
 prep_build meson
-build
+build -noctf    # C++
 run_testsuite
 make_isa_stub
 make_package
