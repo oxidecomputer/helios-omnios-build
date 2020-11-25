@@ -23,29 +23,17 @@ PKG=library/expat
 SUMMARY="XML parser library"
 DESC="Fast streaming XML parser written in C"
 
-CONFIGURE_OPTS_64+="
-    --bindir=/usr/bin
-"
+forgo_isaexec
 
 TESTSUITE_SED="
     /^[^#]/d
 "
 
-save_function make_clean _make_clean
-make_clean() {
-    # As of expat 2.2.4, distclean removes the generated xmlwf.1
-    # man page too so that it is re-generated during build using
-    # docbook2X. We don't have docbook2X so preserve the file.
-    [ -f doc/xmlwf.1~ ] || cp doc/xmlwf.1{,~}
-    _make_clean
-    [ -f doc/xmlwf.1 ] || cp doc/xmlwf.1{~,}
-}
-
 init
 download_source $PROG $PROG $VER
 patch_source
-prep_build
-build
+prep_build autoconf -oot
+build -multi
 run_testsuite check
 make_package
 clean_up
