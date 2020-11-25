@@ -28,7 +28,6 @@
 
 PROG=gzip
 VER=1.10
-VERHUMAN=$VER
 PKG=compress/gzip
 SUMMARY="GNU zip"
 DESC="The GNU Zip (gzip) compression utility"

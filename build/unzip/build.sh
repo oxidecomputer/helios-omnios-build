@@ -19,7 +19,6 @@
 
 PROG=unzip
 VER=6.0
-VERHUMAN=$VER
 PKG=compress/unzip
 SUMMARY="The Info-Zip (unzip) compression utility"
 DESC="$SUMMARY"

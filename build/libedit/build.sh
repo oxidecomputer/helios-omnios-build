@@ -18,8 +18,6 @@
 
 PROG=libedit
 VER=20191231-3.1
-
-VERHUMAN=$VER
 PKG=library/libedit
 SUMMARY="Editline Library (libedit)"
 DESC="Command line editor library providing generic line editing, history "
@@ -34,8 +32,7 @@ patch_source
 prep_build
 build
 make_isa_stub
-VER=${VER#*-}
-make_package
+VERHUMAN=$VER VER=${VER#*-} make_package
 clean_up
 
 # Vim hints

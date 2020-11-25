@@ -19,7 +19,6 @@
 
 PROG=libffi
 VER=3.3
-VERHUMAN=$VER
 PKG=library/libffi
 SUMMARY="A Portable Foreign Function Interface Library"
 DESC="$SUMMARY"

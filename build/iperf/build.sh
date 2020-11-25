@@ -28,7 +28,6 @@
 
 PROG=iperf
 VER=3.1.3
-VERHUMAN=$VER
 PKG=network/test/iperf
 SUMMARY="iperf network testing tool"
 DESC="$SUMMARY $VER"

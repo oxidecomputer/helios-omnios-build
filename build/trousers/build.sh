@@ -27,7 +27,6 @@
 
 PROG=trousers
 VER=0.3.15
-VERHUMAN=$VER
 PKG=library/security/trousers
 SUMMARY="TrouSerS - An open-source TCG Software Stack implementation."
 DESC="TrouSerS - software for accessing a TPM device"

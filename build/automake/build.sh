@@ -19,7 +19,6 @@
 
 PROG=automake
 VER=1.16.3
-VERHUMAN=$VER
 PKG=developer/build/automake
 SUMMARY="GNU Automake"
 DESC="GNU Automake - A Makefile generator"

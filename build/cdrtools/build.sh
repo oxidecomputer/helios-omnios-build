@@ -19,7 +19,6 @@
 
 PROG=cdrtools
 VER=3.01
-VERHUMAN=$VER
 PKG=media/cdrtools
 SUMMARY="CD creation utilities"
 DESC="$SUMMARY"
