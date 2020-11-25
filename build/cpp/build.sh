@@ -31,7 +31,7 @@ set_arch 32
 set_builddir $PROG
 
 configure32() {
-    export CFLAGS="$CFLAGS32"
+    export CFLAGS+=" $CFLAGS32"
 }
 
 init
