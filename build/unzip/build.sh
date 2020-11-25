@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -25,7 +25,7 @@ SUMMARY="The Info-Zip (unzip) compression utility"
 DESC="$SUMMARY"
 
 set_builddir "$PROG${VER//./}"
-set_arch 32
+set_arch 64
 
 HARDLINK_TARGETS="
     usr/bin/unzip
@@ -35,13 +35,15 @@ SKIP_LICENCES="*"
 # Copied from upstream's pkg makefile
 export LOCAL_UNZIP="-DUNICODE_SUPPORT -DNO_WORKING_ISPRINT -DUNICODE_WCHAR"
 
-configure32() {
+configure64() {
     export ISAPART
+    MAKE_ARGS_WS="
+        CC=\"gcc -m$BUILDARCH $CFLAGS $CFLAGS64\"
+    "
 }
 
 BASE_MAKE_ARGS="-f unix/Makefile"
 MAKE_ARGS="$BASE_MAKE_ARGS generic IZ_BZIP2=bzip2"
-MAKE_ARGS_WS="CC=\"gcc -m$BUILDARCH\""
 MAKE_INSTALL_ARGS="$BASE_MAKE_ARGS install"
 
 init
