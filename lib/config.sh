@@ -271,13 +271,6 @@ FCFLAGS[8]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[9]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[10]+=" -fno-aggressive-loop-optimizations"
 
-# Add stack smashing protection (gcc 4 does not have the -strong variant)
-FCFLAGS[4.4.4]+=" -fstack-protector"
-FCFLAGS[7]+=" -fstack-protector-strong"
-FCFLAGS[8]+=" -fstack-protector-strong"
-FCFLAGS[9]+=" -fstack-protector-strong"
-FCFLAGS[10]+=" -fstack-protector-strong"
-
 # Flags to enable particular standards; see standards(5)
 typeset -A STANDARDS
 

@@ -37,7 +37,7 @@ TESTSUITE_SED="
 "
 
 CFLAGS+=" -fexceptions"
-LDFLAGS32+=" -lssp_ns"
+LDFLAGS+=" $SSPFLAGS"
 CONFIGURE_OPTS="
     --includedir=$PREFIX/include/gmp
     --localstatedir=/var

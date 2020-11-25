@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.66.2
+VER=2.66.3
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
@@ -67,7 +67,8 @@ clean_testsuite() {
     run_testsuite test "" $tf
     [ -s $SRCDIR/$tf ] && nawk '
         # Strip failed test output
-        /^The output from .* first failed/ { exit }
+        /^The output from .* first failed/,/Summary of Failures/ { next }
+        /^Full log written/ { exit }
         # Found a test
         /^ *[0-9][0-9]*\/[0-9]/ {
             # Remove elapsed time

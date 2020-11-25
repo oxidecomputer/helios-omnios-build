@@ -23,8 +23,6 @@ PKG=system/library/libdbus-glib
 SUMMARY="$PROG - GNOME GLib DBUS integration library"
 DESC="$SUMMARY"
 
-set_ssp none
-
 BUILD_DEPENDS_IPS="
     system/library/libdbus
     library/glib2

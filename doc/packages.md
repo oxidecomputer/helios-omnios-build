@@ -4,7 +4,7 @@
 | compress/brotli			| 1.0.9			| https://github.com/google/brotli/releases
 | compress/bzip2			| 1.0.8			| https://sourceware.org/pub/bzip2/
 | compress/gzip				| 1.10			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
-| compress/lz4				| 1.9.2			| https://github.com/lz4/lz4/releases
+| compress/lz4				| 1.9.3			| https://github.com/lz4/lz4/releases
 | compress/p7zip			| 16.02			| https://sourceforge.net/projects/p7zip/files/p7zip
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
@@ -13,7 +13,7 @@
 | data/iso-codes			| 4.5.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3330000		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
-| developer/build/automake		| 1.16.2		| https://ftp.gnu.org/gnu/automake/
+| developer/build/automake		| 1.16.3		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
@@ -46,7 +46,7 @@
 | library/libxml2			| 2.9.10		| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
-| library/nghttp2			| 1.41.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nghttp2			| 1.42.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.59			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.29			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
@@ -81,7 +81,7 @@
 | shell/bash5-patchlvl			| 018			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
-| shell/tcsh				| 6.22.02		| https://github.com/tcsh-org/tcsh/releases
+| shell/tcsh				| 6.22.03		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.7.6			| https://github.com/tycho/cpuid/releases
 | system/data/urxvt-terminfo		| 9.22			| http://dist.schmorp.de/rxvt-unicode/
@@ -108,7 +108,7 @@
 | text/less				| 563			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.73.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.20.3		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.66.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.66.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.35.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases

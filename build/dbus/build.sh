@@ -23,7 +23,6 @@ PKG=dbus ##IGNORE##
 SUMMARY="filled in below"
 DESC="$SUMMARY"
 
-set_ssp none
 set_standard XPG6
 CPPFLAGS+=" -D_REENTRANT"
 

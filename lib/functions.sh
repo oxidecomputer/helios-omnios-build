@@ -396,6 +396,22 @@ init_tools
 # Compiler version
 #############################################################################
 
+SSPFLAGS=
+set_ssp() {
+    case "$1" in
+        none)   SSPFLAGS=; SKIP_SSP_CHECK=1 ;;
+        strong) SSPFLAGS="-fstack-protector-strong" ;;
+        basic)  SSPFLAGS="-fstack-protector" ;;
+        all)    SSPFLAGS="-fstack-protector-all" ;;
+        *)      logerr "Unknown stack protector variant ($1)" ;;
+    esac
+    local LCFLAGS=`echo $CFLAGS | sed 's/-fstack-protector[^ ]*//'`
+    local LCXXFLAGS=`echo $CXXFLAGS | sed 's/-fstack-protector[^ ]*//'`
+    CFLAGS="$LCFLAGS $SSPFLAGS"
+    CXXFLAGS="$LCFLAGS $SSPFLAGS"
+    [ -z "$2" ] && logmsg "-- Set stack protection to '$1'"
+}
+
 set_gccver() {
     GCCVER="$1"
     [ -z "$2" ] && logmsg "-- Setting GCC version to $GCCVER"
@@ -412,25 +428,13 @@ set_gccver() {
 
     CFLAGS="${FCFLAGS[_]} ${FCFLAGS[$GCCVER]}"
     CXXFLAGS="${FCFLAGS[_]} ${FCFLAGS[$GCCVER]}"
+
+    local ssp=strong
+    [ $GCCVER = 4.4.4 ] && ssp=basic
+    set_ssp $ssp $2
 }
 
 set_gccver $DEFAULT_GCC_VER -q
-
-set_ssp() {
-    local SPFLAGS
-    case "$1" in
-        none)   SPFLAGS=; SKIP_SSP_CHECK=1 ;;
-        strong) SPFLAGS="-fstack-protector-strong" ;;
-        basic)  SPFLAGS="-fstack-protector" ;;
-        all)    SPFLAGS="-fstack-protector-all" ;;
-        *)      logerr "Unknown stack protector variant ($1)" ;;
-    esac
-    local LCFLAGS=`echo $CFLAGS | sed 's/-fstack-protector[^ ]*//'`
-    local LCXXFLAGS=`echo $CXXFLAGS | sed 's/-fstack-protector[^ ]*//'`
-    CFLAGS="$LCFLAGS $SPFLAGS"
-    CXXFLAGS="$LCFLAGS $SPFLAGS"
-    logmsg "-- Set stack protection $1"
-}
 
 #############################################################################
 # Go version
@@ -617,10 +621,11 @@ trap 'build_end' EXIT
 #############################################################################
 
 libtool_nostdlib() {
-    FILE=$1
-    EXTRAS=$2
-    logcmd perl -pi -e 's#(\$CC.*\$compiler_flags)#$1 -nostdlib '"$EXTRAS"'#g;' $FILE ||
-        logerr "--- Patching libtool:$FILE for -nostdlib support failed"
+    FILE="$1"
+    EXTRAS="$2"
+    logcmd perl -pi -e \
+        's#(\$CC.*\$compiler_flags)#$1 -nostdlib '"$EXTRAS"'#g;' $FILE \
+        || logerr "--- Patching libtool:$FILE for -nostdlib support failed"
 }
 
 #############################################################################
@@ -2047,7 +2052,7 @@ make_prog() {
     eval set -- $MAKE_ARGS_WS
     [ -n "$NO_PARALLEL_MAKE" ] && MAKE_JOBS=""
     if [ -n "$LIBTOOL_NOSTDLIB" ]; then
-        libtool_nostdlib $LIBTOOL_NOSTDLIB $LIBTOOL_NOSTDLIB_EXTRAS
+        libtool_nostdlib "$LIBTOOL_NOSTDLIB" "$LIBTOOL_NOSTDLIB_EXTRAS"
     fi
     logmsg "--- make"
     logcmd $MAKE $MAKE_JOBS $MAKE_ARGS "$@" || logerr "--- Make failed"

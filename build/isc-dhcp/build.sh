@@ -20,13 +20,9 @@
 
 PROG=dhcp
 VER=4.4.2
-VERHUMAN=$VER
 PKG=network/service/isc-dhcp
 SUMMARY="ISC DHCP"
 DESC="$SUMMARY $VER"
-
-# This component does not yet build with gcc 10
-set_gccver 9
 
 DEPENDS_IPS="system/library"
 
@@ -36,7 +32,7 @@ set_arch 64
 NO_PARALLEL_MAKE=1
 
 # This exposes msghdr.msg_control & msghdr.msg_controllen
-CFLAGS+=" -D_XPG4_2 -fstack-check"
+set_standard XPG6
 LDFLAGS="-zaslr"
 
 CONFIGURE_OPTS="

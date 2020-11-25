@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -23,11 +23,9 @@ PKG=library/idnkit
 SUMMARY="Internationalized Domain Name kit (idnkit/JPNIC)"
 DESC="Internationalized Domain Name kit (idnkit/JPNIC)"
 
-set_ssp none
-
 CONFIGURE_OPTS="--disable-static --mandir=/usr/share/man"
 LIBTOOL_NOSTDLIB=libtool
-LIBTOOL_NOSTDLIB_EXTRAS=-lc
+LIBTOOL_NOSTDLIB_EXTRAS="-lc -lssp_ns"
 
 install_legacy()
 {
