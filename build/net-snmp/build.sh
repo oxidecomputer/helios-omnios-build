@@ -47,9 +47,7 @@ LIBRARIES_ONLY="
     --disable-mibs
 "
 
-# Skip isaexec - deliver 64-bit binaries straight to [s]bin
-CONFIGURE_OPTS_64+=" --bindir=$PREFIX/bin --sbindir=$PREFIX/sbin"
-# For 32-bit, only build the libraries
+forgo_isaexec
 CONFIGURE_OPTS_32+=" $LIBRARIES_ONLY"
 
 CONFIGURE_OPTS="
