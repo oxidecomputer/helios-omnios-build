@@ -18,7 +18,6 @@
 
 PROG=xz
 VER=5.2.5
-VERHUMAN=$VER
 PKG=compress/xz
 SUMMARY="XZ Utils - general-purpose data compression software"
 DESC="Free general-purpose data compression software with a "
@@ -26,19 +25,17 @@ DESC+="high compression ratio"
 
 SKIP_LICENCES=xz
 
-# Skip isaexec and deliver 64-bit binaries directly to bin and sbin
-# 32-bit binaries are stripped in local.mog
-CONFIGURE_OPTS_64+=" --bindir=$PREFIX/bin --sbindir=$PREFIX/sbin"
+forgo_isaexec
 
 save_function configure32 _configure32
 configure32() {
-    _configure32
+    _configure32 "$@"
     logcmd gmake -C $TMPDIR/$BUILDDIR/src/liblzma foo
 }
 
 save_function configure64 _configure64
 configure64() {
-    _configure64
+    _configure64 "$@"
     logcmd gmake -C $TMPDIR/$BUILDDIR/src/liblzma foo
 }
 
