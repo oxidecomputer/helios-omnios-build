@@ -24,6 +24,8 @@ SUMMARY="PCI device utilities"
 DESC="Programs (lspci, setpci) for inspecting and manipulating configuration "
 DESC+="of PCI devices"
 
+DASHREV=1
+
 RUN_DEPENDS_IPS="system/pciutils/pci.ids"
 
 set_arch 64
@@ -36,7 +38,7 @@ configure64() {
 }
 
 MAKE_ARGS_WS="
-    OPT=\"$CFLAGS64 -DBYTE_ORDER=1234 -DLITTLE_ENDIAN=1234\"
+    OPT=\"$CFLAGS64 $CFLAGS -DBYTE_ORDER=1234 -DLITTLE_ENDIAN=1234\"
 "
 
 MAKE_INSTALL_ARGS="
