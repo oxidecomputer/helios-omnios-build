@@ -90,9 +90,13 @@ save_function _make_clean make_clean
 note -n "Building $PROG"
 
 CFLAGS+=" -I/usr/include/ncurses"
+LDFLAGS+=" -lncurses"
 
 # "let's shrink the SHT_SYMTAB as much as we can"
-LDFLAGS="-Wl,-z -Wl,redlocsym -lncurses"
+# When last checked, this option shrinks the symbol table size by a third
+# but it currently prevents `ctfconvert` from processing the resulting
+# object; see https://www.illumos.org/issues/13336
+LDFLAGS+=" -Wl,-z -Wl,redlocsym"
 
 CONFIGURE_OPTS="
     --localstatedir=/var
@@ -139,7 +143,7 @@ CONFIGURE_OPTS="
 
 download_source $PROG $PROG $VER
 patch_source
-build
+build -noctf    # See comment above
 [ -n "$PATCHLEVEL" ] && VER+=".$PATCHLEVEL"
 make_package
 clean_up

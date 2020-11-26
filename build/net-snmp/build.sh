@@ -47,9 +47,7 @@ LIBRARIES_ONLY="
     --disable-mibs
 "
 
-# Skip isaexec - deliver 64-bit binaries straight to [s]bin
-CONFIGURE_OPTS_64+=" --bindir=$PREFIX/bin --sbindir=$PREFIX/sbin"
-# For 32-bit, only build the libraries
+forgo_isaexec
 CONFIGURE_OPTS_32+=" $LIBRARIES_ONLY"
 
 CONFIGURE_OPTS="
@@ -106,7 +104,7 @@ download_source $PROG $PROG $VER
 patch_source
 # The source archive for version 5.9 includes some .o files that need cleaning
 CLEAN_SOURCE=
-build -ctf
+build
 run_testsuite test
 install_smf application/management net-snmp.xml svc-net-snmp
 make_package

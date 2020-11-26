@@ -21,7 +21,6 @@
 
 PROG=kayak
 VER=1.1
-VERHUMAN=$VER
 PKG=system/install/kayak
 SUMMARY="Kayak - OmniOS media generator and server"
 DESC="Kayak generates install media for OmniOS: either ISO/USB or network installation using PXE, DHCP, and HTTP"

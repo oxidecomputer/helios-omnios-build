@@ -41,14 +41,21 @@ BUILDORDER="64 32"
 # default make does not like. Ensure that GNU make is used for all invocations.
 export MAKE
 
+# Want verbose output from make
+MAKE_ARGS=V=1
+
 SKIP_LICENCES=curl
 TESTSUITE_FILTER="^TEST[A-Z]"
+
+# curl filters the provided CFLAGS and does not allow the CTF options. Add them
+# to the compiler variable instead.
+CC+=" $CTF_CFLAGS"
 
 init
 download_source $PROG $PROG $VER
 patch_source
-prep_build
-build
+prep_build autoconf -oot
+build -multi
 run_testsuite
 make_isa_stub
 make_package

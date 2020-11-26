@@ -194,7 +194,7 @@ download_source $PROG $PROG $VER
 patch_source
 # gcc should be built out-of-tree
 prep_build autoconf -oot
-build
+build -noctf
 tests
 logcmd cp $TMPDIR/$SRC_BUILDDIR/COPYING* $TMPDIR/$BUILDDIR
 make_package

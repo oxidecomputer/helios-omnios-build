@@ -195,7 +195,13 @@ FIND_ELF=$ONBLDBIN/find_elf
 CHECK_RTIME=$ONBLDBIN/check_rtime
 CTFDUMP=$ONBLDBIN/i386/ctfdump
 CTFCONVERT=$ONBLDBIN/i386/ctfconvert
-CTFCONVERTFLAGS=-mi
+# For now, we need to universally allow missing debug data
+# see https://www.illumos.org/issues/13337
+CTF_FLAGS=-m
+CTF_CFLAGS="-gdwarf-2"
+
+# Enable CTF by default
+CTF_DEFAULT=1
 
 # Figure out number of logical CPUs for use with parallel gmake jobs (-j)
 # Default to 1.5*nCPUs as we assume the build machine is 100% devoted to

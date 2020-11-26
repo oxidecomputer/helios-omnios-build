@@ -114,7 +114,6 @@ patch_source
 run_autoreconf -fi
 prep_build
 build
-strip_install
 launch_testsuite
 test_dtrace
 make_package

@@ -33,12 +33,12 @@ PREFIX=/usr
 export PREFIX
 export CC
 
-base_CFLAGS="$CFLAGS -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -Wall -Winline"
+base_CFLAGS="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -Wall -Winline"
 
 configure32() {
     BINISA=""
     LIBISA=""
-    CFLAGS="$CFLAGS32 $base_CFLAGS"
+    CFLAGS="$CFLAGS $CFLAGS32 $base_CFLAGS"
     LDFLAGS="$LDFLAGS $LDFLAGS32"
     export BINISA LIBISA CFLAGS LDFLAGS
 }
@@ -46,7 +46,7 @@ configure32() {
 configure64() {
     BINISA=""
     LIBISA=$ISAPART64
-    CFLAGS="$CFLAGS64 $base_CFLAGS"
+    CFLAGS="$CFLAGS $CFLAGS64 $base_CFLAGS"
     LDFLAGS="$LDFLAGS $LDFLAGS64"
     export BINISA LIBISA CFLAGS LDFLAGS
 }
@@ -97,7 +97,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-strip_install
 run_testsuite
 make_package
 clean_up

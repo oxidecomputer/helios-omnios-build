@@ -19,7 +19,6 @@
 
 PROG=intltool
 VER=0.51.0
-VERHUMAN=$VER
 PKG=text/intltool
 SUMMARY="Extracts translatable strings from specific source file types."
 DESC="$SUMMARY"

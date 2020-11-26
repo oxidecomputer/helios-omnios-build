@@ -25,15 +25,12 @@ DESC+="Link Layer Discovery Protocol"
 
 set_arch 64
 
-# The openlldp source has empty C files.
-CTFCONVERTFLAGS+=" -m"
-
 init
 download_source $PROG $PROG $VER
 patch_source
 run_autoreconf -i
 prep_build
-build -ctf
+build
 install_smf network lldpd.xml
 VERHUMAN=$VER
 VER=${VER/alpha/.0}

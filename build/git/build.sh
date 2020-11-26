@@ -99,7 +99,6 @@ build
 run_testsuite
 install_man
 install_pod
-strip_install
 install_inetservices
 make_package
 clean_up

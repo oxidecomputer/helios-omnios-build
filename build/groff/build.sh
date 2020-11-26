@@ -37,7 +37,6 @@ patch_source
 touch $TMPDIR/$BUILDDIR/doc/groff.info
 prep_build
 build
-strip_install
 make_package
 clean_up
 

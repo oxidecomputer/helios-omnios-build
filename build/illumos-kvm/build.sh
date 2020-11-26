@@ -44,6 +44,7 @@ BUILD_DEPENDS_IPS="
     file/gnu-coreutils
 "
 SKIP_LICENCES='qemu.license'
+SKIP_SSP_CHECK=1
 
 set_gccver $ILLUMOS_GCC_VER
 set_arch 64
@@ -112,7 +113,7 @@ echo "TMPDIR: $TMPDIR"
 echo "BUILDDIR: $BUILDDIR"
 
 prep_build
-build
+build -noctf    # The build scripts already take care of CTF for the driver
 fix_drivers
 SUMMARY="illumos KVM kernel driver ($PROG ${KVM_COMMIT:0:10})"
 DESC="KVM is the kernel virtual machine, a framework for the in-kernel "
@@ -123,6 +124,8 @@ clean_up
 
 ###########################################################################
 # KVM utilities
+
+unset SKIP_SSP_CHECK
 
 configure64() {
     PREFIX=/usr

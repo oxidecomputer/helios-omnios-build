@@ -59,7 +59,6 @@ patch_source
 prep_build
 build_rust
 install
-strip_install
 make_package
 clean_up
 

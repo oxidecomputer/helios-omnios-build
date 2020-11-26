@@ -28,7 +28,6 @@
 
 PROG=ec2-credential
 VER=1.0
-VERHUMAN=$VER
 PKG=system/management/ec2-credential
 SUMMARY="Service that handles Amazon EC2 ssh key setup at boot time"
 DESC="$SUMMARY"

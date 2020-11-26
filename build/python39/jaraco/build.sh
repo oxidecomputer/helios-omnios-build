@@ -43,7 +43,6 @@ for pkg in "${!packages[@]}"; do
     python_build
 done
 
-strip_install
 EXTRACTED_SRC=$BUILDDIR make_package
 clean_up
 

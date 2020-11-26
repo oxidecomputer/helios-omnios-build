@@ -63,7 +63,7 @@ configure64() {
         -Dcf_email=sa@omniosce.org \
         -Dcc=gcc \
         -Dld=/usr/ccs/bin/ld \
-        -Doptimize=-O3 \
+        -Doptimize="-O3 $CTF_CFLAGS" \
         -Dprefix=${PREFIX} \
         -Dvendorprefix=${PREFIX} \
         -Dbin=${PREFIX}/bin \
@@ -93,7 +93,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-strip_install
 run_testsuite
 make_package
 clean_up

@@ -19,7 +19,6 @@
 
 PROG=illumos-closed
 VER=5.11
-VERHUMAN=$VER
 PKG=developer/illumos-closed
 SUMMARY="illumos closed binaries"
 DESC="Closed-source binaries required to build an illumos distribution."

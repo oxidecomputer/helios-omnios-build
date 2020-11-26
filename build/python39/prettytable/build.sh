@@ -30,7 +30,6 @@ download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build
-strip_install
 make_package
 clean_up
 

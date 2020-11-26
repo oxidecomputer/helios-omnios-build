@@ -159,7 +159,7 @@ init
 download_source gcc44 ${PROG}-gcc-4.4.4-${ILLUMOSVER}
 patch_source
 prep_build
-build
+build -noctf
 fix_runpath
 tests
 make_package gcc.mog depends.mog

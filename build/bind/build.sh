@@ -53,7 +53,6 @@ patch_source
 prep_build
 run_autoreconf -fi
 build
-strip_install
 make_package
 clean_up
 

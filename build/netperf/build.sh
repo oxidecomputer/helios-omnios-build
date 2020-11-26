@@ -19,7 +19,6 @@
 
 PROG=netperf
 VER=2.7.0
-VERHUMAN=$VER
 PKG=network/test/netperf
 SUMMARY="netperf network testing tool"
 DESC="$SUMMARY $VER"

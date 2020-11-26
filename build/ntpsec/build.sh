@@ -47,6 +47,7 @@ CONFIGURE_OPTS="
     --libdir=$PYTHONVENDOR
     --enable-manpage --disable-doc
     --nopyc --nopyo --nopycache
+    --enable-debug-gdb
 "
 
 # NTPsec uses the 'waf' build system

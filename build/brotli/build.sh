@@ -33,9 +33,7 @@ CONFIGURE_OPTS="
     -DCMAKE_INSTALL_PREFIX=$PREFIX
     -DCMAKE_VERBOSE_MAKEFILE=1
 "
-CONFIGURE_OPTS_32="
-    -DCMAKE_INSTALL_BINDIR=$PREFIX/bin/i386
-"
+CONFIGURE_OPTS_32=
 CONFIGURE_OPTS_64="
     -DCMAKE_INSTALL_LIBDIR=lib/$ISAPART64
     -DCMAKE_LIBRARY_ARCHITECTURE=$ISAPART64
@@ -58,7 +56,7 @@ init
 download_source $PROG v$VER
 patch_source
 prep_build cmake
-build -ctf
+build
 make_package
 clean_up
 

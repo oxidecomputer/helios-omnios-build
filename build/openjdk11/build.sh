@@ -93,7 +93,7 @@ download_source $PROG "jdk-$VER.0.$UPDATE+$BUILD"
 patch_source
 prep_build autoconf -oot
 chmod +x $CONFIGURE_CMD
-build
+build -noctf
 VER=$IVER.$UPDATE.$BUILD
 make_package
 clean_up

@@ -18,7 +18,6 @@
 
 PROG=nasm
 VER=2.15.05
-VERHUMAN=$VER
 PKG=developer/nasm
 SUMMARY="The Netwide Assembler"
 DESC="an assembler targetting the Intel x86 series of processors"

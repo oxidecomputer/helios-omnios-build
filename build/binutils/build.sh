@@ -74,7 +74,7 @@ init
 download_source $PROG $PROG $VER
 patch_source
 prep_build
-build
+build -noctf    # Needs truncation option - see illumos 13280
 basic_tests
 make_package
 clean_up

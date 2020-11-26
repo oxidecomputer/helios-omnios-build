@@ -13,13 +13,12 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=cdrtools
 VER=3.01
-VERHUMAN=$VER
 PKG=media/cdrtools
 SUMMARY="CD creation utilities"
 DESC="$SUMMARY"
@@ -39,6 +38,10 @@ configure32() { :; }
 
 MAKE=dmake
 MAKE_ARGS="CCOM=gcc$BUILDARCH"
+MAKE_ARGS_WS="
+    COPTX=\"$CTF_CFLAGS $SSPFLAGS\"
+    LDOPTX=\"$CTF_CFLAGS $SSPFLAGS\"
+"
 MAKE_INSTALL_ARGS="$MAKE_ARGS"
 
 make_install() {

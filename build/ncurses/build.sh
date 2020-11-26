@@ -78,7 +78,6 @@ patch_source
 prep_build
 build_abi5
 build_abi6
-strip_install
 make_isa_stub
 make_package
 clean_up
