@@ -28,6 +28,9 @@ DEPENDS_IPS="system/library"
 
 set_arch 64
 
+# ldap_casa.c is #ifdefd out
+CTF_FLAGS+=" -m"
+
 # Doesn't work with parallel gmake
 NO_PARALLEL_MAKE=1
 

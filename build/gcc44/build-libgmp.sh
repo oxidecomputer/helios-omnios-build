@@ -34,6 +34,8 @@ DESC="$SUMMARY"
 set_gccver 4.4.4
 set_ssp none
 set_arch 32
+CTF_FLAGS+=" -m"
+CTFSKIP="libgmpxx\.so" # C++ object
 
 PREFIX=/opt/gcc-${GCCVER}
 CC=gcc

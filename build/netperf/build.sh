@@ -27,6 +27,7 @@ SKIP_LICENCES=HP
 
 set_arch 64
 set_standard XPG6
+CTF_FLAGS+=" -m"
 
 init
 download_source $PROG $PROG $VER

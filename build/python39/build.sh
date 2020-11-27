@@ -42,6 +42,7 @@ XFORM_ARGS="-D PYTHONVER=$MVER"
 HARDLINK_TARGETS="
     usr/bin/python$MVER
 "
+CTFSKIP='amd64/libpython3\.so$' # stub library
 
 SKIP_RTIME_CHECK=1
 

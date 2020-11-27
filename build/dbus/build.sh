@@ -25,6 +25,7 @@ DESC="$SUMMARY"
 
 set_standard XPG6
 CPPFLAGS+=" -D_REENTRANT"
+CTF_FLAGS+=" -m"
 
 CONFIGURE_OPTS="
     --with-dbus-daemondir=/usr/lib

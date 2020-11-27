@@ -40,6 +40,9 @@ export PATH=$GNUBIN:$PATH
 
 set_arch 64
 
+# some bits currently fail to convert - try -s after 13280
+#CTF_FLAGS+=" -s"
+
 BUILD_DEPENDS_IPS='developer/pkg-config'
 
 # XPG4v2 - Need cmsg from UNIX95

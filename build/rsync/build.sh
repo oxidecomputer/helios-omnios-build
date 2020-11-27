@@ -27,6 +27,7 @@ XXHASHVER=0.8.0
 XFORM_ARGS+=" -DXXHASH=$XXHASHVER"
 
 set_arch 64
+CTF_FLAGS+=" -m"
 
 init
 prep_build
