@@ -37,8 +37,7 @@ set_ssp none
 # required for getopt
 set_standard XPG6
 
-# A couple of libraries fail to convert - try -s after 13280
-#CTF_FLAGS+=" -s"
+CTF_FLAGS+=" -s"
 
 # nspr/nss produces lots of runtime warnings that we cannot easily resolve.
 SKIP_RTIME_CHECK=1

@@ -31,10 +31,6 @@ XFORM_ARGS+=" -DESTR=$ESTRVER"
 set_arch 64
 set_standard XPG6
 
-# Some compat files are completely #ifdefd out because we have the
-# functions - getifaddrs.c, nsdpoll_ptcp.c
-CTF_FLAGS+=" -m"
-
 init
 prep_build autoconf -autoreconf
 

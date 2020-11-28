@@ -47,9 +47,6 @@ LIBRARIES_ONLY="
     --disable-mibs
 "
 
-# file cert_util.c is missing debug info
-CTF_FLAGS+=" -m"
-
 forgo_isaexec
 CONFIGURE_OPTS_32+=" $LIBRARIES_ONLY"
 

@@ -39,9 +39,7 @@ fi
 export PATH=$GNUBIN:$PATH
 
 set_arch 64
-
-# some bits currently fail to convert - try -s after 13280
-#CTF_FLAGS+=" -s"
+CTF_FLAGS+=" -s"
 
 BUILD_DEPENDS_IPS='developer/pkg-config'
 

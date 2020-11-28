@@ -25,7 +25,6 @@ DESC="A full-screen window manager that multiplexes a physical "
 DESC+="terminal between several processes"
 
 set_arch 64
-CTF_FLAGS+=" -m"
 
 CONFIGURE_OPTS_WS="
     --with-sys-screenrc=/etc/screenrc
