@@ -144,7 +144,7 @@
 | library/python-3/pyopenssl-39		| 20.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-39	| 0.17.3		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-39		| 2020.4		| https://pypi.org/project/pytz
-| library/python-3/rapidjson-39		| 0.9.3			| https://pypi.org/project/python-rapidjson
+| library/python-3/rapidjson-39		| 0.9.4			| https://pypi.org/project/python-rapidjson
 | library/python-3/setuptools-39	| 50.3.2		| https://pypi.org/project/setuptools
 | library/python-3/six-39		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.0.1			| https://pypi.org/project/tempora
