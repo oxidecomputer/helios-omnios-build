@@ -132,7 +132,7 @@
 | library/python-3/jsonschema-39	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-39		| 1.1.3			| https://pypi.org/project/Mako
 | library/python-3/meson-39		| 0.56.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-39	| 8.5.0			| https://pypi.org/project/more-itertools
+| library/python-3/more-itertools-39	| 8.6.0			| https://pypi.org/project/more-itertools
 | library/python-3/orjson-39		| 3.4.3			| https://github.com/ijl/orjson/releases
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-39		| 2.6			| https://pypi.org/project/portend
