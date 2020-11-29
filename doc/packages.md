@@ -31,7 +31,7 @@
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 8.32			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
-| library/c++/sigcpp			| 3.0.4			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
+| library/c++/sigcpp			| 3.0.6			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.10		| https://github.com/libexpat/libexpat/releases
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/releases | Currently used solely by rsyslog
 | library/fastjson			| 0.99.8		| https://github.com/rsyslog/libfastjson/releases | Currently used solely by rsyslog
@@ -59,7 +59,7 @@
 | library/unixodbc			| 2.3.9			| http://www.unixodbc.org/download.html
 | library/xxhash			| 0.8.0			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
-| meta/data/microcode			| 20201112		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
+| meta/data/microcode			| 20201118		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
 | network/dns/bind			| 9.11.24		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.4p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
@@ -117,8 +117,8 @@
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-39	| 1.4.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-39		| 20.3.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-39		| 1.14.3		| https://pypi.org/project/cffi
-| library/python-3/cheroot-39		| 8.4.5			| https://pypi.org/project/cheroot
+| library/python-3/cffi-39		| 1.14.4		| https://pypi.org/project/cffi
+| library/python-3/cheroot-39		| 8.4.8			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-39		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-39		| 5.3			| https://pypi.org/project/coverage
 | library/python-3/cryptography-39	| 3.2.1			| https://pypi.org/project/cryptography
@@ -132,19 +132,19 @@
 | library/python-3/jsonschema-39	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-39		| 1.1.3			| https://pypi.org/project/Mako
 | library/python-3/meson-39		| 0.56.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-39	| 8.5.0			| https://pypi.org/project/more-itertools
-| library/python-3/orjson-39		| 3.4.3			| https://github.com/ijl/orjson/releases
+| library/python-3/more-itertools-39	| 8.6.0			| https://pypi.org/project/more-itertools
+| library/python-3/orjson-39		| 3.4.4			| https://github.com/ijl/orjson/releases
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
-| library/python-3/portend-39		| 2.6			| https://pypi.org/project/portend
-| library/python-3/prettytable-39	| 1.0.1			| https://pypi.org/project/PrettyTable
+| library/python-3/portend-39		| 2.7.0			| https://pypi.org/project/portend
+| library/python-3/prettytable-39	| 2.0.0			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-39		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-39	| 2.6.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-39		| 2.20			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-39		| 7.43.0.6		| https://pypi.org/project/pycurl
-| library/python-3/pyopenssl-39		| 19.1.0		| https://pypi.org/project/pyOpenSSL
+| library/python-3/pyopenssl-39		| 20.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-39	| 0.17.3		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-39		| 2020.4		| https://pypi.org/project/pytz
-| library/python-3/rapidjson-39		| 0.9.3			| https://pypi.org/project/python-rapidjson
+| library/python-3/rapidjson-39		| 0.9.4			| https://pypi.org/project/python-rapidjson
 | library/python-3/setuptools-39	| 50.3.2		| https://pypi.org/project/setuptools
 | library/python-3/six-39		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.0.1			| https://pypi.org/project/tempora
