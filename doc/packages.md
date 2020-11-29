@@ -135,7 +135,7 @@
 | library/python-3/more-itertools-39	| 8.6.0			| https://pypi.org/project/more-itertools
 | library/python-3/orjson-39		| 3.4.4			| https://github.com/ijl/orjson/releases
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
-| library/python-3/portend-39		| 2.6			| https://pypi.org/project/portend
+| library/python-3/portend-39		| 2.7.0			| https://pypi.org/project/portend
 | library/python-3/prettytable-39	| 1.0.1			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-39		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-39	| 2.6.0			| https://pypi.org/project/pycodestyle/
