@@ -97,6 +97,8 @@ LDFLAGS+=" -lncurses"
 # but it currently prevents `ctfconvert` from processing the resulting
 # object; see https://www.illumos.org/issues/13336
 LDFLAGS+=" -Wl,-z -Wl,redlocsym"
+# Enable this after 13336 is integrated
+#CTF_FLAGS+=" -i"
 
 CONFIGURE_OPTS="
     --localstatedir=/var

@@ -32,6 +32,7 @@ RUN_DEPENDS_IPS+="
 
 set_builddir "$PROG-$PROG-$VER"
 set_arch 64
+CTF_FLAGS+=" -m"
 
 CONFIGURE_OPTS_64="
     --prefix=$PREFIX

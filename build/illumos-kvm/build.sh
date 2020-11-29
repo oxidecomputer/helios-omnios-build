@@ -126,6 +126,7 @@ clean_up
 # KVM utilities
 
 unset SKIP_SSP_CHECK
+CTF_FLAGS+=" -m"
 
 configure64() {
     PREFIX=/usr

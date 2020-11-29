@@ -124,7 +124,7 @@ install_dicts() {
 init
 prep_build
 
-build_dependency aspell aspell-$ASPELL_VER aspell aspell $ASPELL_VER
+build_dependency -noctf aspell aspell-$ASPELL_VER aspell aspell $ASPELL_VER
 PATH+=":$DEPROOT/usr/bin"
 
 fetch_dicts

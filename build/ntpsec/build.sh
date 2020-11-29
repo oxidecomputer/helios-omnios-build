@@ -23,6 +23,7 @@ SUMMARY="Network time services"
 DESC="A secure, hardened and improved Network Time Protocol implementation"
 
 set_arch 64
+CTF_FLAGS+=" -m"
 
 # Required to generate man pages
 BUILD_DEPENDS_IPS="ooce/text/asciidoc"

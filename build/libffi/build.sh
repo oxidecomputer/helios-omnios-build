@@ -30,6 +30,7 @@ SKIP_LICENCES=libffi
 PVERS="3.2.1"
 
 LDFLAGS+=" $SSPFLAGS"
+CTF_FLAGS+=" -m"
 
 # libffi has historically been linked with libtool's -nostdlib.
 # The exact reason for this unclear but historic commit messages indicate that

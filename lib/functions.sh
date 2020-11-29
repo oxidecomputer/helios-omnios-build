@@ -2238,6 +2238,7 @@ build_dependency() {
         case $1 in
             -merge)     merge=1 ;;
             -ctf)       buildargs+=" -ctf" ;;
+            -noctf)     buildargs+=" -noctf" ;;
         esac
         shift
     done
@@ -2502,6 +2503,11 @@ convert_ctf() {
     while read file; do
         file $file | $EGREP -s ':	ELF' || continue
 
+        if [ -n "$CTFSKIP" ] && echo $file | $EGREP -s "$CTFSKIP"; then
+            logmsg "$ctftag skipped $file"
+            continue
+        fi
+
         if $CTFDUMP -h "$file" 1>/dev/null 2>&1; then
             continue
         fi
@@ -2525,6 +2531,11 @@ convert_ctf() {
             fi
         else
             logmsg "$ctftag failed $file"
+            if [ -n "$CTF_AUDIT" ]; then
+                logcmd mkdir -p $BASE_TMPDIR/ctfobj
+                typeset f=${file:2}
+                logcmd cp $file $BASE_TMPDIR/ctfobj/${f//\//_}
+            fi
         fi
 
         logcmd rm -f "$tf"
@@ -2719,7 +2730,7 @@ check_ssp() {
     : > $TMPDIR/rtime.ssp
     while read obj; do
         [ -f "$destdir/$obj" ] || continue
-        nm $destdir/$obj | egrep -s '__stack_chk_guard' \
+        nm $destdir/$obj | $EGREP -s '__stack_chk_guard' \
             || echo "$obj does not include stack smashing protection" \
             >> $TMPDIR/rtime.ssp &
         parallelise $LCPUS
