@@ -117,7 +117,7 @@
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-39	| 1.4.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-39		| 20.3.0		| https://pypi.org/project/attrs
-| library/python-3/cffi-39		| 1.14.3		| https://pypi.org/project/cffi
+| library/python-3/cffi-39		| 1.14.4		| https://pypi.org/project/cffi
 | library/python-3/cheroot-39		| 8.4.5			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-39		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-39		| 5.3			| https://pypi.org/project/coverage
