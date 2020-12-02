@@ -1464,7 +1464,7 @@ make_package() {
     fi
 
     ## Strip leading zeros in version components.
-    VER=`echo $VER | sed -e 's/\.0*\([1-9]\)/.\1/g;'`
+    VER=`echo $VER | sed -e 's/\.0*\([0-9]\)/.\1/g;'`
 
     [ "$VER" = "$_VER" ] || logmsg "--- Converted version '$_VER'  -> '$VER'"
 
