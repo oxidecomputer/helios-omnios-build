@@ -11,7 +11,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.4.5			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.5.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3330000		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3340000		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
 | developer/build/automake		| 1.16.3		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -74,7 +74,7 @@
 | runtime/python-35			| 3.5.10		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.9			| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.0			| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.3p1		| https://www.sudo.ws/
+| security/sudo				| 1.9.4			| https://www.sudo.ws/
 | service/network/ntpsec		| 1.2.0			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
