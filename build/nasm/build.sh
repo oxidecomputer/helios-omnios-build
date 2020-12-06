@@ -22,10 +22,8 @@ PKG=developer/nasm
 SUMMARY="The Netwide Assembler"
 DESC="an assembler targetting the Intel x86 series of processors"
 
-# nasm, ndisasm currently fail to convert - try -s after 13280
-#CTF_FLAGS+=" -s"
-
 set_arch 64
+CTF_FLAGS+=" -s"
 
 # Nasm uses INSTALLROOT instead of the more standard DESTDIR
 MAKE_INSTALL_ARGS="INSTALLROOT=$DESTDIR"

@@ -93,12 +93,11 @@ CFLAGS+=" -I/usr/include/ncurses"
 LDFLAGS+=" -lncurses"
 
 # "let's shrink the SHT_SYMTAB as much as we can"
-# When last checked, this option shrinks the symbol table size by a third
-# but it currently prevents `ctfconvert` from processing the resulting
-# object; see https://www.illumos.org/issues/13336
+# When last checked, this option shrinks the symbol table size by a third, but
+# it removes the information that ctfconvert uses to detect objects built from
+# C sources. To work around that, the -i option is added.
 LDFLAGS+=" -Wl,-z -Wl,redlocsym"
-# Enable this after 13336 is integrated
-#CTF_FLAGS+=" -i"
+CTF_FLAGS+=" -i"
 
 CONFIGURE_OPTS="
     --localstatedir=/var
@@ -145,7 +144,7 @@ CONFIGURE_OPTS="
 
 download_source $PROG $PROG $VER
 patch_source
-build -noctf    # See comment above
+build
 [ -n "$PATCHLEVEL" ] && VER+=".$PATCHLEVEL"
 make_package
 clean_up

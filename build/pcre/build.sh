@@ -41,7 +41,6 @@ CONFIGURE_OPTS="
 	--with-pic
 "
 LDFLAGS+=" $SSPFLAGS"
-CTFSKIP="libpcrecpp" # C++ objects
 
 init
 download_source $PROG $PROG $VER

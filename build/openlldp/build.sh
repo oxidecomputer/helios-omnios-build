@@ -24,7 +24,6 @@ DESC="A comprehensive implementation of the IEEE standard 802.1AB "
 DESC+="Link Layer Discovery Protocol"
 
 set_arch 64
-CTF_FLAGS+=" -m"
 
 init
 download_source $PROG $PROG $VER

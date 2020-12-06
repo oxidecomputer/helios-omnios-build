@@ -36,8 +36,6 @@ TESTSUITE_SED="
     /^Making /d
 "
 
-CTFSKIP="libgmpxx\.so" # C++ objects
-
 CFLAGS+=" -fexceptions"
 LDFLAGS+=" $SSPFLAGS"
 CONFIGURE_OPTS="

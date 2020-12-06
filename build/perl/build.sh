@@ -25,7 +25,7 @@ SUMMARY="Perl $MAJVER Programming Language"
 DESC="A highly capable, feature-rich programming language"
 
 set_arch 64
-CTF_FLAGS+=" -m"
+CTF_FLAGS+=" -s"
 
 PREFIX=/usr/perl5/$MAJVER
 
