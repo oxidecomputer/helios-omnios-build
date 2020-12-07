@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=pcre2
-VER=10.35
+VER=10.36
 PKG=library/pcre2
 SUMMARY="Perl-Compatible Regular Expressions, version 2"
 DESC="The PCRE library is a set of functions that implement regular expression"
