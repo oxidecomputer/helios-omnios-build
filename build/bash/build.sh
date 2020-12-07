@@ -27,8 +27,8 @@
 . ../../lib/functions.sh
 
 PROG=bash
-VER=5.0
-PATCHLEVEL=18
+VER=5.1
+PATCHLEVEL=0
 PKG=shell/bash
 SUMMARY="GNU Bash"
 DESC="GNU Bourne-Again shell (bash)"
@@ -96,7 +96,7 @@ LDFLAGS+=" -lncurses"
 # When last checked, this option shrinks the symbol table size by a third, but
 # it removes the information that ctfconvert uses to detect objects built from
 # C sources. To work around that, the -i option is added.
-LDFLAGS+=" -Wl,-z -Wl,redlocsym"
+LDFLAGS+=" -Wl,-z -Wl,redlocsym -lumem"
 CTF_FLAGS+=" -i"
 
 CONFIGURE_OPTS="
@@ -137,7 +137,7 @@ CONFIGURE_OPTS="
     --disable-profiling
     --enable-largefile
     --enable-nls
-    --with-bash-malloc
+    --without-bash-malloc
     --with-curses
     --with-installed-readline=yes
 "

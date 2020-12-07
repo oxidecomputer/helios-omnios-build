@@ -78,8 +78,8 @@
 | security/sudo				| 1.9.4			| https://www.sudo.ws/
 | service/network/ntpsec		| 1.2.0			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
-| shell/bash				| 5.0			| https://ftp.gnu.org/gnu/bash/
-| shell/bash5-patchlvl			| 018			| https://ftp.gnu.org/gnu/bash/bash-5.0-patches
+| shell/bash				| 5.1			| https://ftp.gnu.org/gnu/bash/
+| shell/bash5-patchlvl			| 000			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.03		| https://github.com/tcsh-org/tcsh/releases
