@@ -97,7 +97,7 @@ LDFLAGS+=" -lncurses"
 # it removes the information that ctfconvert uses to detect objects built from
 # C sources. To work around that, the -i option is added.
 LDFLAGS+=" -Wl,-z -Wl,redlocsym -lumem"
-CTF_FLAGS+=" -i"
+CTF_FLAGS+=" -f"
 
 CONFIGURE_OPTS="
     --localstatedir=/var
