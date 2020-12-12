@@ -12,7 +12,7 @@
 | compress/zstd				| 1.4.5			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.5.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3340000		| https://www.sqlite.org/download.html
-| developer/build/autoconf		| 2.69			| https://git.savannah.gnu.org/cgit/autoconf.git/refs/tags
+| developer/build/autoconf		| 2.70			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.3		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
