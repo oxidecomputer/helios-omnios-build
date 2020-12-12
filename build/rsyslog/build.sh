@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=rsyslog
-VER=8.2010.0
+VER=8.2012.0
 PKG=system/rsyslog
 SUMMARY="rsyslog - the rocket-fast system for log processing."
 DESC="A high-performance, modular syslog implementation."
