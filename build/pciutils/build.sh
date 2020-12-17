@@ -36,6 +36,7 @@ configure64() {
     LDFLAGS+=" $LDFLAGS64"
     export LDFLAGS CC PREFIX
     MAKE_ARGS_WS="
+        PREFIX=$PREFIX
         OPT=\"$CFLAGS $CFLAGS64 -DBYTE_ORDER=1234 -DLITTLE_ENDIAN=1234\"
     "
 }
