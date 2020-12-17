@@ -18,18 +18,20 @@
 . ../../lib/functions.sh
 
 PROG=bind
-VER=9.11.25
+VER=9.16.10
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"
+
+LIBUVVER=1.40.0
+XFORM_ARGS+=" -DLIBUV=$LIBUVVER"
 
 # This package ships private shared libraries in $PREFIX/lib/dns that are only
 # provided for use by the client utilities. We can therefore build everything
 # as 64-bit only and avoid shipping the include files, python modules and
 # library man pages (see local.mog)
 set_arch 64
-
-SKIP_LICENCES="*"
+set_standard XPG4v2 CFLAGS
 
 CONFIGURE_OPTS="
     --libdir=$PREFIX/lib/dns
@@ -44,14 +46,37 @@ CONFIGURE_OPTS="
     --enable-shared
     --disable-static
     --without-python
-    --with-zlib=/usr
 "
 
 init
+prep_build autoconf -autoreconf
+
+#########################################################################
+# Download and build a static version of libuv
+
+save_buildenv
+save_function configure64 _configure64
+
+configure64() {
+    run_inbuild "./autogen.sh"
+    _configure64 "$@"
+}
+
+CFLAGS+=" -fPIC"
+CONFIGURE_OPTS=" --disable-shared --enable-static"
+
+build_dependency libuv libuv-$LIBUVVER libuv v$LIBUVVER
+
+save_function _configure64 configure64
+restore_buildenv
+
+export LIBUV_CFLAGS="-I$DEPROOT$PREFIX/include"
+export LIBUV_LIBS="-L$DEPROOT$PREFIX/lib/$ISAPART64 -luv"
+
+#########################################################################
+
 download_source $PROG $PROG $VER
 patch_source
-prep_build
-run_autoreconf -fi
 build
 make_package
 clean_up
