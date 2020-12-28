@@ -142,7 +142,7 @@
 | library/python-3/pycodestyle-39	| 2.6.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-39		| 2.20			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-39		| 7.43.0.6		| https://pypi.org/project/pycurl
-| library/python-3/pyopenssl-39		| 20.0.0		| https://pypi.org/project/pyOpenSSL
+| library/python-3/pyopenssl-39		| 20.0.1		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-39	| 0.17.3		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-39		| 2020.4		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-39		| 0.9.4			| https://pypi.org/project/python-rapidjson
