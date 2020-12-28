@@ -13,7 +13,7 @@
 #
 # }}}
 
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
@@ -27,9 +27,9 @@ DESC="A bundle of jaraco python modules"
 
 typeset -A packages
 packages[classes]=3.1.0
-packages[collections]=3.0.0
+packages[collections]=3.1.0
 packages[functools]=3.0.1
-packages[text]=3.2.0
+packages[text]=3.4.0
 
 init
 prep_build
