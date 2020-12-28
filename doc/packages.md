@@ -121,7 +121,7 @@
 | library/python-3/cffi-39		| 1.14.4		| https://pypi.org/project/cffi
 | library/python-3/cheroot-39		| 8.5.1			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-39		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-39		| 5.3			| https://pypi.org/project/coverage
+| library/python-3/coverage-39		| 5.3.1			| https://pypi.org/project/coverage
 | library/python-3/cryptography-39	| 3.2.1			| https://pypi.org/project/cryptography
 | library/python-3/idna-39		| 2.10			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-39	| 3.1.0			| https://pypi.org/project/jaraco.classes
