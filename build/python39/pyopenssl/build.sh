@@ -18,7 +18,7 @@
 
 PKG=library/python-3/pyopenssl-39
 PROG=pyOpenSSL
-VER=20.0.0
+VER=20.0.1
 SUMMARY="pyOpenSSL - Python interface to the OpenSSL library"
 DESC="$SUMMARY"
 
