@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-3/cryptography-39
 PROG=cryptography
-VER=3.2.1
+VER=3.3.1
 SUMMARY="Cryptographic recipes and primitives"
 DESC="$SUMMARY"
 
