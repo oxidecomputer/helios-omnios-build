@@ -1,6 +1,6 @@
 | Package | Version | Link | Notes |
 | :------ | :------ | :--- | :---- |
-| archiver/gnu-tar			| 1.32			| https://ftp.gnu.org/gnu/tar/ http://git.savannah.gnu.org/cgit/tar.git/refs/tags
+| archiver/gnu-tar			| 1.33			| https://ftp.gnu.org/gnu/tar/ https://www.gnu.org/software/tar/
 | compress/brotli			| 1.0.9			| https://github.com/google/brotli/releases
 | compress/bzip2			| 1.0.8			| https://sourceware.org/pub/bzip2/
 | compress/gzip				| 1.10			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
