@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-3/idna-39
 PROG=idna
-VER=2.10
+VER=3.1
 SUMMARY="Internationalized Domain Names in Applications (IDNA)"
 DESC="Support for the Internationalised Domain Names in Applications (IDNA) "
 DESC+="protocol as specified in RFC 5891"
