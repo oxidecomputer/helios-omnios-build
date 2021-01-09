@@ -10,10 +10,9 @@
 # A full copy of the text of the CDDL should have accompanied this
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
-#
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
@@ -28,7 +27,7 @@ DESC="A bundle of jaraco python modules"
 typeset -A packages
 packages[classes]=3.1.0
 packages[collections]=3.1.0
-packages[functools]=3.0.1
+packages[functools]=3.1.0
 packages[text]=3.4.0
 
 init
