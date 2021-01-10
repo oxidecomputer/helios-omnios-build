@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=findutils
-VER=4.7.0
+VER=4.8.0
 PKG=file/gnu-findutils
 SUMMARY="GNU utilities find and xargs"
 DESC="GNU Find Utilities are the basic directory searching utilities"
@@ -29,8 +29,6 @@ set_arch 64
 CONFIGURE_OPTS="--program-prefix=g"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
-
-export PATH+=:$OOCEBIN
 
 init
 download_source $PROG $PROG $VER
