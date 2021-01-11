@@ -1,6 +1,6 @@
 | Package | Version | Link | Notes |
 | :------ | :------ | :--- | :---- |
-| archiver/gnu-tar			| 1.32			| https://ftp.gnu.org/gnu/tar/ http://git.savannah.gnu.org/cgit/tar.git/refs/tags
+| archiver/gnu-tar			| 1.33			| https://ftp.gnu.org/gnu/tar/ https://www.gnu.org/software/tar/
 | compress/brotli			| 1.0.9			| https://github.com/google/brotli/releases
 | compress/bzip2			| 1.0.8			| https://sourceware.org/pub/bzip2/
 | compress/gzip				| 1.10			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
@@ -30,7 +30,7 @@
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 8.32			| https://ftp.gnu.org/gnu/coreutils/
-| file/gnu-findutils			| 4.7.0			| https://ftp.gnu.org/pub/gnu/findutils/
+| file/gnu-findutils			| 4.8.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.0.6			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.2.10		| https://github.com/libexpat/libexpat/releases
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/releases | Currently used solely by rsyslog
@@ -65,7 +65,7 @@
 | network/openssh			| 8.4p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
-| network/socat				| 1.7.4.0		| http://www.dest-unreach.org/socat/download/
+| network/socat				| 1.7.4.1		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
 | runtime/java/openjdk11		| 11.0.9+11		| https://hg.openjdk.java.net/jdk-updates/jdk11u/tags
@@ -108,7 +108,7 @@
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 563			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.74.0		| https://curl.haxx.se/download.html
-| web/wget				| 1.21			| https://ftp.gnu.org/gnu/wget/
+| web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.66.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.35.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
@@ -122,17 +122,17 @@
 | library/python-3/cheroot-39		| 8.5.1			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-39		| 18.6.0		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-39		| 5.3.1			| https://pypi.org/project/coverage
-| library/python-3/cryptography-39	| 3.2.1			| https://pypi.org/project/cryptography
-| library/python-3/idna-39		| 2.10			| https://pypi.org/project/idna
+| library/python-3/cryptography-39	| 3.3.1			| https://pypi.org/project/cryptography
+| library/python-3/idna-39		| 3.1			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-39	| 3.1.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-39 | 3.1.0		| https://pypi.org/project/jaraco.collections
-| library/python-3/jaraco.functools-39	| 3.0.1			| https://pypi.org/project/jaraco.functools
+| library/python-3/jaraco.functools-39	| 3.1.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-39	| 3.4.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-39		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-39	| 0.4.2			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-39	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-39		| 1.1.3			| https://pypi.org/project/Mako
-| library/python-3/meson-39		| 0.56.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-39		| 0.56.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-39	| 8.6.0			| https://pypi.org/project/more-itertools
 | library/python-3/orjson-39		| 3.4.6			| https://github.com/ijl/orjson/releases
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
@@ -146,7 +146,7 @@
 | library/python-3/pyrsistent-39	| 0.17.3		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-39		| 2020.5		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-39		| 1.0			| https://pypi.org/project/python-rapidjson
-| library/python-3/setuptools-39	| 51.1.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-39	| 51.1.2		| https://pypi.org/project/setuptools
 | library/python-3/six-39		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.0.1			| https://pypi.org/project/tempora
 | library/python-3/wcwidth-39		| 0.2.5			| https://pypi.org/project/wcwidth
