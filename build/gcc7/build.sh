@@ -144,10 +144,9 @@ tests() {
     ulimit -Ss 16385
     # Lots of tests create core files via assertions
     ulimit -c 0
-    # This causes the testsuite to be run twice, once with no additional
-    # options (see the leading , in the {} expression), and once with
-    # -msave-args
-    MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{,-msave-args\}"
+    # This causes the testsuite to be run three times, once with -m32, once
+    # with -m64 and once with -m64 and -msave-args
+    MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{-m32,-m64,-m64/-msave-args\}"
     # If not in batch mode, we've already asked whether this should be run
     # above, so set BATCH
     BATCH=1 run_testsuite "check check-target" "" build.log.testsuite
