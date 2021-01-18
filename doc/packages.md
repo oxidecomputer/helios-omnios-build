@@ -113,7 +113,7 @@
 | developer/gnu-binutils		| 2.35.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
-| system/virtualization/open-vm-tools	| 11.2.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
+| system/virtualization/open-vm-tools	| 11.2.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-39	| 1.4.0			| https://pypi.org/project/asn1crypto
@@ -132,7 +132,7 @@
 | library/python-3/jsonrpclib-39	| 0.4.2			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-39	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-39		| 1.1.3			| https://pypi.org/project/Mako
-| library/python-3/meson-39		| 0.56.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-39		| 0.56.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-39	| 8.6.0			| https://pypi.org/project/more-itertools
 | library/python-3/orjson-39		| 3.4.6			| https://github.com/ijl/orjson/releases
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
