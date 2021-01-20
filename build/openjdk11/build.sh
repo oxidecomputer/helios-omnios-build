@@ -12,18 +12,19 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=openjdk
 VER=11
-UPDATE=9
-BUILD=11
+UPDATE=10
+BUILD=9
 PKG=runtime/java/openjdk11
 SUMMARY="openjdk $VER"
 DESC="Open-source implementation of the eleventh edition of the Java SE Platform"
 
+# check ooce/fonts/liberation for current version
 LIBERATIONFONTSVER=2.1.2
 SKIP_LICENCES="SILv1.1"
 
