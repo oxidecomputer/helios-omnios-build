@@ -33,6 +33,7 @@ set_arch 64
 set_builddir "jdk${VER}u-jdk-$VER.0.$UPDATE+$BUILD"
 
 BMI_EXPECTED=1
+SKIP_RTIME_CHECK=1
 
 BUILD_DEPENDS_IPS="
     system/header/header-audio
@@ -70,7 +71,7 @@ CONFIGURE_OPTS="
     --with-boot-jdk=/$IFULL
     --enable-headless-only
     --disable-ccache
-    --with-native-debug-symbols=none
+    --with-native-debug-symbols=internal
     --disable-warnings-as-errors
     --enable-unlimited-crypto
     --disable-hotspot-gtest
@@ -83,7 +84,10 @@ CONFIGURE_OPTS="
     --with-fontconfig-include=$OOCEPREFIX/include
 "
 
-MAKE_ARGS="all"
+MAKE_ARGS="
+    all
+    AS=/bin/gas
+"
 
 make_install() {
     logmsg "Installing openjdk to $DESTDIR"
@@ -111,7 +115,7 @@ BUILDDIR=$LFDIR download_source liberation-fonts $LFDIR
 
 prep_build autoconf -oot
 chmod +x $CONFIGURE_CMD
-build -noctf
+build
 VER=$IVER.$UPDATE.$BUILD
 make_package
 clean_up
