@@ -13,13 +13,13 @@
 # }}}
 
 # Copyright 2011-2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=perl
 PKG=runtime/perl
-VER=5.32.0
+VER=5.32.1
 MAJVER=${VER%.*}
 SUMMARY="Perl $MAJVER Programming Language"
 DESC="A highly capable, feature-rich programming language"
@@ -83,7 +83,6 @@ configure64() {
         || logerr "--- Configure failed"
 
     logcmd sed -i "
-        s/-fstack-protector-strong//g
         s/mydomain=\"\.undef\"/mydomain=\"undef\"/g
         s!^libpth=.*!libpth=\"/lib/$ISAPART64 /usr/lib/$ISAPART64\"!g
     " config.sh
