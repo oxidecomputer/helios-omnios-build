@@ -18,11 +18,13 @@
 
 PKG=library/python-3/setuptools-39
 PROG=setuptools
-VER=51.1.2
+VER=52.0.0
 SUMMARY="Python package management"
 DESC="Easily download, build, install, upgrade, and uninstall Python packages"
 
 . $SRCDIR/../common.sh
+
+RUN_DEPENDS_IPS+=" library/python-$PYMVER/pip-$SPYVER"
 
 init
 download_source pymodules/$PROG $PROG $VER
