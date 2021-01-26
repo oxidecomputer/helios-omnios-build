@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=sudo
-VER=1.9.5p1
+VER=1.9.5p2
 PKG=security/sudo
 SUMMARY="Authority delegation tool"
 DESC="Provide limited super-user privileges to specific users"
