@@ -135,6 +135,7 @@
 | library/python-3/meson-39		| 0.56.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-39	| 8.6.0			| https://pypi.org/project/more-itertools
 | library/python-3/orjson-39		| 3.4.6			| https://github.com/ijl/orjson/releases
+| library/python-3/pip-39		| 21.0			| https://pypi.org/project/pip
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-39		| 2.7.0			| https://pypi.org/project/portend
 | library/python-3/prettytable-39	| 2.0.0			| https://pypi.org/project/PrettyTable
@@ -146,7 +147,7 @@
 | library/python-3/pyrsistent-39	| 0.17.3		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-39		| 2020.5		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-39		| 1.0			| https://pypi.org/project/python-rapidjson
-| library/python-3/setuptools-39	| 51.1.2		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-39	| 52.0.0		| https://pypi.org/project/setuptools
 | library/python-3/six-39		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.0.1			| https://pypi.org/project/tempora
 | library/python-3/wcwidth-39		| 0.2.5			| https://pypi.org/project/wcwidth
