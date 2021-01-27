@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=nss
-VER=3.60.1
+VER=3.61
 # Include NSPR version since we're downloading a combined tarball.
 NSPRVER=4.29
 # But set BUILDDIR to just be the NSS version.
@@ -51,6 +51,7 @@ MAKE_ARGS="
     NSDISTMODE=copy
     NSS_USE_SYSTEM_SQLITE=1
     NSS_ENABLE_WERROR=0
+    NSS_DISABLE_GTESTS=1
     nss_build_all
 "
 MAKE_ARGS_WS_32="
