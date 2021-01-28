@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -22,7 +22,7 @@ PKG=system/rsyslog
 SUMMARY="rsyslog - the rocket-fast system for log processing."
 DESC="A high-performance, modular syslog implementation."
 
-FJSONVER=0.99.8
+FJSONVER=0.99.9
 XFORM_ARGS+=" -DFJSON=$FJSONVER"
 
 ESTRVER=0.1.11
