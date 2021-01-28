@@ -2319,6 +2319,8 @@ python_vendor_relocate() {
     # metadata in the form of an egg-info directory, into a plain metadata
     # file, which prevents pip from touching it.
 
+    case "$@" in *-noflatten*) return ;; esac
+
     for d in $DESTDIR$PYTHONVENDOR/*.egg-info; do
         [ -d "$d" ] || continue
         logmsg "-- Flattening `basename $d`"
@@ -2378,7 +2380,7 @@ python_build() {
 
     popd > /dev/null
 
-    python_vendor_relocate
+    python_vendor_relocate "$@"
     python_compile
 }
 
