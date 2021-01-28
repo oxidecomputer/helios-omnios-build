@@ -124,7 +124,7 @@
 | library/python-3/coverage-39		| 5.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-39	| 3.3.1			| https://pypi.org/project/cryptography
 | library/python-3/idna-39		| 3.1			| https://pypi.org/project/idna
-| library/python-3/jaraco.classes-39	| 3.1.0			| https://pypi.org/project/jaraco.classes
+| library/python-3/jaraco.classes-39	| 3.2.0			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-39 | 3.1.0		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-39	| 3.1.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-39	| 3.4.0			| https://pypi.org/project/jaraco.text
