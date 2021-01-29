@@ -12,16 +12,16 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-3/orjson-39
 PROG=orjson
-VER=3.4.6
+VER=3.4.7
 # orjson requries rust nightly. check https://github.com/ijl/orjson
 # for which version has been tested
-RUSTVER=2020-10-24
+RUSTVER=2021-01-11
 SUMMARY="orjson"
 DESC="A fast, correct JSON library for Python."
 
