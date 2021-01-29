@@ -79,7 +79,7 @@ CONFIGURE_OPTS="
     --with-memory-size=768
     --disable-precompiled-headers
     --disable-ccache
-    --with-native-debug-symbols=internal
+    --with-native-debug-symbols=none
     --with-freetype=$OOCEPREFIX
     --with-freetype-include=$OOCEPREFIX/include/freetype2
     --with-freetype-lib=$OOCEPREFIX/lib/$ISAPART64
@@ -98,6 +98,8 @@ MAKE_ARGS="
     AS=/bin/gas
     USE_GCC=1
     BUILD_HEADLESS_ONLY=1
+    FULL_DEBUG_SYMBOLS=0
+    ENABLE_FULL_DEBUG_SYMBOLS=0
     NO_DOCS=1
 "
 
@@ -158,7 +160,7 @@ make_install() {
 #############################################################################
 
 chmod +x $CONFIGURE_CMD
-build
+build -noctf
 
 #############################################################################
 # Build packages

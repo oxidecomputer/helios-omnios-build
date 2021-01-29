@@ -71,7 +71,7 @@ CONFIGURE_OPTS="
     --with-boot-jdk=/$IFULL
     --enable-headless-only
     --disable-ccache
-    --with-native-debug-symbols=internal
+    --with-native-debug-symbols=none
     --disable-warnings-as-errors
     --enable-unlimited-crypto
     --disable-hotspot-gtest
@@ -84,10 +84,7 @@ CONFIGURE_OPTS="
     --with-fontconfig-include=$OOCEPREFIX/include
 "
 
-MAKE_ARGS="
-    all
-    AS=/bin/gas
-"
+MAKE_ARGS="all"
 
 make_install() {
     logmsg "Installing openjdk to $DESTDIR"
@@ -115,7 +112,7 @@ BUILDDIR=$LFDIR download_source liberation-fonts $LFDIR
 
 prep_build autoconf -oot
 chmod +x $CONFIGURE_CMD
-build
+build -noctf
 VER=$IVER.$UPDATE.$BUILD
 make_package
 clean_up
