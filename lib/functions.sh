@@ -2676,6 +2676,7 @@ convert_ctf() {
         if [ -f $SRCDIR/files/ctf.skip ] \
           && echo $file | $EGREP -qf $SRCDIR/files/ctf.skip; then
             logmsg "$ctftag skipped $file"
+            logcmd strip -x "$file"
             continue
         fi
 
