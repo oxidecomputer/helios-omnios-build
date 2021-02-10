@@ -24,8 +24,8 @@
 | developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.7.5			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.30.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.6.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/git		| 2.30.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/mercurial	| 5.7			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -46,7 +46,7 @@
 | library/libxml2			| 2.9.10		| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
-| library/nghttp2			| 1.42.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nghttp2			| 1.43.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.61			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.29			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
@@ -107,10 +107,10 @@
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 563			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.74.0		| https://curl.haxx.se/download.html
+| web/curl				| 7.75.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.66.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
-| developer/gnu-binutils		| 2.36			| https://ftp.gnu.org/gnu/binutils
+| library/glib2				| 2.66.6		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| developer/gnu-binutils		| 2.36.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.2.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/

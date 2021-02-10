@@ -13,12 +13,12 @@
 # }}}
 
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.66.4
+VER=2.66.6
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"

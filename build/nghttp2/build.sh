@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2011-2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=nghttp2
-VER=1.42.0
+VER=1.43.0
 PKG=library/nghttp2
 SUMMARY="nghttp2: HTTP/2 C Library"
 DESC="An implementation of the Hypertext Transfer Protocol version 2 in C"
