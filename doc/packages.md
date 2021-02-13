@@ -149,6 +149,7 @@
 | library/python-3/rapidjson-39		| 1.0			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-39	| 2.8.5			| https://pypi.org/project/semantic-version
 | library/python-3/setuptools-39	| 53.0.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-rust-39	| 0.11.6		| https://pypi.org/project/setuptools-rust
 | library/python-3/six-39		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.0.1			| https://pypi.org/project/tempora
 | library/python-3/wcwidth-39		| 0.2.5			| https://pypi.org/project/wcwidth
