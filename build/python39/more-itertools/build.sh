@@ -13,13 +13,13 @@
 #
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-3/more-itertools-39
 PROG=more-itertools
-VER=8.6.0
+VER=8.7.0
 SUMMARY="More routines for operating on iterables"
 DESC="$SUMMARY, beyond itertools"
 
