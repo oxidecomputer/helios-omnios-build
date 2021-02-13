@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=autoconf
-VER=2.70
+VER=2.71
 PKG=developer/build/autoconf
 SUMMARY="GNU $PROG"
 DESC="$PROG - GNU autoconf utility"
