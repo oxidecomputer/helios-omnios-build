@@ -55,9 +55,11 @@ BUILD_DEPENDS_IPS="
     text/intltool
 "
 
+OMNIOS_RELVER=151038
+
 # Respect environmental overrides for these to ease development.
 : ${PKG_SOURCE_REPO:=$GITHUB/pkg5}
-: ${PKG_SOURCE_BRANCH:=r$RELVER}
+: ${PKG_SOURCE_BRANCH:=r$OMNIOS_RELVER}
 VER+="-$PKG_SOURCE_BRANCH"
 
 clone_source() {
