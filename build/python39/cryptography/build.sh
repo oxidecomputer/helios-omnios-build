@@ -18,7 +18,7 @@
 
 PKG=library/python-3/cryptography-39
 PROG=cryptography
-VER=3.3.1
+VER=3.4.4
 SUMMARY="Cryptographic recipes and primitives"
 DESC="$SUMMARY"
 
@@ -30,6 +30,12 @@ RUN_DEPENDS_IPS+="
     library/python-$PYMVER/asn1crypto-$SPYVER
     library/python-$PYMVER/idna-$SPYVER
 "
+
+# As of version 3.4, the cryptography module includes Rust code
+BUILD_DEPENDS_IPS+="
+    library/python-$PYMVER/setuptools-rust-$SPYVER
+"
+PATH+=:$OOCEBIN
 
 init
 download_source pymodules/$PROG $PROG $VER
