@@ -68,9 +68,9 @@ ID=omnios
 VERSION=r$RELEASE
 VERSION_ID=r$RELEASE
 BUILD_ID=$RELNUM.$RELREV.$RELDATE
-HOME_URL="https://omniosce.org/"
-SUPPORT_URL="https://omniosce.org/"
-BUG_REPORT_URL="https://github.com/omniosorg/omnios-build/issues/new"
+HOME_URL="$HOMEURL/"
+SUPPORT_URL="$HOMEURL/"
+BUG_REPORT_URL="$GITHUB/omnios-build/issues/new"
 	EOM
 
     popd >/dev/null

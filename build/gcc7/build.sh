@@ -100,7 +100,7 @@ CONFIGURE_OPTS="
 CONFIGURE_OPTS_WS="
     --with-boot-cflags=\"-g -O2\"
     --with-pkgversion=\"OmniOS $RELVER/$VER-$ILVER\"
-    --with-bugurl=https://omniosce.org/about/contact
+    --with-bugurl=$HOMEURL/about/contact
 "
 LDFLAGS32="-R$OPT/lib"
 
