@@ -12,30 +12,30 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
-#
-. ../../lib/functions.sh
 
-PROG=autoconf
-VER=2.71
-PKG=developer/build/autoconf
-SUMMARY="GNU $PROG"
-DESC="$PROG - GNU autoconf utility"
+. ../../../lib/functions.sh
 
-RUN_DEPENDS_IPS="system/prerequisite/gnu developer/macro/gnu-m4"
+PKG=library/python-3/setuptools-rust-39
+PROG=setuptools-rust
+VER=0.11.6
+SUMMARY="Python setuptools rust extension plugin"
+DESC="Compile and distribute Python extensions written in rust as easily "
+DESC+="as if they were written in C."
 
-set_arch 64
-CONFIGURE_OPTS="--infodir=$PREFIX/share/info"
-SKIP_LICENCES=GPL.EXCEPTION
+. $SRCDIR/../common.sh
+
+RUN_DEPENDS_IPS+="
+    library/python-$PYMVER/setuptools-$SPYVER
+    library/python-$PYMVER/semantic-version-$SPYVER
+"
 
 init
-download_source $PROG $PROG $VER
+download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
-build
-run_testsuite check
-make_package
+python_build -noflatten
+make_package $SRCDIR/../common.mog
 clean_up
 
 # Vim hints

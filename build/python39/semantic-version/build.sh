@@ -12,30 +12,25 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
-#
-. ../../lib/functions.sh
 
-PROG=autoconf
-VER=2.71
-PKG=developer/build/autoconf
-SUMMARY="GNU $PROG"
-DESC="$PROG - GNU autoconf utility"
+. ../../../lib/functions.sh
 
-RUN_DEPENDS_IPS="system/prerequisite/gnu developer/macro/gnu-m4"
+PKG=library/python-3/semantic-version-39
+PROG=semantic_version
+VER=2.8.5
+SUMMARY="A library implementing the 'SemVer' scheme."
+DESC="This small python library provides a few tools to handle SemVer in "
+DESC+="Python. It follows strictly the 2.0.0 version of the SemVer scheme."
 
-set_arch 64
-CONFIGURE_OPTS="--infodir=$PREFIX/share/info"
-SKIP_LICENCES=GPL.EXCEPTION
+. $SRCDIR/../common.sh
 
 init
-download_source $PROG $PROG $VER
+download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
-build
-run_testsuite check
-make_package
+python_build
+make_package $SRCDIR/../common.mog
 clean_up
 
 # Vim hints
