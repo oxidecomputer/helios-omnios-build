@@ -1,5 +1,5 @@
-<a href="https://omniosce.org">
-<img src="https://omniosce.org/OmniOSce_logo.svg" height="128">
+<a href="https://omnios.org">
+<img src="https://omnios.org/OmniOSce_logo.svg" height="128">
 </a>
 
 # Release Notes for OmniOSce v11 r151036
@@ -9,7 +9,7 @@ Stable Release, TBC of November 2020
 
 `uname -a` shows `omnios-r151036-XXX`
 
-r151036 release repository: https://pkg.omniosce.org/r151036/core
+r151036 release repository: https://pkg.omnios.org/r151036/core
 
 ## Upgrade Notes
 

@@ -61,7 +61,7 @@ configure64() {
         -Umydomain \
         -Umyuname \
         -Dcf_by=omnios-builder \
-        -Dcf_email=sa@omniosce.org \
+        -Dcf_email=$PUBLISHER_EMAIL \
         -Dcc=gcc \
         -Dld=/usr/ccs/bin/ld \
         -Doptimize="-O3 $CTF_CFLAGS" \

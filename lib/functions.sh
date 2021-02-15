@@ -1053,7 +1053,7 @@ verify_checksum() {
 #
 # E.g.
 #       download_source myprog myprog 1.2.3 will try:
-#       http://mirrors.omniosce.org/myprog/myprog-1.2.3.tar.gz
+#       http://mirrors.omnios.org/myprog/myprog-1.2.3.tar.gz
 download_source() {
     local DLDIR="$1"; shift
     local PROG="$1"; shift
@@ -1648,6 +1648,7 @@ translate_manifest()
         s/@RELVER@/$RELVER/g
         s/@PVER@/$PVER/g
         s/@SUNOSVER@/$SUNOSVER/g
+        s/@PKGPUBEMAIL@/$PUBLISHER_EMAIL/g
         " < $src > $dst
 }
 
