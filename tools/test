@@ -9,7 +9,7 @@
 # source.  A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
 
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 __SCRIPTDIR="${0%/*}"
 
@@ -133,8 +133,6 @@ add_target()
 			# Other packages to skip
 			*illumos-closed:*)	return ;;
 			*kvm:*)			return ;;
-			*illumos-gate*)		return ;;
-			*/omnios-userland:*)	return ;;
 			*/iconv/*)		return ;;
 			text/auto_ef:*)		return ;;
 			*/locale:*)		return ;;
@@ -239,90 +237,9 @@ check_packages_md()
 	done
 }
 
-check_constraints()
-{
-	comp="$1"
-	while read pkg ver dash; do
-		# Skip some packages, tweak others
-		[ -n "${targets[$pkg]}" ] && bver=${targets[$pkg]} || bver=
-		case $pkg in
-			*/kvm)				continue ;;
-			release/*)			continue ;;
-			*gcc-?-runtime)			continue ;;
-			*g++-?-runtime)			continue ;;
-			*/iconv/*)			continue ;;
-			*/auto_ef)			continue ;;
-			*prerequisite/gnu)		continue ;;
-			*/mtsk)				continue ;;
-			*/pci.ids)			continue ;;
-			*/ntp)				bver=${bver/p/.} ;;
-			*/openssh*)			bver=${bver/p/.} ;;
-			*/sqlite-3)
-				bver=`echo $bver | sed -E '
-					s/(.)(..)(..)(.*)/\1.\2.\3.\4/
-				'`
-				;;
-			library/security/openssl)
-				bver=${targets["library/security/openssl-1.1"]}
-				bver=${bver/%[a-z]/}
-				;;
-		esac
-		obver="$bver"
-
-		if [ -n "$bver" ]; then
-			# Dash revision check
-			if [ "$comp" = "omnios-userland" -a \
-			     -n "${dashrev[$pkg]}" -a \
-			     "${dashrev[$pkg]}" != "$dash" ]; then
-				problem "$pkg - $comp= DASH $dash"\
-				    "(build=${dashrev[$pkg]})"
-			fi
-
-			[ "$bver" = "$ver" ] && continue
-			# Try with s/00/0
-			[ "${bver//00/0}" = "$ver" ] && continue
-			# Strip final components in turn and check for
-			# a match.
-			while [[ $bver = *.* ]]; do
-				bver=${bver%.*}
-				[ "$bver" = "$ver" ] && continue 2
-				[ "${bver//00/0}" = "$ver" ] && continue 2
-			done
-			problem "$pkg - $comp=$ver, build=$obver"
-		else
-			[ $comp = entire ] \
-			    || problem "Unknown package $pkg in $comp"
-		fi
-	done
-}
-
-check_userland()
-{
-	echo "Checking jeos/omnios-userland..."
-	nawk < build/jeos/omnios-userland.pkg '
-		/^#/ { next }
-		/\// {
-			print $1, $2, $3
-		}' | check_constraints omnios-userland
-}
-
-check_entire()
-{
-	echo "Checking entire..."
-	nawk '{print $1,$2}' < build/entire/entire.pkg | sed '
-		/^locale/d
-		/^driver/d
-		/ca-bundle/d
-		/^package\/pkg/d
-		/^system.*0.5.11$/d
-	' | check_constraints entire
-}
-
 add_targets
 [ "$1" = "-p" ] && print_targets && exit 0
 check_packages_md
-check_userland
-check_entire
 
 exit $err
 

@@ -13,7 +13,7 @@
 #
 # }}}
 #
-# Copyright 2017 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -41,22 +41,25 @@ add_constraints()
     local cmf=$1
     local src=$2
 
-    egrep -v '^ *$|^#' $src | while read pkg ver typ flags; do
-        if [ -z "$pkg" -o -z "$ver" -o -z "$typ" ]; then
-            logerr "Bad package line, $pkg/$ver/$typ/$flags"
+    egrep -v '^ *$|^#' $src | while read pkg flags; do
+        if [ -z "$pkg" ]; then
+            logerr "Bad package line, $pkg/$flags"
         fi
         (
-            echo "depend\\c"
+            print -n "depend"
+
             if [[ "$flags" = *F* ]]; then
-                echo " facet.entire.$pkg=true\\c"
+                print -n " facet.entire.$pkg=true"
             fi
             if [[ "$flags" = *Z* ]]; then
-                echo " variant.opensolaris.zone=global\\c"
+                print -n " variant.opensolaris.zone=global"
             fi
             if [[ "$flags" = *S* ]]; then
-                echo " variant.opensolaris.imagetype=full\\c"
+                print -n " variant.opensolaris.imagetype=full\c"
             fi
-            echo " fmri=pkg://@PKGPUBLISHER@/$pkg@$ver,5.11-@RELVER@ type=$typ"
+            [[ "$flags" = *O* ]] && typ=optional || typ=require
+
+            print " fmri=pkg://@PKGPUBLISHER@/$pkg type=$typ"
         ) >> $cmf
     done
 }
