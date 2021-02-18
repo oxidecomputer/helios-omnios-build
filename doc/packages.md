@@ -57,7 +57,7 @@
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
 | library/readline7-patchlvl		| 005			| https://ftp.gnu.org/gnu/readline/readline-7.0-patches/
 | library/readline8-patchlvl		| 000			| https://ftp.gnu.org/gnu/readline/readline-8.1-patches/
-| library/security/openssl-1.1		| 1.1.1i		| https://www.openssl.org/source/
+| library/security/openssl-1.1		| 1.1.1j		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.9			| http://www.unixodbc.org/download.html
 | library/xxhash			| 0.8.0			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
@@ -73,8 +73,7 @@
 | runtime/java/openjdk8			| 1.8.282-08		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | runtime/perl				| 5.32.1		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
-| runtime/python-35			| 3.5.10		| https://www.python.org/downloads/source/
-| runtime/python-37			| 3.7.9			| https://www.python.org/downloads/source/
+| runtime/python-37			| 3.7.10		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.1			| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.5p2		| https://www.sudo.ws/
 | service/network/ntpsec		| 1.2.0			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
