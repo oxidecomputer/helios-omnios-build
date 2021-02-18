@@ -18,8 +18,8 @@
 . ../../lib/functions.sh
 
 PROG=openssl
-VER=1.1.1j
-PKG=library/security/openssl
+VER=1.0.2u
+PKG=library/security/openssl-10
 SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
@@ -29,35 +29,23 @@ BMI_EXPECTED=1
 
 XFORM_ARGS+="
     -DMAJVER=${VER%.*}
-    -DLIBVER=${VER%.*}
+    -DLIBVER=${VER%.*}.0
 "
 
+PATCHDIR=patches-${VER%.*}
 TESTSUITE_FILTER='[0-9] tests|TESTS'
 
-# To aid transition from the old openssl package which combined both
-# OpenSSL 1.0.2 and 1.1.1 together, openssl depends on openssl-10.
-# This should remain in place until after r151038 is released, to ensure that
-# upgraded systems retain the old lib{ssl,crypto}.so.1.0.0 libraries.
-# This should be removed in r151039 so that default installations from
-# r151040 onwards will not include openssl 1.0 (but the package will be
-# available for anyone who wishes to install it manually, and upgraders will
-# not lose it).
-RUN_DEPENDS_IPS+=" library/security/openssl-10"
-
-# Generic options for both 32 and 64bit variants
+# Generic options for both 32- and 64-bit variants
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
 OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"
 OPENSSL_CONFIG_OPTS+=" --prefix=$PREFIX"
-# Build with support for the 1.0.0 API
-OPENSSL_CONFIG_OPTS+=" --api=1.0.0"
 
 # Configure options specific to a 32-bit or 64-bit builds
-OPENSSL_CONFIG_32_OPTS="--libdir=$PREFIX/lib"
-OPENSSL_CONFIG_64_OPTS="--libdir=$PREFIX/lib/$ISAPART64"
+OPENSSL_CONFIG_32_OPTS="--libdir=lib"
+OPENSSL_CONFIG_32_OPTS+=" --pk11-libname=$PREFIX/lib/libpkcs11.so.1"
+OPENSSL_CONFIG_64_OPTS="--libdir=lib/$ISAPART64"
 OPENSSL_CONFIG_64_OPTS+=" enable-ec_nistp_64_gcc_128"
-
-# The 'install' target installs html documentation too
-MAKE_INSTALL_TARGET="install_sw install_ssldirs install_man_docs"
+OPENSSL_CONFIG_64_OPTS+=" --pk11-libname=$PREFIX/lib/$ISAPART64/libpkcs11.so.1"
 
 save_function make_prog _make_prog
 make_prog() {
@@ -99,13 +87,29 @@ build() {
     logcmd -p diff -D __x86_64 ${duh}.{32,64} > $duh
 }
 
+install_pkcs11()
+{
+    logmsg "--- installing pkcs11 engine"
+    pushd $SRCDIR/engine_pkcs11 > /dev/null
+    find . | cpio -pmud $TMPDIR/$BUILDDIR/engines/
+    popd > /dev/null
+}
+
+# OpenSSL 1.0 uses INSTALL_PREFIX= instead of DESTDIR=
+make_install() {
+    logmsg "--- make install"
+    logcmd make INSTALL_PREFIX=$DESTDIR install \
+        || logerr "Failed to make install"
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source
+install_pkcs11
 prep_build
 build
-run_testsuite
-make_package
+run_testsuite test "" testsuite.1.0.log
+make_package -legacy
 clean_up
 
 # Vim hints
