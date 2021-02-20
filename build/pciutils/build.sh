@@ -24,8 +24,6 @@ SUMMARY="PCI device utilities"
 DESC="Programs (lspci, setpci) for inspecting and manipulating configuration "
 DESC+="of PCI devices"
 
-DASHREV=1
-
 RUN_DEPENDS_IPS="system/pciutils/pci.ids"
 
 set_arch 64
