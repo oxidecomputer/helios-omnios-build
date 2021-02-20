@@ -147,7 +147,7 @@ prep_build
 build
 generate_archdeps
 make_isa_stub
-make_package
+make_package -legacy
 clean_up
 
 # Vim hints
