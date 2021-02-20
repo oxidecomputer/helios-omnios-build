@@ -1,79 +1,54 @@
-# CDDL HEADER START
 #
-# The contents of this file are subject to the terms of the
-# Common Development and Distribution License, Version 1.0 only
-# (the "License").  You may not use this file except in compliance
-# with the License.
+# This file and its contents are supplied under the terms of the
+# Common Development and Distribution License ("CDDL"), version 1.0.
+# You may only use this file in accordance with the terms of version
+# 1.0 of the CDDL.
 #
-# You can obtain a copy of the license at usr/src/OPENSOLARIS.LICENSE
-# or http://www.opensolaris.org/os/licensing.
-# See the License for the specific language governing permissions
-# and limitations under the License.
+# A full copy of the text of the CDDL should have accompanied this
+# source. A copy of the CDDL is also available via the Internet at
+# http://www.illumos.org/license/CDDL.
 #
-# When distributing Covered Code, include this CDDL HEADER in each
-# file and include the License file at usr/src/OPENSOLARIS.LICENSE.
-# If applicable, add the following below this CDDL HEADER, with the
-# fields enclosed by brackets "[]" replaced with your own identifying
-# information: Portions Copyright [yyyy] [name of copyright owner]
-#
-# CDDL HEADER END
-#
-#
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
+
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+
+# Drop static libraries
+<transform file path=.*\.a$ -> drop>
 
 # Drop HTML docs
-<transform dir file link hardlink path=usr/share/doc -> drop>
+<transform path=usr/share/doc -> drop>
 
-# Create symlinks in /usr/lib
-link path=usr/lib/libssl.so.1.0.0 target=../../lib/libssl.so.1.0.0
-link path=usr/lib/libcrypto.so.1.0.0 target=../../lib/libcrypto.so.1.0.0
-link path=usr/lib/amd64/libssl.so.1.0.0 target=../../../lib/amd64/libssl.so.1.0.0
-link path=usr/lib/amd64/libcrypto.so.1.0.0 target=../../../lib/amd64/libcrypto.so.1.0.0
+# Drop directories under /etc
+<transform dir path=etc -> drop>
 
-link path=usr/lib/libssl.so.1.1 target=../../lib/libssl.so.1.1
-link path=usr/lib/libcrypto.so.1.1 target=../../lib/libcrypto.so.1.1
-link path=usr/lib/amd64/libssl.so.1.1 target=../../../lib/amd64/libssl.so.1.1
-link path=usr/lib/amd64/libcrypto.so.1.1 target=../../../lib/amd64/libcrypto.so.1.1
+# Move the libraries
+<include relocate-usr-lib.mog>
 
-# Mediated libraries
+# .. and mediate the links
+<transform link path=(usr/)?lib/.*\.so$ -> set mediator openssl>
+<transform link path=(usr/)?lib/.*\.so$ -> set mediator-version $(MAJVER)>
 
-# .. /lib
-<transform file path=lib/(lib[^.]+.so).(\d\.\d)(.*) -> emit \
-    link path=lib/%<1> target=%<1>.%<2>%<3> \
-    mediator=openssl mediator-version=%<2> >
+# Relocate /usr/ssl/ -> /usr/ssl-1.X
+<transform path=usr/ssl($|/) -> edit path usr/ssl usr/ssl-$(MAJVER)>
 
-<transform file path=lib/amd64/(lib[^.]+.so).(\d\.\d)(.*) -> emit \
-    link path=lib/amd64/%<1> target=%<1>.%<2>%<3> \
-    mediator=openssl mediator-version=%<2> >
+# ... and add mediated /usr/ssl link
+#     (NOMOVE prevents the previous transform from touching this, it's
+#      removed at the end)
+link path=NOMOVE/usr/ssl target=ssl-$(MAJVER) \
+    mediator=openssl mediator-version=$(MAJVER)
 
-# .. /usr/lib
-<transform file path=lib/(lib[^.]+.so).(\d\.\d)(.*) -> emit \
-    link path=usr/lib/%<1> target=%<1>.%<2>%<3> \
-    mediator=openssl mediator-version=%<2> >
+# Move the binaries
+<transform file path=usr/bin -> set path %(path)-$(MAJVER)>
 
-<transform file path=lib/amd64/(lib[^.]+.so).(\d\.\d)(.*) -> emit \
-    link path=usr/lib/amd64/%<1> target=%<1>.%<2>%<3> \
-    mediator=openssl mediator-version=%<2> >
-
-# Mediated binaries
-
+# .. and add mediated links
 <transform file path=usr/bin/([^-]+)-(.*) -> emit \
     link path=usr/bin/%<1> target=%<1>-%<2> \
     mediator=openssl mediator-version=%<2> >
 
-# Static libraries
+# Move the pkgconfig files
+<transform file dir path=usr/lib/.*pkgconfig -> \
+    edit path usr/lib/ usr/ssl-$(MAJVER)/lib/ >
 
-<transform file path=usr/ssl-([^/]+)/lib/(lib.*\.a) -> emit \
-    link path=lib/%<2> target=../%(path) \
-    mediator=openssl mediator-version=%<1> >
-
-<transform file path=usr/ssl-([^/]+)/lib/amd64/(lib.*\.a) -> emit \
-    link path=lib/amd64/%<2> target=../../%(path) \
-    mediator=openssl mediator-version=%<1> >
-
-# pkgconfig
-
+# .. and add mediated links
 <transform file path=usr/ssl-([^/]+)/lib/pkgconfig/(.*) -> emit \
     link path=usr/lib/pkgconfig/%<2> target=../../../%(path) \
     mediator=openssl mediator-version=%<1> >
@@ -82,69 +57,76 @@ link path=usr/lib/amd64/libcrypto.so.1.1 target=../../../lib/amd64/libcrypto.so.
     link path=usr/lib/amd64/pkgconfig/%<2> target=../../../../%(path) \
     mediator=openssl mediator-version=%<1> >
 
-# Mediated include files
+# Move the include files
+<transform path=usr/include/openssl -> \
+    edit path usr/include/openssl usr/include/openssl-$(MAJVER)>
 
-<transform dir path=usr/include/openssl-(...)$ -> emit \
-    link path=usr/include/openssl target=openssl-%<1> \
-    mediator=openssl mediator-version=%<1> >
+# .. and replace with a mediated link
+link path=NOMOVE/usr/include/openssl target=openssl-$(MAJVER) \
+    mediator=openssl mediator-version=$(MAJVER)
 
-# Mediated ssl directory
+# Move the man pages
+<transform path=usr/share/man -> edit path usr/share/ usr/ssl-$(MAJVER)/>
 
-<transform dir path=usr/ssl-(...)$ -> emit \
-    link path=usr/ssl target=ssl-%<1> \
-    mediator=openssl mediator-version=%<1> >
+# Need to explicitly add the directory as the global transforms will have
+# removed usr/share/man itself.
+dir path=usr/ssl-$(MAJVER)/man owner=root group=bin mode=0755
 
-# Mediated man pages
-
+# .. and add mediated links
 <transform file path=usr/ssl-([^/]+)/man/(man\d)/(.*) -> emit \
-    link path=usr/share/man/%<2>ssl/%<3> target=/%(path) \
-    mediator=openssl mediator-version=%<1> >
+    link path=NOMOVE/usr/share/man/%<2>ssl/%<3> target=/%(path) \
+    mediator=openssl mediator-version=%<1> facet.doc.man=true >
 
-# Make version 1.1 the default
+<transform link path=usr/ssl-([^/]+)/man/(man\d)/(.*) target=[^/]+ -> emit \
+    link path=NOMOVE/usr/share/man/%<2>ssl/%<3> target=%(target) \
+    mediator=openssl mediator-version=%<1> facet.doc.man=true >
 
-<transform link mediator-version=1.1 -> set mediator-priority vendor>
+# Replace the certs directory with a link to the system one
+<transform dir path=usr/ssl-$(MAJVER)/certs -> drop>
+link path=NOMOVE/usr/ssl-$(MAJVER)/certs target=../../etc/ssl/certs
 
 ######################################################################
 # Construct a self-contained area for each version that can be used
 # for building software regardless of the mediator setting.
 
-# 1.0
+dir path=NOMOVE/usr/ssl-$(MAJVER)/include owner=root group=bin mode=0755
+link path=NOMOVE/usr/ssl-$(MAJVER)/include/openssl \
+    target=../../include/openssl-$(MAJVER)
 
-dir path=usr/ssl-1.0/include owner=root group=bin mode=0755
-link path=usr/ssl-1.0/include/openssl target=../../include/openssl-1.0
+dir  path=usr/ssl-$(MAJVER)/lib owner=root group=bin mode=0755
+dir  path=usr/ssl-$(MAJVER)/lib/amd64 owner=root group=bin mode=0755
 
-link path=usr/ssl-1.0/lib/libssl.so.1.0.0 target=../../lib/libssl.so.1.0.0
-link path=usr/ssl-1.0/lib/libcrypto.so.1.0.0 target=../../lib/libcrypto.so.1.0.0
-link path=usr/ssl-1.0/lib/amd64/libssl.so.1.0.0 \
-    target=../../../lib/amd64/libssl.so.1.0.0
-link path=usr/ssl-1.0/lib/amd64/libcrypto.so.1.0.0 \
-    target=../../../lib/amd64/libcrypto.so.1.0.0
+link path=usr/ssl-$(MAJVER)/lib/libssl.so.$(LIBVER) \
+    target=../../lib/libssl.so.$(LIBVER)
+link path=usr/ssl-$(MAJVER)/lib/libcrypto.so.$(LIBVER) \
+    target=../../lib/libcrypto.so.$(LIBVER)
+link path=usr/ssl-$(MAJVER)/lib/amd64/libssl.so.$(LIBVER) \
+    target=../../../lib/amd64/libssl.so.$(LIBVER)
+link path=usr/ssl-$(MAJVER)/lib/amd64/libcrypto.so.$(LIBVER) \
+    target=../../../lib/amd64/libcrypto.so.$(LIBVER)
 
-link path=usr/ssl-1.0/lib/libssl.so target=libssl.so.1.0.0
-link path=usr/ssl-1.0/lib/libcrypto.so target=libcrypto.so.1.0.0
-link path=usr/ssl-1.0/lib/amd64/libssl.so target=libssl.so.1.0.0
-link path=usr/ssl-1.0/lib/amd64/libcrypto.so target=libcrypto.so.1.0.0
-
-# 1.1
-
-dir path=usr/ssl-1.1/include owner=root group=bin mode=0755
-link path=usr/ssl-1.1/include/openssl target=../../include/openssl-1.1
-
-link path=usr/ssl-1.1/lib/libssl.so.1.1 target=../../lib/libssl.so.1.1
-link path=usr/ssl-1.1/lib/libcrypto.so.1.1 target=../../lib/libcrypto.so.1.1
-link path=usr/ssl-1.1/lib/amd64/libssl.so.1.1 \
-    target=../../../lib/amd64/libssl.so.1.1
-link path=usr/ssl-1.1/lib/amd64/libcrypto.so.1.1 \
-    target=../../../lib/amd64/libcrypto.so.1.1
-
-link path=usr/ssl-1.1/lib/libssl.so target=libssl.so.1.1
-link path=usr/ssl-1.1/lib/libcrypto.so target=libcrypto.so.1.1
-link path=usr/ssl-1.1/lib/amd64/libssl.so target=libssl.so.1.1
-link path=usr/ssl-1.1/lib/amd64/libcrypto.so target=libcrypto.so.1.1
+link path=usr/ssl-$(MAJVER)/lib/libssl.so \
+    target=libssl.so.$(LIBVER)
+link path=usr/ssl-$(MAJVER)/lib/libcrypto.so \
+    target=libcrypto.so.$(LIBVER)
+link path=usr/ssl-$(MAJVER)/lib/amd64/libssl.so \
+    target=libssl.so.$(LIBVER)
+link path=usr/ssl-$(MAJVER)/lib/amd64/libcrypto.so \
+    target=libcrypto.so.$(LIBVER)
 
 ######################################################################
 
-<transform dir path=etc -> drop>
+# Make version 1.1 the default
+<transform link mediator-version=1.1 -> set mediator-priority vendor>
+
+# Remove NOMOVE/ prefixes, used above for actions that should not be
+# touched by the generic rename and mediation transforms above.
+<transform path=NOMOVE/ -> edit path NOMOVE/ "">
+
+# Remove the restart_fmri actions from the man pages. This significantly
+# reduces the size of the manifest.
+<transform path=.*/man/ restart_fmri=.*update-man-index -> \
+    delete restart_fmri .>
 
 license LICENSE license=OpenSSL
 
