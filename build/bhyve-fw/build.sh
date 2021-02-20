@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -49,7 +49,7 @@ jobs=
 
 # Build the UEFI firmware
 
-tag=il-edk2-stable202005-2
+tag=il-edk2-20210214-1
 XFORM_ARGS+=" -D UEFITAG=$tag"
 
 typeset -A jobs
@@ -61,12 +61,12 @@ typeset -A jobs
         download_source bhyve-fw uefi-edk2 $tag
         pushd $TMPDIR/$BUILDDIR >/dev/null
         logcmd cp OvmfPkg/License.txt $fwdir/LICENCE.$tag.OvmfPkg
-        logcmd cp BhyvePkg/License.txt $fwdir/LICENCE.$tag.BhyvePkg
+        logcmd cp OvmfPkg/Bhyve/License.txt $fwdir/LICENCE.$tag.BhyvePkg
         for v in RELEASE DEBUG; do
             [ -n "$DEPVER" -a "$DEPVER" != $v ] && continue
             note "Building UEFI $v firmware"
             logcmd ./build clean
-            if ! logcmd ./build $v; then
+            if ! logcmd ./build -b -j $((MJOBS/2)) $v; then
                 logmsg -e "UEFI $v build failed"
                 exit 1
             fi
@@ -81,8 +81,33 @@ typeset -A jobs
 ) &
 jobs[UEFI]=$!
 
-# At present, the CSM firmware is still built from the old 2014 branch
-# using gcc 4.
+# Also build the stock OVMF ROM
+(
+    if [ -z "$FLAVOR" -o "$FLAVOR" = OVMF ]; then
+        set_gccver $DEFAULT_GCC_VER
+        set_builddir uefi-edk2-$tag
+        download_source bhyve-fw uefi-edk2 $tag $TMPDIR/ovmf
+        pushd $TMPDIR/ovmf/$BUILDDIR >/dev/null
+        for v in RELEASE DEBUG; do
+            [ -n "$DEPVER" -a "$DEPVER" != $v ] && continue
+            note "Building OVMF $v firmware"
+            logcmd ./build clean
+            if ! logcmd ./build -o -j $((MJOBS/2)) $v; then
+                logmsg -e "OVMF $v build failed"
+                exit 1
+            fi
+            if ! logcmd cp Build/OvmfX64/${v}_ILLGCC/FV/OVMF_CODE.fd \
+                $fwdir/OVMF_$v.fd; then
+                    logmsg -e "Copy OVMF firmware failed"
+                    exit 1
+            fi
+        done
+        popd >/dev/null
+    fi
+) &
+jobs[OVMF]=$!
+
+# The CSM firmware is still built from the old 2014 branch using gcc 4.
 
 tag=il-udk2014.sp1-2
 XFORM_ARGS+=" -D CSMTAG=$tag"
@@ -113,7 +138,7 @@ XFORM_ARGS+=" -D CSMTAG=$tag"
 ) &
 jobs[CSM]=$!
 
-# Both firmware branches are built in parallel, wait for them to finish
+# Firmware branches are built in parallel, wait for them to finish
 for job in "${!jobs[@]}"; do
     wait ${jobs[$job]}
     [ $? -ne 0 -a $? -ne 127 ] && logerr "Job $job failed ($?)"
