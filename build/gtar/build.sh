@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=tar
-VER=1.33
+VER=1.34
 PKG=archiver/gnu-tar
 SUMMARY="gtar - GNU tar"
 DESC="GNU tar - A utility used to store, backup, and transport files (gtar)"
