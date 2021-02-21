@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=libedit
-VER=20191231-3.1
+VER=20210216-3.1
 PKG=library/libedit
 SUMMARY="Editline Library (libedit)"
 DESC="Command line editor library providing generic line editing, history "
