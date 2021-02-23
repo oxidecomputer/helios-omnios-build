@@ -1,6 +1,6 @@
 | Package | Version | Link | Notes |
 | :------ | :------ | :--- | :---- |
-| archiver/gnu-tar			| 1.33			| https://ftp.gnu.org/gnu/tar/ https://www.gnu.org/software/tar/
+| archiver/gnu-tar			| 1.34			| https://ftp.gnu.org/gnu/tar/ https://www.gnu.org/software/tar/
 | compress/brotli			| 1.0.9			| https://github.com/google/brotli/releases
 | compress/bzip2			| 1.0.8			| https://sourceware.org/pub/bzip2/
 | compress/gzip				| 1.10			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
@@ -40,7 +40,7 @@
 | library/mpc				| 1.2.1			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.1.0			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
-| library/libedit			| 20191231-3.1		| https://thrysoee.dk/editline/
+| library/libedit			| 20210216-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.12		| https://github.com/libevent/libevent/releases | Currently used solely by tmux
 | library/libidn			| 1.36			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.3			| https://sourceware.org/libffi/
@@ -48,7 +48,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.43.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.61			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.62			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.29			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.36			| https://ftp.pcre.org/pub/pcre/
@@ -62,7 +62,7 @@
 | library/xxhash			| 0.8.0			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20201118		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.16.11		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.16.12		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.4p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -94,7 +94,7 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
-| system/rsyslog			| 8.2012.0		| https://www.rsyslog.com/downloads/download-v8-stable/
+| system/rsyslog			| 8.2102.0		| https://www.rsyslog.com/downloads/download-v8-stable/
 | system/test/fio			| 3.25			| https://github.com/axboe/fio/releases
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
