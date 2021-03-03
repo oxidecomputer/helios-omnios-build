@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=zstd
-VER=1.4.8
+VER=1.4.9
 PKG=compress/zstd
 SUMMARY="Zstandard"
 DESC="Zstandard is a real-time compression algorithm, providing high "
