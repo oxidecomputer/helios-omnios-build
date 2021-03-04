@@ -19,6 +19,9 @@ supported releases (r151030, r151032 and r151034) to properly handle
 conditional dependencies which are more widely used in r151036. The new `pkg`
 also has additional diagnostic output to help troubleshoot package updates.
 
+OpenSSH in OmniOS no longer provides support for GSSAPI key exchange. If you
+require this feature, please [let us know](https://omnios.org/about/contact).
+
 Upgrades are supported from the r151030, r151032, r151034 and r151036 releases.
 If upgrading from before r151036, also refer to the following documents:
 
@@ -50,12 +53,19 @@ If upgrading from before r151036, also refer to the following documents:
 * The boot loader now has better support for multiple consoles, and initial
   output and menus will be displayed on each.
 
+* The package manager has gained a new `pkg autoremove` command and others.
+  See below for more information.
+
+* A number of improvements and bug fixes to the in-kernel SMB/CIFS file
+  sharing service have been integrated.
+
 * A number of packages have been recategorised as `optional` which means that
   they are part of the default system installation, but can be removed if
   not required. The list of optional packages can be viewed using:
   ```
-  pkg contents -Ha type=optional -o fmri entire
+  pkg list -R
   ```
+  and the optional system packages will show an `S` in the flags column.
   > If an optional package is removed from the global zone, then the package
   > will no longer be installed by default into any newly created non-global
   > zones.
@@ -83,9 +93,8 @@ If upgrading from before r151036, also refer to the following documents:
 * `beadm` has gained the `-t` and `-T` options for activating and de-activating
   one-time boot environments.
 
-* `pkg` has gained the `--temp-be-activate` option to use one-time boot
-  environment activation when an update requires a new BE or one has been
-  requested.
+* `pkg` has gained a number of new commands and options. Refer to
+  _Package Management_ below.
 
 ### Libraries and Library Functions
 
@@ -119,6 +128,11 @@ If upgrading from before r151036, also refer to the following documents:
 * Improved VNC support for the built-in framebuffer console. This now works
   properly with more clients, including native MacOS screen sharing.
 
+* Improved emulated NVMe devices.
+
+* Support for specifying pass-through devices in the zone configuration.
+  See [bhyve(5)](https://man.omnios.org/bhyve.5) for more information.
+
 ### ZFS
 
 * Support for persistent L2ARC.
@@ -126,6 +140,45 @@ If upgrading from before r151036, also refer to the following documents:
 * Support for one-time boot environment activation.
 
 ### Package Management
+
+* The `pkg list` command has gained some new flags:
+  * `-r` shows removable packages. That is, those which have no dependants
+    and could be removed if desired.
+  * `-R` extends this by also showing the removable system packages, but with
+    an `S` showing in the flags column.
+  * `-m` shows packages which were manually installed, that is explicitly
+    provided as arguments to a `pkg install` command. Manually installed
+    packages show an `m` in the flags column.
+  * `-M` shows the packages were **not** manually installed, that is those
+    which are part of the default system or were automatically installed as
+    dependencies for another package.
+
+* A new `pkg autoremove` command has been added which automatically uninstalls
+  any removable packages which were not manually installed (i.e. those packages
+  listed with `pkg list -rM`). This command supports the same options as
+  _uninstall_ - in particular, `pkg autoremove -nv` shows what would be done
+  without making any changes to the system.
+
+> Note that when upgrading to r151038 from an earlier release, the list of
+> packages which were manually installed will be incomplete.
+> This can be corrected by reviewing the output of `pkg list -rM` and using
+> the `pkg flag -m` command to flag any packages that should not be considered
+> by autoremove.
+
+* Packages can be flagged as manually installed using the new `pkg flag -m`
+  command. There is a corresponding `pkg flag -M` command which removes
+  the flag.
+
+* `pkg` has gained the `--temp-be-activate` option to use one-time boot
+  environment activation when an update requires a new BE or one has been
+  requested.
+
+* A new system property has been added to make `--temp-be-activate` the default
+  behaviour when a new boot environment is created as part of a package
+  operation. This can be set with `pkg set-property temp-be-activation=True`.
+  This option is useful for systems where console access is not readily
+  available, since a power cycle will automatically revert to the previous
+  boot environment.
 
 ### Hardware Support
 
@@ -165,6 +218,8 @@ If upgrading from before r151036, also refer to the following documents:
 ** XXX - man page still to update **
 
 ### Deprecated features
+
+* OpenSSH in OmniOS no longer provides support for GSSAPI key exchange.
 
 * Python 2 is now end-of-life and will not receive any further updates. The
   `python-27` package is still available for backwards compatibility but will
