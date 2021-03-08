@@ -10,7 +10,7 @@
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.4.9			| https://github.com/facebook/zstd/releases
-| data/iso-codes			| 4.5.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
+| data/iso-codes			| 4.6.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3340100		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.3		| https://ftp.gnu.org/gnu/automake/
