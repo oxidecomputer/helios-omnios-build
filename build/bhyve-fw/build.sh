@@ -23,7 +23,7 @@ BUILD_DEPENDS_IPS="
 
 PROG=uefi-edk2
 PKG=system/bhyve/firmware
-VER=20200501
+VER=20210302
 SUMMARY="UEFI-EDK2(+CSM) firmware for bhyve"
 DESC="$SUMMARY"
 
@@ -49,7 +49,7 @@ jobs=
 
 # Build the UEFI firmware
 
-tag=il-edk2-20210214-1
+tag=il-edk2-stable202102-1
 XFORM_ARGS+=" -D UEFITAG=$tag"
 
 typeset -A jobs
