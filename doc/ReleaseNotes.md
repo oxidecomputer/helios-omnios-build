@@ -90,11 +90,14 @@ If upgrading from before r151036, also refer to the following documents:
 
 * Command line completion information for the `bash` shell has been updated.
 
-* `beadm` has gained the `-t` and `-T` options for activating and de-activating
-  one-time boot environments.
+* [beadm(1M)](https://man.omnios.org/beadm.1m) has gained the `-t` and `-T`
+  options for activating and de-activating one-time boot environments.
 
-* `pkg` has gained a number of new commands and options. Refer to
-  _Package Management_ below.
+* [pkg(1)](https://man.omnios.org/pkg.1) has gained a number of new commands
+  and options. Refer to _Package Management_ below.
+
+* The [bhhwcompat(1M)](https://man.omnios.org/bhhwcompat.1m) utility has been
+  re-introduced to determine whether a system supports the bhyve hypervisor.
 
 ### Libraries and Library Functions
 
@@ -108,13 +111,22 @@ If upgrading from before r151036, also refer to the following documents:
 * The [getgrouplist(3C)](https://man.omnios.org/getgrouplist.3c)
   function has been added to the C library.
 
+* The [getcwd(3C)](https://man.omnios.org/getcwd.3c) function has been updated
+  to support passing _0_ as the _size_ parameter. This improves support for
+  running third party software that assumes this non-standard extension is
+  available.
+
 ### Zones
+
+* The [signalfd(3C)](https://man.omnios.org/signalfd.3c)
+  function now works in non-global zones.
 
 * The zone boot sequence has been streamlined so that zones boot faster,
   particularly when several are starting in parallel after system boot.
 
 * The `max-processes` zone resource control is now documented and is set
   to match any configured `max-lwps` control if not explicitly set.
+  See [zonecfg(1M)](https://man.omnios.org/zonecfg.1m).
 
 ### LX zones
 
@@ -132,6 +144,9 @@ If upgrading from before r151036, also refer to the following documents:
 
 * Support for specifying pass-through devices in the zone configuration.
   See [bhyve(5)](https://man.omnios.org/bhyve.5) for more information.
+
+* Improved automatic memory reclamation from the ZFS ARC when necessary to
+  start a new bhyve virtual machine.
 
 ### ZFS
 
@@ -195,6 +210,18 @@ If upgrading from before r151036, also refer to the following documents:
 
 ### Installer
 
+* Support for searching for installation ZFS images on USB flash drives.
+  This enables OmniOS to be installed from third party tools such as
+  [Ventoy](https://github.com/ventoy/Ventoy).
+
+* The hybrid _.iso_ image has been improved and works on more systems.
+  If booting from a USB flash drive, this hybrid image should be used instead
+  of the _.usb-dd_ file if possible.
+
+* The [bhhwcompat(1M)](https://man.omnios.org/bhhwcompat.1m) utility is now
+  available from the installer shell. This checks if the system supports
+  the bhyve hypervisor.
+
 ### Developer Features
 
 * Almost all system binaries and libraries are now delivered with
@@ -215,7 +242,6 @@ If upgrading from before r151036, also refer to the following documents:
   convert data in larger objects.
 
 * The illumos `make` command now sets the `CC` variable to `gcc` by default.
-** XXX - man page still to update **
 
 ### Deprecated features
 
