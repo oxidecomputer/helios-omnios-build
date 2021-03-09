@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-3/prettytable-39
 PROG=prettytable
-VER=2.0.0
+VER=2.1.0
 SUMMARY="Simple tabular data display"
 DESC="prettytable - A simple Python library for easily displaying tabular "
 DESC+="data in a visually appealing ASCII table format."
