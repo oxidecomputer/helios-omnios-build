@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-3/portend-39
 PROG=portend
-VER=2.7.0
+VER=2.7.1
 SUMMARY="portend - TCP port monitoring utilities"
 DESC="$SUMMARY"
 

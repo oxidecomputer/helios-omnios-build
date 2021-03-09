@@ -18,7 +18,7 @@
 
 PKG=library/python-3/coverage-39
 PROG=coverage
-VER=5.4
+VER=5.5
 SUMMARY="Python coverage module"
 DESC="Code coverage testing for Python"
 

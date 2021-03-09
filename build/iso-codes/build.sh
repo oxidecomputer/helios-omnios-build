@@ -13,12 +13,12 @@
 # }}}
 
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=iso-codes
-VER=4.5.0
+VER=4.6.0
 PKG=data/iso-codes
 SUMMARY="ISO code lists and translations"
 DESC="Lists of various ISO standards "
