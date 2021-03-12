@@ -195,6 +195,10 @@ If upgrading from before r151036, also refer to the following documents:
   available, since a power cycle will automatically revert to the previous
   boot environment.
 
+* `pkg clean` can be used to manually remove cached downloaded content.
+  This is useful when the _flush-content-cache-on-success_ image property
+  has been set to _False_.
+
 ### Hardware Support
 
 * Improved support for AMD Zen 3 CPUs.
