@@ -1550,10 +1550,15 @@ make_package() {
             # FMRI attributes are implicitly rooted so we don't have to prefix
             # 'pkg:/' or worry about ambiguities in names
             local DEPTYPE="require"
+            local EXTRA=
             case ${i:0:1} in
                 \=)
                     DEPTYPE="incorporate"
                     i=${i:1}
+                    shopt -s extglob
+                    typeset facet=${i##pkg:+(/)}
+                    facet=${facet%@*}
+                    EXTRA=" facet.version-lock.$facet=true"
                     ;;
                 \?)
                     DEPTYPE="optional"
@@ -1593,7 +1598,7 @@ make_package() {
                     echo "<transform depend fmri=(.+/)?$escaped_depname -> set fmri $i>" >> $MANUAL_DEPS
                 fi
             else
-                echo "depend type=$DEPTYPE fmri=$i" >> $MANUAL_DEPS
+                echo "depend type=$DEPTYPE fmri=$i$EXTRA" >> $MANUAL_DEPS
             fi
         done
     fi
