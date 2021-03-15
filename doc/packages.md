@@ -11,7 +11,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.4.9			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.6.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3340100		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3350000		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.3		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -23,10 +23,10 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.18		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.7.5			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.7.6			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.30.2		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.7			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.7.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -75,7 +75,7 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.10		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.2			| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.5p2		| https://www.sudo.ws/
+| security/sudo				| 1.9.6			| https://www.sudo.ws/
 | service/network/ntpsec		| 1.2.0			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.1			| https://ftp.gnu.org/gnu/bash/
@@ -95,7 +95,7 @@
 | system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
 | system/rsyslog			| 8.2102.0		| https://www.rsyslog.com/downloads/download-v8-stable/
-| system/test/fio			| 3.25			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.26			| https://github.com/axboe/fio/releases
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.1c			| https://github.com/tmux/tmux/releases http://tmux.github.io/
