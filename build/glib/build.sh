@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=glib
-VER=2.66.7
+VER=2.68.0
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
@@ -44,6 +44,7 @@ CFLAGS+=" -Wno-error=format-nonliteral -Wno-error=format=2"
 set_standard POSIX
 
 LDFLAGS+=" -Wl,-z,ignore"
+LDFLAGS32+=" -lssp_ns"
 
 CONFIGURE_OPTS="
     --prefix=$PREFIX
@@ -70,19 +71,25 @@ clean_testsuite() {
         /^The output from .* first failed/,/Summary of Failures/ { next }
         /^Full log written/ { exit }
         # Found a test
-        /^ *[0-9][0-9]*\/[0-9]/ {
+        /^ *[0-9][0-9]*\/[0-9][0-9]* / {
             # Remove elapsed time
             sub(/ *[0-9][0-9]*\.[0-9][0-9]* *s/, "")
             # Remove sequence number
             sub(/ *[0-9]*\/[0-9]* */, "")
-            print | "sort"
-            flag = 1
+            if (trailer)
+                print
+            else
+                print | "sort"
             next
         }
-        flag { close "sort" }
-        { print }
+        /Summary of Failures/ {
+            close "sort"
+            trailer = 1
+            print ""
+        }
+        trailer { print }
     ' < $SRCDIR/$tf > $SRCDIR/testsuite.log
-    rm -f $SRCDIR/$tf
+    logcmd mv $SRCDIR/$tf $TMPDIR/
 }
 
 fix_rpaths() {
