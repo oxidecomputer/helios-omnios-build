@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/functions.sh
 
 PKG=library/python-3/pycodestyle-39
 PROG=pycodestyle
-VER=2.6.0
+VER=2.7.0
 SUMMARY="$PROG - Python style guide checker"
 DESC="$SUMMARY"
 

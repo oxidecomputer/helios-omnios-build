@@ -11,7 +11,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.4.9			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.6.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3350100		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3350200		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.3		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -62,7 +62,7 @@
 | library/xxhash			| 0.8.0			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20210216		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.16.12		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.16.13		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.5p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -109,7 +109,7 @@
 | text/less				| 563			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.75.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.66.7		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.68.0		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.36.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.46		| https://github.com/Azure/WALinuxAgent/releases
@@ -140,7 +140,7 @@
 | library/python-3/portend-39		| 2.7.1			| https://pypi.org/project/portend
 | library/python-3/prettytable-39	| 2.1.0			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-39		| 1.1.1			| https://pypi.org/project/pybonjour
-| library/python-3/pycodestyle-39	| 2.6.0			| https://pypi.org/project/pycodestyle/
+| library/python-3/pycodestyle-39	| 2.7.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-39		| 2.20			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-39		| 7.43.0.6		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-39		| 20.0.1		| https://pypi.org/project/pyOpenSSL
@@ -148,8 +148,8 @@
 | library/python-3/pytz-39		| 2021.1		| https://pypi.org/project/pytz
 | library/python-3/rapidjson-39		| 1.0			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-39	| 2.8.5			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-39	| 54.1.1		| https://pypi.org/project/setuptools
-| library/python-3/setuptools-rust-39	| 0.12.0		| https://pypi.org/project/setuptools-rust
+| library/python-3/setuptools-39	| 54.1.2		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-rust-39	| 0.12.1		| https://pypi.org/project/setuptools-rust
 | library/python-3/six-39		| 1.15.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.0.1			| https://pypi.org/project/tempora
 | library/python-3/wcwidth-39		| 0.2.5			| https://pypi.org/project/wcwidth
