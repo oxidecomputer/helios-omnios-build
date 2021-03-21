@@ -65,7 +65,7 @@ push_pkgs() {
     echo
 
     [ "$FLAVOR" = ctf ] && \
-        FLAVOR="SUNWcs `pkg search -H -o pkg.name \
+        FLAVOR="SUNWcs `pkg search -H -o pkg.name -s $ndrepo \
             dir:path:/kernel OR dir:path:/platform OR dir:path:/usr/platform \
             | egrep -v '^ooce/|virtualization/kvm|graphics/(agpgart|drm)'`"
 
