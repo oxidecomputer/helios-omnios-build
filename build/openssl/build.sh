@@ -8,105 +8,59 @@
 # 1.0 of the CDDL.
 #
 # A full copy of the text of the CDDL should have accompanied this
-# source. A copy of the CDDL is also available via the Internet at
+# source.  A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
+#
 # }}}
 #
-# Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=openssl
-VER=1.1.1j
 PKG=library/security/openssl
 SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
 
-SKIP_LICENCES=OpenSSL
-BMI_EXPECTED=1
+# Use the version of the openssl 1.1 package for this meta package
+inherit_ver openssl build-1.1.sh
 
-XFORM_ARGS+="
-    -DMAJVER=${VER%.*}
-    -DLIBVER=${VER%.*}
-    -DLICENCEFILE=LICENSE -DLICENCE=OpenSSL
-"
+create_manifest()
+{
+    local mf=$1
+    local ver=$VER
+    convert_version ver
+    cat << EOM > $mf
+set name=pkg.fmri \
+    value=pkg://@PKGPUBLISHER@/library/security/openssl@$ver,@SUNOSVER@-@PVER@
+set name=pkg.summary value="$SUMMARY"
+set name=pkg.description value="$DESC"
+set name=pkg.human-version value="$VER"
 
-TESTSUITE_FILTER='[0-9] tests|TESTS'
+depend fmri=library/security/openssl-11 type=require
 
+#
 # To aid transition from the old openssl package which combined both
-# OpenSSL 1.0.2 and 1.1.1 together, openssl depends on openssl-10.
+# OpenSSL 1.0.2 and 1.1.1 together, include a dependency on openssl-10.
 # This should remain in place until after r151038 is released, to ensure that
 # upgraded systems retain the old lib{ssl,crypto}.so.1.0.0 libraries.
 # This should be removed in r151039 so that default installations from
 # r151040 onwards will not include openssl 1.0 (but the package will be
 # available for anyone who wishes to install it manually, and upgraders will
 # not lose it).
-RUN_DEPENDS_IPS+=" library/security/openssl-10"
+#
+depend fmri=library/security/openssl-10 type=require facet.openssl.10=true
 
-# Generic options for both 32 and 64bit variants
-base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
-OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"
-OPENSSL_CONFIG_OPTS+=" --prefix=$PREFIX"
-# Build with support for the 1.0.0 API
-OPENSSL_CONFIG_OPTS+=" --api=1.0.0"
-
-# Configure options specific to a 32-bit or 64-bit builds
-OPENSSL_CONFIG_32_OPTS="--libdir=$PREFIX/lib"
-OPENSSL_CONFIG_64_OPTS="--libdir=$PREFIX/lib/$ISAPART64"
-OPENSSL_CONFIG_64_OPTS+=" enable-ec_nistp_64_gcc_128"
-
-# The 'install' target installs html documentation too
-MAKE_INSTALL_TARGET="install_sw install_ssldirs install_man_docs"
-
-save_function make_prog _make_prog
-make_prog() {
-    MAKE_ARGS_WS="
-        SHARED_LDFLAGS=\"$SHARED_LDFLAGS\"
-        LIB_LDFLAGS=\"$SHARED_LDFLAGS\"
-    "
-    _make_prog
-}
-
-configure32() {
-    SSLPLAT=solaris-x86-gcc
-    logmsg -n "--- Configure (32-bit) $SSLPLAT"
-    export __CNF_CFLAGS="$CFLAGS $CFLAGS32"
-    logcmd ./Configure $SSLPLAT \
-        ${OPENSSL_CONFIG_OPTS} ${OPENSSL_CONFIG_32_OPTS} \
-        || logerr "Failed to run configure"
-    SHARED_LDFLAGS="$LDFLAGS32 $base_LDFLAGS"
-}
-
-configure64() {
-    SSLPLAT=solaris64-x86_64-gcc
-    logmsg -n "--- Configure (64-bit) $SSLPLAT"
-    export __CNF_CFLAGS="$CFLAGS $CFLAGS64"
-    logcmd ./Configure $SSLPLAT \
-        ${OPENSSL_CONFIG_OPTS} ${OPENSSL_CONFIG_64_OPTS} \
-        || logerr "Failed to run configure"
-    SHARED_LDFLAGS="$LDFLAGS64 $base_LDFLAGS"
-}
-
-# Preserve the opensslconf.h file from each build since there will be
-# differences due to the architecture.
-build() {
-    local duh=$DESTDIR$PREFIX/include/openssl/opensslconf.h
-
-    [[ $BUILDARCH =~ ^(32|both)$ ]] && build32 && logcmd cp ${duh}{,.32}
-    [[ $BUILDARCH =~ ^(64|both)$ ]] && build64 && logcmd cp ${duh}{,.64}
-
-    logcmd -p diff -D __x86_64 ${duh}.{32,64} > $duh
+EOM
 }
 
 init
-download_source $PROG $PROG $VER
-patch_source
 prep_build
-build
-run_testsuite
-make_package
+
+manifest=$TMPDIR/$PKGE.p5m
+create_manifest $manifest
+publish_manifest $PKG $manifest
 clean_up
 
 # Vim hints
