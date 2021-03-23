@@ -30,6 +30,7 @@ BMI_EXPECTED=1
 XFORM_ARGS+="
     -DMAJVER=${VER%.*}
     -DLIBVER=${VER%.*}.0
+    -DLICENCEFILE=LICENSE -DLICENCE=OpenSSL
 "
 
 PATCHDIR=patches-${VER%.*}
@@ -108,7 +109,7 @@ patch_source
 install_pkcs11
 prep_build
 build
-run_testsuite test "" testsuite.1.0.log
+run_testsuite test "" testsuite.${VER%.*}.log
 make_package -legacy
 clean_up
 

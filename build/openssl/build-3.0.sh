@@ -18,39 +18,43 @@
 . ../../lib/functions.sh
 
 PROG=openssl
-VER=1.1.1j
-PKG=library/security/openssl
-SUMMARY="Cryptography and SSL/TLS Toolkit"
+VER=3.0.0
+ALPHA=13
+PKG=library/security/openssl-30
+SUMMARY="Cryptography and SSL/TLS Toolkit (ALPHA $ALPHA VERSION)"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
 
-SKIP_LICENCES=OpenSSL
-BMI_EXPECTED=1
+# Required for the testsuite - not yet in ooce/omnios-build-tools
+BUILD_DEPENDS_IPS+=" ooce/file/lsof"
+
+VERHUMAN="$VER ALPHA $ALPHA"
+
+#BMI_EXPECTED=1
 
 XFORM_ARGS+="
     -DMAJVER=${VER%.*}
     -DLIBVER=${VER%.*}
-    -DLICENCEFILE=LICENSE -DLICENCE=OpenSSL
+    -DLICENCEFILE=LICENSE.txt -DLICENCE=Apache2
 "
 
-TESTSUITE_FILTER='[0-9] tests|TESTS'
+if [ "$FLAVOR" != "preview" ]; then
+    logmsg "$PROG $VERHUMAN is not built by default, pass '-f preview'"
+    exit 0
+fi
+unset FLAVOR
 
-# To aid transition from the old openssl package which combined both
-# OpenSSL 1.0.2 and 1.1.1 together, openssl depends on openssl-10.
-# This should remain in place until after r151038 is released, to ensure that
-# upgraded systems retain the old lib{ssl,crypto}.so.1.0.0 libraries.
-# This should be removed in r151039 so that default installations from
-# r151040 onwards will not include openssl 1.0 (but the package will be
-# available for anyone who wishes to install it manually, and upgraders will
-# not lose it).
-RUN_DEPENDS_IPS+=" library/security/openssl-10"
+# This matches the directory for archives downloaded from github
+set_builddir $PROG-$PROG-$VER-alpha$ALPHA
 
 # Generic options for both 32 and 64bit variants
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
-OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"
+# TBC - ssl2/3?
+#OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"
+OPENSSL_CONFIG_OPTS="shared threads zlib"
 OPENSSL_CONFIG_OPTS+=" --prefix=$PREFIX"
-# Build with support for the 1.0.0 API
-OPENSSL_CONFIG_OPTS+=" --api=1.0.0"
+# Build with support for the older 1.1.1 API
+OPENSSL_CONFIG_OPTS+=" --api=1.1.1"
 
 # Configure options specific to a 32-bit or 64-bit builds
 OPENSSL_CONFIG_32_OPTS="--libdir=$PREFIX/lib"
@@ -92,7 +96,7 @@ configure64() {
 # Preserve the opensslconf.h file from each build since there will be
 # differences due to the architecture.
 build() {
-    local duh=$DESTDIR$PREFIX/include/openssl/opensslconf.h
+    local duh=$DESTDIR$PREFIX/include/openssl/configuration.h
 
     [[ $BUILDARCH =~ ^(32|both)$ ]] && build32 && logcmd cp ${duh}{,.32}
     [[ $BUILDARCH =~ ^(64|both)$ ]] && build64 && logcmd cp ${duh}{,.64}
@@ -101,12 +105,14 @@ build() {
 }
 
 init
-download_source $PROG $PROG $VER
+download_source $PROG $PROG $VER-alpha$ALPHA
 patch_source
 prep_build
 build
-run_testsuite
-make_package
+PATH=$OOCEBIN:$PATH run_testsuite test "" testsuite.${VER%.*}.log
+# Use a low version so that it is not newer than the official 3.0.0 release
+# when it comes.
+VER=0.$VER.$ALPHA make_package
 clean_up
 
 # Vim hints
