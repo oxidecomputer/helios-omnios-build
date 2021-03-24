@@ -18,8 +18,8 @@
 . ../../lib/functions.sh
 
 PROG=openssl
-VER=1.0.2u
-PKG=library/security/openssl-10
+VER=1.1.1j
+PKG=library/security/openssl-11
 SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
@@ -29,24 +29,27 @@ BMI_EXPECTED=1
 
 XFORM_ARGS+="
     -DMAJVER=${VER%.*}
-    -DLIBVER=${VER%.*}.0
+    -DLIBVER=${VER%.*}
     -DLICENCEFILE=LICENSE -DLICENCE=OpenSSL
 "
 
 PATCHDIR=patches-${VER%.*}
 TESTSUITE_FILTER='[0-9] tests|TESTS'
 
-# Generic options for both 32- and 64-bit variants
+# Generic options for both 32 and 64bit variants
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
 OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"
 OPENSSL_CONFIG_OPTS+=" --prefix=$PREFIX"
+# Build with support for the 1.0.0 API
+OPENSSL_CONFIG_OPTS+=" --api=1.0.0"
 
 # Configure options specific to a 32-bit or 64-bit builds
-OPENSSL_CONFIG_32_OPTS="--libdir=lib"
-OPENSSL_CONFIG_32_OPTS+=" --pk11-libname=$PREFIX/lib/libpkcs11.so.1"
-OPENSSL_CONFIG_64_OPTS="--libdir=lib/$ISAPART64"
+OPENSSL_CONFIG_32_OPTS="--libdir=$PREFIX/lib"
+OPENSSL_CONFIG_64_OPTS="--libdir=$PREFIX/lib/$ISAPART64"
 OPENSSL_CONFIG_64_OPTS+=" enable-ec_nistp_64_gcc_128"
-OPENSSL_CONFIG_64_OPTS+=" --pk11-libname=$PREFIX/lib/$ISAPART64/libpkcs11.so.1"
+
+# The 'install' target installs html documentation too
+MAKE_INSTALL_TARGET="install_sw install_ssldirs install_man_docs"
 
 save_function make_prog _make_prog
 make_prog() {
@@ -88,29 +91,13 @@ build() {
     logcmd -p diff -D __x86_64 ${duh}.{32,64} > $duh
 }
 
-install_pkcs11()
-{
-    logmsg "--- installing pkcs11 engine"
-    pushd $SRCDIR/engine_pkcs11 > /dev/null
-    find . | cpio -pmud $TMPDIR/$BUILDDIR/engines/
-    popd > /dev/null
-}
-
-# OpenSSL 1.0 uses INSTALL_PREFIX= instead of DESTDIR=
-make_install() {
-    logmsg "--- make install"
-    logcmd make INSTALL_PREFIX=$DESTDIR install \
-        || logerr "Failed to make install"
-}
-
 init
 download_source $PROG $PROG $VER
 patch_source
-install_pkcs11
 prep_build
 build
 run_testsuite test "" testsuite.${VER%.*}.log
-make_package -legacy
+make_package
 clean_up
 
 # Vim hints
