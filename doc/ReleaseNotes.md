@@ -133,6 +133,10 @@ If upgrading from before r151036, also refer to the following documents:
 * Some processes which relied on the system `RLIMIT_NPROC` parameter could
   crash on startup. This has been resolved.
 
+* Emulation of the Linux-specific feature that allows a symbolic link to be
+  opened as a file has been improved, resolving problems experienced with some
+  software in lx zones.
+
 ### Bhyve
 
 * Many improvements from upstream illumos and FreeBSD.
@@ -226,6 +230,16 @@ If upgrading from before r151036, also refer to the following documents:
   available from the installer shell. This checks if the system supports
   the bhyve hypervisor.
 
+### Virtualisation
+
+* The `azure-agent` package has been upgraded and extended. It now has the
+  ability to create users and provision SSH keys automatically during
+  virtual machine deployment in Azure.
+
+* A disk image suitable for using in Azure is available alongside this release.
+  See <https://omnios.org/article/azure-image> for more information on how
+  this can be used.
+
 ### Developer Features
 
 * Almost all system binaries and libraries are now delivered with
@@ -243,9 +257,12 @@ If upgrading from before r151036, also refer to the following documents:
 
 * The Compact Type Format (CTF) utilities delivered with the
   developer/build/onbld package have been updated and are able to more easily
-  convert data in larger objects.
+  convert data in larger and more complex objects.
 
-* The illumos `make` command now sets the `CC` variable to `gcc` by default.
+* The illumos `make` command now sets predefined macros to better values.
+  For example, the `CC` variable is now `gcc` by default.
+  See [make(1)](https://man.omnios.org/make#Predefined_Macros) for more
+  details.
 
 ### Deprecated features
 
