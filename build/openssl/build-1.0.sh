@@ -109,7 +109,7 @@ patch_source
 install_pkcs11
 prep_build
 build
-run_testsuite test "" testsuite.${VER%.*}.log
+run_testsuite test "" testsuite-${VER%.*}.log
 make_package -legacy
 clean_up
 
