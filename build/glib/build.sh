@@ -28,6 +28,10 @@ RUN_DEPENDS_IPS="
     runtime/perl
 "
 
+BUILD_DEPENDS_IPS="
+    library/python-3/meson-39
+"
+
 # ninja does not support the --quiet option
 MAKE_TESTSUITE_ARGS=
 
