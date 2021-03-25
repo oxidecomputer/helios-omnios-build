@@ -34,7 +34,7 @@ XFORM_ARGS+="
 "
 
 PATCHDIR=patches-${VER%.*}
-TESTSUITE_FILTER='[0-9] tests|TESTS'
+#TESTSUITE_FILTER='[0-9] tests|TESTS'
 
 # Generic options for both 32 and 64bit variants
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
@@ -96,7 +96,7 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-run_testsuite test "" testsuite.${VER%.*}.log
+run_testsuite test "" testsuite-${VER%.*}.log
 make_package
 clean_up
 

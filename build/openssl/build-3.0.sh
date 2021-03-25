@@ -30,8 +30,6 @@ BUILD_DEPENDS_IPS+=" ooce/file/lsof"
 
 VERHUMAN="$VER ALPHA $ALPHA"
 
-#BMI_EXPECTED=1
-
 XFORM_ARGS+="
     -DMAJVER=${VER%.*}
     -DLIBVER=${VER%.*}
@@ -109,7 +107,7 @@ download_source $PROG $PROG $VER-alpha$ALPHA
 patch_source
 prep_build
 build
-PATH=$OOCEBIN:$PATH run_testsuite test "" testsuite.${VER%.*}.log
+PATH=$OOCEBIN:$PATH run_testsuite test "" testsuite-${VER%.*}.log
 # Use a low version so that it is not newer than the official 3.0.0 release
 # when it comes.
 VER=0.$VER.$ALPHA make_package
