@@ -149,6 +149,10 @@ If upgrading from before r151036, also refer to the following documents:
 * Support for specifying pass-through devices in the zone configuration.
   See [bhyve(5)](https://man.omnios.org/bhyve.5) for more information.
 
+* Support for attaching a virtio random number generator device through the
+  `rng` attribute in the zone configuration
+  (see [bhyve(5)](https://man.omnios.org/bhyve.5)).
+
 * Improved automatic memory reclamation from the ZFS ARC when necessary to
   start a new bhyve virtual machine.
 
