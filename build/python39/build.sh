@@ -17,13 +17,17 @@
 . ../../lib/functions.sh
 
 PROG=Python
-VER=3.9.2
+VER=3.9.3
 PKG=runtime/python-39
 MVER=${VER%.*}
 SUMMARY="$PROG $MVER"
 DESC="$SUMMARY"
 
-BUILD_DEPENDS_IPS="developer/build/autoconf developer/pkg-config"
+BUILD_DEPENDS_IPS="
+    developer/build/autoconf
+    developer/pkg-config
+    ooce/developer/autoconf-archive
+"
 RUN_DEPENDS_IPS="
     compress/bzip2
     database/sqlite-3
