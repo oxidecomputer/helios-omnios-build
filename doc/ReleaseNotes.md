@@ -130,6 +130,11 @@ If upgrading from before r151036, also refer to the following documents:
 
 ### LX zones
 
+* The `/proc/sys/kernel/random/uuid` file is now available in an lx zone.
+  Each read of this file returns a type 4 UUID as a string. The format of
+  the ID returned from `/proc/sys/kernel/random/boot_id` is now a valid
+  type 4 UUID.
+
 * Some processes which relied on the system `RLIMIT_NPROC` parameter could
   crash on startup. This has been resolved.
 
