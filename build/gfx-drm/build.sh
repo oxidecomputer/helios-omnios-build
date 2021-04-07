@@ -77,7 +77,8 @@ pre_build() {
     '
     popd > /dev/null
 
-    BLDENV=$WORKDIR/tools/bldenv
+    cp $WORKDIR/tools/bldenv{,.x}
+    BLDENV=$WORKDIR/tools/bldenv.x
     logcmd chmod u+x $BLDENV || logerr "Cannot change bldenv mode"
     export BLDENV
 }
@@ -113,6 +114,10 @@ build() {
 
 make_package() {
     pushd $WORKDIR/usr/src/pkg/manifests
+
+    make_versionsbuild $PROG $DESTDIR $WORKDIR
+    make_versionsbuild $PROG $DESTDIR-nd $WORKDIR
+
     logcmd rm -f {system-test-*,x11-*-libdrm}.mf
     cat << EOM >> driver-graphics-drm.mf
 dir path=etc/versions group=sys
@@ -120,8 +125,6 @@ file path=etc/versions/build.$PROG
 EOM
     PKGFMT_OUTPUT=v1 pkgfmt driver-graphics-drm.mf
     popd
-    make_versionsbuild $PROG $DESTDIR $WORKDIR
-    make_versionsbuild $PROG $DESTDIR-nd $WORKDIR
 
     logmsg "Packages for agpgart and drm"
     pushd $WORKDIR > /dev/null
