@@ -40,6 +40,8 @@ If upgrading from before r151036, also refer to the following documents:
   `beadm activate -t` option. After rebooting the new boot environment,
   a subsequent reboot, crash or power cycle will revert to the original.
 
+* System support for NVMe Hotplug.
+
 * Userland packages are now built with extended protection against stack
   overflow bugs using the Stack Smashing Protector (SSP) compiler feature.
 
