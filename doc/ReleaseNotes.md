@@ -19,10 +19,15 @@ supported releases (r151030, r151032 and r151034) to properly handle
 conditional dependencies which are more widely used in r151036. The new `pkg`
 also has additional diagnostic output to help troubleshoot package updates.
 
-OpenSSH in OmniOS no longer provides support for GSSAPI key exchange. If you
-require this feature, please [let us know](https://omnios.org/about/contact).
+The default `python` mediator version is now set to 3 instead of 2; this means
+that `/usr/bin/python` is now Python 3. To restore the previous configuration,
+change the mediator version - `pkg set-mediator -V 2 python`. Alternatively,
+the `/usr/bin/python2` link continues to point at Python 2.
 
 OpenJDK in OmniOS no longer enables the TLSv1.0 or TLSv1.1 protocols by default.
+
+OpenSSH in OmniOS no longer provides support for GSSAPI key exchange. If you
+require this feature, please [let us know](https://omnios.org/about/contact).
 
 Upgrades are supported from the r151030, r151032, r151034 and r151036 releases.
 If upgrading from before r151036, also refer to the following documents:
@@ -288,7 +293,9 @@ If upgrading from before r151036, also refer to the following documents:
 
 * Python 2 is now end-of-life and will not receive any further updates. The
   `python-27` package is still available for backwards compatibility but will
-  be maintained only on a best-efforts basis.
+  be maintained only on a best-efforts basis. `/usr/bin/python` points to
+  Python 3 by default. Use `/usr/bin/python2` to start the legacy version,
+  or change the `python` mediator version.
 
 * OpenSSL 1.0.x is deprecated and reached end-of-support at the end of 2019.
   OmniOS has completely transitioned to OpenSSL 1.1.1 but retains the OpenSSL
