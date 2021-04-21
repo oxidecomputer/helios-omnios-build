@@ -2,8 +2,9 @@ $NetBSD$
 
 Fix building on SunOS in C99 mode.
 
---- src/hotspot/os/solaris/os_solaris.cpp.orig	2019-01-08 09:40:30.000000000 +0000
-+++ src/hotspot/os/solaris/os_solaris.cpp
+diff -wpruN '--exclude=*.orig' a~/src/hotspot/os/solaris/os_solaris.cpp a/src/hotspot/os/solaris/os_solaris.cpp
+--- a~/src/hotspot/os/solaris/os_solaris.cpp	1970-01-01 00:00:00
++++ a/src/hotspot/os/solaris/os_solaris.cpp	1970-01-01 00:00:00
 @@ -169,6 +169,8 @@ extern "C" {
  
    static int lwp_cond_init(cond_t *cv, int scope, void *arg){ memset(cv, 0, sizeof(cond_t)); return 0; }

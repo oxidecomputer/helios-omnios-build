@@ -2,8 +2,9 @@ $NetBSD$
 
 Support SunOS/gcc.
 
---- make/autoconf/libraries.m4.orig	2019-01-08 12:44:55.000000000 +0000
-+++ make/autoconf/libraries.m4
+diff -wpruN '--exclude=*.orig' a~/make/autoconf/libraries.m4 a/make/autoconf/libraries.m4
+--- a~/make/autoconf/libraries.m4	1970-01-01 00:00:00
++++ a/make/autoconf/libraries.m4	1970-01-01 00:00:00
 @@ -204,6 +204,7 @@ AC_DEFUN_ONCE([LIB_SETUP_MISC_LIBS],
  AC_DEFUN_ONCE([LIB_SETUP_SOLARIS_STLPORT],
  [
@@ -12,11 +13,10 @@ Support SunOS/gcc.
      # Find the root of the Solaris Studio installation from the compiler path
      SOLARIS_STUDIO_DIR="$(dirname $CC)/.."
      STLPORT_LIB="$SOLARIS_STUDIO_DIR/lib/stlport4$OPENJDK_TARGET_CPU_ISADIR/libstlport.so.1"
-@@ -220,6 +221,7 @@ AC_DEFUN_ONCE([LIB_SETUP_SOLARIS_STLPORT
-       AC_MSG_ERROR([Failed to find libstlport.so.1, cannot build Hotspot gtests])
+@@ -221,5 +222,6 @@ AC_DEFUN_ONCE([LIB_SETUP_SOLARIS_STLPORT
      fi
      AC_SUBST(STLPORT_LIB)
-+   fi
    fi
++  fi
  ])
  

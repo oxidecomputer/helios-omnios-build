@@ -2,8 +2,9 @@ $NetBSD$
 
 Support SunOS/gcc.
 
---- src/hotspot/os_cpu/solaris_x86/os_solaris_x86.inline.hpp.orig	2019-01-08 09:40:28.000000000 +0000
-+++ src/hotspot/os_cpu/solaris_x86/os_solaris_x86.inline.hpp
+diff -wpruN '--exclude=*.orig' a~/src/hotspot/os_cpu/solaris_x86/os_solaris_x86.inline.hpp a/src/hotspot/os_cpu/solaris_x86/os_solaris_x86.inline.hpp
+--- a~/src/hotspot/os_cpu/solaris_x86/os_solaris_x86.inline.hpp	1970-01-01 00:00:00
++++ a/src/hotspot/os_cpu/solaris_x86/os_solaris_x86.inline.hpp	1970-01-01 00:00:00
 @@ -27,8 +27,16 @@
  
  #include "runtime/os.hpp"
