@@ -2,8 +2,9 @@ $NetBSD$
 
 Support SunOS/gcc.
 
---- src/hotspot/os_cpu/solaris_x86/os_solaris_x86.cpp.orig	2019-01-08 12:44:55.000000000 +0000
-+++ src/hotspot/os_cpu/solaris_x86/os_solaris_x86.cpp
+diff -wpruN '--exclude=*.orig' a~/src/hotspot/os_cpu/solaris_x86/os_solaris_x86.cpp a/src/hotspot/os_cpu/solaris_x86/os_solaris_x86.cpp
+--- a~/src/hotspot/os_cpu/solaris_x86/os_solaris_x86.cpp	1970-01-01 00:00:00
++++ a/src/hotspot/os_cpu/solaris_x86/os_solaris_x86.cpp	1970-01-01 00:00:00
 @@ -296,13 +296,27 @@ frame os::get_sender_for_C_frame(frame*
    return frame(fr->sender_sp(), fr->link(), fr->sender_pc());
  }

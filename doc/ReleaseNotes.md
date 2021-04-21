@@ -22,6 +22,8 @@ also has additional diagnostic output to help troubleshoot package updates.
 OpenSSH in OmniOS no longer provides support for GSSAPI key exchange. If you
 require this feature, please [let us know](https://omnios.org/about/contact).
 
+OpenJDK in OmniOS no longer enables the TLSv1.0 or TLSv1.1 protocols by default.
+
 Upgrades are supported from the r151030, r151032, r151034 and r151036 releases.
 If upgrading from before r151036, also refer to the following documents:
 
@@ -269,6 +271,11 @@ If upgrading from before r151036, also refer to the following documents:
 * The Compact Type Format (CTF) utilities delivered with the
   developer/build/onbld package have been updated and are able to more easily
   convert data in larger and more complex objects.
+
+* OpenJDK now disables versions 1.0 and 1.1 of the TLS protocol by default.
+  If you encounter issues, you can re-enable the versions by removing "TLSv1"
+  and/or "TLSv1.1" from the `jdk.tls.disabledAlgorithms` security property in
+  the `java.security` configuration file.
 
 * The illumos `make` command now sets predefined macros to better values.
   For example, the `CC` variable is now `gcc` by default.
