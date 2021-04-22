@@ -19,6 +19,13 @@ supported releases (r151030, r151032 and r151034) to properly handle
 conditional dependencies which are more widely used in r151036. The new `pkg`
 also has additional diagnostic output to help troubleshoot package updates.
 
+The default `python` mediator version is now set to 3 instead of 2; this means
+that `/usr/bin/python` is now Python 3. To restore the previous configuration,
+change the mediator version - `pkg set-mediator -V 2 python`. Alternatively,
+the `/usr/bin/python2` link continues to point at Python 2.
+
+OpenJDK in OmniOS no longer enables the TLSv1.0 or TLSv1.1 protocols by default.
+
 OpenSSH in OmniOS no longer provides support for GSSAPI key exchange. If you
 require this feature, please [let us know](https://omnios.org/about/contact).
 
@@ -270,6 +277,11 @@ If upgrading from before r151036, also refer to the following documents:
   developer/build/onbld package have been updated and are able to more easily
   convert data in larger and more complex objects.
 
+* OpenJDK now disables versions 1.0 and 1.1 of the TLS protocol by default.
+  If you encounter issues, you can re-enable the versions by removing "TLSv1"
+  and/or "TLSv1.1" from the `jdk.tls.disabledAlgorithms` security property in
+  the `java.security` configuration file.
+
 * The illumos `make` command now sets predefined macros to better values.
   For example, the `CC` variable is now `gcc` by default.
   See [make(1)](https://man.omnios.org/make#Predefined_Macros) for more
@@ -281,7 +293,9 @@ If upgrading from before r151036, also refer to the following documents:
 
 * Python 2 is now end-of-life and will not receive any further updates. The
   `python-27` package is still available for backwards compatibility but will
-  be maintained only on a best-efforts basis.
+  be maintained only on a best-efforts basis. `/usr/bin/python` points to
+  Python 3 by default. Use `/usr/bin/python2` to start the legacy version,
+  or change the `python` mediator version.
 
 * OpenSSL 1.0.x is deprecated and reached end-of-support at the end of 2019.
   OmniOS has completely transitioned to OpenSSL 1.1.1 but retains the OpenSSL

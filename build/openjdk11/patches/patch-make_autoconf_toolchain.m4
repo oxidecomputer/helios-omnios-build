@@ -2,8 +2,9 @@ $NetBSD$
 
 Support SunOS/gcc.
 
---- make/autoconf/toolchain.m4.orig	2019-01-08 12:44:56.000000000 +0000
-+++ make/autoconf/toolchain.m4
+diff -wpruN '--exclude=*.orig' a~/make/autoconf/toolchain.m4 a/make/autoconf/toolchain.m4
+--- a~/make/autoconf/toolchain.m4	1970-01-01 00:00:00
++++ a/make/autoconf/toolchain.m4	1970-01-01 00:00:00
 @@ -38,7 +38,7 @@ VALID_TOOLCHAINS_all="gcc clang solstudi
  
  # These toolchains are valid on different platforms
