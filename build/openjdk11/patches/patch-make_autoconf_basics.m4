@@ -2,8 +2,9 @@ $NetBSD$
 
 Shell portability, and remove annoying warning.
 
---- make/autoconf/basics.m4.orig	2019-01-08 09:40:28.000000000 +0000
-+++ make/autoconf/basics.m4
+diff -wpruN '--exclude=*.orig' a~/make/autoconf/basics.m4 a/make/autoconf/basics.m4
+--- a~/make/autoconf/basics.m4	1970-01-01 00:00:00
++++ a/make/autoconf/basics.m4	1970-01-01 00:00:00
 @@ -351,7 +351,7 @@ AC_DEFUN([BASIC_REMOVE_SYMBOLIC_LINKS],
        # Resolve file symlinks
        while test $COUNTER -lt 20; do
@@ -22,7 +23,7 @@ Shell portability, and remove annoying warning.
        fi
        # Try to locate tool using the code snippet
        $2
-@@ -1155,7 +1155,7 @@ AC_DEFUN([BASIC_CHECK_GREP],
+@@ -1156,7 +1156,7 @@ AC_DEFUN([BASIC_CHECK_GREP],
    NEEDLE_SPACES='ccc bbb aaa'
    NEEDLE_LIST=${NEEDLE_SPACES// /$'\n'}
    RESULT="$($GREP -Fvx "$STACK_LIST" <<< "$NEEDLE_LIST")"

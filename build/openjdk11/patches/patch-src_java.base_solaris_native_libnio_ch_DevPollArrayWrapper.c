@@ -2,8 +2,9 @@ $NetBSD$
 
 XXX?
 
---- src/java.base/solaris/native/libnio/ch/DevPollArrayWrapper.c.orig	2019-01-08 09:40:30.000000000 +0000
-+++ src/java.base/solaris/native/libnio/ch/DevPollArrayWrapper.c
+diff -wpruN '--exclude=*.orig' a~/src/java.base/solaris/native/libnio/ch/DevPollArrayWrapper.c a/src/java.base/solaris/native/libnio/ch/DevPollArrayWrapper.c
+--- a~/src/java.base/solaris/native/libnio/ch/DevPollArrayWrapper.c	1970-01-01 00:00:00
++++ a/src/java.base/solaris/native/libnio/ch/DevPollArrayWrapper.c	1970-01-01 00:00:00
 @@ -23,9 +23,9 @@
   * questions.
   */
