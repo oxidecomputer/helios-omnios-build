@@ -137,6 +137,21 @@ If upgrading from before r151036, also refer to the following documents:
   to match any configured `max-lwps` control if not explicitly set.
   See [zonecfg(1M)](https://man.omnios.org/zonecfg.1m).
 
+* `illumos` branded zones now support boot environments; these are fully
+  independant of the global zone's boot environments. To take advantage of
+  this, any existing illumos branded zones will need to be re-installed,
+  otherwise they will continue without BE support. The easiest way to do
+  this is to snapshot and `zfs send` the old zone root, and then re-install
+  it, for example, for an illumos zone called `zone1`:
+  ```
+  # zoneadm -z zone1 shutdown
+  # zfs snapshot rpool/zones/zone1/root@migrate
+  # zfs send rpool/zones/zone1/root@migrate > /tmp/zone1.zfs
+  # zoneadm -z zone1 uninstall
+  # zoneadm -z zone1 install -s /tmp/zone1.zfs
+  # zoneadm -z zone1 boot
+  ```
+
 ### LX zones
 
 * The `/proc/sys/kernel/random/uuid` file is now available in an lx zone.
