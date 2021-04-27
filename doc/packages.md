@@ -11,7 +11,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.4.9			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.6.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3350400		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3350500		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.3		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -109,7 +109,7 @@
 | text/less				| 563			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.76.1		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.68.0		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.68.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.36.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.54		| https://github.com/Azure/WALinuxAgent/releases
