@@ -302,6 +302,12 @@ If upgrading from before r151036, also refer to the following documents:
   See [make(1)](https://man.omnios.org/make#Predefined_Macros) for more
   details.
 
+* The perl _Sun::Solaris::Privilege_ and _Sun::Solaris:Ucred_ modules are now
+  available in the `runtime/perl/module/sun-solaris` package. These allow
+  perl programs to easily access the illumos privilege and user credentials
+  features. See [privilege(3perl)](https://man.omnios.org/privilege.3perl)
+  and [ucred(3perl)](https://man.omnios.org/ucred.3perl).
+
 ### Deprecated features
 
 * OpenSSH in OmniOS no longer provides support for GSSAPI key exchange.
