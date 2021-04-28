@@ -19,7 +19,7 @@
 
 PKG=system/library/gccgo-runtime
 PROG=gccgo
-VER=10
+VER=11
 SUMMARY="GNU go runtime dependencies"
 DESC="$SUMMARY"
 
