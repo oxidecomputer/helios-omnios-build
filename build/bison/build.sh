@@ -26,9 +26,6 @@ DESC+="context-free grammar into a deterministic or generalised parser"
 
 set_arch 64
 
-# Ruby is required for parts of the testsuite
-BUILD_DEPENDS_IPS="ooce/runtime/ruby-26"
-
 CONFIGURE_OPTS="--disable-yacc"
 export M4=/usr/bin/gm4
 
