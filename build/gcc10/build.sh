@@ -129,10 +129,12 @@ LDFLAGS="-R$OPT/lib"
 # If the selected compiler is the same version as the one we're building
 # then the three-stage bootstrap is unecessary and some build time can be
 # saved.
-[ -z "$FORCE_BOOTSTRAP" ] \
-    && [ "`gcc -v 2>&1 | nawk '/^gcc version/ { print $3 }'`" = "$VER" ] \
-    && CONFIGURE_OPTS+=" --disable-bootstrap" \
-    && logmsg -n "--- disabling bootstrap"
+if [ -z "$FORCE_BOOTSTRAP" -a "`gcc -dumpversion`" = "$VER" ]; then
+    CONFIGURE_OPTS+=" --disable-bootstrap" \
+    logmsg -n "--- disabling bootstrap"
+else
+    logmsg -n "--- full bootstrap build"
+fi
 
 make_install() {
     logmsg "--- make install"
