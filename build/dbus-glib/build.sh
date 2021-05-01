@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=dbus-glib
-VER=0.110
+VER=0.112
 PKG=system/library/libdbus-glib
 SUMMARY="$PROG - GNOME GLib DBUS integration library"
 DESC="$SUMMARY"
