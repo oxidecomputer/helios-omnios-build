@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=openssh
-VER=8.5p1
+VER=8.6p1
 PKG=network/openssh
 SUMMARY="OpenSSH Client and utilities"
 DESC="OpenSSH Secure Shell protocol Client and associated Utilities"
