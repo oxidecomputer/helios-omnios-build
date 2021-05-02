@@ -19,7 +19,7 @@
 
 PKG=system/library/gobjc-runtime
 PROG=objc
-VER=10
+VER=11
 SUMMARY="GNU Objective-C runtime dependencies"
 DESC="$SUMMARY"
 

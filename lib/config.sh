@@ -198,7 +198,10 @@ CHECK_RTIME=$ONBLDBIN/check_rtime
 CTFDUMP=$ONBLDBIN/i386/ctfdump
 CTFCONVERT=$ONBLDBIN/i386/ctfconvert
 CTF_FLAGS=
-CTF_CFLAGS="-gdwarf-2"
+typeset -A CTFCFLAGS
+CTFCFLAGS[_]="-gdwarf-2"
+CTFCFLAGS[10]="-gstrict-dwarf"
+CTFCFLAGS[11]="-gstrict-dwarf"
 
 # Enable CTF by default
 CTF_DEFAULT=1
@@ -271,11 +274,12 @@ FCFLAGS[_]+=" -O2"
 # "gcc has a rather aggressive optimization on by default that infers loop
 #  bounds based on undefined behaviour (!!).  This can lead to some VERY
 #  surprising optimisations -- ones that may be technically correct in the
-#  strictest sense but also result in incorrect program behavior."
+#  strictest sense but also result in incorrect program behaviour."
 FCFLAGS[7]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[8]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[9]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[10]+=" -fno-aggressive-loop-optimizations"
+FCFLAGS[11]+=" -fno-aggressive-loop-optimizations"
 
 # Flags to enable particular standards; see standards(5)
 typeset -A STANDARDS

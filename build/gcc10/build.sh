@@ -13,13 +13,13 @@
 # }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PKG=developer/gcc10
 PROG=gcc
-VER=10.2.0
+VER=10.3.0
 ILVER=il-0
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
@@ -129,10 +129,12 @@ LDFLAGS="-R$OPT/lib"
 # If the selected compiler is the same version as the one we're building
 # then the three-stage bootstrap is unecessary and some build time can be
 # saved.
-[ -z "$FORCE_BOOTSTRAP" ] \
-    && [ "`gcc -v 2>&1 | nawk '/^gcc version/ { print $3 }'`" = "$VER" ] \
-    && CONFIGURE_OPTS+=" --disable-bootstrap" \
-    && logmsg -n "--- disabling bootstrap"
+if [ -z "$FORCE_BOOTSTRAP" -a "`gcc -dumpversion`" = "$VER" ]; then
+    CONFIGURE_OPTS+=" --disable-bootstrap" \
+    logmsg -n "--- disabling bootstrap"
+else
+    logmsg -n "--- full bootstrap build"
+fi
 
 make_install() {
     logmsg "--- make install"
