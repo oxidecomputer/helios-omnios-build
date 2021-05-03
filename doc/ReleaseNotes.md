@@ -2,12 +2,11 @@
 <img src="https://omnios.org/OmniOSce_logo.svg" height="128">
 </a>
 
-# Release Notes for OmniOSce v11 r151038
-![#f03c15](https://placehold.it/15/f03c15/000000?text=+) ** These are DRAFT release notes ** ![#f03c15](https://placehold.it/15/f03c15/000000?text=+)
+# Release Notes for OmniOS r151038
 
-Stable and Long-Term-Supported (LTS) Release, TBC of May 2021
+Stable and Long-Term-Supported (LTS) Release, 3rd of May 2021
 
-`uname -a` shows `omnios-r151038-XXX`
+`uname -a` shows `omnios-r151038-adeb0c00cf`
 
 r151038 release repository: https://pkg.omnios.org/r151038/core
 
@@ -292,21 +291,25 @@ If upgrading from before r151036, also refer to the following documents:
   developer/build/onbld package have been updated and are able to more easily
   convert data in larger and more complex objects.
 
-* OpenJDK now disables versions 1.0 and 1.1 of the TLS protocol by default.
-  If you encounter issues, you can re-enable the versions by removing "TLSv1"
-  and/or "TLSv1.1" from the `jdk.tls.disabledAlgorithms` security property in
-  the `java.security` configuration file.
-
 * The illumos `make` command now sets predefined macros to better values.
   For example, the `CC` variable is now `gcc` by default.
-  See [make(1)](https://man.omnios.org/make#Predefined_Macros) for more
+  See [make(1)](https://man.omnios.org/make.1#Predefined_Macros) for more
   details.
 
-* The perl _Sun::Solaris::Privilege_ and _Sun::Solaris:Ucred_ modules are now
+* The python package now includes the `pip` module, which can be invoked  via
+  `python -mpip`. Python modules delivered via `pkg` cannot be uninstalled or
+  replaced using pip.
+
+* The perl _Sun::Solaris::Privilege_ and _Sun::Solaris::Ucred_ modules are now
   available in the `runtime/perl/module/sun-solaris` package. These allow
   perl programs to easily access the illumos privilege and user credentials
   features. See [privilege(3perl)](https://man.omnios.org/privilege.3perl)
   and [ucred(3perl)](https://man.omnios.org/ucred.3perl).
+
+* OpenJDK now disables versions 1.0 and 1.1 of the TLS protocol by default.
+  If you encounter issues, you can re-enable the versions by removing "TLSv1"
+  and/or "TLSv1.1" from the `jdk.tls.disabledAlgorithms` security property in
+  the `java.security` configuration file.
 
 ### Deprecated features
 
@@ -324,4 +327,94 @@ If upgrading from before r151036, also refer to the following documents:
   maintained solely on a best-efforts basis.
 
 ### Package changes ([+] Added, [-] Removed, [\*] Changed)
+
+| Package | Old Version | New Version |
+| :------ | :---------- | :---------- |
+| archiver/gnu-tar | 1.32 | 1.34
+| compress/lz4 | 1.9.2 | 1.9.3
+| compress/zstd | 1.4.5 | 1.4.9
+| data/iso-codes | 4.5.0 | 4.6.0
+| database/sqlite-3 | 3.33.0 | 3.35.5
+| developer/build/autoconf | 2.69 | 2.71
+| developer/build/automake | 1.16.2 | 1.16.3
+| **developer/exuberant-ctags** | _New_ | 5.8
+| developer/gnu-binutils | 2.35.1 | 2.36.1
+| developer/parser/bison | 3.7.2 | 3.7.6
+| developer/versioning/git | 2.28.1 | 2.31.1
+| developer/versioning/mercurial | 5.5.1 | 5.7.1
+| **diagnostic/pci** | _New_ | 0.5.11
+| **driver/cpu/amd/zen** | _New_ | 0.5.11
+| **driver/developer/amd/zen** | _New_ | 0.5.11
+| file/gnu-findutils | 4.7.0 | 4.8.0
+| ~~incorporation/jeos/illumos-gate~~ | 11 | _Removed_
+| ~~incorporation/jeos/omnios-userland~~ | 11 | _Removed_
+| library/c++/sigcpp | 3.0.4 | 3.0.6
+| library/expat | 2.2.9 | 2.3.0
+| library/glib2 | 2.66.1 | 2.68.1
+| library/gmp | 6.2.0 | 6.2.1
+| library/mpc | 1.2.0 | 1.2.1
+| library/nghttp2 | 1.41.0 | 1.43.0
+| library/nspr | 4.29 | 4.30
+| library/nspr/header-nspr | 4.29 | 4.30
+| library/pcre2 | 10.35 | 10.36
+| library/python-3/asn1crypto-3x | 1.4.0 | 1.4.0
+| library/python-3/attrs-3x | 20.2.0 | 20.3.0
+| library/python-3/cffi-3x | 1.14.3 | 1.14.5
+| library/python-3/cheroot-3x | 8.4.5 | 8.5.2
+| library/python-3/coverage-3x | 5.3 | 5.5
+| library/python-3/cryptography-3x | 3.1.1 | 3.4.6
+| library/python-3/idna-3x | 2.10 | 3.1
+| ~~library/python-3/importlib-metadata-37~~ | 2.0.0 | _Removed_
+| library/python-3/jsonrpclib-3x | 0.4.1 | 0.4.2
+| library/python-3/mako-3x | 1.1.3 | 1.1.4
+| library/python-3/meson-3x | 0.55.3 | 0.57.1
+| library/python-3/more-itertools-3x | 8.5.0 | 8.7.0
+| **library/python-3/orjson-39** | _New_ | 3.5.1
+| **library/python-3/pip-39** | _New_ | 21.0.1
+| library/python-3/portend-3x | 2.6 | 2.7.1
+| library/python-3/prettytable-3x | 0.7.2 | 2.1.0
+| library/python-3/pycodestyle-3x | 2.6.0 | 2.7.0
+| library/python-3/pyopenssl-3x | 19.1.0 | 20.0.1
+| library/python-3/pytz-3x | 2020.1 | 2021.1
+| library/python-3/rapidjson-3x | 0.9.1 | 1.0
+| **library/python-3/semantic-version-39** | _New_ | 2.8.5
+| library/python-3/setuptools-3x | 50.3.0 | 54.1.2
+| **library/python-3/setuptools-rust-39** | _New_ | 0.12.1
+| library/python-3/tempora-3x | 4.0.0 | 4.0.1
+| **library/python-3/wcwidth-39** | _New_ | 0.2.5
+| ~~library/python-3/zipp-37~~ | 3.2.0 | _Removed_
+| library/readline | 8.0 | 8.1
+| **library/security/openssl-10** | _New_ | 1.0.2.21
+| **library/security/openssl-11** | _New_ | 1.1.1.11
+| library/security/trousers | 0.3.14 | 0.3.15
+| network/dns/bind | 9.11.23 | 9.16.13
+| network/openssh | 8.4.1 | 8.5.1
+| network/openssh-server | 8.4.1 | 8.5.1
+| runtime/perl | 5.32.0 | 5.32.1
+| ~~runtime/python-37~~ | 3.7.10 | _Removed_
+| **runtime/python-39** | _New_ | 3.9.4
+| security/sudo | 1.9.5.2 | 1.9.6.1
+| service/network/ntpsec | 1.1.9 | 1.2.0
+| shell/bash | 5.0.18 | 5.1.4
+| **shell/ksh93** | _New_ | 93.21.1.20120801
+| shell/tcsh | 6.22.2 | 6.22.3
+| system/bhyve/firmware | 20200501 | 20210302
+| system/cpuid | 1.7.6 | 1.8.0
+| system/data/hardware-registry | 2020.9.15 | 2021.3.5
+| system/data/zoneinfo | 2020.1 | 2021.1
+| system/library/mozilla-nss | 3.57 | 3.63
+| system/library/mozilla-nss/header-nss | 3.57 | 3.63
+| system/library/pcap | 1.9.1 | 1.10.0
+| system/microcode/intel | 20201118 | 20210216
+| system/pciutils/pci.ids | 2.2.20200819 | 2.2.20210305
+| system/rsyslog | 8.2008.0 | 8.2102.0
+| system/test/fio | 3.23 | 3.26
+| **system/test/ksh93** | _New_ | 0.5.11
+| **system/test/libmlrpctest** | _New_ | 0.5.11
+| system/virtualization/azure-agent | 2.2.46 | 2.2.54
+| system/virtualization/open-vm-tools | 11.1.5 | 11.2.5
+| terminal/tmux | 3.1.2 | 3.1.3
+| text/gnu-grep | 3.5 | 3.6
+| text/less | 551 | 563
+| web/wget | 1.20.3 | 1.21.1
 
