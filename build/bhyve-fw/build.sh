@@ -118,6 +118,12 @@ XFORM_ARGS+=" -D CSMTAG=$tag"
         set_builddir uefi-edk2-$tag
         download_source bhyve-fw uefi-edk2 $tag
         pushd $TMPDIR/$BUILDDIR >/dev/null
+
+        # The CSM firmware expects 'python' to be python2.
+        logcmd mkdir bin
+        logcmd cp /usr/bin/amd64/python2 bin/python
+        export PATH=`pwd`/bin:$PATH
+
         logcmd cp OvmfPkg/License.txt $fwdir/LICENCE.$tag.OvmfPkg
         for v in RELEASE DEBUG; do
             [ -n "$DEPVER" -a "$DEPVER" != $v ] && continue
