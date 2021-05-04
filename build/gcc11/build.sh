@@ -137,7 +137,7 @@ export ac_cv_func_posix_fallocate=no
 # then the three-stage bootstrap is unecessary and some build time can be
 # saved.
 if [ -z "$FORCE_BOOTSTRAP" -a "`gcc -dumpversion`" = "$VER" ]; then
-    CONFIGURE_OPTS+=" --disable-bootstrap" \
+    CONFIGURE_OPTS+=" --disable-bootstrap"
     logmsg -n "--- disabling bootstrap"
 else
     logmsg -n "--- full bootstrap build"
