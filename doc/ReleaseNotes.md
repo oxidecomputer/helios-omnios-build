@@ -326,7 +326,7 @@ If upgrading from before r151036, also refer to the following documents:
   1.0.2 libraries for backwards compatibility. The 1.0.2 libraries are
   maintained solely on a best-efforts basis.
 
-### Package changes ([+] Added, [-] Removed, [\*] Changed)
+### Package changes
 
 | Package | Old Version | New Version |
 | :------ | :---------- | :---------- |
