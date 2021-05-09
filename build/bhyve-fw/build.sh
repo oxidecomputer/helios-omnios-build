@@ -49,7 +49,7 @@ jobs=
 
 # Build the UEFI firmware
 
-tag=il-edk2-stable202102-1
+tag=il-edk2-stable202102-2
 XFORM_ARGS+=" -D UEFITAG=$tag"
 
 typeset -A jobs
@@ -109,7 +109,7 @@ jobs[OVMF]=$!
 
 # The CSM firmware is still built from the old 2014 branch using gcc 4.
 
-tag=il-udk2014.sp1-2
+tag=il-udk2014.sp1-3
 XFORM_ARGS+=" -D CSMTAG=$tag"
 
 (
@@ -119,10 +119,8 @@ XFORM_ARGS+=" -D CSMTAG=$tag"
         download_source bhyve-fw uefi-edk2 $tag
         pushd $TMPDIR/$BUILDDIR >/dev/null
 
-        # The CSM firmware expects 'python' to be python2.
-        logcmd mkdir bin
-        logcmd cp /usr/bin/amd64/python2 bin/python
-        export PATH=`pwd`/bin:$PATH
+        # The CSM firmware build needs python2
+        export PYTHON=python2
 
         logcmd cp OvmfPkg/License.txt $fwdir/LICENCE.$tag.OvmfPkg
         for v in RELEASE DEBUG; do
