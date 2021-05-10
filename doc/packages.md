@@ -134,7 +134,7 @@
 | library/python-3/mako-39		| 1.1.4			| https://pypi.org/project/Mako
 | library/python-3/meson-39		| 0.57.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-39	| 8.7.0			| https://pypi.org/project/more-itertools
-| library/python-3/orjson-39		| 3.5.1			| https://github.com/ijl/orjson/releases
+| library/python-3/orjson-39		| 3.5.2			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-39		| 21.0.1		| https://pypi.org/project/pip
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-39		| 2.7.1			| https://pypi.org/project/portend
