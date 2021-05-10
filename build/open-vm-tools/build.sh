@@ -41,6 +41,9 @@ export PATH=$GNUBIN:$PATH
 set_arch 64
 CTF_FLAGS+=" -s"
 
+# This component does not yet build with gcc11
+set_gccver 10
+
 BUILD_DEPENDS_IPS='developer/pkg-config'
 
 # XPG4v2 - Need cmsg from UNIX95
