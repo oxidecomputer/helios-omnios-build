@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/functions.sh
 
 PKG=library/python-3/tempora-39
 PROG=tempora
-VER=4.0.1
+VER=4.0.2
 SUMMARY="Objects and routines pertaining to date and time"
 DESC="$SUMMARY"
 
