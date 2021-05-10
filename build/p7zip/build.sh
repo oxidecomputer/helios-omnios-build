@@ -26,9 +26,6 @@ DESC="$SUMMARY"
 SRCVER="${VER}_src_all"
 set_builddir "${PROG}_${VER}"
 
-# This component does not yet build with gcc11
-set_gccver 10
-
 forgo_isaexec
 
 RUN_DEPENDS_IPS="
