@@ -30,6 +30,9 @@ DESC="$SUMMARY"
 init
 prep_build
 
+# This component does not yet build with gcc11
+set_gccver 10
+
 fwdir=$DESTDIR/usr/share/bhyve/firmware
 XFORM_ARGS+=" -D FWDIR=usr/share/bhyve/firmware"
 logcmd mkdir -p $fwdir
@@ -56,7 +59,6 @@ typeset -A jobs
 
 (
     if [ -z "$FLAVOR" -o "$FLAVOR" = UEFI ]; then
-        set_gccver $DEFAULT_GCC_VER
         set_builddir uefi-edk2-$tag
         download_source bhyve-fw uefi-edk2 $tag
         pushd $TMPDIR/$BUILDDIR >/dev/null
@@ -84,7 +86,6 @@ jobs[UEFI]=$!
 # Also build the stock OVMF ROM
 (
     if [ -z "$FLAVOR" -o "$FLAVOR" = OVMF ]; then
-        set_gccver $DEFAULT_GCC_VER
         set_builddir uefi-edk2-$tag
         download_source bhyve-fw uefi-edk2 $tag $TMPDIR/ovmf
         pushd $TMPDIR/ovmf/$BUILDDIR >/dev/null
