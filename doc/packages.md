@@ -26,7 +26,7 @@
 | developer/parser/bison		| 3.7.6			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.31.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.7.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.8			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -56,7 +56,7 @@
 | library/readline			| 8.1			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
 | library/readline7-patchlvl		| 005			| https://ftp.gnu.org/gnu/readline/readline-7.0-patches/
-| library/readline8-patchlvl		| 000			| https://ftp.gnu.org/gnu/readline/readline-8.1-patches/
+| library/readline8-patchlvl		| 001			| https://ftp.gnu.org/gnu/readline/readline-8.1-patches/
 | library/security/openssl-11		| 1.1.1k		| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.9			| http://www.unixodbc.org/download.html
 | library/xxhash			| 0.8.0			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
@@ -79,7 +79,7 @@
 | service/network/ntpsec		| 1.2.0			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.1			| https://ftp.gnu.org/gnu/bash/
-| shell/bash5-patchlvl			| 004			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
+| shell/bash5-patchlvl			| 008			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.04		| https://github.com/tcsh-org/tcsh/releases

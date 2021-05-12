@@ -19,6 +19,7 @@
 
 PROG=readline
 VER=8.1
+PATCHLEVEL=1
 PKG=library/readline
 SUMMARY="GNU readline"
 DESC="GNU readline library"
@@ -51,6 +52,7 @@ note -n "Building current version: $VER"
 download_source $PROG $PROG $VER
 patch_source
 build
+[ -n "$PATCHLEVEL" ] && VER+=".$PATCHLEVEL"
 make_package
 clean_up
 
