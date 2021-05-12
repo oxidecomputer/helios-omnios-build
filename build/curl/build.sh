@@ -29,6 +29,7 @@ RUN_DEPENDS_IPS="web/ca-bundle library/libidn"
 CONFIGURE_OPTS="
     --enable-thread
     --with-ca-bundle=/etc/ssl/cacert.pem
+    --with-ca-path=/etc/ssl/certs
 "
 
 # Build backwards so that the 32-bit version is available for the test-suite.
