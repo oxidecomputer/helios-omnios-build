@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=sudo
-VER=1.9.6p1
+VER=1.9.7
 PKG=security/sudo
 SUMMARY="Authority delegation tool"
 DESC="Provide limited super-user privileges to specific users"
@@ -49,6 +49,8 @@ CONFIGURE_OPTS="
 SKIP_LICENCES=Various
 TESTSUITE_SED="
     /^libtool:/d
+    /^check_ttyname:/s/ *(.*//
+    /^check_net_ifs:/s/ *(.*//
 "
 
 init

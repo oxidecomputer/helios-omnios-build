@@ -9,7 +9,7 @@
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
-| compress/zstd				| 1.4.9			| https://github.com/facebook/zstd/releases
+| compress/zstd				| 1.5.0			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.6.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3350500		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
@@ -44,7 +44,7 @@
 | library/libevent			| 2.1.12		| https://github.com/libevent/libevent/releases | Currently used solely by tmux
 | library/libidn			| 1.36			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.3			| https://sourceware.org/libffi/
-| library/libxml2			| 2.9.10		| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
+| library/libxml2			| 2.9.12		| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.43.0		| https://github.com/nghttp2/nghttp2/releases
@@ -75,7 +75,7 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.10		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.5			| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.6p1		| https://www.sudo.ws/
+| security/sudo				| 1.9.7			| https://www.sudo.ws/
 | service/network/ntpsec		| 1.2.0			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.1			| https://ftp.gnu.org/gnu/bash/
@@ -85,7 +85,7 @@
 | shell/tcsh				| 6.22.04		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.0			| https://github.com/tycho/cpuid/releases
-| system/data/urxvt-terminfo		| 9.22			| http://dist.schmorp.de/rxvt-unicode/
+| system/data/urxvt-terminfo		| 9.26			| http://dist.schmorp.de/rxvt-unicode/
 | system/library/dbus			| 1.12.20		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.112			| https://dbus.freedesktop.org/releases/dbus-glib/
 | system/library/pcap			| 1.10.0		| http://www.tcpdump.org/#latest-releases
@@ -109,7 +109,7 @@
 | text/less				| 581.2			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.76.1		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.68.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.68.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.36.1		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.54		| https://github.com/Azure/WALinuxAgent/releases

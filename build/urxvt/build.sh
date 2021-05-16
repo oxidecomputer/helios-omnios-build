@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -21,7 +21,7 @@
 # See https://invisible-island.net/ncurses/ncurses-urxvt.html
 
 PROG=rxvt-unicode
-VER=9.22
+VER=9.26
 PKG=system/data/urxvt-terminfo
 SUMMARY="terminfo definition for rxvt-unicode"
 DESC="$SUMMARY"

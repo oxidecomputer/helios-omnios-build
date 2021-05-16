@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=zstd
-VER=1.4.9
+VER=1.5.0
 PKG=compress/zstd
 SUMMARY="Zstandard"
 DESC="Zstandard is a real-time compression algorithm, providing high "
