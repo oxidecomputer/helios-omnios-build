@@ -4,6 +4,27 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038c (2021-05-18)
+Weekly release for w/c 17th of May 2021.
+> This is a non-reboot update
+
+# Security Fixes
+
+* libxml2 updated to 2.9.12, fixing
+  [CVE-2021-3541](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3541).
+
+# Other Changes
+
+* A problem that could result in a newly built non-global zone having no
+  functioning system log service has been resolved.
+
+* If the global zone is using the rsyslog system logger, newly built non-global
+  zones will now be configured to use the same system log service.
+
+<br>
+
+---
+
 Stable and Long-Term-Supported (LTS) Release, 3rd of May 2021
 
 `uname -a` shows `omnios-r151038-adeb0c00cf`
