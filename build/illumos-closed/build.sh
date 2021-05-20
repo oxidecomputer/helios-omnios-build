@@ -25,6 +25,11 @@ DESC="Closed-source binaries required to build an illumos distribution."
 
 BUILDDIR=closed
 
+# These old closed binaries generate a lot of expected warnings for these
+# checks, and there is nothing we can do about it.
+SKIP_RTIME_CHECK=1
+SKIP_SSP_CHECK=1
+
 HARDLINK_TARGETS="
     opt/onbld/closed/root_i386/usr/xpg4/bin/alias
     opt/onbld/closed/root_i386-nd/usr/xpg4/bin/alias
