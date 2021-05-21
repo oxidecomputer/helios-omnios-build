@@ -19,7 +19,7 @@
 
 PROG=openssl
 VER=3.0.0
-ALPHA=13
+ALPHA=17
 PKG=library/security/openssl-30
 SUMMARY="Cryptography and SSL/TLS Toolkit (ALPHA $ALPHA VERSION)"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
@@ -42,8 +42,7 @@ if [ "$FLAVOR" != "preview" ]; then
 fi
 unset FLAVOR
 
-# This matches the directory for archives downloaded from github
-set_builddir $PROG-$PROG-$VER-alpha$ALPHA
+set_builddir $PROG-$VER-alpha$ALPHA
 
 # Generic options for both 32 and 64bit variants
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
