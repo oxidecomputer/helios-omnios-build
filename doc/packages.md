@@ -32,7 +32,7 @@
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 8.32			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.8.0			| https://ftp.gnu.org/pub/gnu/findutils/
-| library/c++/sigcpp			| 3.0.6			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
+| library/c++/sigcpp			| 3.0.7			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.3.0			| https://github.com/libexpat/libexpat/releases
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/releases | Currently used solely by rsyslog
 | library/fastjson			| 0.99.9		| https://github.com/rsyslog/libfastjson/releases | Currently used solely by rsyslog
