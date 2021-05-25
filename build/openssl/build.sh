@@ -40,18 +40,6 @@ set name=pkg.human-version value="$VER"
 
 depend fmri=library/security/openssl-11 type=require
 
-#
-# To aid transition from the old openssl package which combined both
-# OpenSSL 1.0.2 and 1.1.1 together, include a dependency on openssl-10.
-# This should remain in place until after r151038 is released, to ensure that
-# upgraded systems retain the old lib{ssl,crypto}.so.1.0.0 libraries.
-# This should be removed in r151039 so that default installations from
-# r151040 onwards will not include openssl 1.0 (but the package will be
-# available for anyone who wishes to install it manually, and upgraders will
-# not lose it).
-#
-depend fmri=library/security/openssl-10 type=require facet.openssl.10=true
-
 EOM
 }
 
