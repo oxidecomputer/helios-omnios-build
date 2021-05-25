@@ -2341,16 +2341,27 @@ python_vendor_relocate() {
     # vanilla version of pip. Therefore, we convert the enhanced package
     # metadata in the form of an egg-info directory, into a plain metadata
     # file, which prevents pip from touching it.
+    # In the event that we cannot flatten, we add an 'INSTALLER' file to
+    # the directory to indicate that it was installed via a third party
+    # system.
 
-    case "$@" in *-noflatten*) return ;; esac
+    typeset -i flatten=1
+    case "$@" in
+        *-noflatten*) flatten=0 ;;
+    esac
 
     for d in $DESTDIR$PYTHONVENDOR/*.egg-info; do
         [ -d "$d" ] || continue
-        logmsg "-- Flattening `basename $d`"
-        typeset tf=`mktemp`
-        logcmd mv $d/PKG-INFO $tf || logerr "Could not mv $d/PKG-INFO"
-        logcmd rm -rf $d/
-        logcmd mv $tf $d || logerr "Could not create $d"
+        if [ $flatten -eq 1 ]; then
+            logmsg "-- Flattening `basename $d`"
+            typeset tf=`mktemp`
+            logcmd mv $d/PKG-INFO $tf || logerr "Could not mv $d/PKG-INFO"
+            logcmd rm -rf $d/
+            logcmd mv $tf $d || logerr "Could not create $d"
+        else
+            logmsg "-- Setting INSTALLER for `basename $d`"
+            echo pkg > $d/INSTALLER
+        fi
     done
 }
 
