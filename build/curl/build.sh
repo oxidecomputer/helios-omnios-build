@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=curl
-VER=7.76.1
+VER=7.77.0
 PKG=web/curl
 SUMMARY="Command line tool for transferring data with URL syntax"
 DESC="Curl is a command line tool for transferring data with URL syntax, "
@@ -29,6 +29,8 @@ RUN_DEPENDS_IPS="web/ca-bundle library/libidn"
 CONFIGURE_OPTS="
     --enable-thread
     --with-ca-bundle=/etc/ssl/cacert.pem
+    --with-ca-path=/etc/ssl/certs
+    --with-openssl
 "
 
 # Build backwards so that the 32-bit version is available for the test-suite.
