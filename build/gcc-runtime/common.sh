@@ -33,7 +33,7 @@ find_lib() {
     local minor="${full##*.}"
     [ -n "$minor" -a "$minor" -gt $max ] && max=$minor
 
-    logmsg "-- GCC $v - found $full ($maj)"
+    logmsg "-- GCC $v - found $full ($maj) at $pth"
 }
 
 install_lib() {

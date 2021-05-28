@@ -39,7 +39,7 @@ libs="libgcc_s libatomic libgomp libssp"
 
 mkdir -p usr/lib/$ISAPART64
 
-for v in `seq 5 $VER`; do
+for v in 7 9 10; do
     install_lib $v "$libs"
     # The gcc-runtime package provides the 64 -> amd64 links
     logcmd ln -s $ISAPART64 usr/gcc/$v/lib/64
