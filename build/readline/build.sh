@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -35,18 +35,16 @@ init
 prep_build
 
 # Build previous versions
-_BUILDDIR=$BUILDDIR
-_PATCHDIR=$PATCHDIR
+save_variables BUILDDIR PATCHDIR EXTRACTED_SRC
 for pver in $PVERS; do
     note -n "Building previous version: $pver"
-    BUILDDIR=$PROG-$pver
-    PATCHDIR=patches-${pver%%.*}
+    set_builddir $PROG-$pver
+    set_patchdir patches-${pver%%.*}
     download_source $PROG $PROG $pver
     patch_source
     build
 done
-BUILDDIR=$_BUILDDIR
-PATCHDIR=$_PATCHDIR
+restore_variables BUILDDIR PATCHDIR EXTRACTED_SRC
 
 note -n "Building current version: $VER"
 download_source $PROG $PROG $VER
