@@ -14,12 +14,12 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=dhcp
-VER=4.4.2
+VER=4.4.2-P1
 PKG=network/service/isc-dhcp
 SUMMARY="ISC DHCP"
 DESC="$SUMMARY $VER"
