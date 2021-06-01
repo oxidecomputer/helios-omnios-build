@@ -12,16 +12,22 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=pcre2
-VER=10.36
+VER=10.37
 PKG=library/pcre2
 SUMMARY="Perl-Compatible Regular Expressions, version 2"
 DESC="The PCRE library is a set of functions that implement regular expression"
 DESC+=" pattern matching using the same syntax and semantics as Perl 5"
+
+# 10.37 - libpcre-posix.so changed from .2 to .3 as a set of compatibility
+#         functions was removed. We continue to build and provide
+#         libpcre-posix.so.2 for existing software linked against it.
+#      https://vcs.pcre.org/pcre2/code/trunk/src/pcre2posix.c?r1=1176&r2=1306
+PVERS="10.36"
 
 CONFIGURE_OPTS="
 	--localstatedir=/var
@@ -35,9 +41,23 @@ CONFIGURE_OPTS="
 "
 
 init
+prep_build
+
+# Build previous versions
+save_variables BUILDDIR PATCHDIR EXTRACTED_SRC
+for pver in $PVERS; do
+    note -n "Building previous version: $pver"
+    set_builddir $PROG-$pver
+    set_patchdir patches-${pver%%.*}
+    download_source pcre $PROG $pver
+    patch_source
+    build
+done
+restore_variables BUILDDIR PATCHDIR EXTRACTED_SRC
+
+note -n "Building current version: $VER"
 download_source pcre $PROG $VER
 patch_source
-prep_build
 build
 run_testsuite check
 make_isa_stub
