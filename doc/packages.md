@@ -51,7 +51,7 @@
 | library/nss				| 3.65			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.30			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.44			| https://ftp.pcre.org/pub/pcre/
-| library/pcre2				| 10.36			| https://ftp.pcre.org/pub/pcre/
+| library/pcre2				| 10.37			| https://ftp.pcre.org/pub/pcre/
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
 | library/readline			| 8.1			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
@@ -65,7 +65,7 @@
 | network/dns/bind			| 9.16.16		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.6p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
-| network/service/isc-dhcp		| 4.4.2			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
+| network/service/isc-dhcp		| 4.4.2-P1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/socat				| 1.7.4.1		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
@@ -95,7 +95,7 @@
 | system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
 | system/rsyslog			| 8.2104.0		| https://www.rsyslog.com/downloads/download-v8-stable/
-| system/test/fio			| 3.26			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.27			| https://github.com/axboe/fio/releases
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.2			| https://github.com/tmux/tmux/releases http://tmux.github.io/
