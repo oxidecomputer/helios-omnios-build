@@ -1,0 +1,72 @@
+From 7de79ba32036c4b36945f1b1ba85f6094068412c Mon Jun 7 00:00:00 2001
+From: Alexander Eremin <aeremin@tintri.com>
+Date: Mon, 7 Jun 2021 12:09:48 +0000
+Subject: Port SL_LOGONLY flag
+
+diff -ur rsyslog-8.2012.0/plugins/imsolaris/imsolaris.c rsyslog-8.2012.0.new/plugins/imsolaris/imsolaris.c
+--- rsyslog-8.2012.0/plugins/imsolaris/imsolaris.c	Sat Oct  3 17:06:47 2020
++++ rsyslog-8.2012.0.new/plugins/imsolaris/imsolaris.c	Sat Jun  5 14:04:33 2021
+@@ -92,7 +92,25 @@
+ /* defines */
+ #define PATH_LOG	"/dev/log"
+ 
++/*
++ * Public flags for log messages
++ */
++#define	SL_FATAL	0x01    /* indicates fatal error */
++#define	SL_NOTIFY	0x02    /* logger must notify administrator */
++#define	SL_ERROR	0x04    /* include on the error log */
++#define	SL_TRACE	0x08    /* include on the trace log */
++#define	SL_CONSOLE	0x10    /* include on the console log */
++#define	SL_WARN		0x20    /* warning message */
++#define	SL_NOTE		0x40    /* notice message */
+ 
++/*
++ * Private flags for log messages -- used by internal implementation only
++ */
++#define	SL_CONSONLY	0x1000  /* send message only to /dev/console */
++#define	SL_LOGONLY	0x2000  /* send message only to /var/adm/messages */
++#define	SL_USER		0x4000  /* send message to user's terminal */
++#define	SL_PANICMSG	0x8000  /* message was created while panicking */
++
+ /* Module static data */
+ DEF_IMOD_STATIC_DATA
+ DEFobjCurrIf(glbl)
+@@ -213,6 +231,8 @@
+ 		MsgSetHOSTNAME(pMsg, glbl.GetLocalHostName(), ustrlen(glbl.GetLocalHostName()));
+ 		msgSetPRI(pMsg, hdr.pri);
+ 		pMsg->msgFlags = NEEDS_PARSING | NO_PRI_IN_RAW | IGNDATE;
++		if (hdr.flags & SL_LOGONLY)
++			pMsg->msgFlags |= LOGONLY;
+ 
+ 		/* Construct timestamp from msg ctl struct */
+ 		tim.tv_usec = 0;
+diff -ur rsyslog-8.2012.0/runtime/msg.h rsyslog-8.2012.0.new/runtime/msg.h
+--- rsyslog-8.2012.0/runtime/msg.h	Mon Dec  7 17:33:52 2020
++++ rsyslog-8.2012.0.new/runtime/msg.h	Sat Jun  5 14:18:49 2021
+@@ -158,7 +158,11 @@
+ /* rawmsg does not include a PRI (Solaris!), but PRI is already set correctly in the msg object */
+ #define PRESERVE_CASE	0x200
+ /* preserve case in fromhost */
++#define LOGONLY			0x300
++/* send message only to /var/adm/messages */
+ 
++#define	SYSMSG		"/dev/sysmsg"
++
+ /* (syslog) protocol types */
+ #define MSG_LEGACY_PROTOCOL 0
+ #define MSG_RFC5424_PROTOCOL 1
+diff -ur rsyslog-8.2012.0/runtime/ruleset.c rsyslog-8.2012.0.new/runtime/ruleset.c
+--- rsyslog-8.2012.0/runtime/ruleset.c	Sat Oct  3 17:06:47 2020
++++ rsyslog-8.2012.0.new/runtime/ruleset.c	Sat Jun  5 15:44:03 2021
+@@ -586,6 +586,10 @@
+ 				  "force terminating\n");
+ 			ABORT_FINALIZE(RS_RET_FORCE_TERM);
+ 		}
++		if (strcmp(stmt->printable, SYSMSG) == 0 &&
++		    pMsg->msgFlags & LOGONLY) {
++			goto finalize_it;
++		}
+ 		if(Debug) {
+ 			cnfstmtPrintOnly(stmt, 2, 0);
+ 		}
