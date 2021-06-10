@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=ntpsec
-VER=1.2.0
+VER=1.2.1
 PKG=service/network/ntpsec
 SUMMARY="Network time services"
 DESC="A secure, hardened and improved Network Time Protocol implementation"
@@ -48,6 +48,9 @@ CONFIGURE_OPTS="
     --enable-manpage --disable-doc
     --nopyc --nopyo --nopycache
     --enable-debug-gdb
+"
+CONFIGURE_OPTS_WS="
+    --build-desc=\"OmniOS $RELVER\"
 "
 
 # NTPsec uses the 'waf' build system
