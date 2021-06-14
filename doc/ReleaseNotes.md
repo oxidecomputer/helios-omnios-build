@@ -4,6 +4,57 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038g (2021-06-14)
+Weekly release for w/c 14th of June 2021.
+> This update requires a reboot
+
+# Security Fixes
+
+* ISC DHCP updated to 4.4.2-P1, fixing
+  [CVE-2021-25217](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-25217).
+
+# Other Changes
+
+* The bhyve hypervisor and the bhyve branded zone have received several updates
+  that enable running with fewer resources and fewer privileges than before.
+
+* bhyve VNC sessions are now named based on the underlying virtual machine name
+  rathern than always being called "bhyve".
+
+* Additional network backends are available for bhyve, including an emulated
+  `e1000` interface type.
+
+* SMB3 encryption no longer breaks MacOS Big Sur clients.
+
+* Fixes for kernel FPU use.
+
+* The ZFS ARC algorithm has been adjusted to restore memory pressure;
+  see [illumos issue 13766](https://www.illumos.org/issues/13766).
+
+* Several ZFS L2ARC fixes and improvements have been incorporated.
+
+* The ZFS `zdb` command could crash when processing RAIDZ pools, this has
+  been resolved.
+
+* The `segkpsize` tunable can now be adjusted using the `eeprom` command - see
+  [eeprom(1M)](https://man.omnios.org/eeprom.1m).
+
+* Improvements to the native C++ and rust demangling library.
+
+* The CDP daemon (in.cdpd) now runs with reduced privileges;
+
+* `zpool list -vp` now shows parsable sizes in all fields.
+
+* `nvmeadm` now supports parsable output; see
+  [nvmeadm(1M)](https://man.omnios.org/nvmeadm.1m)
+
+* `profiles -l` could crash when an LDAP backend was in use, this has been
+  resolved.
+
+<br>
+
+---
+
 ## r151038d (2021-05-26)
 Weekly release for w/c 24th of May 2021.
 > This is a non-reboot update
