@@ -19,7 +19,7 @@ Weekly release for w/c 14th of June 2021.
   that enable running with fewer resources and fewer privileges than before.
 
 * bhyve VNC sessions are now named based on the underlying virtual machine name
-  rathern than always being called "bhyve".
+  rather than always being called "bhyve".
 
 * Additional network backends are available for bhyve, including an emulated
   `e1000` interface type.
