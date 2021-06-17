@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=net-snmp
-VER=5.9
+VER=5.9.1
 PKG=system/management/snmp/net-snmp
 SUMMARY="Net-SNMP Agent files and libraries"
 DESC="$SUMMARY"
@@ -82,6 +82,7 @@ TESTSUITE_SED="
     1,/^..RUNFULLTESTS/d
     s/([^)]*net-snmp-.*//
     /^gmake/d
+    s%-[0-9][0-9]*/[^)]*%/%g
 "
 
 init
