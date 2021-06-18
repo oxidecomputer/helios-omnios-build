@@ -19,16 +19,16 @@
 
 PROG=openssl
 VER=3.0.0
-ALPHA=17
+BETA=1
 PKG=library/security/openssl-30
-SUMMARY="Cryptography and SSL/TLS Toolkit (ALPHA $ALPHA VERSION)"
+SUMMARY="Cryptography and SSL/TLS Toolkit (BETA $BETA VERSION)"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
 
 # Required for the testsuite - not yet in ooce/omnios-build-tools
 BUILD_DEPENDS_IPS+=" ooce/file/lsof"
 
-VERHUMAN="$VER ALPHA $ALPHA"
+VERHUMAN="$VER BETA $BETA"
 
 XFORM_ARGS+="
     -DMAJVER=${VER%.*}
@@ -42,7 +42,7 @@ if [ "$FLAVOR" != "preview" ]; then
 fi
 unset FLAVOR
 
-set_builddir $PROG-$VER-alpha$ALPHA
+set_builddir $PROG-$VER-beta$BETA
 
 # Generic options for both 32 and 64bit variants
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
@@ -60,6 +60,11 @@ OPENSSL_CONFIG_64_OPTS+=" enable-ec_nistp_64_gcc_128"
 
 # The 'install' target installs html documentation too
 MAKE_INSTALL_TARGET="install_sw install_ssldirs install_man_docs"
+
+TESTSUITE_SED="
+    s/pid=[0-9]*/pid=/g
+    s/[0-9]* wallclock secs.*//
+"
 
 save_function make_prog _make_prog
 make_prog() {
@@ -102,14 +107,14 @@ build() {
 }
 
 init
-download_source $PROG $PROG $VER-alpha$ALPHA
+download_source $PROG $PROG $VER-beta$BETA
 patch_source
 prep_build
 build
 PATH=$OOCEBIN:$PATH run_testsuite test "" testsuite-${VER%.*}.log
 # Use a low version so that it is not newer than the official 3.0.0 release
 # when it comes.
-VER=0.$VER.$ALPHA make_package
+VER=0.$VER.$BETA make_package
 clean_up
 
 # Vim hints

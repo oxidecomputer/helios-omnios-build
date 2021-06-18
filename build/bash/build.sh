@@ -22,13 +22,13 @@
 #
 # Copyright 2011-2013 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright (c) 2013 by Delphix. All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
 PROG=bash
-VER=5.1
-PATCHLEVEL=8
+VER=5.1.8
+#   PATCHLEVEL=8    ## Not currently using upstream patches
 PKG=shell/bash
 SUMMARY="GNU Bash"
 DESC="GNU Bourne-Again shell (bash)"
@@ -44,6 +44,11 @@ set_arch 64
 XFORM_ARGS+="
     -DBCVER=$BCVER
 "
+
+# As of version 5.1.8, documentation (including the man page) installation
+# attempts to run makeinfo and aborts if not found. We only need the man
+# page and the following setting allows that to proceed.
+MAKE_INSTALL_ARGS="MAKEINFO=true"
 
 init
 prep_build
