@@ -21,11 +21,12 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/functions.sh
 
+PKG=kvm     ##IGNORE## - filled in later
 # This is pretty meaningless, and should be "0.5.11" but we messed that up
 # by starting with "1.0.x" so this'll do.  There should be no need to change
 # this going forward.
