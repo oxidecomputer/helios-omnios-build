@@ -18,10 +18,10 @@
 
 PKG=library/python-3/orjson-39
 PROG=orjson
-VER=3.5.2
+VER=3.5.3
 # orjson requries rust nightly. check https://github.com/ijl/orjson
 # for which version has been tested
-RUSTVER=2021-01-11
+RUSTVER=2021-06-24
 SUMMARY="orjson"
 DESC="A fast, correct JSON library for Python."
 
