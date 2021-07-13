@@ -4,6 +4,62 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038k (2021-07-13)
+Weekly release for w/c 12th of July 2021.
+> This update requires a reboot
+
+# Security Fixes
+
+* Microcode for Intel CPUs has been updated to the 2021-06-08 release.
+
+* Python has been upgraded to 3.9.6.
+
+# New Features
+
+* It is now possible to use a netgroup database without a system being linked
+  to an LDAP or NIS server. Refer to
+  [netgroup(4)](https://man.omnios.org/netgroup.4) for more information.
+
+* lx branded zones have been updated to better support distributions using
+  systemd >= v247.
+
+* lx branded zones now have basic support for `/proc/<pid>/fdinfo/`
+
+* The Insyde BMC virtual CD-ROM device is now supported.
+
+# Other Changes
+
+* SMB encryption was not working with MacOS 11.4 clients.
+
+* netstat showed duplicate data for UDP source and destination addresses.
+
+* `netstat -u` could associate sockets with the wrong process.
+
+* bhyve branded zones could place pass-through devices into the wrong PCI
+  function slot causing problems for the guest. Devices are now always placed
+  in numerical order and the location can be overridden -
+  see [bhyve(5)](https://man.omnios.org/bhyve.5)
+
+* `csh` would not always operate correctly when being used to run scripts.
+
+* `pkg` now uses less memory when loading catalogues.
+
+* The PCI and USB information databases have been updated.
+
+* It was possible, although rare, to encounter a kernel panic when using
+  kernel FPU acceleration in conjunction with RAIDZ pools.
+
+* A rare ZFS panic that could occur when deleting millions of files has been
+  fixed.
+
+* NFS server performance has been improved.
+
+* Several fixes for the in-kernel CIFS/SMB support have been incorporated.
+
+<br>
+
+---
+
 ## r151038g (2021-06-14)
 Weekly release for w/c 14th of June 2021.
 > This update requires a reboot
