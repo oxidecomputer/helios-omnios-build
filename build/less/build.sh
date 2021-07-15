@@ -26,7 +26,7 @@
 . ../../lib/functions.sh
 
 PROG=less
-VER=581.2
+VER=590
 PKG=text/less
 SUMMARY="less - paginator"
 DESC="A program similar to more, but which allows backward movement "
