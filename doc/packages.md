@@ -40,7 +40,7 @@
 | library/mpc				| 1.2.1			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.1.0			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
-| library/libedit			| 20210522-3.1		| https://thrysoee.dk/editline/
+| library/libedit			| 20210714-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.12		| https://github.com/libevent/libevent/releases | Currently used solely by tmux
 | library/libidn			| 1.37			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.4.2			| https://sourceware.org/libffi/
@@ -107,7 +107,7 @@
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
-| text/less				| 581.2			| http://www.greenwoodsoftware.com/less/download.html
+| text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.77.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.68.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
