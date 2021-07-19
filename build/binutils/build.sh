@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=binutils
-VER=2.36.1
+VER=2.37
 PKG=developer/gnu-binutils
 SUMMARY="GNU binary utilities"
 DESC="A set of programming tools for creating and managing binary programs, "
