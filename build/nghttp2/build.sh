@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=nghttp2
-VER=1.43.0
+VER=1.44.0
 PKG=library/nghttp2
 SUMMARY="nghttp2: HTTP/2 C Library"
 DESC="An implementation of the Hypertext Transfer Protocol version 2 in C"
@@ -28,6 +28,8 @@ BUILD_DEPENDS_IPS="ooce/developer/cunit"
 CONFIGURE_OPTS="
     --enable-lib-only
     --disable-silent-rules
+    --without-systemd
+    --with-openssl
 "
 
 export ZLIB_CFLAGS="$CFLAGS -I/usr/include"
