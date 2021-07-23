@@ -44,7 +44,7 @@ CONFIGURE_OPTS="
     --pyshebang=$PYTHON
     --pythondir=$PYTHONVENDOR
     --pythonarchdir=$PYTHONVENDOR
-    --libdir=$PYTHONVENDOR
+    --libdir=$PYTHONVENDOR/ntp
     --enable-manpage --disable-doc
     --nopyc --nopyo --nopycache
     --enable-debug-gdb
