@@ -26,8 +26,6 @@ DESC="$SUMMARY"
 NO_PARALLEL_MAKE=true
 SKIP_LICENCES="CMU/UCD"
 
-RUN_DEPENDS_IPS="shell/bash"
-
 # Previous versions that also need to be built and the libraries packaged
 # since compiled software may depend on them.
 PVERS="5.7.3 5.8"
