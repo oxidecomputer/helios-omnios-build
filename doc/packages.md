@@ -13,7 +13,7 @@
 | data/iso-codes			| 4.6.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3360000		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
-| developer/build/automake		| 1.16.3		| https://ftp.gnu.org/gnu/automake/
+| developer/build/automake		| 1.16.4		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/exuberant-ctags		| 5.8			| https://sourceforge.net/projects/ctags/files/ctags/ http://ctags.sourceforge.net/
@@ -42,9 +42,9 @@
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
 | library/libedit			| 20210714-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.12		| https://github.com/libevent/libevent/releases | Currently used solely by tmux
-| library/libidn			| 1.37			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
+| library/libidn			| 1.38			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.4.2			| https://sourceware.org/libffi/
-| library/libuv				| 1.41.1		| https://github.com/libuv/libuv/releases | Currently used solely by bind
+| library/libuv				| 1.42.0		| https://github.com/libuv/libuv/releases | Currently used solely by bind
 | library/libxml2			| 2.9.12		| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
@@ -63,7 +63,7 @@
 | library/xxhash			| 0.8.0			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20210608		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.16.18		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.16.19		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.6p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2-P1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -76,7 +76,7 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.10		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.6			| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.7p1			| https://www.sudo.ws/
+| security/sudo				| 1.9.7p2			| https://www.sudo.ws/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.1.8			| https://ftp.gnu.org/gnu/bash/
