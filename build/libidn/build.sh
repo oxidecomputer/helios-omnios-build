@@ -18,12 +18,14 @@
 . ../../lib/functions.sh
 
 PROG=libidn
-VER=1.37
+VER=1.38
 PKG=library/libidn
 SUMMARY="The Internationalized Domains Library"
 DESC="IDN - The Internationalized Domains Library"
 
 CONFIGURE_OPTS="--disable-static"
+MAKE_ARGS="MAKEINFO=/usr/bin/true"
+MAKE_INSTALL_ARGS="$MAKE_ARGS"
 
 init
 prep_build
