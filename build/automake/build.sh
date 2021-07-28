@@ -13,12 +13,12 @@
 # }}}
 
 # Copyright 2011-2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=automake
-VER=1.16.3
+VER=1.16.4
 PKG=developer/build/automake
 SUMMARY="GNU Automake"
 DESC="GNU Automake - A Makefile generator"
