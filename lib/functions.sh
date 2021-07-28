@@ -2315,12 +2315,15 @@ build_dependency() {
     [ -n "$SKIP_BUILD" ] && return
 
     typeset merge=0
+    typeset oot=0
     typeset buildargs=
     while [[ "$1" = -* ]]; do
         case $1 in
             -merge)     merge=1 ;;
             -ctf)       buildargs+=" -ctf" ;;
             -noctf)     buildargs+=" -noctf" ;;
+            -oot)       oot=1 ;;
+            -multi)     buildargs+=" -multi" ;;
         esac
         shift
     done
@@ -2332,6 +2335,7 @@ build_dependency() {
 
     save_variable BUILDDIR __builddep__
     save_variable DESTDIR __builddep__
+    save_variable CONFIGURE_CMD __builddep__
 
     BUILDDIR="$dir"
     local patchdir="patches-$dep"
@@ -2347,10 +2351,18 @@ build_dependency() {
     note -n "-- Building dependency $dep"
     download_source "$dldir" "$prog" "$ver" "$TMPDIR"
     patch_source $patchdir
+    if ((oot)); then
+        logmsg "-- Setting up for out-of-tree build"
+        CONFIGURE_CMD=$TMPDIR/$BUILDDIR/$CONFIGURE_CMD
+        BUILDDIR+=-build
+        [ -d $TMPDIR/$BUILDDIR ] && logcmd rm -rf $TMPDIR/$BUILDDIR
+        logcmd mkdir -p $TMPDIR/$BUILDDIR
+    fi
     build $buildargs
 
     restore_variable BUILDDIR __builddep__
     restore_variable DESTDIR __builddep__
+    restore_variable CONFIGURE_CMD __builddep__
 }
 
 #############################################################################
