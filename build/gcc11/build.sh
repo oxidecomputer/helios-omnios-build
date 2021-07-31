@@ -19,7 +19,7 @@
 
 PKG=developer/gcc11
 PROG=gcc
-VER=11.1.0
+VER=11.2.0
 ILVER=il-0
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
@@ -177,7 +177,7 @@ tests() {
     MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{-m32,-m64,-m64/-msave-args\}"
     # If not in batch mode, we've already asked whether this should be run
     # above, so set BATCH
-    BATCH=1 run_testsuite "check check-target" "" build.log.testsuite
+    BATCH=1 run_testsuite "-k check" "" build.log.testsuite
     pushd $TMPDIR/$BUILDDIR >/dev/null
     # Sort the test results in the individual summary files
     find $TMPDIR/$BUILDDIR -name '*.sum' -type f | while read s; do
