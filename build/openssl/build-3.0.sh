@@ -19,7 +19,7 @@
 
 PROG=openssl
 VER=3.0.0
-BETA=1
+BETA=2
 PKG=library/security/openssl-30
 SUMMARY="Cryptography and SSL/TLS Toolkit (BETA $BETA VERSION)"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
@@ -43,14 +43,13 @@ fi
 unset FLAVOR
 
 set_builddir $PROG-$VER-beta$BETA
+set_patchdir patches-${VER%.*}
 
 # Generic options for both 32 and 64bit variants
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
-# TBC - ssl2/3?
-#OPENSSL_CONFIG_OPTS="shared threads zlib enable-ssl2 enable-ssl3"
 OPENSSL_CONFIG_OPTS="shared threads zlib"
 OPENSSL_CONFIG_OPTS+=" --prefix=$PREFIX"
-# Build with support for the older 1.1.1 API
+# Build with support for the previous 1.1.1 API
 OPENSSL_CONFIG_OPTS+=" --api=1.1.1"
 
 # Configure options specific to a 32-bit or 64-bit builds

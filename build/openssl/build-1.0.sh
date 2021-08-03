@@ -33,7 +33,7 @@ XFORM_ARGS+="
     -DLICENCEFILE=LICENSE -DLICENCE=OpenSSL
 "
 
-PATCHDIR=patches-${VER%.*}
+set_patchdir patches-${VER%.*}
 TESTSUITE_FILTER='[0-9] tests|TESTS'
 
 # Generic options for both 32- and 64-bit variants
