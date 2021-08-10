@@ -4,6 +4,19 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038o (2021-08-10)
+Weekly release for w/c 9th of August 2021.
+> This is a non-reboot update
+
+# Security Fixes
+
+* `perl` core module `Encode` has been patched fixing
+  [CVE-2021-36770](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-36770).
+
+<br>
+
+---
+
 ## r151038l (2021-07-23)
 Weekly release for w/c 19th of July 2021.
 > This is a non-reboot update
