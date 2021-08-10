@@ -20,6 +20,7 @@
 PROG=perl
 PKG=runtime/perl
 VER=5.32.1
+DASHREV=1
 MAJVER=${VER%.*}
 SUMMARY="Perl $MAJVER Programming Language"
 DESC="A highly capable, feature-rich programming language"
