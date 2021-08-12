@@ -147,6 +147,7 @@
 | library/python-3/pyopenssl-39		| 20.0.1		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-39	| 0.18.0		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-39		| 2021.1		| https://pypi.org/project/pytz
+| library/python-3/pyyaml-39		| 5.4.1			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-39		| 1.4			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-39	| 2.8.5			| https://pypi.org/project/semantic-version
 | library/python-3/setuptools-39	| 57.0.0		| https://pypi.org/project/setuptools
