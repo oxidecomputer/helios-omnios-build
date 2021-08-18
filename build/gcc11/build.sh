@@ -80,6 +80,8 @@ export LD=/bin/ld
 export LD_FOR_HOST=$LD
 export LD_FOR_TARGET=$LD
 export LD_OPTIONS="-zignore -zcombreloc -i"
+export STRIP="/usr/bin/strip -x"
+export STRIP_FOR_TARGET="$STRIP"
 
 HARDLINK_TARGETS="
     ${PREFIX/#\/}/bin/$ARCH-gcc-$VER
