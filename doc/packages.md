@@ -150,7 +150,7 @@
 | library/python-3/pyyaml-39		| 5.4.1			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-39		| 1.4			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-39	| 2.8.5			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-39	| 57.0.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-39	| 57.4.0		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-39	| 0.12.1		| https://pypi.org/project/setuptools-rust
 | library/python-3/six-39		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.1.1			| https://pypi.org/project/tempora
