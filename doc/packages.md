@@ -95,7 +95,7 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
-| system/rsyslog			| 8.2106.0		| https://www.rsyslog.com/downloads/download-v8-stable/
+| system/rsyslog			| 8.2108.0		| https://www.rsyslog.com/downloads/download-v8-stable/
 | system/test/fio			| 3.27			| https://github.com/axboe/fio/releases
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
@@ -103,7 +103,7 @@
 | text/gawk				| 5.1.0			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.8			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.21			| https://ftp.gnu.org/pub/gnu/gettext/
-| text/gnu-grep				| 3.6			| https://ftp.gnu.org/gnu/grep/
+| text/gnu-grep				| 3.7			| https://ftp.gnu.org/gnu/grep/
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
