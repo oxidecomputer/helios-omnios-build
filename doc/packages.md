@@ -25,7 +25,7 @@
 | developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.7.6			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.32.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/git		| 2.33.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.8.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
@@ -49,7 +49,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.44.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.68			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.69			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.32			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.45			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.37			| https://ftp.pcre.org/pub/pcre/
@@ -63,7 +63,7 @@
 | library/xxhash			| 0.8.0			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20210608		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.16.19		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.16.20		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.7p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2-P1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -110,7 +110,7 @@
 | text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.78.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.68.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.68.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.37		| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.54		| https://github.com/Azure/WALinuxAgent/releases
@@ -126,31 +126,31 @@
 | library/python-3/cryptography-39	| 3.4.7			| https://pypi.org/project/cryptography
 | library/python-3/idna-39		| 3.2			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-39	| 3.2.1			| https://pypi.org/project/jaraco.classes
-| library/python-3/jaraco.collections-39 | 3.3.0		| https://pypi.org/project/jaraco.collections
+| library/python-3/jaraco.collections-39 | 3.4.0		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-39	| 3.3.0			| https://pypi.org/project/jaraco.functools
-| library/python-3/jaraco.text-39	| 3.5.0			| https://pypi.org/project/jaraco.text
+| library/python-3/jaraco.text-39	| 3.5.1			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-39		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-39	| 0.4.2			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-39	| 3.2.0			| https://pypi.org/project/jsonschema
-| library/python-3/mako-39		| 1.1.4			| https://pypi.org/project/Mako
-| library/python-3/meson-39		| 0.58.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/mako-39		| 1.1.5			| https://pypi.org/project/Mako
+| library/python-3/meson-39		| 0.59.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-39	| 8.8.0			| https://pypi.org/project/more-itertools
-| library/python-3/orjson-39		| 3.5.3			| https://github.com/ijl/orjson/releases
-| library/python-3/pip-39		| 21.1.3		| https://pypi.org/project/pip
+| library/python-3/orjson-39		| 3.6.3			| https://github.com/ijl/orjson/releases
+| library/python-3/pip-39		| 21.2.4		| https://pypi.org/project/pip
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-39		| 2.7.1			| https://pypi.org/project/portend
 | library/python-3/prettytable-39	| 2.1.0			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-39		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-39	| 2.7.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-39		| 2.20			| https://pypi.org/project/pycparser
-| library/python-3/pycurl-39		| 7.43.0.6		| https://pypi.org/project/pycurl
+| library/python-3/pycurl-39		| 7.44.1		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-39		| 20.0.1		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-39	| 0.18.0		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-39		| 2021.1		| https://pypi.org/project/pytz
 | library/python-3/pyyaml-39		| 5.4.1			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-39		| 1.4			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-39	| 2.8.5			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-39	| 57.0.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-39	| 57.4.0		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-39	| 0.12.1		| https://pypi.org/project/setuptools-rust
 | library/python-3/six-39		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.1.1			| https://pypi.org/project/tempora

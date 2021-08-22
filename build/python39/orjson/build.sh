@@ -18,16 +18,13 @@
 
 PKG=library/python-3/orjson-39
 PROG=orjson
-VER=3.5.3
-# orjson requries rust nightly. check https://github.com/ijl/orjson
-# for which version has been tested
-RUSTVER=2021-06-24
+VER=3.6.3
 SUMMARY="orjson"
 DESC="A fast, correct JSON library for Python."
 
 . $SRCDIR/../common.sh
 
-RUST=rust-nightly-x86_64-unknown-illumos
+export PATH=$PATH:$OOCEBIN
 
 install() {
     logmsg "Installing"
@@ -41,19 +38,7 @@ install() {
     popd >/dev/null
 }
 
-get_rust_nightly() {
-    BUILDDIR=$RUST download_source rust/nightly/$RUSTVER $RUST
-
-    logmsg "Installing rust nightly [$RUSTVER]"
-    logcmd $TMPDIR/$RUST/install.sh \
-        --prefix=$TMPDIR/_rust || logerr "installing rust"
-
-    CARGO="$TMPDIR/_rust/bin/cargo"
-    export PATH="$TMPDIR/_rust/bin:$PATH"
-}
-
 init
-get_rust_nightly
 download_source pymodules/$PROG $VER
 patch_source
 prep_build
