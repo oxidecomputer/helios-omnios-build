@@ -4,6 +4,23 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038q (2021-08-24)
+Weekly release for w/c 23rd of August 2021.
+> This is a non-reboot update
+
+# Security Fixes
+
+* `openssl 1.1` updated to 1.1.1l, fixing
+  [CVE-2021-3711](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3711),
+  [CVE-2021-3712](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3712)
+
+* `openssl 1.0` patched to fix
+  [CVE-2021-3712](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3712)
+
+<br>
+
+---
+
 ## r151038o (2021-08-10)
 Weekly release for w/c 9th of August 2021.
 > This is a non-reboot update
