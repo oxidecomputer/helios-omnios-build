@@ -25,6 +25,10 @@ DESC="$SUMMARY"
 
 SKIP_LICENCES="CMU/UCD"
 
+# net-snmp builds fail randomly with parallel make. There are patches upstream
+# but none of them resolve it successfully.
+NO_PARALLEL_MAKE=1
+
 # Previous versions that also need to be built and the libraries packaged
 # since compiled software may depend on them.
 PVERS="5.7.3 5.8"
@@ -98,9 +102,7 @@ logcmd rm -rf $DESTDIR/usr/{include,bin}
 logcmd $FD lib $DESTDIR/usr/lib -e la -e so -X rm {}
 
 note -n "Building current version: $VER"
-# Version 5.9 fails randomly with parallel make. There are patches upstream
-# but none of the resolve it successfully.
-NO_PARALLEL_MAKE=1
+
 download_source $PROG $PROG $VER
 patch_source
 prep_build autoconf -oot -keep
