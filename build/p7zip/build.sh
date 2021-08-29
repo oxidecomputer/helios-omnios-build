@@ -19,6 +19,7 @@
 
 PROG=p7zip
 VER=16.02
+DASHREV=1
 PKG=compress/p7zip
 SUMMARY="The p7zip compression and archiving utility"
 DESC="$SUMMARY"
