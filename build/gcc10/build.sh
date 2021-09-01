@@ -127,6 +127,7 @@ CONFIGURE_OPTS_WS="
     --with-bugurl=$HOMEURL/about/contact
 "
 LDFLAGS="-R$OPT/lib"
+CPPFLAGS+=" -D_TS_ERRNO"
 
 # If the selected compiler is the same version as the one we're building
 # then the three-stage bootstrap is unecessary and some build time can be

@@ -127,6 +127,7 @@ CONFIGURE_OPTS_WS="
     --with-bugurl=$HOMEURL/about/contact
 "
 LDFLAGS="-R$OPT/lib"
+CPPFLAGS+=" -D_TS_ERRNO"
 
 # gcc 11 uses posix_fallocate() to extend temporary files on disk.
 # Although OmniOS has the posix_fallocate() function, ZFS does not support it.
