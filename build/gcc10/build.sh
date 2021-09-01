@@ -19,7 +19,7 @@
 
 PKG=developer/gcc10
 PROG=gcc
-VER=10.2.0
+VER=10.3.0
 ILVER=il-0
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
@@ -125,6 +125,7 @@ CONFIGURE_OPTS_WS="
     --with-bugurl=$HOMEURL/about/contact
 "
 LDFLAGS="-R$OPT/lib"
+CPPFLAGS+=" -D_TS_ERRNO"
 
 # If the selected compiler is the same version as the one we're building
 # then the three-stage bootstrap is unecessary and some build time can be
