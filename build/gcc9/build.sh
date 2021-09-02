@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -124,6 +124,7 @@ CONFIGURE_OPTS_WS="
     --with-bugurl=$HOMEURL/about/contact
 "
 LDFLAGS="-R$OPT/lib"
+CPPFLAGS+=" -D_TS_ERRNO"
 
 # If the selected compiler is the same version as the one we're building
 # then the three-stage bootstrap is unecessary and some build time can be
