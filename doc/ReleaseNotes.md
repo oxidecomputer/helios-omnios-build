@@ -4,11 +4,59 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038s (2021-09-07)
+Weekly release for w/c 06th of September 2021.
+> This update requires a reboot
+
+### Security Fixes
+
+* Python has been updated to 3.9.7.
+
+### New Features
+
+* It is now possible to provide `cloud-init` configuration information to
+  bhyve guests. This includes networking configuration and initial passwords/
+  SSH keys. See cloud-init in [bhyve(5)](https://man.omnios.org/bhyve.5) for
+  more information.
+
+* The `__illumos__` pre-processor token is now defined by the gcc compilers.
+
+### Bug Fixes
+
+* Windows 11 clients could not connect to SMB shares.
+
+* p7zip would truncate passphrases read from the terminal.
+
+* libstdc++.so was not using a thread-safe _errno_.
+
+* LX was not properly configuring DNS settings for Ubuntu guests.
+
+* The emulated `/proc` filesystem in LX was improperly representing open
+  directories, causing problems for some applications.
+
+* `smbd` could crash when a domain controller normally reached via IPv6 became
+  unavailable.
+
+* A system with a large number of disks visible through the BIOS  (> 64) would
+  fail to boot.
+
+* Cloning an `ipkg` zone could fail if the ssh service was not installed.
+
+* Enabling `promiscphys` on a bhyve NIC now automatically configures the
+  `promisc-filtered` datalink property.
+
+* KVM and bhyve brand configuration now consistently supports the same
+  truth values as bhyve (on/off/true/false/yes/no/0/1) for boolean parameters.
+
+<br>
+
+---
+
 ## r151038q (2021-08-24)
 Weekly release for w/c 23rd of August 2021.
 > This is a non-reboot update
 
-# Security Fixes
+### Security Fixes
 
 * `openssl 1.1` updated to 1.1.1l, fixing
   [CVE-2021-3711](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3711),
@@ -25,7 +73,7 @@ Weekly release for w/c 23rd of August 2021.
 Weekly release for w/c 9th of August 2021.
 > This is a non-reboot update
 
-# Security Fixes
+### Security Fixes
 
 * `perl` core module `Encode` has been patched fixing
   [CVE-2021-36770](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-36770).
@@ -38,7 +86,7 @@ Weekly release for w/c 9th of August 2021.
 Weekly release for w/c 19th of July 2021.
 > This is a non-reboot update
 
-# Security Fixes
+### Security Fixes
 
 * `curl` has been updated to version 7.78.0 fixing 5 security vulnerabilities:
   * [CVE-2021-22922](https://curl.se/docs/CVE-2021-22922.html)
@@ -52,9 +100,9 @@ Weekly release for w/c 19th of July 2021.
   * [CVE-2021-2369](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-2369)
   * [CVE-2021-2388](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-2388)
 
-# Other Changes
+### Other Changes
 
-* `brand/bhyve` was missing a version dependency
+* `brand/bhyve` was missing a version dependency.
 
 <br>
 
@@ -64,13 +112,13 @@ Weekly release for w/c 19th of July 2021.
 Weekly release for w/c 12th of July 2021.
 > This update requires a reboot
 
-# Security Fixes
+### Security Fixes
 
 * Microcode for Intel CPUs has been updated to the 2021-06-08 release.
 
 * Python has been upgraded to 3.9.6.
 
-# New Features
+### New Features
 
 * It is now possible to use a netgroup database without a system being linked
   to an LDAP or NIS server. Refer to
@@ -83,7 +131,7 @@ Weekly release for w/c 12th of July 2021.
 
 * The Insyde BMC virtual CD-ROM device is now supported.
 
-# Other Changes
+### Other Changes
 
 * SMB encryption was not working with MacOS 11.4 clients.
 
@@ -120,12 +168,12 @@ Weekly release for w/c 12th of July 2021.
 Weekly release for w/c 14th of June 2021.
 > This update requires a reboot
 
-# Security Fixes
+### Security Fixes
 
 * ISC DHCP updated to 4.4.2-P1, fixing
   [CVE-2021-25217](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-25217).
 
-# Other Changes
+### Other Changes
 
 * The bhyve hypervisor and the bhyve branded zone have received several updates
   that enable running with fewer resources and fewer privileges than before.
@@ -171,7 +219,7 @@ Weekly release for w/c 14th of June 2021.
 Weekly release for w/c 24th of May 2021.
 > This is a non-reboot update
 
-# Security Fixes
+### Security Fixes
 
 * curl updated to 7.77.0, fixing
   [CVE-2021-22901](https://curl.se/docs/CVE-2021-22901.html),
@@ -186,12 +234,12 @@ Weekly release for w/c 24th of May 2021.
 Weekly release for w/c 17th of May 2021.
 > This is a non-reboot update
 
-# Security Fixes
+### Security Fixes
 
 * libxml2 updated to 2.9.12, fixing
   [CVE-2021-3541](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-3541).
 
-# Other Changes
+### Other Changes
 
 * A problem that could result in a newly built non-global zone having no
   functioning system log service has been resolved.
