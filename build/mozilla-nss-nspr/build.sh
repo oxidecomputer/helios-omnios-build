@@ -112,13 +112,13 @@ make_install64() {
 
     # There is no provided nss.pc file, and the nspr.pc doesn't account for
     # the alternate library path in OmniOS; we need to synthesise them.
-    logcmd mkdir -p lib/pkgconfig/$ISAPART64
+    logcmd mkdir -p lib/pkgconfig lib/$ISAPART64/pkgconfig
     for c in nss nspr; do
         sed < $SRCDIR/files/$c.pc > lib/pkgconfig/$c.pc "
             s/__NSSVER__/$VER/g
             s/__NSPRVER__/$NSPRVER/g
         "
-        sed < lib/pkgconfig/$c.pc > lib/pkgconfig/$ISAPART64/$c.pc "
+        sed < lib/pkgconfig/$c.pc > lib/$ISAPART64/pkgconfig/$c.pc "
             /^libdir=/s^\$^/$ISAPART64^
         "
     done
@@ -143,7 +143,7 @@ DESC="$SUMMARY"
 manifest_start $TMPDIR/manifest.nss.header
 manifest_add_dir $PREFIX/include/mps/nss
 manifest_add $PREFIX/lib/pkgconfig nss.pc
-manifest_add $PREFIX/lib/pkgconfig/$ISAPART64 nss.pc
+manifest_add $PREFIX/lib/$ISAPART64/pkgconfig nss.pc
 manifest_finalise $PREFIX
 
 make_package -seed $TMPDIR/manifest.nss.header nss.mog
@@ -173,7 +173,7 @@ DESC="$SUMMARY"
 manifest_start $TMPDIR/manifest.nspr.header
 manifest_add_dir $PREFIX/include/mps md obsolete private
 manifest_add $PREFIX/lib/pkgconfig nspr.pc
-manifest_add $PREFIX/lib/pkgconfig/$ISAPART64 nspr.pc
+manifest_add $PREFIX/lib/$ISAPART64/pkgconfig nspr.pc
 manifest_finalise $PREFIX
 
 make_package -seed $TMPDIR/manifest.nspr.header nspr.mog
