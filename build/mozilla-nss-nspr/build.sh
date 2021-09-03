@@ -63,8 +63,9 @@ MAKE_ARGS_WS_64="
     LDFLAGS=\"$LDFLAGS64 $LDFLAGS\"
 "
 
-NSS_LIBS="libfreebl3.so libnss3.so libnssckbi.so libnssdbm3.so
+NSS_LIBS="libfreebl3.so libfreeblpriv3.so libnss3.so libnssckbi.so libnssdbm3.so
           libnssutil3.so libsmime3.so libsoftokn3.so libssl3.so"
+NSS_LIBCHK="libfreebl3.chk libfreeblpriv3.chk libnssdbm3.chk libsoftokn3.chk"
 NSS_BINS="certutil cmsutil crlutil derdump modutil pk12util signtool
           signver ssltap vfychain vfyserv"
 NSS_MANS=`echo $NSS_BINS | sed -E 's/\<([a-z]*)\>/\1.1/g'`
@@ -155,8 +156,8 @@ SUMMARY="Network Security Services Libraries/Utilities"
 DESC="$SUMMARY"
 
 manifest_start $TMPDIR/manifest.nss
-manifest_add $PREFIX/lib/mps $NSS_LIBS
-manifest_add $PREFIX/lib/mps/$ISAPART64 $NSS_LIBS
+manifest_add $PREFIX/lib/mps $NSS_LIBS $NSS_LIBCHK
+manifest_add $PREFIX/lib/mps/$ISAPART64 $NSS_LIBS $NSS_LIBCHK
 manifest_add $PREFIX/bin $NSS_BINS
 manifest_add $PREFIX/share/man/man1 $NSS_MANS
 manifest_finalise $PREFIX
