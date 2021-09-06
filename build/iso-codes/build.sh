@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=iso-codes
-VER=4.6.0
+VER=4.7.0
 PKG=data/iso-codes
 SUMMARY="ISO code lists and translations"
 DESC="Lists of various ISO standards "
