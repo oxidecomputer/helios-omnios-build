@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=nss
-VER=3.69
+VER=3.70
 # Include NSPR version since we're downloading a combined tarball.
 NSPRVER=4.32
 # But set BUILDDIR to just be the NSS version.
@@ -51,8 +51,10 @@ MAKE_ARGS="
     NSS_USE_SYSTEM_SQLITE=1
     NSS_ENABLE_WERROR=0
     NSS_DISABLE_GTESTS=1
+    FREEBL_LOWHASH=1
     nss_build_all
 "
+CFLAGS+=" -DNSS_FIPS_DISABLED"
 MAKE_ARGS_WS_32="
     XCFLAGS=\"$CTF_CFLAGS $CFLAGS32 $CFLAGS\"
     LDFLAGS=\"$LDFLAGS32 $LDFLAGS\"
@@ -63,8 +65,9 @@ MAKE_ARGS_WS_64="
     LDFLAGS=\"$LDFLAGS64 $LDFLAGS\"
 "
 
-NSS_LIBS="libfreebl3.so libnss3.so libnssckbi.so libnssdbm3.so
+NSS_LIBS="libfreebl3.so libfreeblpriv3.so libnss3.so libnssckbi.so libnssdbm3.so
           libnssutil3.so libsmime3.so libsoftokn3.so libssl3.so"
+NSS_LIBCHK="libfreebl3.chk libfreeblpriv3.chk libnssdbm3.chk libsoftokn3.chk"
 NSS_BINS="certutil cmsutil crlutil derdump modutil pk12util signtool
           signver ssltap vfychain vfyserv"
 NSS_MANS=`echo $NSS_BINS | sed -E 's/\<([a-z]*)\>/\1.1/g'`
@@ -112,13 +115,13 @@ make_install64() {
 
     # There is no provided nss.pc file, and the nspr.pc doesn't account for
     # the alternate library path in OmniOS; we need to synthesise them.
-    logcmd mkdir -p lib/pkgconfig/$ISAPART64
+    logcmd mkdir -p lib/pkgconfig lib/$ISAPART64/pkgconfig
     for c in nss nspr; do
         sed < $SRCDIR/files/$c.pc > lib/pkgconfig/$c.pc "
             s/__NSSVER__/$VER/g
             s/__NSPRVER__/$NSPRVER/g
         "
-        sed < lib/pkgconfig/$c.pc > lib/pkgconfig/$ISAPART64/$c.pc "
+        sed < lib/pkgconfig/$c.pc > lib/$ISAPART64/pkgconfig/$c.pc "
             /^libdir=/s^\$^/$ISAPART64^
         "
     done
@@ -143,7 +146,7 @@ DESC="$SUMMARY"
 manifest_start $TMPDIR/manifest.nss.header
 manifest_add_dir $PREFIX/include/mps/nss
 manifest_add $PREFIX/lib/pkgconfig nss.pc
-manifest_add $PREFIX/lib/pkgconfig/$ISAPART64 nss.pc
+manifest_add $PREFIX/lib/$ISAPART64/pkgconfig nss.pc
 manifest_finalise $PREFIX
 
 make_package -seed $TMPDIR/manifest.nss.header nss.mog
@@ -155,8 +158,8 @@ SUMMARY="Network Security Services Libraries/Utilities"
 DESC="$SUMMARY"
 
 manifest_start $TMPDIR/manifest.nss
-manifest_add $PREFIX/lib/mps $NSS_LIBS
-manifest_add $PREFIX/lib/mps/$ISAPART64 $NSS_LIBS
+manifest_add $PREFIX/lib/mps $NSS_LIBS $NSS_LIBCHK
+manifest_add $PREFIX/lib/mps/$ISAPART64 $NSS_LIBS $NSS_LIBCHK
 manifest_add $PREFIX/bin $NSS_BINS
 manifest_add $PREFIX/share/man/man1 $NSS_MANS
 manifest_finalise $PREFIX
@@ -173,7 +176,7 @@ DESC="$SUMMARY"
 manifest_start $TMPDIR/manifest.nspr.header
 manifest_add_dir $PREFIX/include/mps md obsolete private
 manifest_add $PREFIX/lib/pkgconfig nspr.pc
-manifest_add $PREFIX/lib/pkgconfig/$ISAPART64 nspr.pc
+manifest_add $PREFIX/lib/$ISAPART64/pkgconfig nspr.pc
 manifest_finalise $PREFIX
 
 make_package -seed $TMPDIR/manifest.nspr.header nspr.mog

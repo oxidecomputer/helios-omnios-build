@@ -3,14 +3,14 @@
 | archiver/gnu-tar			| 1.34			| https://ftp.gnu.org/gnu/tar/ https://www.gnu.org/software/tar/
 | compress/brotli			| 1.0.9			| https://github.com/google/brotli/releases
 | compress/bzip2			| 1.0.8			| https://sourceware.org/pub/bzip2/
-| compress/gzip				| 1.10			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
+| compress/gzip				| 1.11			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
 | compress/lz4				| 1.9.3			| https://github.com/lz4/lz4/releases
 | compress/p7zip			| 16.02			| https://sourceforge.net/projects/p7zip/files/p7zip
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.5.0			| https://github.com/facebook/zstd/releases
-| data/iso-codes			| 4.6.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
+| data/iso-codes			| 4.7.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3360000		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.4		| https://ftp.gnu.org/gnu/automake/
@@ -26,7 +26,7 @@
 | developer/parser/bison		| 3.7.6			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.33.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.8.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.9.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -49,7 +49,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.44.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.69			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.70			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.32			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.45			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.37			| https://ftp.pcre.org/pub/pcre/
@@ -74,7 +74,7 @@
 | runtime/java/openjdk8			| 1.8.302-08		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | runtime/perl				| 5.34.0		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
-| runtime/python-37			| 3.7.10		| https://www.python.org/downloads/source/
+| runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.7			| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.7p2			| https://www.sudo.ws/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
@@ -82,7 +82,7 @@
 | shell/bash				| 5.1.8			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 008			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
-| shell/pipe-viewer			| 1.6.6			| http://www.ivarch.com/programs/pv.shtml
+| shell/pipe-viewer			| 1.6.19			| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.04		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.0			| https://github.com/tycho/cpuid/releases
@@ -123,7 +123,7 @@
 | library/python-3/cheroot-39		| 8.5.2			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-39		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-39		| 5.5			| https://pypi.org/project/coverage
-| library/python-3/cryptography-39	| 3.4.7			| https://pypi.org/project/cryptography
+| library/python-3/cryptography-39	| 3.4.8			| https://pypi.org/project/cryptography
 | library/python-3/idna-39		| 3.2			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-39	| 3.2.1			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-39 | 3.4.0		| https://pypi.org/project/jaraco.collections
@@ -134,12 +134,12 @@
 | library/python-3/jsonschema-39	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-39		| 1.1.5			| https://pypi.org/project/Mako
 | library/python-3/meson-39		| 0.59.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-39	| 8.8.0			| https://pypi.org/project/more-itertools
+| library/python-3/more-itertools-39	| 8.9.0			| https://pypi.org/project/more-itertools
 | library/python-3/orjson-39		| 3.6.3			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-39		| 21.2.4		| https://pypi.org/project/pip
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-39		| 2.7.1			| https://pypi.org/project/portend
-| library/python-3/prettytable-39	| 2.1.0			| https://pypi.org/project/PrettyTable
+| library/python-3/prettytable-39	| 2.2.0			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-39		| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-39	| 2.7.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-39		| 2.20			| https://pypi.org/project/pycparser
@@ -150,7 +150,7 @@
 | library/python-3/pyyaml-39		| 5.4.1			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-39		| 1.4			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-39	| 2.8.5			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-39	| 57.4.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-39	| 58.0.0		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-39	| 0.12.1		| https://pypi.org/project/setuptools-rust
 | library/python-3/six-39		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.1.1			| https://pypi.org/project/tempora
