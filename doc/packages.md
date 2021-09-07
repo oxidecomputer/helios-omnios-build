@@ -66,7 +66,7 @@
 | network/dns/bind			| 9.16.20		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.7p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
-| network/service/isc-dhcp		| 4.4.2-P1			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
+| network/service/isc-dhcp		| 4.4.2-P1		| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/socat				| 1.7.4.1		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
@@ -76,7 +76,8 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.7			| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.7p2			| https://www.sudo.ws/
+| security/sudo				| 1.9.7p2		| https://www.sudo.ws/
+| service/network/chrony		| 4.1			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.1.8			| https://ftp.gnu.org/gnu/bash/
@@ -111,7 +112,7 @@
 | web/curl				| 7.78.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.68.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
-| developer/gnu-binutils		| 2.37		| https://ftp.gnu.org/gnu/binutils
+| developer/gnu-binutils		| 2.37			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.54		| https://github.com/Azure/WALinuxAgent/releases
 | system/virtualization/open-vm-tools	| 11.3.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
