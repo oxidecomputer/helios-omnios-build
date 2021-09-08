@@ -19,16 +19,13 @@
 
 PROG=openssl
 VER=3.0.0
-BETA=2
 PKG=library/security/openssl-30
-SUMMARY="Cryptography and SSL/TLS Toolkit (BETA $BETA VERSION)"
+SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
 
 # Required for the testsuite - not yet in ooce/omnios-build-tools
 BUILD_DEPENDS_IPS+=" ooce/file/lsof"
-
-VERHUMAN="$VER BETA $BETA"
 
 XFORM_ARGS+="
     -DMAJVER=${VER%.*}
@@ -36,13 +33,7 @@ XFORM_ARGS+="
     -DLICENCEFILE=LICENSE.txt -DLICENCE=Apache2
 "
 
-if [ "$FLAVOR" != "preview" ]; then
-    logmsg "$PROG $VERHUMAN is not built by default, pass '-f preview'"
-    exit 0
-fi
-unset FLAVOR
-
-set_builddir $PROG-$VER-beta$BETA
+set_builddir $PROG-$VER
 set_patchdir patches-${VER%.*}
 
 # Generic options for both 32 and 64bit variants
@@ -106,14 +97,12 @@ build() {
 }
 
 init
-download_source $PROG $PROG $VER-beta$BETA
+download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
 PATH=$OOCEBIN:$PATH run_testsuite test "" testsuite-${VER%.*}.log
-# Use a low version so that it is not newer than the official 3.0.0 release
-# when it comes.
-VER=0.$VER.$BETA make_package
+make_package
 clean_up
 
 # Vim hints
