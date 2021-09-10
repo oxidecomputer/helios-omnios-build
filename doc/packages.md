@@ -111,7 +111,7 @@
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.78.0		| https://curl.haxx.se/download.html
-| web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
+| web/wget				| 1.21.2		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.68.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.37			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files

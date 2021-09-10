@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=wget
-VER=1.21.1
+VER=1.21.2
 PKG=web/wget
 SUMMARY="GNU Wget"
 DESC="Retrieving files using HTTP, HTTPS, FTP and FTPS "
