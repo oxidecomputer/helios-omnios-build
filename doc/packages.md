@@ -23,7 +23,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.19		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.7.6			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.8			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.33.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.9.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
@@ -98,7 +98,7 @@
 | system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
 | system/rsyslog			| 8.2108.0		| https://www.rsyslog.com/downloads/download-v8-stable/
-| system/test/fio			| 3.27			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.28			| https://github.com/axboe/fio/releases
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.2			| https://github.com/tmux/tmux/releases http://tmux.github.io/
@@ -111,7 +111,7 @@
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.78.0		| https://curl.haxx.se/download.html
-| web/wget				| 1.21.1		| https://ftp.gnu.org/gnu/wget/
+| web/wget				| 1.21.2		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.68.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.37			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
@@ -152,7 +152,7 @@
 | library/python-3/pyyaml-39		| 5.4.1			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-39		| 1.4			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-39	| 2.8.5			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-39	| 58.0.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-39	| 58.0.4		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-39	| 0.12.1		| https://pypi.org/project/setuptools-rust
 | library/python-3/six-39		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tempora-39		| 4.1.1			| https://pypi.org/project/tempora
