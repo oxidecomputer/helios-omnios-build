@@ -19,7 +19,7 @@
 
 PROG=openssl
 VER=3.0.0
-PKG=library/security/openssl-30
+PKG=library/security/openssl-3
 SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
 DESC+="and general purpose cryptographic library"
@@ -28,13 +28,13 @@ DESC+="and general purpose cryptographic library"
 BUILD_DEPENDS_IPS+=" ooce/file/lsof"
 
 XFORM_ARGS+="
-    -DMAJVER=${VER%.*}
-    -DLIBVER=${VER%.*}
+    -DMAJVER=${VER%%.*}
+    -DLIBVER=${VER%%.*}
     -DLICENCEFILE=LICENSE.txt -DLICENCE=Apache2
 "
 
 set_builddir $PROG-$VER
-set_patchdir patches-${VER%.*}
+set_patchdir patches-${VER%%.*}
 
 # Generic options for both 32 and 64bit variants
 base_LDFLAGS="-shared -Wl,-z,text,-z,aslr,-z,ignore"
