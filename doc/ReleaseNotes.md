@@ -4,6 +4,21 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038t (2021-09-15)
+Weekly release for w/c 13th of September 2021.
+> This is a non-reboot update
+
+# Security Fixes
+
+* `curl` has been updated to version 7.79.0 fixing 3 security vulnerabilities:
+  * [CVE-2021-22945](https://curl.se/docs/CVE-2021-22945.html)
+  * [CVE-2021-22946](https://curl.se/docs/CVE-2021-22946.html)
+  * [CVE-2021-22947](https://curl.se/docs/CVE-2021-22947.html)
+
+<br>
+
+---
+
 ## r151038s (2021-09-07)
 Weekly release for w/c 06th of September 2021.
 > This update requires a reboot
