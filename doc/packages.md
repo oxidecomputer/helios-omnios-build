@@ -23,7 +23,7 @@
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.19		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
-| developer/parser/bison		| 3.8			| https://ftp.gnu.org/gnu/bison/
+| developer/parser/bison		| 3.8.1			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.33.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.9.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
@@ -40,7 +40,7 @@
 | library/mpc				| 1.2.1			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.1.0			| http://www.mpfr.org/mpfr-current/
 | library/idnkit			| 2.3			| https://jprs.co.jp/idn/index-e.html
-| library/libedit			| 20210714-3.1		| https://thrysoee.dk/editline/
+| library/libedit			| 20210910-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.12		| https://github.com/libevent/libevent/releases | Currently used solely by tmux
 | library/libidn			| 1.38			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.4.2			| https://sourceware.org/libffi/
@@ -64,7 +64,7 @@
 | library/xxhash			| 0.8.0			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20210608		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.16.20		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.16.21		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.7p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2-P1		| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -77,14 +77,14 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.7			| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.7p2		| https://www.sudo.ws/
+| security/sudo				| 1.9.8		| https://www.sudo.ws/
 | service/network/chrony		| 4.1			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
 | shell/bash				| 5.1.8			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 008			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
-| shell/pipe-viewer			| 1.6.19		| http://www.ivarch.com/programs/pv.shtml
+| shell/pipe-viewer			| 1.6.20		| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.04		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.0			| https://github.com/tycho/cpuid/releases
@@ -110,7 +110,7 @@
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.78.0		| https://curl.haxx.se/download.html
+| web/curl				| 7.79.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.2		| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.68.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.37			| https://ftp.gnu.org/gnu/binutils
