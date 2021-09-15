@@ -27,7 +27,7 @@
 . ../../lib/functions.sh
 
 PROG=pv
-VER=1.6.19
+VER=1.6.20
 PKG=shell/pipe-viewer
 SUMMARY="Pipe Viewer"
 DESC="pv - a terminal-based tool for monitoring the progress of data through a pipeline."
