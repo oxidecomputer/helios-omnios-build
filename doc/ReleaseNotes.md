@@ -4,6 +4,21 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038u (2021-09-23)
+Weekly release for w/c 20th of September 2021.
+> This is a non-reboot update
+
+# Changes
+
+* `curl` has been updated to version 7.79.1.
+
+* A new `chrony` package is available as an alternative to `ntpsec` for
+  time synchronisation.
+
+<br>
+
+---
+
 ## r151038t (2021-09-15)
 Weekly release for w/c 13th of September 2021.
 > This is a non-reboot update
