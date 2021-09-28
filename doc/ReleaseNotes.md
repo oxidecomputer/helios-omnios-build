@@ -4,11 +4,54 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038v (2021-09-28)
+Weekly release for w/c 27th of September 2021.
+> This update requires a reboot
+
+### Security Fixes
+
+* OpenSSH has been updated, fixing
+  [CVE-2021-41617](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2021-41617).
+
+### Bug fixes
+
+* If the system dump device was configured on a ZVOL on a RAIDZ pool, then
+  a system panic could cause unrelated corruption on the pool.
+
+* bhyve guests could fail to boot on some older AMD machines; this was a
+  regression from previous OmniOS releases.
+
+* Several improvements have been made to the viona network driver used by
+  bhyve.
+
+* Performance of the system console has been significantly improved.
+
+* The `update-man-index` service which re-indexes manual pages at boot and
+  after package operations has been optimised so that it only rebuilds the
+  required indices.
+
+* Attempting to multiplex non-device streams could result in a kernel panic.
+
+### New features
+
+* bhyve now supports virtio-9p (aka VirtFS) filesystem sharing to guests.
+  This is configured through the new `virtfs[N]` zone attribute as described
+  in [bhyve(5)](https://man.omnios.org/bhyve.5).
+
+### Other changes
+
+* The gcc10 package has been updated to match the published illumos
+  gcc-10.3.0-il-1 tag.
+
+<br>
+
+---
+
 ## r151038u (2021-09-23)
 Weekly release for w/c 20th of September 2021.
 > This is a non-reboot update
 
-# Changes
+### Changes
 
 * `curl` has been updated to version 7.79.1.
 
@@ -23,7 +66,7 @@ Weekly release for w/c 20th of September 2021.
 Weekly release for w/c 13th of September 2021.
 > This is a non-reboot update
 
-# Security Fixes
+### Security Fixes
 
 * `curl` has been updated to version 7.79.0 fixing 3 security vulnerabilities:
   * [CVE-2021-22945](https://curl.se/docs/CVE-2021-22945.html)
