@@ -53,13 +53,12 @@ BUILD_DEPENDS_IPS="
     developer/versioning/git
     system/zones/internal
     text/intltool
+    library/python-3/pyyaml-39
 "
 
-OMNIOS_RELVER=151038
-
 # Respect environmental overrides for these to ease development.
-: ${PKG_SOURCE_REPO:=$GITHUB/pkg5}
-: ${PKG_SOURCE_BRANCH:=r$OMNIOS_RELVER}
+: ${PKG_SOURCE_REPO:=https://github.com/oxidecomputer/pkg5}
+: ${PKG_SOURCE_BRANCH:=helios}
 VER+="-$PKG_SOURCE_BRANCH"
 
 clone_source() {
