@@ -37,7 +37,6 @@ find $dir -type f -name \*build\*.sh \
 	/^[0-9]/d
 	/^auto/d
 	/^omniti/d
-	/^developer\/gcc44/d
 	s/.*/depend fmri=& type=require/
 '
 
