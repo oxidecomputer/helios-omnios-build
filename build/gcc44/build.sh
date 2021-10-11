@@ -88,7 +88,6 @@ CONFIGURE_OPTS="
     --with-build-time-tools=/usr/gnu/$TRIPLET64/bin
 "
 LDFLAGS32="-R/opt/gcc-${VER}/lib"
-export LD_OPTIONS="-zignore -zcombreloc -Bdirect -i"
 
 # If the selected compiler is the same version as the one we're building
 # then the three-stage bootstrap is unecessary and some build time can be
