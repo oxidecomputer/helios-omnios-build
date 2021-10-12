@@ -13,12 +13,12 @@
 # }}}
 
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=coreutils
-VER=8.32
+VER=9.0
 PKG=file/gnu-coreutils
 SUMMARY="coreutils - GNU core utilities"
 DESC="GNU core utilities"
@@ -48,11 +48,18 @@ CONFIGURE_OPTS_64+=" --libexecdir=/usr/lib/$ISAPART64"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
+function strip_info {
+    sed -i '/or available locally via: info/d' \
+        `$FD -t f '\.1$' $DESTDIR/usr/gnu/share/man/man1/`
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source
+run_autoreconf -fi
 prep_build
 build
+strip_info
 run_testsuite check
 make_package
 clean_up
