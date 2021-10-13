@@ -4,6 +4,23 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038x (2021-10-13)
+Weekly release for w/c 11th of October 2021.
+> This is a non-reboot update
+
+### Changes
+
+* Update illumos-tools meta package to require gcc 10, which is now the
+  shadow compiler for illumos-gate.
+
+* Update the provided template `/opt/onbld/env/omnios-illumos-gate` file to
+  use gcc10 for shadow in place of gcc4. See also
+  <https://downloads.omnios.org/env/> for updated example files.
+
+<br>
+
+---
+
 ## r151038v (2021-09-28)
 Weekly release for w/c 27th of September 2021.
 > This update requires a reboot
