@@ -456,6 +456,9 @@ set_gccver $DEFAULT_GCC_VER -q
 set_opensslver() {
     [ -d /usr/ssl-$1 ] || logerr "Unknown OpenSSL version $1"
     FORCE_OPENSSL_VERSION=$1
+    OPENSSLVER=$1
+    OPENSSLPATH=/usr/ssl-$1
+    PATH=$OPENSSLPATH/bin:$PATH
     logmsg "-- Setting OpenSSL version to $FORCE_OPENSSL_VERSION"
 }
 
@@ -596,14 +599,15 @@ BasicRequirements
 # Check the OpenSSL mediator
 #############################################################################
 
-opensslver=`pkg mediator -H openssl 2>/dev/null| awk '{print $3}'`
-if [ -n "$opensslver" -a "$opensslver" != "1.1" ]; then
+OPENSSLVER=`pkg mediator -H openssl 2>/dev/null| awk '{print $3}'`
+if [ "$OPENSSLVER" != "$EXP_OPENSSLVER" ]; then
     if [ -n "$OPENSSL_TEST" ]; then
-        logmsg -h "--- OpenSSL version $opensslver but OPENSSL_TEST is set"
+        logmsg -h "--- OpenSSL version $OPENSSLVER but OPENSSL_TEST is set"
     else
-        logerr "--- OpenSSL version $opensslver should not be used for build"
+        logerr "--- OpenSSL version $OPENSSLVER should not be used for build"
     fi
 fi
+OPENSSLPATH=/usr/ssl-$OPENSSLVER
 
 #############################################################################
 # Check the Python3 mediator

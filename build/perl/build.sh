@@ -49,6 +49,13 @@ TESTSUITE_SED="
 
 configure64() {
     logmsg "--- configure (64-bit)"
+    # A note about 'myuname'. In previous OmniOS releases this was set to be
+    # undefined, but as of the r151041 bloody cycle it has been set to 'sunos'.
+    # In particular, this makes some modules make better choices about things
+    # like compiler flags (Crypt::OpenSSL:X509 is one), but there is a risk
+    # that some modules might assume that myuname=='sunos' => Sun studio
+    # rather than checking 'ccname'. This will need re-evaluating prior to
+    # cutting r151042.
     logcmd $SHELL Configure \
         -des \
         -Dusethreads \
@@ -59,7 +66,7 @@ configure64() {
         -Duse64bitall \
         -Dmyhostname=localhost \
         -Umydomain \
-        -Umyuname \
+        -Dmyuname=sunos \
         -Dcf_by=omnios-builder \
         -Dcf_email=$PUBLISHER_EMAIL \
         -Dcc=gcc \

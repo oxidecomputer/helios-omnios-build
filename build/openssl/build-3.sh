@@ -16,6 +16,7 @@
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
+. common.sh
 
 PROG=openssl
 VER=3.0.0
@@ -27,8 +28,9 @@ DESC+="and general purpose cryptographic library"
 # Required for the testsuite - not yet in ooce/omnios-build-tools
 BUILD_DEPENDS_IPS+=" ooce/file/lsof"
 
+MAJVER=${VER%%.*}
 XFORM_ARGS+="
-    -DMAJVER=${VER%%.*}
+    -DMAJVER=$MAJVER
     -DLIBVER=${VER%%.*}
     -DLICENCEFILE=LICENSE.txt -DLICENCE=Apache2
 "
@@ -94,6 +96,8 @@ build() {
     [[ $BUILDARCH =~ ^(64|both)$ ]] && build64 && logcmd cp ${duh}{,.64}
 
     logcmd -p diff -D __x86_64 ${duh}.{32,64} > $duh
+
+    patch_pc $MAJVER $DESTDIR$PREFIX/lib || logerr "patch_pc failed"
 }
 
 init
