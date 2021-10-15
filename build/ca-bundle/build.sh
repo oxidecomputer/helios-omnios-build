@@ -85,14 +85,20 @@ build_pem() {
     logmsg "-- Relocating CA certificates"
     pushd $DESTDIR/etc/ssl >/dev/null
     logcmd mkdir -p CA
+    logcmd $FD -t l . certs -X rm
     for c in certs/*.pem; do
         local alias=`openssl x509 -in $c -noout -alias | tr ' ' '_' \
             | tr -cd '[:print:]'`
         local hash=`openssl x509 -in $c -noout -hash`
         [ -f "CA/$alias.pem" ] && logerr "Duplicate certificate $c / $alias"
         logcmd mv $c "CA/$alias.pem" || logerr "Failed to rename $c"
-        logcmd ln -sf "../CA/$alias.pem" "certs/$hash.0" \
-            || logerr "Failed to link $alias.pem"
+        local suf=0
+        while [ -f certs/$hash.$suf ]; do
+            ((suf++))
+        done
+        ((suf > 0)) && logmsg -e "--- handled CA collision for $hash ($suf)"
+        logcmd ln -sf "../CA/$alias.pem" "certs/$hash.$suf" \
+            || logerr "Failed to link $alias.pem to $hash.$suf"
     done
     popd >/dev/null
 }
