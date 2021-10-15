@@ -16,6 +16,7 @@
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
+. common.sh
 
 PROG=openssl
 VER=1.0.2u
@@ -27,8 +28,9 @@ DESC+="and general purpose cryptographic library"
 SKIP_LICENCES=OpenSSL
 BMI_EXPECTED=1
 
+MAJVER=${VER%.*}
 XFORM_ARGS+="
-    -DMAJVER=${VER%.*}
+    -DMAJVER=$MAJVER
     -DLIBVER=${VER%.*}.0
     -DLICENCEFILE=LICENSE -DLICENCE=OpenSSL
 "
@@ -86,6 +88,8 @@ build() {
     [[ $BUILDARCH =~ ^(64|both)$ ]] && build64 && logcmd cp ${duh}{,.64}
 
     logcmd -p diff -D __x86_64 ${duh}.{32,64} > $duh
+
+    patch_pc $MAJVER $DESTDIR$PREFIX/lib || logerr "patch_pc failed"
 }
 
 install_pkcs11()
