@@ -18,20 +18,20 @@
 
 PROG=openjdk
 VER=11
-UPDATE=12
-BUILD=7
+UPDATE=13
+BUILD=8
 PKG=runtime/java/openjdk11
 SUMMARY="openjdk $VER"
 DESC="Open-source implementation of the eleventh edition of the "
 DESC+="Java SE Platform"
 
 # check ooce/fonts/liberation for current version
-LIBERATIONFONTSVER=2.1.4
+LIBERATIONFONTSVER=2.1.5
 SKIP_LICENCES="SILv1.1"
 
 set_arch 64
 
-set_builddir "jdk${VER}u-jdk-$VER.0.$UPDATE+$BUILD"
+set_builddir "jdk${VER}u-jdk-$VER.0.$UPDATE-$BUILD"
 
 BMI_EXPECTED=1
 SKIP_RTIME_CHECK=1
