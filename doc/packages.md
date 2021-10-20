@@ -89,7 +89,7 @@
 | shell/pipe-viewer			| 1.6.20		| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.04		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
-| system/cpuid				| 1.8.0			| https://github.com/tycho/cpuid/releases
+| system/cpuid				| 1.8.2			| https://github.com/tycho/cpuid/tags
 | system/data/urxvt-terminfo		| 9.26			| http://dist.schmorp.de/rxvt-unicode/
 | system/library/dbus			| 1.12.20		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.112			| https://dbus.freedesktop.org/releases/dbus-glib/
