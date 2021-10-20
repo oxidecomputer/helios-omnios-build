@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=cpuid
-VER=1.8.0
+VER=1.8.2
 PKG=system/cpuid
 SUMMARY="A simple CPUID decoder/dumper for x86/x86_64"
 DESC="A program which can dump and extract information from the x86 "
@@ -25,7 +25,7 @@ DESC+="CPUID instruction"
 
 set_arch 64
 
-SKIP_LICENCES="*"
+SKIP_LICENCES="ISC"
 
 configure64() {
     MAKE_ARGS_WS="CC=\"gcc -m$BUILDARCH $CFLAGS $CFLAGS64\""
