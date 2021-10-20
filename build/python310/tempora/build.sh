@@ -18,7 +18,7 @@
 
 PKG=library/python-3/tempora-310
 PROG=tempora
-inherit_ver python39/$PROG
+inherit_ver python39/tempora
 SUMMARY="Objects and routines pertaining to date and time"
 DESC="$SUMMARY"
 

@@ -18,7 +18,7 @@
 
 PKG=library/python-3/pyopenssl-310
 PROG=pyOpenSSL
-inherit_ver python39/${PROG,,}
+inherit_ver python39/pyopenssl
 SUMMARY="pyOpenSSL - Python interface to the OpenSSL library"
 DESC="$SUMMARY"
 

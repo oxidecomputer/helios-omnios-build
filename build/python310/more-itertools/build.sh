@@ -19,7 +19,7 @@
 
 PKG=library/python-3/more-itertools-310
 PROG=more-itertools
-inherit_ver python39/$PROG
+inherit_ver python39/more-itertools
 SUMMARY="More routines for operating on iterables"
 DESC="$SUMMARY, beyond itertools"
 

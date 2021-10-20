@@ -18,7 +18,7 @@
 
 PKG=library/python-3/prettytable-310
 PROG=prettytable
-inherit_ver python39/$PROG
+inherit_ver python39/prettytable
 SUMMARY="Simple tabular data display"
 DESC="prettytable - A simple Python library for easily displaying tabular "
 DESC+="data in a visually appealing ASCII table format."

@@ -18,7 +18,7 @@
 
 PKG=library/python-3/jaraco-310
 PROG=jaraco
-inherit_ver python39/$PROG
+inherit_ver python39/jaraco
 SUMMARY="jaraco"
 DESC="A bundle of jaraco python modules"
 
