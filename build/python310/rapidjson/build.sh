@@ -18,7 +18,7 @@
 
 PKG=library/python-3/rapidjson-310
 PROG=rapidjson
-inherit_ver python39/$PROG
+inherit_ver python39/rapidjson
 SUMMARY="rapidjson - Python interface to RapidJSON"
 DESC="RapidJSON is an extremely fast C++ JSON parser and serialization library"
 DESC+="; this module wraps it into a Python 3 extension"

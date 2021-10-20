@@ -18,7 +18,7 @@
 
 PKG=library/python-3/cheroot-310
 PROG=cheroot
-inherit_ver python39/$PROG
+inherit_ver python39/cheroot
 SUMMARY="cheroot HTTP server"
 DESC="Highly-optimized, pure-python HTTP server"
 

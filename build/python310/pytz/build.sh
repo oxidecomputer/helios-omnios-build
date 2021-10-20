@@ -18,7 +18,7 @@
 
 PKG=library/python-3/pytz-310
 PROG=pytz
-inherit_ver python39/$PROG
+inherit_ver python39/pytz
 SUMMARY="Python world timezone definitons"
 DESC="$SUMMARY, modern and historical"
 

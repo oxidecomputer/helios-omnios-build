@@ -18,7 +18,7 @@
 
 PKG=library/python-3/orjson-310
 PROG=orjson
-inherit_ver python39/$PROG
+inherit_ver python39/orjson
 # orjson requries rust nightly. check https://github.com/ijl/orjson
 # for which version has been tested
 RUSTVER=2021-06-24
