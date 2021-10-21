@@ -71,9 +71,9 @@
 | network/socat				| 1.7.4.1		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
-| runtime/java/openjdk11		| 11.0.12+7		| https://hg.openjdk.java.net/jdk-updates/jdk11u/tags
-| runtime/java/openjdk17		| 17+35			| https://github.com/openjdk/jdk17u/releases
-| runtime/java/openjdk8			| 1.8.302-08		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
+| runtime/java/openjdk11		| 11.0.13+8		| https://github.com/openjdk/jdk11u/tags
+| runtime/java/openjdk17		| 17.0.1+12		| https://github.com/openjdk/jdk17u/tags
+| runtime/java/openjdk8			| 1.8.312-07		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | runtime/perl				| 5.34.0		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
@@ -89,7 +89,7 @@
 | shell/pipe-viewer			| 1.6.20		| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.22.04		| https://github.com/tcsh-org/tcsh/releases
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
-| system/cpuid				| 1.8.0			| https://github.com/tycho/cpuid/releases
+| system/cpuid				| 1.8.2			| https://github.com/tycho/cpuid/tags
 | system/data/urxvt-terminfo		| 9.26			| http://dist.schmorp.de/rxvt-unicode/
 | system/library/dbus			| 1.12.20		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.112			| https://dbus.freedesktop.org/releases/dbus-glib/

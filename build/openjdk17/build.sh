@@ -18,8 +18,8 @@
 
 PROG=openjdk
 VER=17
-UPDATE=0
-BUILD=35
+UPDATE=1
+BUILD=12
 PKG=runtime/java/openjdk17
 SUMMARY="openjdk $VER"
 DESC="Open-source implementation of the seventeenth edition of the "
@@ -31,7 +31,7 @@ SKIP_LICENCES="SILv1.1"
 
 set_arch 64
 
-set_builddir "jdk${VER}u-jdk-$VER-$BUILD"
+set_builddir "jdk${VER}u-jdk-$VER.0.$UPDATE-$BUILD"
 
 BMI_EXPECTED=1
 SKIP_RTIME_CHECK=1
@@ -84,6 +84,10 @@ CONFIGURE_OPTS="
     --with-freetype=bundled
     --with-fontconfig-include=$OOCEPREFIX/include
 "
+CONFIGURE_OPTS_WS="
+    --with-extra-cflags=\"$CFLAGS $CFLAGS64\"
+    --with-extra-cxxflags=\"$CXXFLAGS $CXXFLAGS64\"
+"
 
 MAKE_ARGS="all"
 
@@ -103,7 +107,7 @@ make_install() {
 }
 
 init
-download_source $PROG "jdk-$VER+$BUILD"
+download_source $PROG "jdk-$VER.0.$UPDATE+$BUILD"
 patch_source
 
 # Also download the liberation fonts archive. Fonts from here will be
