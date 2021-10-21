@@ -128,7 +128,7 @@
 | library/python-3/cherrypy-39		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-39		| 6.0.2			| https://pypi.org/project/coverage
 | library/python-3/cryptography-39	| 35.0.0		| https://pypi.org/project/cryptography
-| library/python-3/idna-39		| 3.2			| https://pypi.org/project/idna
+| library/python-3/idna-39		| 3.3			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-39	| 3.2.1			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-39 | 3.4.0		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-39	| 3.3.0			| https://pypi.org/project/jaraco.functools
