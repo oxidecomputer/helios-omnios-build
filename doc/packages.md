@@ -145,7 +145,7 @@
 | library/python-3/portend-39		| 3.0.0			| https://pypi.org/project/portend
 | library/python-3/prettytable-39	| 2.2.1			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-39		| 1.1.1			| https://pypi.org/project/pybonjour
-| library/python-3/pycodestyle-39	| 2.7.0			| https://pypi.org/project/pycodestyle/
+| library/python-3/pycodestyle-39	| 2.8.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-39		| 2.20			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-39		| 7.44.1		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-39		| 20.0.1		| https://pypi.org/project/pyOpenSSL
