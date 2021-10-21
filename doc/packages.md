@@ -134,7 +134,7 @@
 | library/python-3/jaraco.functools-39	| 3.3.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-39	| 3.5.1			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-39		| 1.0.1			| https://pypi.org/project/js-regex
-| library/python-3/jsonrpclib-39	| 0.4.2			| https://github.com/tcalmant/jsonrpclib/releases
+| library/python-3/jsonrpclib-39	| 0.4.3.1			| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-39	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-39		| 1.1.5			| https://pypi.org/project/Mako
 | library/python-3/meson-39		| 0.59.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
