@@ -18,7 +18,7 @@
 
 PKG=library/python-3/cffi-39
 PROG=cffi
-VER=1.14.6
+VER=1.15.0
 SUMMARY="cffi"
 DESC="Foreign Function Interface for Python calling C code"
 
