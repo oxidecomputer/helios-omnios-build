@@ -4,6 +4,24 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038y (2021-10-21)
+Weekly release for w/c 18th of October 2021.
+> This is a non-reboot update
+
+### Security Fixes
+
+* `vim` has been updated to 8.2.3445 fixing several CVEs.
+
+* `openjdk` has been updated to 11.0.13+8 and 1.8.312-07 fixing several CVEs.
+
+### Changes
+
+* `cpuid` has been updated to 1.8.2.
+
+<br>
+
+---
+
 ## r151038x (2021-10-13)
 Weekly release for w/c 11th of October 2021.
 > This is a non-reboot update
