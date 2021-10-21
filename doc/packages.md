@@ -152,7 +152,7 @@
 | library/python-3/pyrsistent-39	| 0.18.0		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-39		| 2021.3		| https://pypi.org/project/pytz
 | library/python-3/pyyaml-39		| 6.0			| https://pypi.org/project/PyYAML
-| library/python-3/rapidjson-39		| 1.4			| https://pypi.org/project/python-rapidjson
+| library/python-3/rapidjson-39		| 1.5			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-39	| 2.8.5			| https://pypi.org/project/semantic-version
 | library/python-3/setuptools-39	| 58.0.4		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-39	| 0.12.1		| https://pypi.org/project/setuptools-rust
