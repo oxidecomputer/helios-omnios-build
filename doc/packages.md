@@ -134,13 +134,13 @@
 | library/python-3/jaraco.functools-39	| 3.3.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-39	| 3.5.1			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-39		| 1.0.1			| https://pypi.org/project/js-regex
-| library/python-3/jsonrpclib-39	| 0.4.3.1			| https://github.com/tcalmant/jsonrpclib/releases
+| library/python-3/jsonrpclib-39	| 0.4.3.1		| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-39	| 3.2.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-39		| 1.1.5			| https://pypi.org/project/Mako
 | library/python-3/meson-39		| 0.59.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-39	| 8.10.0			| https://pypi.org/project/more-itertools
+| library/python-3/more-itertools-39	| 8.10.0		| https://pypi.org/project/more-itertools
 | library/python-3/orjson-39		| 3.6.4			| https://github.com/ijl/orjson/releases
-| library/python-3/pip-39		| 21.3		| https://pypi.org/project/pip
+| library/python-3/pip-39		| 21.3			| https://pypi.org/project/pip
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-39		| 3.0.0			| https://pypi.org/project/portend
 | library/python-3/prettytable-39	| 2.2.1			| https://pypi.org/project/PrettyTable
