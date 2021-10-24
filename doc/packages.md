@@ -28,14 +28,14 @@
 | developer/versioning/git		| 2.33.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
 | developer/versioning/mercurial	| 5.9.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
-| driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/releases
+| driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 9.0			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.8.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.0.7			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.4.1			| https://github.com/libexpat/libexpat/releases
-| library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/releases | Currently used solely by rsyslog
-| library/fastjson			| 0.99.9		| https://github.com/rsyslog/libfastjson/releases | Currently used solely by rsyslog
+| library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/tags | Currently used solely by rsyslog
+| library/fastjson			| 0.99.9		| https://github.com/rsyslog/libfastjson/tags | Currently used solely by rsyslog
 | library/gmp				| 6.2.1			| https://gmplib.org/download/gmp/ https://gmplib.org/
 | library/mpc				| 1.2.1			| http://www.multiprecision.org/mpc/download.html
 | library/mpfr				| 4.1.0			| http://www.mpfr.org/mpfr-current/
@@ -45,7 +45,7 @@
 | library/libidn			| 1.38			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.4.2			| https://sourceware.org/libffi/
 | library/libuv				| 1.42.0		| https://github.com/libuv/libuv/releases | Currently used solely by bind
-| library/libxml2			| 2.9.12		| https://github.com/GNOME/libxml2/releases http://xmlsoft.org/news.html
+| library/libxml2			| 2.9.12		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.45.1		| https://github.com/nghttp2/nghttp2/releases
@@ -70,7 +70,7 @@
 | network/service/isc-dhcp		| 4.4.2-P1		| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/socat				| 1.7.4.1		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
-| network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/releases
+| network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/tags
 | runtime/java/openjdk11		| 11.0.13+8		| https://github.com/openjdk/jdk11u/tags
 | runtime/java/openjdk17		| 17.0.1+12		| https://github.com/openjdk/jdk17u/tags
 | runtime/java/openjdk8			| 1.8.312-07		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
@@ -81,13 +81,13 @@
 | runtime/python-39			| 3.9.7			| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.8p2		| https://www.sudo.ws/
 | service/network/chrony		| 4.1			| https://download.tuxfamily.org/chrony/
-| service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/releases https://blog.ntpsec.org/
-| service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/releases
+| service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
+| service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/tags
 | shell/bash				| 5.1.8			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 008			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.20		| http://www.ivarch.com/programs/pv.shtml
-| shell/tcsh				| 6.22.04		| https://github.com/tcsh-org/tcsh/releases
+| shell/tcsh				| 6.22.04		| https://github.com/tcsh-org/tcsh/tags
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.2			| https://github.com/tycho/cpuid/tags
 | system/data/urxvt-terminfo		| 9.26			| http://dist.schmorp.de/rxvt-unicode/
@@ -98,9 +98,9 @@
 | system/management/snmp/net-snmp	| 5.9.1			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
-| system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/releases
+| system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/tags
 | system/rsyslog			| 8.2110.0		| https://www.rsyslog.com/downloads/download-v8-stable/
-| system/test/fio			| 3.28			| https://github.com/axboe/fio/releases
+| system/test/fio			| 3.28			| https://github.com/axboe/fio/tags
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.2			| https://github.com/tmux/tmux/releases http://tmux.github.io/
