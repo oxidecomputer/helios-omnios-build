@@ -15,28 +15,43 @@ pth=
 max=0
 
 # Find the library file in the specified gcc version
-find_lib() {
+function find_lib {
     local v=$1
     local lib=$2
+    local minor
 
     [ -d /opt/gcc-$v/lib ] && pth=/opt/gcc-$v/lib || pth=/usr/gcc/$v/lib
 
+    full=
     for l in "$pth"/$lib.so.*; do
         [[ $1 = *.py ]] && continue
         [ -f $l -a ! -h $l ] && full=$l && break
     done
 
     [ -f "$full" ] || logerr "No $lib lib for gcc-$v"
-    full=`basename $full`                          # libxxxx.so.1.2.3
-    maj=${full/%.+([0-9]).+([0-9])/}               # libxxxx.so.1
+    full=`basename $full`                       # libxxxx.so.1.2.3
+    maj=${full/%.+([0-9]).+([0-9])/}            # libxxxx.so.1
+    minor="${full##*.}"                         # 1
 
-    local minor="${full##*.}"
     [ -n "$minor" -a "$minor" -gt $max ] && max=$minor
 
     logmsg "-- GCC $v - found $full ($maj)"
 }
 
-install_lib() {
+function checksum {
+    local lib=$1
+
+    local sum=`awk -v lib=$lib '
+        $1 == lib { print $2 }
+    ' $SRCDIR/checksum`
+
+    if [ -n "$sum" ]; then
+        nsum=`digest -a sha256 $lib`
+        [ "$sum" = "$nsum" ] || logerr "Bad checksum for $lib"
+    fi
+}
+
+function install_lib {
     local v=$1
     local libs="$2"
 
@@ -49,6 +64,8 @@ install_lib() {
 
         logcmd cp $pth/$full usr/gcc/$v/lib/$full
         logcmd cp $pth/$ISAPART64/$full usr/gcc/$v/lib/$ISAPART64/$full
+        checksum usr/gcc/$v/lib/$full
+        checksum usr/gcc/$v/lib/$ISAPART64/$full
 
         # Create the links
 

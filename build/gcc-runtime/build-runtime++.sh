@@ -50,9 +50,11 @@ for lver in `seq 13 $max`; do
     # Already provided by non-legacy
     [ -f usr/lib/libstdc++.so.6.0.$lver ] && continue
     logmsg "-- Installing legacy libstdc++.so.6.0.$lver"
-    logcmd cp /usr/lib/libstdc++.so.6.0.$lver usr/gcc/legacy/lib
+    logcmd cp /usr/lib/libstdc++.so.6.0.$lver usr/gcc/legacy/lib/
     logcmd cp /usr/lib/$ISAPART64/libstdc++.so.6.0.$lver \
-        usr/gcc/legacy/lib/$ISAPART64
+        usr/gcc/legacy/lib/$ISAPART64/
+    checksum usr/gcc/legacy/lib/libstdc++.so.6.0.$lver
+    checksum usr/gcc/legacy/lib/$ISAPART64/libstdc++.so.6.0.$lver
 done
 
 for f in usr/gcc/legacy/lib/lib*; do
