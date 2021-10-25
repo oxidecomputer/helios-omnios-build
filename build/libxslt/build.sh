@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -76,9 +76,8 @@ tests() {
 init
 download_source $PROG $PROG $VER
 patch_source
-run_autoreconf
+prep_build autoconf -autoreconf
 backup_man
-prep_build
 build
 make_isa_stub
 tests
