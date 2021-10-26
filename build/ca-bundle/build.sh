@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/functions.sh
 
@@ -22,9 +22,8 @@ VER=5.11
 PKG=web/ca-bundle
 SUMMARY="Bundle of Root CA certificates"
 
-nsbuild=$SRCDIR/../mozilla-nss-nspr/build.sh
-NSSVER="`grep '^VER=' $nsbuild | sed 's/.*=//;q'`"
-NSPRVER="`grep '^NSPRVER=' $nsbuild | sed 's/.*=//;q'`"
+NSSVER=3.70
+NSPRVER=4.32
 # Make-ca from https://github.com/djlucas/make-ca
 MAKECAVER=0.6
 
