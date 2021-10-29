@@ -4,6 +4,18 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038z (2021-10-29)
+Weekly release for w/c 25th of October 2021.
+> This is a non-reboot update
+
+### Changes
+
+* `ca-bundle` has been updated (`nss` 3.70).
+
+<br>
+
+---
+
 ## r151038y (2021-10-21)
 Weekly release for w/c 18th of October 2021.
 > This is a non-reboot update
