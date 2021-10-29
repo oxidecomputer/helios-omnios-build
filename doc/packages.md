@@ -94,6 +94,7 @@
 | system/library/dbus			| 1.12.20		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.112			| https://dbus.freedesktop.org/releases/dbus-glib/
 | system/library/pcap			| 1.10.1		| http://www.tcpdump.org/#latest-releases
+| system/management/cloud-init		| 21.3			| https://github.com/canonical/cloud-init/releases
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.9.1			| https://sourceforge.net/projects/net-snmp/files/net-snmp
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
