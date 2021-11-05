@@ -17,7 +17,8 @@
 . ../../lib/functions.sh
 
 PROG=cloud-init
-VER=21.3
+VER=21.4
+DASHREV=1
 PKG=system/management/cloud-init
 SUMMARY="Cloud instance initialisation tools"
 DESC="Cloud-init is the industry standard multi-distribution method for "
@@ -26,7 +27,7 @@ DESC+="cross-platform cloud instance initialisation"
 PYMVER=${PYTHONVER%%.*}    # 3
 SPYVER=${PYTHONVER//./}    # 39
 
-set_builddir $PROG-illumos-$VER
+set_builddir $PROG-illumos-$VER-$DASHREV
 
 RUN_DEPENDS_IPS+="
     library/python-$PYMVER/idna-$SPYVER
@@ -63,7 +64,7 @@ addsitedir('$_site')
 PYINST64OPTS="--init-system=smf"
 
 init
-download_source $PROG illumos $VER
+download_source $PROG illumos $VER-$DASHREV
 patch_source
 prep_build
 install_deps
