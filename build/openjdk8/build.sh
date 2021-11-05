@@ -177,6 +177,7 @@ PKGE=`url_encode $PKG`
 SUMMARY="openjdk ${VER#*.} JRE"
 DESC="$_DESC, runtime environment (JRE)"
 DESTDIR=$J2RE_INSTALLTMP
+RUN_DEPENDS_IPS="runtime/java/jexec"
 make_package jre.mog jrefinal.mog
 
 #############################################################################

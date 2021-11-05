@@ -44,6 +44,8 @@ BUILD_DEPENDS_IPS="
     ooce/print/cups
 "
 
+RUN_DEPENDS_IPS="runtime/java/jexec"
+
 VERHUMAN=jdk${VER}u${UPDATE}-b$BUILD
 IVER=${VER}.0
 
