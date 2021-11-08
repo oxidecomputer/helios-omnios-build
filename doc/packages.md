@@ -68,7 +68,7 @@
 | network/openssh			| 8.8p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2-P1		| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
-| network/socat				| 1.7.4.1		| http://www.dest-unreach.org/socat/download/
+| network/socat				| 1.7.4.2		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/tags
 | runtime/java/openjdk11		| 11.0.13+8		| https://github.com/openjdk/jdk11u/tags
