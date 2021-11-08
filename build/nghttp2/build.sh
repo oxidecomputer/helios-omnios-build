@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=nghttp2
-VER=1.45.1
+VER=1.46.0
 PKG=library/nghttp2
 SUMMARY="nghttp2: HTTP/2 C Library"
 DESC="An implementation of the Hypertext Transfer Protocol version 2 in C"
