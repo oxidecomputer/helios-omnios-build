@@ -78,7 +78,7 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
 | runtime/python-310			| 3.10.0		| https://www.python.org/downloads/source/
-| runtime/python-39			| 3.9.7			| https://www.python.org/downloads/source/
+| runtime/python-39			| 3.9.8			| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.8p2		| https://www.sudo.ws/
 | service/network/chrony		| 4.1			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
