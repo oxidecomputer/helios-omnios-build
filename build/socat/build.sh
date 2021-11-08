@@ -17,7 +17,7 @@
 . ../../lib/functions.sh
 
 PROG=socat
-VER=1.7.4.1
+VER=1.7.4.2
 PKG=network/socat
 SUMMARY="Multipurpose socket relay"
 DESC="socat is a relay for bidirectional data transfer between two "

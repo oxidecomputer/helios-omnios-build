@@ -13,7 +13,7 @@
 | data/iso-codes			| 4.7.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3360000		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
-| developer/build/automake		| 1.16.4		| https://ftp.gnu.org/gnu/automake/
+| developer/build/automake		| 1.16.5		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
 | developer/build/libtool		| 2.4.6			| https://www.gnu.org/software/libtool/
 | developer/exuberant-ctags		| 5.8			| https://sourceforge.net/projects/ctags/files/ctags/ http://ctags.sourceforge.net/
@@ -26,7 +26,7 @@
 | developer/parser/bison		| 3.8.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.33.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 5.9.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 5.9.3			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -48,8 +48,8 @@
 | library/libxml2			| 2.9.12		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/ncurses			| 6.2			| https://ftp.gnu.org/gnu/ncurses/
-| library/nghttp2			| 1.45.1		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.71			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nghttp2			| 1.46.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nss				| 3.72			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.32			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre				| 8.45			| https://ftp.pcre.org/pub/pcre/
 | library/pcre2				| 10.37			| https://ftp.pcre.org/pub/pcre/
@@ -68,7 +68,7 @@
 | network/openssh			| 8.8p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2-P1		| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
-| network/socat				| 1.7.4.1		| http://www.dest-unreach.org/socat/download/
+| network/socat				| 1.7.4.2		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/tags
 | runtime/java/openjdk11		| 11.0.13+8		| https://github.com/openjdk/jdk11u/tags
@@ -78,7 +78,7 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
 | runtime/python-310			| 3.10.0		| https://www.python.org/downloads/source/
-| runtime/python-39			| 3.9.7			| https://www.python.org/downloads/source/
+| runtime/python-39			| 3.9.8			| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.8p2		| https://www.sudo.ws/
 | service/network/chrony		| 4.1			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
@@ -105,7 +105,7 @@
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.2			| https://github.com/tmux/tmux/releases http://tmux.github.io/
-| text/gawk				| 5.1.0			| https://ftp.gnu.org/gnu/gawk/
+| text/gawk				| 5.1.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.8			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.21			| https://ftp.gnu.org/pub/gnu/gettext/
 | text/gnu-grep				| 3.7			| https://ftp.gnu.org/gnu/grep/
@@ -115,7 +115,7 @@
 | text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.79.1		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.2		| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.68.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.70.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.37			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.54		| https://github.com/Azure/WALinuxAgent/releases
