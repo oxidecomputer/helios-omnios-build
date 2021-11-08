@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=automake
-VER=1.16.4
+VER=1.16.5
 PKG=developer/build/automake
 SUMMARY="GNU Automake"
 DESC="GNU Automake - A Makefile generator"
