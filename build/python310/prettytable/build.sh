@@ -25,6 +25,8 @@ DESC+="data in a visually appealing ASCII table format."
 
 . $SRCDIR/../common.sh
 
+RUN_DEPENDS_IPS+=" library/python-$PYMVER/wcwidth-$SPYVER"
+
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
