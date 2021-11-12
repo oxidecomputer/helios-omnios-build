@@ -35,13 +35,9 @@ PVERS="5.7.3 5.8"
 
 MIB_MODULES="host disman/event-mib ucd-snmp/diskio udp-mib tcp-mib if-mib"
 
-CFLAGS+=" -fstack-check"
-LDFLAGS32="-Wl,-zignore $LDFLAGS32 -L/lib"
-LDFLAGS64="-Wl,-zignore $LDFLAGS64 -L/lib/$ISAPART64"
 LNETSNMPLIBS="-lsocket -lnsl"
 
 LIBRARIES_ONLY="
-    --disable-agent
     --disable-applications
     --disable-manuals
     --disable-scripts
@@ -76,11 +72,10 @@ CONFIGURE_OPTS="
 CONFIGURE_OPTS_WS="
     --with-transports=\"Unix UDP TCP UDPIPv6 TCPIPv6\"
     --with-mib-modules=\"$MIB_MODULES\"
-    LNETSNMPLIBS=\"$LNETSNMPLIBS\"
 "
 
 TESTSUITE_SED="
-    1,/^..RUNFULLTESTS/d
+    1,/RUNFULLTESTS$/d
     s/([^)]*net-snmp-.*//
     /^gmake/d
     s%-[0-9][0-9]*/[^)]*%/%g
