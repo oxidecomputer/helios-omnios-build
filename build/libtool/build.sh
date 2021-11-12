@@ -36,8 +36,9 @@ CONFIGURE_OPTS="
 build_manifests() {
     manifest_start $TMPDIR/manifest.libltdl
     manifest_add_dir $PREFIX/lib $ISAPART64
-    manifest_finalise $PREFIX
+    manifest_finalise $TMPDIR/manifest.libltdl $PREFIX
     manifest_uniq $TMPDIR/manifest.{libtool,libltdl}
+    manifest_finalise $TMPDIR/manifest.libtool $PREFIX
 }
 
 init

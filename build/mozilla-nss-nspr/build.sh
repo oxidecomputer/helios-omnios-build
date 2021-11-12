@@ -147,7 +147,7 @@ manifest_start $TMPDIR/manifest.nss.header
 manifest_add_dir $PREFIX/include/mps/nss
 manifest_add $PREFIX/lib/pkgconfig nss.pc
 manifest_add $PREFIX/lib/$ISAPART64/pkgconfig nss.pc
-manifest_finalise $PREFIX
+manifest_finalise $TMPDIR/manifest.nss.header $PREFIX
 
 make_package -seed $TMPDIR/manifest.nss.header nss.mog
 
@@ -162,7 +162,7 @@ manifest_add $PREFIX/lib/mps $NSS_LIBS $NSS_LIBCHK
 manifest_add $PREFIX/lib/mps/$ISAPART64 $NSS_LIBS $NSS_LIBCHK
 manifest_add $PREFIX/bin $NSS_BINS
 manifest_add $PREFIX/share/man/man1 $NSS_MANS
-manifest_finalise $PREFIX
+manifest_finalise $TMPDIR/manifest.nss $PREFIX
 
 make_package -seed $TMPDIR/manifest.nss nss.mog
 
@@ -177,7 +177,7 @@ manifest_start $TMPDIR/manifest.nspr.header
 manifest_add_dir $PREFIX/include/mps md obsolete private
 manifest_add $PREFIX/lib/pkgconfig nspr.pc
 manifest_add $PREFIX/lib/$ISAPART64/pkgconfig nspr.pc
-manifest_finalise $PREFIX
+manifest_finalise $TMPDIR/manifest.nspr.header $PREFIX
 
 make_package -seed $TMPDIR/manifest.nspr.header nspr.mog
 
@@ -190,7 +190,7 @@ DESC="$SUMMARY"
 manifest_start $TMPDIR/manifest.nspr
 manifest_add $PREFIX/lib/mps $NSPR_LIBS
 manifest_add $PREFIX/lib/mps/$ISAPART64 $NSPR_LIBS
-manifest_finalise $PREFIX
+manifest_finalise $TMPDIR/manifest.nspr $PREFIX
 
 make_package -seed $TMPDIR/manifest.nspr nspr.mog
 
