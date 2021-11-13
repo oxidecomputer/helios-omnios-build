@@ -1800,6 +1800,10 @@ xform() {
     sed "$XFORM_SED_CMD" < $file
 }
 
+#############################################################################
+# Package diffing
+#############################################################################
+
 # Create a list of the items contained within a package in a format suitable
 # for comparing with previous versions. We don't care about changes in file
 # content, just whether items have been added, removed or had their attributes
@@ -1826,18 +1830,20 @@ pkgitems() {
     "
 }
 
-diff_package() {
-    local fmri="$1"
-    xfmri=${fmri%@*}
+diff_packages() {
+    local srcrepo="${1:?}"
+    local srcfmri="${2:?}"
+    local dstrepo="${3:?}"
+    local dstfmri="${4:?}"
 
     if [ -n "$BATCH" ]; then
         of=$TMPDIR/pkg.diff.$$
         echo "Package: $fmri" > $of
         if ! gdiff -u \
-            <(pkgitems -g $IPS_REPO $xfmri) \
-            <(pkgitems -g $PKGSRVR $fmri) \
+            <(pkgitems -g $srcrepo $srcfmri) \
+            <(pkgitems -g $dstrepo $dstfmri) \
             >> $of; then
-                    logmsg -e "----- $fmri has changed"
+                    logmsg -e "----- $srcfmri has changed"
                     mv $of $TMPDIR/pkg.diff
                     return 1
         else
@@ -1847,8 +1853,8 @@ diff_package() {
     else
         logmsg "--- Comparing old package with new"
         if ! gdiff -U0 --color=always --minimal \
-            <(pkgitems -g $IPS_REPO $xfmri) \
-            <(pkgitems -g $PKGSRVR $fmri) \
+            <(pkgitems -g $srcrepo $srcfmri) \
+            <(pkgitems -g $dstrepo $dstfmri) \
             > $TMPDIR/pkgdiff.$$; then
                 echo
                 # Not anchored due to colour codes in file
@@ -1858,6 +1864,13 @@ diff_package() {
         fi
         rm -f $TMPDIR/pkgdiff.$$
     fi
+}
+
+diff_package() {
+    local fmri="$1"
+    local xfmri=${fmri%@*}
+
+    diff_packages $IPS_REPO $xfmri $PKGSRVR $fmri
 }
 
 diff_latest() {
