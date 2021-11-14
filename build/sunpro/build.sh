@@ -14,7 +14,7 @@
 #
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=sunpro
 VER=0.5.11

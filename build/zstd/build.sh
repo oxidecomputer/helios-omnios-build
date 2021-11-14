@@ -14,7 +14,7 @@
 
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=zstd
 VER=1.5.0

@@ -17,7 +17,7 @@
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=kayak-kernel
 PKG=system/install/kayak-kernel

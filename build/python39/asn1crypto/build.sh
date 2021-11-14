@@ -14,7 +14,7 @@
 #
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../../lib/functions.sh
+. ../../../lib/build.sh
 
 PKG=library/python-3/asn1crypto-39
 PROG=asn1crypto

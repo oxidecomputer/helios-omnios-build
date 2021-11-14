@@ -23,7 +23,7 @@
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../../lib/functions.sh
+. ../../../lib/build.sh
 
 PKG=library/python-2/setuptools-27
 PROG=setuptools

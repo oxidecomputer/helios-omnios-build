@@ -15,7 +15,7 @@
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 # The rxvt-unicode terminfo definition is not shipped by ncurses.
 # See https://invisible-island.net/ncurses/ncurses-urxvt.html

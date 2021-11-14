@@ -17,7 +17,7 @@
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 #
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=gfx-drm
 PKG=driver/graphics/agpgart

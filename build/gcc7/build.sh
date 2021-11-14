@@ -15,7 +15,7 @@
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PKG=developer/gcc7
 PROG=gcc

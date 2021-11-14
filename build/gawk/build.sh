@@ -15,7 +15,7 @@
 # Copyright 2011-2015 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=gawk
 VER=5.1.1

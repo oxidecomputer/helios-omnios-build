@@ -14,7 +14,7 @@
 #
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../../lib/functions.sh
+. ../../../lib/build.sh
 
 PKG=library/python-3/jsonschema-39
 PROG=jsonschema

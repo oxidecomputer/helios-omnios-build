@@ -15,7 +15,7 @@
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 # The following lines starting with PKG= let buildctl spot the packages that
 # are actually built by the makefiles in the pkg source. Also build a package

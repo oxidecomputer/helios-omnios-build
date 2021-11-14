@@ -14,7 +14,7 @@
 #
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../../lib/functions.sh
+. ../../../lib/build.sh
 
 PKG=library/python-3/js-regex-39
 PROG=js-regex

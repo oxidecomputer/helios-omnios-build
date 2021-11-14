@@ -15,7 +15,7 @@
 #
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 #
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=mpfr
 VER=4.1.0

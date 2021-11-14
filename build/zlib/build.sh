@@ -15,7 +15,7 @@
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=zlib
 VER=1.2.11
