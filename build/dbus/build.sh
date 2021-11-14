@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
@@ -39,13 +39,21 @@ CONFIGURE_OPTS="
 
 export MAKE
 
-post_install() {
-    mkdir -p $DESTDIR/etc/security/auth_attr.d
-    mkdir -p $DESTDIR/etc/security/prof_attr.d
-    cp $SRCDIR/files/auth-system%2Flibrary%2Fdbus \
-        $DESTDIR/etc/security/auth_attr.d/system%2Flibrary%2Fdbus
-    cp $SRCDIR/files/prof-system%2Flibrary%2Fdbus \
-        $DESTDIR/etc/security/prof_attr.d/system%2Flibrary%2Fdbus
+build_manifests() {
+    manifest_start $TMPDIR/manifest.dbus
+    manifest_add_dir $PREFIX/bin
+    manifest_add_dir etc/dbus-1
+    manifest_add_dir lib/svc manifest/system method
+    manifest_add $PREFIX/lib dbus-daemon
+    manifest_add_dir $PREFIX/libexec
+    manifest_add_dir $PREFIX/share xml/dbus-1
+    manifest_add_dir $PREFIX/share/dbus-1 \
+        services session.d system-services system.d
+    manifest_add_dir var/lib dbus
+    manifest_finalise $TMPDIR/manifest.dbus $PREFIX
+
+    manifest_uniq $TMPDIR/manifest.{libdbus,dbus}
+    manifest_finalise $TMPDIR/manifest.libdbus $PREFIX
 }
 
 init
@@ -56,17 +64,17 @@ build
 run_testsuite check
 make_isa_stub
 install_smf system dbus.xml svc-dbus
-post_install
+build_manifests
 
 PKG=system/library/dbus
 SUMMARY="Simple IPC library based on messages"
 DESC="A simple system for interprocess communication and coordination"
-make_package dbus.mog
+make_package -seed $TMPDIR/manifest.dbus dbus.mog
 
 PKG=system/library/libdbus
 SUMMARY+=" - client libraries"
 DESC+=" - client libraries"
-make_package libdbus.mog
+make_package -seed $TMPDIR/manifest.libdbus
 
 clean_up
 

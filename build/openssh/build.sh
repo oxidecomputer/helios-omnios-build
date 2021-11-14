@@ -100,6 +100,22 @@ make_install() {
         || logerr "Could not install ssh-copy-id.1"
 }
 
+build_manifests() {
+    manifest_start $TMPDIR/manifest.server
+    manifest_add etc/ssh moduli sshd_config
+    manifest_add_dir lib/svc manifest/network method
+    manifest_add_dir usr/lib/dtrace/64
+    manifest_add usr/libexec/$ISAPART64 sftp-server
+    manifest_add usr/sbin sshd
+    manifest_add usr/share/man/man1m sshd.1m sftp-server.1m
+    manifest_add usr/share/man/man4 moduli.4 sshd_config.4
+    manifest_add_dir var/empty
+    manifest_finalise $TMPDIR/manifest.server $PREFIX etc
+
+    manifest_uniq $TMPDIR/manifest.{client,server}
+    manifest_finalise $TMPDIR/manifest.client $PREFIX etc
+}
+
 init
 download_source $PROG $PROG $VER
 move_manpages
@@ -108,6 +124,7 @@ run_autoreconf -fi
 prep_build
 build
 install_smf network ssh.xml sshd
+build_manifests
 
 export TESTSUITE_FILTER='^ok |^test_|failed|^all tests'
 (
@@ -125,7 +142,7 @@ export TESTSUITE_FILTER='^ok |^test_|failed|^all tests'
 VER=${VER//p/.}
 
 # Client package
-make_package client.mog
+make_package -seed $TMPDIR/manifest.client client.mog
 
 # Server package
 PKG=network/openssh-server
@@ -133,7 +150,7 @@ PKGE=$(url_encode $PKG)
 SUMMARY="OpenSSH Server"
 DESC="OpenSSH Secure Shell protocol Server"
 RUN_DEPENDS_IPS="pkg:/network/openssh@$VER"
-make_package server.mog
+make_package -seed $TMPDIR/manifest.server server.mog
 
 clean_up
 

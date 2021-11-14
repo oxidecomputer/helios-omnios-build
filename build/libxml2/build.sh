@@ -25,8 +25,6 @@ DESC="Portable XML parser and toolkit library"
 
 RUN_DEPENDS_IPS="compress/xz library/zlib"
 
-XFORM_ARGS="-D VER=$VER"
-
 CONFIGURE_OPTS+=" --without-python"
 
 TESTSUITE_FILTER="^(Total|[Tt]esting|Ran)"
@@ -39,7 +37,7 @@ prep_build
 build
 run_testsuite check
 make_isa_stub
-make_package local.mog final.mog
+make_package
 clean_up
 
 # Vim hints
