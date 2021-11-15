@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=bind
-VER=9.16.21
+VER=9.16.22
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"
@@ -46,6 +46,10 @@ CONFIGURE_OPTS="
     --enable-shared
     --disable-static
     --without-python
+"
+
+PKGDIFF_HELPER="
+    s:-[0-9]\.[0-9][0-9]*\.[0-9][0-9]*\.so:-VERSION:g
 "
 
 init
