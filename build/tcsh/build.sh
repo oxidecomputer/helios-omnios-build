@@ -18,7 +18,7 @@
 . ../../lib/functions.sh
 
 PROG=tcsh
-VER=6.22.04
+VER=6.23.00
 PKG=shell/tcsh
 SUMMARY="Tenex C-shell (tcsh)"
 DESC="A Unix shell based on and compatible with the C shell (csh)"
