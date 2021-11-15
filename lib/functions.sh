@@ -2124,7 +2124,7 @@ make_isaexec_stub_arch() {
         logcmd $CC $CFLAGS $CFLAGS32 -o $file \
             -DFALLBACK_PATH="$dir/$file" $MYDIR/isastub.c \
             || logerr "--- Failed to make isaexec stub for $dir/$file"
-        logcmd strip -x $file
+        strip_files "$file"
     done
 }
 
@@ -2802,6 +2802,11 @@ check_libabi() {
 # ELF operations
 #############################################################################
 
+strip_files() {
+    [ -n "$SKIP_STRIP" ] && return
+    logcmd strip -x "$@" || logerr "strip $@ failed"
+}
+
 rtime_files() {
     local dir="${1:-$DESTDIR}"
 
@@ -2822,7 +2827,7 @@ strip_install() {
         logmsg "------ stripping $file"
         MODE=$(stat -c %a "$file")
         logcmd chmod u+w "$file" || logerr -b "chmod failed: $file"
-        logcmd strip -x "$file" || logerr -b "strip failed: $file"
+        strip_files "$file"
         logcmd chmod $MODE "$file" || logerr -b "chmod failed: $file"
     done < <(rtime_objects)
     popd > /dev/null
@@ -2841,7 +2846,7 @@ convert_ctf() {
         if [ -f $SRCDIR/files/ctf.skip ] \
           && echo $file | $EGREP -qf $SRCDIR/files/ctf.skip; then
             logmsg "$ctftag skipped $file"
-            logcmd strip -x "$file"
+            strip_files "$file"
             continue
         fi
 
@@ -2878,7 +2883,7 @@ convert_ctf() {
         fi
 
         logcmd rm -f "$tf"
-        logcmd strip -x "$file"
+        strip_files "$file"
         logcmd chmod $mode "$file" || logerr -b "chmod failed: $file"
     done < <(rtime_objects "$dir")
 
