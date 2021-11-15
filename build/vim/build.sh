@@ -49,6 +49,7 @@ CONFIGURE_OPTS_WS="
     --with-compiledby=\"OmniOS $RELVER\"
 "
 MAKE_INSTALL_ARGS="STRIP=/bin/true"
+CPPFLAGS+=" -DSYS_VIMRC_FILE='\"/etc/vimrc\"'"
 
 extract_licence() {
     sed -n < $DESTDIR/usr/share/vim/vim$SVER/doc/uganda.txt \
