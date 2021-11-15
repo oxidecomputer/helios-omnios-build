@@ -48,6 +48,7 @@
 | library/libuv				| 1.42.0		| https://github.com/libuv/libuv/releases | Currently used solely by bind
 | library/libxml2			| 2.9.12		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
+| library/lzlib				| 1.12			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.46.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.72			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
