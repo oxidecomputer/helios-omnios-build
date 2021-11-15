@@ -14,7 +14,7 @@
 #
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-. ../../../lib/functions.sh
+. ../../../lib/build.sh
 
 PKG=library/python-3/ply-39
 PROG=ply

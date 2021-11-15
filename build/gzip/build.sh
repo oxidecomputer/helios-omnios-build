@@ -24,7 +24,7 @@
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=gzip
 VER=1.11

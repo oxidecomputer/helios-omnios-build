@@ -24,7 +24,7 @@
 # Use is subject to license terms.
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=ec2-credential
 VER=1.0

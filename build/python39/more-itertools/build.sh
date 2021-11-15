@@ -15,7 +15,7 @@
 
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../../lib/functions.sh
+. ../../../lib/build.sh
 
 PKG=library/python-3/more-itertools-39
 PROG=more-itertools

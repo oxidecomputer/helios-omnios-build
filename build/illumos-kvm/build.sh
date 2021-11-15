@@ -24,7 +24,7 @@
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PKG=kvm     ##IGNORE## - filled in later
 # This is pretty meaningless, and should be "0.5.11" but we messed that up

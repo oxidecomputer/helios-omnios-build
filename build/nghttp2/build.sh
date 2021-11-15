@@ -15,7 +15,7 @@
 # Copyright 2011-2017 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=nghttp2
 VER=1.46.0

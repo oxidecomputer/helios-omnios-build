@@ -14,7 +14,7 @@
 
 # Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
 #
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=release
 VER=0.5.11

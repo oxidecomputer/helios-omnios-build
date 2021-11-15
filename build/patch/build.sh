@@ -23,7 +23,7 @@
 # Copyright 2011-2015 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=patch
 VER=2.7.6

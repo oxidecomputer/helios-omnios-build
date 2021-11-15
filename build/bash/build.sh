@@ -24,7 +24,7 @@
 # Copyright (c) 2013 by Delphix. All rights reserved.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 #
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=bash
 VER=5.1.8

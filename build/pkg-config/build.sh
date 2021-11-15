@@ -15,7 +15,7 @@
 # Copyright (c) 2014 by Delphix. All rights reserved.
 # Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=pkg-config
 VER=0.29.2

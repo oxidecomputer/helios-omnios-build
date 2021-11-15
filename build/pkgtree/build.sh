@@ -16,7 +16,7 @@
 # Use is subject to license terms.
 # Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PROG=pkgtree
 VER=1.1

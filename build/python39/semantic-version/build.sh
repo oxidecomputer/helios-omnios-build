@@ -14,7 +14,7 @@
 #
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../../lib/functions.sh
+. ../../../lib/build.sh
 
 PKG=library/python-3/semantic-version-39
 PROG=semantic_version

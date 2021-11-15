@@ -15,7 +15,7 @@
 # Copyright (c) 2014 by Delphix. All rights reserved.
 # Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
 
-. ../../lib/functions.sh
+. ../../lib/build.sh
 
 PKG=system/virtualization/open-vm-tools
 PROG=open-vm-tools
