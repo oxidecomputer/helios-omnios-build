@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=ncurses
-VER=6.2
+VER=6.3
 PKG=library/ncurses
 SUMMARY="A CRT screen handling package"
 DESC="Utilities and shared libraries for terminal handling"
@@ -57,14 +57,14 @@ CONFIGURE_OPTS_64="
 "
 
 build_abi5() {
-    logmsg '--- Building backward-compatible ABI version 5 libraries.'
+    logmsg -n '--- Building backward-compatible ABI version 5 libraries.'
     CONFIGURE_OPTS="$CONFIGURE_OPTS_ABI5"
     MAKE_INSTALL_TARGET=install.libs
     build
 }
 
 build_abi6() {
-    logmsg '--- Building ABI version 6.'
+    logmsg -n '--- Building ABI version 6.'
     CONFIGURE_OPTS="$CONFIGURE_OPTS_ABI6"
     MAKE_INSTALL_TARGET=install
     build
