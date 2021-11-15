@@ -1132,6 +1132,7 @@ extract_archive() {
         *.tar.zst)          $ZSTD -dc $file | $TAR -xvf - $* ;;
         *.tar.xz)           $XZCAT $file | $TAR -xvf - $* ;;
         *.tar.bz2)          $BUNZIP2 -dc $file | $TAR -xvf - $* ;;
+        *.tar.lz)           $LZIP -dc $file | $TAR -xvf - $* ;;
         *.tar.gz|*.tgz)     $GZIP -dc $file | $TAR -xvf - $* ;;
         *.zip)              $UNZIP $file $* ;;
         *.tar)              $TAR -xvf $file $* ;;

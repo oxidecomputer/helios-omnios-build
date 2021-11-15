@@ -99,7 +99,7 @@ else
     IPS_REPO=https://pkg.omnios.org/bloody/core
 fi
 
-ARCHIVE_TYPES="tar.zst tar.xz tar.bz2 tar.gz tgz tar zip"
+ARCHIVE_TYPES="tar.zst tar.xz tar.bz2 tar.lz tar.gz tgz tar zip"
 
 # Default prefix for packages (may be overridden)
 PREFIX=/usr
@@ -175,6 +175,7 @@ UNZIP=$USRBIN/unzip
 WGET=$USRBIN/wget
 XZCAT=$USRBIN/xzcat
 ZSTD=$USRBIN/zstd
+LZIP=$USRBIN/lzip
 
 # Command for privilege escalation. Can be overridden in site.sh
 PFEXEC=$USRBIN/sudo
