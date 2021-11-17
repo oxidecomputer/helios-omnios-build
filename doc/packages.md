@@ -5,6 +5,7 @@
 | compress/bzip2			| 1.0.8			| https://sourceware.org/pub/bzip2/
 | compress/gzip				| 1.11			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
 | compress/lz4				| 1.9.3			| https://github.com/lz4/lz4/releases
+| compress/lzip				| 1.22			| https://download.savannah.gnu.org/releases/lzip/
 | compress/p7zip			| 16.02			| https://sourceforge.net/projects/p7zip/files/p7zip
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
@@ -47,6 +48,7 @@
 | library/libuv				| 1.42.0		| https://github.com/libuv/libuv/releases | Currently used solely by bind
 | library/libxml2			| 2.9.12		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
+| library/lzlib				| 1.12			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.46.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.72			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
@@ -114,6 +116,7 @@
 | text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.80.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.2		| https://ftp.gnu.org/gnu/wget/
+| web/wget2				| 2.0.0			| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.70.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.37			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
