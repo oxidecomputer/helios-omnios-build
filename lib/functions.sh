@@ -2864,7 +2864,7 @@ check_bmi() {
     while read obj; do
         [ -f "$DESTDIR/$obj" ] || continue
         dis $DESTDIR/$obj 2>/dev/null \
-            | $RIPGREP -wq --no-messages 'mulx|lzcntq|shlx' \
+            | $RIPGREP -wq --no-messages 'mulx|[lt]zcnt|shlx' \
             && echo "$obj has been built with BMI instructions" \
             >> $TMPDIR/rtime.bmi &
         parallelise $LCPUS
