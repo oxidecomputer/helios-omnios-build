@@ -24,6 +24,9 @@
 # scripts
 #############################################################################
 
+# Set a basic path - it will be modified once config.sh is loaded
+export PATH=/usr/bin:/usr/sbin:/usr/gnu/bin
+
 [ -n "$LIBDIR" ] || LIBDIR=$(realpath ${BASH_SOURCE[0]%/*})
 ROOTDIR=${LIBDIR%/*}
 
@@ -249,6 +252,11 @@ ask_to_continue_() {
         echo -n "${MSG} ($STR) "
         read
     done
+}
+
+function print_elapsed {
+    typeset s=$1
+    printf '%dh%dm%ds' $((s/3600)) $((s%3600/60)) $((s%60))
 }
 
 ask_to_continue() {
