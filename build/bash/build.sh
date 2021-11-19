@@ -28,7 +28,7 @@
 
 PROG=bash
 VER=5.1.8
-#   PATCHLEVEL=8    ## Not currently using upstream patches
+PKGVER=5.1.12       # including any additional patches
 PKG=shell/bash
 SUMMARY="GNU Bash"
 DESC="GNU Bourne-Again shell (bash)"
@@ -150,8 +150,7 @@ CONFIGURE_OPTS="
 download_source $PROG $PROG $VER
 patch_source
 build
-[ -n "$PATCHLEVEL" ] && VER+=".$PATCHLEVEL"
-make_package
+VER=$PKGVER make_package
 clean_up
 
 # Vim hints
