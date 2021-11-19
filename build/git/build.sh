@@ -47,6 +47,7 @@ CONFIGURE_OPTS="
     --without-tcltk
     --with-curl=/usr
     --with-openssl=/usr
+    --with-libpcre2
 "
 
 perllib=`$PERL -MConfig -e 'print $Config{installvendorlib}'`
