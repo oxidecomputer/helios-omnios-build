@@ -24,6 +24,9 @@
 # scripts
 #############################################################################
 
+# Set a basic path - it will be modified once config.sh is loaded
+export PATH=/usr/bin:/usr/sbin:/usr/gnu/bin
+
 [ -n "$LIBDIR" ] || LIBDIR=$(realpath ${BASH_SOURCE[0]%/*})
 ROOTDIR=${LIBDIR%/*}
 
@@ -249,6 +252,11 @@ ask_to_continue_() {
         echo -n "${MSG} ($STR) "
         read
     done
+}
+
+function print_elapsed {
+    typeset s=$1
+    printf '%dh%dm%ds' $((s/3600)) $((s%3600/60)) $((s%60))
 }
 
 ask_to_continue() {
@@ -882,11 +890,10 @@ patch_file() {
         return
     fi
 
-    # Note - if -p is specified more than once, then the last one takes
-    # precedence, so we can specify -p1 at the beginning to default to -p1.
-    # -t - don't ask questions
-    # -N - don't try to apply a reverse patch
-    if ! logcmd $PATCH -p1 -t -N "$@" < $SRCDIR/$patchdir/$filename; then
+    # Note - if --strip is specified more than once, then the last one takes
+    # precedence, so we can specify --strip at the beginning to set the default.
+    if ! logcmd $PATCH --batch --forward --strip=1 "$@" \
+        < $SRCDIR/$patchdir/$filename; then
         logerr "--- Patch $filename failed"
     else
         logmsg "--- Applied patch $filename"
@@ -898,19 +905,19 @@ apply_patches() {
 
     if ! check_for_patches $patchdir "in order to apply them"; then
         logmsg "--- Not applying any patches"
-    else
-        logmsg "Applying patches"
-        # Read the series file for patch filenames
-        exec 3<"$SRCDIR/$patchdir/series" # Open the series file with handle 3
-        pushd $TMPDIR/$BUILDDIR > /dev/null
-        while read LINE <&3 ; do
-            [[ $LINE = \#* ]] && continue
-            # Split Line into filename+args
-            patch_file $patchdir $LINE
-        done
-        popd > /dev/null
-        exec 3<&- # Close the file
+        return
     fi
+
+    logmsg "Applying patches"
+    pushd $TMPDIR/$EXTRACTED_SRC > /dev/null
+    exec 3<"$SRCDIR/$patchdir/series" || logerr "Could not open patch series"
+    while read LINE <&3; do
+        [[ $LINE = \#* ]] && continue
+        # Split Line into filename+args
+        patch_file $patchdir $LINE
+    done
+    exec 3<&-
+    popd > /dev/null
 }
 
 rebase_patches() {
@@ -921,39 +928,57 @@ rebase_patches() {
         return
     fi
 
-    logmsg "Re-basing patches"
+    logmsg "-- Re-basing patches"
+
+    local xsrcdir=$TMPDIR/$EXTRACTED_SRC
+    local root=${xsrcdir%/*}
+    local dir=${xsrcdir##*/}
+
+    pushd $root > /dev/null || logerr "chdir $root failed"
+    logmsg "Archiving unpatched $dir"
+    logcmd rsync -ac --delete $dir{,.unpatched}/ || logerr "rsync $dir failed"
+
     # Read the series file for patch filenames
-    exec 3<"$SRCDIR/$patchdir/series"
-    pushd $TMPDIR > /dev/null
-    rsync -ac --delete $BUILDDIR/ $BUILDDIR.unpatched/
-    while read LINE <&3 ; do
+    # Use a separate file handle so that logerr() can be used in the loop
+    exec 3<"$SRCDIR/$patchdir/series" || logerr "Could not open patch series"
+    while read LINE <&3; do
         [[ $LINE = \#* ]] && continue
-        patchfile="$SRCDIR/$patchdir/${LINE%% *}"
-        rsync -ac --delete $BUILDDIR/ $BUILDDIR~/
-        (
-            cd $BUILDDIR
-            patch_file $patchdir $LINE
-        )
-        mv $patchfile $patchfile~
+
+        local patchfile="$SRCDIR/$patchdir/${LINE%% *}"
+        [ -f $patchfile ] || continue
+
+        logcmd rsync -ac --delete $dir{,~}/ || logerr "rsync $dir~ failed"
+        ( cd $dir && patch_file $patchdir $LINE )
+        logcmd mv $patchfile{,~} || logerr "mv $patchfile{,~}"
         # Extract the original patch header text
         sed -n '
             /^---/q
             /^diff -/q
             p
             ' < $patchfile~ > $patchfile
-        # Generate new patch and normalise the header lines so that they do
-        # not change with each run.
-        gdiff -wpruN --exclude='*.orig' $BUILDDIR~ $BUILDDIR | sed '
-            /^diff -wpruN/,/^\+\+\+ / {
-                s% [^ ~/]*\(~*\)/% a\1/%g
-                s%[0-9][0-9][0-9][0-9]-[0-9].*%1970-01-01 00:00:00%
-            }
-        ' >> $patchfile
-        rm -f $patchfile~
+        gdiff -wpruN --exclude='*.orig' $dir{~,} >> $patchfile
+        local stat=$?
+        if ((stat != 1)); then
+            logcmd mv $patchfile{~,}
+            logerr "Could not generate new patch ($stat)"
+        else
+            logcmd rm -f $patchfile~
+            # Normalise the header lines so that they do not change with each
+            # run.
+            sed -i '
+                    /^diff -wpruN/,/^\+\+\+ / {
+                        s% [^ ~/]*\(~*\)/% a\1/%g
+                        s%[0-9][0-9][0-9][0-9]-[0-9].*%1970-01-01 00:00:00%
+                    }
+                ' $patchfile
+        fi
     done
-    rsync -ac --delete $BUILDDIR.unpatched/ $BUILDDIR/
+    exec 3<&-
+
+    logmsg "Restoring unpatched $dir"
+    logcmd rsync -ac --delete $dir{.unpatched,}/ || logerr "rsync $dir failed"
     popd > /dev/null
-    exec 3<&- # Close the file
+
     # Now the patches have been re-based, -pX is no longer required.
     sed -i 's/ -p.*//' "$SRCDIR/$patchdir/series"
 }
@@ -974,13 +999,8 @@ patch_source() {
 get_resource() {
     local RESOURCE=$1
     case ${MIRROR:0:1} in
-        /)
-            logcmd cp $MIRROR/$RESOURCE .
-            ;;
-        *)
-            URLPREFIX=$MIRROR
-            $WGET -a $LOGFILE $URLPREFIX/$RESOURCE
-            ;;
+        /)  logcmd cp $MIRROR/$RESOURCE . ;;
+        *)  $WGET -a $LOGFILE $MIRROR/$RESOURCE ;;
     esac
 }
 
@@ -1211,7 +1231,7 @@ clone_go_source() {
 
     clone_github_source $prog "$GITHUB/$src/$prog" $branch
 
-    BUILDDIR+=/$prog
+    set_builddir "$BUILDDIR/$prog"
 
     pushd $TMPDIR/$BUILDDIR > /dev/null
 
@@ -2319,10 +2339,11 @@ build_dependency() {
     typeset ver="$5"
 
     save_variable BUILDDIR __builddep__
+    save_variable EXTRACTED_SRC __builddep__
     save_variable DESTDIR __builddep__
     save_variable CONFIGURE_CMD __builddep__
 
-    BUILDDIR="$dir"
+    set_builddir "$dir"
     local patchdir="patches-$dep"
     [ ! -d "$patchdir" -a -d "patches-$ver" ] && patchdir="patches-$ver"
     if [ $merge -eq 0 ]; then
@@ -2346,6 +2367,7 @@ build_dependency() {
     build $buildargs
 
     restore_variable BUILDDIR __builddep__
+    restore_variable EXTRACTED_SRC __builddep__
     restore_variable DESTDIR __builddep__
     restore_variable CONFIGURE_CMD __builddep__
 }
@@ -2729,7 +2751,18 @@ check_libabi() {
 
 strip_files() {
     [ -n "$SKIP_STRIP" ] && return
-    logcmd strip -x "$@" || logerr "strip $@ failed"
+    local mode
+    for f in "$@"; do
+        mode=
+        if [ ! -w "$f" ]; then
+            mode=$(stat -c %a "$f")
+            logcmd chmod u+w "$f" || logerr -b "chmod failed: $f (u+w)"
+        fi
+        logcmd strip -x "$f" || logerr "strip $f failed"
+        if [ -n "$mode" ]; then
+            logcmd chmod $mode "$f" || logerr -b "chmod failed: $f ($mode)"
+        fi
+    done
 }
 
 rtime_files() {
@@ -2750,10 +2783,7 @@ strip_install() {
     pushd $DESTDIR > /dev/null || logerr "Cannot change to $DESTDIR"
     while read file; do
         logmsg "------ stripping $file"
-        MODE=$(stat -c %a "$file")
-        logcmd chmod u+w "$file" || logerr -b "chmod failed: $file"
         strip_files "$file"
-        logcmd chmod $MODE "$file" || logerr -b "chmod failed: $file"
     done < <(rtime_objects)
     popd > /dev/null
 }
@@ -2779,8 +2809,11 @@ convert_ctf() {
             continue
         fi
 
-        typeset mode=`stat -c %a "$file"`
-        logcmd chmod u+w "$file" || logerr -b "chmod u+w failed: $file"
+        typeset mode=
+        if [ ! -w "$file" ]; then
+            mode=`stat -c %a "$file"`
+            logcmd chmod u+w "$file" || logerr -b "chmod u+w failed: $file"
+        fi
         typeset tf="$file.$$"
 
         typeset flags="$CTF_FLAGS"
@@ -2809,7 +2842,9 @@ convert_ctf() {
 
         logcmd rm -f "$tf"
         strip_files "$file"
-        logcmd chmod $mode "$file" || logerr -b "chmod failed: $file"
+        if [ -n "$mode" ]; then
+            logcmd chmod $mode "$file" || logerr -b "chmod failed: $file"
+        fi
     done < <(rtime_objects "$dir")
 
     popd >/dev/null
@@ -2864,7 +2899,7 @@ check_bmi() {
     while read obj; do
         [ -f "$DESTDIR/$obj" ] || continue
         dis $DESTDIR/$obj 2>/dev/null \
-            | $RIPGREP -wq --no-messages 'mulx|[lt]zcnt|shlx' \
+            | $RIPGREP -wq --no-messages 'mulx|lzcnt|shlx' \
             && echo "$obj has been built with BMI instructions" \
             >> $TMPDIR/rtime.bmi &
         parallelise $LCPUS

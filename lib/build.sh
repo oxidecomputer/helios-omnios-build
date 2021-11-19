@@ -18,6 +18,8 @@
 #
 umask 022
 
+export PATH=/usr/bin:/usr/sbin:/usr/gnu/bin
+
 LIBDIR=$(realpath ${BASH_SOURCE[0]%/*})
 SRCDIR=$PWD/`dirname $0`
 
@@ -54,11 +56,6 @@ reset_configure_opts
 #############################################################################
 
 logmsg "===== Build started at `date` ====="
-
-function print_elapsed {
-    typeset s=$1
-    printf '%dh%dm%ds' $((s/3600)) $((s%3600/60)) $((s%60))
-}
 
 function build_end {
     typeset rv=$?
