@@ -20,10 +20,10 @@ umask 022
 
 export PATH=/usr/bin:/usr/sbin:/usr/gnu/bin
 
-LIBDIR=$(realpath ${BASH_SOURCE[0]%/*})
+BLIBDIR=$(realpath ${BASH_SOURCE[0]%/*})
 SRCDIR=$PWD/`dirname $0`
 
-. $LIBDIR/functions.sh
+. $BLIBDIR/functions.sh
 
 if ((UID == 0)); then
     if [ -n "$ROOT_OK" ]; then
