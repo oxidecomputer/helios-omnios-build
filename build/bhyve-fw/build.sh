@@ -113,8 +113,16 @@ XFORM_ARGS+=" -D CSMTAG=$tag"
 
 (
     if [ -z "$FLAVOR" -o "$FLAVOR" = CSM ]; then
-        set_gccver 4.4.4
         set_builddir uefi-edk2-$tag
+
+        BUILDDIR=gcc-4.4.4 download_source gcc/dist gcc 4.4.4
+        GCCPATH=$TMPDIR/gcc-4.4.4
+        GCC=$GCCPATH/bin/gcc
+        GXX=$GCCPATH/bin/g++
+        PATH=$GCCPATH/bin:$BASEPATH
+
+        export GCC GXX GCCPATH PATH
+
         download_source bhyve-fw uefi-edk2 $tag
         pushd $TMPDIR/$BUILDDIR >/dev/null
 
