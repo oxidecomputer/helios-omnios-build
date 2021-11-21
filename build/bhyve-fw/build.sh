@@ -48,8 +48,6 @@ export GOBJCOPY=/usr/bin/gobjcopy
 newtask -c $$
 trap "pkill -T0; exit" SIGINT
 
-jobs=
-
 # Build the UEFI firmware
 
 tag=il-edk2-stable202102-2
@@ -144,9 +142,19 @@ XFORM_ARGS+=" -D CSMTAG=$tag"
 jobs[CSM]=$!
 
 # Firmware branches are built in parallel, wait for them to finish
-for job in "${!jobs[@]}"; do
-    wait ${jobs[$job]}
-    [ $? -ne 0 -a $? -ne 127 ] && logerr "Job $job failed ($?)"
+while (( ${#jobs[*]} > 0 )); do
+    wait -fn -p pid ${jobs[*]}
+    stat=$?
+    for job in ${!jobs[*]}; do
+        if (( ${jobs[$job]} == $pid )); then
+            unset jobs[$job]
+            if (( stat == 0 )); then
+                logmsg -n "$job firmware build completed successfully"
+            else
+                logerr "$job firmware build failed ($stat)"
+            fi
+        fi
+    done
 done
 
 make_package
