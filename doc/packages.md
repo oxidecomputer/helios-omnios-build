@@ -143,7 +143,7 @@
 | library/python-3/meson-39		| 0.60.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-39	| 8.12.0		| https://pypi.org/project/more-itertools
 | library/python-3/orjson-39		| 3.6.4			| https://github.com/ijl/orjson/releases
-| library/python-3/pip-39		| 21.3			| https://pypi.org/project/pip
+| library/python-3/pip-39		| 21.3.1		| https://pypi.org/project/pip
 | library/python-3/ply-39		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-39		| 3.0.0			| https://pypi.org/project/portend
 | library/python-3/prettytable-39	| 2.2.1			| https://pypi.org/project/PrettyTable
