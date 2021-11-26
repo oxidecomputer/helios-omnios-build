@@ -2355,7 +2355,7 @@ build_dependency() {
     fi
 
     note -n "-- Building dependency $dep"
-    download_source "$dldir" "$prog" "$ver" "$TMPDIR"
+    EXTRACT_MODE=0 download_source "$dldir" "$prog" "$ver" "$TMPDIR"
     patch_source $patchdir
     if ((oot)); then
         logmsg "-- Setting up for out-of-tree build"
@@ -2364,7 +2364,7 @@ build_dependency() {
         [ -d $TMPDIR/$BUILDDIR ] && logcmd rm -rf $TMPDIR/$BUILDDIR
         logcmd mkdir -p $TMPDIR/$BUILDDIR
     fi
-    build $buildargs
+    ((EXTRACT_MODE == 0)) && build $buildargs
 
     restore_variable BUILDDIR __builddep__
     restore_variable EXTRACTED_SRC __builddep__
