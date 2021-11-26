@@ -2449,10 +2449,12 @@ python_build32() {
     pre_python_32
     logmsg "--- setup.py (32) build"
     CFLAGS="$CFLAGS $CFLAGS32" LDFLAGS="$LDFLAGS $LDFLAGS32" \
-        logcmd $PYTHON ./setup.py build $PYBUILD32OPTS \
+        logcmd $PYTHON ./setup.py $PYGLOBALOPTS \
+        build $PYBUILDOPTS $PYBUILD32OPTS \
         || logerr "--- build failed"
     logmsg "--- setup.py (32) install"
-    logcmd $PYTHON ./setup.py install --root=$DESTDIR $PYINST32OPTS \
+    logcmd $PYTHON ./setup.py install --root=$DESTDIR \
+        $PYINSTOPTS $PYINST32OPTS \
         || logerr "--- install failed"
 }
 
@@ -2462,10 +2464,12 @@ python_build64() {
     pre_python_64
     logmsg "--- setup.py (64) build"
     CFLAGS="$CFLAGS $CFLAGS64" LDFLAGS="$LDFLAGS $LDFLAGS64" \
-        logcmd $PYTHON ./setup.py build $PYBUILD64OPTS \
+        logcmd $PYTHON ./setup.py $PYGLOBALOPTS \
+        build $PYBUILDOPTS $PYBUILD64OPTS \
         || logerr "--- build failed"
     logmsg "--- setup.py (64) install"
-    logcmd $PYTHON ./setup.py install --root=$DESTDIR $PYINST64OPTS \
+    logcmd $PYTHON ./setup.py install --root=$DESTDIR \
+        $PYINSTOPTS $PYINST64OPTS \
         || logerr "--- install failed"
 }
 
@@ -2477,6 +2481,15 @@ python_build() {
     logmsg "Building using python setup.py"
 
     pushd $TMPDIR/$BUILDDIR > /dev/null
+
+    # Some projects have adopted PEP 518 and ship a pyproject.toml file to
+    # describe the build requirements etc. In that case, we can create a stub
+    # setup.py
+    if [ ! -f setup.py ]; then
+        [ -f pyproject.toml ] || logerr "No setup.py or pyproject.toml"
+        logmsg "Created shim setup.py for PEP518 project"
+        echo "import setuptools; setuptools.setup()" > setup.py
+    fi
 
     # we only ship 64 bit python3
     [[ $PYTHONVER = 3.* ]] && BUILDARCH=64
