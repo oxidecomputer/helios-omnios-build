@@ -21,7 +21,7 @@
 # See https://invisible-island.net/ncurses/ncurses-urxvt.html
 
 PROG=rxvt-unicode
-VER=9.26
+VER=9.29
 PKG=system/data/urxvt-terminfo
 SUMMARY="terminfo definition for rxvt-unicode"
 DESC="$SUMMARY"
