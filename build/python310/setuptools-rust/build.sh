@@ -28,6 +28,8 @@ DESC+="as if they were written in C."
 RUN_DEPENDS_IPS+="
     library/python-$PYMVER/setuptools-$SPYVER
     library/python-$PYMVER/semantic-version-$SPYVER
+    library/python-$PYMVER/tomli-$SPYVER
+    library/python-$PYMVER/typing-extensions-$SPYVER
 "
 
 init
