@@ -16,28 +16,20 @@
 
 . ../../../lib/build.sh
 
-PKG=library/python-3/setuptools-rust-310
-PROG=setuptools-rust
-inherit_ver python39/setuptools-rust
-SUMMARY="Python setuptools rust extension plugin"
-DESC="Compile and distribute Python extensions written in rust as easily "
-DESC+="as if they were written in C."
+PKG=library/python-3/tomli-310
+PROG=tomli
+inherit_ver python39/tomli
+SUMMARY="Python TOML parser"
+DESC="Tomli is a Python library for parsing TOML"
 
 . $SRCDIR/../common.sh
-
-RUN_DEPENDS_IPS+="
-    library/python-$PYMVER/setuptools-$SPYVER
-    library/python-$PYMVER/semantic-version-$SPYVER
-    library/python-$PYMVER/tomli-$SPYVER
-    library/python-$PYMVER/typing-extensions-$SPYVER
-"
 
 init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
-python_build -noflatten
-make_package $SRCDIR/../common.mog
+python_build
+make_package
 clean_up
 
 # Vim hints

@@ -16,28 +16,23 @@
 
 . ../../../lib/build.sh
 
-PKG=library/python-3/setuptools-rust-310
-PROG=setuptools-rust
-inherit_ver python39/setuptools-rust
-SUMMARY="Python setuptools rust extension plugin"
-DESC="Compile and distribute Python extensions written in rust as easily "
-DESC+="as if they were written in C."
+PKG=library/python-3/typing-extensions-310
+PROG=typing-extensions
+inherit_ver python39/typing-extensions
+VER=4.0.0
+SUMMARY="Python typing extensions"
+DESC="Backported and Experimental Type Hints for Python 3.6+"
 
 . $SRCDIR/../common.sh
 
-RUN_DEPENDS_IPS+="
-    library/python-$PYMVER/setuptools-$SPYVER
-    library/python-$PYMVER/semantic-version-$SPYVER
-    library/python-$PYMVER/tomli-$SPYVER
-    library/python-$PYMVER/typing-extensions-$SPYVER
-"
+set_builddir ${PROG/-/_}-$VER
 
 init
-download_source pymodules/$PROG $PROG $VER
+download_source pymodules/$PROG ${PROG/-/_} $VER
 patch_source
 prep_build
-python_build -noflatten
-make_package $SRCDIR/../common.mog
+python_build
+make_package
 clean_up
 
 # Vim hints
