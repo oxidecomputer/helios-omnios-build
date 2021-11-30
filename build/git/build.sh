@@ -76,10 +76,20 @@ install_man() {
 install_pod() {
     pushd ${DESTDIR}${PREFIX} > /dev/null
     mkdir -p share/man/man3
-    find lib/site_perl -name \*.pm | grep -v CPAN | while read p; do
-        man="`echo $p | sed 's/\.pm$//' | cut -d/ -f3- | sed 's^/^::^g'`"
+    [ -d perl5/vendor_perl ] || logerr "perl libraries not found"
+    find perl5/vendor_perl -name \*.pm | grep -v CPAN | while read p; do
+        man="`echo $p | sed 's/\.pm$//' | cut -d/ -f4- | sed 's^/^::^g'`"
         pod2man $p > share/man/man3/$man.3 || rm -f share/man/man3/$man.3
     done
+    popd > /dev/null
+}
+
+install_completions() {
+    pushd ${DESTDIR}${PREFIX} > /dev/null
+    logcmd mkdir -p share/bash-completion/completions || logerr "mkdir"
+    logcmd cp $TMPDIR/$BUILDDIR/contrib/completion/git-completion.bash \
+        share/bash-completion/completions/git \
+        || logerr "failed to install bash completions"
     popd > /dev/null
 }
 
@@ -100,6 +110,7 @@ build
 run_testsuite
 install_man
 install_pod
+install_completions
 install_inetservices
 make_package
 clean_up
