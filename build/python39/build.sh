@@ -49,6 +49,14 @@ RUN_DEPENDS_IPS="
 RUN_DEPENDS_IPS+="
     system/library@0.${SUNOSVER}-${PVER}:20220220T121934Z
 "
+
+#
+# There was a mishap upstream with the /usr/bin/python-config mediator.  We
+# need versions that include the mediator to depend on the Python 2.7 that has
+# the mediated version of this path.
+#
+RUN_DEPENDS_IPS+=" ?runtime/python-27@2.7.18-1.1 "
+
 XFORM_ARGS="-D PYTHONVER=$MVER"
 
 HARDLINK_TARGETS="

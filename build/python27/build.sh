@@ -23,6 +23,13 @@ PKG=runtime/python-27
 SUMMARY="$PROG ${VER%.*}"
 DESC="$SUMMARY"
 
+#
+# There was a mishap from upstream where /usr/bin/python-config was changed to
+# a mediated symlink, but without anything to force an upgrade to include it on
+# the Python 3.9 side:
+#
+DASHREV=1
+
 set_python_version $PYTHON2VER
 
 BUILD_DEPENDS_IPS="developer/build/autoconf developer/pkg-config"
