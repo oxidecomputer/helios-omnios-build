@@ -30,6 +30,7 @@ CONFIGURE_OPTS="
     --disable-silent-rules
     --without-systemd
     --with-openssl
+    --disable-static
 "
 
 export ZLIB_CFLAGS="$CFLAGS -I/usr/include"
