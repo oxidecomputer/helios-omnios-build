@@ -28,6 +28,7 @@ RUN_DEPENDS_IPS="web/ca-bundle library/libidn"
 
 CONFIGURE_OPTS="
     --enable-thread
+    --disable-static
     --with-ca-bundle=/etc/ssl/cacert.pem
     --with-ca-path=/etc/ssl/certs
     --with-openssl
