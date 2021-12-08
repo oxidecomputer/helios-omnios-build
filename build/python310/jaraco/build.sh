@@ -18,7 +18,7 @@
 
 PKG=library/python-3/jaraco-310
 PROG=jaraco
-inherit_ver python39/jaraco
+VER=1.0.0
 SUMMARY="jaraco"
 DESC="A bundle of jaraco python modules"
 
@@ -26,9 +26,9 @@ DESC="A bundle of jaraco python modules"
 
 typeset -A packages
 packages[classes]=3.2.1
-packages[collections]=3.3.0
-packages[functools]=3.3.0
-packages[text]=3.5.0
+packages[collections]=3.4.0
+packages[functools]=3.4.0
+packages[text]=3.6.0
 
 init
 prep_build

@@ -18,7 +18,7 @@
 
 PKG=library/python-3/pycparser-39
 PROG=pycparser
-VER=2.21
+inherit_ver python310/pycparser
 SUMMARY="Complete parser of the C language"
 DESC="$SUMMARY, written in pure Python"
 

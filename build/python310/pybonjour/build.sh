@@ -18,7 +18,7 @@
 
 PKG=library/python-3/pybonjour-310
 PROG=pybonjour
-inherit_ver python39/pybonjour
+VER=1.1.1
 SUMMARY="pure-Python interface bonjour/DNS-SD implementation"
 DESC="$SUMMARY"
 

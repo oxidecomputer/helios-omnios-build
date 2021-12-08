@@ -18,7 +18,7 @@
 
 PKG=library/python-3/cffi-310
 PROG=cffi
-inherit_ver python39/cffi
+VER=1.15.0
 SUMMARY="cffi"
 DESC="Foreign Function Interface for Python calling C code"
 
