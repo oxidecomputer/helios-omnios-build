@@ -18,7 +18,7 @@
 
 PKG=library/python-3/ply-310
 PROG=ply
-inherit_ver python39/ply
+VER=3.11
 SUMMARY="ply - Python lex and yacc"
 DESC="$SUMMARY"
 

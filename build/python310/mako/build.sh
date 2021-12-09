@@ -18,7 +18,7 @@
 
 PKG=library/python-3/mako-310
 PROG=Mako
-inherit_ver python39/mako
+VER=1.1.6
 SUMMARY="Mako - a python templating language"
 DESC="$SUMMARY"
 

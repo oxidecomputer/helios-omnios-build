@@ -18,7 +18,7 @@
 
 PKG=library/python-3/wcwidth-39
 PROG=wcwidth
-VER=0.2.5
+inherit_ver python310/wcwidth
 SUMMARY="Measures the displayed width of unicode strings in a terminal"
 DESC="This library is mainly for CLI programs that produce output for "
 DESC+="terminals, or pretend to be an emulator."

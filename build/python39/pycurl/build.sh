@@ -18,7 +18,7 @@
 
 PKG=library/python-3/pycurl-39
 PROG=pycurl
-VER=7.44.1
+inherit_ver python310/pycurl
 SUMMARY="Python bindings for libcurl"
 DESC="PycURL provides a thin layer of Python bindings on top of libcurl."
 

@@ -18,7 +18,7 @@
 
 PKG=library/python-3/cherrypy-310
 PROG=CherryPy
-inherit_ver python39/cherrypy
+VER=18.6.1
 SUMMARY="Object-Oriented HTTP framework"
 DESC="A pythonic, object-oriented HTTP framework."
 

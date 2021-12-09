@@ -18,7 +18,7 @@
 
 PKG=library/python-3/portend-39
 PROG=portend
-VER=3.1.0
+inherit_ver python310/portend
 SUMMARY="portend - TCP port monitoring utilities"
 DESC="$SUMMARY"
 
