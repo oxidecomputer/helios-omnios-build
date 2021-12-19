@@ -4,6 +4,35 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038ag (2021-12-17)
+Weekly release for w/c 13th of December 2021.
+> This update requires a reboot
+
+### Security Fixes
+
+* Strengthened LX-exclusive filesystems against races
+
+### Bug Fixes
+
+* `mpathadm` could crash when attempting to access a SCSI device.
+
+* `chrony` could fail to keep the system clock fully synchronised.
+
+### Other Changes
+
+* Openssl has been updated to version 1.1.1m
+
+* Python has been updated to version 3.9.9
+
+* The `ena` (AWS Elastic Network Adapter) network driver has been introduced.
+  This allows OmniOS to be used on AWS Nitro instances giving access to
+  instances with better network and disk performance, and with the option for
+  a serial console.
+
+<br>
+
+---
+
 ## r151038ac (2021-11-17)
 Weekly release for w/c 15th of November 2021.
 > This is a non-reboot update
