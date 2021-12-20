@@ -23,8 +23,6 @@ PKG=media/cdrtools
 SUMMARY="CD creation utilities"
 DESC="$SUMMARY"
 
-DEPENDS_IPS="system/library system/library/gcc-runtime"
-
 set_arch 32
 objdir=i386-sunos5-gcc$BUILDARCH
 
