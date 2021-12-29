@@ -2840,9 +2840,11 @@ convert_ctf() {
             continue
         fi
 
-        typeset mode=`stat -c %a "$file"`
-        logcmd chmod u+w "$file" || logerr -b "chmod u+w failed: $file"
-
+        typeset mode=
+        if [ ! -w "$file" ]; then
+            mode=`stat -c %a "$file"`
+            logcmd chmod u+w "$file" || logerr -b "chmod u+w failed: $file"
+        fi
         typeset tf="$file.$$"
 
         typeset flags="$CTF_FLAGS"
@@ -2871,7 +2873,9 @@ convert_ctf() {
 
         logcmd rm -f "$tf"
         strip_files "$file"
-        logcmd chmod $mode "$file" || logerr -b "chmod failed: $file"
+        if [ -n "$mode" ]; then
+            logcmd chmod $mode "$file" || logerr -b "chmod failed: $file"
+        fi
     done < <(rtime_objects "$dir")
 
     popd >/dev/null
