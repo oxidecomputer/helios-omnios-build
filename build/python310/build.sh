@@ -95,20 +95,87 @@ launch_testsuite() {
         export LC_ALL=en_US.UTF-8
         BATCH=1 LC_ALL=$LC_ALL run_testsuite "$@" < /dev/null
         export LC_ALL=$_LC_ALL
+    else
+        SKIP_TESTSUITE=1    # skip the dtrace tests too
     fi
 }
 
 test_dtrace() {
-    [ -n "$SKIP_TESTSUITE" ] && return
-    pushd $TMPDIR/$BUILDDIR >/dev/null
     # Dtrace tests require elevated privileges. They will have been skipped
     # as part of the full testsuite run.
-    $PFEXEC $MAKE test TESTOPTS=test_dtrace | tee $SRCDIR/testsuite-d.log
-    sed -i "$TESTSUITE_SED" $SRCDIR/testsuite-d.log
-    # Reset ownership on the python 3 cache directories/files that will have
-    # been created owned by root.
-    $PFEXEC chown -R "`stat -c %U $SRCDIR`" .
+
+    [ -n "$SKIP_TESTSUITE" ] && return
+
+    typeset logf=$TMPDIR/testsuite-d.log
+    :> $logf
+    for dir in $TMPDIR/$BUILDDIR; do
+        pushd $dir >/dev/null || logerr "chdir $dir"
+        $PFEXEC $MAKE test TESTOPTS=test_dtrace | tee -a $logf
+        # Reset ownership on the python 3 cache directories/files which will
+        # have been created with root ownership.
+        $PFEXEC chown -R "`stat -c %U $SRCDIR`" .
+        popd >/dev/null
+    done
+    sed "$TESTSUITE_SED" < $logf > $SRCDIR/testsuite-d.log
+}
+
+save_function build _build
+build() {
+    logcmd rsync -ac --delete $TMPDIR/$BUILDDIR{,.debug}/ \
+        || logerr "Failed to create debug copy of build directory"
+
+    note -n "Building prod $PROG"
+    logcmd rm -rf $DESTDIR.prod
+    logcmd mkdir -p $DESTDIR.prod
+    DESTDIR+=".prod" _build
+
+    note -n "Building debug $PROG"
+    CONFIGURE_OPTS=${CONFIGURE_OPTS/enable-optimizations/disable-optimizations}
+    pushd $TMPDIR/$BUILDDIR.debug >/dev/null
+    patch_file patches ustack.patch
     popd >/dev/null
+    logcmd rm -rf $DESTDIR.debug
+    logcmd mkdir -p $DESTDIR.debug
+    BUILDDIR+=".debug" DESTDIR+=".debug" _build
+
+    # The packages built from these two destination trees will be merged
+    # after publication using a variant to separate them. We want files which
+    # are identical across the trees to only appear once in the package and
+    # without a variant tag; therefore they must match in all attributes
+    # including timestamp. Go through and update the debug package timestamps
+    # to match the production one. This is only necessary for python modules
+    # since only these get published with timestamps.
+    find "$DESTDIR.debug" -type f -name \*.py | while read f; do
+        pf="${f/.debug/.prod}"
+        [ -f "$pf" ] && logcmd touch -r "$pf" "$f"
+    done
+}
+
+save_function make_package _make_package
+make_package() {
+    save_variable PKGSRVR
+    for variant in prod debug; do
+        note -n "Publishing $variant $PROG"
+        repo=$TMPDIR/repo.$variant
+        PKGSRVR=file://$repo
+        logcmd rm -rf $repo
+        init_repo
+        if [ $variant = debug ]; then
+            DESTDIR+=".$variant" SKIP_PKG_DIFF=1 BATCH=1 _make_package
+        else
+            DESTDIR+=".$variant" SKIP_PKG_DIFF=1 _make_package
+        fi
+    done
+    restore_variable PKGSRVR
+
+    note -n "Merging prod and debug packages"
+
+    logcmd pkgmerge -d $PKGSRVR \
+        -s debug.python=false,$TMPDIR/repo.prod/ \
+        -s debug.python=true,$TMPDIR/repo.debug/ \
+        || logerr "pkgmerge failed"
+
+    [ -z "$SKIP_PKG_DIFF" ] && diff_latest $pkg
 }
 
 init
