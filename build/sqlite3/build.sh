@@ -13,12 +13,12 @@
 # }}}
 
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=sqlite-autoconf
-VER=3370000
+VER=3370100
 PKG=database/sqlite-3
 SUMMARY="SQL database engine library"
 DESC="SQLite is a self-contained, high-reliability, embedded, full-featured, "
@@ -36,6 +36,8 @@ VERHUMAN="`echo $VER | sed '
 '`"
 [ -n "$VERHUMAN" ] || logerr "-- Could not build VERHUMAN"
 logmsg "-- Building version $VERHUMAN"
+
+CONFIGURE_OPTS="--disable-static"
 
 CFLAGS+=" -DSQLITE_ENABLE_COLUMN_METADATA"
 
