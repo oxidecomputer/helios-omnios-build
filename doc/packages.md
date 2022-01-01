@@ -140,7 +140,7 @@
 | library/python-3/jsonrpclib-310	| 0.4.3.1		| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-310	| 4.2.1			| https://pypi.org/project/jsonschema
 | library/python-3/mako-310		| 1.1.6			| https://pypi.org/project/Mako
-| library/python-3/meson-310		| 0.60.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-310		| 0.60.3		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-310	| 8.12.0		| https://pypi.org/project/more-itertools
 | library/python-3/orjson-310		| 3.6.5			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 21.3.1		| https://pypi.org/project/pip
