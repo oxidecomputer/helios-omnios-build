@@ -125,7 +125,7 @@
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-310	| 1.4.0			| https://pypi.org/project/asn1crypto
-| library/python-3/attrs-310		| 21.2.0		| https://pypi.org/project/attrs
+| library/python-3/attrs-310		| 21.4.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-310		| 8.5.2			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-310		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
