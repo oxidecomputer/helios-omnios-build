@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
@@ -76,6 +76,11 @@ typeset -A jobs
                     exit 1
             fi
         done
+        if ! logcmd cp Build/BhyveX64/${v}_ILLGCC/FV/BHYVE_VARS.fd \
+            $fwdir/BHYVE_VARS.fd; then
+                logmsg -e "Copy UEFI variables failed"
+                exit 1
+        fi
         popd >/dev/null
     fi
 ) &
