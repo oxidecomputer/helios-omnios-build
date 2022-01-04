@@ -12,7 +12,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.5.1			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.7.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3370000		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3370100		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.5		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -34,7 +34,7 @@
 | file/gnu-coreutils			| 9.0			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.8.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.0.7			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
-| library/expat				| 2.4.1			| https://github.com/libexpat/libexpat/releases
+| library/expat				| 2.4.2			| https://github.com/libexpat/libexpat/releases
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/tags | Currently used solely by rsyslog
 | library/fastjson			| 0.99.9		| https://github.com/rsyslog/libfastjson/tags | Currently used solely by rsyslog
 | library/gmp				| 6.2.1			| https://gmplib.org/download/gmp/ https://gmplib.org/
@@ -65,7 +65,7 @@
 | library/xxhash			| 0.8.1			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20210608		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.16.23		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.16.24		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.8p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.2-P1		| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -125,28 +125,28 @@
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-310	| 1.4.0			| https://pypi.org/project/asn1crypto
-| library/python-3/attrs-310		| 21.2.0		| https://pypi.org/project/attrs
+| library/python-3/attrs-310		| 21.4.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-310		| 8.5.2			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-310		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-310		| 6.1.2			| https://pypi.org/project/coverage
-| library/python-3/cryptography-310	| 36.0.0		| https://pypi.org/project/cryptography
+| library/python-3/coverage-310		| 6.2			| https://pypi.org/project/coverage
+| library/python-3/cryptography-310	| 36.0.1		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-310	| 3.2.1			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-310 | 3.4.0		| https://pypi.org/project/jaraco.collections
-| library/python-3/jaraco.functools-310	| 3.4.0			| https://pypi.org/project/jaraco.functools
+| library/python-3/jaraco.functools-310	| 3.5.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-310	| 3.6.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.1		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.2.1			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-310	| 4.3.2			| https://pypi.org/project/jsonschema
 | library/python-3/mako-310		| 1.1.6			| https://pypi.org/project/Mako
-| library/python-3/meson-310		| 0.60.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-310		| 0.60.3		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-310	| 8.12.0		| https://pypi.org/project/more-itertools
-| library/python-3/orjson-310		| 3.6.4			| https://github.com/ijl/orjson/releases
+| library/python-3/orjson-310		| 3.6.5			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 21.3.1		| https://pypi.org/project/pip
 | library/python-3/ply-310		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-310		| 3.1.0			| https://pypi.org/project/portend
-| library/python-3/prettytable-310	| 2.4.0			| https://pypi.org/project/PrettyTable
+| library/python-3/prettytable-310	| 2.5.0			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-310	| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-310	| 2.8.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
@@ -157,12 +157,12 @@
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.5			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.8.5			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-310	| 59.2.0		| https://pypi.org/project/setuptools
-| library/python-3/setuptools-rust-310	| 1.0.0			| https://pypi.org/project/setuptools-rust
+| library/python-3/setuptools-310	| 60.2.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-rust-310	| 1.1.2			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tempora-310		| 4.1.2			| https://pypi.org/project/tempora
-| library/python-3/tomli-310		| 1.2.2			| https://pypi.org/project/tomli
-| library/python-3/typing-extensions-310| 4.0.0			| https://pypi.org/project/typing-extensions
+| library/python-3/tomli-310		| 2.0.0			| https://pypi.org/project/tomli
+| library/python-3/typing-extensions-310| 4.0.1			| https://pypi.org/project/typing-extensions
 | library/python-3/wcwidth-310		| 0.2.5			| https://pypi.org/project/wcwidth
 | library/python-3/zc.lockfile-310	| 2.0			| https://pypi.org/project/zc.lockfile
 

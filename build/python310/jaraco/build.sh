@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/build.sh
 
@@ -27,7 +27,7 @@ DESC="A bundle of jaraco python modules"
 typeset -A packages
 packages[classes]=3.2.1
 packages[collections]=3.4.0
-packages[functools]=3.4.0
+packages[functools]=3.5.0
 packages[text]=3.6.0
 
 init
