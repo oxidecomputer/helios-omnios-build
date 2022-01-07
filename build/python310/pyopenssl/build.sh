@@ -24,7 +24,7 @@ DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 
-RUN_DEPENDS_IPS+=" library/python-3/cryptography-39"
+RUN_DEPENDS_IPS+=" library/python-3/cryptography-310"
 
 init
 download_source pymodules/${PROG,,} $PROG $VER
