@@ -62,6 +62,12 @@ MAKE_ARGS="
     DESTSHARED=/usr/lib/python$MVER/lib-dynload
 "
 MAKE_INSTALL_ARGS=DESTSHARED=/usr/lib/python$MVER/lib-dynload
+# When building the standard library, there is only a bootstrap version of
+# some modules around. The system setuptools package uses functions that
+# are not present in that bootstrap so we tell the build to use the internal
+# version.
+# https://github.com/pypa/setuptools/issues/3007
+export SETUPTOOLS_USE_DISTUTILS=stdlib
 
 CONFIGURE_OPTS="
     --enable-shared
