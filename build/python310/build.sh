@@ -181,7 +181,7 @@ make_package() {
         -s debug.python=true,$TMPDIR/repo.debug/ \
         || logerr "pkgmerge failed"
 
-    [ -z "$SKIP_PKG_DIFF" ] && diff_latest $pkg
+    [ -z "$SKIP_PKG_DIFF" ] && diff_latest $PKG
 }
 
 init
