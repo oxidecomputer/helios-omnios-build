@@ -83,8 +83,8 @@
 | service/network/chrony		| 4.1			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/tags
-| shell/bash				| 5.1.8			| https://ftp.gnu.org/gnu/bash/
-| shell/bash5-patchlvl			| 012			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
+| shell/bash				| 5.1.16		| https://ftp.gnu.org/gnu/bash/
+| shell/bash5-patchlvl			| 016			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.20		| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.23.02		| https://github.com/tcsh-org/tcsh/tags
