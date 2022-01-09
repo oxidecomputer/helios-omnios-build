@@ -29,7 +29,7 @@ init
 download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
-python_build -noflatten
+python_build
 make_package
 clean_up
 
