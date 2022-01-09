@@ -55,10 +55,10 @@
 | library/nspr				| 4.32			| http://archive.mozilla.org/pub/nspr/releases/
 | library/pcre2				| 10.39			| https://github.com/PhilipHazel/pcre2/releases
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
-| library/readline			| 8.1			| https://ftp.gnu.org/gnu/readline/
+| library/readline			| 8.1.2			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
 | library/readline7-patchlvl		| 005			| https://ftp.gnu.org/gnu/readline/readline-7.0-patches/
-| library/readline8-patchlvl		| 001			| https://ftp.gnu.org/gnu/readline/readline-8.1-patches/
+| library/readline8-patchlvl		| 002			| https://ftp.gnu.org/gnu/readline/readline-8.1-patches/
 | library/security/openssl-11		| 1.1.1m		| https://www.openssl.org/source/
 | library/security/openssl-3		| 3.0.1			| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.9			| http://www.unixodbc.org/download.html

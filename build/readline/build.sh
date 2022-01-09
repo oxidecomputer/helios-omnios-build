@@ -13,13 +13,12 @@
 # }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/build.sh
 
 PROG=readline
-VER=8.1
-PATCHLEVEL=1
+VER=8.1.2
 PKG=library/readline
 SUMMARY="GNU readline"
 DESC="GNU readline library"
@@ -49,7 +48,6 @@ note -n "Building current version: $VER"
 download_source $PROG $PROG $VER
 patch_source
 build
-[ -n "$PATCHLEVEL" ] && VER+=".$PATCHLEVEL"
 make_package
 clean_up
 
