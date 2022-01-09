@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=nss
-VER=3.73
+VER=3.74
 # Include NSPR version since we're downloading a combined tarball.
 NSPRVER=4.32
 # But set BUILDDIR to just be the NSS version.

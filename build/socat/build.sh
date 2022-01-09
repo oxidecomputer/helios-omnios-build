@@ -12,18 +12,27 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=socat
-VER=1.7.4.2
+VER=1.7.4.3
 PKG=network/socat
 SUMMARY="Multipurpose socket relay"
 DESC="socat is a relay for bidirectional data transfer between two "
 DESC+="independent data channels."
 
 set_arch 64
+
+save_function patch_source _patch_source
+patch_source() {
+    # socat ships a symlink from configure.in to configure.ac which
+    # confuses patch rebasing and autoreconf
+    run_inbuild rm -f configure.in
+    _patch_source "$@"
+    run_autoconf
+}
 
 init
 download_source $PROG $PROG $VER
