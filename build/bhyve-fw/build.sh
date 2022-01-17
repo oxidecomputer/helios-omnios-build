@@ -23,7 +23,7 @@ BUILD_DEPENDS_IPS="
 
 PROG=uefi-edk2
 PKG=system/bhyve/firmware
-VER=20210302
+VER=20220110
 SUMMARY="UEFI-EDK2(+CSM) firmware for bhyve"
 DESC="$SUMMARY"
 
@@ -50,7 +50,7 @@ trap "pkill -T0; exit" SIGINT
 
 # Build the UEFI firmware
 
-tag=il-edk2-stable202102-2
+tag=il-edk2-stable202111-1
 XFORM_ARGS+=" -D UEFITAG=$tag"
 
 typeset -A jobs
