@@ -132,9 +132,9 @@
 | library/python-3/cryptography-310	| 36.0.1		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-310	| 3.2.1			| https://pypi.org/project/jaraco.classes
-| library/python-3/jaraco.collections-310 | 3.4.0		| https://pypi.org/project/jaraco.collections
+| library/python-3/jaraco.collections-310 | 3.5.1		| https://pypi.org/project/jaraco.collections
 | library/python-3/jaraco.functools-310	| 3.5.0			| https://pypi.org/project/jaraco.functools
-| library/python-3/jaraco.text-310	| 3.6.0			| https://pypi.org/project/jaraco.text
+| library/python-3/jaraco.text-310	| 3.7.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.1		| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-310	| 4.4.0			| https://pypi.org/project/jsonschema
