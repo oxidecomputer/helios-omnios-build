@@ -126,7 +126,7 @@
 | library/python-3/asn1crypto-310	| 1.4.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-310		| 21.4.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.0		| https://pypi.org/project/cffi
-| library/python-3/cheroot-310		| 8.5.2			| https://pypi.org/project/cheroot
+| library/python-3/cheroot-310		| 8.6.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-310		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-310		| 6.2			| https://pypi.org/project/coverage
 | library/python-3/cryptography-310	| 36.0.1		| https://pypi.org/project/cryptography
