@@ -27,6 +27,7 @@ DESC="A bundle of jaraco python modules"
 typeset -A packages
 packages[classes]=3.2.1
 packages[collections]=3.5.1
+packages[context]=4.1.1
 packages[functools]=3.5.0
 packages[text]=3.7.0
 
