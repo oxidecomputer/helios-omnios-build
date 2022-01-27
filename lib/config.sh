@@ -262,7 +262,7 @@ CXX=g++
 
 # Specify default versions for building packages
 DEFAULT_GCC_VER=11
-ILLUMOS_GCC_VER=7
+ILLUMOS_GCC_VER=10
 
 DEFAULT_CLANG_VER=13
 
