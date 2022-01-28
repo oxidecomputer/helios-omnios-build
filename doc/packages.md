@@ -80,7 +80,7 @@
 | runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
 | runtime/python-310			| 3.10.2		| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.9			| https://www.sudo.ws/
-| service/network/chrony		| 4.1			| https://download.tuxfamily.org/chrony/
+| service/network/chrony		| 4.2			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/tags
 | shell/bash				| 5.1.16		| https://ftp.gnu.org/gnu/bash/
