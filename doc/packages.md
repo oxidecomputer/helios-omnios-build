@@ -48,7 +48,7 @@
 | library/libuv				| 1.43.0		| https://github.com/libuv/libuv/releases | Currently used solely by bind
 | library/libxml2			| 2.9.12		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
-| library/lzlib				| 1.12			| https://download.savannah.gnu.org/releases/lzip/lzlib/
+| library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.46.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.74			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
@@ -79,8 +79,8 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
 | runtime/python-310			| 3.10.2		| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.8p2		| https://www.sudo.ws/
-| service/network/chrony		| 4.1			| https://download.tuxfamily.org/chrony/
+| security/sudo				| 1.9.9			| https://www.sudo.ws/
+| service/network/chrony		| 4.2			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/tags
 | shell/bash				| 5.1.16		| https://ftp.gnu.org/gnu/bash/
@@ -116,7 +116,7 @@
 | web/curl				| 7.81.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.2		| https://ftp.gnu.org/gnu/wget/
 | web/wget2				| 2.0.0			| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.70.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.70.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.37			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.54		| https://github.com/Azure/WALinuxAgent/releases
@@ -128,7 +128,7 @@
 | library/python-3/cffi-310		| 1.15.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-310		| 8.6.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-310		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-310		| 6.2			| https://pypi.org/project/coverage
+| library/python-3/coverage-310		| 6.3			| https://pypi.org/project/coverage
 | library/python-3/cryptography-310	| 36.0.1		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-310	| 3.2.1			| https://pypi.org/project/jaraco.classes
