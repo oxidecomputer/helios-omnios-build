@@ -4,6 +4,18 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038an (2022-01-31)
+Weekly release for w/c 31st of January 2022.
+> This is a non-reboot update
+
+### Security Fixes
+
+* `openjdk` has been updated to 11.0.14+9 fixing several CVEs.
+
+<br>
+
+---
+
 ## r151038al (2022-01-18)
 Weekly release for w/c 17th of January 2022.
 > This update requires a reboot.
