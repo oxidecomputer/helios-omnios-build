@@ -34,7 +34,7 @@
 | file/gnu-coreutils			| 9.0			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.8.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.0.7			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
-| library/expat				| 2.4.3			| https://github.com/libexpat/libexpat/releases
+| library/expat				| 2.4.4			| https://github.com/libexpat/libexpat/releases
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/tags | Currently used solely by rsyslog
 | library/fastjson			| 0.99.9		| https://github.com/rsyslog/libfastjson/tags | Currently used solely by rsyslog
 | library/gmp				| 6.2.1			| https://gmplib.org/download/gmp/ https://gmplib.org/
@@ -52,7 +52,7 @@
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.46.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.74			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
-| library/nspr				| 4.32			| http://archive.mozilla.org/pub/nspr/releases/
+| library/nspr				| 4.32			| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
 | library/pcre2				| 10.39			| https://github.com/PhilipHazel/pcre2/releases
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
 | library/readline			| 8.1.2			| https://ftp.gnu.org/gnu/readline/
