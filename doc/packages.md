@@ -5,7 +5,7 @@
 | compress/bzip2			| 1.0.8			| https://sourceware.org/pub/bzip2/
 | compress/gzip				| 1.11			| http://git.savannah.gnu.org/cgit/gzip.git/refs/tags
 | compress/lz4				| 1.9.3			| https://github.com/lz4/lz4/releases
-| compress/lzip				| 1.22			| https://download.savannah.gnu.org/releases/lzip/
+| compress/lzip				| 1.23			| https://download.savannah.gnu.org/releases/lzip/
 | compress/p7zip			| 16.02			| https://sourceforge.net/projects/p7zip/files/p7zip
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
@@ -27,12 +27,12 @@
 | developer/parser/bison		| 3.8.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.35.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 6.0.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 6.0.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
 | file/gnu-coreutils			| 9.0			| https://ftp.gnu.org/gnu/coreutils/
-| file/gnu-findutils			| 4.8.0			| https://ftp.gnu.org/pub/gnu/findutils/
+| file/gnu-findutils			| 4.9.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.0.7			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.4.4			| https://github.com/libexpat/libexpat/releases
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/tags | Currently used solely by rsyslog
@@ -51,7 +51,7 @@
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.46.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.74			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.75			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.32			| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
 | library/pcre2				| 10.39			| https://github.com/PhilipHazel/pcre2/releases
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
@@ -87,7 +87,7 @@
 | shell/bash5-patchlvl			| 016			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.20		| http://www.ivarch.com/programs/pv.shtml
-| shell/tcsh				| 6.23.02		| https://github.com/tcsh-org/tcsh/tags
+| shell/tcsh				| 6.24.00		| https://github.com/tcsh-org/tcsh/tags
 | shell/zsh				| 5.8			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.2			| https://github.com/tycho/cpuid/tags
 | system/data/urxvt-terminfo		| 9.30			| http://dist.schmorp.de/rxvt-unicode/
@@ -103,7 +103,7 @@
 | system/rsyslog			| 8.2112.0		| https://www.rsyslog.com/downloads/download-v8-stable/
 | system/test/fio			| 3.29			| https://github.com/axboe/fio/tags
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
-| terminal/screen			| 4.8.0			| https://ftp.gnu.org/gnu/screen/
+| terminal/screen			| 4.9.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.2			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.1.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.8			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
@@ -128,7 +128,7 @@
 | library/python-3/cffi-310		| 1.15.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-310		| 8.6.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-310		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-310		| 6.3			| https://pypi.org/project/coverage
+| library/python-3/coverage-310		| 6.3.1			| https://pypi.org/project/coverage
 | library/python-3/cryptography-310	| 36.0.1		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-310	| 3.2.1			| https://pypi.org/project/jaraco.classes
@@ -143,7 +143,7 @@
 | library/python-3/meson-310		| 0.61.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-310	| 8.12.0		| https://pypi.org/project/more-itertools
 | library/python-3/orjson-310		| 3.6.6			| https://github.com/ijl/orjson/releases
-| library/python-3/pip-310		| 21.3.1		| https://pypi.org/project/pip
+| library/python-3/pip-310		| 22.0.3		| https://pypi.org/project/pip
 | library/python-3/ply-310		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-310		| 3.1.0			| https://pypi.org/project/portend
 | library/python-3/prettytable-310	| 3.0.0			| https://pypi.org/project/PrettyTable
@@ -151,16 +151,16 @@
 | library/python-3/pycodestyle-310	| 2.8.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-310		| 7.44.1		| https://pypi.org/project/pycurl
-| library/python-3/pyopenssl-310	| 21.0.0		| https://pypi.org/project/pyOpenSSL
+| library/python-3/pyopenssl-310	| 22.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-310	| 0.18.1		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-310		| 2021.3		| https://pypi.org/project/pytz
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.5			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.8.5			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-310	| 60.5.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-310	| 60.7.1		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-310	| 1.1.2			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
-| library/python-3/tempora-310		| 5.0.0			| https://pypi.org/project/tempora
+| library/python-3/tempora-310		| 5.0.1			| https://pypi.org/project/tempora
 | library/python-3/tomli-310		| 2.0.0			| https://pypi.org/project/tomli
 | library/python-3/typing-extensions-310| 4.0.1			| https://pypi.org/project/typing-extensions
 | library/python-3/wcwidth-310		| 0.2.5			| https://pypi.org/project/wcwidth
