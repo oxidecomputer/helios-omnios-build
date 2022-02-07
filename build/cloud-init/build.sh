@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=cloud-init
 VER=21.4
-DASHREV=1
+DASHREV=2
 PKG=system/management/cloud-init
 SUMMARY="Cloud instance initialisation tools"
 DESC="Cloud-init is the industry standard multi-distribution method for "
@@ -36,6 +36,11 @@ RUN_DEPENDS_IPS+="
     library/python-$PYMVER/six-$SPYVER
     library/python-$PYMVER/pyyaml-$SPYVER
 "
+
+# Force using the legacy setup.py backend as the PEP518 build ends up putting
+# the init system files in the wrong place. This will presumably be fixed
+# upstream at some point.
+PYTHON_BUILD_BACKEND=setuppy
 
 _site=$PREFIX/lib/$PROG/python$PYTHONVER
 
