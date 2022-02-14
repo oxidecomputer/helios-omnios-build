@@ -289,7 +289,7 @@ FCFLAGS[9]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[10]+=" -fno-aggressive-loop-optimizations"
 FCFLAGS[11]+=" -fno-aggressive-loop-optimizations"
 
-# Flags to enable particular standards; see standards(5)
+# Flags to enable particular standards; see standards(7)
 typeset -A STANDARDS
 
 STANDARDS[POSIX]="-D_POSIX_C_SOURCE=200112L -D_POSIX_PTHREAD_SEMANTICS"

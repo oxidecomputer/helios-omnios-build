@@ -46,7 +46,7 @@ push_pkgs() {
     pushd $CODEMGR_WS > /dev/null
     logmsg "Pushing illumos pkgs to $PKGSRVR..."
 
-    # Use pkgmerge to set pkg(5) variants for non-DEBUG and DEBUG.
+    # Use pkgmerge to set variants for non-DEBUG and DEBUG.
     # The idea is, if someone wants to shift their illumos from
     # non-DEBUG (default) to DEBUG, they can simply utter:
     #
