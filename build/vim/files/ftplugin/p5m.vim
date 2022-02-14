@@ -1,5 +1,5 @@
 " Vim filetype plugin file
-" Language:	PKG(5) package manifest
+" Language:	PKG(7) package manifest
 " Maintainer:	sa@omnios.org
 " Last Change:	2021 November 10
 
