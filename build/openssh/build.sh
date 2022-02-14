@@ -54,40 +54,6 @@ CFLAGS+="-DPAM_ENHANCEMENT -DSET_USE_PAM -DPAM_BUGFIX -DDTRACE_SFTP "
 CFLAGS+="-I/usr/include/kerberosv5 -DKRB5_BUILD_FIX -DDISABLE_BANNER "
 CFLAGS+="-DDEPRECATE_SUNSSH_OPT -DOPTION_DEFAULT_VALUE -DSANDBOX_SOLARIS"
 
-move_manpage() {
-    local page=$1
-    local old=$2
-    local new=$3
-
-    logmsg "-- Move manpage $page.$old -> $page.$new"
-    if [ -f $page.$old ]; then
-        mv $page.$old $page.$new
-        # change manpage header
-        uc=`echo $new | tr '[:lower:]' '[:upper:]'`
-        sed -E -i "s/^(\.Dt +[^ ]+).*$/\1 $uc/" $page.$new
-    elif [ -f $page.$new ]; then
-        logmsg "---- Was already moved"
-    else
-        logerr "---- Not found"
-    fi
-}
-
-move_manpages() {
-    pushd $TMPDIR/$BUILDDIR >/dev/null
-
-    move_manpage moduli             5 4
-    move_manpage ssh_config         5 4
-    move_manpage sshd_config        5 4
-
-    move_manpage sshd               8 1m
-    move_manpage sftp-server        8 1m
-    move_manpage ssh-keysign        8 1m
-    move_manpage ssh-pkcs11-helper  8 1m
-    move_manpage ssh-sk-helper      8 1m
-
-    popd
-}
-
 save_function make_install _make_install
 make_install() {
     _make_install
@@ -107,8 +73,8 @@ build_manifests() {
     manifest_add_dir usr/lib/dtrace/64
     manifest_add usr/libexec/$ISAPART64 sftp-server
     manifest_add usr/sbin sshd
-    manifest_add usr/share/man/man1m sshd.1m sftp-server.1m
-    manifest_add usr/share/man/man4 moduli.4 sshd_config.4
+    manifest_add usr/share/man/man1m sshd.8 sftp-server.8
+    manifest_add usr/share/man/man4 moduli.5 sshd_config.5
     manifest_add_dir var/empty
     manifest_finalise $TMPDIR/manifest.server $PREFIX etc
 
@@ -118,7 +84,6 @@ build_manifests() {
 
 init
 download_source $PROG $PROG $VER
-move_manpages
 patch_source
 run_autoreconf -fi
 prep_build
