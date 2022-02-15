@@ -13,12 +13,12 @@
 # }}}
 
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=libsigc++
-VER=3.0.7
+VER=3.2.0
 PKG=library/c++/sigcpp
 SUMMARY="$PROG"
 DESC="A library that implements typesafe callback system for standard C++"
