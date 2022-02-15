@@ -18,7 +18,7 @@
 
 PROG=cloud-init
 VER=21.4
-DASHREV=2
+DASHREV=3
 PKG=system/management/cloud-init
 SUMMARY="Cloud instance initialisation tools"
 DESC="Cloud-init is the industry standard multi-distribution method for "
