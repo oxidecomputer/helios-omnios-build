@@ -49,27 +49,6 @@ configure64() {
     export CFLAGS LDADD
 }
 
-move_manpage() {
-    local page=$1
-    local old=$2
-    local new=$3
-
-    pushd $TMPDIR/$BUILDDIR >/dev/null
-
-    logmsg "-- Move manpage $page.$old -> $page.$new"
-    if [ -f $page.$old ]; then
-        mv $page.$old $page.$new
-        # change manpage header
-        sed -E -i "s/^(\.Dt +[^ ]+).*$/\1 ${new^^}/" $page.$new
-    elif [ -f $page.$new ]; then
-        logmsg "---- Was already moved"
-    else
-        logerr "---- Not found"
-    fi
-
-    popd >/dev/null
-}
-
 make_install() {
     logmsg "--- make install"
     logcmd $MAKE DESTDIR=${DESTDIR} install install-spool-dirs install-etc || \
@@ -83,7 +62,6 @@ make_install() {
 
 init
 download_source $PROG "v$VER"
-move_manpage dma 8 1m
 patch_source
 prep_build
 build
