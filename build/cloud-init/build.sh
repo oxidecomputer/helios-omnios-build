@@ -17,8 +17,8 @@
 . ../../lib/build.sh
 
 PROG=cloud-init
-VER=21.4
-DASHREV=3
+VER=22.1
+DASHREV=1
 PKG=system/management/cloud-init
 SUMMARY="Cloud instance initialisation tools"
 DESC="Cloud-init is the industry standard multi-distribution method for "
