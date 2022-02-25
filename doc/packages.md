@@ -128,7 +128,7 @@
 | library/python-3/cffi-310		| 1.15.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-310		| 8.6.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-310		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
-| library/python-3/coverage-310		| 6.3.1			| https://pypi.org/project/coverage
+| library/python-3/coverage-310		| 6.3.2			| https://pypi.org/project/coverage
 | library/python-3/cryptography-310	| 36.0.1		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-310	| 3.2.1			| https://pypi.org/project/jaraco.classes
@@ -137,16 +137,16 @@
 | library/python-3/jaraco.functools-310	| 3.5.0			| https://pypi.org/project/jaraco.functools
 | library/python-3/jaraco.text-310	| 3.7.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
-| library/python-3/jsonrpclib-310	| 0.4.3.1		| https://github.com/tcalmant/jsonrpclib/releases
+| library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-310	| 4.4.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-310		| 1.1.6			| https://pypi.org/project/Mako
-| library/python-3/meson-310		| 0.61.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-310		| 0.61.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-310	| 8.12.0		| https://pypi.org/project/more-itertools
-| library/python-3/orjson-310		| 3.6.6			| https://github.com/ijl/orjson/releases
+| library/python-3/orjson-310		| 3.6.7			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.0.3		| https://pypi.org/project/pip
 | library/python-3/ply-310		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-310		| 3.1.0			| https://pypi.org/project/portend
-| library/python-3/prettytable-310	| 3.0.0			| https://pypi.org/project/PrettyTable
+| library/python-3/prettytable-310	| 3.1.1			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-310	| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-310	| 2.8.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
@@ -155,14 +155,14 @@
 | library/python-3/pyrsistent-310	| 0.18.1		| https://pypi.org/project/pyrsistent
 | library/python-3/pytz-310		| 2021.3		| https://pypi.org/project/pytz
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
-| library/python-3/rapidjson-310	| 1.5			| https://pypi.org/project/python-rapidjson
-| library/python-3/semantic-version-310	| 2.8.5			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-310	| 60.7.1		| https://pypi.org/project/setuptools
+| library/python-3/rapidjson-310	| 1.6			| https://pypi.org/project/python-rapidjson
+| library/python-3/semantic-version-310	| 2.9.0			| https://pypi.org/project/semantic-version
+| library/python-3/setuptools-310	| 60.9.3		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-310	| 1.1.2			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tempora-310		| 5.0.1			| https://pypi.org/project/tempora
-| library/python-3/tomli-310		| 2.0.0			| https://pypi.org/project/tomli
-| library/python-3/typing-extensions-310| 4.0.1			| https://pypi.org/project/typing-extensions
+| library/python-3/tomli-310		| 2.0.1			| https://pypi.org/project/tomli
+| library/python-3/typing-extensions-310| 4.1.1			| https://pypi.org/project/typing-extensions
 | library/python-3/wcwidth-310		| 0.2.5			| https://pypi.org/project/wcwidth
 | library/python-3/zc.lockfile-310	| 2.0			| https://pypi.org/project/zc.lockfile
 
