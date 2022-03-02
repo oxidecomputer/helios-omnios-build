@@ -50,7 +50,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
-| library/nghttp2			| 1.46.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nghttp2			| 1.47.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.75			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.32			| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
 | library/pcre2				| 10.39			| https://github.com/PhilipHazel/pcre2/releases
@@ -91,7 +91,7 @@
 | shell/zsh				| 5.8.1			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.2			| https://github.com/tycho/cpuid/tags
 | system/data/urxvt-terminfo		| 9.30			| http://dist.schmorp.de/rxvt-unicode/
-| system/library/dbus			| 1.12.20		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
+| system/library/dbus			| 1.12.22		| https://dbus.freedesktop.org/releases/dbus | 1.13.x is an unstable/dev version.
 | system/library/libdbus-glib		| 0.112			| https://dbus.freedesktop.org/releases/dbus-glib/
 | system/library/pcap			| 1.10.1		| http://www.tcpdump.org/#latest-releases
 | system/management/cloud-init		| 22.1			| https://github.com/canonical/cloud-init/releases
@@ -114,7 +114,7 @@
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
 | web/curl				| 7.81.0		| https://curl.haxx.se/download.html
-| web/wget				| 1.21.2		| https://ftp.gnu.org/gnu/wget/
+| web/wget				| 1.21.3		| https://ftp.gnu.org/gnu/wget/
 | web/wget2				| 2.0.0			| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.70.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.38			| https://ftp.gnu.org/gnu/binutils
