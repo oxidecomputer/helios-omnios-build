@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=mercurial
-VER=6.0.3
+VER=6.1
 PKG=developer/versioning/mercurial
 SUMMARY="Mercurial source control management"
 DESC="Free, distributed source control management tool"
@@ -32,6 +32,10 @@ PYTHON_BUILD_BACKEND=setuppy
 # Mercurial bundles a zstd python module which is a fat binary supporting
 # different architectures.
 BMI_EXPECTED=1
+
+PKGDIFF_HELPER='
+    s:(vendor-packages/[^-]*)-[0-9.]*:\1-VERSION:g
+'
 
 init
 download_source $PROG $PROG $VER
