@@ -97,7 +97,7 @@ build() {
         || logerr "$dir build failed"
 
     logmsg "--- Building"
-    dirs="uts cmd/devfsadm cmd/mdb man/man7d man/man7i"
+    dirs="uts cmd/devfsadm cmd/mdb man/man4d man/man4i"
     for dir in $dirs; do
         logmsg " -- $dir"
         logmsg "  - Non-debug"
