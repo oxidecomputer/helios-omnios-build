@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=dbus
-VER=1.12.22
+VER=1.14.0
 PKG=dbus ##IGNORE##
 SUMMARY="filled in below"
 DESC="$SUMMARY"
@@ -36,6 +36,16 @@ CONFIGURE_OPTS="
     --disable-static
     --disable-inotify
 "
+
+# configure checks whether the socketpair() function exists in libc, doesn't
+# find it and then does not build the _dbus_socketpair() function. That
+# function is in libsocket on illumos. Since there are other checks in
+# configure that determine that libsocket is required, we can just force
+# configure to mark the function as available.
+#
+# Reported upstream at https://gitlab.freedesktop.org/dbus/dbus/-/issues/382
+#
+CONFIGURE_OPTS+=" ac_cv_func_socketpair=yes"
 
 export MAKE
 
