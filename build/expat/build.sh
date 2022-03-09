@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=expat
-VER=2.4.6
+VER=2.4.7
 PKG=library/expat
 SUMMARY="XML parser library"
 DESC="Fast streaming XML parser written in C"
@@ -29,6 +29,9 @@ CONFIGURE_OPTS="--disable-static"
 
 TESTSUITE_SED="
     /^[^#]/d
+"
+PKGDIFF_HELPER="
+    s:$PROG-2\.[0-9]\.[0-9]:$PROG-VERSION:
 "
 
 init

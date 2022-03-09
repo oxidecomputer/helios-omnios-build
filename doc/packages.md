@@ -34,7 +34,7 @@
 | file/gnu-coreutils			| 9.0			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.9.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.2.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
-| library/expat				| 2.4.6			| https://github.com/libexpat/libexpat/releases
+| library/expat				| 2.4.7			| https://github.com/libexpat/libexpat/releases
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/tags | Currently used solely by rsyslog
 | library/fastjson			| 0.99.9		| https://github.com/rsyslog/libfastjson/tags | Currently used solely by rsyslog
 | library/gmp				| 6.2.1			| https://gmplib.org/download/gmp/ https://gmplib.org/
@@ -45,7 +45,7 @@
 | library/libevent			| 2.1.12		| https://github.com/libevent/libevent/releases | Currently used solely by tmux
 | library/libidn			| 1.38			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.4.2			| https://sourceware.org/libffi/
-| library/libuv				| 1.43.0		| https://github.com/libuv/libuv/releases | Currently used solely by bind
+| library/libuv				| 1.44.0		| https://github.com/libuv/libuv/releases | Currently used solely by bind
 | library/libxml2			| 2.9.13		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
@@ -79,7 +79,7 @@
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
 | runtime/python-310			| 3.10.2		| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.9			| https://www.sudo.ws/
+| security/sudo				| 1.9.10		| https://www.sudo.ws/
 | service/network/chrony		| 4.2			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/tags
@@ -113,14 +113,14 @@
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.81.0		| https://curl.haxx.se/download.html
+| web/curl				| 7.82.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.3		| https://ftp.gnu.org/gnu/wget/
 | web/wget2				| 2.0.0			| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.70.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.38			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.54		| https://github.com/Azure/WALinuxAgent/releases
-| system/virtualization/open-vm-tools	| 11.3.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
+| system/virtualization/open-vm-tools	| 12.0.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-310	| 1.4.0			| https://pypi.org/project/asn1crypto
@@ -143,10 +143,10 @@
 | library/python-3/meson-310		| 0.61.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-310	| 8.12.0		| https://pypi.org/project/more-itertools
 | library/python-3/orjson-310		| 3.6.7			| https://github.com/ijl/orjson/releases
-| library/python-3/pip-310		| 22.0.3		| https://pypi.org/project/pip
+| library/python-3/pip-310		| 22.0.4		| https://pypi.org/project/pip
 | library/python-3/ply-310		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-310		| 3.1.0			| https://pypi.org/project/portend
-| library/python-3/prettytable-310	| 3.1.1			| https://pypi.org/project/PrettyTable
+| library/python-3/prettytable-310	| 3.2.0			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-310	| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-310	| 2.8.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
