@@ -310,6 +310,7 @@ CFLAGS64="-m64"
 LDFLAGS=
 LDFLAGS32="-m32"
 LDFLAGS64="-m64"
+SO_LDFLAGS="-Wl,-ztext -Wl,-zdefs"
 
 # C pre-processor flags
 CPPFLAGS=
