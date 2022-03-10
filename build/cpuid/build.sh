@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
@@ -24,8 +24,6 @@ DESC="A program which can dump and extract information from the x86 "
 DESC+="CPUID instruction"
 
 set_arch 64
-
-SKIP_LICENCES="ISC"
 
 configure64() {
     MAKE_ARGS_WS="CC=\"gcc -m$BUILDARCH $CFLAGS $CFLAGS64\""
