@@ -25,6 +25,7 @@ DESC="A perl module for parsing XML documents"
 set_arch 64
 
 NO_PARALLEL_MAKE=1
+NO_SONAME_EXPECTED=1
 
 BUILD_DEPENDS_IPS="runtime/perl"
 RUN_DEPENDS_IPS="$BUILD_DEPENDS_IPS"

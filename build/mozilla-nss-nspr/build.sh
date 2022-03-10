@@ -40,6 +40,8 @@ CTF_FLAGS+=" -s"
 
 # nspr/nss produces lots of runtime warnings that we cannot easily resolve.
 SKIP_RTIME_CHECK=1
+# The mps libraries are unversioned. Skip for now; worth further investigation.
+NO_SONAME_EXPECTED=1
 
 MAKE_ARGS="
     -C nss

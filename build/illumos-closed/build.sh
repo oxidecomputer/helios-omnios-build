@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
@@ -29,6 +29,7 @@ BUILDDIR=closed
 # checks, and there is nothing we can do about it.
 SKIP_RTIME_CHECK=1
 SKIP_SSP_CHECK=1
+NO_SONAME_EXPECTED=1
 
 HARDLINK_TARGETS="
     opt/onbld/closed/root_i386/usr/xpg4/bin/alias

@@ -27,6 +27,9 @@ XFORM_ARGS="
     -D SPYVER=$SPYVER
 "
 
+# Python modules ship shared objects with no SONAME
+NO_SONAME_EXPECTED=1
+
 # Use an extra directory level for building each module since there can be
 # multiple versions of python being built in parallel and if they are built
 # in the same directory then they will clobber each other.

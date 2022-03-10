@@ -47,6 +47,7 @@ XFORM_ARGS="
     -D IFULL=$IFULL
 "
 BMI_EXPECTED=1
+NO_SONAME_EXPECTED=1
 
 set_builddir "$VERHUMAN"
 set_arch 64

@@ -47,6 +47,8 @@ BUILD_DEPENDS_IPS='developer/pkg-config'
 # __EXTENSIONS__ (see CFLAGS) - Need gethostbyname_r in XPG4v2
 set_standard XPG4v2
 
+NO_SONAME_EXPECTED=1
+
 CFLAGS+="\
     -std=gnu89 \
     -Wno-logical-not-parentheses \

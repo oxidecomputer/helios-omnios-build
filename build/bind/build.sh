@@ -32,6 +32,10 @@ XFORM_ARGS+=" -DLIBUV=$LIBUVVER"
 # library man pages (see local.mog)
 set_arch 64
 set_standard XPG4v2 CFLAGS
+# Bind sets the SONAME in its libraries to libXXX-x.y.z.so which triggers
+# the SONAME check. The libraries are all internal to bind (in a private
+# directory) so skip the checks entirely.
+NO_SONAME_EXPECTED=1
 
 CONFIGURE_OPTS="
     --libdir=$PREFIX/lib/dns

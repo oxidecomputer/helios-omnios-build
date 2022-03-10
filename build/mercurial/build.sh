@@ -32,6 +32,8 @@ PYTHON_BUILD_BACKEND=setuppy
 # Mercurial bundles a zstd python module which is a fat binary supporting
 # different architectures.
 BMI_EXPECTED=1
+# The various bundled python modules have shared objects with no SONAME.
+NO_SONAME_EXPECTED=1
 
 PKGDIFF_HELPER='
     s:(vendor-packages/[^-]*)-[0-9.]*:\1-VERSION:g

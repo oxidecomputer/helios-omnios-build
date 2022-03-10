@@ -47,6 +47,7 @@ HARDLINK_TARGETS="
     usr/bin/python$MVER
 "
 SKIP_RTIME_CHECK=1
+NO_SONAME_EXPECTED=1
 
 set_python_version $MVER
 set_arch 64

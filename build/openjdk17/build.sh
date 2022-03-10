@@ -35,6 +35,7 @@ set_builddir "jdk${VER}u-jdk-$VER.0.$UPDATE-$BUILD"
 
 BMI_EXPECTED=1
 SKIP_RTIME_CHECK=1
+NO_SONAME_EXPECTED=1
 
 BUILD_DEPENDS_IPS="
     system/header/header-audio
