@@ -42,6 +42,10 @@ RUN_DEPENDS_IPS+="
 # upstream at some point.
 PYTHON_BUILD_BACKEND=setuppy
 
+# This package does not ship any public libraries. Some of the bundled
+# python extensions include shared objects.
+NO_SONAME_EXPECTED=1
+
 _site=$PREFIX/lib/$PROG/python$PYTHONVER
 
 function install_deps {

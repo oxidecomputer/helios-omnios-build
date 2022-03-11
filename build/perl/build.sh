@@ -35,6 +35,9 @@ XFORM_ARGS="
     -DVERSION=$MAJVER
 "
 
+# Perl bundles a lot of shared objects with its extensions
+NO_SONAME_EXPECTED=1
+
 HARDLINK_TARGETS="
     ${PREFIX#/}/bin/$PROG$VER
     ${PREFIX#/}/bin/${PROG}thanks

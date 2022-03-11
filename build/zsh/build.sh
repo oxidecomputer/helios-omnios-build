@@ -44,6 +44,8 @@ CONFIGURE_OPTS_WS="--enable-ldflags=\"-m64 -zignore\""
 
 HARDLINK_TARGETS=usr/bin/zsh-$VER
 SKIP_LICENCES="*"
+# zsh only ships .so files for its plugins
+NO_SONAME_EXPECTED=1
 
 PKGDIFF_HELPER='
     s:usr/share/zsh/[0-9.]*:usr/share/zsh/VERSION:

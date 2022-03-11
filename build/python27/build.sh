@@ -44,6 +44,8 @@ XFORM_ARGS="-D PYTHONVER=$PYTHONVER"
 CC=gcc
 CXX=g++
 
+NO_SONAME_EXPECTED=1
+
 export CCSHARED="-fPIC"
 LDFLAGS32+=" -L/usr/gnu/lib -R/usr/gnu/lib"
 LDFLAGS64+=" -L/usr/gnu/lib/amd64 -R/usr/gnu/lib/amd64"

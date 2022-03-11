@@ -166,6 +166,7 @@ GNUBIN=/usr/gnu/bin
 AWK=$USRBIN/gawk
 CURL=$USRBIN/curl
 EGREP=$USRBIN/egrep
+ELFEDIT=$USRBIN/elfedit
 GIT=$USRBIN/git
 MAKE=$USRBIN/gmake
 PATCH=$USRBIN/gpatch
@@ -309,6 +310,7 @@ CFLAGS64="-m64"
 LDFLAGS=
 LDFLAGS32="-m32"
 LDFLAGS64="-m64"
+SO_LDFLAGS="-Wl,-ztext -Wl,-zdefs"
 
 # C pre-processor flags
 CPPFLAGS=

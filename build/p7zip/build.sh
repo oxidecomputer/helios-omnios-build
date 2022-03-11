@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
@@ -34,6 +34,7 @@ RUN_DEPENDS_IPS="
     shell/bash
 "
 
+NO_SONAME_EXPECTED=1
 SKIP_SSP_CHECK=1
 SKIP_LICENCES=unRar
 
