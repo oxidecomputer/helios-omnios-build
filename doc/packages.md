@@ -123,7 +123,7 @@
 | system/virtualization/open-vm-tools	| 12.0.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
-| library/python-3/asn1crypto-310	| 1.4.0			| https://pypi.org/project/asn1crypto
+| library/python-3/asn1crypto-310	| 1.5.0			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-310		| 21.4.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-310		| 8.6.0			| https://pypi.org/project/cheroot
