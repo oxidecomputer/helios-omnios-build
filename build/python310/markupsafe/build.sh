@@ -16,18 +16,13 @@
 
 . ../../../lib/build.sh
 
-PKG=library/python-3/mako-310
-PROG=Mako
-VER=1.2.0
-SUMMARY="Mako - a python templating language"
-DESC="$SUMMARY"
+PKG=library/python-3/markupsafe-310
+PROG=MarkupSafe
+VER=2.1.0
+SUMMARY="MarkupSafe - safely process strings for HTML/XML"
+DESC="Safely add untrusted strings to HTML/XML markup"
 
 . $SRCDIR/../common.sh
-
-RUN_DEPENDS_IPS+="
-    library/python-$PYMVER/setuptools-$SPYVER
-    library/python-$PYMVER/markupsafe-$SPYVER
-"
 
 init
 download_source pymodules/${PROG,,} $PROG $VER
