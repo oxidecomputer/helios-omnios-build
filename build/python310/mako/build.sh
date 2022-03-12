@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/build.sh
 
 PKG=library/python-3/mako-310
 PROG=Mako
-VER=1.1.6
+VER=1.2.0
 SUMMARY="Mako - a python templating language"
 DESC="$SUMMARY"
 
