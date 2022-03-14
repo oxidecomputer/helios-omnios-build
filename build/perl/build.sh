@@ -13,13 +13,13 @@
 # }}}
 
 # Copyright 2011-2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=perl
 PKG=runtime/perl
-VER=5.34.0
+VER=5.34.1
 MAJVER=${VER%.*}
 SUMMARY="Perl $MAJVER Programming Language"
 DESC="A highly capable, feature-rich programming language"
@@ -57,8 +57,7 @@ configure64() {
     # In particular, this makes some modules make better choices about things
     # like compiler flags (Crypt::OpenSSL:X509 is one), but there is a risk
     # that some modules might assume that myuname=='sunos' => Sun studio
-    # rather than checking 'ccname'. This will need re-evaluating prior to
-    # cutting r151042.
+    # rather than checking 'ccname'.
     logcmd $SHELL Configure \
         -des \
         -Dusethreads \
