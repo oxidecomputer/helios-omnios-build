@@ -129,7 +129,7 @@
 | library/python-3/cheroot-310		| 8.6.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-310		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-310		| 6.3.2			| https://pypi.org/project/coverage
-| library/python-3/cryptography-310	| 36.0.1		| https://pypi.org/project/cryptography
+| library/python-3/cryptography-310	| 36.0.2		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-310	| 3.2.1			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-310 | 3.5.1		| https://pypi.org/project/jaraco.collections
