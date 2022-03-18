@@ -45,7 +45,7 @@
 | library/libevent			| 2.1.12		| https://github.com/libevent/libevent/releases | Currently used solely by tmux
 | library/libidn			| 1.38			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.4.2			| https://sourceware.org/libffi/
-| library/libuv				| 1.44.0		| https://github.com/libuv/libuv/releases | Currently used solely by bind
+| library/libuv				| 1.44.1		| https://github.com/libuv/libuv/releases | Currently used solely by bind
 | library/libxml2			| 2.9.13		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
@@ -65,7 +65,7 @@
 | library/xxhash			| 0.8.1			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.11		| http://www.zlib.net/
 | meta/data/microcode			| 20220207		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.16.26		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.16.27		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.9p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.3			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.3			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -77,8 +77,8 @@
 | runtime/java/openjdk8			| 1.8.312-07		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | runtime/perl				| 5.34.1		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
-| runtime/python-37			| 3.7.12		| https://www.python.org/downloads/source/
-| runtime/python-310			| 3.10.2		| https://www.python.org/downloads/source/
+| runtime/python-39			| 3.9.11		| https://www.python.org/downloads/source/
+| runtime/python-310			| 3.10.3		| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.10		| https://www.sudo.ws/
 | service/network/chrony		| 4.2			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/

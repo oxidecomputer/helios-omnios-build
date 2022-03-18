@@ -18,12 +18,12 @@
 . ../../lib/build.sh
 
 PROG=bind
-VER=9.16.26
+VER=9.16.27
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"
 
-LIBUVVER=1.44.0
+LIBUVVER=1.44.1
 XFORM_ARGS+=" -DLIBUV=$LIBUVVER"
 
 # This package ships private shared libraries in $PREFIX/lib/dns that are only
