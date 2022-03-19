@@ -123,13 +123,13 @@
 | system/virtualization/open-vm-tools	| 12.0.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
-| library/python-3/asn1crypto-310	| 1.5.0			| https://pypi.org/project/asn1crypto
+| library/python-3/asn1crypto-310	| 1.5.1			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-310		| 21.4.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.0		| https://pypi.org/project/cffi
 | library/python-3/cheroot-310		| 8.6.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-310		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-310		| 6.3.2			| https://pypi.org/project/coverage
-| library/python-3/cryptography-310	| 36.0.1		| https://pypi.org/project/cryptography
+| library/python-3/cryptography-310	| 36.0.2		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-310	| 3.2.1			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-310 | 3.5.1		| https://pypi.org/project/jaraco.collections
@@ -140,8 +140,8 @@
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-310	| 4.4.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-310		| 1.2.0			| https://pypi.org/project/Mako
-| library/python-3/markupsafe-310	| 2.1.0			| https://pypi.org/project/MarkupSafe
-| library/python-3/meson-310		| 0.61.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/markupsafe-310	| 2.1.1			| https://pypi.org/project/MarkupSafe
+| library/python-3/meson-310		| 0.61.3		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-310	| 8.12.0		| https://pypi.org/project/more-itertools
 | library/python-3/orjson-310		| 3.6.7			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.0.4		| https://pypi.org/project/pip
@@ -158,7 +158,7 @@
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.6			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.9.0			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-310	| 60.9.3		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-310	| 60.10.0		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-310	| 1.1.2			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tempora-310		| 5.0.1			| https://pypi.org/project/tempora

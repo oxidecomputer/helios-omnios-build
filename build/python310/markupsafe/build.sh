@@ -18,7 +18,7 @@
 
 PKG=library/python-3/markupsafe-310
 PROG=MarkupSafe
-VER=2.1.0
+VER=2.1.1
 SUMMARY="MarkupSafe - safely process strings for HTML/XML"
 DESC="Safely add untrusted strings to HTML/XML markup"
 
