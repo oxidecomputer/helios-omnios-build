@@ -154,7 +154,7 @@
 | library/python-3/pycurl-310		| 7.44.1		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-310	| 22.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-310	| 0.18.1		| https://pypi.org/project/pyrsistent
-| library/python-3/pytz-310		| 2021.3		| https://pypi.org/project/pytz
+| library/python-3/pytz-310		| 2022.1		| https://pypi.org/project/pytz
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.6			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.9.0			| https://pypi.org/project/semantic-version
