@@ -141,7 +141,7 @@
 | library/python-3/jsonschema-310	| 4.4.0			| https://pypi.org/project/jsonschema
 | library/python-3/mako-310		| 1.2.0			| https://pypi.org/project/Mako
 | library/python-3/markupsafe-310	| 2.1.1			| https://pypi.org/project/MarkupSafe
-| library/python-3/meson-310		| 0.61.3		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-310		| 0.62.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/more-itertools-310	| 8.12.0		| https://pypi.org/project/more-itertools
 | library/python-3/orjson-310		| 3.6.7			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.0.4		| https://pypi.org/project/pip
@@ -154,7 +154,7 @@
 | library/python-3/pycurl-310		| 7.44.1		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-310	| 22.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-310	| 0.18.1		| https://pypi.org/project/pyrsistent
-| library/python-3/pytz-310		| 2021.3		| https://pypi.org/project/pytz
+| library/python-3/pytz-310		| 2022.1		| https://pypi.org/project/pytz
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.6			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.9.0			| https://pypi.org/project/semantic-version
