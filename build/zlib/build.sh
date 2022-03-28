@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=zlib
-VER=1.2.11
+VER=1.2.12
 PKG=library/zlib
 SUMMARY="$PROG compression library"
 DESC="A patent-free compression library"
@@ -33,18 +33,18 @@ CONFIGURE_OPTS="
 "
 CONFIGURE_OPTS_32="--libdir=$PREFIX/lib"
 CONFIGURE_OPTS_64="--libdir=$PREFIX/lib/$ISAPART64"
-
 LDFLAGS32+=" -lssp_ns"
+export cc=$CC
+
+MAKE_ARGS_WS="
+    LDSHARED=\"$CC -shared -nostdlib $SO_LDFLAGS -Wl,-h,libz.so.1\"
+"
 
 install_license() {
     # This is fun, take from the zlib.h header
     /bin/awk '/Copyright/,/\*\//{if($1 != "*/"){print}}' \
         $TMPDIR/$BUILDDIR/zlib.h > $DESTDIR/license
 }
-
-MAKE_ARGS_WS="
-    LDSHARED=\"$CC -shared -nostdlib $SO_LDFLAGS -Wl,-h,libz.so.1\"
-"
 
 init
 download_source $PROG $PROG $VER
