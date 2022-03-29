@@ -41,6 +41,14 @@ RUN_DEPENDS_IPS="
     system/library/gcc-runtime
     developer/object-file
 "
+# In order to continue supporting packages from pkgsrc, libc was updated
+# to include the new memrchr() function. This means that components such as
+# python now depend on the newer library version. Force a specific minimum
+# dependency here so that it is harder for a user to half update their
+# system and end up with a broken `pkg`.
+RUN_DEPENDS_IPS+="
+    system/library@0.${SUNOSVER}-${PVER}:20220220T121934Z
+"
 XFORM_ARGS="-D PYTHONVER=$MVER"
 
 HARDLINK_TARGETS="
