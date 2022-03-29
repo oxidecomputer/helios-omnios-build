@@ -12,7 +12,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.5.2			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.7.0			| https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3380100		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3380200		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.5		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -63,7 +63,7 @@
 | library/security/openssl-3		| 3.0.2			| https://www.openssl.org/source/
 | library/unixodbc			| 2.3.9			| http://www.unixodbc.org/download.html
 | library/xxhash			| 0.8.1			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
-| library/zlib				| 1.2.11		| http://www.zlib.net/
+| library/zlib				| 1.2.12		| https://www.zlib.net/
 | meta/data/microcode			| 20220207		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
 | network/dns/bind			| 9.16.27		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 8.9p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
@@ -77,7 +77,7 @@
 | runtime/java/openjdk8			| 1.8.312-07		| https://hg.openjdk.java.net/jdk8u/jdk8u/tags
 | runtime/perl				| 5.34.1		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
-| runtime/python-39			| 3.9.11		| https://www.python.org/downloads/source/
+| runtime/python-39			| 3.9.12		| https://www.python.org/downloads/source/
 | runtime/python-310			| 3.10.4		| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.10		| https://www.sudo.ws/
 | service/network/chrony		| 4.2			| https://download.tuxfamily.org/chrony/
