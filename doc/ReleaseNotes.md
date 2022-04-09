@@ -4,6 +4,33 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038aw (2022-04-08)
+Weekly release for w/c 4th of April 2022.
+> This update requires a reboot
+
+### Security Fixes
+
+* The emulated e1000g network interface in bhyve was subject to an
+  out-of-bounds write vulnerability -
+  [CVE-2022-23087](https://www.freebsd.org/security/advisories/FreeBSD-SA-22:05.bhyve.asc).
+
+* `gzip` updated to version 1.12
+
+### Other Changes
+
+* LX zones support for newer Linux distributions that use glibc >= 2.35
+
+* Improvements to the bhyve VNC server; support for multiple concurrent
+  clients and some alternate pixmaps.
+
+* Fix a bug where zpool expansion could hang with some disk drivers.
+
+* Update timezone data to 2022.01.
+
+<br>
+
+---
+
 ## r151038av (2022-03-28)
 Weekly release for w/c 28th of March 2022.
 > This is a non-reboot update
