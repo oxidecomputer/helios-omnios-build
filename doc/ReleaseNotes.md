@@ -4,6 +4,22 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038ay (2022-04-22)
+Weekly release for w/c 18th of April 2022.
+> This is a non-reboot update
+
+### Security Fixes
+
+* `openjdk` has been updated to 11.0.15+10, fixing several CVEs.
+
+* `git` has been updated to version 2.31.2
+
+* `vim` has been updated to 8.2.4691 fixing several CVEs.
+
+<br>
+
+---
+
 ## r151038ax (2022-04-11)
 Weekly release for w/c 11th of April 2022.
 > This is a non-reboot update
