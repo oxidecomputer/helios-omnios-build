@@ -14,24 +14,29 @@
 
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 #
 
 . ../../lib/build.sh
 
 PROG=devpro-libmtsk
-VER=20060131
+MTSKVER=20060131
 PKG=system/library/mtsk
 VER=0.5.11
 SUMMARY="Microtasking Libraries"
 DESC="$SUMMARY"
 
+set_builddir $PROG
+set_ssp none
+SKIP_RTIME_CHECK=1
+
 build() {
-    mkdir -p $DESTDIR/lib/amd64 || logerr "mkdir failed"
-    rsync -a $SRCDIR/files/lib/ $DESTDIR/lib/
+    rsync -a $TMPDIR/$BUILDDIR/lib/ $DESTDIR/lib/ || logerr "rsync failed"
 }
 
 init
+download_source on-closed $PROG $MTSKVER
+patch_source
 prep_build
 build
 make_package

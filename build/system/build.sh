@@ -32,6 +32,7 @@ build() {
     logcmd cp $SRCDIR/files/system \
         $DESTDIR/etc/system.d/_omnios:system:defaults \
         || logerr "copy failed"
+    ((EXTRACT_MODE)) && exit
 }
 
 init

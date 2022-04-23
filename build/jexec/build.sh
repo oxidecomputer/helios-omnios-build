@@ -37,6 +37,7 @@ build64() {
 
 init
 prep_build
+((EXTRACT_MODE)) && exit
 build
 make_package
 clean_up

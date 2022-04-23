@@ -62,6 +62,7 @@ install_archives() {
 init
 prep_build
 download_source on-closed on-closed-bins.i386 ""
+patch_source
 transfer_closed
 download_source on-closed on-closed-bins-nd.i386 ""
 transfer_closed

@@ -59,14 +59,15 @@ PREFIX=
 : ${KVM_CMD_SOURCE_BRANCH:=r$RELVER}
 
 clone_source() {
-    clone_github_source illumos-kvm \
+    clone_github_source -dependency illumos-kvm \
         "$KVM_SOURCE_REPO" "$KVM_SOURCE_BRANCH" "$KVM_CLONE"
     KVM_COMMIT="`git -C $TMPDIR/$BUILDDIR/illumos-kvm \
         log -1 --format=format:%H`"
-    clone_github_source illumos-kvm-cmd \
+    clone_github_source -dependency illumos-kvm-cmd \
         "$KVM_CMD_SOURCE_REPO" "$KVM_CMD_SOURCE_BRANCH" "$KVM_CMD_CLONE"
     KVM_CMD_COMMIT="`git -C $TMPDIR/$BUILDDIR/illumos-kvm-cmd \
         log -1 --format=format:%H`"
+    ((EXTRACT_MODE)) && exit
 }
 
 # Check this once at the start

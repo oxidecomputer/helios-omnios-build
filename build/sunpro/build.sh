@@ -35,6 +35,7 @@ install() {
 
 init
 download_source on-closed sunpro-runtime
+patch_source
 prep_build
 install
 make_package

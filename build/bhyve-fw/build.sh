@@ -59,6 +59,7 @@ typeset -A jobs
     if [ -z "$FLAVOR" -o "$FLAVOR" = UEFI ]; then
         set_builddir uefi-edk2-$tag
         download_source bhyve-fw uefi-edk2 $tag
+        ((EXTRACT_MODE)) && exit
         pushd $TMPDIR/$BUILDDIR >/dev/null
         logcmd cp OvmfPkg/License.txt $fwdir/LICENCE.$tag.OvmfPkg
         logcmd cp OvmfPkg/Bhyve/License.txt $fwdir/LICENCE.$tag.BhyvePkg
@@ -91,6 +92,7 @@ jobs[UEFI]=$!
     if [ -z "$FLAVOR" -o "$FLAVOR" = OVMF ]; then
         set_builddir uefi-edk2-$tag
         download_source bhyve-fw uefi-edk2 $tag $TMPDIR/ovmf
+        ((EXTRACT_MODE)) && exit
         pushd $TMPDIR/ovmf/$BUILDDIR >/dev/null
         for v in RELEASE DEBUG; do
             [ -n "$DEPVER" -a "$DEPVER" != $v ] && continue
@@ -129,6 +131,7 @@ XFORM_ARGS+=" -D CSMTAG=$tag"
         export GCC GXX GCCPATH PATH
 
         download_source bhyve-fw uefi-edk2 $tag
+        ((EXTRACT_MODE)) && exit
         pushd $TMPDIR/$BUILDDIR >/dev/null
 
         # The CSM firmware build needs python2
@@ -170,6 +173,7 @@ while (( ${#jobs[*]} > 0 )); do
     done
 done
 
+((EXTRACT_MODE)) && exit
 make_package
 clean_up
 

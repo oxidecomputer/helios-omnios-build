@@ -36,6 +36,7 @@ build() {
 
 init
 download_source $PROG $PROG $VER
+patch_source
 prep_build
 build
 make_package

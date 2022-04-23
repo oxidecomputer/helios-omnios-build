@@ -66,6 +66,7 @@ done
 popd >/dev/null
 set +o errexit
 
+((EXTRACT_MODE)) && exit
 make_package runtime.mog
 clean_up
 

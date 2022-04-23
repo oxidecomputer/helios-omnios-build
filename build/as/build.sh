@@ -27,6 +27,7 @@ set_builddir as
 
 # This package contains closed binaries that have some old dependencies
 SKIP_RTIME_CHECK=1
+set_ssp none
 
 install() {
     pushd $TMPDIR/$BUILDDIR >/dev/null
@@ -36,6 +37,7 @@ install() {
 
 init
 download_source on-closed as
+patch_source
 prep_build
 install
 make_package

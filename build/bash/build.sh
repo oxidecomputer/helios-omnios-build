@@ -80,13 +80,15 @@ build_dependency -merge bash-completion bash-completion-$BCVER \
 
 save_function _configure64 configure64
 
-clone_github_source illumos-completion \
+clone_github_source -dependency illumos-completion \
     https://github.com/OpenIndiana/openindiana-completions master
 
-logcmd rm -f $TMPDIR/$BUILDDIR/illumos-completion/*.md
-logcmd rsync -av --exclude=.git \
-    $TMPDIR/$BUILDDIR/illumos-completion/ \
-    $DESTDIR/$PREFIX/share/bash-completion/completions/ || logerr rsync
+if ((EXTRACT_MODE == 0)); then
+    logcmd rm -f $TMPDIR/$BUILDDIR/illumos-completion/*.md
+    logcmd rsync -av --exclude=.git \
+        $TMPDIR/$BUILDDIR/illumos-completion/ \
+        $DESTDIR/$PREFIX/share/bash-completion/completions/ || logerr rsync
+fi
 
 save_function _make_clean make_clean
 

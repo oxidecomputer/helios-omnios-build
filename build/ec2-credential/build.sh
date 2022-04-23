@@ -42,6 +42,7 @@ drop_files() {
     logcmd cp -p $SRCDIR/files/install-ec2-credential bin/ \
         || logerr "Failed to copy install-ec2-credential"
     popd
+    ((EXTRACT_MODE)) && exit
 }
 
 init

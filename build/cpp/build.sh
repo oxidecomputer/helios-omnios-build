@@ -36,6 +36,7 @@ configure32() {
 
 init
 download_source cpp cpp
+patch_source
 prep_build
 build
 make_package
