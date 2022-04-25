@@ -64,6 +64,7 @@ build32() {
 init
 prep_build
 build
+((EXTRACT_MODE)) && exit
 make_package
 clean_up
 logcmd rm -f $SRCDIR/$PROG

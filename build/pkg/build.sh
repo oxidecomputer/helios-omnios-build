@@ -63,6 +63,7 @@ VER+="-$PKG_SOURCE_BRANCH"
 clone_source() {
     clone_github_source pkg \
         "$PKG_SOURCE_REPO" "$PKG_SOURCE_BRANCH" "$PKG5_CLONE"
+    ((EXTRACT_MODE)) && exit
 }
 
 build() {

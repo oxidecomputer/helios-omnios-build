@@ -30,6 +30,7 @@ TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
 init
 download_source $PROG $PROG $VER
+patch_source
 prep_build
 build
 run_testsuite check

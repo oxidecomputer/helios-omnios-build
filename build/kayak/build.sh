@@ -44,6 +44,7 @@ clone_source() {
     COMMIT=`$GIT -C $gdir log -1  --format=format:%h`
     REVDATE=`echo $GITREV | gawk '{ print strftime("%c %Z",$1) }'`
     VERHUMAN="${COMMIT:0:7} from $REVDATE"
+    ((EXTRACT_MODE)) && exit
 }
 
 build_server() {

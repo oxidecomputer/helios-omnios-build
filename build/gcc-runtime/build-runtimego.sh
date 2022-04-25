@@ -50,6 +50,7 @@ install_unversioned $SHARED_GCC_VER "$libs"
 popd >/dev/null
 set +o errexit
 
+((EXTRACT_MODE)) && exit
 make_package runtime.mog
 clean_up
 

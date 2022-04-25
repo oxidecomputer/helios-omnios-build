@@ -47,12 +47,15 @@ build_pem() {
     # Fetch and extract the NSS source to get certdata.txt
     NSSDIR=nss-$NSSVER
     CERTDATA=nss/lib/ckfw/builtins/certdata.txt
-    BUILDDIR=$NSSDIR download_source nss nss "$NSSVER-with-nspr-$NSPRVER" \
+    BUILDDIR=$NSSDIR download_source -dependency \
+        nss nss "$NSSVER-with-nspr-$NSPRVER" \
         "" "$NSSDIR/$CERTDATA $NSSDIR/nss/COPYING"
 
     # Fetch and extract make-ca
     MAKECADIR=make-ca-$MAKECAVER
     BUILDDIR=$MAKECADIR download_source make-ca make-ca $MAKECAVER
+
+    ((EXTRACT_MODE)) && exit
 
     BUILDDIR=$BUILDDIR_ORIG
 

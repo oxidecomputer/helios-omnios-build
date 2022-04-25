@@ -65,10 +65,12 @@ for pver in $PVERS; do
     note -n "Building previous version: $pver"
     save_variable BUILDDIR
     BUILDDIR=$PROG-$pver
-    download_source $PROG $PROG $pver
+    download_source -dependency $PROG $PROG $pver
     patch_source $PROG-`echo $pver | cut -d. -f1-2`
-    build
-    tests
+    if ((EXTRACT_MODE == 0)); then
+        build
+        tests
+    fi
     restore_variable BUILDDIR
 done
 

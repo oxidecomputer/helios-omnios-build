@@ -56,6 +56,7 @@ logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/$ISAPART64/$lib \
 popd >/dev/null
 set +o errexit
 
+((EXTRACT_MODE)) && exit
 make_package runtime.mog runtimef_post.mog
 clean_up
 

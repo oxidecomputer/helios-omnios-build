@@ -38,9 +38,9 @@ save_variables BUILDDIR EXTRACTED_SRC
 for pver in $PVERS; do
     note -n "Building previous version: $pver"
     set_builddir $PROG-$pver
-    download_source $PROG $PROG $pver
+    download_source -dependency $PROG $PROG $pver
     patch_source patches-${pver%%.*}
-    build
+    ((EXTRACT_MODE == 0)) && build
 done
 restore_variables BUILDDIR EXTRACTED_SRC
 

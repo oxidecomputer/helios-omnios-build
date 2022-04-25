@@ -55,8 +55,8 @@ fetch_dicts() {
     rm -f $tmog
 
     for dict in $DICTIONARIES; do
-        logmsg "-- Fetch dictionary $dict"
-        BUILDDIR=$dict download_source aspell $dict
+        logmsg -n "-- Fetch dictionary $dict"
+        BUILDDIR=$dict download_source -dependency aspell $dict
         logcmd cp $TMPDIR/$dict/*.cwl $TMPDIR/$BUILDDIR || logerr "cp failed"
         logcmd cp $TMPDIR/$dict/Copyright $TMPDIR/$BUILDDIR/Copyright.$dict \
             || logerr "cp copyright failed"
@@ -128,6 +128,7 @@ build_dependency -noctf aspell aspell-$ASPELL_VER aspell aspell $ASPELL_VER
 PATH+=":$DEPROOT/usr/bin"
 
 fetch_dicts
+((EXTRACT_MODE)) && exit
 build_dicts
 install_dicts
 make_package $tmog
