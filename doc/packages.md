@@ -31,7 +31,7 @@
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
-| file/gnu-coreutils			| 9.0			| https://ftp.gnu.org/gnu/coreutils/
+| file/gnu-coreutils			| 9.1			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.9.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.2.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.4.8			| https://github.com/libexpat/libexpat/releases
