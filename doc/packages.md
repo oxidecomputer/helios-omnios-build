@@ -98,7 +98,7 @@
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.9.1			| https://github.com/net-snmp/net-snmp/tags
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
-| system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
+| system/pciutils			| 3.8.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/tags
 | system/rsyslog			| 8.2204.0		| https://www.rsyslog.com/downloads/download-v8-stable/
 | system/test/fio			| 3.29			| https://github.com/axboe/fio/tags
