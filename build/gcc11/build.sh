@@ -174,7 +174,8 @@ tests() {
     ulimit -Ss 16385
     # Lots of tests create core files via assertions
     ulimit -c 0
-    MAKE_TESTSUITE_ARGS+=" -j$MJOBS"
+    # Running tests in parallel leads to inconsistent results
+    #MAKE_TESTSUITE_ARGS+=" -j$MJOBS"
     # This causes the testsuite to be run three times, once with -m32, once
     # with -m64 and once with -m64 and -msave-args
     MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{-m32,-m64,-m64/-msave-args\}"
