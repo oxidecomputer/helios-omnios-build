@@ -4,6 +4,22 @@
 
 # Release Notes for OmniOS r151038
 
+## r151038ba (2022-05-04)
+Weekly release for w/c 2nd of May 2022.
+> This is a non-reboot update
+
+### Security Fixes
+
+* OpenSSL has been updated to versions 3.0.3 and 1.1.1o.
+
+* OpenJDK has been updated to version 1.8.332-09.
+
+* Curl has been updated to version 7.83.0.
+
+<br>
+
+---
+
 ## r151038ay (2022-04-22)
 Weekly release for w/c 18th of April 2022.
 > This is a non-reboot update
