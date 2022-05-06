@@ -12,7 +12,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.5.2			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.9.0			| https://salsa.debian.org/api/v4/projects/iso-codes-team%2Fiso-codes/repository/tags https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3380200		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3380300		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.5		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -20,18 +20,18 @@
 | developer/exuberant-ctags		| 5.8			| https://sourceforge.net/projects/ctags/files/ctags/ http://ctags.sourceforge.net/
 | developer/gcc7			| 7.5			| https://ftp.gnu.org/gnu/gcc/
 | developer/gcc10			| 10.3			| https://ftp.gnu.org/gnu/gcc/
-| developer/gcc11			| 11.2			| https://ftp.gnu.org/gnu/gcc/
+| developer/gcc11			| 11.3			| https://ftp.gnu.org/gnu/gcc/
 | developer/lexer/flex			| 2.6.4			| https://github.com/westes/flex/releases
 | developer/macro/gnu-m4		| 1.4.19		| http://git.savannah.gnu.org/cgit/m4.git/refs/tags
 | developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.8.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.35.2		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 6.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/git		| 2.36.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/mercurial	| 6.1.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
-| file/gnu-coreutils			| 9.0			| https://ftp.gnu.org/gnu/coreutils/
+| file/gnu-coreutils			| 9.1			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.9.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.2.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.4.8			| https://github.com/libexpat/libexpat/releases
@@ -53,7 +53,7 @@
 | library/nghttp2			| 1.47.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.76.1		| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.32			| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
-| library/pcre2				| 10.39			| https://github.com/PhilipHazel/pcre2/releases
+| library/pcre2				| 10.40			| https://github.com/PhilipHazel/pcre2/releases
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
 | library/readline			| 8.1.2			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
@@ -65,9 +65,9 @@
 | library/xxhash			| 0.8.1			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.12		| https://www.zlib.net/
 | meta/data/microcode			| 20220207		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.16.27		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
-| network/openssh			| 8.9p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
-| network/rsync				| 3.2.3			| https://rsync.samba.org/
+| network/dns/bind			| 9.16.28		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/openssh			| 9.0p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
+| network/rsync				| 3.2.4			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.3			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/socat				| 1.7.4.3		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
@@ -98,10 +98,10 @@
 | system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.9.1			| https://github.com/net-snmp/net-snmp/tags
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
-| system/pciutils			| 3.7.0			| https://www.kernel.org/pub/software/utils/pciutils/
+| system/pciutils			| 3.8.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/tags
-| system/rsyslog			| 8.2202.0		| https://www.rsyslog.com/downloads/download-v8-stable/
-| system/test/fio			| 3.29			| https://github.com/axboe/fio/tags
+| system/rsyslog			| 8.2204.0		| https://www.rsyslog.com/downloads/download-v8-stable/
+| system/test/fio			| 3.30			| https://github.com/axboe/fio/tags
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.9.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.2			| https://github.com/tmux/tmux/releases http://tmux.github.io/
@@ -113,10 +113,10 @@
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
 | text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.82.0		| https://curl.haxx.se/download.html
+| web/curl				| 7.83.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.3		| https://ftp.gnu.org/gnu/wget/
 | web/wget2				| 2.0.0			| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.72.0		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.72.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.38			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.54		| https://github.com/Azure/WALinuxAgent/releases

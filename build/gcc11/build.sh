@@ -13,13 +13,13 @@
 # }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PKG=developer/gcc11
 PROG=gcc
-VER=11.2.0
+VER=11.3.0
 ILVER=il-0
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
@@ -174,6 +174,8 @@ tests() {
     ulimit -Ss 16385
     # Lots of tests create core files via assertions
     ulimit -c 0
+    # Running tests in parallel leads to inconsistent results
+    #MAKE_TESTSUITE_ARGS+=" -j$MJOBS"
     # This causes the testsuite to be run three times, once with -m32, once
     # with -m64 and once with -m64 and -msave-args
     MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{-m32,-m64,-m64/-msave-args\}"

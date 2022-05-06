@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=openssh
-VER=8.9p1
+VER=9.0p1
 PKG=network/openssh
 SUMMARY="OpenSSH Client and utilities"
 DESC="OpenSSH Secure Shell protocol Client and associated Utilities"
@@ -99,7 +99,7 @@ export TESTSUITE_FILTER='^ok |^test_|failed|^all tests'
         logerr "Your account is not set up for pfexec, cannot run testsuite"
     else
         export SUDO=pfexec
-        run_testsuite tests
+        SHELL=/bin/bash run_testsuite tests
     fi
 )
 

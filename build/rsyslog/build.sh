@@ -17,7 +17,7 @@
 . ../../lib/build.sh
 
 PROG=rsyslog
-VER=8.2202.0
+VER=8.2204.0
 PKG=system/rsyslog
 SUMMARY="rsyslog - the rocket-fast system for log processing."
 DESC="A high-performance, modular syslog implementation."
