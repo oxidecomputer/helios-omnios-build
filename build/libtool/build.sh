@@ -28,6 +28,7 @@
 
 PROG=libtool
 VER=2.4.6
+DASHREV=1
 PKG=developer/build/libtool  ##IGNORE##
 SUMMARY="unused; replaced below"
 DESC="$SUMMARY"
@@ -40,6 +41,15 @@ CONFIGURE_OPTS="
     --bindir=$PREFIX/bin
     --includedir=$PREFIX/include
     --disable-static
+"
+
+#
+# The libltdl library encodes a search path for library files that is correct
+# for 32-bit processes, but needs to be amended for 64-bit processes so that it
+# matches the system default:
+#
+CONFIGURE_OPTS_WS_64="
+    LT_SYS_LIBRARY_PATH=/lib/64:/usr/lib/64
 "
 
 init
