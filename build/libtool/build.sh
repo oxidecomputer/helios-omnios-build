@@ -33,6 +33,13 @@ CONFIGURE_OPTS="
     --disable-static
 "
 
+# The libltdl library encodes a search path for library files that is correct
+# for 32-bit processes, but needs to be amended for 64-bit processes so that it
+# matches the system default.
+CONFIGURE_OPTS_64+="
+    LT_SYS_LIBRARY_PATH=/lib/$ISAPART64:/usr/lib/$ISAPART64
+"
+
 build_manifests() {
     manifest_start $TMPDIR/manifest.libltdl
     manifest_add_dir $PREFIX/lib $ISAPART64
