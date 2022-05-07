@@ -30,7 +30,7 @@ DESC="$SUMMARY"
 init
 prep_build
 
-# This component does not yet build with gcc11
+# This component does not yet build with gcc >= 11
 set_gccver 10
 
 fwdir=$DESTDIR/usr/share/bhyve/firmware
