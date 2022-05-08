@@ -147,7 +147,7 @@
 | library/python-3/pip-310		| 22.0.4		| https://pypi.org/project/pip
 | library/python-3/ply-310		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-310		| 3.1.0			| https://pypi.org/project/portend
-| library/python-3/prettytable-310	| 3.2.0			| https://pypi.org/project/PrettyTable
+| library/python-3/prettytable-310	| 3.3.0			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-310	| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-310	| 2.8.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
