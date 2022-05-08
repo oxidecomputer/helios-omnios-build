@@ -262,7 +262,7 @@ CC=gcc
 CXX=g++
 
 # Specify default versions for building packages
-DEFAULT_GCC_VER=11
+DEFAULT_GCC_VER=12
 ILLUMOS_GCC_VER=10
 
 DEFAULT_CLANG_VER=13

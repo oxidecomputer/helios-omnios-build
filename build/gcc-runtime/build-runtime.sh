@@ -12,14 +12,14 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 . common.sh
 
 PKG=system/library/gcc-runtime
 PROG=libgcc_s
-VER=11
+VER=12
 SUMMARY="GNU compiler runtime dependencies"
 DESC="$SUMMARY"
 
