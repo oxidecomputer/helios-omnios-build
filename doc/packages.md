@@ -12,7 +12,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.5.2			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.9.0			| https://salsa.debian.org/api/v4/projects/iso-codes-team%2Fiso-codes/repository/tags https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3380300		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3380500		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.5		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -26,8 +26,8 @@
 | developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.8.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.36.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 6.1.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/git		| 2.36.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/mercurial	| 6.1.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -61,7 +61,7 @@
 | library/readline8-patchlvl		| 002			| https://ftp.gnu.org/gnu/readline/readline-8.1-patches/
 | library/security/openssl-11		| 1.1.1o		| https://www.openssl.org/source/
 | library/security/openssl-3		| 3.0.3			| https://www.openssl.org/source/
-| library/unixodbc			| 2.3.9			| http://www.unixodbc.org/download.html
+| library/unixodbc			| 2.3.11			| http://www.unixodbc.org/download.html
 | library/xxhash			| 0.8.1			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.12		| https://www.zlib.net/
 | meta/data/microcode			| 20220207		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
@@ -100,7 +100,7 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.8.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/tags
-| system/rsyslog			| 8.2204.0		| https://www.rsyslog.com/downloads/download-v8-stable/
+| system/rsyslog			| 8.2204.1		| https://www.rsyslog.com/downloads/download-v8-stable/
 | system/test/fio			| 3.30			| https://github.com/axboe/fio/tags
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.9.0			| https://ftp.gnu.org/gnu/screen/
@@ -129,7 +129,7 @@
 | library/python-3/cheroot-310		| 8.6.0			| https://pypi.org/project/cheroot
 | library/python-3/cherrypy-310		| 18.6.1		| https://pypi.org/project/cherrypy http://docs.cherrypy.org/en/latest/history.html
 | library/python-3/coverage-310		| 6.3.2			| https://pypi.org/project/coverage
-| library/python-3/cryptography-310	| 36.0.2		| https://pypi.org/project/cryptography
+| library/python-3/cryptography-310	| 37.0.2		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/jaraco.classes-310	| 3.2.1			| https://pypi.org/project/jaraco.classes
 | library/python-3/jaraco.collections-310 | 3.5.1		| https://pypi.org/project/jaraco.collections
@@ -138,16 +138,16 @@
 | library/python-3/jaraco.text-310	| 3.7.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.4.0			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-310	| 4.5.1			| https://pypi.org/project/jsonschema
 | library/python-3/mako-310		| 1.2.0			| https://pypi.org/project/Mako
 | library/python-3/markupsafe-310	| 2.1.1			| https://pypi.org/project/MarkupSafe
-| library/python-3/meson-310		| 0.62.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/more-itertools-310	| 8.12.0		| https://pypi.org/project/more-itertools
-| library/python-3/orjson-310		| 3.6.7			| https://github.com/ijl/orjson/releases
+| library/python-3/meson-310		| 0.62.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/more-itertools-310	| 8.13.0		| https://pypi.org/project/more-itertools
+| library/python-3/orjson-310		| 3.6.8			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.0.4		| https://pypi.org/project/pip
 | library/python-3/ply-310		| 3.11			| https://pypi.org/project/ply
 | library/python-3/portend-310		| 3.1.0			| https://pypi.org/project/portend
-| library/python-3/prettytable-310	| 3.2.0			| https://pypi.org/project/PrettyTable
+| library/python-3/prettytable-310	| 3.3.0			| https://pypi.org/project/PrettyTable
 | library/python-3/pybonjour-310	| 1.1.1			| https://pypi.org/project/pybonjour
 | library/python-3/pycodestyle-310	| 2.8.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
@@ -158,12 +158,12 @@
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.6			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.9.0			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-310	| 60.10.0		| https://pypi.org/project/setuptools
-| library/python-3/setuptools-rust-310	| 1.1.2			| https://pypi.org/project/setuptools-rust
+| library/python-3/setuptools-310	| 62.1.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-rust-310	| 1.3.0			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tempora-310		| 5.0.1			| https://pypi.org/project/tempora
 | library/python-3/tomli-310		| 2.0.1			| https://pypi.org/project/tomli
-| library/python-3/typing-extensions-310| 4.1.1			| https://pypi.org/project/typing-extensions
+| library/python-3/typing-extensions-310| 4.2.0			| https://pypi.org/project/typing-extensions
 | library/python-3/wcwidth-310		| 0.2.5			| https://pypi.org/project/wcwidth
 | library/python-3/zc.lockfile-310	| 2.0			| https://pypi.org/project/zc.lockfile
 
