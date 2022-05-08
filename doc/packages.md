@@ -138,7 +138,7 @@
 | library/python-3/jaraco.text-310	| 3.7.0			| https://pypi.org/project/jaraco.text
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.4.0			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-310	| 4.5.1			| https://pypi.org/project/jsonschema
 | library/python-3/mako-310		| 1.2.0			| https://pypi.org/project/Mako
 | library/python-3/markupsafe-310	| 2.1.1			| https://pypi.org/project/MarkupSafe
 | library/python-3/meson-310		| 0.62.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
