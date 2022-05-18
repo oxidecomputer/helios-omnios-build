@@ -78,7 +78,7 @@
 | runtime/java/openjdk8			| 1.8.332-09		| https://github.com/openjdk/jdk8u/tags
 | runtime/perl				| 5.34.1		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
-| runtime/python-39			| 3.9.12		| https://www.python.org/downloads/source/
+| runtime/python-39			| 3.9.13		| https://www.python.org/downloads/source/
 | runtime/python-310			| 3.10.4		| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.10		| https://www.sudo.ws/
 | service/network/chrony		| 4.2			| https://download.tuxfamily.org/chrony/
