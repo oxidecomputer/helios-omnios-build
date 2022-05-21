@@ -67,28 +67,19 @@ clone_source() {
 }
 
 build() {
-    export CC
     pushd $TMPDIR/$BUILDDIR/pkg/src > /dev/null || logerr "Cannot chdir"
-    logmsg "--- toplevel build"
+    logmsg "--- build"
     logcmd make clean
-    logcmd make CC=$GCC CODE_WS=$TMPDIR/$BUILDDIR/pkg || logerr "make failed"
-    logmsg "--- proto install"
-    logcmd make install CC=$GCC CODE_WS=$TMPDIR/$BUILDDIR/pkg \
-        || logerr "install failed"
+    logcmd make || logerr "make failed"
+    logmsg "--- install"
+    logcmd make install || logerr "install failed"
     popd > /dev/null
 }
 
 package() {
     pushd $TMPDIR/$BUILDDIR/pkg/src/pkg > /dev/null
     logmsg "--- packaging"
-    logcmd make clean
-    logcmd make \
-        CC=$GCC \
-        CODE_WS=$TMPDIR/$BUILDDIR/pkg \
-        BUILDNUM=$BUILDNUM || logerr "pkg make failed"
-    logcmd make publish-pkgs \
-        CC=$GCC \
-        CODE_WS=$TMPDIR/$BUILDDIR/pkg \
+    logcmd make check publish-pkgs \
         BUILDNUM=$BUILDNUM \
         PKGSEND_OPTS="" \
         PKGPUBLISHER=$PKGPUBLISHER \
