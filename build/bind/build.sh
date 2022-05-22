@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=bind
-VER=9.16.28
+VER=9.18.3
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"
@@ -36,6 +36,9 @@ set_standard XPG4v2 CFLAGS
 # the SONAME check. The libraries are all internal to bind (in a private
 # directory) so skip the checks entirely.
 NO_SONAME_EXPECTED=1
+
+# configure complains about make not being GNU make
+export MAKE
 
 CONFIGURE_OPTS="
     --libdir=$PREFIX/lib/dns
