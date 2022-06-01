@@ -121,7 +121,7 @@
 | developer/gnu-binutils		| 2.38			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/azure-agent	| 2.2.54		| https://github.com/Azure/WALinuxAgent/releases
-| system/virtualization/open-vm-tools	| 12.0.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
+| system/virtualization/open-vm-tools	| 12.0.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-310	| 1.5.1			| https://pypi.org/project/asn1crypto
