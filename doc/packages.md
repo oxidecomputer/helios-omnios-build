@@ -132,7 +132,7 @@
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.5.1			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-310	| 4.6.0			| https://pypi.org/project/jsonschema
 | library/python-3/meson-310		| 0.62.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/orjson-310		| 3.6.8			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.0.4		| https://pypi.org/project/pip
