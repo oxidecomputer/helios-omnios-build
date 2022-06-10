@@ -11,7 +11,7 @@
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.5.2			| https://github.com/facebook/zstd/releases
-| data/iso-codes			| 4.9.0			| https://salsa.debian.org/api/v4/projects/iso-codes-team%2Fiso-codes/repository/tags https://salsa.debian.org/iso-codes-team/iso-codes/tags
+| data/iso-codes			| 4.10.0			| https://salsa.debian.org/api/v4/projects/iso-codes-team%2Fiso-codes/repository/tags https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3380500		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.5		| https://ftp.gnu.org/gnu/automake/
@@ -28,7 +28,7 @@
 | developer/parser/bison		| 3.8.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.36.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 6.1.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 6.1.3			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 8.2			| http://ftp.vim.org/pub/vim/unix
@@ -79,8 +79,8 @@
 | runtime/perl				| 5.36.0		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.13		| https://www.python.org/downloads/source/
-| runtime/python-310			| 3.10.4		| https://www.python.org/downloads/source/
-| security/sudo				| 1.9.10		| https://www.sudo.ws/
+| runtime/python-310			| 3.10.5		| https://www.python.org/downloads/source/
+| security/sudo				| 1.9.11		| https://www.sudo.ws/
 | service/network/chrony		| 4.2			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/tags
@@ -127,15 +127,15 @@
 | library/python-3/asn1crypto-310	| 1.5.1			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-310		| 21.4.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.0		| https://pypi.org/project/cffi
-| library/python-3/coverage-310		| 6.3.2			| https://pypi.org/project/coverage
+| library/python-3/coverage-310		| 6.4.1			| https://pypi.org/project/coverage
 | library/python-3/cryptography-310	| 37.0.2		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.5.1			| https://pypi.org/project/jsonschema
-| library/python-3/meson-310		| 0.62.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/orjson-310		| 3.6.8			| https://github.com/ijl/orjson/releases
-| library/python-3/pip-310		| 22.0.4		| https://pypi.org/project/pip
+| library/python-3/jsonschema-310	| 4.6.0			| https://pypi.org/project/jsonschema
+| library/python-3/meson-310		| 0.62.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/orjson-310		| 3.7.1			| https://github.com/ijl/orjson/releases
+| library/python-3/pip-310		| 22.1.2		| https://pypi.org/project/pip
 | library/python-3/pycodestyle-310	| 2.8.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-310		| 7.44.1		| https://pypi.org/project/pycurl
@@ -143,8 +143,8 @@
 | library/python-3/pyrsistent-310	| 0.18.1		| https://pypi.org/project/pyrsistent
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.6			| https://pypi.org/project/python-rapidjson
-| library/python-3/semantic-version-310	| 2.9.0			| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-310	| 62.1.0		| https://pypi.org/project/setuptools
+| library/python-3/semantic-version-310	| 2.10.0			| https://pypi.org/project/semantic-version
+| library/python-3/setuptools-310	| 62.3.2		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-310	| 1.3.0			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tomli-310		| 2.0.1			| https://pypi.org/project/tomli
