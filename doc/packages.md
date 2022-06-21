@@ -11,7 +11,7 @@
 | compress/xz				| 5.2.5			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.5.2			| https://github.com/facebook/zstd/releases
-| data/iso-codes			| 4.10.0			| https://salsa.debian.org/api/v4/projects/iso-codes-team%2Fiso-codes/repository/tags https://salsa.debian.org/iso-codes-team/iso-codes/tags
+| data/iso-codes			| 4.10.0		| https://salsa.debian.org/api/v4/projects/iso-codes-team%2Fiso-codes/repository/tags https://salsa.debian.org/iso-codes-team/iso-codes/tags
 | database/sqlite-3			| 3380500		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.5		| https://ftp.gnu.org/gnu/automake/
@@ -62,7 +62,7 @@
 | library/readline8-patchlvl		| 002			| https://ftp.gnu.org/gnu/readline/readline-8.1-patches/
 | library/security/openssl-11		| 1.1.1o		| https://www.openssl.org/source/
 | library/security/openssl-3		| 3.0.3			| https://www.openssl.org/source/
-| library/unixodbc			| 2.3.11			| http://www.unixodbc.org/download.html
+| library/unixodbc			| 2.3.11		| http://www.unixodbc.org/download.html
 | library/xxhash			| 0.8.1			| https://github.com/Cyan4973/xxHash/releases | Currently used solely by rsync
 | library/zlib				| 1.2.12		| https://www.zlib.net/
 | meta/data/microcode			| 20220419		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
@@ -143,7 +143,7 @@
 | library/python-3/pyrsistent-310	| 0.18.1		| https://pypi.org/project/pyrsistent
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.6			| https://pypi.org/project/python-rapidjson
-| library/python-3/semantic-version-310	| 2.10.0			| https://pypi.org/project/semantic-version
+| library/python-3/semantic-version-310	| 2.10.0		| https://pypi.org/project/semantic-version
 | library/python-3/setuptools-310	| 62.6.0		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-310	| 1.3.0			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
