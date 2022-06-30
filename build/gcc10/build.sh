@@ -13,13 +13,13 @@
 # }}}
 #
 # Copyright 2014 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PKG=developer/gcc10
 PROG=gcc
-VER=10.3.0
+VER=10.4.0
 ILVER=il-1
 SUMMARY="gcc $VER-$ILVER"
 DESC="The GNU Compiler Collection"
@@ -170,6 +170,9 @@ tests() {
     # This causes the testsuite to be run three times, once with -m32, once
     # with -m64 and once with -m64 and -msave-args
     MAKE_TESTSUITE_ARGS+=" RUNTESTFLAGS=--target_board=unix/\{-m32,-m64,-m64/-msave-args\}"
+    # Limit the number of parallel tests. Too many seems to produce
+    # inconsistent results.
+    MAKE_TESTSUITE_ARGS+=" -j8"
     # If not in batch mode, we've already asked whether this should be run
     # above, so set BATCH
     BATCH=1 run_testsuite "check check-target" "" build.log.testsuite
