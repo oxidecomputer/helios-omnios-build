@@ -145,7 +145,7 @@
 | library/python-3/rapidjson-310	| 1.8			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.10.0		| https://pypi.org/project/semantic-version
 | library/python-3/setuptools-310	| 63.1.0		| https://pypi.org/project/setuptools
-| library/python-3/setuptools-rust-310	| 1.3.0			| https://pypi.org/project/setuptools-rust
+| library/python-3/setuptools-rust-310	| 1.4.1			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tomli-310		| 2.0.1			| https://pypi.org/project/tomli
 | library/python-3/typing-extensions-310| 4.3.0			| https://pypi.org/project/typing-extensions
