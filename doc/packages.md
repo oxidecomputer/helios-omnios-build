@@ -73,8 +73,8 @@
 | network/socat				| 1.7.4.3		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/tags
-| runtime/java/openjdk11		| 11.0.15+10		| https://github.com/openjdk/jdk11u/tags
-| runtime/java/openjdk17		| 17.0.3+7		| https://github.com/openjdk/jdk17u/tags
+| runtime/java/openjdk11		| 11.0.16+8		| https://github.com/openjdk/jdk11u/tags
+| runtime/java/openjdk17		| 17.0.4+8		| https://github.com/openjdk/jdk17u/tags
 | runtime/java/openjdk8			| 1.8.332-09		| https://github.com/openjdk/jdk8u/tags
 | runtime/perl				| 5.36.0		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
