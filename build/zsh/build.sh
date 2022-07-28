@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=zsh
-VER=5.8.1
+VER=5.9
 PKG=shell/zsh
 SUMMARY="Z shell"
 DESC="The Z shell"
