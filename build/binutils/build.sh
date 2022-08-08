@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=binutils
-VER=2.38
+VER=2.39
 PKG=developer/gnu-binutils
 SUMMARY="GNU binary utilities"
 DESC="A set of programming tools for creating and managing binary programs, "
@@ -47,6 +47,9 @@ CONFIGURE_OPTS="
     --enable-largefile
     --with-system-zlib
 "
+
+# Program header data segments are RWX on illumos for at least 32-bit
+CONFIGURE_OPTS+=" --enable-warn-rwx-segments=no"
 
 XFORM_ARGS="-D GNU_ARCH=$TRIPLET64"
 
