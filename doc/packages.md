@@ -28,7 +28,7 @@
 | developer/parser/bison		| 3.8.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.37.1		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 6.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 6.2.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 9.0			| http://ftp.vim.org/pub/vim/unix
@@ -102,8 +102,8 @@
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.8.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/tags
-| system/rsyslog			| 8.2206.0		| https://www.rsyslog.com/downloads/download-v8-stable/
-| system/test/fio			| 3.30			| https://github.com/axboe/fio/tags
+| system/rsyslog			| 8.2208.0		| https://www.rsyslog.com/downloads/download-v8-stable/
+| system/test/fio			| 3.31			| https://github.com/axboe/fio/tags
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.9.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.3			| https://github.com/tmux/tmux/releases http://tmux.github.io/
@@ -126,18 +126,18 @@
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-310	| 1.5.1			| https://pypi.org/project/asn1crypto
-| library/python-3/attrs-310		| 21.4.0		| https://pypi.org/project/attrs
+| library/python-3/attrs-310		| 22.1.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.1		| https://pypi.org/project/cffi
-| library/python-3/coverage-310		| 6.4.2			| https://pypi.org/project/coverage
+| library/python-3/coverage-310		| 6.4.3			| https://pypi.org/project/coverage
 | library/python-3/cryptography-310	| 37.0.4		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.7.2			| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-310	| 4.9.1			| https://pypi.org/project/jsonschema
 | library/python-3/meson-310		| 0.63.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/orjson-310		| 3.7.8			| https://github.com/ijl/orjson/releases
-| library/python-3/pip-310		| 22.2			| https://pypi.org/project/pip
-| library/python-3/pycodestyle-310	| 2.8.0			| https://pypi.org/project/pycodestyle/
+| library/python-3/orjson-310		| 3.7.11		| https://github.com/ijl/orjson/releases
+| library/python-3/pip-310		| 22.2.2		| https://pypi.org/project/pip
+| library/python-3/pycodestyle-310	| 2.9.1			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-310		| 7.44.1		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-310	| 22.0.0		| https://pypi.org/project/pyOpenSSL
@@ -145,8 +145,8 @@
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.8			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.10.0		| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-310	| 63.2.0		| https://pypi.org/project/setuptools
-| library/python-3/setuptools-rust-310	| 1.4.1			| https://pypi.org/project/setuptools-rust
+| library/python-3/setuptools-310	| 64.0.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-rust-310	| 1.5.0			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tomli-310		| 2.0.1			| https://pypi.org/project/tomli
 | library/python-3/typing-extensions-310| 4.3.0			| https://pypi.org/project/typing-extensions
