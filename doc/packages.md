@@ -90,7 +90,7 @@
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.20		| http://www.ivarch.com/programs/pv.shtml
 | shell/tcsh				| 6.24.01		| https://github.com/tcsh-org/tcsh/tags
-| shell/zsh				| 5.8.1			| https://sourceforge.net/projects/zsh/files/zsh
+| shell/zsh				| 5.9			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.2			| https://github.com/tycho/cpuid/tags
 | system/data/urxvt-terminfo		| 9.30			| http://dist.schmorp.de/rxvt-unicode/
 | system/library/dbus			| 1.14.0		| https://dbus.freedesktop.org/releases/dbus | Odd minor versions are dev/unstable
