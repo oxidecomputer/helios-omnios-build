@@ -44,7 +44,29 @@ MAKE_INSTALL_ARGS="
 MAKE_INSTALL_ARGS_32="LIBDIR=$PREFIX/lib BINDIR=$PREFIX/bin/$ISAPART"
 MAKE_INSTALL_ARGS_64="LIBDIR=$PREFIX/lib/$ISAPART64"
 
-MAKE_TESTSUITE_ARGS="$MAKE_INSTALL_ARGS"
+MAKE_TESTSUITE_ARGS="$MAKE_INSTALL_ARGS -k"
+
+TESTSUITE_SED="
+    s/[^[:print:]]//g
+    /ln -sf/d
+    /^Read : /d
+    /^Decompressed/d
+    /Compressed .* bytes into .* bytes ==>/d
+    /^Completed in/d
+    /^gmake.* directory /d
+    /^gcc/d
+    s^[0-9][0-9]*\.[0-9]* MB/s^X MB/s^g
+    /-rw-r/d
+    /byte.*copied.*B\/s/d
+    /LZ4 command line interface 64-bits/d
+    s/  *$//
+    /[Aa]ll tests completed/d
+    /^Seed =/d
+    s/[0-9][0-9]* bytes/X bytes/g
+    /ratio[ :].*%$/d
+    /^[0-9][0-9][0-9][0-9]\/[0-9][0-9]\/[0-9][0-9] [0-9][0-9]:[0-9][0-9]:/d
+    /^Ran [0-9][0-9]* tests in/d
+"
 
 init
 download_source $PROG "v$VER"
