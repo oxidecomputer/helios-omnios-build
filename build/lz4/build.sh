@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=lz4
 PKG=compress/lz4
-VER=1.9.3
+VER=1.9.4
 SUMMARY="LZ4"
 DESC="Extremely fast compression"
 
