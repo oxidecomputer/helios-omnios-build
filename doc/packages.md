@@ -51,7 +51,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
-| library/nghttp2			| 1.48.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nghttp2			| 1.49.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.82			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.34			| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
 | library/pcre2				| 10.40			| https://github.com/PhilipHazel/pcre2/releases
@@ -121,7 +121,7 @@
 | library/glib2				| 2.72.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.39			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
-| system/virtualization/open-vm-tools	| 12.0.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
+| system/virtualization/open-vm-tools	| 12.1.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.0.2			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-310	| 1.5.1			| https://pypi.org/project/asn1crypto
