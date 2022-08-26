@@ -18,7 +18,7 @@
 
 PKG=library/python-3/setuptools-310
 PROG=setuptools
-VER=65.1.0
+VER=65.3.0
 SUMMARY="Python package management"
 DESC="Easily download, build, install, upgrade, and uninstall Python packages"
 

@@ -47,7 +47,7 @@
 | library/libidn			| 1.41			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.4.2			| https://sourceware.org/libffi/
 | library/libuv				| 1.44.2		| https://github.com/libuv/libuv/releases | Currently used solely by bind
-| library/libxml2			| 2.10.0		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
+| library/libxml2			| 2.10.1		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
@@ -132,7 +132,7 @@
 | library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.12.1		| https://pypi.org/project/jsonschema
+| library/python-3/jsonschema-310	| 4.14.0		| https://pypi.org/project/jsonschema
 | library/python-3/meson-310		| 0.63.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/orjson-310		| 3.7.12		| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.2.2		| https://pypi.org/project/pip
@@ -144,7 +144,7 @@
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.8			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.10.0		| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-310	| 65.1.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-310	| 65.3.0		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-310	| 1.5.1			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tomli-310		| 2.0.1			| https://pypi.org/project/tomli
