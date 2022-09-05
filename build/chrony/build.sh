@@ -17,11 +17,11 @@
 . ../../lib/functions.sh
 
 PROG=chrony
-VER=4.2
+VER=4.3
 PKG=service/network/chrony
 SUMMARY="Network time services"
 DESC="A versatile implementation of the Network Time Protocol (NTP)"
-NETTLEVER=3.7.3
+NETTLEVER=3.8.1
 
 set_arch 64
 
