@@ -12,7 +12,7 @@
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.5.2			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.11.0		| https://salsa.debian.org/api/v4/projects/iso-codes-team%2Fiso-codes/repository/tags https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3390200		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3390300		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.5		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.3			| https://ftp.gnu.org/gnu/make/
@@ -27,8 +27,8 @@
 | developer/nasm			| 2.15.05		| http://www.nasm.us/pub/nasm/releasebuilds
 | developer/parser/bison		| 3.8.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
-| developer/versioning/git		| 2.37.2		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 6.2.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/git		| 2.37.3		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
+| developer/versioning/mercurial	| 6.2.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 9.0			| http://ftp.vim.org/pub/vim/unix
@@ -47,7 +47,7 @@
 | library/libidn			| 1.41			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
 | library/libffi			| 3.4.2			| https://sourceware.org/libffi/
 | library/libuv				| 1.44.2		| https://github.com/libuv/libuv/releases | Currently used solely by bind
-| library/libxml2			| 2.10.1		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
+| library/libxml2			| 2.10.2		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
@@ -82,7 +82,7 @@
 | runtime/python-39			| 3.9.13		| https://www.python.org/downloads/source/
 | runtime/python-310			| 3.10.6		| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.11p3		| https://www.sudo.ws/
-| service/network/chrony		| 4.2			| https://download.tuxfamily.org/chrony/
+| service/network/chrony		| 4.3			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/tags
 | shell/bash				| 5.1.16		| https://ftp.gnu.org/gnu/bash/
@@ -97,25 +97,25 @@
 | system/library/libdbus-glib		| 0.112			| https://dbus.freedesktop.org/releases/dbus-glib/
 | system/library/pcap			| 1.10.1		| http://www.tcpdump.org/#latest-releases
 | system/management/cloud-init		| 22.3			| https://github.com/canonical/cloud-init/releases
-| system/management/ipmitool		| 1.8.18		| https://github.com/ipmitool/ipmitool/releases
+| system/management/ipmitool		| 1.8.19		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.9.3			| https://github.com/net-snmp/net-snmp/tags
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
 | system/pciutils			| 3.8.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/tags
 | system/rsyslog			| 8.2208.0		| https://www.rsyslog.com/downloads/download-v8-stable/
-| system/test/fio			| 3.31			| https://github.com/axboe/fio/tags
+| system/test/fio			| 3.32			| https://github.com/axboe/fio/tags
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.9.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.3			| https://github.com/tmux/tmux/releases http://tmux.github.io/
-| text/gawk				| 5.1.1			| https://ftp.gnu.org/gnu/gawk/
+| text/gawk				| 5.2.0			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.8			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.21			| https://ftp.gnu.org/pub/gnu/gettext/
-| text/gnu-grep				| 3.7			| https://ftp.gnu.org/gnu/grep/
+| text/gnu-grep				| 3.8			| https://ftp.gnu.org/gnu/grep/
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
 | text/gnu-sed				| 4.8			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
-| text/less				| 590			| http://www.greenwoodsoftware.com/less/download.html
-| web/curl				| 7.84.0		| https://curl.haxx.se/download.html
+| text/less				| 608			| http://www.greenwoodsoftware.com/less/download.html
+| web/curl				| 7.85.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.3		| https://ftp.gnu.org/gnu/wget/
 | web/wget2				| 2.0.1			| https://ftp.gnu.org/gnu/wget/
 | library/glib2				| 2.72.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
