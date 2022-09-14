@@ -28,6 +28,7 @@
 
 PROG=bash
 VER=5.1
+DASHREV=1
 PATCHLEVEL=4
 PKG=shell/bash
 SUMMARY="GNU Bash"
@@ -88,9 +89,6 @@ save_function _make_clean make_clean
 ###########################################################################
 
 note -n "Building $PROG"
-
-CFLAGS+=" -I/usr/include/ncurses"
-LDFLAGS+=" -lncurses"
 
 # "let's shrink the SHT_SYMTAB as much as we can"
 # When last checked, this option shrinks the symbol table size by a third, but
