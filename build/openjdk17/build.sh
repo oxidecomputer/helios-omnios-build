@@ -18,8 +18,8 @@
 
 PROG=openjdk
 VER=17
-UPDATE=4
-BUILD=8
+UPDATE=4.1
+BUILD=1
 PKG=runtime/java/openjdk17
 SUMMARY="openjdk $VER"
 DESC="Open-source implementation of the seventeenth edition of the "
@@ -67,7 +67,6 @@ XFORM_ARGS="
 NO_PARALLEL_MAKE=1
 
 CONFIGURE_OPTS="
-    --with-version-update=$UPDATE
     --with-version-build=$BUILD
     --with-version-pre=
     --with-version-opt=omnios-$RELVER
