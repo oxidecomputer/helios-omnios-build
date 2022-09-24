@@ -129,7 +129,7 @@
 | library/python-3/cffi-310		| 1.15.1		| https://pypi.org/project/cffi
 | library/python-3/coverage-310		| 6.4.4			| https://pypi.org/project/coverage
 | library/python-3/cryptography-310	| 38.0.1		| https://pypi.org/project/cryptography
-| library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
+| library/python-3/idna-310		| 3.4			| https://pypi.org/project/idna
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-310	| 4.14.0		| https://pypi.org/project/jsonschema
