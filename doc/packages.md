@@ -51,7 +51,7 @@
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
-| library/nghttp2			| 1.49.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nghttp2			| 1.50.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.82			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.34			| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
 | library/pcre2				| 10.40			| https://github.com/PhilipHazel/pcre2/releases
