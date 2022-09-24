@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=libffi
-VER=3.4.2
+VER=3.4.3
 PKG=library/libffi
 SUMMARY="A Portable Foreign Function Interface Library"
 DESC="$PROG - $SUMMARY"
@@ -30,6 +30,8 @@ SKIP_LICENCES=libffi
 PVERS="3.2.1 3.3"
 
 LDFLAGS+=" $SSPFLAGS"
+
+export MAKE
 
 # libffi has historically been linked with libtool's -nostdlib.
 # The exact reason for this unclear but historic commit messages indicate that
@@ -61,18 +63,18 @@ init
 prep_build
 
 # Build previous versions
+save_variables BUILDDIR EXTRACTED_SRC
 for pver in $PVERS; do
     note -n "Building previous version: $pver"
-    save_variable BUILDDIR
-    BUILDDIR=$PROG-$pver
+    set_builddir $PROG-$pver
     download_source -dependency $PROG $PROG $pver
-    patch_source $PROG-`echo $pver | cut -d. -f1-2`
+    patch_source patches-`echo $pver | cut -d. -f1-2`
     if ((EXTRACT_MODE == 0)); then
         build
         tests
     fi
-    restore_variable BUILDDIR
 done
+restore_variables BUILDDIR EXTRACTED_SRC
 
 note -n "Building current version: $VER"
 download_source $PROG $PROG $VER

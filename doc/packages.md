@@ -45,7 +45,7 @@
 | library/libedit			| 20210910-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.12		| https://github.com/libevent/libevent/tags | Currently used solely by tmux
 | library/libidn			| 1.41			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
-| library/libffi			| 3.4.2			| https://sourceware.org/libffi/
+| library/libffi			| 3.4.3			| https://sourceware.org/libffi/
 | library/libuv				| 1.44.2		| https://github.com/libuv/libuv/releases | Currently used solely by bind
 | library/libxml2			| 2.10.2		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
