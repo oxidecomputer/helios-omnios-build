@@ -35,7 +35,7 @@
 | file/gnu-coreutils			| 9.1			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.9.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.2.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
-| library/expat				| 2.4.8			| https://github.com/libexpat/libexpat/releases
+| library/expat				| 2.4.9			| https://github.com/libexpat/libexpat/releases
 | library/estr				| 0.1.11		| https://github.com/rsyslog/libestr/tags | Currently used solely by rsyslog
 | library/fastjson			| 0.99.9		| https://github.com/rsyslog/libfastjson/tags | Currently used solely by rsyslog
 | library/gmp				| 6.2.1			| https://gmplib.org/download/gmp/ https://gmplib.org/
@@ -45,15 +45,15 @@
 | library/libedit			| 20210910-3.1		| https://thrysoee.dk/editline/
 | library/libevent			| 2.1.12		| https://github.com/libevent/libevent/tags | Currently used solely by tmux
 | library/libidn			| 1.41			| http://git.savannah.gnu.org/cgit/libidn.git/refs/tags https://ftp.gnu.org/gnu/libidn/
-| library/libffi			| 3.4.2			| https://sourceware.org/libffi/
+| library/libffi			| 3.4.3			| https://sourceware.org/libffi/
 | library/libuv				| 1.44.2		| https://github.com/libuv/libuv/releases | Currently used solely by bind
 | library/libxml2			| 2.10.2		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
 | library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
-| library/nghttp2			| 1.49.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.82			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
-| library/nspr				| 4.34			| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
+| library/nghttp2			| 1.50.0		| https://github.com/nghttp2/nghttp2/releases
+| library/nss				| 3.83			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nspr				| 4.34.1		| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
 | library/pcre2				| 10.40			| https://github.com/PhilipHazel/pcre2/releases
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
 | library/readline			| 8.1.2			| https://ftp.gnu.org/gnu/readline/
@@ -67,7 +67,7 @@
 | library/zlib				| 1.2.12		| https://www.zlib.net/
 | meta/data/microcode/amd		| 20220810		| https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/log/amd-ucode
 | meta/data/microcode/intel		| 20220809		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
-| network/dns/bind			| 9.18.6		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
+| network/dns/bind			| 9.18.7		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
 | network/openssh			| 9.0p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.6			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.3			| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
@@ -128,13 +128,13 @@
 | library/python-3/attrs-310		| 22.1.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.1		| https://pypi.org/project/cffi
 | library/python-3/coverage-310		| 6.4.4			| https://pypi.org/project/coverage
-| library/python-3/cryptography-310	| 37.0.4		| https://pypi.org/project/cryptography
-| library/python-3/idna-310		| 3.3			| https://pypi.org/project/idna
+| library/python-3/cryptography-310	| 38.0.1		| https://pypi.org/project/cryptography
+| library/python-3/idna-310		| 3.4			| https://pypi.org/project/idna
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.14.0		| https://pypi.org/project/jsonschema
-| library/python-3/meson-310		| 0.63.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/orjson-310		| 3.7.12		| https://github.com/ijl/orjson/releases
+| library/python-3/jsonschema-310	| 4.16.0		| https://pypi.org/project/jsonschema
+| library/python-3/meson-310		| 0.63.2		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/orjson-310		| 3.8.0		| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.2.2		| https://pypi.org/project/pip
 | library/python-3/pycodestyle-310	| 2.9.1			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
@@ -145,7 +145,7 @@
 | library/python-3/rapidjson-310	| 1.8			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.10.0		| https://pypi.org/project/semantic-version
 | library/python-3/setuptools-310	| 65.3.0		| https://pypi.org/project/setuptools
-| library/python-3/setuptools-rust-310	| 1.5.1			| https://pypi.org/project/setuptools-rust
+| library/python-3/setuptools-rust-310	| 1.5.2			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tomli-310		| 2.0.1			| https://pypi.org/project/tomli
 | library/python-3/typing-extensions-310| 4.3.0			| https://pypi.org/project/typing-extensions
