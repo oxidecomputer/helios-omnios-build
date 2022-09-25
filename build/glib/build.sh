@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=glib
-VER=2.72.3
+VER=2.74.0
 PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
@@ -48,7 +48,6 @@ LDFLAGS32+=" -lssp_ns"
 
 CONFIGURE_OPTS="
     --prefix=$PREFIX
-    -Dfam=false
     -Dxattr=false
     -Dforce_posix_threads=true
     -Ddtrace=false
