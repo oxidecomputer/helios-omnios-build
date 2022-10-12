@@ -55,7 +55,7 @@ make_prog() {
 }
 
 tests() {
-    nm $TMPDIR/$BUILDDIR/$TRIPLET64/.libs/libffi.so | egrep '\|_(init|fini)' \
+    nm $TMPDIR/$BUILDDIR/$TRIPLET64/.libs/libffi.so | $EGREP '\|_(init|fini)' \
         && logerr "libffi was linked against standard libraries."
 }
 

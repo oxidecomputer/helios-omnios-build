@@ -64,7 +64,7 @@ install_license() {
 }
 
 local_tests() {
-    logcmd egrep -s link=dynamic $TMPDIR/$BUILDDIR/config.modules \
+    logcmd $EGREP -s link=dynamic $TMPDIR/$BUILDDIR/config.modules \
         || logerr "Dynamically-linked module build has failed"
 }
 
