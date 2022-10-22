@@ -254,6 +254,10 @@ MAKE_TESTSUITE_ARGS_WS=
 # script when testing to speed up building a package
 DONT_REMOVE_INSTALL_DIR=
 
+XFORM_ARGS=
+
+PKG_INCLUDE_TS="*.py"
+
 #############################################################################
 # C compiler options - these can be overridden by a build script
 #############################################################################
