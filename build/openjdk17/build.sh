@@ -117,7 +117,7 @@ patch_source
 LFDIR=liberation-fonts-ttf-$LIBERATIONFONTSVER
 BUILDDIR=$LFDIR download_source liberation-fonts $LFDIR
 
-prep_build autoconf -oot
+prep_build autoconf-like -oot
 chmod +x $CONFIGURE_CMD
 build -noctf
 VER=$IVER.$UPDATE DASHREV=$BUILD make_package
