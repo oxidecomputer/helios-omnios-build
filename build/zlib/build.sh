@@ -49,7 +49,7 @@ install_license() {
 init
 download_source $PROG $PROG $VER
 patch_source
-prep_build
+prep_build autoconf-like
 build
 run_testsuite
 install_license
