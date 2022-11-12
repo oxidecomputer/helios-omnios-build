@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=bind
-VER=9.18.7
+VER=9.18.8
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"
