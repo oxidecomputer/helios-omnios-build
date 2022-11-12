@@ -13,12 +13,12 @@
 # }}}
 
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=make
-VER=4.3
+VER=4.4
 PKG=developer/build/gnu-make
 SUMMARY="gmake - GNU make"
 DESC="GNU make - A utility used to build software"
