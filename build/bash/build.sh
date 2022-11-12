@@ -27,7 +27,7 @@
 . ../../lib/build.sh
 
 PROG=bash
-VER=5.1.16
+VER=5.2.9
 PKGVER=5.1.16       # including any additional patches
 PKG=shell/bash
 SUMMARY="GNU Bash"
