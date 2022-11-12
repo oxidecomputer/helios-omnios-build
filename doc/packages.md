@@ -148,5 +148,5 @@
 | library/python-3/setuptools-rust-310	| 1.5.2			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tomli-310		| 2.0.1			| https://pypi.org/project/tomli
-| library/python-3/typing-extensions-310| 4.3.0			| https://pypi.org/project/typing-extensions
+| library/python-3/typing-extensions-310| 4.4.0			| https://pypi.org/project/typing-extensions
 
