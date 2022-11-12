@@ -19,7 +19,7 @@
 . ../../lib/build.sh
 
 PROG=dhcp
-VER=4.4.3
+VER=4.4.3-P1
 PKG=network/service/isc-dhcp
 SUMMARY="ISC DHCP"
 DESC="$SUMMARY $VER"
