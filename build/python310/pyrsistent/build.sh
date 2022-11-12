@@ -18,7 +18,7 @@
 
 PKG=library/python-3/pyrsistent-310
 PROG=pyrsistent
-VER=0.18.1
+VER=0.19.2
 SUMMARY="Python pyrsistent"
 DESC="Persistent/Functional/Immutable data structures"
 
