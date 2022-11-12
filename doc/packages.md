@@ -127,7 +127,7 @@
 | library/python-3/asn1crypto-310	| 1.5.1			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-310		| 22.1.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.1		| https://pypi.org/project/cffi
-| library/python-3/coverage-310		| 6.4.4			| https://pypi.org/project/coverage
+| library/python-3/coverage-310		| 6.5.0			| https://pypi.org/project/coverage
 | library/python-3/cryptography-310	| 38.0.1		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.4			| https://pypi.org/project/idna
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
