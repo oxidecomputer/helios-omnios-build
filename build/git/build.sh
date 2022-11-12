@@ -19,7 +19,7 @@
 . ../../lib/build.sh
 
 PROG=git
-VER=2.37.3
+VER=2.38.1
 PKG=developer/versioning/git
 SUMMARY="$PROG - distributed version control system"
 DESC="Git is a free and open source distributed version control system "
@@ -39,6 +39,7 @@ HARDLINK_TARGETS="
     usr/libexec/$ISAPART64/git-core/git-remote-ftp
     usr/libexec/$ISAPART64/git-core/git-cvsserver
     usr/libexec/$ISAPART64/git-core/git-shell
+    usr/libexec/$ISAPART64/git-core/scalar
 "
 
 # For inet_ntop which isn't detected properly in the configure script
