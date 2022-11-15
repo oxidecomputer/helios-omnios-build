@@ -17,7 +17,7 @@
 . ../../lib/build.sh
 
 PROG=socat
-VER=1.7.4.3
+VER=1.7.4.4
 PKG=network/socat
 SUMMARY="Multipurpose socket relay"
 DESC="socat is a relay for bidirectional data transfer between two "

@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=readline
-VER=8.1.2
+VER=8.2
 PKG=library/readline
 SUMMARY="GNU readline"
 DESC="GNU readline library"

@@ -18,9 +18,9 @@
 . ../../lib/build.sh
 
 PROG=nss
-VER=3.83
+VER=3.85
 # Include NSPR version since we're downloading a combined tarball.
-NSPRVER=4.34.1
+NSPRVER=4.35
 # But set BUILDDIR to just be the NSS version.
 set_builddir "$PROG-$VER"
 PKG=$PROG ##IGNORE##
