@@ -50,7 +50,7 @@ logmsg -n "-- escalating privileges with $PFEXEC"
 [ "$PKGURL" = "$PKGSRVR" ] || logmsg -n "Will source packages from $PKGURL"
 
 # Respect environmental overrides for these to ease development.
-: ${KAYAK_SOURCE_REPO:=$GITHUB/kayak}
+: ${KAYAK_SOURCE_REPO:=$OOCEGITHUB/kayak}
 : ${KAYAK_SOURCE_BRANCH:=r$RELVER}
 
 clone_source() {

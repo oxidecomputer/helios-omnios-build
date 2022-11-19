@@ -31,7 +31,7 @@ RUN_DEPENDS_IPS="
 "
 
 # Respect environmental overrides for these to ease development.
-: ${KAYAK_SOURCE_REPO:=$GITHUB/kayak}
+: ${KAYAK_SOURCE_REPO:=$OOCEGITHUB/kayak}
 : ${KAYAK_SOURCE_BRANCH:=r$RELVER}
 
 clone_source() {

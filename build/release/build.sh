@@ -70,7 +70,7 @@ VERSION_ID=r$RELEASE
 BUILD_ID=$RELNUM.$RELREV.$RELDATE
 HOME_URL="$HOMEURL/"
 SUPPORT_URL="$HOMEURL/"
-BUG_REPORT_URL="$GITHUB/omnios-build/issues/new"
+BUG_REPORT_URL="$OOCEGITHUB/omnios-build/issues/new"
 	EOM
 
     popd >/dev/null

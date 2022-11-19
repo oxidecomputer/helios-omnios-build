@@ -56,7 +56,7 @@ BUILD_DEPENDS_IPS="
 "
 
 # Respect environmental overrides for these to ease development.
-: ${PKG_SOURCE_REPO:=$GITHUB/pkg5}
+: ${PKG_SOURCE_REPO:=$OOCEGITHUB/pkg5}
 : ${PKG_SOURCE_BRANCH:=r$RELVER}
 VER+="-$PKG_SOURCE_BRANCH"
 

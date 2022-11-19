@@ -33,7 +33,7 @@ DESC+="to operate hardware-accelerated graphics cards."
 BUILDARCH=64
 
 # Respect environmental overrides for these to ease development.
-: ${GFX_DRM_SOURCE_REPO:=$GITHUB/gfx-drm}
+: ${GFX_DRM_SOURCE_REPO:=$OOCEGITHUB/gfx-drm}
 : ${GFX_DRM_SOURCE_BRANCH:=r$RELVER}
 
 set_gccver $ILLUMOS_GCC_VER
