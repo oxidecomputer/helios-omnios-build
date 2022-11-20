@@ -53,9 +53,9 @@ set_arch 64
 PREFIX=
 
 # Respect environmental overrides for these to ease development.
-: ${KVM_SOURCE_REPO:=$GITHUB/illumos-kvm}
+: ${KVM_SOURCE_REPO:=$OOCEGITHUB/illumos-kvm}
 : ${KVM_SOURCE_BRANCH:=r$RELVER}
-: ${KVM_CMD_SOURCE_REPO:=$GITHUB/illumos-kvm-cmd}
+: ${KVM_CMD_SOURCE_REPO:=$OOCEGITHUB/illumos-kvm-cmd}
 : ${KVM_CMD_SOURCE_BRANCH:=r$RELVER}
 
 clone_source() {

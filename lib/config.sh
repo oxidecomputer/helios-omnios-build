@@ -82,7 +82,8 @@ export SHELL=/usr/bin/bash
 PUBLISHER_EMAIL=sa@omnios.org
 
 # The github repository root from which some packages are pulled
-GITHUB=https://github.com/omniosorg
+GITHUB=https://github.com
+OOCEGITHUB=$GITHUB/omniosorg
 # The main OOCE mirror
 SRCMIRROR=https://mirrors.omnios.org
 
