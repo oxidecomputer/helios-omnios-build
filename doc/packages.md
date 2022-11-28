@@ -89,7 +89,7 @@
 | shell/bash5-patchlvl			| 016			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.20		| http://www.ivarch.com/programs/pv.shtml
-| shell/tcsh				| 6.24.01		| https://github.com/tcsh-org/tcsh/tags
+| shell/tcsh				| 6.24.02		| https://github.com/tcsh-org/tcsh/tags
 | shell/zsh				| 5.9			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.2			| https://github.com/tycho/cpuid/tags
 | system/data/urxvt-terminfo		| 9.30			| http://dist.schmorp.de/rxvt-unicode/
@@ -118,7 +118,7 @@
 | web/curl				| 7.86.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.3		| https://ftp.gnu.org/gnu/wget/
 | web/wget2				| 2.0.1			| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.74.1		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.74.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.39			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/open-vm-tools	| 12.1.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
@@ -132,11 +132,11 @@
 | library/python-3/idna-310		| 3.4			| https://pypi.org/project/idna
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.17.0		| https://pypi.org/project/jsonschema
-| library/python-3/meson-310		| 0.64.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/orjson-310		| 3.8.1		| https://github.com/ijl/orjson/releases
+| library/python-3/jsonschema-310	| 4.17.1		| https://pypi.org/project/jsonschema
+| library/python-3/meson-310		| 0.64.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/orjson-310		| 3.8.2		| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.3.1		| https://pypi.org/project/pip
-| library/python-3/pycodestyle-310	| 2.9.1			| https://pypi.org/project/pycodestyle/
+| library/python-3/pycodestyle-310	| 2.10.0			| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-310		| 7.44.1		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-310	| 22.1.0		| https://pypi.org/project/pyOpenSSL
@@ -144,7 +144,7 @@
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.9			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.10.0		| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-310	| 65.5.1		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-310	| 65.6.3		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-310	| 1.5.2			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-310		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tomli-310		| 2.0.1			| https://pypi.org/project/tomli
