@@ -24,13 +24,6 @@ DESC="Lossless data compressor"
 
 set_arch 64
 
-CONFIGURE_OPTS_WS_64="
-    CXX=\"$CXX\"
-    CPPFLAGS=\"$CPPFLAGS $CPPFLAGS64\"
-    CXXFLAGS=\"$CXXFLAGS $CXXFLAGS64\"
-    LDFLAGS=\"$LDFLAGS $LDFLAGS64\"
-"
-
 init
 download_source $PROG $PROG $VER
 patch_source

@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2018 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/build.sh
@@ -33,7 +33,7 @@ PCIIDS=usr/src/data/hwdata/$PROG
 check_for_prebuilt $PCIIDS
 logcmd cp $PREBUILT_ILLUMOS/$PCIIDS $SRCDIR/$PROG
 
-SNAPDATE=`nawk '
+SNAPDATE=`$NAWK '
     $2 == "Version:" {
         gsub(/\./, "")
         print $3
@@ -42,21 +42,25 @@ VER=${FORMAT}.${SNAPDATE}
 VERHUMAN="v$FORMAT snapshot from $SNAPDATE"
 PKG=system/pciutils/pci.ids
 SUMMARY="Repository of all known IDs used in PCI devices"
-DESC="Repository of all known IDs used in PCI devices: IDs of vendors, devices, subsystems and device classes. It is used in various programs (like pciutils) to display full human-readable names instead of cryptic numeric codes."
+DESC="Repository of all known IDs used in PCI devices: IDs of vendors, "
+DESC+="devices, subsystems and device classes. It is used in various programs "
+DESC+="(like pciutils) to display full human-readable names instead of "
+DESC+="cryptic numeric codes."
 
-BUILDARCH=32
+set_arch 64
 
 # Nothing to configure or build, just package
 make_install() {
     logmsg "--- make install"
-    logcmd mkdir -p $DESTDIR$PREFIX/share || \
+    logcmd $MKDIR -p $DESTDIR$PREFIX/share || \
         logerr "------ Failed to create destination directory."
-    logcmd cp -p ${PROG}.gz $DESTDIR$PREFIX/share/ || \
+    logcmd $CP -p ${PROG}.gz $DESTDIR$PREFIX/share/ || \
         logerr "------ Failed to copy file into place."
 }
-build32() {
+
+build() {
     pushd $TMPDIR > /dev/null
-    gzip -c $SRCDIR/$PROG > ${PROG}.gz
+    logcmd $GZIP -c $SRCDIR/$PROG > ${PROG}.gz
     make_install
     popd > /dev/null
 }
