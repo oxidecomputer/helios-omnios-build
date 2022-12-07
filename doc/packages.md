@@ -123,7 +123,7 @@
 | developer/gnu-binutils		| 2.39			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/open-vm-tools	| 12.1.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
-| developer/swig			| 4.1.0			| http://www.swig.org/download.html
+| developer/swig			| 4.1.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-310	| 1.5.1			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-310		| 22.1.0		| https://pypi.org/project/attrs
