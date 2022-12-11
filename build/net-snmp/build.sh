@@ -45,7 +45,7 @@ LIBRARIES_ONLY="
 "
 
 forgo_isaexec
-CONFIGURE_OPTS_32+=" $LIBRARIES_ONLY"
+CONFIGURE_OPTS[i386]+=" $LIBRARIES_ONLY"
 
 CONFIGURE_OPTS="
     --with-defaults
@@ -69,7 +69,7 @@ CONFIGURE_OPTS="
     --with-openssl=/usr/ssl
 "
 
-CONFIGURE_OPTS_WS="
+CONFIGURE_OPTS[WS]="
     --with-transports=\"Unix UDP TCP UDPIPv6 TCPIPv6\"
     --with-mib-modules=\"$MIB_MODULES\"
 "
@@ -82,20 +82,21 @@ TESTSUITE_SED="
 "
 
 init
-save_buildenv
 prep_build
-# We only want the libraries from legacy versions
-CONFIGURE_OPTS_64+=" $LIBRARIES_ONLY"
+
+# For legacy versions, we only want the libraries.
+save_buildenv
+CONFIGURE_OPTS[amd64]+=" $LIBRARIES_ONLY"
 for pver in $PVERS; do
     [ -n "$FLAVOR" -a "$FLAVOR" != "$pver" ] && continue
     note -n "Building previous version: $pver"
     build_dependency -merge -ctf -oot -multi \
         $PROG-$pver $PROG-$pver $PROG $PROG $pver
 done
-restore_buildenv
 # Remove unnecessary files from the legacy versions
 logcmd rm -rf $DESTDIR/usr/{include,bin}
 logcmd $FD lib $DESTDIR/usr/lib -e la -e so -X rm {}
+restore_buildenv
 
 note -n "Building current version: $VER"
 
