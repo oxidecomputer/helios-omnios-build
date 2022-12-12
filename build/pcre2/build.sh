@@ -55,6 +55,11 @@ for pver in $PVERS; do
 done
 restore_variables BUILDDIR EXTRACTED_SRC
 
+CONFIGURE_OPTS+="
+    --enable-pcre2-16
+    --enable-pcre2-32
+"
+
 note -n "Building current version: $VER"
 download_source pcre $PROG $VER
 patch_source
