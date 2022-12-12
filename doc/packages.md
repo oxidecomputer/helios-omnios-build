@@ -54,7 +54,7 @@
 | library/nghttp2			| 1.51.0		| https://github.com/nghttp2/nghttp2/releases
 | library/nss				| 3.85			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.35			| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
-| library/pcre2				| 10.40			| https://github.com/PhilipHazel/pcre2/releases
+| library/pcre2				| 10.41			| https://github.com/PhilipHazel/pcre2/releases
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
 | library/readline			| 8.2			| https://ftp.gnu.org/gnu/readline/
 | library/readline6-patchlvl		| 008			| https://ftp.gnu.org/gnu/readline/readline-6.3-patches/
@@ -80,17 +80,17 @@
 | runtime/perl				| 5.36.0		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.15		| https://www.python.org/downloads/source/
-| runtime/python-310			| 3.10.8		| https://www.python.org/downloads/source/
-| runtime/python-311			| 3.11.0		| https://www.python.org/downloads/source/
+| runtime/python-310			| 3.10.9		| https://www.python.org/downloads/source/
+| runtime/python-311			| 3.11.1		| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.12p1		| https://www.sudo.ws/
 | service/network/chrony		| 4.3			| https://download.tuxfamily.org/chrony/
 | service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/tags
-| shell/bash				| 5.2.9		| https://ftp.gnu.org/gnu/bash/
+| shell/bash				| 5.2.9			| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 016			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
 | shell/bash5-completions		| 2.11			| https://github.com/scop/bash-completion/releases
 | shell/pipe-viewer			| 1.6.20		| http://www.ivarch.com/programs/pv.shtml
-| shell/tcsh				| 6.24.02		| https://github.com/tcsh-org/tcsh/tags
+| shell/tcsh				| 6.24.05		| https://github.com/tcsh-org/tcsh/tags
 | shell/zsh				| 5.9			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.2			| https://github.com/tycho/cpuid/tags
 | system/data/urxvt-terminfo		| 9.30			| http://dist.schmorp.de/rxvt-unicode/
@@ -101,9 +101,9 @@
 | system/management/ipmitool		| 1.8.19		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.9.3			| https://github.com/net-snmp/net-snmp/tags
 | system/network/lldp			| 0.4alpha		| https://sourceforge.net/projects/openlldp/files/
-| system/pciutils			| 3.8.0			| https://www.kernel.org/pub/software/utils/pciutils/
+| system/pciutils			| 3.9.0			| https://www.kernel.org/pub/software/utils/pciutils/
 | system/pkgtree			| 1.1			| https://github.com/quattor/pkgtree/tags
-| system/rsyslog			| 8.2210.0		| https://www.rsyslog.com/downloads/download-v8-stable/
+| system/rsyslog			| 8.2212.0		| https://www.rsyslog.com/downloads/download-v8-stable/
 | system/test/fio			| 3.33			| https://github.com/axboe/fio/tags
 | system/watch				| 3.3.16		| https://gitlab.com/api/v4/projects/procps-ng%2Fprocps/releases https://gitlab.com/procps-ng/procps/-/releases
 | terminal/screen			| 4.9.0			| https://ftp.gnu.org/gnu/screen/
@@ -119,11 +119,11 @@
 | web/curl				| 7.86.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.3		| https://ftp.gnu.org/gnu/wget/
 | web/wget2				| 2.0.1			| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.74.2		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| library/glib2				| 2.74.3		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
 | developer/gnu-binutils		| 2.39			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
-| system/virtualization/open-vm-tools	| 12.1.0		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
-| developer/swig			| 4.1.0			| http://www.swig.org/download.html
+| system/virtualization/open-vm-tools	| 12.1.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
+| developer/swig			| 4.1.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-310	| 1.5.1			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-310		| 22.1.0		| https://pypi.org/project/attrs
@@ -135,9 +135,9 @@
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-310	| 4.17.1		| https://pypi.org/project/jsonschema
 | library/python-3/meson-310		| 0.64.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/orjson-310		| 3.8.2		| https://github.com/ijl/orjson/releases
+| library/python-3/orjson-310		| 3.8.2			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.3.1		| https://pypi.org/project/pip
-| library/python-3/pycodestyle-310	| 2.10.0			| https://pypi.org/project/pycodestyle/
+| library/python-3/pycodestyle-310	| 2.10.0		| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-310		| 7.44.1		| https://pypi.org/project/pycurl
 | library/python-3/pyopenssl-310	| 22.1.0		| https://pypi.org/project/pyOpenSSL
