@@ -2267,8 +2267,7 @@ install_rust() {
 #############################################################################
 
 make_isa_stub() {
-    [ -n "$FORGO_ISAEXEC" ] \
-        && logerr "-- Calling make_isa_stub after forgo_isaexec"
+    [ -n "$FORGO_ISAEXEC" ] && return
     logmsg "Making isaexec stub binaries"
     [ -z "$ISAEXEC_DIRS" ] && ISAEXEC_DIRS="bin sbin"
     for DIR in $ISAEXEC_DIRS; do
