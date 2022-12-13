@@ -1665,7 +1665,10 @@ make_package() {
     fi
     for c in ${cross[*]}; do
         logmsg "--- packaging $c"
-        DESTDIR+=.$c PKGSRVR=${REPOS[$c]} make_package_impl "$@"
+        DESTDIR+=.$c \
+            PKGSRVR=${REPOS[$c]} \
+            PKG_IMAGE=${SYSROOT[$c]} \
+            make_package_impl "$@"
     done
 }
 
