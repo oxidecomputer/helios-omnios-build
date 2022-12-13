@@ -53,7 +53,7 @@ clone_source() {
     ((EXTRACT_MODE)) && exit
 }
 
-pre_build() {
+build_init() {
     logmsg "Providing env.sh script based on myenv.sh"
     pushd $WORKDIR > /dev/null
     PVER="$RELVER.$DASHREV"
@@ -153,7 +153,7 @@ push_pkgs() {
 }
 
 clone_source
-pre_build
+build_init
 build
 make_package
 push_pkgs

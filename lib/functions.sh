@@ -2467,7 +2467,7 @@ build() {
 
     [ $ctf -eq 1 ] && CFLAGS[0]+=" $CTF_CFLAGS"
 
-    hook pre_build
+    hook build_init
 
     [ -n "$MULTI_BUILD" ] && logmsg "--- Using multiple build directories"
     typeset _BUILDDIR=$BUILDDIR
@@ -2477,7 +2477,7 @@ build() {
             $MKDIR -p $TMPDIR/$BUILDDIR
             MULTI_BUILD_LAST=$BUILDDIR
         fi
-        hook pre_build $b
+        hook pre_build $b || continue
         build_$b || logerr "$b build failed"
         hook post_build $b
         BUILDDIR=$_BUILDDIR
@@ -2489,7 +2489,7 @@ build() {
         done
     fi
 
-    hook post_build
+    hook build_fini
 }
 
 check_buildlog() {
@@ -3342,7 +3342,7 @@ function_exists() {
 
 hook() {
     func=${1:?func}; shift
-    function_exists $func || return
+    function_exists $func || return 0
     logmsg "--- Callback $func($@)"
     $func "$@"
 }

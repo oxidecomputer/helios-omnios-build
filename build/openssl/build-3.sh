@@ -59,8 +59,7 @@ TESTSUITE_SED="
     s/[0-9]* wallclock secs.*//
 "
 
-pre_build() {
-    [ -z "$1" ] || return
+build_init() {
     declare -g DUH=$DESTDIR$PREFIX/include/openssl/configuration.h
     declare -Ag OPENSSL_CFLAGS
     OPENSSL_CFLAGS[i386]="$CFLAGS ${CFLAGS[i386]}"
@@ -89,8 +88,7 @@ post_install() {
     logcmd cp ${DUH}{,.$1}
 }
 
-post_build() {
-    [ -z "$1" ] || return
+build_fini() {
     logcmd -p diff -D __x86_64 ${DUH}.{i386,amd64} > $DUH
     patch_pc $MAJVER $DESTDIR$PREFIX/lib || logerr "patch_pc failed"
 }
@@ -100,7 +98,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-post_build
 PATH=$OOCEBIN:$PATH run_testsuite test "" testsuite-${VER%%.*}.log
 make_package
 clean_up

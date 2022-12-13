@@ -53,8 +53,7 @@ OPENSSL_CONFIG_OPTS[amd64]+=" enable-ec_nistp_64_gcc_128"
 # The 'install' target installs html documentation too
 MAKE_INSTALL_TARGET="install_sw install_ssldirs install_man_docs"
 
-pre_build() {
-    [ -z "$1" ] || return
+build_init() {
     declare -g DUH=$DESTDIR$PREFIX/include/openssl/opensslconf.h
     declare -Ag OPENSSL_CFLAGS
     OPENSSL_CFLAGS[i386]="$CFLAGS ${CFLAGS[i386]}"
@@ -83,8 +82,7 @@ post_install() {
     logcmd cp ${DUH}{,.$1}
 }
 
-post_build() {
-    [ -z "$1" ] || return
+build_fini() {
     logcmd -p diff -D __x86_64 ${DUH}.{i386,amd64} > $DUH
     patch_pc $MAJVER $DESTDIR$PREFIX/lib || logerr "patch_pc failed"
 }
@@ -94,7 +92,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-post_build
 run_testsuite test "" testsuite-${VER%.*}.log
 make_package
 clean_up

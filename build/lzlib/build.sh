@@ -28,9 +28,7 @@ CONFIGURE_OPTS="
 
 SKIP_LICENCES=lzlib
 
-pre_build() {
-    [ -z "$1" ] || return
-
+build_init() {
     CONFIGURE_OPTS[i386_WS]="
         CC=\"$CC\"
         CPPFLAGS=\"$CPPFLAGS ${CPPFLAGS[i386]}\"
