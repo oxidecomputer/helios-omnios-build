@@ -34,6 +34,10 @@ init
 prep_build
 
 # Build previous versions
+
+# Skip previous versions for cross compilation
+pre_build() { ! cross_arch $1; }
+
 save_variables BUILDDIR EXTRACTED_SRC
 for pver in $PVERS; do
     note -n "Building previous version: $pver"
@@ -43,6 +47,7 @@ for pver in $PVERS; do
     ((EXTRACT_MODE == 0)) && build
 done
 restore_variables BUILDDIR EXTRACTED_SRC
+unset -f pre_build
 
 note -n "Building current version: $VER"
 download_source $PROG $PROG $VER
