@@ -37,12 +37,38 @@ configure_amd64() {
     "
 }
 
+configure_aarch64() {
+    MAKE_ARGS_WS="
+        CFLAGS=\"$CFLAGS ${CFLAGS[aarch64]}\"
+        LDFLAGS=\"$LDFLAGS ${LDFLAGS[aarch64]}\"
+    "
+}
+
+pre_install() {
+    typeset arch=${1:?arch}
+
+    save_variables MAKE_INSTALL_ARGS
+    case $arch in
+        i386)
+            MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib BINDIR=$PREFIX/bin/i386"
+            ;;
+        amd64)
+            MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib/amd64"
+            ;;
+        aarch64)
+            MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib/aarch64"
+            ;;
+    esac
+}
+
+post_install() {
+    restore_variables MAKE_INSTALL_ARGS
+}
+
 MAKE_INSTALL_ARGS="
     INSTALL=$GNUBIN/install
     PREFIX=$PREFIX
 "
-MAKE_INSTALL_ARGS_32="LIBDIR=$PREFIX/lib BINDIR=$PREFIX/bin/i386"
-MAKE_INSTALL_ARGS_64="LIBDIR=$PREFIX/lib/amd64"
 
 MAKE_TESTSUITE_ARGS="$MAKE_INSTALL_ARGS -k"
 
