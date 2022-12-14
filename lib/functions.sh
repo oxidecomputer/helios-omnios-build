@@ -878,8 +878,7 @@ init() {
     if [ -n "$FORCE_OPENSSL_VERSION" ]; then
         CFLAGS[0]="-I/usr/ssl-$FORCE_OPENSSL_VERSION/include ${CFLAGS[0]}"
         LDFLAGS[i386]="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib ${LDFLAGS[i386]}"
-        LDFLAGS[amd64]="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib/amd64 "
-        LDFLAGS[amd64]+="${LDFLAGS[amd64]}"
+        LDFLAGS[amd64]="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib/amd64 ${LDFLAGS[amd64]}"
     fi
 
     # Create symbolic links to build area
