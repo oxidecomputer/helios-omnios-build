@@ -46,9 +46,32 @@ configure_amd64() {
         LIBDIR=$PREFIX/lib/amd64 lib-release zstd-release"
 }
 
+configure_aarch64() {
+    MOREFLAGS="$CFLAGS ${CFLAGS[aarch64]}"
+    MAKE_INSTALL_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
+        LIBDIR=$PREFIX/lib/aarch64"
+    MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
+        LIBDIR=$PREFIX/lib/aarch64 lib-release zstd-release"
+}
+
+make_prog_aarch64() {
+    CPPFLAGS+=" -I${SYSROOT[aarch64]}/usr/include" \
+    LDFLAGS+=" -L${SYSROOT[aarch64]}/usr/lib/aarch64 -R/usr/lib/aarch64" \
+        make_arch aarch64
+}
+
 make_install_amd64() {
-    make_install
-    MAKE_INSTALL_TARGET="-C programs install" make_install
+    make_install amd64
+    MAKE_INSTALL_TARGET="-C programs install" make_install amd64
+    # With the current way that the makefile builds are set up, the library
+    # is only built with the install target. Re-check the build-log for errors.
+    check_buildlog 0
+}
+
+make_install_aarch64() {
+    DESTDIR+=.aarch64 make_install aarch64
+    DESTDIR+=.aarch64 MAKE_INSTALL_TARGET="-C programs install" \
+        make_install aarch64
     # With the current way that the makefile builds are set up, the library
     # is only built with the install target. Re-check the build-log for errors.
     check_buildlog 0
