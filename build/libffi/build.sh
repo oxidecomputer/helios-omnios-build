@@ -41,8 +41,10 @@ export MAKE
 
 post_make() {
     typeset arch="$1"
+    typeset tripl
+    [ "$arch" = 'i386' ] && tripl='amd64' || tripl=$arch
     logmsg "--- rebuilding libraries with -nostdlib"
-    pushd ${TRIPLETS[amd64]} >/dev/null || logerr "pushd"
+    pushd ${TRIPLETS[$tripl]} >/dev/null || logerr "pushd"
     if [ $arch = 'i386' ]; then
         libtool_nostdlib libtool "-lc -lssp_ns"
     else
@@ -52,14 +54,20 @@ post_make() {
     popd >/dev/null
 }
 
-tests() {
-    nm $TMPDIR/$BUILDDIR/${TRIPLETS[amd64]}/.libs/libffi.so \
+post_build() {
+    typeset arch="$1"
+    typeset tripl
+    [ "$arch" = 'i386' ] && tripl='amd64' || tripl=$arch
+    nm $TMPDIR/$BUILDDIR/${TRIPLETS[$tripl]}/.libs/libffi.so \
         | $EGREP '\|_(init|fini)' \
         && logerr "libffi was linked against standard libraries."
 }
 
 init
 prep_build
+
+# Skip previous versions for cross compilation
+pre_build() { ! cross_arch $1; }
 
 # Build previous versions
 save_variables BUILDDIR EXTRACTED_SRC
@@ -70,16 +78,15 @@ for pver in $PVERS; do
     patch_source patches-`echo $pver | cut -d. -f1-2`
     if ((EXTRACT_MODE == 0)); then
         build
-        tests
     fi
 done
 restore_variables BUILDDIR EXTRACTED_SRC
+unset -f pre_build
 
 note -n "Building current version: $VER"
 download_source $PROG $PROG $VER
 patch_source
 build
-tests
 make_package
 clean_up
 
