@@ -31,27 +31,26 @@ base_MAKE_ARGS="
     MANDIR=$PREFIX/share/man
     INSTALL=$GNUBIN/install
 "
+pre_configure() {
+    typeset arch=$1
 
-configure_i386() {
-    MOREFLAGS="$CFLAGS ${CFLAGS[i386]}"
-    MAKE_INSTALL_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\""
-    MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\" lib-release"
-}
+    case $arch in
+        i386)
+            MOREFLAGS="$CFLAGS ${CFLAGS[i386]}"
+            MAKE_INSTALL_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\""
+            MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\" lib-release"
+            ;;
+        *)
+            MOREFLAGS="$CFLAGS ${CFLAGS[$arch]}"
+            MAKE_INSTALL_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
+                LIBDIR=$PREFIX/lib/$arch"
+            MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
+                LIBDIR=$PREFIX/lib/$arch lib-release zstd-release"
+            ;;
+        esac
 
-configure_amd64() {
-    MOREFLAGS="$CFLAGS ${CFLAGS[amd64]}"
-    MAKE_INSTALL_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
-        LIBDIR=$PREFIX/lib/amd64"
-    MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
-        LIBDIR=$PREFIX/lib/amd64 lib-release zstd-release"
-}
-
-configure_aarch64() {
-    MOREFLAGS="$CFLAGS ${CFLAGS[aarch64]}"
-    MAKE_INSTALL_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
-        LIBDIR=$PREFIX/lib/aarch64"
-    MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
-        LIBDIR=$PREFIX/lib/aarch64 lib-release zstd-release"
+        # No configure
+        false
 }
 
 make_prog_aarch64() {
@@ -60,20 +59,19 @@ make_prog_aarch64() {
         make_arch aarch64
 }
 
+save_function make_install_amd64 _make_install_amd64
 make_install_amd64() {
-    make_install amd64
-    MAKE_INSTALL_TARGET="-C programs install" make_install amd64
+    _make_install_amd64 "$@"
+    MAKE_INSTALL_TARGET="-C programs install" _make_install_amd64
     # With the current way that the makefile builds are set up, the library
     # is only built with the install target. Re-check the build-log for errors.
     check_buildlog 0
 }
 
+save_function make_install_aarch64 _make_install_aarch64
 make_install_aarch64() {
-    DESTDIR+=.aarch64 make_install aarch64
-    DESTDIR+=.aarch64 MAKE_INSTALL_TARGET="-C programs install" \
-        make_install aarch64
-    # With the current way that the makefile builds are set up, the library
-    # is only built with the install target. Re-check the build-log for errors.
+    _make_install_aarch64 "$@"
+    MAKE_INSTALL_TARGET="-C programs install"  _make_install_aarch64
     check_buildlog 0
 }
 
