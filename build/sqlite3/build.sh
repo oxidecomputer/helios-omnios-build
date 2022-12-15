@@ -41,6 +41,11 @@ CONFIGURE_OPTS="--disable-static"
 
 CFLAGS+=" -DSQLITE_ENABLE_COLUMN_METADATA"
 
+build_init() {
+    LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/usr/lib/aarch64"
+    LDFLAGS[aarch64]+=" -R/usr/lib/aarch64"
+}
+
 init
 download_source sqlite $PROG $VER
 patch_source

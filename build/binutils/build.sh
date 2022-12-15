@@ -51,7 +51,7 @@ CONFIGURE_OPTS="
 # Program header data segments are RWX on illumos for at least 32-bit
 CONFIGURE_OPTS+=" --enable-warn-rwx-segments=no"
 
-XFORM_ARGS="-D GNU_ARCH=$TRIPLET64"
+XFORM_ARGS="-D GNU_ARCH=${TRIPLETS[amd64]}"
 
 # stop binutils 2.34 from building info files
 MAKE_ARGS="MAKEINFO=/usr/bin/true"

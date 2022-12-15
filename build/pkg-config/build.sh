@@ -13,7 +13,7 @@
 # }}}
 
 # Copyright (c) 2014 by Delphix. All rights reserved.
-# Copyright 2019 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
@@ -21,11 +21,14 @@ PROG=pkg-config
 VER=0.29.2
 PKG=developer/pkg-config
 SUMMARY="A tool for generating compiler command line options"
-DESC="pkg-config is a helper tool used when compiling applications and libraries that helps you insert the correct compiler options on the command line, rather than hard-coding values on where to find libraries."
+DESC="pkg-config is a helper tool used when compiling applications and "
+DESC+="libraries that helps you insert the correct compiler options on "
+DESC+="the command line, rather than hard-coding values on where to find "
+DESC+="libraries."
 
 HARDLINK_TARGETS="
-    usr/bin/i386/$TRIPLET64-pkg-config
-    usr/bin/amd64/$TRIPLET64-pkg-config
+    usr/bin/i386/${TRIPLETS[amd64]}-pkg-config
+    usr/bin/amd64/${TRIPLETS[amd64]}-pkg-config
 "
 
 init

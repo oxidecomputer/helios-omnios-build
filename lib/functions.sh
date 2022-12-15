@@ -878,8 +878,7 @@ init() {
     if [ -n "$FORCE_OPENSSL_VERSION" ]; then
         CFLAGS[0]="-I/usr/ssl-$FORCE_OPENSSL_VERSION/include ${CFLAGS[0]}"
         LDFLAGS[i386]="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib ${LDFLAGS[i386]}"
-        LDFLAGS[amd64]="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib/amd64 "
-        LDFLAGS[amd64]+="${LDFLAGS[amd64]}"
+        LDFLAGS[amd64]="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib/amd64 ${LDFLAGS[amd64]}"
     fi
 
     # Create symbolic links to build area
@@ -1665,7 +1664,10 @@ make_package() {
     fi
     for c in ${cross[*]}; do
         logmsg "--- packaging $c"
-        DESTDIR+=.$c PKGSRVR=${REPOS[$c]} make_package_impl "$@"
+        DESTDIR+=.$c \
+            PKGSRVR=${REPOS[$c]} \
+            PKG_IMAGE=${SYSROOT[$c]} \
+            make_package_impl "$@"
     done
 }
 
@@ -2264,8 +2266,7 @@ install_rust() {
 #############################################################################
 
 make_isa_stub() {
-    [ -n "$FORGO_ISAEXEC" ] \
-        && logerr "-- Calling make_isa_stub after forgo_isaexec"
+    [ -n "$FORGO_ISAEXEC" ] && return
     logmsg "Making isaexec stub binaries"
     [ -z "$ISAEXEC_DIRS" ] && ISAEXEC_DIRS="bin sbin"
     for DIR in $ISAEXEC_DIRS; do
@@ -2465,7 +2466,7 @@ build() {
 
     [ $ctf -eq 1 ] && CFLAGS[0]+=" $CTF_CFLAGS"
 
-    hook pre_build
+    hook build_init
 
     [ -n "$MULTI_BUILD" ] && logmsg "--- Using multiple build directories"
     typeset _BUILDDIR=$BUILDDIR
@@ -2475,7 +2476,7 @@ build() {
             $MKDIR -p $TMPDIR/$BUILDDIR
             MULTI_BUILD_LAST=$BUILDDIR
         fi
-        hook pre_build $b
+        hook pre_build $b || continue
         build_$b || logerr "$b build failed"
         hook post_build $b
         BUILDDIR=$_BUILDDIR
@@ -2487,7 +2488,7 @@ build() {
         done
     fi
 
-    hook post_build
+    hook build_fini
 }
 
 check_buildlog() {
@@ -3340,7 +3341,7 @@ function_exists() {
 
 hook() {
     func=${1:?func}; shift
-    function_exists $func || return
+    function_exists $func || return 0
     logmsg "--- Callback $func($@)"
     $func "$@"
 }

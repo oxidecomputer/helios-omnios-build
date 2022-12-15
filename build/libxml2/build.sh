@@ -32,6 +32,11 @@ CONFIGURE_OPTS+="
 
 TESTSUITE_FILTER="^(Total|[Tt]esting|Ran)"
 
+build_init() {
+    LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/usr/lib/aarch64"
+    LDFLAGS[aarch64]+=" -R/usr/lib/aarch64"
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source

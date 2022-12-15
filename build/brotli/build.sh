@@ -38,6 +38,11 @@ CONFIGURE_OPTS[amd64]="
     -DCMAKE_INSTALL_LIBDIR=lib/amd64
     -DCMAKE_LIBRARY_ARCHITECTURE=amd64
 "
+CONFIGURE_OPTS[aarch64]="
+    -DCMAKE_INSTALL_LIBDIR=lib/aarch64
+    -DCMAKE_LIBRARY_ARCHITECTURE=aarch64
+"
+LDFLAGS[aarch64]+=" -R/usr/lib/aarch64"
 
 post_install() {
     # Install man pages. There does not seem to be an install target for this.

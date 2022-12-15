@@ -33,7 +33,12 @@ PREFIX=/usr
 export PREFIX
 export CC
 
+HARDLINK_TARGETS="
+    ${PREFIX#/}/bin/$PROG
+"
+
 base_CFLAGS="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -Wall -Winline"
+CFLAGS[aarch64]+=" -Wl,-R/usr/lib/aarch64"
 
 post_clean() {
     logcmd $MAKE -f Makefile-libbz2_so clean
@@ -65,6 +70,14 @@ pre_make() {
             export LIBISA=amd64
             export xCFLAGS="$CFLAGS ${CFLAGS[amd64]} $base_CFLAGS"
             export xLDFLAGS="$LDFLAGS ${LDFLAGS[amd64]}"
+            ;;
+        aarch64)
+            export BINISA=
+            export LIBISA=aarch64
+            export xCFLAGS="$CFLAGS ${CFLAGS[aarch64]} $base_CFLAGS"
+            export xLDFLAGS="$LDFLAGS ${LDFLAGS[aarch64]}"
+            # the default target builds and runs tests
+            MAKE_ARGS=bzip2
             ;;
     esac
     unset CFLAGS LDFLAGS

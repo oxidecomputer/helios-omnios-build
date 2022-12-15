@@ -130,8 +130,11 @@ PATCHDIR=patches
 # Do we create isaexec stubs for scripts and other non-binaries (default yes)
 NOSCRIPTSTUB=
 
-TRIPLET32=i386-pc-solaris2.11
-TRIPLET64=x86_64-pc-solaris2.11
+typeset -A TRIPLETS=(
+    [i386]=i386-pc-solaris2.11
+    [amd64]=x86_64-pc-solaris2.11
+    [aarch64]=aarch64-unknown-solaris2.11
+)
 
 #############################################################################
 # Perl stuff

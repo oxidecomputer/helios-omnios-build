@@ -51,8 +51,7 @@ OPENSSL_CONFIG_OPTS[amd64]="--libdir=lib/amd64"
 OPENSSL_CONFIG_OPTS[amd64]+=" enable-ec_nistp_64_gcc_128"
 OPENSSL_CONFIG_OPTS[amd64]+=" --pk11-libname=$PREFIX/lib/amd64/libpkcs11.so.1"
 
-pre_build() {
-    [ -z "$1" ] || return
+build_init() {
     declare -g DUH=$DESTDIR$PREFIX/include/openssl/opensslconf.h
     declare -Ag OPENSSL_CFLAGS
     OPENSSL_CFLAGS[i386]="$CFLAGS ${CFLAGS[i386]}"
@@ -78,8 +77,7 @@ configure_arch() {
 # Preserve the opensslconf.h file from each build since there will be
 # differences due to the architecture.
 
-post_build() {
-    [ -z "$1" ] || return
+build_fini() {
     logcmd -p diff -D __x86_64 ${DUH}.{i386,amd64} > $DUH
     patch_pc $MAJVER $DESTDIR$PREFIX/lib || logerr "patch_pc failed"
 }
