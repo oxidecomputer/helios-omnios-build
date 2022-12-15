@@ -2343,7 +2343,7 @@ make_clean() {
 
 configure_arch() {
     typeset arch=${1:?arch}
-    hook pre_configure $arch
+    hook pre_configure $arch || return
     logmsg "--- configure ($arch)"
     eval set -- ${CONFIGURE_OPTS["${arch}_WS"]} ${CONFIGURE_OPTS[WS]}
     [ -n "$RUN_AUTORECONF" ] && configure_autoreconf
