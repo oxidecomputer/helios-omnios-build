@@ -42,7 +42,7 @@ export MAKE
 post_make() {
     typeset arch="$1"
     logmsg "--- rebuilding libraries with -nostdlib"
-    pushd $TRIPLET64 >/dev/null || logerr "pushd"
+    pushd ${TRIPLETS[amd64]} >/dev/null || logerr "pushd"
     if [ $arch = 'i386' ]; then
         libtool_nostdlib libtool "-lc -lssp_ns"
     else
@@ -53,7 +53,8 @@ post_make() {
 }
 
 tests() {
-    nm $TMPDIR/$BUILDDIR/$TRIPLET64/.libs/libffi.so | $EGREP '\|_(init|fini)' \
+    nm $TMPDIR/$BUILDDIR/${TRIPLETS[amd64]}/.libs/libffi.so \
+        | $EGREP '\|_(init|fini)' \
         && logerr "libffi was linked against standard libraries."
 }
 

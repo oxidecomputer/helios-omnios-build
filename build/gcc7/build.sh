@@ -61,7 +61,7 @@ export LD_FOR_HOST=$LD
 export LD_FOR_TARGET=$LD
 export STRIP="/usr/bin/strip -x"
 export STRIP_FOR_TARGET="$STRIP"
-ARCH=$TRIPLET32
+ARCH=${TRIPLETS[i386]}
 
 HARDLINK_TARGETS="
     ${PREFIX/#\/}/bin/$ARCH-gcc-$VER
@@ -87,7 +87,7 @@ CONFIGURE_OPTS="
     --with-gmp-include=/usr/include/gmp
     --with-ld=$LD --without-gnu-ld
     --with-as=/usr/bin/gas --with-gnu-as
-    --with-build-time-tools=/usr/gnu/$TRIPLET64/bin
+    --with-build-time-tools=/usr/gnu/${TRIPLETS[amd64]}/bin
     --enable-languages=c,c++,fortran,lto
     --enable-plugins
     --enable-__cxa_atexit
