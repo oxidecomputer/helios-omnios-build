@@ -23,46 +23,34 @@ SUMMARY="LZ4"
 DESC="Extremely fast compression"
 
 # we build/ship 32 and 64-bit libraries but only 64-bit binaries
-configure_i386() {
-    MAKE_ARGS_WS="
-        CFLAGS=\"$CFLAGS ${CFLAGS[i386]}\"
-        LDFLAGS=\"$LDFLAGS ${LDFLAGS[i386]}\"
-    "
-}
+pre_configure() {
+    typeset arch=$1
 
-configure_amd64() {
     MAKE_ARGS_WS="
-        CFLAGS=\"$CFLAGS ${CFLAGS[amd64]}\"
-        LDFLAGS=\"$LDFLAGS ${LDFLAGS[amd64]}\"
+        CFLAGS=\"$CFLAGS ${CFLAGS[$arch]}\"
+        LDFLAGS=\"$LDFLAGS ${LDFLAGS[$arch]}\"
     "
-}
 
-configure_aarch64() {
-    MAKE_ARGS_WS="
-        CFLAGS=\"$CFLAGS ${CFLAGS[aarch64]}\"
-        LDFLAGS=\"$LDFLAGS ${LDFLAGS[aarch64]}\"
-    "
+    # No configure
+    false
 }
 
 pre_install() {
     typeset arch=${1:?arch}
 
-    save_variables MAKE_INSTALL_ARGS
+    save_variable MAKE_INSTALL_ARGS
     case $arch in
         i386)
             MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib BINDIR=$PREFIX/bin/i386"
             ;;
-        amd64)
-            MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib/amd64"
-            ;;
-        aarch64)
-            MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib/aarch64"
+        *)
+            MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib/$arch"
             ;;
     esac
 }
 
 post_install() {
-    restore_variables MAKE_INSTALL_ARGS
+    restore_variable MAKE_INSTALL_ARGS
 }
 
 MAKE_INSTALL_ARGS="

@@ -34,14 +34,12 @@ CONFIGURE_OPTS="
     -DCMAKE_VERBOSE_MAKEFILE=1
 "
 CONFIGURE_OPTS[i386]=
-CONFIGURE_OPTS[amd64]="
-    -DCMAKE_INSTALL_LIBDIR=lib/amd64
-    -DCMAKE_LIBRARY_ARCHITECTURE=amd64
-"
-CONFIGURE_OPTS[aarch64]="
-    -DCMAKE_INSTALL_LIBDIR=lib/aarch64
-    -DCMAKE_LIBRARY_ARCHITECTURE=aarch64
-"
+for arch in amd64 aarch64; do
+    CONFIGURE_OPTS[$arch]="
+        -DCMAKE_INSTALL_LIBDIR=lib/$arch
+        -DCMAKE_LIBRARY_ARCHITECTURE=$arch
+    "
+done
 LDFLAGS[aarch64]+=" -R/usr/lib/aarch64"
 
 post_install() {
