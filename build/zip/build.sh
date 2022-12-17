@@ -35,6 +35,11 @@ configure_amd64() {
     MAKE_ARGS_WS="CC=\"gcc $CFLAGS ${CFLAGS[amd64]}\" CPP=\"gcc -E\""
 }
 
+configure_aarch64() {
+    export DESTDIR PREFIX
+    MAKE_ARGS_WS="CC=\"gcc $CFLAGS ${CFLAGS[aarch64]}\" CPP=\"gcc -E\""
+}
+
 BASE_MAKE_ARGS="-f unix/Makefile"
 MAKE_ARGS="$BASE_MAKE_ARGS generic"
 MAKE_INSTALL_ARGS="$BASE_MAKE_ARGS install"
