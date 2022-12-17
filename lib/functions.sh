@@ -1657,26 +1657,45 @@ make_package() {
     logmsg "-- building package $PKG"
 
     typeset -a cross=
-    typeset -i native=
+    typeset native=
 
     for arch in $BUILDARCH; do
         if cross_arch $arch; then
             cross+=($arch)
         else
-            ((native++))
+            native="$arch"
         fi
     done
 
-    if ((native)); then
+    if [ -n "$native" ]; then
         logmsg "--- packaging native arch"
-        make_package_impl "$@"
+        typeset arch
+        typeset x="-Di386_ONLY="
+        for arch in $CROSS_ARCH; do
+            x+=" -D${arch}_ONLY=#"
+        done
+        hook pre_package $native
+        XFORM_ARGS+=" $x" make_package_impl "$@"
+        hook pre_package $native
     fi
-    for c in ${cross[*]}; do
+    for carch in ${cross[*]}; do
         logmsg "--- packaging $c"
-        DESTDIR+=.$c \
-            PKGSRVR=${REPOS[$c]} \
-            PKG_IMAGE=${SYSROOT[$c]} \
+        typeset arch
+        typeset x=
+        for arch in i386 $CROSS_ARCH; do
+            if [ $arch = $carch ]; then
+                x+=" -D${arch}_ONLY="
+            else
+                x+=" -D${arch}_ONLY=#"
+            fi
+        done
+        hook pre_package $carch
+        DESTDIR+=.$carch \
+            PKGSRVR=${REPOS[$carch]} \
+            PKG_IMAGE=${SYSROOT[$carch]} \
+            XFORM_ARGS+=" $x" \
             make_package_impl "$@"
+        hook post_package $carch
     done
 }
 

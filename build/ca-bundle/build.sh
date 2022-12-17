@@ -41,8 +41,10 @@ SAFETY_THRESH=100
 
 OVERRIDE_SOURCE_URL=none
 
-build_pem() {
-    BUILDDIR_ORIG=$BUILDDIR
+set_arch 64
+
+make_install() {
+    save_variable BUILDDIR
 
     # Fetch and extract the NSS source to get certdata.txt
     NSSDIR=nss-$NSSVER
@@ -57,7 +59,7 @@ build_pem() {
 
     ((EXTRACT_MODE)) && exit
 
-    BUILDDIR=$BUILDDIR_ORIG
+    restore_variable BUILDDIR
 
     # The make-ca script has a hard coded check for at least 150
     # certificates. However, the number of trusted roots is now lower
@@ -97,10 +99,8 @@ build_pem() {
     logmsg "Re-hashing certificates"
     logcmd openssl rehash -v . || logerr "rehash failed"
     popd >/dev/null
-}
 
-# Install the OmniOS CA certs, to be used by pkg(1)
-install_omnios_cacert() {
+    # Install the OmniOS CA certs, to be used by pkg(1)
     logmsg "Installing OmniOS CA certs"
 
     logcmd mkdir -p $DESTDIR/etc/ssl/pkg
@@ -116,9 +116,7 @@ install_omnios_cacert() {
         logcmd ln -s $file $DESTDIR/etc/ssl/pkg/$subj_hash.0 || \
             logerr "--- Failed to create subject hash link for $file"
     done
-}
 
-tests() {
     [ `$KEYTOOL -rfc -list -keystore $DESTDIR/etc/ssl/java/cacerts \
         -storepass changeit | grep -c 'BEGIN CERT'` -ge $SAFETY_THRESH ] \
         || logerr "Short JKS"
@@ -126,11 +124,15 @@ tests() {
         || logerr "Short cacert.pem"
 }
 
+build() {
+    for b in $BUILDARCH; do
+        make_install_$b
+    done
+}
+
 init
 prep_build
-build_pem
-install_omnios_cacert
-tests
+build
 make_package
 clean_up
 
