@@ -48,8 +48,20 @@ OPENSSL_CONFIG_OPTS+=" --api=1.1.1"
 
 # Configure options specific to a particular arch.
 OPENSSL_CONFIG_OPTS[i386]="--libdir=$PREFIX/lib"
+
 OPENSSL_CONFIG_OPTS[amd64]="--libdir=$PREFIX/lib/amd64"
 OPENSSL_CONFIG_OPTS[amd64]+=" enable-ec_nistp_64_gcc_128"
+
+OPENSSL_CONFIG_OPTS[aarch64]="--libdir=$PREFIX/lib"
+OPENSSL_CONFIG_OPTS[aarch64]+=" --cross-compile-prefix=${TRIPLETS[aarch64]}-"
+OPENSSL_CONFIG_OPTS[aarch64]+=" enable-ec_nistp_64_gcc_128"
+OPENSSL_CONFIG_OPTS[aarch64]+=" no-asm"
+
+typeset -A OPENSSL_PLATFORM=(
+    [i386]=solaris-x86-gcc
+    [amd64]=solaris64-x86_64-gcc
+    [aarch64]=solaris-aarch64-gcc
+)
 
 # The 'install' target installs html documentation too
 MAKE_INSTALL_TARGET="install_sw install_ssldirs install_man_docs"
@@ -62,15 +74,17 @@ TESTSUITE_SED="
 build_init() {
     declare -g DUH=$DESTDIR$PREFIX/include/openssl/configuration.h
     declare -Ag OPENSSL_CFLAGS
-    OPENSSL_CFLAGS[i386]="$CFLAGS ${CFLAGS[i386]}"
-    OPENSSL_CFLAGS[amd64]="$CFLAGS ${CFLAGS[amd64]}"
+    for arch in i386 amd64 aarch64; do
+        OPENSSL_CFLAGS[$arch]="$CFLAGS ${CFLAGS[$arch]}"
+    done
+    OPENSSL_CFLAGS[aarch64]+=" --sysroot=${SYSROOT[aarch64]}"
     unset CFLAGS
 }
 
 configure_arch() {
     typeset arch=${1:?arch}
 
-    [ $arch = amd64 ] && SSLPLAT=solaris64-x86_64-gcc || SSLPLAT=solaris-x86-gcc
+    SSLPLAT=${OPENSSL_PLATFORM[$arch]}
     logmsg -n "--- Configure $arch ($SSLPLAT)"
     export __CNF_CFLAGS="${OPENSSL_CFLAGS[$arch]}"
     logcmd ./Configure $SSLPLAT \
@@ -86,11 +100,13 @@ configure_arch() {
 # differences due to the architecture.
 post_install() {
     logcmd cp ${DUH}{,.$1}
+    patch_pc $MAJVER $DESTDIR$PREFIX/lib || logerr "patch_pc failed"
 }
 
 build_fini() {
-    logcmd -p diff -D __x86_64 ${DUH}.{i386,amd64} > $DUH
-    patch_pc $MAJVER $DESTDIR$PREFIX/lib || logerr "patch_pc failed"
+    if [ -f ${DUH}.i386 -a -f ${DUH}.amd64 ]; then
+        logcmd -p diff -D __x86_64 ${DUH}.{i386,amd64} > $DUH
+    fi
 }
 
 init
