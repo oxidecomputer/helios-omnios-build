@@ -779,7 +779,8 @@ update_sysroot() {
 
     for arch in ${!SYSROOT[@]}; do
         logmsg "--- updating sysroot for $arch"
-        logcmd $PKGCLIENT -R ${SYSROOT[$arch]} install \*
+        # For now, osnet is not installable due to a missing onbld
+        logcmd $PKGCLIENT -R ${SYSROOT[$arch]} install --reject=osnet \*
     done
 }
 
