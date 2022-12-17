@@ -14,13 +14,24 @@ full=
 pth=
 max=0
 
+# The following is a crude check for a cross build and it does not work
+# properly if this build is attempting to target all architectures.
+CROSSLIB=$CROSSTOOLS/$BUILDARCH/${TRIPLETS[$BUILDARCH]}/lib
+CROSS_GCC_VER=10
+function is_cross { [[ ! $BUILDARCH = *amd64* ]]; }
+
 # Find the library file in the specified gcc version
 function find_lib {
     local v=$1
     local lib=$2
+    local search=$3
     local minor
 
-    [ -d /opt/gcc-$v/lib ] && pth=/opt/gcc-$v/lib || pth=/usr/gcc/$v/lib
+    if [ -n "$search" ]; then
+        pth=$search
+    else
+        [ -d /opt/gcc-$v/lib ] && pth=/opt/gcc-$v/lib || pth=/usr/gcc/$v/lib
+    fi
 
     full=
     for l in "$pth"/$lib.so.*; do
@@ -54,40 +65,47 @@ function checksum {
 function install_lib {
     local v=$1
     local libs="$2"
+    local arch64="$3"
+    local search="$4"
 
-    logcmd mkdir -p usr/gcc/$v/lib/amd64
+    logcmd mkdir -p usr/gcc/$v/lib
+    [ -n "$arch64" ] && logcmd mkdir -p usr/gcc/$v/lib/$arch64
+
     for lib in $libs; do
 
-        find_lib $v $lib    # sets pth, full, maj variables
+        find_lib $v $lib $search    # sets pth, full, maj variables
 
         # Copy the libraries across to /usr/gcc/X/lib
 
         logcmd cp $pth/$full usr/gcc/$v/lib/$full
-        logcmd cp $pth/amd64/$full usr/gcc/$v/lib/amd64/$full
         checksum usr/gcc/$v/lib/$full
-        checksum usr/gcc/$v/lib/amd64/$full
+        if [ -n "$arch64" ]; then
+            logcmd cp $pth/$arch64/$full usr/gcc/$v/lib/$arch64/$full
+            checksum usr/gcc/$v/lib/$arch64/$full
+        fi
 
         # Create the links
 
         if [ "$full" != "$maj" ]; then
             # /usr/gcc/X/lib/libxxxx.so.1 -> libxxxx.so.1.2.3
             logcmd ln -s $full usr/gcc/$v/lib/$maj
-            logcmd ln -s $full usr/gcc/$v/lib/amd64/$maj
+            [ -n "$arch64" ] && logcmd ln -s $full usr/gcc/$v/lib/$arch64/$maj
         fi
         # /usr/gcc/X/lib/libxxxx.so -> libxxxx.so.1
         logcmd ln -s $maj usr/gcc/$v/lib/$lib.so
-        logcmd ln -s $maj usr/gcc/$v/lib/amd64/$lib.so
+        [ -n "$arch64" ] && logcmd ln -s $maj usr/gcc/$v/lib/$arch64/$lib.so
 
         # Link versioned libraries to /usr/lib - latest gcc version will win in
         # the case that two deliver the same versioned file.
 
         # /usr/lib/libxxxx.so.1.2.3 -> /usr/gcc/lib/X/libxxxx.so.1.2.3
         logcmd ln -sf ../gcc/$v/lib/$full usr/lib/$full
-        logcmd ln -sf ../../gcc/$v/lib/amd64/$full usr/lib/amd64/$full
+        [ -n "$arch64" ] && logcmd \
+            ln -sf ../../gcc/$v/lib/$arch64/$full usr/lib/$arch64/$full
         if [ "$full" != "$maj" ]; then
             # /usr/lib/libxxxx.so.1 -> libxxxx.so.1.2.3
             logcmd ln -sf $full usr/lib/$maj
-            logcmd ln -sf $full usr/lib/amd64/$maj
+            [ -n "$arch64" ] && logcmd ln -sf $full usr/lib/$arch64/$maj
         fi
 
     done
@@ -100,15 +118,19 @@ function install_lib {
 install_unversioned() {
     local v=$1
     local libs="$2"
+    local arch64="$3"
+    local search="$4"
 
     for lib in $libs; do
-        find_lib $v $lib
+        find_lib $v $lib $search
         # /usr/lib/libxxxx.so.1 -> ../gcc/X/lib/libxxxx.so.1
         logcmd ln -sf ../gcc/$v/lib/$maj usr/lib/$maj
-        logcmd ln -sf ../../gcc/$v/lib/amd64/$maj usr/lib/amd64/$maj
         # /usr/lib/libxxxx.so -> libxxxx.so.1
         logcmd ln -sf $maj usr/lib/$lib.so
-        logcmd ln -sf $maj usr/lib/amd64/$lib.so
+        if [ -n "$arch64" ]; then
+            logcmd ln -sf ../../gcc/$v/lib/$arch64/$maj usr/lib/$arch64/$maj
+            logcmd ln -sf $maj usr/lib/$arch64/$lib.so
+        fi
     done
 }
 

@@ -36,7 +36,7 @@ RUN_DEPENDS_IPS="
     library/libxml2
     library/ncurses
     library/readline
-    library/security/openssl
+    library/security/openssl-3
     library/zlib
     system/library/gcc-runtime
     developer/object-file
@@ -54,9 +54,7 @@ set_arch 64
 
 export CCSHARED="-fPIC"
 CPPFLAGS+=" -I/usr/include/ncurses -D_LARGEFILE64_SOURCE"
-CPPFLAGS+=" -DSKIP_ZIP_PATH"
-CPPFLAGS[amd64]+=" `pkg-config --cflags libffi`"
-CC+=' -m64'
+CPPFLAGS+=" `pkg-config --cflags libffi`"
 export DFLAGS=-64
 MAKE_ARGS="
     DFLAGS=-64
@@ -72,12 +70,22 @@ export SETUPTOOLS_USE_DISTUTILS=stdlib
 
 CONFIGURE_OPTS="
     --enable-shared
-    --with-dtrace
     --with-system-ffi
     --with-system-expat
     --enable-ipv6
     --without-ensurepip
+"
+
+CONFIGURE_OPTS[amd64]+="
     --enable-optimizations
+    --with-dtrace
+"
+
+CONFIGURE_OPTS[aarch64]+="
+    --build=${TRIPLETS[amd64]}
+    --with-build-python=$PYTHON
+    ac_cv_file__dev_ptmx=yes
+    ac_cv_file__dev_ptc=no
 "
 
 # See https://bugs.python.org/issue25003
@@ -93,6 +101,25 @@ CONFIGURE_OPTS+=" ac_cv_func_getentropy=no "
 # in 3.11 are less robust and think it's there even when it isn't.
 # https://github.com/python/cpython/issues/89886#issuecomment-1106100113
 CONFIGURE_OPTS+=" ac_cv_func_hstrerror=no"
+
+build_init() {
+    typeset s=${SYSROOT[aarch64]}
+
+    addpath PKG_CONFIG_PATH[aarch64] $s/usr/lib/pkgconfig
+    CONFIGURE_OPTS[aarch64]+=" --with-openssl=$s/usr"
+}
+
+pre_configure() {
+    save_variable CC
+
+    ! cross_arch $1 && return
+
+    CC+=" --sysroot=${SYSROOT[$1]}"
+}
+
+post_configure() {
+    restore_variable CC
+}
 
 TESTSUITE_SED="
     1,/tests* OK/ {
@@ -141,15 +168,14 @@ test_dtrace() {
         || echo "dtrace tests have failed" >> $SRCDIR/testsuite-d.log
 }
 
-save_function build _build
-build() {
+multi_build() {
     logcmd rsync -ac --delete $TMPDIR/$BUILDDIR{,.debug}/ \
         || logerr "Failed to create debug copy of build directory"
 
     note -n "Building prod $PROG"
     logcmd rm -rf $DESTDIR.prod
     logcmd mkdir -p $DESTDIR.prod
-    DESTDIR+=".prod" _build
+    DESTDIR+=".prod" build
 
     [ -n "$FLAVOR" -a "$FLAVOR" != "debug" ] && return
 
@@ -160,7 +186,7 @@ build() {
     popd >/dev/null
     logcmd rm -rf $DESTDIR.debug
     logcmd mkdir -p $DESTDIR.debug
-    BUILDDIR+=".debug" DESTDIR+=".debug" _build
+    BUILDDIR+=".debug" DESTDIR+=".debug" build
 
     # The packages built from these two destination trees will be merged
     # after publication using a variant to separate them. We want files which
@@ -175,8 +201,7 @@ build() {
     done
 }
 
-save_function make_package _make_package
-make_package() {
+merged_package() {
     save_variable PKGSRVR
     for variant in prod debug; do
         note -n "Publishing $variant $PROG"
@@ -185,9 +210,9 @@ make_package() {
         logcmd rm -rf $repo
         init_repo
         if [ $variant = debug ]; then
-            DESTDIR+=".$variant" SKIP_PKG_DIFF=1 BATCH=1 _make_package
+            DESTDIR+=".$variant" SKIP_PKG_DIFF=1 BATCH=1 make_package
         else
-            DESTDIR+=".$variant" SKIP_PKG_DIFF=1 _make_package
+            DESTDIR+=".$variant" SKIP_PKG_DIFF=1 make_package
         fi
     done
     restore_variable PKGSRVR
@@ -206,10 +231,10 @@ init
 download_source $PROG $PROG $VER
 patch_source
 prep_build autoconf -autoreconf
-build
+[[ $BUILDARCH = *amd64* ]] && multi_build || build
 launch_testsuite
 test_dtrace
-make_package
+[[ $BUILDARCH = *amd64* ]] && merged_package || make_package
 clean_up
 
 # Vim hints

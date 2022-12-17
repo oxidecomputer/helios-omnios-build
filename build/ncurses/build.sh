@@ -33,6 +33,7 @@ CONFIGURE_OPTS_COMMON="
     --disable-stripping
     --without-normal
     --with-shared
+    --without-static
     --enable-widec
     --disable-lib-suffixes
     --enable-pc-files
@@ -55,12 +56,25 @@ CONFIGURE_OPTS[amd64]="
     --libdir=$GPREFIX/lib/amd64
     --with-pkg-config-libdir=$PREFIX/lib/amd64/pkgconfig
 "
+CONFIGURE_OPTS[aarch64]="
+    --host=${TRIPLETS[$arch]}
+    --with-build-cc=/opt/gcc-$GCCVER/bin/gcc
+    --bindir=$PREFIX/bin
+    --libdir=$GPREFIX/lib
+    --with-pkg-config-libdir=$PREFIX/lib/pkgconfig
+"
+
+# Always use the GNU version of tic for compiling terminfo
+export TIC_PATH=$GNUBIN/tic
 
 build_abi5() {
     logmsg -n '--- Building backward-compatible ABI version 5 libraries.'
+    # Skip for cross compiling
+    pre_build() { ! cross_arch $1; }
     CONFIGURE_OPTS="$CONFIGURE_OPTS_ABI5"
     MAKE_INSTALL_TARGET=install.libs
     build
+    unset -f pre_build
 }
 
 build_abi6() {
