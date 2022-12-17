@@ -13,7 +13,7 @@
 # }}}
 
 # Copyright 2011-2015 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
@@ -25,21 +25,22 @@ DESC="The PCRE library is a set of functions that implement regular expression"
 DESC+=" pattern matching using the same syntax and semantics as Perl 5"
 
 CONFIGURE_OPTS="
-	--localstatedir=/var
-	--disable-static
-	--enable-cpp
-	--enable-rebuild-chartables
-	--enable-utf8
-	--enable-unicode-properties
-	--enable-newline-is-any
-	--disable-stack-for-recursion
-	--enable-pcregrep-libz
-	--enable-pcregrep-libbz2
-	--with-posix-malloc-threshold=20
-	--with-link-size=4
-	--with-match-limit=10000000
-	--with-pic
+    --localstatedir=/var
+    --disable-static
+    --enable-cpp
+    --enable-utf8
+    --enable-unicode-properties
+    --enable-newline-is-any
+    --disable-stack-for-recursion
+    --enable-pcregrep-libz
+    --enable-pcregrep-libbz2
+    --with-posix-malloc-threshold=20
+    --with-link-size=4
+    --with-match-limit=10000000
+    --with-pic
 "
+CONFIGURE_OPTS[i386]+=" --enable-rebuild-chartables"
+CONFIGURE_OPTS[amd64]+=" --enable-rebuild-chartables"
 LDFLAGS+=" $SSPFLAGS"
 
 init
