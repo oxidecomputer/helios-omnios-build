@@ -43,8 +43,11 @@ pre_install() {
         i386)
             MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib BINDIR=$PREFIX/bin/i386"
             ;;
-        *)
+        amd64)
             MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib/$arch"
+            ;;
+        *)
+            MAKE_INSTALL_ARGS+=" LIBDIR=$PREFIX/lib"
             ;;
     esac
 }
