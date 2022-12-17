@@ -447,6 +447,8 @@ set_crossgcc() {
     fi
     [[ ${CFLAGS[$arch]} =~ *--sysroot* ]] \
         || CFLAGS[$arch]+=" --sysroot=${SYSROOT[$arch]}"
+    [[ ${CXXFLAGS[$arch]} =~ *--sysroot* ]] \
+        || CXXFLAGS[$arch]+=" --sysroot=${SYSROOT[$arch]}"
 }
 
 set_clangver() {
