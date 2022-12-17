@@ -29,32 +29,39 @@ init
 prep_build
 shopt -s extglob
 
-# Abort if any of the following commands fail
-set -o errexit
-pushd $DESTDIR >/dev/null
-
 # To keep all of the logic in one place, links are not created in the .mog
 
-libs="libgcc_s libatomic libgomp libssp"
+libs="libgcc_s libatomic libssp"
 
-mkdir -p usr/lib/amd64
+if is_cross; then
+    NO_SONAME_EXPECTED=1
+    pushd $DESTDIR.$BUILDARCH >/dev/null
+    logcmd mkdir -p usr/lib
+    install_lib $CROSS_GCC_VER "$libs" "" $CROSSLIB
+    install_unversioned $CROSS_GCC_VER "$libs" "" $CROSSLIB
+    popd >/dev/null
+else
+    libs+=" libgomp libssp"
+    pushd $DESTDIR >/dev/null
 
-for v in `seq 5 $VER`; do
-    install_lib $v "$libs"
-    # The gcc-runtime package provides the 64 -> amd64 links
-    logcmd ln -s amd64 usr/gcc/$v/lib/64
-done
+    logcmd mkdir -p usr/lib/amd64
 
-install_unversioned $SHARED_GCC_VER "$libs"
+    for v in `seq 5 $VER`; do
+        install_lib $v "$libs" amd64
+        # The gcc-runtime package provides the 64 -> amd64 links
+        logcmd ln -s amd64 usr/gcc/$v/lib/64
+    done
 
-# And special-case libssp.so.0.0.0
-lib=libssp.so.0.0.0
-logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$lib usr/lib/$lib
-logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/amd64/$lib \
-    usr/lib/amd64/$lib
+    install_unversioned $SHARED_GCC_VER "$libs" amd64
 
-popd >/dev/null
-set +o errexit
+    # And special-case libssp.so.0.0.0
+    lib=libssp.so.0.0.0
+    logcmd ln -sf ../gcc/$SHARED_GCC_VER/lib/$lib usr/lib/$lib
+    logcmd ln -sf ../../gcc/$SHARED_GCC_VER/lib/amd64/$lib \
+        usr/lib/amd64/$lib
+
+    popd >/dev/null
+fi
 
 ((EXTRACT_MODE)) && exit
 make_package runtime.mog
