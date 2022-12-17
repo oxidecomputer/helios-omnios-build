@@ -33,7 +33,7 @@ CONFIGURE_OPTS="
 "
 CONFIGURE_OPTS[i386]="--libdir=$PREFIX/lib"
 CONFIGURE_OPTS[amd64]="--libdir=$PREFIX/lib/amd64"
-CONFIGURE_OPTS[aarch64]="--libdir=$PREFIX/lib/aarch64"
+CONFIGURE_OPTS[aarch64]="--libdir=$PREFIX/lib"
 LDFLAGS[i386]+=" -lssp_ns"
 export cc=$CC
 

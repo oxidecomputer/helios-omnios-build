@@ -34,18 +34,21 @@ base_MAKE_ARGS="
 pre_configure() {
     typeset arch=$1
 
+    typeset tgt=lib-release
     case $arch in
+        aarch64) tgt+=" zstd-release" ;&
         i386)
-            MOREFLAGS="$CFLAGS ${CFLAGS[i386]}"
+            MOREFLAGS="$CFLAGS ${CFLAGS[$arch]}"
             MAKE_INSTALL_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\""
-            MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\" lib-release"
+            MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\" $tgt"
             ;;
-        *)
+        amd64)
+            tgt+=" zstd-release"
             MOREFLAGS="$CFLAGS ${CFLAGS[$arch]}"
             MAKE_INSTALL_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
                 LIBDIR=$PREFIX/lib/$arch"
             MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
-                LIBDIR=$PREFIX/lib/$arch lib-release zstd-release"
+                LIBDIR=$PREFIX/lib/$arch $tgt"
             ;;
         esac
 
@@ -55,7 +58,6 @@ pre_configure() {
 
 make_prog_aarch64() {
     CPPFLAGS+=" -I${SYSROOT[aarch64]}/usr/include" \
-    LDFLAGS+=" -L${SYSROOT[aarch64]}/usr/lib/aarch64 -R/usr/lib/aarch64" \
         make_arch aarch64
 }
 

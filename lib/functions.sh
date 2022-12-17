@@ -549,7 +549,15 @@ reset_configure_opts() {
     if [ -n "$FORGO_ISAEXEC" ]; then
         for arch in $ARCH_LIST; do
             case $arch in
-                i386)
+                amd64)
+                    CONFIGURE_OPTS[$arch]+="
+                        --bindir=$PREFIX/bin
+                        --sbindir=$PREFIX/sbin
+                        --libdir=$PREFIX/lib/$arch
+                        --libexecdir=$PREFIX/libexec/$arch
+                    "
+                    ;;
+                *)
                     CONFIGURE_OPTS[$arch]+="
                         --bindir=$PREFIX/bin
                         --sbindir=$PREFIX/sbin
@@ -557,13 +565,6 @@ reset_configure_opts() {
                         --libexecdir=$PREFIX/libexec
                     "
                     ;;
-                *)
-                    CONFIGURE_OPTS[$arch]+="
-                        --bindir=$PREFIX/bin
-                        --sbindir=$PREFIX/sbin
-                        --libdir=$PREFIX/lib/$arch
-                        --libexecdir=$PREFIX/libexec/$arch
-                    "
             esac
         done
     else
@@ -571,18 +572,26 @@ reset_configure_opts() {
             case $arch in
                 i386)
                     CONFIGURE_OPTS[$arch]+="
-                        --bindir=$PREFIX/bin/i386
-                        --sbindir=$PREFIX/sbin/i386
+                        --bindir=$PREFIX/bin/$arch
+                        --sbindir=$PREFIX/sbin/$arch
                         --libdir=$PREFIX/lib
                         --libexecdir=$PREFIX/libexec
                     "
                     ;;
-                *)
+                amd64)
                     CONFIGURE_OPTS[$arch]+="
                         --bindir=$PREFIX/bin/$arch
                         --sbindir=$PREFIX/sbin/$arch
                         --libdir=$PREFIX/lib/$arch
                         --libexecdir=$PREFIX/libexec/$arch
+                    "
+                    ;;
+                aarch64)
+                    CONFIGURE_OPTS[$arch]+="
+                        --bindir=$PREFIX/bin
+                        --sbindir=$PREFIX/sbin
+                        --libdir=$PREFIX/lib
+                        --libexecdir=$PREFIX/libexec
                     "
                     ;;
             esac
@@ -592,7 +601,7 @@ reset_configure_opts() {
     # Cross compiler options - this will evolve
     for arch in $CROSS_ARCH; do
         CONFIGURE_OPTS[$arch]+="
-            --host=$arch-unknown-solaris2.11
+            --host=${TRIPLETS[$arch]}
         "
     done
 }

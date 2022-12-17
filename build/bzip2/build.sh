@@ -38,7 +38,6 @@ HARDLINK_TARGETS="
 "
 
 base_CFLAGS="-D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -Wall -Winline"
-CFLAGS[aarch64]+=" -Wl,-R/usr/lib/aarch64"
 
 post_clean() {
     logcmd $MAKE -f Makefile-libbz2_so clean
@@ -73,7 +72,7 @@ pre_make() {
             ;;
         aarch64)
             export BINISA=
-            export LIBISA=aarch64
+            export LIBISA=
             export xCFLAGS="$CFLAGS ${CFLAGS[aarch64]} $base_CFLAGS"
             export xLDFLAGS="$LDFLAGS ${LDFLAGS[aarch64]}"
             # the default target builds and runs tests
