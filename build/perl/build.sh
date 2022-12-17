@@ -24,6 +24,8 @@ MAJVER=${VER%.*}
 SUMMARY="Perl $MAJVER Programming Language"
 DESC="A highly capable, feature-rich programming language"
 
+CROSSVER=1.4
+
 set_arch 64
 CTF_FLAGS+=" -s"
 
@@ -32,6 +34,7 @@ PREFIX=/usr/perl5/$MAJVER
 XFORM_ARGS="
     -DPREFIX=${PREFIX#/}
     -DPROG=$PROG
+    -DVER=$VER
     -DVERSION=$MAJVER
 "
 
@@ -96,6 +99,105 @@ configure_amd64() {
         s!^libpth=.*!libpth=\"/lib/amd64 /usr/lib/amd64\"!g
     " config.sh
 }
+
+configure_aarch64() {
+    # perl builds a native miniperl which it uses for the build
+    set_gccver $DEFAULT_GCC_VER
+    # perl-cross requires GNU tools
+    export PATH="$GNUBIN:$PATH"
+
+    patch_source patches-aarch64
+
+    logmsg "--- configure (64-bit)"
+    # A note about 'myuname'. In previous OmniOS releases this was set to be
+    # undefined, but as of the r151041 bloody cycle it has been set to 'sunos'.
+    # In particular, this makes some modules make better choices about things
+    # like compiler flags (Crypt::OpenSSL:X509 is one), but there is a risk
+    # that some modules might assume that myuname=='sunos' => Sun studio
+    # rather than checking 'ccname'.
+    logcmd $CONFIGURE_CMD \
+        --target=${TRIPLETS[aarch64]} \
+        --man1dir="$PREFIX/man/man1" \
+        --man3dir="$PREFIX/man/man3" \
+        --host-libs="m" \
+        -Dccdlflags= \
+        -Dusethreads \
+        -Duseshrplib \
+        -Dusemultiplicity \
+        -Duselargefiles \
+        -Duse64bitall \
+        -Dmyhostname=localhost \
+        -Umydomain \
+        -Dmyuname=sunos \
+        -Dcf_by=omnios-builder \
+        -Dcf_email=$PUBLISHER_EMAIL \
+        -Dcc=$CROSSTOOLS/aarch64/bin/gcc \
+        -Dcpp=$CROSSTOOLS/aarch64/bin/cpp \
+        -Dld=$CROSSTOOLS/aarch64/bin/ld \
+        -Dar=$CROSSTOOLS/aarch64/bin/${TRIPLETS[aarch64]}-ar \
+        -Dnm=$CROSSTOOLS/aarch64/bin/${TRIPLETS[aarch64]}-nm \
+        -Dranlib=$CROSSTOOLS/aarch64/bin/${TRIPLETS[aarch64]}-ranlib \
+        -Dreadelf=$CROSSTOOLS/aarch64/bin/${TRIPLETS[aarch64]}-readelf \
+        -Dobjdump=$CROSSTOOLS/aarch64/bin/${TRIPLETS[aarch64]}-objdump \
+        -Doptimize="-O3 $CTF_CFLAGS" \
+        -Dprefix=${PREFIX} \
+        -Dvendorprefix=${PREFIX} \
+        -Dbin=${PREFIX}/bin \
+        -Dsitebin=${PREFIX}/bin \
+        -Dvendorbin=${PREFIX}/bin \
+        -Dscriptdir=${PREFIX}/bin \
+        -Dsitescript=${PREFIX}/bin \
+        -Dvendorscript=${PREFIX}/bin \
+        -Dprivlib=${PREFIX}/lib \
+        -Dsitelib=/usr/perl5/site_perl/$MAJVER \
+        -Dvendorlib=/usr/perl5/vendor_perl/$MAJVER \
+        -Ulocincpth= \
+        -Uloclibpth= \
+        -Dlibpth="/lib/aarch64 /usr/lib/aarch64" \
+        -Dlibs="-lsocket -lnsl -lm -lc" \
+        || logerr "--- Configure failed"
+
+    logcmd sed -i "
+        s/mydomain=\"\.undef\"/mydomain=\"undef\"/g
+        s!^libpth=.*!libpth=\"/lib/aarch64 /usr/lib/aarch64\"!g
+        s/^d_setenv=.*/d_setenv='undef'/g
+        s/^d_unsetenv=.*/d_unsetenv='undef'/g
+        s/^ccdlflags=.*/ccdlflags=''/g
+    " config.sh
+
+    logcmd sed -i "
+        s/^d_setenv=.*/d_setenv='undef'/g
+        s/^d_unsetenv=.*/d_unsetenv='undef'/g
+        s/^ccdlflags=.*/ccdlflags=''/g
+    " xconfig.sh
+
+    logcmd sed -i "
+        s/^perl\$x: LDFLAGS += -Wl,-E/perl\$x: LDFLAGS += -lsocket/g
+    " Makefile
+}
+
+pre_build() {
+    ! cross_arch $1 && return
+
+    save_variables BUILDDIR EXTRACTED_SRC
+    set_builddir $PROG-cross-$CROSSVER
+    download_source $PROG $PROG-cross $CROSSVER
+    patch_source patches-$PROG-cross
+    restore_variables BUILDDIR EXTRACTED_SRC
+
+    logcmd $RSYNC -a $TMPDIR/$PROG-cross-$CROSSVER/* $TMPDIR/$PROG-$VER/ \
+        || logerr "rsync perl-cross failed"
+
+}
+
+post_install() {
+    ! cross_arch $1 && return
+
+    logmsg "creating hardlink"
+    logcmd $LN $DESTDIR/$PREFIX/bin/$PROG $DESTDIR/$PREFIX/bin/$PROG$VER \
+        || logerr "creating hardlink failed"
+}
+
 
 init
 download_source $PROG $PROG $VER
