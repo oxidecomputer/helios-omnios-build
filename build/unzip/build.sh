@@ -41,6 +41,22 @@ configure_amd64() {
     "
 }
 
+configure_aarch64() {
+    MAKE_ARGS_WS="
+        CC=\"$CC $CFLAGS ${CFLAGS[aarch64]}\"
+    "
+}
+
+pre_install() {
+    save_variable MAKE_INSTALL_ARGS
+    MAKE_INSTALL_ARGS+=" prefix=$DESTDIR$PREFIX"
+}
+
+post_install() {
+    restore_variable MAKE_INSTALL_ARGS
+}
+
+
 BASE_MAKE_ARGS="-f unix/Makefile"
 MAKE_ARGS="$BASE_MAKE_ARGS generic IZ_BZIP2=bzip2"
 MAKE_INSTALL_ARGS="$BASE_MAKE_ARGS install"
@@ -49,7 +65,6 @@ init
 download_source $PROG $PROG${VER//./}
 patch_source
 prep_build
-MAKE_INSTALL_ARGS+=" prefix=$DESTDIR$PREFIX"
 build
 make_package
 clean_up
