@@ -47,9 +47,19 @@ configure_amd64() {
     export LEX=flex
 }
 
+configure_aarch64() {
+    export CC=gcc
+    export YACC=bison
+    export LEX=flex
+
+    LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/lib"
+}
+
 pre_make() {
-    xCFLAGS="$CFLAGS ${CFLAGS[amd64]}"
-    LDADD+=" $LDFLAGS ${LDFLAGS[amd64]}"
+    typeset arch=${1:?arch}
+
+    xCFLAGS="$CFLAGS ${CFLAGS[$arch]}"
+    LDADD+=" $LDFLAGS ${LDFLAGS[$arch]}"
     unset CFLAGS; CFLAGS="$xCFLAGS"
     export CFLAGS LDADD
 }
