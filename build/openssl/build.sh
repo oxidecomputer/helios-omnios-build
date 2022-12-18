@@ -33,7 +33,7 @@ create_manifest()
     convert_version ver
     cat << EOM > $mf
 set name=pkg.fmri \
-    value=pkg://@PKGPUBLISHER@/library/security/openssl@$ver,@SUNOSVER@-@PVER@
+    value=pkg://\$(PKGPUBLISHER)/library/security/openssl@$ver,\$(SUNOSVER)-\$(PVER)
 set name=pkg.summary value="$SUMMARY"
 set name=pkg.description value="$DESC"
 set name=pkg.human-version value="$VER"

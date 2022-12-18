@@ -74,6 +74,9 @@ PKGPUBLISHER=omnios
 ARCH_LIST="i386 amd64 aarch64"
 CROSS_ARCH="aarch64"
 DEFAULT_ARCH="i386 amd64"
+# NATIVE_ARCH is the native architecture, which is i386 even when we are
+# building a package for amd64, or both i386 and amd64.
+NATIVE_ARCH="i386"
 
 HOMEURL=https://omnios.org
 
