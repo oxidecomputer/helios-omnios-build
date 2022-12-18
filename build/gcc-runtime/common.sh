@@ -14,11 +14,8 @@ full=
 pth=
 max=0
 
-# The following is a crude check for a cross build and it does not work
-# properly if this build is attempting to target all architectures.
 CROSSLIB=$CROSSTOOLS/$BUILDARCH/${TRIPLETS[$BUILDARCH]}/lib
 CROSS_GCC_VER=10
-function is_cross { [[ ! $BUILDARCH = *amd64* ]]; }
 
 # Find the library file in the specified gcc version
 function find_lib {

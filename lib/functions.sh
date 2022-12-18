@@ -375,6 +375,14 @@ cross_arch() {
     in_list "$CROSS_ARCH" "$1"
 }
 
+# This is a crude function to determine if the current build is purely a cross
+# arch one. It should not be used widely and we need something better if we're
+# going to support multi-arch builds in a single run (which is still up for
+# debate).
+is_cross() {
+    [[ ! $BUILDARCH = *amd64* ]]
+}
+
 #############################################################################
 # Set up tools area
 #############################################################################
@@ -1110,6 +1118,7 @@ patch_file() {
 
 apply_patches() {
     local patchdir="${1:-$PATCHDIR}"
+    local series="${2:-series}"
 
     if ! check_for_patches $patchdir "in order to apply them"; then
         logmsg "--- Not applying any patches"
@@ -1118,7 +1127,7 @@ apply_patches() {
 
     logmsg "Applying patches"
     pushd $TMPDIR/$EXTRACTED_SRC > /dev/null
-    exec 3<"$SRCDIR/$patchdir/series" || logerr "Could not open patch series"
+    exec 3<"$SRCDIR/$patchdir/$series" || logerr "Could not open patch series"
     while read LINE <&3; do
         [[ $LINE = \#* ]] && continue
         # Split Line into filename+args
@@ -1130,6 +1139,7 @@ apply_patches() {
 
 rebase_patches() {
     local patchdir="${1:-$PATCHDIR}"
+    local series="${2:-series}"
 
     if ! check_for_patches $patchdir "in order to re-base them"; then
         logmsg -e "--- No patches to re-base"
@@ -1148,7 +1158,7 @@ rebase_patches() {
 
     # Read the series file for patch filenames
     # Use a separate file handle so that logerr() can be used in the loop
-    exec 3<"$SRCDIR/$patchdir/series" || logerr "Could not open patch series"
+    exec 3<"$SRCDIR/$patchdir/$series" || logerr "Could not open patch series"
     while read LINE <&3; do
         [[ $LINE = \#* ]] && continue
 
@@ -1188,7 +1198,7 @@ rebase_patches() {
     popd > /dev/null
 
     # Now the patches have been re-based, -pX is no longer required.
-    $SED -i 's/ -p.*//' "$SRCDIR/$patchdir/series"
+    $SED -i 's/ -p.*//' "$SRCDIR/$patchdir/$series"
 }
 
 patch_source() {

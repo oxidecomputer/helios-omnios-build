@@ -27,14 +27,11 @@ set_arch 64
 
 SKIP_LICENCES=OpenSSH
 
-CONFIGURE_OPTS[amd64]+="
-    --sysconfdir=/etc/ssh
-"
+CONFIGURE_OPTS[amd64]+=" --sysconfdir=/etc/ssh"
+CONFIGURE_OPTS[aarch64]+=" --sysconfdir=/etc/ssh"
 
 CONFIGURE_OPTS="
     --with-audit=solaris
-    --with-kerberos5=$PREFIX
-    --with-libedit=$PREFIX
     --with-pam
     --with-sandbox=solaris
     --with-solaris-contracts
@@ -48,15 +45,24 @@ CONFIGURE_OPTS="
     --with-ssl-engine
     --with-solaris-projects
 "
+CONFIGURE_OPTS[amd64]+="
+    --with-kerberos5=$PREFIX
+    --with-libedit=$PREFIX
+"
 
 CFLAGS+=" -fstack-check "
-CFLAGS+="-DPAM_ENHANCEMENT -DSET_USE_PAM -DPAM_BUGFIX -DDTRACE_SFTP "
+CFLAGS+="-DPAM_ENHANCEMENT -DSET_USE_PAM -DPAM_BUGFIX "
 CFLAGS+="-I/usr/include/kerberosv5 -DKRB5_BUILD_FIX -DDISABLE_BANNER "
 CFLAGS+="-DDEPRECATE_SUNSSH_OPT -DOPTION_DEFAULT_VALUE -DSANDBOX_SOLARIS"
+CFLAGS[amd64]+=" -DDTRACE_SFTP"
 
-save_function make_install _make_install
-make_install() {
-    _make_install
+build_init() {
+    CFLAGS[aarch64]+=" -I${SYSROOT[aarch64]}/usr/include"
+    LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/usr/lib"
+    LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/usr"
+}
+
+post_install() {
     logmsg "--- installing ssh-copy-id from contrib"
     logcmd cp $TMPDIR/$BUILDDIR/contrib/ssh-copy-id $DESTDIR/usr/bin/ \
         || logerr "Could not install ssh-copy-id"
@@ -71,6 +77,7 @@ build_manifests() {
     manifest_add etc/ssh moduli sshd_config
     manifest_add_dir lib/svc manifest/network method
     manifest_add_dir usr/lib/dtrace/64
+    manifest_add usr/libexec sftp-server
     manifest_add usr/libexec/amd64 sftp-server
     manifest_add usr/sbin sshd
     manifest_add usr/share/man/man1m sshd.8 sftp-server.8
@@ -84,12 +91,21 @@ build_manifests() {
 
 init
 download_source $PROG $PROG $VER
-patch_source
+if is_cross; then
+    patch_source $PATCHDIR series.$BUILDARCH
+else
+    patch_source
+fi
 run_autoreconf -fi
 prep_build
 build
-install_smf network ssh.xml sshd
-build_manifests
+if is_cross; then
+    DESTDIR+=.$BUILDARCH install_smf network ssh.xml sshd
+    DESTDIR+=.$BUILDARCH build_manifests
+else
+    install_smf network ssh.xml sshd
+    build_manifests
+fi
 
 export TESTSUITE_FILTER='^ok |^test_|failed|^all tests'
 (
