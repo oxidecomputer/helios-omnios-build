@@ -760,10 +760,7 @@ init_sysroot() {
             aarch64)
                 logcmd $PKGCLIENT -R $tmpsysroot set-publisher \
                     -g ${IPS_REPO/core/braich} $PKGPUBLISHER
-                logcmd -p $PKGCLIENT -R $tmpsysroot install \
-                    --no-refresh \
-                    SUNWcs SUNWcsd \
-                    osnet-incorporation osnet-redistributable
+                logcmd -p $PKGCLIENT -R $tmpsysroot install '*'
                 logcmd cp /etc/zones/SUNWdefault.xml $tmpsysroot/etc/zones/
                 ;;
             *)
@@ -787,8 +784,7 @@ update_sysroot() {
 
     for arch in ${!SYSROOT[@]}; do
         logmsg "--- updating sysroot for $arch"
-        # For now, osnet is not installable due to a missing onbld
-        logcmd -p $PKGCLIENT -R ${SYSROOT[$arch]} install --reject=osnet \*
+        logcmd $PKGCLIENT -R ${SYSROOT[$arch]} install '*'
     done
 }
 
