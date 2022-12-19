@@ -22,7 +22,15 @@ PKG=release/notices
 SUMMARY="OmniOS licensing information"
 DESC="OmniOS /etc/notices files"
 
-build() {
+set_arch 64
+
+pre_build() {
+    make_install_$1
+    # Override default build
+    false
+}
+
+make_install() {
     logmsg "Generating notice files"
 
     pushd $DESTDIR >/dev/null
