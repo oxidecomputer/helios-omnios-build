@@ -33,12 +33,28 @@ CONFIGURE_OPTS="
     --disable-static
 "
 
-export ZLIB_CFLAGS="$CFLAGS -I/usr/include"
-export ZLIB_LIBS="-L/usr/lib"
-export OPENSSL_CFLAGS="$CFLAGS -I/usr/include"
-export OPENSSL_LIBS="-L/usr/lib"
-export CUNIT_CFLAGS="$CFLAGS -I/opt/ooce/include"
-export CUNIT_LIBS="-L/opt/ooce/lib/amd64 -R/opt/ooce/lib/amd64 -lcunit"
+pre_build() {
+    typeset arch=${1:?arch}
+
+    export CUNIT_CFLAGS="${CFLAGS[$arch]} -I$OOCEOPT/include"
+    export CUNIT_LIBS="-L$OOCEOPT/lib/amd64 -R$OOCEOPT/lib/amd64 -lcunit"
+
+    case $arch in
+        i386) ;&
+        amd64)
+            export ZLIB_CFLAGS="${CFLAGS[$arch]} -I/usr/include"
+            export ZLIB_LIBS="-L/usr/lib"
+            export OPENSSL_CFLAGS="${CFLAGS[$arch]} -I/usr/include"
+            export OPENSSL_LIBS="-L/usr/lib"
+            ;;
+        aarch64)
+            export ZLIB_CFLAGS="${CFLAGS[$arch]} -I${SYSROOT[$arch]}/usr/include"
+            export ZLIB_LIBS="-L${SYSROOT[$arch]}/usr/lib"
+            export OPENSSL_CFLAGS="${CFLAGS[$arch]} -I${SYSROOT[$arch]}/usr/include"
+            export OPENSSL_LIBS="-L${SYSROOT[$arch]}/usr/lib"
+            ;;
+    esac
+}
 
 TESTSUITE_SED="
     /^libtool:/d

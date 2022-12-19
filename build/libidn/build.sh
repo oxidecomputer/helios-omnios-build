@@ -23,6 +23,11 @@ PKG=library/libidn
 SUMMARY="The Internationalized Domains Library"
 DESC="IDN - The Internationalized Domains Library"
 
+# The library major version changed from 11 to 12 with 1.35. We need to
+# continue shipping the older version of the library to support anything
+# linked against it.
+PVERS="1.34"
+
 CONFIGURE_OPTS="--disable-static"
 MAKE_ARGS="MAKEINFO=/usr/bin/true"
 MAKE_INSTALL_ARGS="$MAKE_ARGS"
@@ -30,16 +35,26 @@ MAKE_INSTALL_ARGS="$MAKE_ARGS"
 init
 prep_build
 
-# The library major version changed from 11 to 12 with 1.35. We need to
-# continue shipping the older version of the library to support anything
-# linked against it. This builds both versions in order.
-for VER in 1.34 $VER; do
-    set_builddir "$PROG-$VER"
-    download_source $PROG $PROG $VER
+# Build previous versions
+
+# Skip previous versions for cross compilation
+pre_build() { ! cross_arch $1; }
+
+save_variables BUILDDIR EXTRACTED_SRC
+for pver in $PVERS; do
+    note -n "Building previous version: $pver"
+    set_builddir $PROG-$pver
+    download_source $PROG $PROG $pver
     patch_source
     build
 done
+restore_variables BUILDDIR EXTRACTED_SRC
+unset -f pre_build
 
+note -n "Building current version: $VER"
+download_source $PROG $PROG $VER
+patch_source
+build
 make_isa_stub
 make_package
 clean_up
