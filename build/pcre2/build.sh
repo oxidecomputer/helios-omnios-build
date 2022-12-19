@@ -33,7 +33,6 @@ PVERS="10.36 10.39"
 CONFIGURE_OPTS="
 	--localstatedir=/var
 	--disable-static
-	--enable-rebuild-chartables
 	--enable-newline-is-any
 	--disable-stack-for-recursion
 	--with-link-size=4
@@ -41,8 +40,15 @@ CONFIGURE_OPTS="
 	--with-pic
 "
 
+# This option cannot be used when cross-compiling
+CONFIGURE_OPTS[i386]+=" --enable-rebuild-chartables"
+CONFIGURE_OPTS[amd64]+=" --enable-rebuild-chartables"
+
 init
 prep_build
+
+# Skip previous versions for cross compilation
+pre_build() { ! cross_arch $1; }
 
 # Build previous versions
 save_variables BUILDDIR EXTRACTED_SRC
@@ -54,6 +60,7 @@ for pver in $PVERS; do
     ((EXTRACT_MODE == 0)) && build
 done
 restore_variables BUILDDIR EXTRACTED_SRC
+unset -f pre_build
 
 CONFIGURE_OPTS+="
     --enable-pcre2-16
