@@ -27,7 +27,7 @@ create_manifest_header()
 {
     local mf=$1
     cat << EOM > $mf
-set name=pkg.fmri value=pkg://@PKGPUBLISHER@/entire@11,@SUNOSVER@-@PVER@
+set name=pkg.fmri value=pkg://\$(PKGPUBLISHER)/entire@11,\$(SUNOSVER)-\$(PVER)
 set name=pkg.depend.install-hold value=core-os
 set name=pkg.summary value="$SUMMARY"
 set name=pkg.description value="$DESC"
@@ -59,7 +59,7 @@ add_constraints()
             fi
             [[ "$flags" = *O* ]] && typ=optional || typ=require
 
-            print " fmri=pkg://@PKGPUBLISHER@/$pkg type=$typ"
+            print " fmri=pkg://\$(PKGPUBLISHER)/$pkg type=$typ"
         ) >> $cmf
     done
 }

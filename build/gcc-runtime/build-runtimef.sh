@@ -42,10 +42,10 @@ libs="libgfortran libquadmath"
 mkdir -p usr/lib/amd64
 
 for v in `seq 5 $VER`; do
-    install_lib $v "$libs"
+    install_lib $v "$libs" amd64
 done
 
-install_unversioned $SHARED_GCC_VER "$libs"
+install_unversioned $SHARED_GCC_VER "$libs" amd64
 
 # And special-case libquadmath.so.0.0.0
 lib=libquadmath.so.0.0.0

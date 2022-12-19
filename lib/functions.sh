@@ -780,7 +780,7 @@ update_sysroot() {
     for arch in ${!SYSROOT[@]}; do
         logmsg "--- updating sysroot for $arch"
         # For now, osnet is not installable due to a missing onbld
-        logcmd $PKGCLIENT -R ${SYSROOT[$arch]} install --reject=osnet \*
+        logcmd -p $PKGCLIENT -R ${SYSROOT[$arch]} install --reject=osnet \*
     done
 }
 
@@ -1656,47 +1656,45 @@ convert_version() {
     [ "$var" = "$_var" ] || logmsg "--- Converted version '$_var' -> '$var'"
 }
 
+build_archmog() {
+    typeset arch=$1
+
+    typeset x="-DARCH=$arch -D${arch}_ONLY="
+    typeset a
+    for a in $NATIVE_ARCH $CROSS_ARCH; do
+        [ $arch = $a ] && continue
+        x+=" -D${a}_ONLY=#"
+    done
+    echo "$x"
+}
+
 make_package() {
     logmsg "-- building package $PKG"
 
     typeset -a cross=
-    typeset native=
+    typeset -i native=0
 
     for arch in $BUILDARCH; do
         if cross_arch $arch; then
             cross+=($arch)
         else
-            native="$arch"
+            ((native++))
         fi
     done
 
-    if [ -n "$native" ]; then
+    if ((native)); then
         logmsg "--- packaging native arch"
-        typeset arch
-        typeset x="-Di386_ONLY="
-        for arch in $CROSS_ARCH; do
-            x+=" -D${arch}_ONLY=#"
-        done
-        hook pre_package $native
-        XFORM_ARGS+=" $x" make_package_impl "$@"
-        hook pre_package $native
+        hook pre_package $NATIVE_ARCH
+        XFORM_ARGS+=" `build_archmog $NATIVE_ARCH`" make_package_impl "$@"
+        hook pre_package $NATIVE_ARCH
     fi
     for carch in ${cross[*]}; do
         logmsg "--- packaging $c"
-        typeset arch
-        typeset x=
-        for arch in i386 $CROSS_ARCH; do
-            if [ $arch = $carch ]; then
-                x+=" -D${arch}_ONLY="
-            else
-                x+=" -D${arch}_ONLY=#"
-            fi
-        done
         hook pre_package $carch
         DESTDIR+=.$carch \
             PKGSRVR=${REPOS[$carch]} \
             PKG_IMAGE=${SYSROOT[$carch]} \
-            XFORM_ARGS+=" $x" \
+            XFORM_ARGS+=" `build_archmog $carch`" \
             make_package_impl "$@"
         hook post_package $carch
     done
@@ -1961,17 +1959,23 @@ make_package_impl() {
     return 0
 }
 
-translate_manifest() {
-    local src=$1
-    local dst=$2
+publish_manifest_impl() {
+    typeset arch="$1"
+    typeset pmf="$2"
+    typeset root="$3"
 
-    $SED -e "
-        s/@PKGPUBLISHER@/$PKGPUBLISHER/g
-        s/@RELVER@/$RELVER/g
-        s/@PVER@/$PVER/g
-        s/@SUNOSVER@/$SUNOSVER/g
-        s/@PKGPUBEMAIL@/$PUBLISHER_EMAIL/g
-        " < $src > $dst
+    [ -n "$root" ] && root="-d $root"
+
+    logcmd -p $PKGMOGRIFY -P /dev/fd/3 -I $BLIBDIR/mog \
+        $XFORM_ARGS `build_archmog $arch` $pmf \
+        | $PKGFMT -u > $pmf.$arch.final
+
+    if [ -z "$SKIP_PKGLINT" ] && ( [ -n "$BATCH" ] || ask_to_pkglint ); then
+        run_pkglint $PKGSRVR $pmf.$arch.final
+    fi
+
+    logcmd $PKGSEND -s $PKGSRVR publish $root $pmf.$arch.final \
+        || logerr "pkgsend failed"
 }
 
 publish_manifest() {
@@ -1979,18 +1983,42 @@ publish_manifest() {
     local pmf=$2
     local root=$3
 
-    [ -n "$root" ] && root="-d $root"
+    typeset -a cross=
+    typeset -i native=0
 
-    translate_manifest $pmf $pmf.final
+    typeset x="
+        -DPKGPUBLISHER=$PKGPUBLISHER
+        -DRELVER=$RELVER
+        -DPVER=$PVER
+        -DSUNOSVER=$SUNOSVER
+        -DPKGPUBEMAIL=$PUBLISHER_EMAIL
+    "
 
-    logmsg "Publishing from $pmf.final"
+    for arch in $BUILDARCH; do
+        if cross_arch $arch; then
+            cross+=($arch)
+        else
+            ((native++))
+        fi
+    done
 
-    if [ -z "$SKIP_PKGLINT" ] && ( [ -n "$BATCH" ] || ask_to_pkglint ); then
-        run_pkglint $PKGSRVR $pmf.final
+    exec 3>"$TMPDIR/mog.stderr"
+
+    if ((native)); then
+        logmsg "--- packaging native arch"
+
+        XFORM_ARGS="$x" publish_manifest_impl $NATIVE_ARCH "$pmf" "$root"
+    else
+        for carch in ${cross[*]}; do
+            logmsg "--- packaging $arch"
+
+            PKGSRVR=${REPOS[$carch]} \
+                PKG_IMAGE=${SYSROOT[$carch]} \
+                XFORM_ARGS="$x" \
+                publish_manifest_impl "$carch" "$pmf" "$root"
+            done
     fi
 
-    logcmd $PKGSEND -s $PKGSRVR publish $root $pmf.final \
-        || logerr "pkgsend failed"
     [ -n "$pkg" -a -z "$SKIP_PKG_DIFF" ] && diff_latest $pkg
 }
 
