@@ -29,18 +29,14 @@ CONFIGURE_OPTS="
 SKIP_LICENCES=lzlib
 
 build_init() {
-    CONFIGURE_OPTS[i386_WS]="
-        CC=\"$CC\"
-        CPPFLAGS=\"$CPPFLAGS ${CPPFLAGS[i386]}\"
-        CFLAGS=\"$CFLAGS ${CFLAGS[i386]}\"
-        LDFLAGS=\"$LDFLAGS ${LDFLAGS[i386]}\"
-    "
-    CONFIGURE_OPTS[amd64_WS]="
-        CC=\"$CC\"
-        CPPFLAGS=\"$CPPFLAGS ${CPPFLAGS[amd64]}\"
-        CFLAGS=\"$CFLAGS ${CFLAGS[amd64]}\"
-        LDFLAGS=\"$LDFLAGS ${LDFLAGS[amd64]}\"
-    "
+    for arch in $BUILDARCH; do
+        CONFIGURE_OPTS[${arch}_WS]="
+            CC=\"$CC\"
+            CPPFLAGS=\"$CPPFLAGS ${CPPFLAGS[$arch]}\"
+            CFLAGS=\"$CFLAGS ${CFLAGS[$arch]}\"
+            LDFLAGS=\"$LDFLAGS ${LDFLAGS[$arch]}\"
+        "
+    done
 }
 
 init
