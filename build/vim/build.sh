@@ -51,11 +51,23 @@ CONFIGURE_OPTS[WS]="
 MAKE_INSTALL_ARGS="STRIP=/bin/true"
 CPPFLAGS+=" -DSYS_VIMRC_FILE='\"/etc/vimrc\"'"
 
-extract_licence() {
-    sed -n < $DESTDIR/usr/share/vim/vim$SVER/doc/uganda.txt \
-           > $DESTDIR/usr/share/vim/vim$SVER/LICENCE '
-        /=== begin of license ===/,/=== end of license ===/p
-    '
+build_init() {
+    for arch in $CROSS_ARCH; do
+        CONFIGURE_OPTS[$arch]+="
+            --with-tlib=ncurses
+            vim_cv_toupper_broken=no
+            ac_cv_sizeof_int=4
+            vim_cv_bcopy_handles_overlap=yes
+            vim_cv_memcpy_handles_overlap=no
+            vim_cv_memmove_handles_overlap=yes
+            vim_cv_getcwd_broken=no
+            vim_cv_stat_ignores_slash=no
+            vim_cv_terminfo=yes
+            vim_cv_tgetent=zero
+        "
+        LDFLAGS[$arch]+=" -L${SYSROOT[$arch]}/lib"
+        LDFLAGS[$arch]+=" -L${SYSROOT[$arch]}/usr/lib"
+    done
 }
 
 init
@@ -63,7 +75,6 @@ download_source $PROG v$VER
 patch_source
 prep_build
 build
-extract_licence
 make_package
 clean_up
 

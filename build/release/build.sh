@@ -22,6 +22,8 @@ PKG=release/name
 SUMMARY="OmniOS release information"
 DESC="OmniOS /etc/release and /etc/os-release files"
 
+set_arch 64
+
 # Update the following line with the current release suffix
 RELSUFFIX=
 
@@ -46,7 +48,13 @@ XFORM_ARGS="
     -DRELEASE=$RELEASE -DRELNUM=$RELNUM -DRELDATE=$RELDATE -DRELREV=$RELREV
 "
 
-build() {
+pre_build() {
+    make_install_$1
+    # Override default build
+    false
+}
+
+make_install() {
     logmsg "Generating release files"
 
     pushd $DESTDIR >/dev/null

@@ -38,6 +38,13 @@ CONFIGURE_OPTS="
     --with-regex=pcre2
 "
 
+build_init() {
+    for arch in $CROSS_ARCH; do
+        LDFLAGS[$arch]+=" -L${SYSROOT[$arch]}/lib"
+        LDFLAGS[$arch]+=" -L${SYSROOT[$arch]}/usr/lib"
+    done
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source
