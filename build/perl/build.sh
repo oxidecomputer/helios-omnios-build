@@ -120,6 +120,7 @@ configure_aarch64() {
         --man1dir="$PREFIX/man/man1" \
         --man3dir="$PREFIX/man/man3" \
         --host-libs="m" \
+        --host-set-osname=solaris \
         -Dccdlflags= \
         -Dusethreads \
         -Duseshrplib \
@@ -129,6 +130,7 @@ configure_aarch64() {
         -Dmyhostname=localhost \
         -Umydomain \
         -Dmyuname=sunos \
+        -Dosname=solaris \
         -Dcf_by=omnios-builder \
         -Dcf_email=$PUBLISHER_EMAIL \
         -Dcc=$CROSSTOOLS/aarch64/bin/gcc \
@@ -151,6 +153,7 @@ configure_aarch64() {
         -Dprivlib=${PREFIX}/lib \
         -Dsitelib=/usr/perl5/site_perl/$MAJVER \
         -Dvendorlib=/usr/perl5/vendor_perl/$MAJVER \
+        -Darchlib=${PREFIX}/lib/aarch64-solaris \
         -Ulocincpth= \
         -Uloclibpth= \
         -Dlibpth="/lib/aarch64 /usr/lib/aarch64" \
