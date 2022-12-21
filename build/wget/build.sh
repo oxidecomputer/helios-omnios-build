@@ -46,7 +46,10 @@ CONFIGURE_OPTS="
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
-download_perl_deps() {
+post_install() {
+    cross_arch $1 && return
+    [ -n "$SKIP_TESTSUITE" ] && return
+
     # download and build perl dependencies
     for dep in $TEST_DEPENDS_PERLMOD; do
         note "-- Building dependency $dep"
@@ -61,7 +64,6 @@ patch_source
 run_autoreconf
 prep_build
 build
-[ -z "$SKIP_TESTSUITE" ] && download_perl_deps
 PERL5LIB=$TMPDIR/_deproot/lib/perl5 run_testsuite check
 make_package
 clean_up

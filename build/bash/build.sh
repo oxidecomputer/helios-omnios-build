@@ -28,7 +28,7 @@
 
 PROG=bash
 VER=5.2.9
-PKGVER=5.1.16       # including any additional patches
+PKGVER=5.2.9       # including any additional patches
 PKG=shell/bash
 SUMMARY="GNU Bash"
 DESC="GNU Bourne-Again shell (bash)"
@@ -72,26 +72,30 @@ pre_configure() {
     run_autoreconf -fi
 }
 
+post_install() {
+    clone_github_source -dependency illumos-completion \
+        https://github.com/OpenIndiana/openindiana-completions master
+
+    if ((EXTRACT_MODE == 0)); then
+        logcmd rm -f $TMPDIR/$BUILDDIR/illumos-completion/*.md
+        logcmd rsync -av --exclude=.git \
+            $TMPDIR/$BUILDDIR/illumos-completion/ \
+            $DESTDIR/$PREFIX/share/bash-completion/completions/ || logerr rsync
+    fi
+}
+
 build_dependency -merge bash-completion bash-completion-$BCVER \
     $PROG bash-completion $BCVER
 
 unset -f pre_configure
-
-clone_github_source -dependency illumos-completion \
-    https://github.com/OpenIndiana/openindiana-completions master
-
-if ((EXTRACT_MODE == 0)); then
-    logcmd rm -f $TMPDIR/$BUILDDIR/illumos-completion/*.md
-    logcmd rsync -av --exclude=.git \
-        $TMPDIR/$BUILDDIR/illumos-completion/ \
-        $DESTDIR/$PREFIX/share/bash-completion/completions/ || logerr rsync
-fi
-
+unset -f post_install
 unset -f pre_clean
 
 ###########################################################################
 
 note -n "Building $PROG"
+
+export CC_FOR_BUILD="/opt/gcc-$DEFAULT_GCC_VER/bin/gcc"
 
 CFLAGS+=" -I/usr/include/ncurses"
 LDFLAGS+=" -lncurses"
@@ -132,7 +136,6 @@ CONFIGURE_OPTS="
     --enable-readline
     --enable-restricted
     --enable-select
-    --enable-separate-helpfiles
     --enable-single-help-strings
     --disable-strict-posix-default
     --enable-usg-echo-default
@@ -145,6 +148,7 @@ CONFIGURE_OPTS="
     --with-curses
     --with-installed-readline=yes
 "
+CONFIGURE_OPTS[amd64]+=" --enable-separate-helpfiles"
 
 download_source $PROG $PROG $VER
 patch_source
