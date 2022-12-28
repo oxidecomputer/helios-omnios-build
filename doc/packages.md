@@ -79,7 +79,7 @@
 | runtime/java/openjdk8			| 1.8.352-08		| https://github.com/openjdk/jdk8u/tags
 | runtime/perl				| 5.36.0		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
-| runtime/python-39			| 3.9.15		| https://www.python.org/downloads/source/
+| runtime/python-39			| 3.9.16		| https://www.python.org/downloads/source/
 | runtime/python-310			| 3.10.9		| https://www.python.org/downloads/source/
 | runtime/python-311			| 3.11.1		| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.12p1		| https://www.sudo.ws/
