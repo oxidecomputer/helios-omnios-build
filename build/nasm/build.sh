@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=nasm
-VER=2.15.05
+VER=2.16.01
 PKG=developer/nasm
 SUMMARY="The Netwide Assembler"
 DESC="an assembler targetting the Intel x86 series of processors"
