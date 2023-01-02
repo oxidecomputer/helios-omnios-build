@@ -18,10 +18,13 @@
 . ../../lib/build.sh
 
 PROG=libsigc++
-VER=3.2.0
+VER=3.4.0
 PKG=library/c++/sigcpp
 SUMMARY="$PROG"
 DESC="A library that implements typesafe callback system for standard C++"
+
+# The configure output includes a line that contains "werror: false"
+SKIP_BUILD_ERRCHK=1
 
 export MAKE
 CONFIGURE_OPTS="--includedir=/usr/include"

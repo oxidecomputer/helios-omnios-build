@@ -27,8 +27,7 @@
 . ../../lib/build.sh
 
 PROG=bash
-VER=5.2.9
-PKGVER=5.2.9       # including any additional patches
+VER=5.2.15
 PKG=shell/bash
 SUMMARY="GNU Bash"
 DESC="GNU Bourne-Again shell (bash)"
@@ -153,7 +152,7 @@ CONFIGURE_OPTS[amd64]+=" --enable-separate-helpfiles"
 download_source $PROG $PROG $VER
 patch_source
 build
-VER=$PKGVER make_package
+make_package
 clean_up
 
 # Vim hints
