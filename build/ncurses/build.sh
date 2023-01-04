@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=ncurses
-VER=6.3
+VER=6.4
 PKG=library/ncurses
 SUMMARY="A CRT screen handling package"
 DESC="Utilities and shared libraries for terminal handling"
