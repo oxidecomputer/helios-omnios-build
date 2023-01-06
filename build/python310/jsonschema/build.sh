@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/build.sh
 
 PKG=library/python-3/jsonschema-310
 PROG=jsonschema
-VER=4.17.1
+VER=4.17.3
 SUMMARY="An implementation of JSON Schema validation for Python"
 DESC="$SUMMARY"
 

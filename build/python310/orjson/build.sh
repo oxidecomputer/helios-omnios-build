@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/build.sh
 
 PKG=library/python-3/orjson-310
 PROG=orjson
-VER=3.8.2
+VER=3.8.4
 SUMMARY="orjson"
 DESC="A fast, correct JSON library for Python."
 

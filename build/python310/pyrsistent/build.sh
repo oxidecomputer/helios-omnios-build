@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/build.sh
 
 PKG=library/python-3/pyrsistent-310
 PROG=pyrsistent
-VER=0.19.2
+VER=0.19.3
 SUMMARY="Python pyrsistent"
 DESC="Persistent/Functional/Immutable data structures"
 

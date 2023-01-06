@@ -28,7 +28,7 @@
 | developer/parser/bison		| 3.8.2			| https://ftp.gnu.org/gnu/bison/
 | developer/pkg-config			| 0.29.2		| https://pkg-config.freedesktop.org/releases
 | developer/versioning/git		| 2.39.0		| https://www.kernel.org/pub/software/scm/git https://git-scm.com/
-| developer/versioning/mercurial	| 6.3.1			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
+| developer/versioning/mercurial	| 6.3.2			| https://www.mercurial-scm.org/release/?M=D https://www.mercurial-scm.org/wiki/WhatsNew
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 9.0			| http://ftp.vim.org/pub/vim/unix
@@ -50,9 +50,9 @@
 | library/libxml2			| 2.10.3		| https://github.com/GNOME/libxml2/tags http://xmlsoft.org/news.html
 | library/libxslt			| 1.1.30		| http://xmlsoft.org/libxslt/news.html
 | library/lzlib				| 1.13			| https://download.savannah.gnu.org/releases/lzip/lzlib/
-| library/ncurses			| 6.3			| https://ftp.gnu.org/gnu/ncurses/
+| library/ncurses			| 6.4			| https://ftp.gnu.org/gnu/ncurses/
 | library/nghttp2			| 1.51.0		| https://github.com/nghttp2/nghttp2/releases
-| library/nss				| 3.85			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
+| library/nss				| 3.86			| https://ftp.mozilla.org/pub/security/nss/releases/ https://developer.mozilla.org/en-US/docs/Mozilla/Projects/NSS/NSS_Releases
 | library/nspr				| 4.35			| http://archive.mozilla.org/pub/nspr/releases/ | https://ftp.mozilla.org/pub/security/nss/releases/
 | library/pcre2				| 10.42			| https://github.com/PhilipHazel/pcre2/releases
 | library/perl-5/xml-parser		| 2.46			| https://metacpan.org/pod/XML::Parser
@@ -84,7 +84,7 @@
 | runtime/python-311			| 3.11.1		| https://www.python.org/downloads/source/
 | security/sudo				| 1.9.12p1		| https://www.sudo.ws/
 | service/network/chrony		| 4.3			| https://download.tuxfamily.org/chrony/
-| service/network/ntpsec		| 1.2.1			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
+| service/network/ntpsec		| 1.2.2			| https://github.com/ntpsec/ntpsec/tags https://blog.ntpsec.org/
 | service/network/smtp/dma		| 0.13			| https://github.com/corecode/dma/tags
 | shell/bash				| 5.2.15		| https://ftp.gnu.org/gnu/bash/
 | shell/bash5-patchlvl			| 016			| https://ftp.gnu.org/gnu/bash/bash-5.1-patches
@@ -93,10 +93,10 @@
 | shell/tcsh				| 6.24.07		| https://github.com/tcsh-org/tcsh/tags
 | shell/zsh				| 5.9			| https://sourceforge.net/projects/zsh/files/zsh
 | system/cpuid				| 1.8.2			| https://github.com/tycho/cpuid/tags
-| system/data/urxvt-terminfo		| 9.30			| http://dist.schmorp.de/rxvt-unicode/
+| system/data/urxvt-terminfo		| 9.31			| http://dist.schmorp.de/rxvt-unicode/
 | system/library/dbus			| 1.14.4		| https://dbus.freedesktop.org/releases/dbus | Odd minor versions are dev/unstable
 | system/library/libdbus-glib		| 0.112			| https://dbus.freedesktop.org/releases/dbus-glib/
-| system/library/pcap			| 1.10.1		| http://www.tcpdump.org/#latest-releases
+| system/library/pcap			| 1.10.2		| http://www.tcpdump.org/#latest-releases
 | system/management/cloud-init		| 22.3			| https://github.com/canonical/cloud-init/releases
 | system/management/ipmitool		| 1.8.19		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.9.3			| https://github.com/net-snmp/net-snmp/tags
@@ -126,22 +126,22 @@
 | developer/swig			| 4.1.1			| http://www.swig.org/download.html
 | library/security/trousers		| 0.3.15		| https://sourceforge.net/projects/trousers/files/trousers
 | library/python-3/asn1crypto-310	| 1.5.1			| https://pypi.org/project/asn1crypto
-| library/python-3/attrs-310		| 22.1.0		| https://pypi.org/project/attrs
+| library/python-3/attrs-310		| 22.2.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-310		| 1.15.1		| https://pypi.org/project/cffi
-| library/python-3/coverage-310		| 6.5.0			| https://pypi.org/project/coverage
-| library/python-3/cryptography-310	| 38.0.3		| https://pypi.org/project/cryptography
+| library/python-3/coverage-310		| 7.0.3			| https://pypi.org/project/coverage
+| library/python-3/cryptography-310	| 39.0.0		| https://pypi.org/project/cryptography
 | library/python-3/idna-310		| 3.4			| https://pypi.org/project/idna
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
-| library/python-3/jsonschema-310	| 4.17.1		| https://pypi.org/project/jsonschema
-| library/python-3/meson-310		| 0.64.1		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/orjson-310		| 3.8.2			| https://github.com/ijl/orjson/releases
+| library/python-3/jsonschema-310	| 4.17.3		| https://pypi.org/project/jsonschema
+| library/python-3/meson-310		| 1.0.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/orjson-310		| 3.8.4			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.3.1		| https://pypi.org/project/pip
 | library/python-3/pycodestyle-310	| 2.10.0		| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-310	| 2.21			| https://pypi.org/project/pycparser
 | library/python-3/pycurl-310		| 7.44.1		| https://pypi.org/project/pycurl
-| library/python-3/pyopenssl-310	| 22.1.0		| https://pypi.org/project/pyOpenSSL
-| library/python-3/pyrsistent-310	| 0.19.2		| https://pypi.org/project/pyrsistent
+| library/python-3/pyopenssl-310	| 23.0.0		| https://pypi.org/project/pyOpenSSL
+| library/python-3/pyrsistent-310	| 0.19.3		| https://pypi.org/project/pyrsistent
 | library/python-3/pyyaml-310		| 6.0			| https://pypi.org/project/PyYAML
 | library/python-3/rapidjson-310	| 1.9			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-310	| 2.10.0		| https://pypi.org/project/semantic-version

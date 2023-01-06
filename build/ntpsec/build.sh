@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=ntpsec
-VER=1.2.1
+VER=1.2.2
 PKG=service/network/ntpsec
 SUMMARY="Network time services"
 DESC="A secure, hardened and improved Network Time Protocol implementation"
@@ -28,7 +28,7 @@ set_arch 64
 BUILD_DEPENDS_IPS="ooce/text/asciidoc"
 export PATH=$PATH:$OOCEBIN
 
-SKIP_LICENCES="*"
+SKIP_LICENCES="skip*"
 
 export XML_CATALOG_FILES=$OOCEOPT/docbook-xsl/catalog.xml
 
