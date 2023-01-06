@@ -231,10 +231,15 @@ init
 download_source $PROG $PROG $VER
 patch_source
 prep_build autoconf -autoreconf
-[[ $BUILDARCH = *amd64* ]] && multi_build || build
-launch_testsuite
-test_dtrace
-[[ $BUILDARCH = *amd64* ]] && merged_package || make_package
+if [[ $BUILDARCH = *amd64* ]]; then
+    multi_build
+    launch_testsuite
+    test_dtrace
+    merged_package
+else
+    build
+    make_package
+fi
 clean_up
 
 # Vim hints
