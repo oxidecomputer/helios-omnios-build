@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=xz
-VER=5.4.0
+VER=5.4.1
 PKG=compress/xz
 SUMMARY="XZ Utils - general-purpose data compression software"
 DESC="Free general-purpose data compression software with a "
