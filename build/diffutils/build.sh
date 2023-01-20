@@ -21,13 +21,13 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2021 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 # Use is subject to license terms.
 #
 . ../../lib/build.sh
 
 PROG=diffutils
-VER=3.8
+VER=3.9
 PKG=text/gnu-diffutils
 SUMMARY="GNU diffutils - Finds differences between and among files"
 DESC="$SUMMARY"
