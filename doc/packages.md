@@ -74,9 +74,9 @@
 | network/socat				| 1.7.4.4		| http://www.dest-unreach.org/socat/download/
 | network/test/iperf			| 3.1.3			| https://iperf.fr/iperf-download.php#source
 | network/test/netperf			| 2.7.0			| https://github.com/HewlettPackard/netperf/tags
-| runtime/java/openjdk11		| 11.0.17+8		| https://github.com/openjdk/jdk11u/tags
-| runtime/java/openjdk17		| 17.0.5+8		| https://github.com/openjdk/jdk17u/tags
-| runtime/java/openjdk8			| 1.8.352-08		| https://github.com/openjdk/jdk8u/tags
+| runtime/java/openjdk11		| 11.0.18+10		| https://github.com/openjdk/jdk11u/tags
+| runtime/java/openjdk17		| 17.0.6+10		| https://github.com/openjdk/jdk17u/tags
+| runtime/java/openjdk8			| 1.8.362-09		| https://github.com/openjdk/jdk8u/tags
 | runtime/perl				| 5.36.0		| https://www.cpan.org/src/README.html
 | runtime/python-27			| 2.7.18		| https://www.python.org/downloads/source/
 | runtime/python-39			| 3.9.16		| https://www.python.org/downloads/source/
@@ -96,7 +96,7 @@
 | system/data/urxvt-terminfo		| 9.31			| http://dist.schmorp.de/rxvt-unicode/
 | system/library/dbus			| 1.14.4		| https://dbus.freedesktop.org/releases/dbus | Odd minor versions are dev/unstable
 | system/library/libdbus-glib		| 0.112			| https://dbus.freedesktop.org/releases/dbus-glib/
-| system/library/pcap			| 1.10.2		| http://www.tcpdump.org/#latest-releases
+| system/library/pcap			| 1.10.3		| http://www.tcpdump.org/#latest-releases
 | system/management/cloud-init		| 22.3			| https://github.com/canonical/cloud-init/releases
 | system/management/ipmitool		| 1.8.19		| https://github.com/ipmitool/ipmitool/releases
 | system/management/snmp/net-snmp	| 5.9.3			| https://github.com/net-snmp/net-snmp/tags
@@ -109,7 +109,7 @@
 | terminal/screen			| 4.9.0			| https://ftp.gnu.org/gnu/screen/
 | terminal/tmux				| 3.3			| https://github.com/tmux/tmux/releases http://tmux.github.io/
 | text/gawk				| 5.2.1			| https://ftp.gnu.org/gnu/gawk/
-| text/gnu-diffutils			| 3.8			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
+| text/gnu-diffutils			| 3.9			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.21.1		| https://ftp.gnu.org/pub/gnu/gettext/
 | text/gnu-grep				| 3.8			| https://ftp.gnu.org/gnu/grep/
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
@@ -119,8 +119,8 @@
 | web/curl				| 7.87.0		| https://curl.haxx.se/download.html
 | web/wget				| 1.21.3		| https://ftp.gnu.org/gnu/wget/
 | web/wget2				| 2.0.1			| https://ftp.gnu.org/gnu/wget/
-| library/glib2				| 2.74.4		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
-| developer/gnu-binutils		| 2.39			| https://ftp.gnu.org/gnu/binutils
+| library/glib2				| 2.74.5		| https://download.gnome.org/sources/glib/cache.json https://download.gnome.org/sources/glib/ | Odd minor versions are dev/unstable
+| developer/gnu-binutils		| 2.40			| https://ftp.gnu.org/gnu/binutils
 | media/cdrtools			| 3.01			| https://sourceforge.net/projects/cdrtools/files
 | system/virtualization/open-vm-tools	| 12.1.5		| https://github.com/vmware/open-vm-tools/releases https://docs.vmware.com/en/VMware-Tools/
 | developer/swig			| 4.1.1			| http://www.swig.org/download.html
