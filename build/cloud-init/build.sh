@@ -57,7 +57,7 @@ function install_deps {
     logcmd $_pip pyserial
 
     export PYTHONPATH=$DESTDIR/$_site
-    PYINST64OPTS+=" --install-lib=$_site"
+    PYINSTOPTS[amd64]+=" --install-lib=$_site"
 }
 
 function fixup_path {
@@ -70,7 +70,7 @@ addsitedir('$_site')
     done
 }
 
-PYINST64OPTS="--init-system=smf"
+PYINSTOPTS[amd64]="--init-system=smf"
 
 init
 download_source $PROG illumos $VER-$DASHREV
