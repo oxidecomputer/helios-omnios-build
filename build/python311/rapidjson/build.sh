@@ -25,6 +25,8 @@ DESC+="; this module wraps it into a Python 3 extension"
 
 . $SRCDIR/../common.sh
 
+CFLAGS[aarch64]+=" -fpermissive"
+
 set_builddir python-$PROG-$VER
 
 init
