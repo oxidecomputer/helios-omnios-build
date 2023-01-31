@@ -28,13 +28,23 @@ set_arch 64
 # Need access to additional fields in struct msghdr
 set_standard XPG6
 
-CONFIGURE_OPTS[WS]="
+CONFIGURE_OPTS+="
     --with-sys-screenrc=/etc/screenrc
     --enable-colors256
-    LDFLAGS=\"-m64 -lxnet\"
 "
 
+build_init() {
+    CONFIGURE_OPTS[amd64_WS]="
+        LDFLAGS=\"-m64 -lxnet\"
+    "
+    CONFIGURE_OPTS[aarch64_WS]="
+        LDFLAGS=\"-L${SYSROOT[aarch64]}/usr/lib -lxnet\"
+    "
+}
+
 post_install() {
+    typeset arch=$1
+
     logmsg "Installing /etc/screenrc"
     logcmd mkdir $DESTDIR/etc || logerr "-- Failed to mkdir $DESTDIR/etc"
     sed '
@@ -48,9 +58,10 @@ autodetach on\
 defscrollback 1000
         /^#startup_message off/s/#//
     ' < etc/etcscreenrc > $DESTDIR/etc/screenrc
-}
 
-tests() {
+    # We can't use `ldd` against cross binaries
+    cross_arch $arch && return
+
     curses=`ldd $DESTDIR/$PREFIX/bin/screen | nawk '/curses/ { print $1}'`
     [ "$curses" = "libncurses.so.6" ] || \
         logerr "Wrong curses version linked ($curses)"
@@ -62,7 +73,6 @@ patch_source
 run_autoreconf -fi
 prep_build
 build
-tests
 make_package
 clean_up
 
