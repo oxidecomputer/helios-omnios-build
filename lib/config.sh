@@ -335,6 +335,9 @@ typeset -A CXXFLAGS=(
     [amd64]=-m64
 )
 
+typeset -A PYBUILDOPTS=()
+typeset -A PYINSTOPTS=()
+
 typeset -A CPPFLAGS=()
 typeset -A PKG_CONFIG_PATH=()
 

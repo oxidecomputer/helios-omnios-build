@@ -47,7 +47,7 @@ CONFIGURE_OPTS[amd64]+=" --libexecdir=/usr/lib/amd64"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
-function strip_info {
+function post_install {
     sed -i '/or available locally via: info/d' \
         `$FD -t f '\.1$' $DESTDIR/usr/gnu/share/man/man1/`
 }
@@ -58,7 +58,6 @@ patch_source
 run_autoreconf -fi
 prep_build
 build
-strip_info
 run_testsuite check
 make_package
 clean_up

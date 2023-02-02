@@ -24,6 +24,13 @@ DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 
+if [ "$BUILDARCH" = aarch64 ]; then
+    # This is the last version that does not require rust to build, so we use
+    # that for aarch64 for now.
+    VER=3.4.8
+    export CRYPTOGRAPHY_DONT_BUILD_RUST=1
+fi
+
 RUN_DEPENDS_IPS+="
     library/python-$PYMVER/six-$SPYVER
     library/python-$PYMVER/cffi-$SPYVER

@@ -2709,14 +2709,6 @@ set_python_version() {
     PYTHONSITE=$PYTHONLIB/python$PYTHONVER/site-packages
 }
 
-pre_python_32() {
-    logmsg "prepping 32bit python build"
-}
-
-pre_python_64() {
-    logmsg "prepping 64bit python build"
-}
-
 python_vendor_relocate() {
     [ -d $DESTDIR/$PYTHONSITE ] || return
     logmsg "Relocating python $PYTHONVER site-packages to vendor-packages"
@@ -2778,26 +2770,48 @@ python_backend() {
     python_$backend "$@"
 }
 
-python_build_i386() {
-    typeset arch=i386
-    export ISALIST=i386
-    pre_python_32
+python_build_arch() {
+    typeset arch=$1
+    hook pre_build $arch
     CFLAGS="${CFLAGS[0]} ${CFLAGS[$arch]}" \
         LDFLAGS="${LDFLAGS[0]} ${LDFLAGS[$arch]}" \
-        PYBUILDOPTS="$PYBUILDOPTS $PYBUILDOPTS32" \
-        PYINSTOPTS="$PYINSTOPTS $PYINST32OPTS" \
+        PYBUILDOPTS="${PYBUILDOPTS[0]} ${PYBUILDOPTS[$arch]}" \
+        PYINSTOPTS="${PYINSTOPTS[0]} ${PYINSTOPTS[$arch]}" \
         python_backend
+
+    # XXX - can do better
+    if [ -d $DESTDIR/$TMPDIR/venv/cross ]; then
+        logcmd $MV $DESTDIR/$TMPDIR/venv/cross $DESTDIR/usr
+        logcmd $RM -rf $DESTDIR/data
+    fi
+
+    python_vendor_relocate
+    python_compile
+}
+
+python_build_i386() {
+    ISALIST=i386 \
+        python_build_arch i386
 }
 
 python_build_amd64() {
-    typeset arch=amd64
-    export ISALIST="amd64 i386"
-    pre_python_64
-    CFLAGS="${CFLAGS[0]} ${CFLAGS[$arch]}" \
-        LDFLAGS="${LDFLAGS[0]} ${LDFLAGS[$arch]}" \
-        PYBUILDOPTS="$PYBUILDOPTS $PYBUILDOPTS64" \
-        PYINSTOPTS="$PYINSTOPTS $PYINST64OPTS" \
-        python_backend
+    ISALIST="amd64 i386" \
+        python_build_arch amd64
+}
+
+python_build_aarch64() {
+    typeset arch=aarch64
+
+    # Prepare a cross compilation environment
+    logmsg "--- Preparing cross compilation environment"
+    set_crossgcc $arch
+    logcmd $PYTHON -mcrossenv ${SYSROOT[$arch]}$PYTHON $TMPDIR/venv \
+        || logerr "Failed to set up crossenv"
+    source $TMPDIR/venv/bin/activate
+
+    PYTHON=$TMPDIR/venv/cross/bin/python \
+        DESTDIR+=.$arch \
+        python_build_arch $arch
 }
 
 python_build() {
@@ -2810,19 +2824,16 @@ python_build() {
     pushd $TMPDIR/$BUILDDIR > /dev/null
 
     # we only ship 64 bit python3
-    [[ $PYTHONVER = 3.* && BUILDARCH=x86 ]] && BUILDARCH=amd64
+    [[ $PYTHONVER == 3.* && $BUILDARCH == *i386* ]] && BUILDARCH=amd64
 
     [ -f setup.py -o -f pyproject.toml ] \
         || logerr "Don't know how to build this project"
 
     for b in $BUILDARCH; do
-        python_build_$b || log "$b build failed"
+        python_build_$b || logerr "$b build failed"
     done
 
     popd > /dev/null
-
-    python_vendor_relocate "$@"
-    python_compile
 }
 
 #############################################################################

@@ -11,26 +11,21 @@
 # source. A copy of the CDDL is also available via the Internet at
 # http://www.illumos.org/license/CDDL.
 # }}}
-#
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
-#
+
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
+
 . ../../../lib/build.sh
 
-PKG=library/python-3/rapidjson-311
-PROG=rapidjson
-inherit_ver python310/$PROG
-SUMMARY="rapidjson - Python interface to RapidJSON"
-DESC="RapidJSON is an extremely fast C++ JSON parser and serialization library"
-DESC+="; this module wraps it into a Python 3 extension"
+PKG=library/python-3/crossenv-311
+PROG=crossenv
+VER=1.4.0
+SUMMARY="A cross-compiling tool for Python extension modules"
+DESC="$SUMMARY"
 
 . $SRCDIR/../common.sh
 
-CFLAGS[aarch64]+=" -fpermissive"
-
-set_builddir python-$PROG-$VER
-
 init
-download_source pymodules/$PROG python-$PROG $VER
+download_source pymodules/$PROG $PROG $VER
 patch_source
 prep_build
 python_build

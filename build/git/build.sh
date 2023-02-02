@@ -51,7 +51,16 @@ CONFIGURE_OPTS="
     --with-libpcre2
 "
 
+for arch in $CROSS_ARCH; do
+    CONFIGURE_OPTS[$arch]+="
+        ac_cv_iconv_omits_bom=no
+        ac_cv_fread_reads_directories=yes
+        ac_cv_snprintf_returns_bogus=no
+        "
+done
+
 perllib=`$PERL -MConfig -e 'print $Config{installvendorlib}'`
+MAKE_ARGS+=" V=1"
 MAKE_INSTALL_ARGS+=" perllibdir=$perllib"
 
 # Checking for BMI instructions is very expensive; disable for batch builds
@@ -59,6 +68,24 @@ BMI_EXPECTED=$BATCH
 
 pre_configure() {
     make_param configure
+}
+
+pre_make() {
+    cross_arch $1 || return
+
+    # git's Makefile is not particularly cross-compilation friendly
+    logcmd $SED -i '/CURL_CFLAGS = -I/d' $TMPDIR/$BUILDDIR/Makefile
+    logcmd $SED -i '/BASIC_CFLAGS += -I/d' $TMPDIR/$BUILDDIR/Makefile
+
+    MAKE_ARGS+=" CC=$GCC"
+}
+
+pre_package() {
+    typeset arch=$1
+
+    if cross_arch $arch; then
+        HARDLINK_TARGETS=${HARDLINK_TARGETS//\/amd64/}
+    fi
 }
 
 install_man() {
@@ -92,6 +119,14 @@ install_completions() {
     popd > /dev/null
 }
 
+post_install() {
+    typeset arch=$1
+
+    install_man
+    cross_arch $arch || install_pod
+    install_completions
+}
+
 TESTSUITE_SED="
     /test_submodule/s/:.*//
     /I18N/s/I18N .*/I18N/
@@ -107,9 +142,6 @@ patch_source
 prep_build
 build
 run_testsuite
-install_man
-install_pod
-install_completions
 install_inetservices
 make_package
 clean_up
