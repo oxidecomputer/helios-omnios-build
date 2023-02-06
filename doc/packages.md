@@ -68,7 +68,7 @@
 | meta/data/microcode/amd		| 20220930		| https://git.kernel.org/pub/scm/linux/kernel/git/firmware/linux-firmware.git/log/amd-ucode
 | meta/data/microcode/intel		| 20221108		| https://github.com/intel/Intel-Linux-Processor-Microcode-Data-Files/releases
 | network/dns/bind			| 9.18.10		| https://ftp.isc.org/isc/bind9/ https://www.isc.org/downloads/
-| network/openssh			| 9.1p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
+| network/openssh			| 9.2p1			| https://www.mirrorservice.org/pub/OpenBSD/OpenSSH/portable/
 | network/rsync				| 3.2.7			| https://rsync.samba.org/
 | network/service/isc-dhcp		| 4.4.3-P1		| https://ftp.isc.org/isc/dhcp/ https://www.isc.org/downloads/
 | network/socat				| 1.7.4.4		| http://www.dest-unreach.org/socat/download/
@@ -134,7 +134,7 @@
 | library/python-3/js-regex-310		| 1.0.1			| https://pypi.org/project/js-regex
 | library/python-3/jsonrpclib-310	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-310	| 4.17.3		| https://pypi.org/project/jsonschema
-| library/python-3/meson-310		| 1.0.0		| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
+| library/python-3/meson-310		| 1.0.0			| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
 | library/python-3/orjson-310		| 3.8.4			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-310		| 22.3.1		| https://pypi.org/project/pip
 | library/python-3/pycodestyle-310	| 2.10.0		| https://pypi.org/project/pycodestyle/
