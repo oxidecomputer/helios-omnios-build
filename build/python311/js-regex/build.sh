@@ -18,7 +18,7 @@
 
 PKG=library/python-3/js-regex-311
 PROG=js-regex
-inherit_ver python310/$PROG
+VER=1.0.1
 SUMMARY="A thin compatibility layer to use Javascript regular expressions"
 DESC="$SUMMARY"
 
