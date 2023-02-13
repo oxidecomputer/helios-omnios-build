@@ -18,7 +18,7 @@
 
 PKG=library/python-3/setuptools-311
 PROG=setuptools
-inherit_ver python310/$PROG
+VER=65.6.3
 SUMMARY="Python package management"
 DESC="Easily download, build, install, upgrade, and uninstall Python packages"
 
