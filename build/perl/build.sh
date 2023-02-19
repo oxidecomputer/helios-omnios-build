@@ -153,7 +153,7 @@ configure_aarch64() {
         -Dprivlib=${PREFIX}/lib \
         -Dsitelib=/usr/perl5/site_perl/$MAJVER \
         -Dvendorlib=/usr/perl5/vendor_perl/$MAJVER \
-        -Darchlib=${PREFIX}/lib/aarch64-solaris \
+        -Darchlib=${PREFIX}/lib/aarch64-solaris-64 \
         -Ulocincpth= \
         -Uloclibpth= \
         -Dlibpth="/lib/aarch64 /usr/lib/aarch64" \
