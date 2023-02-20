@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
@@ -24,10 +24,6 @@ SUMMARY="Authority delegation tool"
 DESC="Provide limited super-user privileges to specific users"
 
 set_arch 64
-
-CONFIGURE_OPTS[amd64]+="
-    --libexecdir=/usr/lib/$PROG/amd64
-"
 
 CONFIGURE_OPTS="
     --with-ldap
@@ -45,6 +41,9 @@ CONFIGURE_OPTS="
     --enable-log-client
     --disable-log-server
 "
+CONFIGURE_OPTS[amd64]+="
+    --libexecdir=/usr/lib/$PROG/amd64
+"
 
 SKIP_LICENCES=Various
 TESTSUITE_SED="
@@ -52,6 +51,24 @@ TESTSUITE_SED="
     /^check_ttyname:/s/ *(.*//
     /^check_net_ifs:/s/ *(.*//
 "
+
+build_init() {
+    CPPFLAGS[aarch64]+=" -I${SYSROOT[aarch64]}/usr/include"
+    LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/usr/lib"
+}
+
+pre_configure() {
+    typeset arch=$1
+
+    ! cross_arch $arch && return
+
+    CONFIGURE_OPTS[$arch]+="
+        --build=${TRIPLETS[$BUILD_ARCH]}
+    "
+
+    # configure tries to find the build triplet prefixed gcc
+    PATH+=":/opt/gcc-$DEFAULT_GCC_VER/bin"
+}
 
 init
 download_source $PROG $PROG $VER
