@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/build.sh
 
@@ -27,16 +27,25 @@ CONFIGURE_OPTS="--disable-static --mandir=/usr/share/man"
 LIBTOOL_NOSTDLIB=libtool
 LIBTOOL_NOSTDLIB_EXTRAS="-lc -lssp_ns"
 
-install_legacy()
-{
+post_install() {
+    typeset arch=$1
+
     # Include libraries from idnkit1
     ver=1.0.2
-    for lib in idnkit idnkitlite; do
-        logcmd cp /usr/lib/lib$lib.so.$ver $DESTDIR/usr/lib/
-        logcmd cp /usr/lib/amd64/lib$lib.so.$ver $DESTDIR/usr/lib/amd64/
-        logcmd ln -s lib$lib.so.$ver $DESTDIR/usr/lib/lib$lib.so.1
-        logcmd ln -s lib$lib.so.$ver $DESTDIR/usr/lib/amd64/lib$lib.so.1
-    done
+    case $arch in
+        i386)
+            for lib in idnkit idnkitlite; do
+                logcmd cp /usr/lib/lib$lib.so.$ver $DESTDIR/usr/lib/
+                logcmd ln -s lib$lib.so.$ver $DESTDIR/usr/lib/lib$lib.so.1
+            done
+            ;;
+        amd64)
+            for lib in idnkit idnkitlite; do
+                logcmd cp /usr/lib/amd64/lib$lib.so.$ver $DESTDIR/usr/lib/amd64/
+                logcmd ln -s lib$lib.so.$ver $DESTDIR/usr/lib/amd64/lib$lib.so.1
+            done
+            ;;
+    esac
 }
 
 init
@@ -45,7 +54,6 @@ patch_source
 prep_build
 build
 make_isa_stub
-install_legacy
 make_package lib.mog
 
 PKG=library/idnkit/header-idnkit
@@ -58,7 +66,7 @@ PKG=network/dns/idnconv
 DEPENDS_IPS="library/idnkit"
 SUMMARY="Internationalized Domain Name Support Utilities"
 DESC="Internationalized Domain Name Support Utilities"
-make_package bin.mog
+[ "$FLAVOR" != libsandheaders ] && make_package bin.mog
 
 clean_up
 
