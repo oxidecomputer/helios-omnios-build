@@ -98,7 +98,7 @@ buildorder() {
     typeset -a sorted
     if [ -f "$ROOTDIR/doc/pkglist.$CLIBUILDARCH" ]; then
         SKIP_KAYAK_KERNEL=1
-        mapfile -d '' sorted \
+        mapfile -t sorted \
             < <(grep -v '^#' $ROOTDIR/doc/pkglist.$CLIBUILDARCH)
     else
         sorted+=(system/management/snmp/net-snmp)
@@ -107,8 +107,9 @@ buildorder() {
            egrep -v 'kayak-kernel|net-snmp')
         sorted+=(system/install/kayak-kernel)
     fi
-    for target in ${sorted[@]}; do
-        echo $target
+    for target in "${sorted[@]}"; do
+        [ -n "$target" ] || continue
+        echo "$target"
     done
 }
 
@@ -131,6 +132,8 @@ list_build() {
     PAT=${1-.}
 
     buildorder | while read target; do
+        # Strip flags
+        target=${target%% *}
         if [ "$PAT" = "." ]; then
             echo " * $target"
         else
@@ -143,6 +146,9 @@ list_built() {
     PAT=${1-.}
 
     buildorder | while read target; do
+        # Strip flags
+        target=${target%% *}
+
         echo $target | egrep -s "$PAT" || continue
         is_built $target && echo "${c_highlight}* \\c" || echo "${c_error}  \\c"
         echo $target$c_reset
@@ -272,16 +278,19 @@ build_manifest() {
 }
 
 build() {
-    if [ -n "${fulltargets[$1]}" ]; then
-        buildtgt=$1
-    elif [ -n "${targets[$1]}" ]; then
-        buildtgt="${targets[$1]}"
-        logmsg "--- $1 -> $buildtgt"
+    typeset tgt="$1"; shift
+    typeset extra_flags="$@"
+
+    if [ -n "${fulltargets[$tgt]}" ]; then
+        buildtgt=$tgt
+    elif [ -n "${targets[$tgt]}" ]; then
+        buildtgt="${targets[$tgt]}"
+        logmsg "--- $tgt -> $buildtgt"
     else
-        logerr "Unknown package: $1"
+        logerr "Unknown package: $tgt"
     fi
     if is_built $buildtgt; then
-        logmsg "--- Package $1 was already built."
+        logmsg "--- Package $tgt was already built."
     else
         BUILD=${fulltargets[$buildtgt]}
         DIR="`dirname $BUILD`"
@@ -301,7 +310,7 @@ build() {
             LOGFILE="$_LOGFILE"
             built_packages_p5m $SCRIPT
         else
-            PATH=$PATH:. $SCRIPT -r $PKGSRVR $build_flags || \
+            PATH=$PATH:. $SCRIPT -r $PKGSRVR $build_flags $extra_flags || \
                 logerr "Unable to run $SCRIPT"
             built_packages_sh $SCRIPT
         fi
@@ -575,20 +584,22 @@ parallel_build() {
 
     # Queue up the packages to build
     declare -a defer
-    for tgt in `buildorder`; do
+    while read tgt; do
         [[ "$tgt" = "#"* ]] && continue
         # Defer this until last
         [ "$tgt" = "system/install/kayak-kernel" ] && continue
         # If nightly is running, defer dependent services to last
         if nightly_running && [[ $tgt = *illumos-gate ]]; then
-                defer+=($tgt)
+                defer+=("$tgt")
                 continue
         fi
-        queue+=($tgt)
+        queue+=("$tgt")
+    done < <(buildorder)
+
+    for tgt in "${defer[@]}"; do
+        queue+=("$tgt")
     done
-    for tgt in ${defer[@]}; do
-        queue+=($tgt)
-    done
+
     [ -z "$SKIP_KAYAK_KERNEL" ] && \
         queue+=(.REBUILD system/install/kayak-kernel)
 
@@ -599,8 +610,13 @@ parallel_build() {
 
     while [ ${#queue[@]} -gt 0 ]; do
         # Pop tgt off queue
-        tgt=${queue[0]}; queue=("${queue[@]:1}")
+        tgt="${queue[0]}"; queue=("${queue[@]:1}")
         nextslot=
+
+        typeset qtgt="$tgt"
+        typeset extra_flags=
+        [[ $tgt == *\ * ]] && extra_flags=${tgt#* }
+        tgt=${tgt%% *}
 
         ((pkgnum++))
 
@@ -672,7 +688,7 @@ parallel_build() {
                 else
                     logmsg -n "-- $tgt, relocating to $newloc/${#queue[@]}"
                     _queue=("${queue[@]:0:newloc}")
-                    _queue+=($tgt)
+                    _queue+=("$qtgt")
                     _queue+=("${queue[@]:newloc}")
                     queue=("${_queue[@]}")
                     # Next queue target
@@ -689,7 +705,7 @@ parallel_build() {
         fi
 
         note -h "($pkgnum/$pkgcount) Building $tgt (slot $nextslot)"
-        logprefix="[$nextslot] " build $tgt &
+        logprefix="[$nextslot] " build $tgt $extra_flags &
         slots[$nextslot]=$!
         slotpid[$!]=$nextslot
         slottgt[$nextslot]=$tgt

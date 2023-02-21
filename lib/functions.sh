@@ -1651,6 +1651,9 @@ convert_version() {
     elif [[ $var = *p[0-9] ]]; then
         ## Convert trailing pX
         var=${var//p/.}
+    elif [[ $var = *.pl[0-9]* ]]; then
+        ## Convert trailing plX
+        var=${var//pl/}
     elif [[ $var = *-P[0-9] ]]; then
         # Convert trailing -P (as used by ISC bind)
         var=${var//-P/.}
