@@ -1,0 +1,357 @@
+diff -wpruN '--exclude=*.orig' a~/configure a/configure
+--- a~/configure	1970-01-01 00:00:00
++++ a/configure	1970-01-01 00:00:00
+@@ -8123,6 +8123,8 @@ _ACEOF
+             else
+                PR_MD_ASFILES=os_SunOS_x86.s
+             fi
++        elif test "$OS_TEST" = "aarch64"; then
++            PR_MD_ASFILES=os_SunOS_aarch64.s
+         else
+             if test -n "$USE_64"; then
+                 PR_MD_ASFILES=os_SunOS_sparcv9.s
+diff -wpruN '--exclude=*.orig' a~/configure.in a/configure.in
+--- a~/configure.in	1970-01-01 00:00:00
++++ a/configure.in	1970-01-01 00:00:00
+@@ -2619,6 +2619,8 @@ case "$target" in
+             else
+                PR_MD_ASFILES=os_SunOS_x86.s
+             fi
++        elif test "$OS_TEST" = "aarch64"; then
++            PR_MD_ASFILES=os_SunOS_aarch64.s
+         else
+             if test -n "$USE_64"; then
+                 PR_MD_ASFILES=os_SunOS_sparcv9.s
+diff -wpruN '--exclude=*.orig' a~/pr/include/md/_solaris.cfg a/pr/include/md/_solaris.cfg
+--- a~/pr/include/md/_solaris.cfg	1970-01-01 00:00:00
++++ a/pr/include/md/_solaris.cfg	1970-01-01 00:00:00
+@@ -35,6 +35,12 @@
+ #undef  IS_BIG_ENDIAN
+ #define PR_ALIGN_OF_INT64   4
+ #define PR_ALIGN_OF_DOUBLE  4
++#elif defined(__aarch64__) || defined(__aarch64)
++#define IS_LITTLE_ENDIAN 1
++#undef  IS_BIG_ENDIAN
++#define PR_ALIGN_OF_INT64   8
++#define PR_ALIGN_OF_DOUBLE  8
++#define IS_64
+ #else
+ #error unknown processor
+ #endif
+diff -wpruN '--exclude=*.orig' a~/pr/include/md/_solaris.h a/pr/include/md/_solaris.h
+--- a~/pr/include/md/_solaris.h	1970-01-01 00:00:00
++++ a/pr/include/md/_solaris.h	1970-01-01 00:00:00
+@@ -18,6 +18,8 @@
+ #define _PR_SI_ARCHITECTURE "x86-64"
+ #elif defined(i386)
+ #define _PR_SI_ARCHITECTURE "x86"
++#elif defined(__aarch64__)
++#define _PR_SI_ARCHITECTURE	"aarch64"
+ #else
+ #error unknown processor
+ #endif
+@@ -293,6 +295,34 @@ NSPR_API(void)              _MD_SolarisI
+     PR_END_MACRO
+ #endif
+ 
++#elif defined __aarch64
++
++#define USE_SETJMP
++#define _MD_INIT_CONTEXT(_thread, _sp, _main, status)	      \
++{									  \
++        *status = PR_TRUE;              \
++    if (setjmp(CONTEXT(_thread))) {				\
++	(*_main)();						\
++    }								\
++    _MD_GET_SP(_thread) = (long) ((_sp) - 64);			\
++    _MD_GET_SP(_thread) &= ~15;					\
++}
++
++#define _MD_SWITCH_CONTEXT(_thread)  \
++    if (!setjmp(CONTEXT(_thread))) { \
++	(_thread)->md.errcode = errno;  \
++	_PR_Schedule();		     \
++    }
++
++/*
++** Restore a thread context, saved by _MD_SWITCH_CONTEXT
++*/
++#define _MD_RESTORE_CONTEXT(_thread) \
++{				     \
++    errno = (_thread)->md.errcode;     \
++    _MD_SET_CURRENT_THREAD(_thread);	\
++    longjmp(CONTEXT(_thread), 1);    \
++}
+ #else  /* x86 solaris */
+ 
+ #ifdef USE_SETJMP
+diff -wpruN '--exclude=*.orig' a~/pr/include/prcpucfg.h a/pr/include/prcpucfg.h
+--- a~/pr/include/prcpucfg.h	1970-01-01 00:00:00
++++ a/pr/include/prcpucfg.h	1970-01-01 00:00:00
+@@ -0,0 +1,177 @@
++/* -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*- */
++/* This Source Code Form is subject to the terms of the Mozilla Public
++ * License, v. 2.0. If a copy of the MPL was not distributed with this
++ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
++
++#ifndef nspr_cpucfg___
++#define nspr_cpucfg___
++
++#ifndef XP_UNIX
++#define XP_UNIX
++#endif
++
++#ifndef SOLARIS
++#define SOLARIS
++#endif
++
++#define PR_AF_INET6 26  /* same as AF_INET6 */
++
++#if defined(sparc) || defined(__sparc)
++#undef  IS_LITTLE_ENDIAN
++#define IS_BIG_ENDIAN 1
++#define PR_ALIGN_OF_INT64   8
++#define PR_ALIGN_OF_DOUBLE  8
++#if defined(__sparcv9)
++#define IS_64
++#endif
++#elif defined(__x86_64)
++#define IS_LITTLE_ENDIAN 1
++#undef  IS_BIG_ENDIAN
++#define PR_ALIGN_OF_INT64   8
++#define PR_ALIGN_OF_DOUBLE  8
++#define IS_64
++#elif defined(i386) || defined(__i386)
++#define IS_LITTLE_ENDIAN 1
++#undef  IS_BIG_ENDIAN
++#define PR_ALIGN_OF_INT64   4
++#define PR_ALIGN_OF_DOUBLE  4
++#elif defined(__aarch64__) || defined(__aarch64)
++#define IS_LITTLE_ENDIAN 1
++#undef  IS_BIG_ENDIAN
++#define PR_ALIGN_OF_INT64   8
++#define PR_ALIGN_OF_DOUBLE  8
++#define IS_64
++#else
++#error unknown processor
++#endif
++
++#ifdef IS_64
++
++#define PR_BYTES_PER_BYTE   1
++#define PR_BYTES_PER_SHORT  2
++#define PR_BYTES_PER_INT    4
++#define PR_BYTES_PER_INT64  8
++#define PR_BYTES_PER_LONG   8
++#define PR_BYTES_PER_FLOAT  4
++#define PR_BYTES_PER_DOUBLE 8
++#define PR_BYTES_PER_WORD   8
++#define PR_BYTES_PER_DWORD  8
++#define PR_BYTES_PER_WORD_LOG2   3
++#define PR_BYTES_PER_DWORD_LOG2  3
++
++#define PR_BITS_PER_BYTE    8
++#define PR_BITS_PER_SHORT   16
++#define PR_BITS_PER_INT     32
++#define PR_BITS_PER_INT64   64
++#define PR_BITS_PER_LONG    64
++#define PR_BITS_PER_FLOAT   32
++#define PR_BITS_PER_DOUBLE  64
++#define PR_BITS_PER_WORD    64
++
++#define PR_BITS_PER_BYTE_LOG2   3
++#define PR_BITS_PER_SHORT_LOG2  4
++#define PR_BITS_PER_INT_LOG2    5
++#define PR_BITS_PER_INT64_LOG2  6
++#define PR_BITS_PER_LONG_LOG2   6
++#define PR_BITS_PER_FLOAT_LOG2  5
++#define PR_BITS_PER_DOUBLE_LOG2 6
++#define PR_BITS_PER_WORD_LOG2   6
++
++#define PR_ALIGN_OF_SHORT   2
++#define PR_ALIGN_OF_INT     4
++#define PR_ALIGN_OF_LONG    8
++#define PR_ALIGN_OF_FLOAT   4
++#define PR_ALIGN_OF_POINTER 8
++
++#else /* IS_64 */
++
++#define PR_BYTES_PER_BYTE   1
++#define PR_BYTES_PER_SHORT  2
++#define PR_BYTES_PER_INT    4
++#define PR_BYTES_PER_INT64  8
++#define PR_BYTES_PER_LONG   4
++#define PR_BYTES_PER_FLOAT  4
++#define PR_BYTES_PER_DOUBLE 8
++#define PR_BYTES_PER_WORD   4
++#define PR_BYTES_PER_DWORD  8
++#define PR_BYTES_PER_WORD_LOG2   2
++#define PR_BYTES_PER_DWORD_LOG2  3
++
++#define PR_BITS_PER_BYTE    8
++#define PR_BITS_PER_SHORT   16
++#define PR_BITS_PER_INT     32
++#define PR_BITS_PER_INT64   64
++#define PR_BITS_PER_LONG    32
++#define PR_BITS_PER_FLOAT   32
++#define PR_BITS_PER_DOUBLE  64
++#define PR_BITS_PER_WORD    32
++
++#define PR_BITS_PER_BYTE_LOG2   3
++#define PR_BITS_PER_SHORT_LOG2  4
++#define PR_BITS_PER_INT_LOG2    5
++#define PR_BITS_PER_INT64_LOG2  6
++#define PR_BITS_PER_LONG_LOG2   5
++#define PR_BITS_PER_FLOAT_LOG2  5
++#define PR_BITS_PER_DOUBLE_LOG2 6
++#define PR_BITS_PER_WORD_LOG2   5
++
++#define PR_ALIGN_OF_SHORT   2
++#define PR_ALIGN_OF_INT     4
++#define PR_ALIGN_OF_LONG    4
++#define PR_ALIGN_OF_FLOAT   4
++#define PR_ALIGN_OF_POINTER 4
++
++#endif /* IS_64 */
++
++#ifndef HAVE_LONG_LONG
++#define	HAVE_LONG_LONG
++#endif
++#define	HAVE_ALIGNED_DOUBLES
++#define	HAVE_ALIGNED_LONGLONGS
++
++#ifndef NO_NSPR_10_SUPPORT
++
++#define BYTES_PER_BYTE		PR_BYTES_PER_BYTE
++#define BYTES_PER_SHORT 	PR_BYTES_PER_SHORT
++#define BYTES_PER_INT 		PR_BYTES_PER_INT
++#define BYTES_PER_INT64		PR_BYTES_PER_INT64
++#define BYTES_PER_LONG		PR_BYTES_PER_LONG
++#define BYTES_PER_FLOAT		PR_BYTES_PER_FLOAT
++#define BYTES_PER_DOUBLE	PR_BYTES_PER_DOUBLE
++#define BYTES_PER_WORD		PR_BYTES_PER_WORD
++#define BYTES_PER_DWORD		PR_BYTES_PER_DWORD
++
++#define BITS_PER_BYTE		PR_BITS_PER_BYTE
++#define BITS_PER_SHORT		PR_BITS_PER_SHORT
++#define BITS_PER_INT		PR_BITS_PER_INT
++#define BITS_PER_INT64		PR_BITS_PER_INT64
++#define BITS_PER_LONG		PR_BITS_PER_LONG
++#define BITS_PER_FLOAT		PR_BITS_PER_FLOAT
++#define BITS_PER_DOUBLE		PR_BITS_PER_DOUBLE
++#define BITS_PER_WORD		PR_BITS_PER_WORD
++
++#define BITS_PER_BYTE_LOG2	PR_BITS_PER_BYTE_LOG2
++#define BITS_PER_SHORT_LOG2	PR_BITS_PER_SHORT_LOG2
++#define BITS_PER_INT_LOG2	PR_BITS_PER_INT_LOG2
++#define BITS_PER_INT64_LOG2	PR_BITS_PER_INT64_LOG2
++#define BITS_PER_LONG_LOG2	PR_BITS_PER_LONG_LOG2
++#define BITS_PER_FLOAT_LOG2	PR_BITS_PER_FLOAT_LOG2
++#define BITS_PER_DOUBLE_LOG2 	PR_BITS_PER_DOUBLE_LOG2
++#define BITS_PER_WORD_LOG2	PR_BITS_PER_WORD_LOG2
++
++#define ALIGN_OF_SHORT		PR_ALIGN_OF_SHORT
++#define ALIGN_OF_INT		PR_ALIGN_OF_INT
++#define ALIGN_OF_LONG		PR_ALIGN_OF_LONG
++#define ALIGN_OF_INT64		PR_ALIGN_OF_INT64
++#define ALIGN_OF_FLOAT		PR_ALIGN_OF_FLOAT
++#define ALIGN_OF_DOUBLE		PR_ALIGN_OF_DOUBLE
++#define ALIGN_OF_POINTER	PR_ALIGN_OF_POINTER
++#define ALIGN_OF_WORD		PR_ALIGN_OF_WORD
++
++#define BYTES_PER_WORD_LOG2	PR_BYTES_PER_WORD_LOG2
++#define BYTES_PER_DWORD_LOG2	PR_BYTES_PER_DWORD_LOG2
++#define WORDS_PER_DWORD_LOG2	PR_WORDS_PER_DWORD_LOG2
++
++#endif /* NO_NSPR_10_SUPPORT */
++
++#endif /* ifndef nspr_cpucfg___ */
+diff -wpruN '--exclude=*.orig' a~/pr/src/md/unix/os_SunOS_aarch64.s a/pr/src/md/unix/os_SunOS_aarch64.s
+--- a~/pr/src/md/unix/os_SunOS_aarch64.s	1970-01-01 00:00:00
++++ a/pr/src/md/unix/os_SunOS_aarch64.s	1970-01-01 00:00:00
+@@ -0,0 +1,73 @@
++// -*- Mode: C++; tab-width: 4; indent-tabs-mode: nil; c-basic-offset: 2 -*-
++//
++// This Source Code Form is subject to the terms of the Mozilla Public
++// License, v. 2.0. If a copy of the MPL was not distributed with this
++// file, You can obtain one at http://mozilla.org/MPL/2.0/.
++
++#include <sys/asm_linkage.h>
++
++
++// PRInt32 _MD_AtomicIncrement(PRInt32 *val)
++//
++// Atomically increment the integer pointed to by 'val' and return
++// the result of the increment.
++//
++    .text
++    .globl _MD_AtomicIncrement
++    .align 4
++_MD_AtomicIncrement:
++1:	ldaxr	w1, [x0]
++	add	w1, w1, #1
++	stxr	w2, w1, [x0]
++	cbnz	w2, 1b
++	mov	w0, w1
++	ret
++
++// PRInt32 _MD_AtomicDecrement(PRInt32 *val)
++//
++// Atomically decrement the integer pointed to by 'val' and return
++// the result of the decrement.
++//
++    .text
++    .globl _MD_AtomicDecrement
++    .align 4
++_MD_AtomicDecrement:
++1:	ldaxr	w1, [x0]
++	sub	w1, w1, #1
++	stxr	w2, w1, [x0]
++	cbnz	w2, 1b
++	mov	w0, w1
++	ret
++
++
++// PRInt32 _MD_AtomicSet(PRInt32 *val, PRInt32 newval)
++//
++// Atomically set the integer pointed to by 'val' to the new
++// value 'newval' and return the old value.
++//
++    .text
++    .globl _MD_AtomicSet
++    .align 4
++_MD_AtomicSet:
++1:	ldaxr	w2, [x0]
++	stxr	w3, w1, [x0]
++	cbnz	w3, 1b
++	mov	w0, w2
++	ret
++
++
++// PRInt32 _MD_AtomicAdd(PRInt32 *ptr, PRInt32 val)
++//
++// Atomically add 'val' to the integer pointed to by 'ptr'
++// and return the result of the addition.
++//
++    .text
++    .globl _MD_AtomicAdd
++    .align 4
++_MD_AtomicAdd:
++1:	ldaxr	w2, [x0]
++	add	w2, w2, w1
++	stxr	w4, w2, [x0]
++	cbnz	w4, 1b
++	mov	w0, w2
++	ret
+diff -wpruN '--exclude=*.orig' a~/pr/src/md/unix/unix.c a/pr/src/md/unix/unix.c
+--- a~/pr/src/md/unix/unix.c	1970-01-01 00:00:00
++++ a/pr/src/md/unix/unix.c	1970-01-01 00:00:00
+@@ -2752,7 +2752,7 @@ static void _PR_InitIOV(void)
+ #else
+     _md_iovector._open64 = open64;
+ #endif
+-    _md_iovector._mmap64 = mmap64;
++    _md_iovector._mmap64 = (_MD_Mmap64)mmap64;
+ #if (defined(ANDROID) && __ANDROID_API__ < 21)
+     /* Same as the open64 case for Android. */
+     _md_iovector._fstat64 = (_MD_Fstat64)fstat;

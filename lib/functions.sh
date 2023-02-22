@@ -910,6 +910,11 @@ set_builddir() {
     EXTRACTED_SRC="$1"
 }
 
+append_builddir() {
+    BUILDDIR+="/$1"
+    EXTRACTED_SRC+="/$1"
+}
+
 set_patchdir() {
     PATCHDIR="$1"
 }
@@ -1037,6 +1042,12 @@ prep_build() {
             OUT_OF_TREE_BUILD=1
             MULTI_BUILD=1
             CONFIGURE_CMD="$CMAKE $_cmakeopts $TMPDIR/$BUILDDIR"
+            ;;
+        gyp+ninja)
+            MAKE=$NINJA
+            TESTSUITE_MAKE=$MAKE
+            MAKE_TESTSUITE_ARGS=
+            CONFIGURE_CMD="$GYP"
             ;;
         meson)
             OUT_OF_TREE_BUILD=1
