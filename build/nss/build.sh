@@ -62,9 +62,15 @@ CONFIGURE_OPTS[aarch64]="
     --target=aarch64
     --with-nspr=/usr/include/mps:/usr/lib/mps
 "
+CXXFLAGS[aarch64]+=" -mno-outline-atomics"
 
 post_clean() {
     $TMPDIR/$EXTRACTED_SRC/build.sh -cc
+}
+
+build_init() {
+    LDFLAGS[aarch64]+=" --sysroot=${SYSROOT[$arch]}"
+    LDFLAGS[aarch64]+=" -L${SYSROOT[$arch]}/usr/lib/mps"
 }
 
 # We drive the whole build from the configure step as this already sets up
