@@ -58,10 +58,6 @@ CONFIGURE_OPTS[amd64]="
     --target=x64
     --with-nspr=/usr/include/mps:/usr/lib/mps/amd64
 "
-CONFIGURE_OPTS[aarch64]="
-    --target=aarch64
-    --with-nspr=/usr/include/mps:/usr/lib/mps
-"
 CXXFLAGS[aarch64]+=" -mno-outline-atomics"
 
 post_clean() {
@@ -69,8 +65,14 @@ post_clean() {
 }
 
 build_init() {
-    LDFLAGS[aarch64]+=" --sysroot=${SYSROOT[$arch]}"
-    LDFLAGS[aarch64]+=" -L${SYSROOT[$arch]}/usr/lib/mps"
+    typeset sr=${SYSROOT[aarch64]}
+
+    CONFIGURE_OPTS[aarch64]="
+        --target=aarch64
+        --with-nspr=$sr/usr/include/mps:/usr/lib/mps
+    "
+    LDFLAGS[aarch64]+=" --sysroot=$sr"
+    LDFLAGS[aarch64]+=" -L$sr/usr/lib/mps"
 }
 
 # We drive the whole build from the configure step as this already sets up
