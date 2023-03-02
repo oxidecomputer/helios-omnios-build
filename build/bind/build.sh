@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=bind
-VER=9.18.10
+VER=9.18.11
 PKG=network/dns/bind
 SUMMARY="BIND DNS tools"
 DESC="Client utilities for DNS lookups"
@@ -59,6 +59,8 @@ PKGDIFF_HELPER="
     s:-[0-9]\.[0-9][0-9]*\.[0-9][0-9]*\.so:-VERSION:g
 "
 
+CFLAGS[aarch64]+=" -mno-outline-atomics -mtls-dialect=trad"
+
 init
 prep_build autoconf -autoreconf
 
@@ -83,6 +85,22 @@ export LIBUV_CFLAGS="-I$DEPROOT$PREFIX/include"
 export LIBUV_LIBS="-L$DEPROOT$PREFIX/lib/amd64 -luv"
 
 #########################################################################
+
+pre_configure() {
+    typeset arch=$1
+
+    ! cross_arch $arch && return
+
+    CONFIGURE_OPTS[$arch]+="
+        --build=${TRIPLETS[$BUILD_ARCH]}
+    "
+
+    LIBUV_CFLAGS="-I$DEPROOT.$arch$PREFIX/include"
+    LIBUV_LIBS="-L$DEPROOT.$arch$PREFIX/lib -luv"
+
+    # configure tries to find the build triplet prefixed gcc
+    PATH+=":/opt/gcc-$DEFAULT_GCC_VER/bin"
+}
 
 download_source $PROG $PROG $VER
 patch_source
