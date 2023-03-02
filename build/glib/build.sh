@@ -43,6 +43,12 @@ CFLAGS+=" -Wno-error=format-nonliteral -Wno-error=format=2"
 # See comment in /usr/include/pwd.h
 set_standard POSIX
 
+# TODO: XXXARM
+# wcrtomb is defined in iso/wchar-iso.h under an
+# #if !defined(_XPG4) || defined(_XPG5) guard
+# need to investigate why _XPG4 is set
+CPPFLAGS[aarch64]+=" -D_XPG5"
+
 LDFLAGS+=" -Wl,-z,ignore"
 LDFLAGS[i386]+=" -lssp_ns"
 
@@ -60,6 +66,10 @@ CONFIGURE_OPTS[i386]="
 CONFIGURE_OPTS[amd64]="
     --bindir=$PREFIX/bin
     --libdir=$PREFIX/lib/amd64
+"
+CONFIGURE_OPTS[aarch64]="
+    --bindir=$PREFIX/bin
+    --libdir=$PREFIX/lib
 "
 
 clean_testsuite() {
@@ -96,9 +106,22 @@ fix_rpaths() {
     # populated runpaths which causes the illumos build check_rtime to
     # (rightly) complain. Strip them here.
     fd lib $DESTDIR -e so | while read so; do
-        logcmd /usr/bin/elfedit -e 'dyn:delete RUNPATH' $so
-        logcmd /usr/bin/elfedit -e 'dyn:delete RPATH' $so
+        logcmd $ELFEDIT -e 'dyn:delete RUNPATH' $so
+        logcmd $ELFEDIT -e 'dyn:delete RPATH' $so
     done
+}
+
+pre_configure() {
+    typeset arch=$1
+
+    ! cross_arch $arch && return
+
+    CONFIGURE_CMD+=" --cross-file $SRCDIR/files/aarch64-gcc.txt"
+
+    export PKG_CONFIG_SYSROOT_DIR=${SYSROOT[$arch]}
+
+    # use GNU msgfmt; otherwise the build fails
+    PATH="$GNUBIN:$PATH:$OOCEBIN"
 }
 
 init
