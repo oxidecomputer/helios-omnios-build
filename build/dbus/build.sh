@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2017 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
@@ -49,7 +49,11 @@ CONFIGURE_OPTS+=" ac_cv_func_socketpair=yes"
 
 export MAKE
 
-build_manifests() {
+post_install() {
+    [ $1 = i386 ] && return
+
+    install_smf system dbus.xml svc-dbus
+
     manifest_start $TMPDIR/manifest.dbus
     manifest_add_dir $PREFIX/bin
     manifest_add_dir etc/dbus-1
@@ -73,13 +77,12 @@ prep_build
 build
 run_testsuite check
 make_isa_stub
-install_smf system dbus.xml svc-dbus
-build_manifests
 
 PKG=system/library/dbus
 SUMMARY="Simple IPC library based on messages"
 DESC="A simple system for interprocess communication and coordination"
-make_package -seed $TMPDIR/manifest.dbus dbus.mog
+[ "$FLAVOR" != libsandheaders ] \
+    && make_package -seed $TMPDIR/manifest.dbus dbus.mog
 
 PKG=system/library/libdbus
 SUMMARY+=" - client libraries"

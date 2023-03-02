@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/build.sh
 
@@ -32,7 +32,7 @@ CONFIGURE_OPTS="
     --disable-fam
     --disable-dtrace
     --disable-tests
-    GLIB_GENMARSHAL=/usr/bin/glib-genmarshal
+    GLIB_GENMARSHAL=$USRBIN/glib-genmarshal
 "
 CONFIGURE_OPTS[WS]="
     DBUS_LIBS=-ldbus-1
@@ -46,6 +46,19 @@ CONFIGURE_OPTS[amd64_WS]="
     DBUS_CFLAGS=\"-I/usr/include/dbus-1.0 -I/usr/lib/amd64/dbus-1.0/include\"
     DBUS_GLIB_CFLAGS=\"-I/usr/include/glib-2.0 -I/usr/lib/amd64/glib-2.0/include\"
 "
+
+pre_configure() {
+    typeset arch=$1
+
+    ! cross_arch $arch && return
+
+    # need the native dbus-binding-tool for cross building
+    MAKE_ARGS="DBUS_BINDING_TOOL=$USRBIN/dbus-binding-tool"
+    CONFIGURE_OPTS[${arch}_WS]="
+        DBUS_CFLAGS=\"-I${SYSROOT[$arch]}/usr/include/dbus-1.0 -I${SYSROOT[$arch]}/usr/lib/dbus-1.0/include\"
+        DBUS_GLIB_CFLAGS=\"-I${SYSROOT[$arch]}/usr/include/glib-2.0 -I${SYSROOT[$arch]}/usr/lib/glib-2.0/include\"
+    "
+}
 
 init
 download_source $PROG $PROG $VER

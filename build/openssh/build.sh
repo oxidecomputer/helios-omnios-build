@@ -70,9 +70,9 @@ post_install() {
     logcmd cp $TMPDIR/$BUILDDIR/contrib/ssh-copy-id.1 \
         $DESTDIR/usr/share/man/man1/ \
         || logerr "Could not install ssh-copy-id.1"
-}
 
-build_manifests() {
+    install_smf network ssh.xml sshd
+
     manifest_start $TMPDIR/manifest.server
     manifest_add etc/ssh moduli sshd_config
     manifest_add_dir lib/svc manifest/network method
@@ -99,13 +99,6 @@ fi
 run_autoreconf -fi
 prep_build
 build
-if is_cross; then
-    DESTDIR+=.$BUILDARCH install_smf network ssh.xml sshd
-    DESTDIR+=.$BUILDARCH build_manifests
-else
-    install_smf network ssh.xml sshd
-    build_manifests
-fi
 
 export TESTSUITE_FILTER='^ok |^test_|failed|^all tests'
 (
