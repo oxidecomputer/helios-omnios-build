@@ -156,11 +156,15 @@ build_aarch64() {
 
         set +eE; trap - ERR
 
+        typeset repo=packages/aarch64/nightly/repo.redist
+
         # XXX For unknown reasons, the following synthetic packages don't get
         # published.
-        $PKGSEND publish -s packages/aarch64/nightly/repo.redist \
+        logcmd $PKGSEND publish -s $repo \
             usr/src/pkg/packages.aarch64/osnet-{redist,incorporation}.mog
 
+        # We don't want these packages
+        logcmd $PKGREPO -s $repo remove osnet ssh-common
     fi
 
     popd >/dev/null
