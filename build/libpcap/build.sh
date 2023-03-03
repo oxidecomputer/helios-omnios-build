@@ -29,6 +29,11 @@ CONFIGURE_OPTS="
 "
 LDFLAGS+=" $SSPFLAGS"
 
+build_init() {
+    CPPFLAGS[aarch64]+=" -I${SYSROOT[aarch64]}/usr/include"
+    LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/usr/lib"
+}
+
 init
 download_source $PROG $PROG $VER
 patch_source
