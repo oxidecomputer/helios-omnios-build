@@ -84,6 +84,14 @@ TESTSUITE_SED="
 init
 prep_build
 
+build_init() {
+    CPPFLAGS[aarch64]+=" -I${SYSROOT[aarch64]}/usr/include"
+    LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/usr/lib"
+}
+
+# Skip previous versions for cross compilation
+pre_build() { ! cross_arch $1; }
+
 # For legacy versions, we only want the libraries.
 save_buildenv
 CONFIGURE_OPTS[amd64]+=" $LIBRARIES_ONLY"
@@ -97,6 +105,13 @@ done
 logcmd rm -rf $DESTDIR/usr/{include,bin}
 logcmd $FD lib $DESTDIR/usr/lib -e la -e so -X rm {}
 restore_buildenv
+unset -f pre_build
+
+post_install() {
+    [ $1 = i386 ] && return
+
+    install_smf application/management net-snmp.xml svc-net-snmp
+}
 
 note -n "Building current version: $VER"
 
@@ -105,7 +120,6 @@ patch_source
 prep_build autoconf -oot -keep
 build -multi
 run_testsuite test
-install_smf application/management net-snmp.xml svc-net-snmp
 make_package
 clean_up
 
