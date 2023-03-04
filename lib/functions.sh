@@ -738,9 +738,10 @@ init_sysroot() {
     typeset arch=${1?arch}
     typeset repo=${2?repo}
 
+    [ "${REPOS[$arch]}" = $repo ] && return
+
     [ -d $CROSSTOOLS/$arch ] || logerr "$CROSSTOOLS/$arch not found"
 
-    logmsg "-- Creating $arch repo"
     init_repo $repo
 
     typeset sysroot=$BASE_TMPDIR/sysroot.$arch
@@ -773,6 +774,8 @@ init_sysroot() {
         else
             logcmd mv $tmpsysroot $sysroot
         fi
+    else
+        logcmd $PKGCLIENT -R $sysroot install '*'
     fi
 
     REPOS[$arch]=$repo

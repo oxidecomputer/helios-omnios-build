@@ -572,6 +572,11 @@ parallel_build() {
     # Do this now to avoid a race in the child tasks
     init_repos
 
+    if [ -n "$CLIBUILDARCH" ]; then
+       PKGSRVR=${REPOS[$CLIBUILDARCH]}
+       SKIP_KAYAK_KERNEL=1
+    fi
+
     declare -A slots
     declare -A slotpid
     declare -A slottgt
@@ -608,6 +613,7 @@ parallel_build() {
     trap 'job_status SIGINFO' SIGINFO
     trap drain SIGUSR1
 
+    typeset -i published=0
     while [ ${#queue[@]} -gt 0 ]; do
         # Pop tgt off queue
         tgt="${queue[0]}"; queue=("${queue[@]:1}")
@@ -632,14 +638,18 @@ parallel_build() {
                 # Rebuild the repository
                 logmsg -n "-- Rebuilding the package repository"
                 wait_for_jobs "emptying for rebuild"
-                pkgrepo -s $PKGSRVR rebuild
+                ((published)) && pkgrepo -s $PKGSRVR rebuild
+                published=0
                 continue
             ;;
             .SYSROOT)
                 logmsg -n "-- Updating the sysroot"
                 wait_for_jobs "emptying for sysroot"
-                pkgrepo -s $PKGSRVR rebuild
-                update_sysroot
+                if ((published)); then
+                    pkgrepo -s $PKGSRVR rebuild
+                    update_sysroot
+                fi
+                published=0
                 continue
             ;;
         esac
@@ -703,6 +713,8 @@ parallel_build() {
             wait_for_slot
             [ -n "$nextslot" ] || break
         fi
+
+        ((published++))
 
         note -h "($pkgnum/$pkgcount) Building $tgt (slot $nextslot)"
         logprefix="[$nextslot] " build $tgt $extra_flags &

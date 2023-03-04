@@ -38,6 +38,9 @@ NO_SONAME_EXPECTED=1
 # multiple versions of python being built in parallel and if they are built
 # in the same directory then they will clobber each other.
 
+# Do this now, before changing the temporary base
+init_repos
+
 TMPDIR+="/python$PYVER"
 DTMPDIR+="/python$PYVER"
 BASE_TMPDIR=$TMPDIR
