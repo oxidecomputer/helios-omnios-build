@@ -48,7 +48,8 @@ post_make() {
     if [ $arch = 'i386' ]; then
         libtool_nostdlib libtool "-lc -lssp_ns"
     else
-        libtool_nostdlib libtool "-lc"
+        # link libgcc for __clear_cache
+        libtool_nostdlib libtool "-lgcc -lc"
     fi
     logcmd $MAKE clean all || logerr "Rebuild with -nostdlib failed"
     popd >/dev/null
@@ -57,8 +58,10 @@ post_make() {
 post_build() {
     typeset arch="$1"
     typeset tripl
+    typeset nm=nm
+    cross_arch $arch && nm=${TRIPLETS[$arch]}-nm
     [ "$arch" = 'i386' ] && tripl='amd64' || tripl=$arch
-    nm $TMPDIR/$BUILDDIR/${TRIPLETS[$tripl]}/.libs/libffi.so \
+    $nm $TMPDIR/$BUILDDIR/${TRIPLETS[$tripl]}/.libs/libffi.so \
         | $EGREP '\|_(init|fini)' \
         && logerr "libffi was linked against standard libraries."
 }
