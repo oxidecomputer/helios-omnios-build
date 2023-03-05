@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/build.sh
 
 PKG=library/python-3/pip-311
 PROG=pip
-VER=22.3.1
+VER=23.0.1
 SUMMARY="Tool for installing Python packages"
 DESC="$PROG is the standard package installer for Python"
 
