@@ -44,6 +44,7 @@ publish_pkgs() {
     typeset arch=${1:-i386}; shift
     typeset root=${1:-$CODEMGR_WS}; shift
     typeset repo=${1:-$PKGSRVR}; shift
+    typeset mog=$1
 
     logmsg "Entering $root"
     pushd $root > /dev/null
@@ -78,7 +79,9 @@ publish_pkgs() {
             -s debug.illumos=true,$drepo/ \
             $FLAVOR
     else
-        $PKGRECV -d $repo -s $drepo -m latest ${FLAVOR:-'*'}
+        $PKGRECV -d $repo -s $drepo -m latest \
+            ${mog:+--mog-file} ${mog} \
+            ${FLAVOR:-'*'}
     fi
 
     logmsg "Leaving $root"
@@ -169,7 +172,8 @@ build_aarch64() {
 
     popd >/dev/null
 
-    publish_pkgs aarch64 $TMPDIR/$BUILDDIR/$PKG ${REPOS[aarch64]}
+    publish_pkgs aarch64 $TMPDIR/$BUILDDIR/$PKG ${REPOS[aarch64]} \
+        "$SRCDIR/files/aarch64.mog"
 }
 
 init
