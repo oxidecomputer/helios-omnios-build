@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=rsyslog
-VER=8.2212.0
+VER=8.2302.0
 PKG=system/rsyslog
 SUMMARY="rsyslog - the rocket-fast system for log processing."
 DESC="A high-performance, modular syslog implementation."
