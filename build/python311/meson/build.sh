@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/build.sh
 
 PKG=library/python-3/meson-311
 PROG=meson
-VER=1.0.0
+VER=1.0.1
 SUMMARY="The Meson Build system"
 DESC="An open source build system meant to be both extremely fast, "
 DESC+="and, even more importantly, as user friendly as possible"
