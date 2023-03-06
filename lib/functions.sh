@@ -2752,7 +2752,7 @@ python_compile() {
 
 python_pep518() {
     logmsg "-- PEP518 build"
-    logcmd $PYTHON -mpip install \
+    logcmd $PYTHON -mpip install -vvv \
         --no-deps --isolated --no-input --exists-action=a \
         --disable-pip-version-check --root=$DESTDIR . \
         || logerr "--- build failed"
