@@ -12,13 +12,13 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/build.sh
 
 PKG=library/python-3/typing-extensions-311
 PROG=typing-extensions
-VER=4.4.0
+VER=4.5.0
 SUMMARY="Python typing extensions"
 DESC="Backported and Experimental Type Hints for Python 3.6+"
 
