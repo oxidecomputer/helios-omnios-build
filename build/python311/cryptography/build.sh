@@ -29,6 +29,7 @@ if [ "$BUILDARCH" = aarch64 ]; then
     # that for aarch64 for now.
     VER=3.4.8
     export CRYPTOGRAPHY_DONT_BUILD_RUST=1
+    set_patchdir patches.aarch64
 fi
 
 RUN_DEPENDS_IPS+="
@@ -42,7 +43,26 @@ RUN_DEPENDS_IPS+="
 BUILD_DEPENDS_IPS+="
     library/python-$PYMVER/setuptools-rust-$SPYVER
 "
+
 PATH+=:$OOCEBIN
+
+# This package uses cffi as part of the build, and so the usual python cross
+# compilation method (using the `crossenv` module) does not work.
+# Somewhat surprisingly, this simple workaround does, although we have to
+# use a compiler wrapper to strip the `-m64` that is otherwise picked by
+# cffi from the native system info.
+python_build_aarch64() {
+    typeset arch=aarch64
+
+    set_crossgcc $arch
+
+    CFLAGS[$arch]+=" -mtls-dialect=trad"
+
+    CC=$SRCDIR/files/gcc.aarch64 \
+       PLATFORM=$arch \
+       DESTDIR="$DESTDIR.$arch" \
+       python_build_arch $arch
+}
 
 init
 download_source pymodules/$PROG $PROG $VER
