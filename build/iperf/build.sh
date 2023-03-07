@@ -21,7 +21,7 @@
 # CDDL HEADER END }}}
 #
 # Copyright 2016 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/build.sh
 
@@ -35,16 +35,21 @@ DEPENDS_IPS="system/library"
 
 set_arch 64
 
+XFORM_ARGS+=" -DPREFIX=${PREFIX#/}"
+
 CONFIGURE_OPTS="
     --bindir=$PREFIX/bin
     --disable-static
 "
+
 LDFLAGS="-lsocket -lnsl"
 SKIP_LICENCES=iperf
 
-make_symlinks()  {
-    logcmd ln -s iperf3 $DESTDIR/usr/bin/iperf
-    logcmd ln -s iperf3.1 $DESTDIR/usr/share/man/man1/iperf.1
+pre_build() {
+    if cross_arch $1; then
+        MAKE_ARGS+=" noinst_PROGRAMS= "
+        MAKE_INSTALL_ARGS+=" noinst_PROGRAMS= "
+    fi
 }
 
 init
@@ -52,7 +57,6 @@ download_source $PROG $PROG $VER
 patch_source
 prep_build
 build
-make_symlinks
 make_package
 clean_up
 
