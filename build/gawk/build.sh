@@ -26,11 +26,17 @@ DESC="gawk - GNU implementation of awk"
 RUN_DEPENDS_IPS="system/prerequisite/gnu"
 
 set_arch 64
+set_standard XPG6
 
-CPPFLAGS+=" -I/usr/include/gmp"
-CFLAGS+=" -D_XPG6"
+CPPFLAGS[amd64]+=" -I/usr/include/gmp"
 
 HARDLINK_TARGETS=usr/bin/gawk
+
+build_init() {
+    for arch in $CROSS_ARCH; do
+        CPPFLAGS[$arch]+=" -I${SYSROOT[$arch]}/$PREFIX/include/gmp"
+    done
+}
 
 init
 download_source $PROG $PROG $VER
