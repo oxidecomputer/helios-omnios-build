@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../../lib/build.sh
 
@@ -25,6 +25,8 @@ DESC="$SUMMARY"
 . $SRCDIR/../common.sh
 
 RUN_DEPENDS_IPS+=" library/python-$PYMVER/cryptography-$SPYVER"
+
+[ $BUILDARCH = aarch64 ] && set_patchdir patches.aarch64
 
 init
 download_source pymodules/${PROG,,} $PROG $VER

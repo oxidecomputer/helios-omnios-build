@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../../lib/build.sh
 
@@ -23,6 +23,8 @@ SUMMARY="cffi"
 DESC="Foreign Function Interface for Python calling C code"
 
 . $SRCDIR/../common.sh
+
+CFLAGS[aarch64]+=" -mtls-dialect=trad"
 
 RUN_DEPENDS_IPS+="
     library/python-$PYMVER/pycparser-$SPYVER

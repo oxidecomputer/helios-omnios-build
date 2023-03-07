@@ -2752,7 +2752,7 @@ python_compile() {
 
 python_pep518() {
     logmsg "-- PEP518 build"
-    logcmd $PYTHON -mpip install \
+    logcmd $PYTHON -mpip install -vvv \
         --no-deps --isolated --no-input --exists-action=a \
         --disable-pip-version-check --root=$DESTDIR . \
         || logerr "--- build failed"
@@ -2816,8 +2816,8 @@ python_build_amd64() {
         python_build_arch amd64
 }
 
-python_build_aarch64() {
-    typeset arch=aarch64
+python_cross_setup() {
+    typeset arch=$1
 
     # Prepare a cross compilation environment
     logmsg "--- Preparing cross compilation environment"
@@ -2825,6 +2825,12 @@ python_build_aarch64() {
     logcmd $PYTHON -mcrossenv ${SYSROOT[$arch]}$PYTHON $TMPDIR/venv \
         || logerr "Failed to set up crossenv"
     source $TMPDIR/venv/bin/activate
+}
+
+python_build_aarch64() {
+    typeset arch=aarch64
+
+    python_cross_setup $arch
 
     PYTHON=$TMPDIR/venv/cross/bin/python \
         DESTDIR+=.$arch \
