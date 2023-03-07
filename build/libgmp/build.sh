@@ -49,17 +49,22 @@ CONFIGURE_OPTS="
     --enable-fft
     --disable-fat
     --with-pic
-    gmp_cv_asm_x86_mulx=no
 "
 
 CONFIGURE_OPTS[i386_WS]="
     ABI=32
     MPN_PATH=\"$MPN32\"
+    gmp_cv_asm_x86_mulx=no
 "
 
 CONFIGURE_OPTS[amd64_WS]="
     ABI=64
     MPN_PATH=\"$MPN64\"
+    gmp_cv_asm_x86_mulx=no
+"
+
+CONFIGURE_OPTS[aarch64]+="
+    CC_FOR_BUILD=$GCC
 "
 
 init
