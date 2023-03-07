@@ -22,7 +22,12 @@ PKG=system/defaults
 SUMMARY="OmniOS default system parameters"
 DESC="$SUMMARY"
 
-build() {
+pre_build() {
+    make_install_$1
+    false
+}
+
+make_install() {
     logmsg "Generating system file"
 
     logcmd mkdir -p $DESTDIR/etc/system.d/ || logerr "mkdir failed"
