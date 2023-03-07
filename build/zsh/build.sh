@@ -13,7 +13,7 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/build.sh
 
@@ -25,7 +25,6 @@ DESC="The Z shell"
 
 set_arch 64
 
-CPPFLAGS+=" -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
 CONFIGURE_OPTS+="
 	--enable-cap
 	--enable-dynamic
@@ -40,7 +39,15 @@ CONFIGURE_OPTS+="
 	--disable-gdbm
 "
 
-CONFIGURE_OPTS[WS]="--enable-ldflags=\"-m64 -zignore\""
+build_init() {
+    CONFIGURE_OPTS[amd64_WS]="--enable-ldflags=\"-m64 -zignore\""
+    CPPFLAGS[amd64]+=" -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64"
+
+    CONFIGURE_OPTS[aarch64_WS]="
+        --enable-ldflags=\"-zignore -L${SYSROOT[aarch64]}/usr/lib\"
+    "
+    CPPFLAGS[aarch64]+=" -I${SYSROOT[aarch64]}/usr/include"
+}
 
 HARDLINK_TARGETS=usr/bin/zsh-$VER
 SKIP_LICENCES="*"
@@ -52,18 +59,18 @@ PKGDIFF_HELPER='
     s:usr/lib/amd64/zsh/[0-9.]*:usr/lib/amd64/zsh/VERSION:
 '
 
-install_zshrc() {
-    mkdir -p $DESTDIR/etc
-    cp $SRCDIR/files/system-zshrc $DESTDIR/etc/zshrc
-    chmod 644 $DESTDIR/etc/zshrc
-}
+post_install() {
+    typeset arch=$1
 
-install_license() {
+    $MKDIR -p $DESTDIR/etc
+    $CP $SRCDIR/files/system-zshrc $DESTDIR/etc/zshrc
+    $CHMOD 644 $DESTDIR/etc/zshrc
+
     iconv -f 8859-1 -t utf-8 \
         $TMPDIR/$BUILDDIR/LICENCE > $TMPDIR/$BUILDDIR/LICENSE
-}
 
-local_tests() {
+    cross_arch $arch && return
+
     logcmd $EGREP -s link=dynamic $TMPDIR/$BUILDDIR/config.modules \
         || logerr "Dynamically-linked module build has failed"
 }
@@ -74,9 +81,6 @@ patch_source
 run_autoreconf -fi
 prep_build
 build
-install_zshrc
-install_license
-local_tests
 run_testsuite
 make_package
 clean_up
