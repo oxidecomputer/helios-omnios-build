@@ -424,6 +424,8 @@ set_gccver() {
     GCCPATH="/opt/gcc-$GCCVER"
     GCC="$GCCPATH/bin/gcc"
     GXX="$GCCPATH/bin/g++"
+    CC=$GCC
+    CXX=$GXX
     [ -x "$GCC" ] || logerr "Unknown compiler version $GCCVER"
     PATH="$GCCPATH/bin:$BASEPATH"
     if [ -n "$USE_CCACHE" ]; then
@@ -448,6 +450,8 @@ set_crossgcc() {
     GCCPATH="$CROSSTOOLS/$arch"
     GCC="$GCCPATH/bin/gcc"
     GXX="$GCCPATH/bin/g++"
+    CC=$GCC
+    CXX=$GXX
     [ -x "$GCC" ] || logerr "Unknown compiler version $GCCVER"
     PATH="$GCCPATH/bin:$BASEPATH"
     if [ -n "$USE_CCACHE" ]; then
@@ -505,7 +509,20 @@ set_gover() {
     GO=$GO_PATH/bin/go
     PATH="$GO_PATH/bin:$PATH"
     GOROOT_BOOTSTRAP="$GO_PATH"
-    export PATH GOROOT_BOOTSTRAP
+    GOOS=illumos
+    GOARCH=amd64
+
+    [ "$TMPDIR" = "$BASE_TMPDIR" ] \
+        && GOCACHE="$BASE_TMPDIR/$PROG-$VER/go-build" \
+        || GOCACHE="$TMPDIR/go-build"
+
+    # go binaries contain BMI instructions even when built on an older CPU
+    BMI_EXPECTED=1
+    # skip rtime check for go builds
+    SKIP_RTIME_CHECK=1
+    # skip SSP check for go builds
+    SKIP_SSP_CHECK=1
+    export PATH GOROOT_BOOTSTRAP GOOS GOARCH GOCACHE
 
     BUILD_DEPENDS_IPS+=" ooce/developer/go-${GOVER//./}"
 }
@@ -515,7 +532,7 @@ set_gover() {
 #############################################################################
 
 set_nodever() {
-    NODEVER="$1"
+    NODEVER="${1:-$DEFAULT_NODE_VER}"
     logmsg "-- Setting node.js version to $NODEVER"
     NODEPATH="/opt/ooce/node-$NODEVER"
     PATH="$NODEPATH/bin:$PATH"
@@ -529,7 +546,7 @@ set_nodever() {
 #############################################################################
 
 set_rubyver() {
-    RUBYVER="$1"
+    RUBYVER="${1:-$DEFAULT_RUBY_VER}"
     logmsg "-- Setting Ruby version to $RUBYVER"
     RUBYPATH="/opt/ooce/ruby-$RUBYVER"
     PATH="$RUBYPATH/bin:$PATH"
@@ -618,10 +635,10 @@ reset_configure_opts() {
 }
 
 clear_archflags() {
-    unset CFLAGS[i386] CFLAGS[amd64]
-    unset CPPFLAGS[i386] CPPFLAGS[amd64]
-    unset CXXFLAGS[i386] CXXFLAGS[amd64]
-    unset LDFLAGS[i386] LDFLAGS[amd64]
+    CFLAGS=()
+    CPPFLAGS=()
+    CXXFLAGS=()
+    LDFLAGS=()
 }
 
 set_standard() {
@@ -801,10 +818,33 @@ init_repos() {
         if cross_arch $arch; then
                 [[ $PKGSRVR == file:/* ]] \
                     || logerr "Can only build $arch to a file based repo."
-                init_sysroot $arch $PKGSRVR.$arch
+                init_sysroot $arch ${PKGSRVR%%/}.$arch
                 DESTDIRS+=" $DESTDIR.$arch"
         fi
     done
+}
+
+github_latest() {
+    logmsg "-- Retrieving latest release version from github"
+
+    [[ $MIRROR = $GITHUB/* ]] \
+        || logerr "Cannot use github latest without github mirror"
+
+    local repoprog=`echo $MIRROR | cut -d/ -f4-5`
+    local ep=$GITHUBAPI/repos/$repoprog/releases
+
+    local filter="map(select (.draft == false)"
+    if [ "$VER" != github-latest-prerelease ]; then
+        filter+=" | select (.prerelease == false)"
+    fi
+    filter+=") | first | .tag_name"
+
+    local tag=`$CURL -s $ep | $JQ -r "$filter"`
+    [ -n "$tag" -a "$tag" != "null" ] \
+        || logerr "--- Could not retrieve latest version from github"
+
+    VER="${tag#v}"
+    logmsg "--- Github release $tag, set VER=$VER"
 }
 
 init() {
@@ -841,6 +881,8 @@ init() {
     else
         logmsg "Extra dependency: $DEPVER"
     fi
+
+    [[ "$VER" = github-latest* ]] && github_latest
 
     # Blank out the source code location
     _ARC_SOURCE=
@@ -898,7 +940,8 @@ init() {
     if [ -n "$FORCE_OPENSSL_VERSION" ]; then
         CFLAGS[0]="-I/usr/ssl-$FORCE_OPENSSL_VERSION/include ${CFLAGS[0]}"
         LDFLAGS[i386]="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib ${LDFLAGS[i386]}"
-        LDFLAGS[amd64]="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib/amd64 ${LDFLAGS[amd64]}"
+        LDFLAGS[amd64]="-L/usr/ssl-$FORCE_OPENSSL_VERSION/lib/amd64 "
+        LDFLAGS[amd64]+="${LDFLAGS[amd64]}"
     fi
 
     # Create symbolic links to build area
@@ -1296,10 +1339,17 @@ download_source() {
     [ -n "$SKIP_DOWNLOAD" ] && return
 
     typeset -i record_arc=1
-    [ "$1" = "-norecord" ] && { record_arc=0; shift; }
-
     typeset -i dependency=0
-    [ "$1" = "-dependency" ] && { dependency=1; shift; }
+    typeset -i nodir=0
+    while [[ $1 = -* ]]; do
+        case $1 in
+            -norecord)      record_arc=0 ;;
+            -dependency)    dependency=1 ;;
+            -nodir)         nodir=1 ;;
+            *)              logerr "Unknown download_source option, $1" ;;
+        esac
+        shift
+    done
 
     local DLDIR="$1"; shift
     local PROG="$1"; shift
@@ -1350,8 +1400,15 @@ download_source() {
 
     # Extract the archive
     logmsg "Extracting archive: $FILENAME"
-    logcmd extract_archive $FILENAME $EXTRACTARGS \
+    if ((nodir)); then
+        mkdir $BUILDDIR || logerr "Failed to mkdir $BUILDDIR"
+        pushd $BUILDDIR
+    else
+        pushd $TARGETDIR >/dev/null
+    fi
+    logcmd extract_archive $TARGETDIR/$FILENAME $EXTRACTARGS \
         || logerr "--- Unable to extract archive."
+    popd >/dev/null
 
     # Make sure the archive actually extracted some source where we expect
     if [ ! -d "$BUILDDIR" ]; then
@@ -1769,10 +1826,12 @@ make_package_impl() {
 
     [ -z "$VERHUMAN" ] && VERHUMAN="$VER"
 
+    convert_version VER
     typeset XVER=$VER
     typeset PVER=$RELVER.$DASHREV
     convert_version XVER
     convert_version PVER
+
     FMRI="${PKG}@${XVER},${SUNOSVER}-${PVER}"
 
     # Mog files are transformed in several stages
@@ -2031,14 +2090,14 @@ publish_manifest() {
     if ((native)); then
         logmsg "--- packaging native arch"
 
-        XFORM_ARGS="$x" publish_manifest_impl $NATIVE_ARCH "$pmf" "$root"
+        XFORM_ARGS+="$x" publish_manifest_impl $NATIVE_ARCH "$pmf" "$root"
     else
         for carch in ${cross[*]}; do
             logmsg "--- packaging $arch"
 
             PKGSRVR=${REPOS[$carch]} \
                 PKG_IMAGE=${SYSROOT[$carch]} \
-                XFORM_ARGS="$x" \
+                XFORM_ARGS+="$x" \
                 publish_manifest_impl "$carch" "$pmf" "$root"
             done
     fi
@@ -2223,6 +2282,14 @@ EOM
 #############################################################################
 
 install_smf() {
+    typeset methodpath=lib/svc/method
+    while [[ "$1" = -* ]]; do
+        case "$1" in
+            -oocemethod) methodpath+="/ooce" ;;
+        esac
+        shift
+    done
+
     mtype="${1:?type}"
     manifest="${2:?manifest}"
     method="$3"
@@ -2251,11 +2318,11 @@ install_smf() {
 
     # Method
     if [ -n "$method" ]; then
-        logcmd $MKDIR -p lib/svc/method \
-            || logerr "mkdir of $DESTDIR/lib/svc/method failed"
-        logcmd $CP $methodf lib/svc/method/ \
+        logcmd $MKDIR -p $methodpath \
+            || logerr "mkdir of $DESTDIR/$methodpath failed"
+        logcmd $CP $methodf $methodpath/ \
             || logerr "Cannot install SMF method"
-        logcmd $CHMOD 0555 lib/svc/method/$method
+        logcmd $CHMOD 0555 $methodpath/$method
     fi
 
     popd > /dev/null
@@ -2326,19 +2393,21 @@ install_go() {
 #############################################################################
 
 install_rust() {
-    logmsg "Installing $PROG"
+    typeset prog=${1:-$PROG}
+
+    logmsg "Installing $prog"
 
     logcmd $MKDIR -p "$DESTDIR/$PREFIX/bin" \
         || logerr "Failed to create install dir"
-    logcmd $CP $TMPDIR/$BUILDDIR/target/release/$PROG \
-        $DESTDIR/$PREFIX/bin/$PROG || logerr "Failed to install binary"
+    logcmd $CP $TMPDIR/$BUILDDIR/target/release/$prog \
+        $DESTDIR/$PREFIX/bin/$prog || logerr "Failed to install binary"
 
-    for f in `$FD "^$PROG\.1\$" $TMPDIR/$BUILDDIR`; do
+    for f in `$FD "^$prog\.1\$" $TMPDIR/$BUILDDIR`; do
         logmsg "Found man page at $f"
 
         logcmd $MKDIR -p "$DESTDIR/$PREFIX/share/man/man1" \
             || logerr "Failed to create man install dir"
-        logcmd $CP $f $DESTDIR/$PREFIX/share/man/man1/$PROG.1 \
+        logcmd $CP $f $DESTDIR/$PREFIX/share/man/man1/$prog.1 \
             || logerr "Failed to install man page"
         break
     done
@@ -2417,9 +2486,12 @@ make_clean() {
         CLEAN_SOURCE=
         return
     fi
+
+    eval set -- $MAKE_CLEAN_ARGS_WS
     logmsg "--- make (dist)clean"
     (
-        $MAKE distclean || $MAKE clean
+        $MAKE $MAKE_CLEAN_ARGS "$@" distclean \
+            || $MAKE $MAKE_CLEAN_ARGS "$@" clean
     ) 2>&1 | $SED 's/error: /errorclean: /' | pipelog >/dev/null
     hook post_clean $arch
 }
@@ -2455,7 +2527,8 @@ make_arch() {
         libtool_nostdlib "$LIBTOOL_NOSTDLIB" "$LIBTOOL_NOSTDLIB_EXTRAS"
     fi
     logmsg "--- make"
-    logcmd $MAKE $MAKE_JOBS $MAKE_ARGS "$@" || logerr "--- Make failed"
+    logcmd $MAKE $MAKE_JOBS $MAKE_ARGS "$@" $MAKE_TARGET \
+        || logerr "--- Make failed"
     hook post_make $arch
 }
 
@@ -2511,7 +2584,7 @@ make_in() {
     [ -z "$1" ] && logerr "------ Make in dir failed - no dir specified"
     [ -n "$NO_PARALLEL_MAKE" ] && MAKE_JOBS=""
     logmsg "------ make in $1"
-    logcmd $MAKE $MAKE_JOBS -C $1 || \
+    logcmd $MAKE $MAKE_JOBS -C $1 $MAKE_TARGET || \
         logerr "------ Make in $1 failed"
 }
 
@@ -2584,6 +2657,10 @@ check_buildlog() {
 
     [ "$errs" -ne "$expected" ] \
         && logerr "Found $errs errors in logfile (expected $expected)"
+
+    [[ $CONFIGURE_CMD == *cmake* ]] \
+        && $EGREP -s 'compiler identification is unknown' $LOGFILE \
+        && logerr "cmake could not correctly identify the compiler"
 }
 
 build_i386() {
@@ -2662,12 +2739,14 @@ build_dependency() {
 
     typeset merge=0
     typeset oot=0
+    typeset meson=0
     typeset buildargs=
     while [[ "$1" = -* ]]; do
         case $1 in
             -merge)     merge=1 ;;
             -ctf)       buildargs+=" -ctf" ;;
             -noctf)     buildargs+=" -noctf" ;;
+            -meson)     meson=1 ;& #FALLTHROUGH
             -oot)       oot=1 ;;
             -multi)     buildargs+=" -multi" ;;
         esac
@@ -2683,6 +2762,7 @@ build_dependency() {
     save_variable EXTRACTED_SRC __builddep__
     save_variable DESTDIR __builddep__
     save_variable CONFIGURE_CMD __builddep__
+    save_variable MAKE __builddep__
 
     set_builddir "$dir"
     local patchdir="patches-$dep"
@@ -2700,7 +2780,13 @@ build_dependency() {
     patch_source $patchdir
     if ((oot)); then
         logmsg "-- Setting up for out-of-tree build"
-        CONFIGURE_CMD=$TMPDIR/$BUILDDIR/$CONFIGURE_CMD
+        if ((meson)); then
+            MAKE=$NINJA
+            CONFIGURE_CMD="/usr/lib/python$PYTHONVER/bin/meson setup"
+            CONFIGURE_CMD+=" $TMPDIR/$BUILDDIR"
+        else
+            CONFIGURE_CMD=$TMPDIR/$BUILDDIR/$CONFIGURE_CMD
+        fi
         BUILDDIR+=-build
         [ -d $TMPDIR/$BUILDDIR ] && logcmd $RM -rf $TMPDIR/$BUILDDIR
         logcmd $MKDIR -p $TMPDIR/$BUILDDIR
@@ -2711,6 +2797,7 @@ build_dependency() {
     restore_variable EXTRACTED_SRC __builddep__
     restore_variable DESTDIR __builddep__
     restore_variable CONFIGURE_CMD __builddep__
+    restore_variable MAKE __builddep__
 }
 
 #############################################################################
@@ -2858,6 +2945,67 @@ python_build() {
     done
 
     popd > /dev/null
+}
+
+pyvenv_build() {
+    typeset venv=$DESTDIR/$PREFIX
+    typeset pkg=${1:?pkg}
+    typeset ver=${2:?ver}
+
+    logmsg "Preparing virtual python environment"
+    logcmd $PYTHON -mvenv --system-site-packages --without-pip $venv \
+        || logerr "python venv set up failed"
+
+    logcmd rm -f $venv/bin/[aA]ctivate*
+
+    ((EXTRACT_MODE >= 1)) && exit
+
+    typeset constrain=
+    [ -f $SRCDIR/files/constraints -a -z "$REBASE_PATCHES" ] \
+        && constrain="-c $SRCDIR/files/constraints"
+
+    logmsg "-- installing $pkg"
+    VIRTUAL_ENV=$venv logcmd $venv/bin/python$PYTHONVER -mpip \
+        --disable-pip-version-check \
+        --require-virtualenv \
+        --no-input \
+        install $constrain $pkg==$ver \
+        || logerr "pip install $pkg ($ver) failed"
+
+    if [ -n "$REBASE_PATCHES" ]; then
+        VIRTUAL_ENV=$venv logcmd -p $venv/bin/python$PYTHONVER -mpip freeze \
+            --local \
+            | egrep -v "^$pkg=" > $SRCDIR/files/constraints
+        sed -i '1i\
+## This file was auto-generated and can be updated with ./build.sh -P
+        ' $SRCDIR/files/constraints
+    fi
+
+    pushd $venv >/dev/null || logerr "pushd $venv"
+    for b in bin/*; do
+        [ -f "$b" ] || continue
+        [ -h "$b" ] && continue
+        file "$b" | egrep -s 'python.*script$' || continue
+        logmsg "Fixing shebang in $b"
+        sed -i "1s^$DESTDIR^^" "$b"
+    done
+    popd >/dev/null
+
+    # The bundled python modules each have their own licence
+    SKIP_LICENCES='bundled/*'
+    pushd $DESTDIR >/dev/null || logerr "pushd $DESTDIR"
+    for d in ${PREFIX#/}/lib/python$PYTHONVER/site-packages/*-info; do
+        [ -d "$d" ] || continue
+        pushd "$d" >/dev/null || logerr "pushd $d"
+        pkg=`basename $d | cut -d- -f1`
+        logmsg "-- collecting licences for $pkg"
+        for l in LICEN[CS]E* COPYING; do
+            [ -f "$l" ] || continue
+            echo "license $d/$l license=bundled/$pkg/$l" | mog_fragment
+        done
+        popd >/dev/null
+    done
+    popd >/dev/null
 }
 
 #############################################################################
@@ -3171,7 +3319,6 @@ do_convert_ctf() {
     typeset file="$1"
     typeset mode=
 
-    typeset mode=
     if [ ! -w "$file" -o -u "$file" -o -g "$file" -o -k "$file" ]; then
         mode=`$STAT -c %a "$file"`
         logcmd $CHMOD u+w "$file" || logerr -b "chmod u+w failed: $file"
@@ -3278,6 +3425,7 @@ check_soname() {
     # Use with caution, shipped libraries should almost always be properly
     # versioned
     [ -n "$NO_SONAME_EXPECTED" ] && return
+    [ "$GOOS/$GOARCH" = "illumos/amd64" ] && return
 
     logmsg "-- Checking for SONAME"
     typeset if=$SRCDIR/files/soname.ignore
@@ -3469,8 +3617,17 @@ restore_variable() {
     local var=$1
     local prefix=${2:-__save__}
     declare -n _var=$prefix$var
-    _var=${_var/--/-}
-    _var=${_var/-/-g}
+    #
+    # At this point, _var may look something like one of the following,
+    # depending on whether it is a scalar or array, for example:
+    #     declare -- var=val
+    #     declare -A var=([0]="val")
+    # The first one is actually not valid syntax to use when replaying the
+    # variable, and in all cases we want the new variable to end up with
+    # global scope. Therefore the following two substitutions achieve this
+    # so that '-g' is added and we do not have '--'.
+    _var=${_var/#declare --/declare -}
+    _var=${_var/#declare -/declare -g}
     eval "$_var"
 }
 
@@ -3492,6 +3649,52 @@ restore_buildenv() {
     local opt
     for opt in $BUILDENV_OPTS; do
         restore_variable $opt
+    done
+}
+
+flatten_variable() {
+    declare var=$1
+    declare -n _var=$var
+    typeset X="$_var"
+    unset $var
+    _var="${X## }"
+}
+
+flatten_variables() {
+    local var
+    for var in $*; do
+        flatten_variable $var
+    done
+}
+
+#
+# This function takes an associative array which contains arch-specific keys
+# and converts into a scalar variable that contains the base elements
+# concatenated with those from the arch-specific portion.
+# For example:
+#
+# With a CFLAGS variable like this:
+#
+#   CFLAGS=([0]="-O2 -g" [i386]="-m32" [amd64]="-m64")
+#
+# Calling `subsume_arch amd64 CFLAGS` would result in CFLAGS now being
+#
+#   CFLAGS="-O2 -g -m64"
+#
+# The resulting variable is also marked for export.
+#
+subsume_arch() {
+    typeset arch=${1:?arch}; shift
+    typeset var
+
+    for var in $*; do
+        declare -n _var=$var
+
+        _var+=" ${_var[$arch]}"
+
+        typeset X="$_var"
+        unset $var
+        export _var="${X## }"
     done
 }
 
