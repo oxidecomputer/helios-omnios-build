@@ -64,6 +64,7 @@ process_opts() {
             a)
                 set_arch "$OPTARG"
                 CLIBUILDARCH="$OPTARG"
+                cross_arch $CLIBUILDARCH && SKIP_TESTSUITE=1
                 ;;
             b)
                 BATCH=1 # Batch mode - exit on error

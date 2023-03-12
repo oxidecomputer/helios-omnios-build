@@ -23,10 +23,17 @@ PKG=library/mpfr
 SUMMARY="The GNU multiple-precision floating-point computation library"
 DESC="$SUMMARY"
 
-CONFIGURE_OPTS+="
-    --with-gmp-include=$PREFIX/include/gmp
-    --disable-static
-"
+CONFIGURE_OPTS+=" --disable-static"
+CONFIGURE_OPTS[i386]+=" --with-gmp-include=$PREFIX/include/gmp"
+CONFIGURE_OPTS[amd64]+=" --with-gmp-include=$PREFIX/include/gmp"
+
+build_init() {
+    for arch in $CROSS_ARCH; do
+        CONFIGURE_OPTS+="
+            --with-gmp-include=${SYSROOT[$arch]}/$PREFIX/include/gmp
+        "
+    done
+}
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 

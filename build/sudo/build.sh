@@ -53,8 +53,11 @@ TESTSUITE_SED="
 "
 
 build_init() {
-    CPPFLAGS[aarch64]+=" -I${SYSROOT[aarch64]}/usr/include"
-    LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/usr/lib"
+    for arch in $CROSS_ARCH; do
+        CPPFLAGS[$arch]+=" -I${SYSROOT[$arch]}/usr/include"
+        LDFLAGS[$arch]+=" -L${SYSROOT[$arch]}/usr/lib"
+        LDFLAGS[$arch]+=" -L${SYSROOT[$arch]}/usr/lib/mps"
+    done
 }
 
 pre_configure() {

@@ -75,10 +75,11 @@ CONFIGURE_OPTS="
 "
 
 CONFIGURE_OPTS[i386]+=" --without-libmicrohttpd"
+CONFIGURE_OPTS[aarch64]+=" --without-libmicrohttpd"
 
 TESTSUITE_FILTER='^[A-Z#][A-Z ]'
 
-install_man() {
+post_install() {
     logcmd mkdir -p $DESTDIR/$PREFIX/share/man
     logcmd rsync -ac --delete \
          $TMPDIR/$EXTRACTED_SRC/docs/man/ $DESTDIR/$PREFIX/share/man/ \
@@ -93,7 +94,6 @@ if [ -z "$SKIP_TESTSUITE" ]; then
     grep -h 'ERROR:.*out of' $TMPDIR/$BUILDDIR/*/test-suite.log 2>/dev/null \
         >> $SRCDIR/testsuite.log
 fi
-install_man
 make_package
 clean_up
 

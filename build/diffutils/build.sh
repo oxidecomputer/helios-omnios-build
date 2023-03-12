@@ -22,7 +22,6 @@
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
-# Use is subject to license terms.
 #
 . ../../lib/build.sh
 
