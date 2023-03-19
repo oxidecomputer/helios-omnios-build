@@ -12,7 +12,7 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
@@ -23,15 +23,12 @@ BUILD_DEPENDS_IPS="
 
 PROG=uefi-edk2
 PKG=system/bhyve/firmware
-VER=20220329
+VER=20230201
 SUMMARY="UEFI-EDK2(+CSM) firmware for bhyve"
 DESC="$SUMMARY"
 
 init
 prep_build
-
-# This component does not yet build with gcc >= 11
-set_gccver 10
 
 fwdir=$DESTDIR/usr/share/bhyve/firmware
 XFORM_ARGS+=" -D FWDIR=usr/share/bhyve/firmware"
@@ -50,7 +47,7 @@ trap "pkill -T0; exit" SIGINT
 
 # Build the UEFI firmware
 
-tag=il-edk2-stable202202-1
+tag=il-edk2-stable202302-1
 XFORM_ARGS+=" -D UEFITAG=$tag"
 
 typeset -A jobs
