@@ -28,6 +28,11 @@ DESC+="and general purpose cryptographic library"
 SKIP_LICENCES=OpenSSL
 BMI_EXPECTED=1
 
+# There is a race in the openssl 1.0 build that can sometimes cause
+# parts of it to link with the global system's openssl libraries, which
+# are a newer version.
+NO_PARALLEL_MAKE=1
+
 MAJVER=${VER%.*}
 XFORM_ARGS+="
     -DMAJVER=$MAJVER
@@ -97,6 +102,14 @@ make_install() {
     logcmd make INSTALL_PREFIX=$DESTDIR install \
         || logerr "Failed to make install"
     logcmd cp ${DUH}{,.$1}
+}
+
+pre_publish() {
+    # Catch the race condition (see above comment at NO_PARALLEL_MAKE).
+    # The easiest way to catch this is to scan for a dependency on an openssl
+    # package - there should be none.
+    $EGREP 'require.*openssl' $P5M_FINAL \
+        && logerr "Found a bad dependency on another openssl package"
 }
 
 init
