@@ -106,6 +106,8 @@ configure_aarch64() {
     # perl-cross requires GNU tools
     export PATH="$GNUBIN:$PATH"
 
+    unset CC
+
     patch_source patches-aarch64
 
     logmsg "--- configure (64-bit)"

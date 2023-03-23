@@ -95,22 +95,20 @@ add_targets() {
 # order except for net-snmp. net-snmp cannot be built using parallel make and
 # so takes a very long time to build (around 16 minutes); build it first.
 buildorder() {
-    typeset -a sorted
+    typeset var=$1
+    typeset -n list=$var
+    list=()
     if [ -f "$ROOTDIR/doc/pkglist.$CLIBUILDARCH" ]; then
         SKIP_KAYAK_KERNEL=1
-        mapfile -t sorted \
-            < <(grep -v '^#' $ROOTDIR/doc/pkglist.$CLIBUILDARCH)
+        mapfile -t list \
+            < <(egrep -v '^#|^ *$' $ROOTDIR/doc/pkglist.$CLIBUILDARCH)
     else
-        sorted+=(system/management/snmp/net-snmp)
-        mapfile -d '' -O ${#sorted[@]} sorted \
+        list+=(system/management/snmp/net-snmp)
+        mapfile -t -O ${#list[@]} list \
             < <( printf '%s\n' ${!fulltargets[@]} | sort | \
            egrep -v 'kayak-kernel|net-snmp')
-        sorted+=(system/install/kayak-kernel)
+        list+=(system/install/kayak-kernel)
     fi
-    for target in "${sorted[@]}"; do
-        [ -n "$target" ] || continue
-        echo "$target"
-    done
 }
 
 list_backend() {
@@ -131,7 +129,10 @@ list() {
 list_build() {
     PAT=${1-.}
 
-    while read target; do
+    typeset -a order=()
+    buildorder order
+
+    for target in "${order[@]}"; do
         # Strip flags
         target=${target%% *}
         if [ "$PAT" = "." ]; then
@@ -139,20 +140,23 @@ list_build() {
         else
             echo "$target" | egrep "$PAT"
         fi
-    done < <(buildorder)
+    done
 }
 
 list_built() {
     PAT=${1-.}
 
-    while read target; do
+    typeset -a order=()
+    buildorder order
+
+    for target in "${order[@]}"; do
         # Strip flags
         target=${target%% *}
 
         echo $target | egrep -s "$PAT" || continue
         is_built $target && echo "${c_highlight}* \\c" || echo "${c_error}  \\c"
         echo $target$c_reset
-    done < <(buildorder)
+    done
 }
 
 ##############################################################################
@@ -321,12 +325,21 @@ build() {
 baseline() {
     mode="${1:-check}"
     repo="$2"
-    [ -z "$repo" ] && repo="$PKGSRVR"
 
     if [ $mode != create -a $mode != check ]; then
         echo "Unknown baseline mode - $mode"
         exit 1
     fi
+
+    init_repos
+
+    typeset baselinef=$ROOTDIR/doc/baseline
+    if [ -n "$CLIBUILDARCH" -a -f "$baselinef.$CLIBUILDARCH" ]; then
+        baselinef+=.$CLIBUILDARCH
+        PKGSRVR=${REPOS[$CLIBUILDARCH]}
+    fi
+
+    [ -z "$repo" ] && repo="$PKGSRVR"
 
     [ -d "$TMPDIR" ] || mkdir -p "$TMPDIR"
 
@@ -345,12 +358,12 @@ baseline() {
     ' | sed 's/ *$//' | sort > $TMPDIR/baseline.$$
 
     if [ $mode = create ]; then
-        mv $TMPDIR/baseline.$$ $ROOTDIR/doc/baseline
-        echo "Created baseline in doc/baseline"
+        mv $TMPDIR/baseline.$$ $baselinef
+        echo "Created baseline in $baselinef"
         return
     fi
     note "Checking baseline"
-    if ! diff -U0 $ROOTDIR/doc/baseline $TMPDIR/baseline.$$; then
+    if ! diff -U0 $baselinef $TMPDIR/baseline.$$; then
         logerr "Package list does not match baseline"
     fi
     rm -f $TMPDIR/baseline.$$
@@ -362,6 +375,7 @@ diffpkg() {
     typeset op=$TMPDIR/batch.diff
 
     [ -d "$TMPDIR" ] || mkdir -p "$TMPDIR"
+    : > $TMPDIR/pkg.diff
 
     cp /dev/null $op
 
@@ -588,8 +602,11 @@ parallel_build() {
     [ -n "$ETHROTTLE" ] || ETHROTTLE=0
 
     # Queue up the packages to build
-    declare -a defer
-    while read tgt; do
+    declare -a defer=()
+    declare -a order=()
+    buildorder order
+
+    for tgt in "${order[@]}"; do
         [[ "$tgt" = "#"* ]] && continue
         # Defer this until last
         [ "$tgt" = "system/install/kayak-kernel" ] && continue
@@ -599,7 +616,7 @@ parallel_build() {
                 continue
         fi
         queue+=("$tgt")
-    done < <(buildorder)
+    done
 
     for tgt in "${defer[@]}"; do
         queue+=("$tgt")
@@ -716,7 +733,8 @@ parallel_build() {
 
         ((published++))
 
-        note -h "($pkgnum/$pkgcount) Building $tgt (slot $nextslot)"
+        note -h "($pkgnum/$pkgcount) Building $tgt (slot $nextslot)" \
+           "$extra_flags"
         logprefix="[$nextslot] " build $tgt $extra_flags &
         slots[$nextslot]=$!
         slotpid[$!]=$nextslot
@@ -878,7 +896,10 @@ case "$1" in
 
             pkgcount=${#fulltargets[@]}
             pkgnum=0
-            while read tgt; do
+            typeset -a order=()
+            buildorder order
+
+            for tgt in "${order[@]}"; do
                 ((pkgnum = pkgnum + 1))
 
                 [ -n "$skipuntil" -a "$skipuntil" != $tgt ] \
@@ -886,7 +907,7 @@ case "$1" in
 
                 note "($pkgnum/$pkgcount) Building $tgt"
                 build $tgt
-            done < <(buildorder)
+            done
             baseline check
         elif [[ "$tobuild" = parallel\ * ]]; then
             restore_built

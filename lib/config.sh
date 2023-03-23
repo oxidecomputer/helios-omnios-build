@@ -92,6 +92,7 @@ PUBLISHER_EMAIL=sa@omnios.org
 
 # The github repository root from which some packages are pulled
 GITHUB=https://github.com
+GITHUBAPI=https://api.github.com
 OOCEGITHUB=$GITHUB/omniosorg
 # The main OOCE mirror
 SRCMIRROR=https://mirrors.omnios.org
@@ -235,24 +236,33 @@ FIND_ELF=$ONBLDBIN/find_elf
 CHECK_RTIME=$ONBLDBIN/check_rtime
 CTFDUMP=$ONBLDBIN/i386/ctfdump
 CTFCONVERT=$ONBLDBIN/i386/ctfconvert
+CTFSTABS=$ONBLDBIN/i386/ctfstabs
+CW=$ONBLDBIN/i386/cw
+GENOFFSETS=$ONBLDBIN/genoffsets
 CTF_FLAGS=
 typeset -A CTFCFLAGS
 CTFCFLAGS[_]="-gdwarf-2"
 CTFCFLAGS[10]="-gstrict-dwarf"
 CTFCFLAGS[11]="-gstrict-dwarf"
 CTFCFLAGS[12]="-gstrict-dwarf"
+GENOFFSETS_CFLAGS="
+    ${CTFCFLAGS[_]}
+    -_gcc=-fno-eliminate-unused-debug-symbols
+    -_gcc=-fno-eliminate-unused-debug-types
+"
 
 # Enable CTF by default
 CTF_DEFAULT=1
 
 # Figure out number of logical CPUs for use with parallel gmake jobs (-j)
-# Default to 1.5*n CPUs as we assume the build machine is 100% devoted to
+# Default to 1.5*nCPUs as we assume the build machine is 100% devoted to
 # compiling.
 # A build script may serialize make by setting NO_PARALLEL_MAKE
 LCPUS=`psrinfo | wc -l`
 MJOBS="$[ $LCPUS + ($LCPUS / 2) ]"
 [ "$MJOBS" = "0" ] && MJOBS=2
 MAKE_JOBS="-j $MJOBS"
+MAKE_TARGET=
 
 # Remove install or packaging files by default. You can set this in a build
 # script when testing to speed up building a package
@@ -271,6 +281,7 @@ BUILDENV_OPTS="
     CONFIGURE_CMD CONFIGURE_OPTS
     CFLAGS CXXFLAGS CPPFLAGS
     LDFLAGS
+    MAKE_JOBS
 "
 
 CCACHE_PATH=/opt/ooce/ccache/bin
@@ -344,6 +355,12 @@ typeset -A PYINSTOPTS=()
 typeset -A CPPFLAGS=()
 typeset -A PKG_CONFIG_PATH=()
 
+typeset -A LIBDIRS=(
+    [i386]=lib
+    [amd64]=lib/amd64
+    [aarch64]=lib
+)
+
 MAKE_ARGS=
 MAKE_ARGS_WS=
 MAKE_INSTALL_TARGET=install
@@ -358,11 +375,31 @@ MAKE_TESTSUITE_ARGS_WS=
 DESTDIR=
 
 #############################################################################
+# Flags for building kernel modules
+#############################################################################
+
+CFLAGS[kmod]="
+    -mcmodel=kernel
+    -fno-strict-aliasing -fno-unit-at-a-time
+    -fno-optimize-sibling-calls -ffreestanding -mno-red-zone
+    -mno-mmx -mno-sse -msave-args
+    -Winline -fno-inline-small-functions -fno-inline-functions-called-once
+    -fno-ipa-cp -fno-ipa-icf -fno-clone-functions -fno-reorder-functions
+    -fno-reorder-blocks-and-partition
+    --param=max-inline-insns-single=450 -fno-shrink-wrap
+    -mindirect-branch=thunk-extern -mindirect-branch-register
+    -fno-asynchronous-unwind-tables -fstack-protector-strong
+"
+LDFLAGS[kmod]="-ztype=kmod"
+
+#############################################################################
 # Configuration of the packaged software
 #############################################################################
 
 CONFIGURE_CMD="./configure"
 
+# Configure options to apply to both builds - this is the one you usually want
+# to change for things like --enable-feature
 typeset -A CONFIGURE_OPTS=()
 FORGO_ISAEXEC=
 

@@ -35,12 +35,15 @@ CONFIGURE_OPTS[i386]="--libdir=$PREFIX/lib"
 CONFIGURE_OPTS[amd64]="--libdir=$PREFIX/lib/amd64"
 CONFIGURE_OPTS[aarch64]="--libdir=$PREFIX/lib"
 LDFLAGS[i386]+=" -lssp_ns"
-export cc=$CC
 
-SO_LDFLAGS="-Wl,-ztext -Wl,-zdefs"
-MAKE_ARGS_WS="
-    LDSHARED=\"$CC -shared -nostdlib $SO_LDFLAGS -Wl,-h,libz.so.1\"
-"
+pre_configure() {
+    export cc=$CC
+
+    SO_LDFLAGS="-Wl,-ztext -Wl,-zdefs"
+    MAKE_ARGS_WS="
+        LDSHARED=\"$CC -shared -nostdlib $SO_LDFLAGS -Wl,-h,libz.so.1\"
+    "
+}
 
 init
 download_source $PROG $PROG $VER
