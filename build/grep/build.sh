@@ -18,7 +18,7 @@
 . ../../lib/build.sh
 
 PROG=grep
-VER=3.9
+VER=3.10
 PKG=text/gnu-grep
 SUMMARY="GNU grep"
 DESC="GNU grep utilities"

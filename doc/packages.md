@@ -8,11 +8,11 @@
 | compress/lzip				| 1.23			| https://download.savannah.gnu.org/releases/lzip/
 | compress/p7zip			| 16.02			| https://sourceforge.net/projects/p7zip/files/p7zip
 | compress/unzip			| 6.0			| https://sourceforge.net/projects/infozip/files/UnZip%206.x%20%28latest%29/ https://www.cvedetails.com/vulnerability-list/vendor_id-816/product_id-1395/Info-zip-Unzip.html
-| compress/xz				| 5.4.1			| https://tukaani.org/xz/
+| compress/xz				| 5.4.2			| https://tukaani.org/xz/
 | compress/zip				| 3.0			| https://sourceforge.net/projects/infozip/files/Zip%203.x%20%28latest%29/ http://www.info-zip.org/Zip.html
 | compress/zstd				| 1.5.4			| https://github.com/facebook/zstd/releases
 | data/iso-codes			| 4.13.0		| https://salsa.debian.org/api/v4/projects/iso-codes-team%2Fiso-codes/repository/tags https://salsa.debian.org/iso-codes-team/iso-codes/tags
-| database/sqlite-3			| 3410100		| https://www.sqlite.org/download.html
+| database/sqlite-3			| 3410200		| https://www.sqlite.org/download.html
 | developer/build/autoconf		| 2.71			| https://ftp.gnu.org/gnu/autoconf/
 | developer/build/automake		| 1.16.5		| https://ftp.gnu.org/gnu/automake/
 | developer/build/gnu-make		| 4.4.1			| https://ftp.gnu.org/gnu/make/
@@ -32,7 +32,7 @@
 | developer/versioning/sccs		| 5.09			| https://sourceforge.net/projects/sccs/files/
 | driver/tuntap				| 1.3.3			| https://github.com/kaizawa/tuntap/tags
 | editor/vim				| 9.0			| http://ftp.vim.org/pub/vim/unix
-| file/gnu-coreutils			| 9.1			| https://ftp.gnu.org/gnu/coreutils/
+| file/gnu-coreutils			| 9.2			| https://ftp.gnu.org/gnu/coreutils/
 | file/gnu-findutils			| 4.9.0			| https://ftp.gnu.org/pub/gnu/findutils/
 | library/c++/sigcpp			| 3.4.0			| https://download.gnome.org/sources/libsigc++/cache.json https://github.com/libsigcplusplus/libsigcplusplus/blob/master/NEWS
 | library/expat				| 2.5.0			| https://github.com/libexpat/libexpat/releases
@@ -111,7 +111,7 @@
 | text/gawk				| 5.2.1			| https://ftp.gnu.org/gnu/gawk/
 | text/gnu-diffutils			| 3.9			| http://git.savannah.gnu.org/cgit/diffutils.git/refs/tags
 | text/gnu-gettext			| 0.21.1		| https://ftp.gnu.org/pub/gnu/gettext/
-| text/gnu-grep				| 3.9			| https://ftp.gnu.org/gnu/grep/
+| text/gnu-grep				| 3.10			| https://ftp.gnu.org/gnu/grep/
 | text/gnu-patch			| 2.7.6			| http://git.savannah.gnu.org/cgit/patch.git/refs/tags
 | text/gnu-sed				| 4.9			| https://ftp.gnu.org/gnu/sed/ https://savannah.gnu.org/news/?group=sed
 | text/groff				| 1.22.4		| https://ftp.gnu.org/gnu/groff/
@@ -128,7 +128,7 @@
 | library/python-3/asn1crypto-311	| 1.5.1			| https://pypi.org/project/asn1crypto
 | library/python-3/attrs-311		| 22.2.0		| https://pypi.org/project/attrs
 | library/python-3/cffi-311		| 1.15.1		| https://pypi.org/project/cffi
-| library/python-3/coverage-311		| 7.2.1			| https://pypi.org/project/coverage
+| library/python-3/coverage-311		| 7.2.2			| https://pypi.org/project/coverage
 | library/python-3/crossenv-311		| 1.4.0			| https://pypi.org/project/crossenv
 | library/python-3/cryptography-311	| 39.0.2		| https://pypi.org/project/cryptography
 | library/python-3/idna-311		| 3.4			| https://pypi.org/project/idna
@@ -136,7 +136,7 @@
 | library/python-3/jsonrpclib-311	| 0.4.3.2		| https://github.com/tcalmant/jsonrpclib/releases
 | library/python-3/jsonschema-311	| 4.17.3		| https://pypi.org/project/jsonschema
 | library/python-3/meson-311		| 1.0.1			| https://github.com/mesonbuild/meson/releases https://mesonbuild.com/
-| library/python-3/orjson-311		| 3.8.7			| https://github.com/ijl/orjson/releases
+| library/python-3/orjson-311		| 3.8.8			| https://github.com/ijl/orjson/releases
 | library/python-3/pip-311		| 23.0.1		| https://pypi.org/project/pip
 | library/python-3/pycodestyle-311	| 2.10.0		| https://pypi.org/project/pycodestyle/
 | library/python-3/pycparser-311	| 2.21			| https://pypi.org/project/pycparser
@@ -144,9 +144,9 @@
 | library/python-3/pyopenssl-311	| 23.0.0		| https://pypi.org/project/pyOpenSSL
 | library/python-3/pyrsistent-311	| 0.19.3		| https://pypi.org/project/pyrsistent
 | library/python-3/pyyaml-311		| 6.0			| https://pypi.org/project/PyYAML
-| library/python-3/rapidjson-311	| 1.9			| https://pypi.org/project/python-rapidjson
+| library/python-3/rapidjson-311	| 1.10			| https://pypi.org/project/python-rapidjson
 | library/python-3/semantic-version-311	| 2.10.0		| https://pypi.org/project/semantic-version
-| library/python-3/setuptools-311	| 67.4.0		| https://pypi.org/project/setuptools
+| library/python-3/setuptools-311	| 67.6.0		| https://pypi.org/project/setuptools
 | library/python-3/setuptools-rust-311	| 1.5.2			| https://pypi.org/project/setuptools-rust
 | library/python-3/six-311		| 1.16.0		| https://pypi.org/project/six
 | library/python-3/tomli-311		| 2.0.1			| https://pypi.org/project/tomli
