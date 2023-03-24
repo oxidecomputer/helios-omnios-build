@@ -2013,6 +2013,7 @@ make_package_impl() {
     fi
 
     logmsg "--- Publishing package to $PKGSRVR"
+    hook pre_publish
     if [ -z "$BATCH" ]; then
         logmsg "Intentional pause:" \
             "Last chance to sanity-check before publication!"
