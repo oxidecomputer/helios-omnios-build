@@ -119,7 +119,10 @@ build_aarch64() {
         MKIMAGE=$OOCEOPT/u-boot/tools/mkimage
     "
 
-    typeset bldenv="usr/src/tools/scripts/bldenv $SRCDIR/files/aarch64.env"
+    typeset envfile=$SRCDIR/files/aarch64.env
+    for cmd in bldenv nightly; do
+        typeset $cmd="usr/src/tools/scripts/$cmd -T aarch64 $envfile"
+    done
 
     # Allow dropping into the build environment with everything set up
     # for manual builds via '-f bldenv'
@@ -128,36 +131,25 @@ build_aarch64() {
         return
     fi
 
-    #
-    # Eventually this should be driven by nightly.
-    #
-
     if [ "$action" != "pkg" ]; then
-
-        set -eE; trap 'logerr Installation failed at $BASH_LINENO' ERR
-
         logmsg "-- building illumos"
-        logmsg "--- setup"
-        logcmd env - $env $bldenv "dmake -C usr/src setup" \
-            || logerr "setup failed"
 
-        for s in data uts lib cmd man test stand psm; do
-            logmsg "--- $s"
-            logcmd env - $env $bldenv "dmake -C usr/src/$s install" \
-                || logerr "failed to build $s"
-        done
+        typeset logf=log/nightly.log
 
-        # This will duplicate some of the previous steps, but should be fast
-        # as they are already built.
-        logmsg "--- install"
-        logcmd env - $env $bldenv "dmake -C usr/src install" \
-            || logerr "installation failed"
+        logcmd env - $env $nightly &
+        typeset -i nightlypid=$!
 
-        logmsg "--- pkg"
-        logcmd env - $env $bldenv "dmake -C usr/src/pkg install" \
-            || logerr "packaging failed"
+        # Start a background process to report some progress output
+        (
+            while [ ! -f "$logf" ]; do
+                $SLEEP 1
+            done
+            $TAIL -f "$logf" | $EGREP '^(====|real |user |sys )'
+        ) &
+        typeset -i monitorpid=$!
 
-        set +eE; trap - ERR
+        wait $nightlypid
+        kill -9 $monitorpid
 
         typeset repo=packages/aarch64/nightly/repo.redist
 
