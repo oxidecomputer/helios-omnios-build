@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 #
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/build.sh
 
 PROG=cloud-init
-VER=22.3
+VER=23.1.1
 DASHREV=0
 PKG=system/management/cloud-init
 SUMMARY="Cloud instance initialisation tools"
