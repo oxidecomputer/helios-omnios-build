@@ -19,7 +19,7 @@
 
 PKG=system/library/g++-runtime
 PROG=libstdc++
-VER=12
+VER=13
 SUMMARY="GNU C++ compiler runtime dependencies"
 DESC="$SUMMARY"
 
@@ -41,7 +41,7 @@ if is_cross; then
 else
     pushd $DESTDIR >/dev/null
     mkdir -p usr/lib/amd64
-    for v in 7 10 12; do
+    for v in 7 10 12 13; do
         install_lib $v "$libs" amd64
     done
     install_unversioned $SHARED_GCC_VER "$libs" amd64
