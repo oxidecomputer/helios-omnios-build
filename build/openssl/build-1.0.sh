@@ -20,6 +20,7 @@
 
 PROG=openssl
 VER=1.0.2u
+DASHREV=1
 PKG=library/security/openssl-10
 SUMMARY="Cryptography and SSL/TLS Toolkit"
 DESC="A toolkit for Secure Sockets Layer and Transport Layer protocols "
