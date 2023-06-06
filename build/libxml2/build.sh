@@ -13,12 +13,12 @@
 # }}}
 #
 # Copyright 2011-2012 OmniTI Computer Consulting, Inc.  All rights reserved.
-# Copyright 2022 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=libxml2
-VER=2.9.14
+VER=2.10.4
 PKG=library/libxml2
 SUMMARY="XML C parser and toolkit"
 DESC="Portable XML parser and toolkit library"
@@ -34,7 +34,6 @@ TESTSUITE_FILTER="^(Total|[Tt]esting|Ran)"
 init
 download_source $PROG $PROG $VER
 patch_source
-run_autoreconf -fi
 prep_build
 build
 run_testsuite check
