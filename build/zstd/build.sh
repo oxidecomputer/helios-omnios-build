@@ -12,12 +12,12 @@
 # http://www.illumos.org/license/CDDL.
 # }}}
 
-# Copyright 2020 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2023 OmniOS Community Edition (OmniOSce) Association.
 
 . ../../lib/functions.sh
 
 PROG=zstd
-VER=1.4.9
+VER=1.5.5
 PKG=compress/zstd
 SUMMARY="Zstandard"
 DESC="Zstandard is a real-time compression algorithm, providing high "
@@ -43,7 +43,7 @@ configure64() {
     MAKE_INSTALL_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
         LIBDIR=$PREFIX/lib/$ISAPART64"
     MAKE_ARGS_WS="$base_MAKE_ARGS MOREFLAGS=\"$MOREFLAGS\"
-        lib-release zstd-release"
+        LIBDIR=$PREFIX/lib/$ISAPART64 lib-release zstd-release"
 }
 
 make_install64() {
