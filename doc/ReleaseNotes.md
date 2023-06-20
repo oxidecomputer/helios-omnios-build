@@ -4,6 +4,53 @@
 
 # Release Notes for OmniOSce v11 r151046
 
+## r151046h (2023-06-20)
+Weekly release for w/c 19th of June 2023.
+> This update requires a reboot
+
+### Security Fixes
+
+* Python has been updated to version 3.11.4;
+
+* Vim has been updated to version 9.0.1443.
+
+### Other Changes
+
+* SMB NetLogon Client Seal support;
+
+* Windows clients could get disconnected when copying files to an SMB share;
+
+* %ymm registers were not correctly restored after signal handler;
+
+* The `svccfg` command now supports a `-z` flag to manage services within
+  zones;
+
+* The startup timeout for the `system/zones` service has been increased to
+  resolve problems when starting a large number of bhyve zones in parallel in
+  conjunction with a memory reservoir configuration;
+
+* Use automatic IBRS when available;
+
+* `blkdev` and `lofi` did not properly initialise cmlb minor nodes;
+
+* The ping command would fail when invoked with `-I 0.01`;
+
+* In exceptional circumstances, a zone could become stuck during halt due to
+  lingering IP references;
+
+* An issue with resolving DNS names which have only multiple AAAA records
+  has been resolved;
+
+* Improvements within the `nvme` driver to resolve a race and allow it to bind
+  to devices that are under a legacy PCI root;
+
+* In exception circumstances, the system could panic when dumping a userland
+  process core.
+
+<br>
+
+---
+
 ## r151046e (2023-05-31)
 Weekly release for w/c 29th of May 2023.
 > This is a non-reboot update
