@@ -56,8 +56,8 @@ BUILD_DEPENDS_IPS="
 "
 
 # Respect environmental overrides for these to ease development.
-: ${PKG_SOURCE_REPO:=$OOCEGITHUB/pkg5}
-: ${PKG_SOURCE_BRANCH:=r$RELVER}
+: ${PKG_SOURCE_REPO:=https://github.com/oxidecomputer/pkg5}
+: ${PKG_SOURCE_BRANCH:=helios2}
 VER+="-$PKG_SOURCE_BRANCH"
 
 clone_source() {
