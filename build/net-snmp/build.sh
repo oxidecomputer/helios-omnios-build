@@ -29,10 +29,6 @@ SKIP_LICENCES="CMU/UCD"
 # but none of them resolve it successfully.
 NO_PARALLEL_MAKE=1
 
-# Previous versions that also need to be built and the libraries packaged
-# since compiled software may depend on them.
-PVERS="5.7.3 5.8"
-
 MIB_MODULES="host disman/event-mib ucd-snmp/diskio udp-mib tcp-mib if-mib"
 
 LNETSNMPLIBS="-lsocket -lnsl"
@@ -88,24 +84,6 @@ build_init() {
     CPPFLAGS[aarch64]+=" -I${SYSROOT[aarch64]}/usr/include"
     LDFLAGS[aarch64]+=" -L${SYSROOT[aarch64]}/usr/lib"
 }
-
-# Skip previous versions for cross compilation
-pre_build() { ! cross_arch $1; }
-
-# For legacy versions, we only want the libraries.
-save_buildenv
-CONFIGURE_OPTS[amd64]+=" $LIBRARIES_ONLY"
-for pver in $PVERS; do
-    [ -n "$FLAVOR" -a "$FLAVOR" != "$pver" ] && continue
-    note -n "Building previous version: $pver"
-    build_dependency -merge -ctf -oot -multi \
-        $PROG-$pver $PROG-$pver $PROG $PROG $pver
-done
-# Remove unnecessary files from the legacy versions
-logcmd rm -rf $DESTDIR/usr/{include,bin}
-logcmd $FD lib $DESTDIR/usr/lib -e la -e so -X rm {}
-restore_buildenv
-unset -f pre_build
 
 post_install() {
     [ $1 = i386 ] && return

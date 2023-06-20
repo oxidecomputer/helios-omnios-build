@@ -23,13 +23,6 @@ SUMMARY="Perl-Compatible Regular Expressions, version 2"
 DESC="The PCRE library is a set of functions that implement regular expression"
 DESC+=" pattern matching using the same syntax and semantics as Perl 5"
 
-# 10.37 - libpcre-posix.so changed from .2 to .3 as a set of compatibility
-#         functions was removed. We continue to build and provide
-#         libpcre-posix.so.2 for existing software linked against it.
-#      https://vcs.pcre.org/pcre2/code/trunk/src/pcre2posix.c?r1=1176&r2=1306
-# 10.40 - libpcre2-8.so changed from .0.10.X to 0.11.X
-PVERS="10.36 10.39"
-
 CONFIGURE_OPTS="
 	--localstatedir=/var
 	--disable-static
@@ -46,21 +39,6 @@ CONFIGURE_OPTS[amd64]+=" --enable-rebuild-chartables"
 
 init
 prep_build
-
-# Skip previous versions for cross compilation
-pre_build() { ! cross_arch $1; }
-
-# Build previous versions
-save_variables BUILDDIR EXTRACTED_SRC
-for pver in $PVERS; do
-    note -n "Building previous version: $pver"
-    set_builddir $PROG-$pver
-    download_source -dependency pcre $PROG $pver
-    patch_source patches-${pver%%.*}
-    ((EXTRACT_MODE == 0)) && build
-done
-restore_variables BUILDDIR EXTRACTED_SRC
-unset -f pre_build
 
 CONFIGURE_OPTS+="
     --enable-pcre2-16

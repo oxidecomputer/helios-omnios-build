@@ -23,31 +23,11 @@ PKG=library/readline
 SUMMARY="GNU readline"
 DESC="GNU readline library"
 
-# Previous versions that also need to be built and packaged since compiled
-# software may depend on it.
-PVERS="6.3 7.0"
-
 CONFIGURE_OPTS="--disable-static"
 LDFLAGS+=" $SSPFLAGS"
 
 init
 prep_build
-
-# Build previous versions
-
-# Skip previous versions for cross compilation
-pre_build() { ! cross_arch $1; }
-
-save_variables BUILDDIR EXTRACTED_SRC
-for pver in $PVERS; do
-    note -n "Building previous version: $pver"
-    set_builddir $PROG-$pver
-    download_source -dependency $PROG $PROG $pver
-    patch_source patches-${pver%%.*}
-    ((EXTRACT_MODE == 0)) && build
-done
-restore_variables BUILDDIR EXTRACTED_SRC
-unset -f pre_build
 
 note -n "Building current version: $VER"
 download_source $PROG $PROG $VER

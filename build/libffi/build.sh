@@ -25,10 +25,6 @@ DESC="$PROG - $SUMMARY"
 
 SKIP_LICENCES=libffi
 
-# Previous versions that also need to be built and packaged since compiled
-# software may depend on it.
-PVERS="3.2.1 3.3"
-
 LDFLAGS+=" $SSPFLAGS"
 
 export MAKE
@@ -68,23 +64,6 @@ post_build() {
 
 init
 prep_build
-
-# Skip previous versions for cross compilation
-pre_build() { ! cross_arch $1; }
-
-# Build previous versions
-save_variables BUILDDIR EXTRACTED_SRC
-for pver in $PVERS; do
-    note -n "Building previous version: $pver"
-    set_builddir $PROG-$pver
-    download_source -dependency $PROG $PROG $pver
-    patch_source patches-`echo $pver | cut -d. -f1-2`
-    if ((EXTRACT_MODE == 0)); then
-        build
-    fi
-done
-restore_variables BUILDDIR EXTRACTED_SRC
-unset -f pre_build
 
 note -n "Building current version: $VER"
 download_source $PROG $PROG $VER
