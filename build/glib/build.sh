@@ -23,6 +23,10 @@ PKG=library/glib2
 SUMMARY="GNOME utility library"
 DESC="The GNOME general-purpose utility library"
 
+BUILD_DEPENDS_IPS="
+    library/python-3/meson-311
+"
+
 RUN_DEPENDS_IPS="
     runtime/python-$PYTHONPKGVER
     runtime/perl
