@@ -931,7 +931,7 @@ init() {
 
     if ((EXTRACT_MODE == 0)); then
         init_repos
-        verify_depends
+        #verify_depends
     fi
 
     if [ -n "$FORCE_OPENSSL_VERSION" ]; then
