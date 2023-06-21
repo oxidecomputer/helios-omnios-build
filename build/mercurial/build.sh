@@ -23,7 +23,7 @@ PKG=developer/versioning/mercurial
 SUMMARY="Mercurial source control management"
 DESC="Free, distributed source control management tool"
 
-RUN_DEPENDS_IPS="web/curl library/security/openssl"
+RUN_DEPENDS_IPS="web/curl library/security/openssl-3"
 
 # Force using the legacy setup.py backend as the PEP518 build fails
 # to install. This will presumably be fixed upstream at some point.
