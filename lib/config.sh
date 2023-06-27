@@ -67,11 +67,11 @@ RELVER=151046
 DASHREV=0
 PVER=$RELVER.$DASHREV
 
-DISTRO=OmniOS
-DISTRO_LONG="OmniOS Community Edition"
-HOMEURL=https://omnios.org
+DISTRO=Helios
+DISTRO_LONG="Oxide Helios"
+HOMEURL=https://oxide.computer
 # Default package publisher
-PKGPUBLISHER=omnios
+PKGPUBLISHER=helios-dev
 
 # Supported architectures, and the default set.
 ARCH_LIST="i386 amd64 aarch64"

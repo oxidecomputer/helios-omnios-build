@@ -70,7 +70,7 @@ CONFIGURE_OPTS="
     --with-version-update=$UPDATE
     --with-version-build=$BUILD
     --with-version-pre=
-    --with-version-opt=omnios-$RELVER
+    --with-version-opt=helios-$RELVER
     --with-toolchain-type=gcc
     --with-boot-jdk=/$IFULL
     --enable-headless-only
