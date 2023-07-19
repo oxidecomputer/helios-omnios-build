@@ -57,6 +57,14 @@ CPPFLAGS=" \
 LDFLAGS="-L$DEPROOT/usr/lib/amd64 -lsocket -lnsl -lsendfile"
 CONFIGURE_OPTS+=" --enable-utempter"
 
+#
+# Provide an explicit default TERM value, rather than depending on the
+# automatic detection attempted by configure.  The autodetection uses ncurses,
+# not the system curses, and is thus confused about what values are useful for
+# software that uses the system curses; e.g., mdb.
+#
+CONFIGURE_OPTS+=" --with-TERM=screen-256color"
+
 download_source $PROG $PROG $VER
 patch_source
 build
