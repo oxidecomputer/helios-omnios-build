@@ -21,7 +21,7 @@ VER=4.3
 PKG=service/network/chrony
 SUMMARY="Network time services"
 DESC="A versatile implementation of the Network Time Protocol (NTP)"
-NETTLEVER=3.8.1
+NETTLEVER=3.9.1
 
 set_arch 64
 
