@@ -50,7 +50,7 @@ configure_aarch64() {
 }
 
 pre_install() {
-    $ELFEDIT -e dyn:dump -o simple $PROG | $EGREP -s 'libbz2\.so' \
+    $ELFEDIT -r -e 'dyn:tag NEEDED' -o simple $PROG | $EGREP -s 'libbz2\.so' \
         || logerr "unzip was built without bzip2"
     save_variable MAKE_INSTALL_ARGS
     MAKE_INSTALL_ARGS+=" prefix=$DESTDIR$PREFIX"
