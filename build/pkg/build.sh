@@ -57,12 +57,15 @@ BUILD_DEPENDS_IPS="
 
 # Respect environmental overrides for these to ease development.
 : ${PKG_SOURCE_REPO:=https://github.com/oxidecomputer/pkg5}
-: ${PKG_SOURCE_BRANCH:=helios2}
+: ${PKG_SOURCE_BRANCH:=helios2.1}
 VER+="-$PKG_SOURCE_BRANCH"
+
+# Some python modules require rust for building
+PATH+=:$OOCEBIN
 
 clone_source() {
     clone_github_source pkg \
-        "$PKG_SOURCE_REPO" "$PKG_SOURCE_BRANCH" "$PKG5_CLONE"
+        "$PKG_SOURCE_REPO" "$PKG_SOURCE_BRANCH" "$PKG5_CLONE" 0
     ((EXTRACT_MODE)) && exit
 }
 
@@ -78,9 +81,11 @@ build() {
 
 package() {
     pushd $TMPDIR/$BUILDDIR/pkg/src/pkg > /dev/null
+    COMMITCOUNT=`$GIT rev-list --count HEAD`
     logmsg "--- packaging"
     logcmd make check publish-pkgs \
         BUILDNUM=$BUILDNUM \
+        PKGVERS_BRANCH=$BUILDNUM.1.$COMMITCOUNT \
         PKGSEND_OPTS="" \
         PKGPUBLISHER=$PKGPUBLISHER \
         PKGREPOTGT="" \
