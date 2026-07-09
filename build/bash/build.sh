@@ -22,13 +22,14 @@
 #
 # Copyright 2011-2013 OmniTI Computer Consulting, Inc.  All rights reserved.
 # Copyright (c) 2013 by Delphix. All rights reserved.
-# Copyright 2024 OmniOS Community Edition (OmniOSce) Association.
+# Copyright 2026 OmniOS Community Edition (OmniOSce) Association.
 #
 . ../../lib/build.sh
 
 PROG=bash
 VER=5.2.37
 PATCHLVL=32
+DASHREV=1
 PKG=shell/bash
 SUMMARY="GNU Bash"
 DESC="GNU Bourne-Again shell (bash)"
@@ -152,6 +153,26 @@ CONFIGURE_OPTS[amd64]+=" --enable-separate-helpfiles"
 # (error: passing argument 2 of 'strtold' from incompatible pointer type)
 # configure mistakenly thinks our strtold(3c) is horribly broken.
 CONFIGURE_OPTS+=" bash_cv_strtold_broken=no"
+
+# The upstream default for BASH_LOADABLES_PATH does not include the
+# directory to which the loadable modules are delivered, and includes
+# directories used by foreign packaging systems. Override it so that
+# modules can be loaded by name, e.g. `enable -f sleep sleep'.
+pre_configure() {
+    typeset arch=$1
+
+    CPPFLAGS[$arch]+=" -DDEFAULT_LOADABLE_BUILTINS_PATH='\"$PREFIX/${LIBDIRS[$arch]}/bash:.\"'"
+}
+
+# The loadable builtins are built and installed as part of `make install`,
+# but bash's top-level Makefile ignores errors from that step; a compile
+# failure there silently drops all of the modules from the package.
+post_install() {
+    typeset arch=$1
+
+    [ -f "$DESTDIR/$PREFIX/${LIBDIRS[$arch]}/bash/sleep" ] \
+        || logerr "--- loadable builtins were not installed"
+}
 
 download_source $PROG $PROG $VER
 patch_source
