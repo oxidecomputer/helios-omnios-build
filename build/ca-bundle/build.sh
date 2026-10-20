@@ -23,7 +23,7 @@ PKG=web/ca-bundle
 SUMMARY="Bundle of Root CA certificates"
 
 nsbuild=$SRCDIR/../nss/build.sh
-NSSVER="`grep '^VER=' $nsbuild | sed 's/.*=//;q'`"
+NSSVER=3.131.1
 # Make-ca from https://github.com/djlucas/make-ca
 MAKECAVER=0.6
 
