@@ -27,6 +27,7 @@
 
 PROG=patch
 VER=2.7.6
+DASHREV=1
 PKG=text/gnu-patch
 SUMMARY="The GNU Patch utility"
 DESC="Patch takes a patch file containing a difference listing produced by the "
